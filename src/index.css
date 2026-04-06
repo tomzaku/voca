@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-tertiary: #1a1a26;
+  --color-bg-card: #15151f;
+  --color-bg-hover: #1e1e2e;
+  --color-border: #2a2a3a;
+  --color-border-light: #3a3a4a;
+  --color-text-primary: #e4e4ef;
+  --color-text-secondary: #8888a0;
+  --color-text-muted: #5a5a70;
+  --color-accent-cyan: #00d4ff;
+  --color-accent-green: #00e68a;
+  --color-accent-orange: #ff9f43;
+  --color-accent-red: #ff4757;
+  --color-accent-purple: #a855f7;
+  --color-accent-blue: #3b82f6;
+  --color-accent-yellow: #f0a500;
+  --font-display: "Space Mono", monospace;
+  --font-body: "IBM Plex Sans", sans-serif;
+  --font-code: "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --color-bg-primary: #faf6f0;
+  --color-bg-secondary: #f3ede4;
+  --color-bg-tertiary: #ebe4d8;
+  --color-bg-card: #fff9f0;
+  --color-bg-hover: #f0e8db;
+  --color-border: #d9cfbf;
+  --color-border-light: #c7baa6;
+  --color-text-primary: #2c2416;
+  --color-text-secondary: #6b5d4d;
+  --color-text-muted: #9a8b78;
+  --color-accent-cyan: #0a7e96;
+  --color-accent-green: #1a7a4a;
+  --color-accent-orange: #c47a20;
+  --color-accent-red: #c43030;
+  --color-accent-purple: #7c3aed;
+  --color-accent-blue: #2563eb;
+  --color-accent-yellow: #b87a00;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(0, 212, 255, 0.2);
+  color: var(--color-accent-cyan);
+}
+
+[data-theme="light"] ::selection {
+  background: rgba(10, 126, 150, 0.15);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes flipIn {
+  from { opacity: 0; transform: rotateY(-90deg); }
+  to { opacity: 1; transform: rotateY(0deg); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-flip-in {
+  animation: flipIn 0.25s ease-out forwards;
+}
