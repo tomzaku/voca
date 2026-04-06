@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData, pickNextWord } from '../lib/wordService';
+import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
@@ -49,13 +50,27 @@ export function FlashCard() {
 
     const known = store.knownWords();
     const skipped = store.skippedWords();
-    const { word, level } = pickNextWord(known, skipped, excludeWord);
+
+    // Try prefetch queue first — instant if available
+    const queued = dequeue();
+    if (queued && queued.word !== excludeWord) {
+      setWordData(queued.data);
+      setPhase('introduce');
+      fillPrefetchQueue(known, skipped, queued.word);
+      return;
+    }
+
+    // Queue miss — generate on demand, excluding in-flight prefetches to avoid duplicates
+    const exclude = new Set(getPrefetchedWords());
+    if (excludeWord) exclude.add(excludeWord);
+    const { word, level } = pickNextWord(known, skipped, exclude);
 
     setIsGenerating(true);
     try {
       const data = await generateWordData(word, level, abortRef.current.signal);
       setWordData(data);
       setPhase('introduce');
+      fillPrefetchQueue(known, skipped, word);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       const msg = (err as Error).message || 'Failed to load word.';
@@ -67,6 +82,11 @@ export function FlashCard() {
   }, [store]);
 
   useEffect(() => {
+    // Start prefetching immediately so future words are ready
+    const known = store.knownWords();
+    const skipped = store.skippedWords();
+    fillPrefetchQueue(known, skipped);
+
     loadNextWord();
     return () => { abortRef.current?.abort(); stopKokoroAudio(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

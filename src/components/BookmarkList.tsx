@@ -6,11 +6,13 @@ import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoro
 import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
+import { BookmarkGame } from './BookmarkGame';
 
 export function BookmarkList() {
   const { user } = useAuth();
   const store = useVocabularyStore();
   const bookmarks = store.bookmarkedWords();
+  const [mode, setMode] = useState<'list' | 'game'>('list');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [wordCache, setWordCache] = useState<Record<string, VocabularyWord>>({});
   const [loadingWord, setLoadingWord] = useState<string | null>(null);
@@ -71,15 +73,37 @@ export function BookmarkList() {
     );
   }
 
+  if (mode === 'game') {
+    return (
+      <BookmarkGame
+        bookmarks={bookmarks.map((b) => b.word)}
+        onBack={() => setMode('list')}
+      />
+    );
+  }
+
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-display font-bold text-text-primary">
           Saved Words
         </h1>
-        <span className="text-sm text-text-muted">
-          {bookmarks.length} {bookmarks.length === 1 ? 'word' : 'words'}
-        </span>
+        <div className="flex items-center gap-3">
+          {bookmarks.length >= 2 && (
+            <button
+              onClick={() => setMode('game')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium hover:bg-accent-cyan/20 transition-all"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              Play quiz
+            </button>
+          )}
+          <span className="text-sm text-text-muted">
+            {bookmarks.length} {bookmarks.length === 1 ? 'word' : 'words'}
+          </span>
+        </div>
       </div>
 
       <div className="space-y-2">

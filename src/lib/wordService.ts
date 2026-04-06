@@ -213,15 +213,15 @@ For imageKeywords, provide 1-2 simple concrete nouns or short phrases that visua
 export function pickNextWord(
   knownWords: Set<string>,
   skippedWords: Set<string>,
-  excludeWord?: string,
+  exclude: Set<string> = new Set(),
 ): { word: string; level: VocabularyWord['level'] } {
   const available = WORD_LIST.filter(
-    (w) => !knownWords.has(w.word) && w.word !== excludeWord,
+    (w) => !knownWords.has(w.word) && !exclude.has(w.word),
   );
 
   if (available.length === 0) {
     // All words known — fall back to unskipped
-    const fallback = WORD_LIST.filter((w) => !skippedWords.has(w.word) && w.word !== excludeWord);
+    const fallback = WORD_LIST.filter((w) => !skippedWords.has(w.word) && !exclude.has(w.word));
     if (fallback.length === 0) return WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
     return fallback[Math.floor(Math.random() * fallback.length)];
   }

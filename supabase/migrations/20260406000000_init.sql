@@ -1,4 +1,4 @@
--- Run this in your Supabase SQL editor to set up the database
+-- Word progress tracking
 
 create table if not exists user_word_progress (
   user_id uuid references auth.users on delete cascade,
@@ -8,12 +8,14 @@ create table if not exists user_word_progress (
   primary key (user_id, word)
 );
 
--- Enable Row Level Security
+-- Row Level Security
 alter table user_word_progress enable row level security;
 
--- Users can only see and modify their own progress
 create policy "Users can manage their own progress"
   on user_word_progress
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Index
+create index if not exists idx_user_word_progress_user_id on user_word_progress(user_id);
