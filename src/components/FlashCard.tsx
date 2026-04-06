@@ -6,7 +6,22 @@ import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoro
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
 
-type CardPhase = 'loading' | 'front' | 'revealed';
+type CardPhase = 'loading' | 'introduce' | 'revealed';
+
+async function fetchImageUrl(wordData: VocabularyWord): Promise<string> {
+  const keyword = wordData.imageKeywords?.[0] || wordData.word;
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(keyword)}`,
+    );
+    if (res.ok) {
+      const data = await res.json() as { thumbnail?: { source: string } };
+      if (data.thumbnail?.source) return data.thumbnail.source;
+    }
+  } catch { /* fall through */ }
+  // Fallback: consistent placeholder seeded by word
+  return `https://picsum.photos/seed/${encodeURIComponent(wordData.word)}/600/300`;
+}
 
 export function FlashCard() {
   const { user } = useAuth();
@@ -16,6 +31,9 @@ export function FlashCard() {
   const [wordData, setWordData] = useState<VocabularyWord | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hintCount, setHintCount] = useState(0);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const loadNextWord = useCallback(async (excludeWord?: string) => {
@@ -25,6 +43,9 @@ export function FlashCard() {
     setIsSpeaking(false);
     setPhase('loading');
     setWordData(null);
+    setHintCount(0);
+    setImageUrl(null);
+    setImageLoaded(false);
 
     const known = store.knownWords();
     const skipped = store.skippedWords();
@@ -34,7 +55,7 @@ export function FlashCard() {
     try {
       const data = await generateWordData(word, level, abortRef.current.signal);
       setWordData(data);
-      setPhase('front');
+      setPhase('introduce');
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       const msg = (err as Error).message || 'Failed to load word.';
@@ -51,9 +72,22 @@ export function FlashCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!wordData) return;
+    setImageUrl(null);
+    setImageLoaded(false);
+    fetchImageUrl(wordData).then(setImageUrl);
+  }, [wordData]);
+
   const handleReveal = () => {
-    if (phase !== 'front') return;
+    if (phase !== 'introduce') return;
     setPhase('revealed');
+  };
+
+  const handleHint = () => {
+    if (!wordData) return;
+    const hints = wordData.hints || [];
+    if (hintCount < hints.length) setHintCount(hintCount + 1);
   };
 
   const handleSpeak = async () => {
@@ -65,9 +99,7 @@ export function FlashCard() {
     }
     const text = `${wordData.word}. ${wordData.definition}. ${wordData.examples.join(' ')}`;
     setIsSpeaking(true);
-    await speakWithKokoro(text, {
-      onEnd: () => setIsSpeaking(false),
-    });
+    await speakWithKokoro(text, { onEnd: () => setIsSpeaking(false) });
   };
 
   const handleSkip = () => {
@@ -103,14 +135,13 @@ export function FlashCard() {
     advanced: 'text-accent-red bg-accent-red/10',
   };
 
+  // ── Loading ──────────────────────────────────────────────────────────
   if (phase === 'loading') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="w-12 h-12 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
         {isGenerating && (
-          <p className="text-sm text-text-muted animate-fade-in">
-            Generating word data...
-          </p>
+          <p className="text-sm text-text-muted animate-fade-in">Generating word data...</p>
         )}
       </div>
     );
@@ -118,6 +149,136 @@ export function FlashCard() {
 
   if (!wordData) return null;
 
+  const hints = wordData.hints || [];
+  const shownHints = hints.slice(0, hintCount);
+  const hasMoreHints = hintCount < hints.length;
+
+  // ── Introduce phase ──────────────────────────────────────────────────
+  if (phase === 'introduce') {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-8 animate-fade-in">
+        {/* Progress info */}
+        <div className="flex items-center justify-between mb-6 text-xs text-text-muted">
+          <span>
+            <span className="text-accent-green font-medium">{store.knownWords().size}</span> known
+            {' · '}
+            <span className="text-accent-cyan font-medium">{store.bookmarkedWords().length}</span> saved
+          </span>
+          <span className={`px-2 py-0.5 rounded font-medium ${levelColor[wordData.level]}`}>
+            {wordData.level}
+          </span>
+        </div>
+
+        {/* Card */}
+        <div className="bg-bg-card border border-border rounded-2xl overflow-hidden">
+          {/* Image */}
+          <div className="relative w-full h-48 bg-bg-tertiary overflow-hidden">
+            {!imageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full border-2 border-border border-t-accent-cyan/40 animate-spin" />
+              </div>
+            )}
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="vocabulary visual"
+                className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageLoaded(true)}
+              />
+            )}
+            {imageLoaded && (
+              <div className="absolute inset-0 bg-gradient-to-t from-bg-card/70 to-transparent" />
+            )}
+          </div>
+
+          <div className="p-6 space-y-5">
+            {/* Header */}
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
+                Guess the word
+              </p>
+              {wordData.partOfSpeech && (
+                <span className="text-xs font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
+                  {wordData.partOfSpeech}
+                </span>
+              )}
+            </div>
+
+            {/* Masked word: first + blanks + last */}
+            <div className="flex items-center gap-1 font-display font-bold text-2xl tracking-widest">
+              {wordData.word.split('').map((char, i) => {
+                const isFirst = i === 0;
+                const isLast = i === wordData.word.length - 1;
+                if (isFirst || isLast) {
+                  return <span key={i} className="text-text-primary">{char}</span>;
+                }
+                return <span key={i} className="text-text-muted/40">_</span>;
+              })}
+            </div>
+
+            {/* Definition */}
+            <div className="bg-bg-tertiary rounded-xl p-4">
+              <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
+            </div>
+
+            {/* Hint conversation */}
+            {shownHints.length > 0 && (
+              <div className="space-y-2.5">
+                {shownHints.map((hint, i) => (
+                  <div key={i} className="flex gap-3 items-start animate-fade-in">
+                    <div className="w-7 h-7 rounded-full bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center shrink-0 mt-0.5 text-accent-cyan text-xs">
+                      ✦
+                    </div>
+                    <div className="bg-bg-tertiary rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-text-secondary leading-relaxed flex-1">
+                      {hint}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Hint button */}
+            {hasMoreHints && (
+              <button
+                onClick={handleHint}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-accent-cyan/20 text-accent-cyan text-sm hover:bg-accent-cyan/5 transition-all"
+              >
+                <span className="text-xs">✦</span>
+                <span>Get a hint</span>
+                <span className="text-xs text-text-muted">({hints.length - hintCount} left)</span>
+              </button>
+            )}
+
+            {/* Reveal button */}
+            <button
+              onClick={handleReveal}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-accent-cyan text-bg-primary font-medium text-sm hover:opacity-90 transition-opacity"
+            >
+              Reveal the word
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Skip */}
+        <button
+          onClick={handleSkip}
+          className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-text-muted hover:text-text-secondary transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+            <line x1="20" y1="6" x2="20" y2="18" />
+          </svg>
+          Skip this word
+        </button>
+      </div>
+    );
+  }
+
+  // ── Revealed phase ───────────────────────────────────────────────────
   return (
     <div className="max-w-lg mx-auto px-4 py-8 animate-fade-in">
       {/* Progress info */}
@@ -133,12 +294,19 @@ export function FlashCard() {
       </div>
 
       {/* Card */}
-      <div
-        className={`bg-bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 ${
-          phase === 'front' ? 'cursor-pointer hover:border-accent-cyan/30 hover:shadow-lg hover:shadow-accent-cyan/5' : ''
-        }`}
-        onClick={phase === 'front' ? handleReveal : undefined}
-      >
+      <div className="bg-bg-card border border-border rounded-2xl overflow-hidden animate-flip-in">
+        {/* Image */}
+        {imageUrl && (
+          <div className="relative w-full h-48 bg-bg-tertiary overflow-hidden">
+            <img
+              src={imageUrl}
+              alt="vocabulary visual"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-bg-card/70 to-transparent" />
+          </div>
+        )}
+
         {/* Word header */}
         <div className="p-8 pb-6 border-b border-border">
           <div className="flex items-start justify-between gap-4">
@@ -153,7 +321,7 @@ export function FlashCard() {
 
             {/* Speak button */}
             <button
-              onClick={(e) => { e.stopPropagation(); handleSpeak(); }}
+              onClick={handleSpeak}
               className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all shrink-0 mt-1 ${
                 isSpeaking
                   ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
@@ -183,69 +351,50 @@ export function FlashCard() {
           )}
         </div>
 
-        {/* Front: tap to reveal prompt */}
-        {phase === 'front' && (
-          <div className="p-8 flex flex-col items-center justify-center text-center gap-2">
-            <p className="text-text-muted text-sm">Do you know this word?</p>
-            <p className="text-xs text-text-muted/60">Tap the card to reveal definition & examples</p>
-            <div className="mt-4 w-8 h-8 rounded-full border border-border flex items-center justify-center text-text-muted">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
+        {/* Definition + examples + synonyms */}
+        <div className="p-8 space-y-6">
+          <div>
+            <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
+              Definition
+            </h3>
+            <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
           </div>
-        )}
 
-        {/* Revealed: definition + examples */}
-        {phase === 'revealed' && (
-          <div className="p-8 space-y-6 animate-flip-in">
-            {/* Definition */}
+          {wordData.examples.length > 0 && (
+            <div>
+              <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
+                Examples
+              </h3>
+              <ul className="space-y-2">
+                {wordData.examples.map((ex, i) => (
+                  <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">
+                    <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
+                    <span>{ex}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {wordData.synonyms && wordData.synonyms.length > 0 && (
             <div>
               <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
-                Definition
+                Synonyms
               </h3>
-              <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
+              <div className="flex flex-wrap gap-2">
+                {wordData.synonyms.map((syn) => (
+                  <span key={syn} className="text-xs px-2.5 py-1 rounded-full bg-bg-tertiary text-text-secondary border border-border">
+                    {syn}
+                  </span>
+                ))}
+              </div>
             </div>
-
-            {/* Examples */}
-            {wordData.examples.length > 0 && (
-              <div>
-                <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-                  Examples
-                </h3>
-                <ul className="space-y-2">
-                  {wordData.examples.map((ex, i) => (
-                    <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">
-                      <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
-                      <span>{ex}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Synonyms */}
-            {wordData.synonyms && wordData.synonyms.length > 0 && (
-              <div>
-                <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
-                  Synonyms
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {wordData.synonyms.map((syn) => (
-                    <span key={syn} className="text-xs px-2.5 py-1 rounded-full bg-bg-tertiary text-text-secondary border border-border">
-                      {syn}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Action buttons */}
       <div className="flex items-center gap-3 mt-6">
-        {/* Skip */}
         <button
           onClick={handleSkip}
           className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border border-border bg-bg-card text-text-muted hover:text-text-primary hover:border-border-light transition-all"
@@ -258,7 +407,6 @@ export function FlashCard() {
           <span className="text-xs">Skip</span>
         </button>
 
-        {/* Bookmark */}
         <button
           onClick={handleBookmark}
           className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border transition-all ${
@@ -274,7 +422,6 @@ export function FlashCard() {
           <span className="text-xs">{isBookmarked ? 'Saved' : 'Save'}</span>
         </button>
 
-        {/* Know it */}
         <button
           onClick={handleKnow}
           className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border border-accent-green/30 bg-accent-green/10 text-accent-green hover:bg-accent-green/20 transition-all"
@@ -286,13 +433,6 @@ export function FlashCard() {
           <span className="text-xs">Know it</span>
         </button>
       </div>
-
-      {/* Next word hint */}
-      {phase === 'revealed' && (
-        <p className="text-center text-xs text-text-muted/50 mt-4 animate-fade-in">
-          Use the buttons above or swipe to continue
-        </p>
-      )}
     </div>
   );
 }

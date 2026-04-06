@@ -141,7 +141,7 @@ export const WORD_LIST: { word: string; level: VocabularyWord['level'] }[] = [
 
 // ─── Cache ──────────────────────────────────────────────────────────
 
-const CACHE_KEY_PREFIX = 'voca-word-';
+const CACHE_KEY_PREFIX = 'voca-word-v2-';
 
 function getCachedWord(word: string): VocabularyWord | null {
   try {
@@ -171,7 +171,7 @@ export async function generateWordData(
 
   const prompt = `Generate vocabulary data for the word "${word}" (level: ${level}).
 
-Return this exact JSON structure:
+Return this exact JSON structure (no markdown, no extra text):
 {
   "word": "${word}",
   "phonetic": "IPA phonetic notation like /wɜːrd/",
@@ -183,13 +183,21 @@ Return this exact JSON structure:
     "A third example if the word has notable nuance."
   ],
   "synonyms": ["synonym1", "synonym2", "synonym3"],
-  "level": "${level}"
-}`;
+  "level": "${level}",
+  "hints": [
+    "Vague contextual clue — describe when or how this word is used without naming it",
+    "More specific clue about its core meaning or feeling",
+    "Strong clue — etymology, first letter, or a very close synonym"
+  ],
+  "imageKeywords": ["concrete visual noun 1", "concept 2"]
+}
+
+For imageKeywords, provide 1-2 simple concrete nouns or short phrases that visually represent the word's meaning (used for image search).`;
 
   const raw = await callAI({
     system,
     messages: [{ role: 'user', content: prompt }],
-    maxTokens: 500,
+    maxTokens: 700,
     signal,
   });
 

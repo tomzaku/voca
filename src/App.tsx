@@ -10,7 +10,7 @@ import { LoginPage } from './components/LoginPage';
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/voca">
         <div className="min-h-screen bg-bg-primary">
           <Navbar />
           <main>

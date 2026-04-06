@@ -6,6 +6,8 @@ export interface VocabularyWord {
   examples: string[];
   synonyms?: string[];
   level: 'beginner' | 'intermediate' | 'advanced';
+  hints: string[];
+  imageKeywords: string[];
 }
 
 export type WordStatus = 'bookmarked' | 'known' | 'skipped';
