@@ -7,12 +7,13 @@ import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
 import { BookmarkGame } from './BookmarkGame';
+import { SpellingGame } from './SpellingGame';
 
 export function BookmarkList() {
   const { user } = useAuth();
   const store = useVocabularyStore();
   const bookmarks = store.bookmarkedWords();
-  const [mode, setMode] = useState<'list' | 'game'>('list');
+  const [mode, setMode] = useState<'list' | 'quiz' | 'spelling'>('list');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [wordCache, setWordCache] = useState<Record<string, VocabularyWord>>({});
   const [loadingWord, setLoadingWord] = useState<string | null>(null);
@@ -73,9 +74,18 @@ export function BookmarkList() {
     );
   }
 
-  if (mode === 'game') {
+  if (mode === 'quiz') {
     return (
       <BookmarkGame
+        bookmarks={bookmarks.map((b) => b.word)}
+        onBack={() => setMode('list')}
+      />
+    );
+  }
+
+  if (mode === 'spelling') {
+    return (
+      <SpellingGame
         bookmarks={bookmarks.map((b) => b.word)}
         onBack={() => setMode('list')}
       />
@@ -88,17 +98,29 @@ export function BookmarkList() {
         <h1 className="text-xl font-display font-bold text-text-primary">
           Saved Words
         </h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {bookmarks.length >= 2 && (
-            <button
-              onClick={() => setMode('game')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium hover:bg-accent-cyan/20 transition-all"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-              Play quiz
-            </button>
+            <>
+              <button
+                onClick={() => setMode('quiz')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium hover:bg-accent-cyan/20 transition-all"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                Quiz
+              </button>
+              <button
+                onClick={() => setMode('spelling')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-xs font-medium hover:bg-accent-purple/20 transition-all"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Spelling
+              </button>
+            </>
           )}
           <span className="text-sm text-text-muted">
             {bookmarks.length} {bookmarks.length === 1 ? 'word' : 'words'}
