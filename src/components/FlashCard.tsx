@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { generateWordData, pickNextWord } from '../lib/wordService';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { WordTest } from './WordTest';
+import { WordNotes } from './WordNotes';
 import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
@@ -559,6 +560,9 @@ export function FlashCard() {
               </div>
             </div>
           )}
+
+          {/* Community notes */}
+          <WordNotes word={wordData.word} />
 
           {/* AI test */}
           <WordTest wordData={wordData} />
