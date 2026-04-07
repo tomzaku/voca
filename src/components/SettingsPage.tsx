@@ -12,6 +12,9 @@ import {
   setApiKeyForProvider,
   type ProviderId,
 } from '../lib/aiProviders';
+import { WORD_PACKS, getWordPack, setWordPack, buildWordList, type PackId } from '../lib/wordLists';
+import { WORD_LIST } from '../lib/wordService';
+import { clearPrefetchQueue } from '../lib/prefetchService';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import toast from 'react-hot-toast';
@@ -45,6 +48,14 @@ export function SettingsPage() {
   const store = useVocabularyStore();
 
   const [previewState, setPreviewState] = useState<{ id: string; phase: 'loading' | 'playing' } | null>(null);
+  const [wordPack, setWordPackState] = useState<PackId>(getWordPack);
+
+  const handlePackChange = (id: PackId) => {
+    setWordPack(id);
+    setWordPackState(id);
+    clearPrefetchQueue();
+    toast.success(`Switched to ${WORD_PACKS.find((p) => p.id === id)?.label}`);
+  };
 
   // AI Provider state
   const [aiProvider, setAiProvider] = useState<ProviderId>(getProvider);
@@ -142,6 +153,38 @@ export function SettingsPage() {
             </button>
           </div>
         )}
+      </section>
+
+      {/* Vocabulary Pack */}
+      <section className="mb-8">
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Vocabulary Pack</h2>
+        <p className="text-xs text-text-muted mb-3">Choose the vocabulary set you want to study.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {WORD_PACKS.map((pack) => {
+            const selected = wordPack === pack.id;
+            const count = buildWordList(pack.id, WORD_LIST).length;
+            return (
+              <button
+                key={pack.id}
+                onClick={() => handlePackChange(pack.id)}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  selected
+                    ? 'bg-accent-cyan/5 border-accent-cyan/30 ring-1 ring-accent-cyan/20'
+                    : 'bg-bg-card border-border hover:border-border-light'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-sm font-display font-bold ${selected ? 'text-accent-cyan' : 'text-text-primary'}`}>
+                    {pack.label}
+                  </span>
+                  {selected && <span className="text-[10px] text-accent-cyan">✓ Active</span>}
+                </div>
+                <p className="text-xs text-text-muted">{pack.description}</p>
+                <p className="text-xs font-code text-text-muted/60 mt-1">{count} words</p>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* AI Provider */}

@@ -3,6 +3,7 @@ import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData, pickNextWord } from '../lib/wordService';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
+import { WordTest } from './WordTest';
 import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
@@ -410,6 +411,9 @@ export function FlashCard() {
               </div>
             </div>
           )}
+
+          {/* AI test */}
+          <WordTest wordData={wordData} />
         </div>
       </div>
 

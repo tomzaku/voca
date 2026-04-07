@@ -219,6 +219,57 @@ export function isKokoroPlaying(): boolean {
   return (currentAudio !== null && !currentAudio.paused) || speechSynthesis.speaking;
 }
 
+// ─── Conversation read-aloud (two voices) ──────────────────────────
+
+export const CONV_VOICE_A = 'af_sarah';   // Speaker A (AI bubble)
+export const CONV_VOICE_B = 'am_michael'; // Speaker B (user bubble)
+
+async function speakOnce(text: string, voice: string): Promise<void> {
+  const clean = cleanMarkdown(text);
+  if (!clean || cancelled) return;
+
+  const engine = getTtsEngine();
+
+  if (engine === 'native') {
+    return speakNative(clean, { speed: getTtsSpeed() });
+  }
+
+  if (engine === 'piper' || (kokoroUnavailable && engine === 'kokoro')) {
+    return speakPiper(clean, { voice });
+  }
+
+  let tts: KokoroTTSInstance;
+  try {
+    tts = await getKokoroTTS();
+  } catch {
+    return speakNative(clean, { speed: getTtsSpeed() });
+  }
+  if (cancelled) return;
+
+  const result = await tts.generate(clean, { voice: voice as 'af_heart', speed: getTtsSpeed() });
+  if (cancelled) return;
+  const blob = result.toBlob();
+  return playBlob(blob);
+}
+
+export async function speakConversation(
+  messages: Array<{ text: string; role: 'ai' | 'user' }>,
+  options?: { onStart?: () => void; onEnd?: () => void },
+): Promise<void> {
+  stopKokoroAudio();
+  cancelled = false;
+  sessionStart = performance.now();
+  options?.onStart?.();
+
+  for (const msg of messages) {
+    if (cancelled) break;
+    const voice = msg.role === 'ai' ? CONV_VOICE_A : CONV_VOICE_B;
+    await speakOnce(msg.text, voice);
+  }
+
+  options?.onEnd?.();
+}
+
 export async function speakWithKokoro(
   text: string,
   options?: { voice?: string; speed?: number; onStart?: () => void; onEnd?: () => void },

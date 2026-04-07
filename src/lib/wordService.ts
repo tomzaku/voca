@@ -1,4 +1,5 @@
 import { callAI } from './aiProviders';
+import { buildWordList, getWordPack } from './wordLists';
 import type { VocabularyWord } from '../types';
 
 // ─── Built-in word list ─────────────────────────────────────────────
@@ -208,6 +209,12 @@ For imageKeywords, provide 1-2 simple concrete nouns or short phrases that visua
   return data;
 }
 
+// ─── Active word list (respects selected pack) ──────────────────────
+
+export function getActiveWordList() {
+  return buildWordList(getWordPack(), WORD_LIST);
+}
+
 // ─── Word selection ─────────────────────────────────────────────────
 
 export function pickNextWord(
@@ -215,14 +222,15 @@ export function pickNextWord(
   skippedWords: Set<string>,
   exclude: Set<string> = new Set(),
 ): { word: string; level: VocabularyWord['level'] } {
-  const available = WORD_LIST.filter(
+  const list = getActiveWordList();
+  const available = list.filter(
     (w) => !knownWords.has(w.word) && !exclude.has(w.word),
   );
 
   if (available.length === 0) {
     // All words known — fall back to unskipped
-    const fallback = WORD_LIST.filter((w) => !skippedWords.has(w.word) && !exclude.has(w.word));
-    if (fallback.length === 0) return WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
+    const fallback = list.filter((w) => !skippedWords.has(w.word) && !exclude.has(w.word));
+    if (fallback.length === 0) return list[Math.floor(Math.random() * list.length)];
     return fallback[Math.floor(Math.random() * fallback.length)];
   }
 
