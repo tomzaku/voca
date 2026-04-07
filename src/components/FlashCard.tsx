@@ -8,7 +8,7 @@ import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoro
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
 
-type CardPhase = 'loading' | 'introduce' | 'revealed';
+type CardPhase = 'loading' | 'introduce' | 'revealed' | 'search-result';
 
 async function fetchImageUrl(wordData: VocabularyWord): Promise<string> {
   const keyword = wordData.imageKeywords?.[0] || wordData.word;
@@ -37,6 +37,10 @@ export function FlashCard() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const loadNextWord = useCallback(async (excludeWord?: string) => {
     abortRef.current?.abort();
@@ -148,6 +152,67 @@ export function FlashCard() {
     loadNextWord(wordData.word);
   };
 
+  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const query = searchQuery.trim().toLowerCase().replace(/\s+/g, ' ').split(' ')[0];
+    if (!query) return;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    stopKokoroAudio();
+    setIsSpeaking(false);
+    setIsSearching(true);
+    try {
+      const data = await generateWordData(query, 'intermediate', abortRef.current.signal);
+      setWordData(data);
+      setPhase('search-result');
+      setImageUrl(null);
+      setImageLoaded(false);
+      setHintCount(0);
+      setSearchQuery('');
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+      const msg = (err as Error).message || '';
+      toast.error(msg.includes('API key') ? msg : `Could not find "${query}"`);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const searchBar = (
+    <form onSubmit={handleSearch} className="relative mb-6">
+      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
+        {isSearching ? (
+          <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        )}
+      </div>
+      <input
+        ref={searchInputRef}
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search any word…"
+        className="w-full bg-bg-card border border-border rounded-xl pl-10 pr-20 py-3 text-text-primary text-sm focus:outline-none focus:border-accent-cyan/40 placeholder:text-text-muted transition-colors"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+      />
+      {searchQuery.trim() && (
+        <button
+          type="submit"
+          disabled={isSearching}
+          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-accent-cyan text-bg-primary text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-all"
+        >
+          Search
+        </button>
+      )}
+    </form>
+  );
+
   const isBookmarked = wordData ? store.getStatus(wordData.word) === 'bookmarked' : false;
 
   const levelColor: Record<string, string> = {
@@ -178,6 +243,7 @@ export function FlashCard() {
   if (phase === 'introduce') {
     return (
       <div className="max-w-lg mx-auto px-4 py-8 animate-fade-in">
+        {searchBar}
         {/* Progress info */}
         <div className="flex items-center justify-between mb-6 text-xs text-text-muted">
           <span>
@@ -243,6 +309,24 @@ export function FlashCard() {
               <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
             </div>
 
+            {/* Example sentences with word blanked */}
+            {wordData.examples.length > 0 && (
+              <div className="space-y-2">
+                {wordData.examples.slice(0, 2).map((ex, i) => {
+                  const blanked = ex.replace(
+                    new RegExp(`\\b${wordData.word}\\b`, 'gi'),
+                    '____',
+                  );
+                  return (
+                    <p key={i} className="text-sm text-text-secondary leading-relaxed italic">
+                      <span className="text-accent-cyan not-italic mr-1.5">▸</span>
+                      {blanked}
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Hint conversation */}
             {shownHints.length > 0 && (
               <div className="space-y-2.5">
@@ -299,16 +383,29 @@ export function FlashCard() {
     );
   }
 
-  // ── Revealed phase ───────────────────────────────────────────────────
+  // ── Revealed / Search-result phase ──────────────────────────────────
   return (
     <div className="max-w-lg mx-auto px-4 py-8 animate-fade-in">
+      {searchBar}
       {/* Progress info */}
       <div className="flex items-center justify-between mb-6 text-xs text-text-muted">
-        <span>
-          <span className="text-accent-green font-medium">{store.knownWords().size}</span> known
-          {' · '}
-          <span className="text-accent-cyan font-medium">{store.bookmarkedWords().length}</span> saved
-        </span>
+        {phase === 'search-result' ? (
+          <button
+            onClick={() => loadNextWord()}
+            className="flex items-center gap-1 text-text-muted hover:text-text-secondary transition-colors"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Resume learning
+          </button>
+        ) : (
+          <span>
+            <span className="text-accent-green font-medium">{store.knownWords().size}</span> known
+            {' · '}
+            <span className="text-accent-cyan font-medium">{store.bookmarkedWords().length}</span> saved
+          </span>
+        )}
         <span className={`px-2 py-0.5 rounded font-medium ${levelColor[wordData.level]}`}>
           {wordData.level}
         </span>
