@@ -42,6 +42,10 @@ export function FlashCard() {
   const [isSearching, setIsSearching] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const [guess, setGuess] = useState('');
+  const [guessResult, setGuessResult] = useState<'correct' | 'wrong' | null>(null);
+  const guessInputRef = useRef<HTMLInputElement>(null);
+
   const loadNextWord = useCallback(async (excludeWord?: string) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -52,6 +56,8 @@ export function FlashCard() {
     setHintCount(0);
     setImageUrl(null);
     setImageLoaded(false);
+    setGuess('');
+    setGuessResult(null);
 
     const known = store.knownWords();
     const skipped = store.skippedWords();
@@ -107,6 +113,22 @@ export function FlashCard() {
   const handleReveal = () => {
     if (phase !== 'introduce') return;
     setPhase('revealed');
+  };
+
+  const handleGuess = () => {
+    if (!wordData || !guess.trim()) return;
+    const correct = guess.trim().toLowerCase() === wordData.word.toLowerCase();
+    if (correct) {
+      setGuessResult('correct');
+      setTimeout(() => setPhase('revealed'), 800);
+    } else {
+      setGuessResult('wrong');
+      setTimeout(() => {
+        setGuessResult(null);
+        setGuess('');
+        guessInputRef.current?.focus();
+      }, 900);
+    }
   };
 
   const handleHint = () => {
@@ -355,16 +377,45 @@ export function FlashCard() {
               </button>
             )}
 
-            {/* Reveal button */}
-            <button
-              onClick={handleReveal}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-accent-cyan text-bg-primary font-medium text-sm hover:opacity-90 transition-opacity"
-            >
-              Reveal the word
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
+            {/* Guess input */}
+            <div className="space-y-2">
+              <div className={`flex gap-2 transition-all ${guessResult === 'wrong' ? 'animate-shake' : ''}`}>
+                <input
+                  ref={guessInputRef}
+                  type="text"
+                  value={guess}
+                  onChange={(e) => setGuess(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
+                  placeholder="Type your guess…"
+                  disabled={guessResult === 'correct'}
+                  className={`flex-1 bg-bg-tertiary border rounded-xl px-4 py-3 text-text-primary text-sm font-display focus:outline-none placeholder:text-text-muted transition-colors ${
+                    guessResult === 'correct'
+                      ? 'border-accent-green bg-accent-green/10 text-accent-green'
+                      : guessResult === 'wrong'
+                      ? 'border-accent-red bg-accent-red/10'
+                      : 'border-border focus:border-accent-cyan/50'
+                  }`}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+                <button
+                  onClick={handleGuess}
+                  disabled={!guess.trim() || guessResult === 'correct'}
+                  className="px-4 py-3 rounded-xl bg-accent-cyan text-bg-primary text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all"
+                >
+                  {guessResult === 'correct' ? '✓' : 'Check'}
+                </button>
+              </div>
+
+              {/* Reveal fallback */}
+              <button
+                onClick={handleReveal}
+                className="w-full text-xs text-text-muted hover:text-text-secondary transition-colors py-1"
+              >
+                Give up — reveal the word
+              </button>
+            </div>
           </div>
         </div>
 
