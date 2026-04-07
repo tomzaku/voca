@@ -6,6 +6,7 @@ import { FlashCard } from './components/FlashCard';
 import { BookmarkList } from './components/BookmarkList';
 import { SettingsPage } from './components/SettingsPage';
 import { LoginPage } from './components/LoginPage';
+import { ProfilePage } from './components/ProfilePage';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
               <Route path="/bookmarks" element={<BookmarkList />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Routes>
           </main>
         </div>

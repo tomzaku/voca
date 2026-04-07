@@ -4,14 +4,17 @@ import { useAuth } from '../hooks/useAuth';
 
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
 
   const navLinks = [
     { to: '/', label: 'Learn', icon: '✦' },
     { to: '/bookmarks', label: 'Saved', icon: '★' },
-    { to: '/settings', label: 'Settings', icon: '⚙' },
   ];
+
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+  const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || '';
+  const initial = name[0]?.toUpperCase() ?? '?';
 
   return (
     <header className="sticky top-0 z-10 bg-bg-primary/80 backdrop-blur border-b border-border">
@@ -54,13 +57,23 @@ export function Navbar() {
           </button>
 
           {user ? (
-            <button
-              onClick={signOut}
-              className="text-xs text-text-muted hover:text-accent-red transition-colors px-2 py-1 rounded"
-              title="Sign out"
+            <Link
+              to="/profile"
+              title="Profile"
+              className={`w-8 h-8 rounded-full overflow-hidden flex items-center justify-center ring-2 transition-all ${
+                location.pathname === '/profile'
+                  ? 'ring-accent-cyan'
+                  : 'ring-border hover:ring-accent-cyan/50'
+              }`}
             >
-              {user.email?.split('@')[0]}
-            </button>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="w-full h-full bg-accent-purple/15 flex items-center justify-center text-xs font-semibold text-accent-purple">
+                  {initial}
+                </span>
+              )}
+            </Link>
           ) : (
             <Link
               to="/login"
