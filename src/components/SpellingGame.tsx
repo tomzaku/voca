@@ -108,21 +108,32 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
     setRevealedIndices((prev) => new Set([...prev, idx]));
   };
 
+  const revealLetter = (i: number) => {
+    if (isCorrect !== null || revealedIndices.has(i)) return;
+    setRevealedIndices((prev) => new Set([...prev, i]));
+  };
+
   // Word boxes with revealed hint letters
   const renderWordBoxes = () =>
     word.split('').map((letter, i) => {
       const revealed = revealedIndices.has(i);
+      const canReveal = isCorrect === null && !revealed;
       return (
-        <div
+        <button
           key={i}
+          onClick={() => canReveal && revealLetter(i)}
+          disabled={!canReveal}
+          title={canReveal ? 'Click to reveal this letter' : undefined}
           className={`w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 transition-all ${
             revealed
-              ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan'
-              : 'border-border bg-bg-tertiary text-transparent select-none'
+              ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan cursor-default'
+              : canReveal
+              ? 'border-border bg-bg-tertiary text-transparent select-none hover:border-accent-cyan/40 hover:bg-accent-cyan/5 cursor-pointer'
+              : 'border-border bg-bg-tertiary text-transparent select-none cursor-default'
           }`}
         >
           {revealed ? letter : '·'}
-        </div>
+        </button>
       );
     });
 
