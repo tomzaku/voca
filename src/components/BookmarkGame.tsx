@@ -26,6 +26,7 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [restartKey, setRestartKey] = useState(0);
+  const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setPhase('loading');
@@ -84,8 +85,14 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
       } else {
         setCurrent(next);
         setSelected(null);
+        setRevealedIndices(new Set());
       }
     }, 1400);
+  };
+
+  const revealLetter = (i: number) => {
+    if (selected !== null || revealedIndices.has(i)) return;
+    setRevealedIndices((prev) => new Set([...prev, i]));
   };
 
   // ── Loading ──────────────────────────────────────────────────────────
@@ -181,6 +188,31 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
           Which word matches this definition?
         </p>
         <p className="text-text-primary leading-relaxed text-base">{q.definition}</p>
+      </div>
+
+      {/* Word letter boxes */}
+      <div className="flex gap-1.5 justify-center mb-5 flex-wrap">
+        {q.word.split('').map((letter, i) => {
+          const revealed = revealedIndices.has(i);
+          const canReveal = selected === null && !revealed;
+          return (
+            <button
+              key={i}
+              onClick={() => canReveal && revealLetter(i)}
+              disabled={!canReveal}
+              title={canReveal ? 'Click to reveal this letter' : undefined}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 transition-all ${
+                revealed
+                  ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan cursor-default'
+                  : canReveal
+                  ? 'border-border bg-bg-tertiary text-transparent select-none hover:border-accent-cyan/40 hover:bg-accent-cyan/5 cursor-pointer'
+                  : 'border-border bg-bg-tertiary text-transparent select-none cursor-default'
+              }`}
+            >
+              {revealed ? letter : '·'}
+            </button>
+          );
+        })}
       </div>
 
       {/* Options */}

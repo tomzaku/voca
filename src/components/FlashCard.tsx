@@ -45,6 +45,7 @@ export function FlashCard() {
 
   const [guess, setGuess] = useState('');
   const [guessResult, setGuessResult] = useState<'correct' | 'wrong' | null>(null);
+  const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
   const guessInputRef = useRef<HTMLInputElement>(null);
 
   const loadNextWord = useCallback(async (excludeWord?: string) => {
@@ -59,6 +60,7 @@ export function FlashCard() {
     setImageLoaded(false);
     setGuess('');
     setGuessResult(null);
+    setRevealedIndices(new Set());
 
     const known = store.knownWords();
     const skipped = store.skippedWords();
@@ -315,15 +317,28 @@ export function FlashCard() {
               )}
             </div>
 
-            {/* Masked word: first + blanks + last */}
-            <div className="flex items-center gap-1 font-display font-bold text-2xl tracking-widest">
+            {/* Masked word: first + blanks + last — click to reveal a letter */}
+            <div className="flex items-center gap-1.5 flex-wrap">
               {wordData.word.split('').map((char, i) => {
                 const isFirst = i === 0;
                 const isLast = i === wordData.word.length - 1;
-                if (isFirst || isLast) {
-                  return <span key={i} className="text-text-primary">{char}</span>;
-                }
-                return <span key={i} className="text-text-muted/40">_</span>;
+                const revealed = isFirst || isLast || revealedIndices.has(i);
+                const canReveal = !revealed && guessResult !== 'correct';
+                return revealed ? (
+                  <span key={i} className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 border-accent-cyan bg-accent-cyan/10 text-accent-cyan">
+                    {char}
+                  </span>
+                ) : (
+                  <button
+                    key={i}
+                    onClick={() => canReveal && setRevealedIndices((prev) => new Set([...prev, i]))}
+                    disabled={!canReveal}
+                    title="Click to reveal this letter"
+                    className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 border-border bg-bg-tertiary text-transparent select-none hover:border-accent-cyan/40 hover:bg-accent-cyan/5 cursor-pointer transition-all"
+                  >
+                    ·
+                  </button>
+                );
               })}
             </div>
 
