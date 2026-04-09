@@ -142,7 +142,7 @@ export const WORD_LIST: { word: string; level: VocabularyWord['level'] }[] = [
 
 // ─── Cache ──────────────────────────────────────────────────────────
 
-const CACHE_KEY_PREFIX = 'voca-word-v2-';
+const CACHE_KEY_PREFIX = 'voca-word-v3-';
 
 function getCachedWord(word: string): VocabularyWord | null {
   try {
@@ -184,12 +184,8 @@ Return this exact JSON structure (no markdown, no extra text):
     "A third example if the word has notable nuance."
   ],
   "synonyms": ["synonym1", "synonym2", "synonym3"],
+  "antonyms": ["antonym1", "antonym2"],
   "level": "${level}",
-  "hints": [
-    "Vague contextual clue — describe when or how this word is used without naming it",
-    "More specific clue about its core meaning or feeling",
-    "Strong clue — etymology, first letter, or a very close synonym"
-  ],
   "imageKeywords": ["concrete visual noun 1", "concept 2"]
 }
 

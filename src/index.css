@@ -95,3 +95,23 @@ body {
 .animate-shake {
   animation: shake 0.4s ease-out;
 }
+
+@keyframes popIn {
+  0%   { opacity: 0; transform: scale(0.6) translateY(6px); }
+  65%  { transform: scale(1.06) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-pop-in {
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes flashWrong {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-flash-wrong {
+  animation: flashWrong 0.55s ease-out forwards;
+}

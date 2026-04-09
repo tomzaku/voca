@@ -8,6 +8,8 @@ interface Question {
   word: string;
   definition: string;
   options: string[];
+  synonyms?: string[];
+  antonyms?: string[];
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -63,6 +65,8 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
           word,
           definition: dataMap[word].definition,
           options: shuffle([word, ...wrong]),
+          synonyms: dataMap[word].synonyms,
+          antonyms: dataMap[word].antonyms,
         };
       });
 
@@ -189,6 +193,29 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
         </p>
         <p className="text-text-primary leading-relaxed text-base">{q.definition}</p>
       </div>
+
+      {/* Hints: synonyms + antonyms */}
+      {((q.synonyms?.length ?? 0) > 0 || (q.antonyms?.length ?? 0) > 0) && (
+        <div className="bg-bg-card border border-border rounded-2xl px-5 py-4 mb-5 space-y-2.5">
+          <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">Hints</p>
+          {q.synonyms && q.synonyms.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-text-muted shrink-0">Synonyms:</span>
+              {q.synonyms.map((s) => (
+                <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">{s}</span>
+              ))}
+            </div>
+          )}
+          {q.antonyms && q.antonyms.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-text-muted shrink-0">Antonyms:</span>
+              {q.antonyms.map((a) => (
+                <span key={a} className="text-xs px-2 py-0.5 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20">{a}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Word letter boxes */}
       <div className="flex gap-1.5 justify-center mb-5 flex-wrap">
