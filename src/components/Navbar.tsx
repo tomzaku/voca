@@ -1,17 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
-import { useFabStore } from '../hooks/useFabStore';
-
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const location = useLocation();
-  const { panel, openPanel, closePanel } = useFabStore();
-  const speakActive = panel === 'englishPractice';
 
   const navLinks = [
     { to: '/', label: 'Learn', icon: '✦' },
+    { to: '/speaking', label: 'Speak', icon: '🎙' },
     { to: '/bookmarks', label: 'Saved', icon: '★' },
   ];
 
@@ -47,17 +44,6 @@ export function Navbar() {
               </Link>
             );
           })}
-          <button
-            onClick={() => speakActive ? closePanel() : openPanel('englishPractice')}
-            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              speakActive
-                ? 'bg-accent-green/10 text-accent-green font-medium'
-                : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
-            }`}
-          >
-            <span className="hidden sm:inline">Speak</span>
-            <span className="sm:hidden">🎙</span>
-          </button>
         </nav>
 
         {/* Right controls */}

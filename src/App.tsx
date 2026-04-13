@@ -9,6 +9,7 @@ import { LoginPage } from './components/LoginPage';
 import { ProfilePage } from './components/ProfilePage';
 import { FabMenu } from './components/FabMenu';
 import { EnglishPractice } from './components/EnglishPractice';
+import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <main>
             <Routes>
               <Route path="/" element={<FlashCard />} />
+              <Route path="/speaking" element={<EnglishSpeakingPage />} />
               <Route path="/bookmarks" element={<BookmarkList />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/login" element={<LoginPage />} />
