@@ -7,6 +7,8 @@ import { BookmarkList } from './components/BookmarkList';
 import { SettingsPage } from './components/SettingsPage';
 import { LoginPage } from './components/LoginPage';
 import { ProfilePage } from './components/ProfilePage';
+import { FabMenu } from './components/FabMenu';
+import { EnglishPractice } from './components/EnglishPractice';
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
             </Routes>
           </main>
         </div>
+        <FabMenu />
+        <EnglishPractice />
         <Toaster
           position="bottom-center"
           toastOptions={{

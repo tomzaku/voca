@@ -191,18 +191,30 @@ Return this exact JSON structure (no markdown, no extra text):
 
 For imageKeywords, provide 1-2 simple concrete nouns or short phrases that visually represent the word's meaning (used for image search).`;
 
-  const raw = await callAI({
-    system,
-    messages: [{ role: 'user', content: prompt }],
-    maxTokens: 700,
-    signal,
-  });
+  const MAX_ATTEMPTS = 5;
+  let lastError: unknown;
 
-  // Parse JSON — strip markdown fences if present
-  const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-  const data = JSON.parse(jsonText) as VocabularyWord;
-  cacheWord(data);
-  return data;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const raw = await callAI({
+      system,
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 700,
+      signal,
+    });
+
+    try {
+      // Parse JSON — strip markdown fences if present
+      const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const data = JSON.parse(jsonText) as VocabularyWord;
+      cacheWord(data);
+      return data;
+    } catch (err) {
+      lastError = err;
+      if (attempt < MAX_ATTEMPTS) continue;
+    }
+  }
+
+  throw lastError;
 }
 
 // ─── Active word list (respects selected pack) ──────────────────────

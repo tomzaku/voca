@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData, pickNextWord } from '../lib/wordService';
@@ -28,6 +29,7 @@ async function fetchImageUrl(wordData: VocabularyWord): Promise<string> {
 export function FlashCard() {
   const { user } = useAuth();
   const store = useVocabularyStore();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [phase, setPhase] = useState<CardPhase>('loading');
   const [wordData, setWordData] = useState<VocabularyWord | null>(null);
@@ -38,8 +40,6 @@ export function FlashCard() {
   const abortRef = useRef<AbortController | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResult, setSearchResult] = useState<VocabularyWord | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +47,24 @@ export function FlashCard() {
   const [guessResult, setGuessResult] = useState<'correct' | 'wrong' | null>(null);
   const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
   const guessInputRef = useRef<HTMLInputElement>(null);
+
+  // History
+  const wordHistoryRef = useRef<VocabularyWord[]>([]);
+  const historyIndexRef = useRef(-1);
+  const [wordHistory, setWordHistory] = useState<VocabularyWord[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+
+  const pushWord = useCallback((data: VocabularyWord) => {
+    // Drop any forward entries when a new word is pushed mid-history
+    const base = wordHistoryRef.current.slice(0, historyIndexRef.current + 1);
+    const newHistory = [...base, data];
+    const newIndex = newHistory.length - 1;
+    wordHistoryRef.current = newHistory;
+    historyIndexRef.current = newIndex;
+    setWordHistory(newHistory);
+    setHistoryIndex(newIndex);
+  }, []);
 
   const loadNextWord = useCallback(async (excludeWord?: string) => {
     abortRef.current?.abort();
@@ -66,6 +84,7 @@ export function FlashCard() {
 
     const queued = dequeue();
     if (queued && queued.word !== excludeWord) {
+      pushWord(queued.data);
       setWordData(queued.data);
       setPhase('introduce');
       fillPrefetchQueue(known, skipped, queued.word);
@@ -79,6 +98,7 @@ export function FlashCard() {
     setIsGenerating(true);
     try {
       const data = await generateWordData(word, level, abortRef.current.signal);
+      pushWord(data);
       setWordData(data);
       setPhase('introduce');
       fillPrefetchQueue(known, skipped, word);
@@ -90,13 +110,46 @@ export function FlashCard() {
     } finally {
       setIsGenerating(false);
     }
-  }, [store]);
+  }, [store, pushWord]);
+
+  const loadSpecificWord = useCallback(async (word: string) => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    stopKokoroAudio();
+    setIsSpeaking(false);
+    setPhase('loading');
+    setWordData(null);
+    setImageUrl(null);
+    setImageLoaded(false);
+    setGuess('');
+    setGuessResult(null);
+    setRevealedIndices(new Set());
+    setIsGenerating(true);
+    try {
+      const data = await generateWordData(word, 'intermediate', abortRef.current.signal);
+      pushWord(data);
+      setWordData(data);
+      setPhase('revealed');
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+      const msg = (err as Error).message || '';
+      toast.error(msg.includes('API key') ? msg : `Could not find "${word}"`);
+      setPhase('loading');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [pushWord]);
 
   useEffect(() => {
+    const wordParam = searchParams.get('word');
     const known = store.knownWords();
     const skipped = store.skippedWords();
     fillPrefetchQueue(known, skipped);
-    loadNextWord();
+    if (wordParam) {
+      loadSpecificWord(wordParam);
+    } else {
+      loadNextWord();
+    }
     return () => {
       abortRef.current?.abort();
       searchAbortRef.current?.abort();
@@ -107,10 +160,11 @@ export function FlashCard() {
 
   useEffect(() => {
     if (!wordData) return;
+    setSearchParams({ word: wordData.word }, { replace: true });
     setImageUrl(null);
     setImageLoaded(false);
     fetchImageUrl(wordData).then(setImageUrl);
-  }, [wordData]);
+  }, [wordData, setSearchParams]);
 
   const handleReveal = () => {
     if (phase !== 'introduce') return;
@@ -174,21 +228,45 @@ export function FlashCard() {
     e.preventDefault();
     const query = searchQuery.trim().toLowerCase().replace(/\s+/g, ' ').split(' ')[0];
     if (!query) return;
-    searchAbortRef.current?.abort();
-    searchAbortRef.current = new AbortController();
-    setIsSearching(true);
-    try {
-      const data = await generateWordData(query, 'intermediate', searchAbortRef.current.signal);
-      setSearchResult(data);
-      setSearchQuery('');
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
-      const msg = (err as Error).message || '';
-      toast.error(msg.includes('API key') ? msg : `Could not find "${query}"`);
-    } finally {
-      setIsSearching(false);
-    }
+    setSearchQuery('');
+    loadSpecificWord(query);
   };
+
+  const navigateToHistory = useCallback((index: number) => {
+    if (index === historyIndexRef.current) return;
+    const data = wordHistoryRef.current[index];
+    if (!data) return;
+    abortRef.current?.abort();
+    stopKokoroAudio();
+    setIsSpeaking(false);
+    historyIndexRef.current = index;
+    setHistoryIndex(index);
+    setWordData(data);
+    setPhase('revealed');
+    setGuess('');
+    setGuessResult(null);
+    setRevealedIndices(new Set());
+  }, []);
+
+  const handlePrev = useCallback(() => {
+    navigateToHistory(historyIndexRef.current - 1);
+  }, [navigateToHistory]);
+
+  const handleNext = useCallback(async () => {
+    if (historyIndexRef.current < wordHistoryRef.current.length - 1) {
+      navigateToHistory(historyIndexRef.current + 1);
+    } else {
+      const currentWord = wordHistoryRef.current[historyIndexRef.current]?.word;
+      await loadNextWord(currentWord);
+    }
+  }, [navigateToHistory, loadNextWord]);
+
+  // Auto-scroll the history strip to keep the current chip visible
+  useEffect(() => {
+    if (!historyScrollRef.current) return;
+    const chips = historyScrollRef.current.querySelectorAll<HTMLButtonElement>('button');
+    chips[historyIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [historyIndex]);
 
   const isBookmarked = wordData ? store.getStatus(wordData.word) === 'bookmarked' : false;
 
@@ -207,7 +285,7 @@ export function FlashCard() {
       <div className="max-w-xl mx-auto mb-8">
         <form onSubmit={handleSearch} className="relative">
           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
-            {isSearching ? (
+            {isGenerating ? (
               <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
             ) : (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -230,7 +308,7 @@ export function FlashCard() {
           {searchQuery.trim() && (
             <button
               type="submit"
-              disabled={isSearching}
+              disabled={isGenerating}
               className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-accent-cyan text-bg-primary text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-all"
             >
               Search
@@ -238,71 +316,54 @@ export function FlashCard() {
           )}
         </form>
 
-        {/* Search result */}
-        {searchResult && (
-          <div className="mt-3 bg-bg-card border border-border rounded-2xl overflow-hidden animate-fade-in">
-            <div className="p-4 border-b border-border flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-display font-bold text-text-primary tracking-tight">
-                  {searchResult.word}
-                </h2>
-                <div className="flex items-center gap-2 mt-1">
-                  {searchResult.phonetic && (
-                    <p className="text-xs font-code text-text-muted">{searchResult.phonetic}</p>
-                  )}
-                  {searchResult.partOfSpeech && (
-                    <span className="text-xs font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
-                      {searchResult.partOfSpeech}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => setSearchResult(null)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all shrink-0"
-                title="Dismiss"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-4 space-y-3">
-              <p className="text-text-primary text-sm leading-relaxed">{searchResult.definition}</p>
-              {searchResult.examples.length > 0 && (
-                <ul className="space-y-1">
-                  {searchResult.examples.slice(0, 2).map((ex, i) => (
-                    <li key={i} className="flex gap-2 text-xs text-text-secondary leading-relaxed">
-                      <span className="text-accent-cyan shrink-0">▸</span>
-                      <span>{ex}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {((searchResult.synonyms?.length ?? 0) > 0 || (searchResult.antonyms?.length ?? 0) > 0) && (
-                <div className="flex flex-wrap gap-3 pt-1">
-                  {searchResult.synonyms && searchResult.synonyms.length > 0 && (
-                    <div className="flex flex-wrap gap-1 items-center">
-                      <span className="text-xs text-text-muted mr-1">Syn:</span>
-                      {searchResult.synonyms.map((s) => (
-                        <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">{s}</span>
-                      ))}
-                    </div>
-                  )}
-                  {searchResult.antonyms && searchResult.antonyms.length > 0 && (
-                    <div className="flex flex-wrap gap-1 items-center">
-                      <span className="text-xs text-text-muted mr-1">Ant:</span>
-                      {searchResult.antonyms.map((a) => (
-                        <span key={a} className="text-xs px-2 py-0.5 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20">{a}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ── History navigation ── */}
+      {wordHistory.length > 0 && (
+        <div className="max-w-5xl mx-auto mb-5 flex items-center gap-2">
+          <button
+            onClick={handlePrev}
+            disabled={historyIndex <= 0 || isGenerating}
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-card text-text-muted hover:text-text-primary hover:border-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            title="Previous word"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+
+          <div
+            ref={historyScrollRef}
+            className="flex-1 flex gap-1.5 overflow-x-auto py-0.5"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {wordHistory.map((w, i) => (
+              <button
+                key={i}
+                onClick={() => navigateToHistory(i)}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                  i === historyIndex
+                    ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/40'
+                    : 'bg-bg-card border border-border text-text-muted hover:text-text-primary hover:border-border-light'
+                }`}
+              >
+                {w.word}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleNext}
+            disabled={isGenerating}
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-card text-text-muted hover:text-text-primary hover:border-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            title="Next word"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* ── Main content ── */}
       {phase === 'loading' ? (
