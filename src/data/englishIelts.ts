@@ -22,6 +22,9 @@ export const ieltsTopics = [
   'Media & Entertainment',
   'Environment',
   'Society & Culture',
+  'Food & Culture',
+  'Sports & Leisure',
+  'Arts & Culture',
 ] as const;
 
 export const ieltsConversations: IeltsConversation[] = [
@@ -297,6 +300,362 @@ And on a broader level, it reinforced my belief that the tech industry needs to 
       'Talented people can fall through the cracks',
     ],
   },
+  // ── New Topics ──────────────────────────────────────────
+  {
+    id: 'ielts-9',
+    title: 'Part 1 — Hometown & Living Environment',
+    part: 'Part 1',
+    topic: 'Home & Living',
+    description: 'Part 1 questions about where you live, your neighbourhood, and what you like or dislike about your living environment.',
+    duration: '5 min',
+    exchanges: [
+      { role: 'examiner', text: 'Can you tell me about the town or city where you currently live?' },
+      { role: 'candidate', text: "I live in Da Nang, which is a coastal city in central Vietnam. It's the third largest city in the country, but it still has a much more relaxed pace of life compared to Ho Chi Minh City or Hanoi. What I love most about it is the combination of city conveniences and natural beauty — you have the beach literally five minutes from the city centre, and the Marble Mountains and Ba Na Hills are just a short drive away. It's a great place to live if you value a balance between work and quality of life." },
+      { role: 'examiner', text: 'What do you like most about your neighbourhood?' },
+      { role: 'candidate', text: "I live near the Han River, and the neighbourhood has a really nice atmosphere, especially in the evenings. There are lots of small cafés along the riverbank, which is where I like to spend my evenings sometimes. The area is quite walkable, which I appreciate — I can get to the supermarket, a gym, and several restaurants all on foot. It doesn't feel too crowded or chaotic, which is important to me after spending all day in front of a computer." },
+      { role: 'examiner', text: 'Is there anything you dislike about living there?' },
+      { role: 'candidate', text: "The main downside is the traffic. Da Nang is growing so fast that the roads haven't quite kept up with the number of vehicles. Rush hour can be quite frustrating. The rainy season — roughly from October to December — is also quite intense. We get a lot of flooding, which can disrupt daily life for weeks at a time. But overall, these are minor issues compared to the advantages of living here." },
+      { role: 'examiner', text: 'Has the area changed much since you moved there?' },
+      { role: 'candidate', text: "Enormously. When I first moved here about six years ago, it was much quieter. There were fewer buildings, fewer tourists, and the tech scene was just starting out. Now there are new apartment buildings going up constantly, a lot more international restaurants and coffee shops, and the city has really put a lot of investment into improving the infrastructure. The beachfront has been developed a lot too. Sometimes I miss the quieter version of the city, but the development has also brought a lot of opportunities." },
+    ],
+    tips: [
+      'Use a mix of positive and negative observations to show balanced thinking',
+      'Give specific details — names of places, distances, time frames',
+      'Use present simple for facts and present perfect for changes: "has grown," "has been developed"',
+      'Natural filler phrases show fluency: "What I love most is," "The main downside is"',
+    ],
+    keyPhrases: [
+      'has a much more relaxed pace of life compared to...',
+      'What I love most about it is the combination of...',
+      'I appreciate... especially after...',
+      "The main downside is...",
+      'I miss the quieter version of...',
+      'the development has also brought a lot of opportunities',
+    ],
+  },
+  {
+    id: 'ielts-10',
+    title: 'Part 1 — Food & Eating Habits',
+    part: 'Part 1',
+    topic: 'Food & Culture',
+    description: 'Part 1 questions about food preferences, eating habits, and cooking.',
+    duration: '5 min',
+    exchanges: [
+      { role: 'examiner', text: 'What kind of food do you enjoy eating?' },
+      { role: 'candidate', text: "I'm a big fan of Vietnamese food — it's incredibly diverse and every region has its own specialities. Living in Da Nang, I'm surrounded by central Vietnamese cuisine, which tends to be spicier and more complex than northern or southern food. My absolute favourite is mi quang — a local noodle dish with shrimp, pork, herbs, and a small amount of turmeric broth, topped with crispy rice crackers. But I also enjoy international food quite a bit. Japanese cuisine in particular — the precision and balance of flavours really appeals to me." },
+      { role: 'examiner', text: 'Do you prefer cooking at home or eating out?' },
+      { role: 'candidate', text: "Honestly, a mix of both. I enjoy cooking when I have the time, mainly because it's relaxing and I can control what goes into the food. But Da Nang has such incredible and affordable street food that it's hard to justify cooking every day. A bowl of banh mi or pho from a local spot costs almost nothing and tastes amazing. On weekdays, I usually eat out for convenience. On weekends, I sometimes cook something a bit more elaborate at home." },
+      { role: 'examiner', text: "Have your eating habits changed as you've got older?" },
+      { role: 'candidate', text: "Yes, quite a lot. When I was a student, I ate really carelessly — lots of instant noodles, fast food, skipping meals when I was busy. Now I pay much more attention to what I eat. I try to have proper meals with vegetables and protein, and I've cut down on sugar and fried food. Working from a screen all day makes me very aware that my diet affects my energy levels and concentration. If I eat junk, I feel sluggish in the afternoon. It's a very practical motivation to eat better." },
+      { role: 'examiner', text: 'Is food an important part of culture in Vietnam?' },
+      { role: 'candidate', text: "Absolutely. In Vietnam, food is almost inseparable from social life. Family gatherings, celebrations, even business meetings — they all revolve around eating together. There's a saying that roughly translates as 'eating is a form of connection.' I think that's very true. You can learn a lot about Vietnamese culture just by eating with a local family. The variety of ingredients, the balance of flavours, the care that goes into each dish — it all reflects something deeper about the culture." },
+    ],
+    tips: [
+      'Show vocabulary range: don\'t just say "nice" — use "complex," "precise," "aromatic," "balanced"',
+      'Connect food to identity and culture to show depth',
+      'Use contrast naturally: "When I was a student... Now I..."',
+      'Specific examples (dish names, meal contexts) are much stronger than vague answers',
+    ],
+    keyPhrases: [
+      'I\'m a big fan of...',
+      'tends to be... than...',
+      'It\'s hard to justify... when...',
+      'I pay much more attention to...',
+      'makes me very aware that... affects...',
+      'is almost inseparable from...',
+    ],
+  },
+  {
+    id: 'ielts-11',
+    title: 'Part 1 — Sports & Leisure',
+    part: 'Part 1',
+    topic: 'Sports & Leisure',
+    description: 'Part 1 questions about sports, exercise habits, and leisure activities.',
+    duration: '5 min',
+    exchanges: [
+      { role: 'examiner', text: 'Do you play any sports?' },
+      { role: 'candidate', text: "Yes, I play badminton regularly — about two or three times a week. It's a great sport because it's both a good workout and a social activity. I usually go with a group of colleagues after work. We book a court near the office and play for about an hour. It started as something casual, but now it's become a proper routine that I really look forward to. I've also gotten into swimming over the past year, which is almost unavoidable when you live this close to the beach." },
+      { role: 'examiner', text: 'Did you play more sport when you were younger?' },
+      { role: 'candidate', text: "Definitely. When I was in school, I played football almost every day with my friends in the neighbourhood. We'd play on any open piece of ground we could find — it was completely informal, no uniforms, no referee, just kids having fun. As I got older and started university, it kind of fell away because of study pressures. Then working life made it even harder to find time. I think that's a pattern a lot of people experience. But I've made more of an effort recently to bring exercise back into my routine." },
+      { role: 'examiner', text: 'What leisure activities do you enjoy apart from sport?' },
+      { role: 'candidate', text: "I read quite a bit — mostly non-fiction, things like biographies, books on technology, or popular science. I also enjoy going for motorbike rides on weekends, exploring the roads around Da Nang and the surrounding province. There's something very freeing about just getting on the bike and seeing where you end up. And honestly, working on side projects counts as leisure for me — I genuinely enjoy building things, so it doesn't always feel like work." },
+      { role: 'examiner', text: "Do you think it's important for young people to do sport?" },
+      { role: 'candidate', text: "Very much so. Beyond the obvious physical benefits, sport teaches children things that are hard to learn in a classroom — how to win graciously, how to lose without giving up, how to work as a team. Those are life skills. I also think children today spend too much time on screens, and sport is one of the most natural ways to get them away from that. It doesn't have to be competitive or serious — even unstructured play is valuable." },
+    ],
+    tips: [
+      'Talk about sport in social and personal context, not just physical exercise',
+      'Past-to-present contrast shows tense range and reflective thinking',
+      'Offer opinions on societal questions with reasons, not just yes/no',
+      '"About two or three times a week" sounds more natural than "twice a week exactly"',
+    ],
+    keyPhrases: [
+      'It\'s a great sport because it\'s both... and...',
+      'It\'s become a proper routine that I really look forward to',
+      'completely informal — no..., just...',
+      'I\'ve made more of an effort recently to...',
+      'There\'s something very freeing about...',
+      'teaches children things that are hard to learn in a classroom',
+    ],
+  },
+  {
+    id: 'ielts-12',
+    title: 'Part 1 — Media & Entertainment',
+    part: 'Part 1',
+    topic: 'Media & Entertainment',
+    description: 'Part 1 questions about TV, news, music, and how people consume media.',
+    duration: '5 min',
+    exchanges: [
+      { role: 'examiner', text: 'Do you watch a lot of television?' },
+      { role: 'candidate', text: "Not as much as I used to. I've mostly switched to streaming platforms — Netflix, YouTube, that kind of thing. The advantage is that you can watch what you want, when you want, without sitting through commercials. I tend to watch in short bursts rather than binge-watching whole series. In the evenings, I might watch a documentary or an episode of something while I eat dinner. On weekends, I sometimes watch a film. I don't really follow any live TV anymore, except for occasional football matches." },
+      { role: 'examiner', text: 'How do you usually get your news?' },
+      { role: 'candidate', text: "Mostly through online sources. I follow a few news websites and I have a couple of newsletters that summarise the most important stories. I've found that trying to follow the news too closely is quite bad for my mood, so I try to check in once or twice a day rather than constantly refreshing feeds. For international news, I read a lot in English — BBC, Reuters, that sort of thing. It's actually been a great way to improve my reading comprehension while staying informed." },
+      { role: 'examiner', text: 'What kind of music do you listen to?' },
+      { role: 'candidate', text: "My taste is fairly broad. While I'm working, I usually listen to lo-fi music or instrumental jazz — something without lyrics that won't distract me. When I'm exercising or commuting, I switch to more upbeat stuff, like pop or electronic music. I also genuinely enjoy Vietnamese indie music — there's a really talented scene here that I don't think gets enough international attention. And I still play guitar occasionally, so I find myself listening to classical guitar pieces too." },
+      { role: 'examiner', text: 'Do you prefer reading books or watching films?' },
+      { role: 'candidate', text: "I'd say reading, for deep engagement. A good book gives you space to think and imagine in a way that a film doesn't. But films are great when I want something more passive and immersive. I don't think it has to be one or the other — they serve different purposes. When I'm tired after a long day of coding, reading requires more mental energy than I often have. So in practice, I probably watch more films than I read books, even though I prefer reading in principle." },
+    ],
+    tips: [
+      'Contrast past habits with current ones to demonstrate language range',
+      'Use qualifiers honestly: "not as much as I used to," "in practice"',
+      'Specific examples (platform names, genres) make answers feel genuine',
+      'Acknowledging a contradiction and explaining it shows mature thinking',
+    ],
+    keyPhrases: [
+      'Not as much as I used to.',
+      'The advantage is that you can...',
+      'I\'ve found that... is quite bad for...',
+      'It\'s actually been a great way to... while...',
+      'something without... that won\'t distract me',
+      'they serve different purposes',
+      'even though I prefer... in principle',
+    ],
+  },
+  {
+    id: 'ielts-13',
+    title: 'Part 2 — Describe a Cultural Tradition',
+    part: 'Part 2',
+    topic: 'Food & Culture',
+    description: 'Cue card: Describe a cultural tradition in your country. Say what it involves, when it happens, how you participate, and explain why it is important to you.',
+    duration: '8 min',
+    exchanges: [
+      { role: 'examiner', text: "I'd like you to describe a cultural tradition that is important in your country. You should say: what the tradition is, when and how it is celebrated, how you personally participate, and explain why this tradition is important to you or your culture. You have one minute to prepare." },
+      { role: 'candidate', text: `I'd like to talk about Tet, the Vietnamese Lunar New Year, which is by far the most important cultural tradition in Vietnam.
+
+Tet usually falls in late January or early February, depending on the lunar calendar. It marks the beginning of a new year and is a time for families to come together, remember their ancestors, and celebrate new beginnings. The preparations begin weeks before the actual date — families clean and decorate their homes, buy fresh flowers like apricot blossoms or peach blossoms, and prepare special foods. Streets and markets are transformed into a sea of yellow and red, which are considered lucky colours.
+
+The way my family celebrates is fairly traditional. We spend the days before Tet deep-cleaning the house, which symbolically sweeps away bad luck from the previous year. My mother and grandmother spend hours in the kitchen making banh tet — sticky rice cakes filled with mung bean paste and pork, wrapped in banana leaves and slow-cooked overnight. The smell of those cakes simmering fills the whole house and is one of the most deeply nostalgic smells I know.
+
+On New Year's Eve, the whole family gathers for a reunion dinner. We set a place at the table for ancestors who have passed away, which I find very moving. Then at midnight, there are fireworks across the city — the sky above Da Nang is absolutely spectacular. On the first days of the new year, children receive red envelopes with money, which represent good luck and blessings.
+
+Why is this tradition important to me personally? I think in modern life, we're all moving so fast — work, technology, constant change. Tet creates a moment when everything stops. Everyone goes home. You reconnect with your family, your roots, the things that are permanent. In a way, it's a reminder of where you come from and who you are.
+
+I also think traditions like Tet are incredibly valuable for cultural continuity. Vietnam has gone through enormous changes in recent decades. Having a tradition that everyone participates in, regardless of age, class, or where they live, is a kind of cultural anchor.` },
+      { role: 'examiner', text: 'Do you think younger generations still value traditional celebrations like Tet?' },
+      { role: 'candidate', text: "It's a mixed picture. On one hand, I think young Vietnamese people genuinely love Tet — the holiday is deeply embedded in the culture and most people look forward to it. On the other hand, the way it's celebrated is changing. Younger generations tend to celebrate in shorter, more condensed ways. The multi-day family gatherings are getting shorter as people return to work sooner. There's also a small segment of young people who find the family pressure during Tet — questions about relationships, salary, future plans — quite stressful. But I think the core of the tradition remains strong." },
+    ],
+    tips: [
+      'Organize your monologue with a clear arc: what it is → how it\'s done → how you participate → why it matters',
+      'Use sensory details to bring the tradition alive: smells, sights, sounds',
+      'Personal emotional significance is what distinguishes a band 7+ answer from a band 5 one',
+      'Temporal language: "weeks before," "on New Year\'s Eve," "on the first days"',
+      'The follow-up question tests your ability to analyze, not just describe — give a nuanced view',
+    ],
+    keyPhrases: [
+      'by far the most important...',
+      'transformed into...',
+      'one of the most deeply nostalgic... I know',
+      'I find very moving',
+      'creates a moment when everything stops',
+      'a reminder of where you come from and who you are',
+      'a kind of cultural anchor',
+      'It\'s a mixed picture',
+    ],
+  },
+  {
+    id: 'ielts-14',
+    title: 'Part 2 — Describe a Person Who Inspired You',
+    part: 'Part 2',
+    topic: 'Society & Culture',
+    description: 'Cue card: Describe a person who has inspired or influenced you. Say who they are, how you know them, what they did, and explain how they influenced you.',
+    duration: '8 min',
+    exchanges: [
+      { role: 'examiner', text: "Describe a person who has had a significant influence on you. You should say: who this person is, how you know or knew them, what qualities or actions made them influential, and explain how they have affected the way you think or live. You have one minute to prepare." },
+      { role: 'candidate', text: `The person I'd like to talk about is my first manager at work, who I'll call Anh Hung. He was the tech lead at the company where I got my first job as a developer, about six years ago, and he's one of the people I most credit for shaping the kind of professional I've become.
+
+When I joined the company, I was fresh out of university — technically not terrible, but with very little understanding of how to actually work in a team, how to handle feedback, or how to think about code from a business perspective. I was quite anxious and trying too hard to prove myself, which, looking back, was probably more of a liability than an asset.
+
+What made Anh Hung different from other managers I've had since was his approach to teaching. He never made you feel stupid for not knowing something. Whenever I asked a question — even a basic one — he'd answer it seriously and then explain the context around it. He once told me, "There are no stupid questions, only questions that weren't asked in time." That has stuck with me.
+
+He also had a remarkable ability to give honest feedback without it feeling like a criticism of who you were as a person. He would say something like, "This code works, but let me show you why it will cause problems in six months." It was always about the work, never about you. I try to apply that same approach when I give feedback to junior developers now.
+
+But perhaps the most important thing I learned from him was how to be comfortable with not knowing everything. He was the most technically skilled person in the company, but he was also the most open about uncertainty. He'd say, "I'm not sure — let me think about it, or let's look it up together." That taught me that confidence isn't about having all the answers; it's about being comfortable with the process of finding them.
+
+He moved abroad a few years ago, but I still occasionally message him when I'm facing a difficult decision. He's one of those rare people who genuinely invests in others without expecting anything in return, and I hope I carry some of that quality in how I work with people.` },
+      { role: 'examiner', text: 'Do you think good mentors are important in the workplace?' },
+      { role: 'candidate', text: "I think they're absolutely critical, especially early in a career. The gap between what you learn in university and what you need to succeed in a real job is enormous, and without good guidance, it's easy to develop bad habits or lose confidence. A good mentor can compress years of learning into months. But I think good mentorship is genuinely rare — it requires technical skill, communication skill, patience, and a genuine interest in other people's growth. Not everyone who knows a lot is able or willing to teach." },
+    ],
+    tips: [
+      'Choose someone you can speak about with genuine feeling — it comes across in fluency and detail',
+      'Don\'t just list qualities — show them through specific moments or examples',
+      'Reported speech adds texture: "He once told me..." "He\'d say..."',
+      'Connect their influence to your current behavior — "I try to apply that same approach"',
+    ],
+    keyPhrases: [
+      'I most credit for shaping the kind of... I\'ve become',
+      'trying too hard to prove myself',
+      'That has stuck with me',
+      'It was always about the work, never about you',
+      'confidence isn\'t about having all the answers; it\'s about...',
+      'carries some of that quality in how I...',
+    ],
+  },
+  {
+    id: 'ielts-15',
+    title: 'Part 2 — Describe a Memorable Travel Experience',
+    part: 'Part 2',
+    topic: 'Travel & Places',
+    description: 'Cue card: Describe a memorable trip or travel experience. Say where you went, who you went with, what you did, and explain why it was memorable.',
+    duration: '8 min',
+    exchanges: [
+      { role: 'examiner', text: "Describe a memorable trip you have taken. You should say: where you went, who you travelled with, what you did and saw there, and explain what made the experience memorable. You have one minute to prepare." },
+      { role: 'candidate', text: `The trip I'd like to describe is a solo motorbike journey I made from Da Nang to Hue, which is a city about 100 kilometres north, through the Hai Van Pass.
+
+I did this trip on a whim, actually. It was a Sunday morning about two years ago. I had no particular plans, the weather was perfect, and on impulse I decided to ride north. I didn't plan a route or book anything. I just filled up the tank and headed toward the mountains.
+
+The Hai Van Pass is one of the most spectacular roads in Vietnam. It cuts through the Truong Son mountain range, with the ocean on one side and forested mountains on the other. As you gain altitude, the temperature drops noticeably and the air feels cleaner. At the top of the pass, there are old fortifications from the Vietnam War, and the view from there is breathtaking — you can see both the Da Nang coastline behind you and the long sweeping bay toward Hue ahead of you. I stopped there for about an hour, had a cup of coffee from a small stall, and just sat and looked at the view. I remember thinking that moments like this are why I love living in Vietnam.
+
+Coming down the other side of the pass, the landscape changes completely. The beaches near Lang Co are among the most beautiful I've ever seen — completely undeveloped, with calm turquoise water and almost nobody there. I stopped for a swim, which was completely spontaneous and completely wonderful.
+
+What made the experience memorable wasn't any single dramatic event. It was the combination of the freedom of being alone on the road, the extraordinary scenery, the spontaneity of it all. When you travel with a plan, you're always trying to match reality to your expectations. When you go without a plan, every good thing that happens feels like a gift.
+
+I came back that evening feeling genuinely refreshed in a way that a week of sitting on a beach resort never achieves for me. I think that kind of unplanned, local adventure is underrated.` },
+      { role: 'examiner', text: 'Do you think solo travel and group travel have different benefits?' },
+      { role: 'candidate', text: "Definitely. Solo travel forces you to be more independent and more open to the unexpected. When there's no one to consult, you make decisions faster and you end up in situations you'd never put yourself in with a group — talking to strangers, getting slightly lost, discovering things off the tourist trail. Group travel is better for sharing joy. Some experiences feel incomplete without someone to turn to and say, 'did you see that?' I think both are valuable, but for self-discovery, solo travel is hard to beat." },
+    ],
+    tips: [
+      'Build a narrative arc: the setting up, the journey, the climax (the view, the swim), the reflection',
+      'Use "on impulse," "on a whim," "spontaneously" to make the story feel alive',
+      'Include a philosophical observation to show high-band reasoning',
+      'Past continuous creates atmosphere: "the temperature was dropping," "the ocean was glittering"',
+    ],
+    keyPhrases: [
+      'on a whim',
+      'noticeably',
+      'I remember thinking that...',
+      'completely spontaneous and completely wonderful',
+      'trying to match reality to your expectations',
+      'every good thing that happens feels like a gift',
+      'underrated',
+    ],
+  },
+  {
+    id: 'ielts-16',
+    title: 'Part 3 — Arts, Culture & Creativity',
+    part: 'Part 3',
+    topic: 'Arts & Culture',
+    description: 'A discussion about the role of arts, why governments fund culture, and what creativity means in the modern world.',
+    duration: '10 min',
+    exchanges: [
+      { role: 'examiner', text: 'Why do you think arts and culture are important for society?' },
+      { role: 'candidate', text: "Arts and culture serve several functions that are hard to replicate in other ways. On the most basic level, they provide a shared language — stories, music, images that a community holds in common and that bind people together. In Vietnam, traditional music like ca tru or quan ho carries centuries of history and identity. Losing those traditions would be losing a part of what makes us who we are.\n\nBeyond preservation, the arts also provide a space for exploring ideas and emotions that are too complex or uncomfortable for everyday conversation. Literature and film can address difficult topics — poverty, injustice, grief — in ways that create empathy and understanding. I think empathy is increasingly important in a fragmented, polarised world.\n\nAnd at the individual level, creativity and artistic expression are deeply tied to mental health and wellbeing. Making something — whether it's a painting, a poem, or a piece of music — is one of the most distinctly human activities there is." },
+      { role: 'examiner', text: 'Should governments fund the arts, or should they focus on more pressing needs?' },
+      { role: 'candidate', text: "This is a genuine tension, and I don't think there's a simple answer. My view is that cultural funding shouldn't be seen as a luxury that you get to once everything else is sorted — because everything else is never fully sorted. There are always hospitals to build and roads to repair. If you wait until there are no pressing needs to fund culture, you'll never fund culture.\n\nThe case for government arts funding rests on the fact that the arts generate public goods that the market won't adequately provide. Commercial culture tends toward what's popular and profitable — blockbuster films, pop music, celebrity culture. Government funding can support things that are valuable but not commercially viable: experimental theatre, folk music preservation, minority language literature.\n\nThat said, I think the level of funding should be proportionate, and governments should be transparent about how it's used. Art for art's sake is a valid principle, but public money needs some degree of public accountability." },
+      { role: 'examiner', text: 'Do you think technology is changing the way people engage with arts and culture?' },
+      { role: 'candidate', text: "Profoundly. In some ways, technology has democratised culture in remarkable ways. Anyone with a smartphone can access virtually the entire history of recorded music, watch films from any country, or read books from any era. A teenager in rural Vietnam can discover a niche subgenre of Japanese jazz that their parents had no way of accessing.\n\nBut there's a paradox here. Even as access has become almost unlimited, consumption has become more algorithmic. Streaming platforms don't just give you access to everything — they actively push you toward what's similar to what you've already liked. This creates filter bubbles in culture, just as in news. People end up in very narrow aesthetic worlds despite having access to everything.\n\nI also worry about what the streaming economy does to artists. When a song generates a fraction of a cent per stream, and an artist gets paid for plays rather than ownership, the economic model for making art has fundamentally changed in ways that favour big labels and popular artists over independent and experimental ones." },
+      { role: 'examiner', text: 'Is creativity something that can be taught, or is it innate?' },
+      { role: 'candidate', text: "I think this is a false dichotomy. Creativity is both — there may be natural variation in creative inclination, just as with any other cognitive trait. But the idea that creativity is purely a gift that you either have or you don't is, I think, both incorrect and harmful. It lets people off the hook from developing a skill that can be cultivated.\n\nWhat we know from research on creativity is that it tends to flourish under certain conditions: broad exposure to different ideas and domains, a willingness to make and learn from mistakes, a tolerance for ambiguity, and dedicated time for unstructured thinking. These are all things that can be developed and that education systems can either encourage or discourage.\n\nIn my own experience as a developer, creativity isn't a mysterious inspiration that strikes you out of nowhere. It's the result of deeply understanding a problem, having a broad knowledge base to draw analogies from, and then giving your mind space to connect things. That process can definitely be learned." },
+    ],
+    tips: [
+      'Part 3 arts questions reward you for showing you can think abstractly and philosophically',
+      'Use academic frameworks naturally: "public goods," "democratised," "filter bubbles"',
+      'Acknowledging tensions and complexities: "This is a genuine tension" shows maturity',
+      'Bring in personal experience to ground abstract discussion',
+      'Challenge false dichotomies: "I think this is a false dichotomy" is high-band framing',
+    ],
+    keyPhrases: [
+      'a shared language that a community holds in common',
+      'shouldn\'t be seen as a luxury that you get to once everything else is sorted',
+      'generate public goods that the market won\'t adequately provide',
+      'Profoundly',
+      'there\'s a paradox here',
+      'I think this is a false dichotomy',
+      'lets people off the hook from...',
+    ],
+  },
+  {
+    id: 'ielts-17',
+    title: 'Part 3 — Sports, Competition & Society',
+    part: 'Part 3',
+    topic: 'Sports & Leisure',
+    description: 'A discussion about the role of competitive sport, professional sports culture, and the value of physical activity in modern society.',
+    duration: '10 min',
+    exchanges: [
+      { role: 'examiner', text: 'What role do you think competitive sport plays in society?' },
+      { role: 'candidate', text: "Competitive sport plays several interesting roles simultaneously. At the national level, it provides a form of collective identity and pride. When Vietnam qualifies for a football tournament or wins a medal at the SEA Games, there's a genuine sense of shared celebration that cuts across class, age, and region. It's one of the few things that can unite a whole country in a positive emotion at the same time.\n\nAt the individual and community level, sport teaches values that are genuinely hard to instil in other ways. Learning to compete fairly, to respect opponents, to win without arrogance and lose without bitterness — these are character lessons as much as physical ones. The discipline required to train seriously also builds qualities like perseverance and self-regulation.\n\nHowever, I think competitive sport can go too far when the pressure to win at all costs overrides these positive values. Doping scandals, match-fixing, the psychological damage inflicted on child athletes who are pushed too hard — these are real costs of a purely results-oriented approach to sport." },
+      { role: 'examiner', text: 'Do you think professional athletes are paid too much?' },
+      { role: 'candidate', text: "This is a question that seems obvious on the surface — of course a footballer earning fifty million dollars a year seems disproportionate when compared to a nurse or a teacher. But I think the economic logic is more complex than it appears.\n\nProfessional athletes in top-tier sports generate enormous revenue — television rights, merchandise, sponsorship, tourism. Their salaries are, in most cases, a small fraction of the commercial value they create. From a pure market perspective, the salaries reflect what the market is willing to pay for their skills. You can argue about whether the market is valuing the right things — and I'd agree it isn't — but the athletes themselves aren't extracting value unfairly.\n\nThe deeper issue is systemic: why does our society generate such enormous commercial value from entertainment and sport, but not from teaching or nursing? That's a question about values and priorities, and it can't be solved by capping athletes' salaries. It requires reimagining how we compensate essential work.\n\nThat said, I do think there's something uncomfortable about the sheer scale of wealth in professional sport, particularly when grassroots sport in many countries is underfunded." },
+      { role: 'examiner', text: 'Should governments invest more in promoting sport among ordinary citizens?' },
+      { role: 'candidate', text: "Absolutely, and I'd argue it's one of the most cost-effective public health investments a government can make. The economic cost of physical inactivity — through healthcare for preventable diseases like obesity, diabetes, and cardiovascular disease — is astronomical. Any investment in making sport accessible and affordable will generate significant savings downstream.\n\nBut beyond the purely economic argument, I think there's a quality-of-life dimension. People who exercise regularly are, on average, happier, more productive, and have better mental health. A society where people can easily access parks, swimming pools, courts, and trails is simply a better place to live.\n\nThe challenge is that sports infrastructure tends to concentrate in wealthier areas. If you live in an affluent suburb, you have good access to facilities. If you live in a poor urban neighbourhood, you might have nothing. Governments need to be intentional about distributing investment equitably rather than assuming the private sector will fill the gap." },
+      { role: 'examiner', text: 'How do you think attitudes to sport will change over the next generation?' },
+      { role: 'candidate', text: "I think we'll see a shift away from competitive, structured sport toward more informal, wellness-oriented physical activity. Younger generations seem less interested in joining clubs and teams and more interested in individual activities like running, cycling, yoga, or gym training that they can fit around their schedules. The rise of fitness tracking technology reinforces this — people are monitoring their own health metrics rather than competing with others.\n\nI also expect esports to continue growing and potentially being accepted as a mainstream sport. This is already happening — there are university esports scholarships and major international tournaments with audiences larger than many traditional sports. Whether you call it a sport is a semantic argument, but the competitive skill and dedication involved are real.\n\nAt the same time, I hope that traditional community sports — the local football league, the neighbourhood badminton court — don't disappear entirely. There's something important about physical sport as a communal, embodied experience that I don't think can be replicated on a screen." },
+    ],
+    tips: [
+      'For controversial topics, state your view clearly but show you understand the counterargument',
+      'Use economic reasoning to add depth: "cost-effective," "generate revenue," "downstream"',
+      'The phrase "seems obvious on the surface... but" signals sophisticated thinking',
+      'Future predictions: use "I expect," "I think we\'ll see," "likely to"',
+      'Bring the answer back to human values at the end to show you\'re not purely analytical',
+    ],
+    keyPhrases: [
+      'plays several interesting roles simultaneously',
+      'cuts across class, age, and region',
+      'when the pressure to win at all costs overrides these positive values',
+      'the economic logic is more complex than it appears',
+      'the deeper issue is systemic',
+      'one of the most cost-effective public health investments',
+      'generate significant savings downstream',
+      'be intentional about distributing investment equitably',
+    ],
+  },
+  {
+    id: 'ielts-18',
+    title: 'Part 3 — Environment & Climate Change',
+    part: 'Part 3',
+    topic: 'Environment',
+    description: 'A discussion about environmental challenges, government responsibility, and what individuals can realistically do.',
+    duration: '10 min',
+    exchanges: [
+      { role: 'examiner', text: 'How serious do you think the problem of climate change is?' },
+      { role: 'candidate', text: "I think it's the defining challenge of this century, and I say that without much exaggeration. The scientific consensus is overwhelming — global temperatures are rising, and the consequences are already visible: more intense storms, longer droughts, rising sea levels, shifting growing seasons. For a country like Vietnam, which has a long coastline and a heavily agricultural economy, these aren't abstract future problems. The Mekong Delta, which produces a large portion of Vietnam's food, is already experiencing saltwater intrusion from sea-level rise.\n\nWhat I find particularly alarming is the pace of change. The natural world can adapt to gradual shifts, but the current rate of warming is happening over decades rather than millennia. Ecosystems and the communities that depend on them don't have time to adjust.\n\nThat said, I try not to fall into pure despair about it, because despair is unproductive. There are genuine reasons for cautious optimism — renewable energy costs have fallen dramatically, electric vehicles are becoming mainstream, and international frameworks like the Paris Agreement, however imperfect, represent real political will." },
+      { role: 'examiner', text: 'Who bears the most responsibility for addressing climate change — governments, corporations, or individuals?' },
+      { role: 'candidate', text: "I think it's primarily governments and corporations, and I'd push back on the narrative that individual behavior is the main lever.\n\nThe idea that personal choices — reusable bags, shorter showers, vegetarian diets — are the solution to climate change is, I think, largely a distraction that was strategically promoted by the fossil fuel industry in the 1970s and 80s to shift responsibility from themselves onto consumers. The carbon footprint concept itself was popularised by BP. That context matters.\n\nThe structural changes needed to address climate change — decarbonising energy grids, electrifying transport, retrofitting buildings, transforming agriculture — require the scale of action that only governments and large corporations can deliver. Individual choices operate at the margin.\n\nThat's not to say individuals should do nothing. Setting an example, voting for policies that support climate action, and participating in public discourse about the issue are all meaningful. But I think placing the weight of responsibility on individuals is both empirically wrong and psychologically damaging — it creates climate anxiety without commensurate agency." },
+      { role: 'examiner', text: 'Do you think developing countries should be expected to reduce their carbon emissions at the same rate as developed countries?' },
+      { role: 'candidate', text: "No, and I think this is a matter of basic fairness. The current level of carbon dioxide in the atmosphere is primarily the result of two centuries of industrialisation in Europe, North America, and Japan. Those countries built their wealth on cheap fossil fuels. To now tell developing countries that they cannot use those same fuels to lift their populations out of poverty — unless they can afford expensive clean technology — is a form of hypocrisy.\n\nThe principle of 'common but differentiated responsibilities,' which is embedded in international climate agreements, reflects this reality. Developed countries have a greater historical responsibility and greater financial capacity to act first and most aggressively.\n\nIn practice, this means developed nations should be financing the clean energy transition in developing countries, not just expecting them to make sacrifices that the rich world didn't make at the equivalent stage of development. There's been some progress on climate finance, but nowhere near the scale needed.\n\nThis isn't to let developing countries off the hook entirely — the decisions made now about energy infrastructure will lock in emissions for decades. But the terms of engagement need to be fair." },
+      { role: 'examiner', text: 'Are you optimistic or pessimistic about the future of the environment?' },
+      { role: 'candidate', text: "I'd call myself a realistic optimist, which might sound like a contradiction but reflects where I genuinely land on this.\n\nI'm pessimistic about the short term. The window to limit warming to 1.5 degrees Celsius — the safer target — has probably already closed, and 2 degrees is becoming increasingly difficult. Some degree of climate damage is now locked in, and communities around the world — particularly poorer ones — will suffer for it.\n\nBut I'm optimistic about human ingenuity and adaptability over the longer term. The energy transition is genuinely happening — not fast enough, but the direction of travel is clear. Renewables are cheaper than fossil fuels in most of the world now. Battery technology is improving rapidly. A generation of young people has grown up understanding that this is the central challenge of their lifetime, and I believe they will bring different values to politics, business, and culture.\n\nI think the honest answer is that the future of the environment isn't predetermined — it will be shaped by decisions made over the next ten to twenty years, by governments, companies, and yes, by people. That uncertainty is both frightening and motivating." },
+    ],
+    tips: [
+      'Use precise qualifying language for strong opinions: "I\'d push back on the narrative that..."',
+      'Historical context demonstrates depth: knowing who popularised the carbon footprint concept',
+      'The principle of equity in international negotiations ("common but differentiated responsibilities") is high-value content',
+      'Resist false binary conclusions — "realistic optimist" is more compelling than "optimistic" or "pessimistic"',
+      'End with a statement about human agency — examiners reward forward-looking, empowered thinking',
+    ],
+    keyPhrases: [
+      'I say that without much exaggeration',
+      'aren\'t abstract future problems',
+      'despair is unproductive',
+      'I\'d push back on the narrative that...',
+      'operates at the margin',
+      'commensurate agency',
+      'a form of hypocrisy',
+      'lock in emissions for decades',
+      'a realistic optimist',
+      'the direction of travel is clear',
+      'the future... isn\'t predetermined',
+    ],
+  },
+
   {
     id: 'ielts-8',
     title: 'Part 3 — Health & Modern Lifestyle',

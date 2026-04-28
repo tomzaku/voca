@@ -9,6 +9,7 @@ interface Note {
   user_name: string;
   content: string;
   created_at: string;
+  is_private: boolean;
 }
 
 function timeAgo(date: string): string {
@@ -47,6 +48,7 @@ export function WordNotes({ word }: Props) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +61,7 @@ export function WordNotes({ word }: Props) {
       .from('word_notes')
       .select('*')
       .eq('word', word)
+      .or(`is_private.eq.false${user ? `,user_id.eq.${user.id}` : ''}`)
       .order('created_at', { ascending: false })
       .limit(50)
       .then(({ data }) => {
@@ -79,7 +82,7 @@ export function WordNotes({ word }: Props) {
 
     const { data, error: err } = await supabase
       .from('word_notes')
-      .insert({ word, user_id: user.id, user_name: userName, content: input.trim() })
+      .insert({ word, user_id: user.id, user_name: userName, content: input.trim(), is_private: isPrivate })
       .select()
       .single();
 
@@ -88,6 +91,7 @@ export function WordNotes({ word }: Props) {
     } else if (data) {
       setNotes((prev) => [data as Note, ...prev]);
       setInput('');
+      setIsPrivate(false);
     }
     setSubmitting(false);
   };
@@ -103,7 +107,7 @@ export function WordNotes({ word }: Props) {
   return (
     <div>
       <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-        Community Notes
+        Notes / Comments
       </h3>
 
       {/* Notes list */}
@@ -123,6 +127,9 @@ export function WordNotes({ word }: Props) {
                   </div>
                   <span className="text-xs font-medium text-text-secondary">{note.user_name}</span>
                   <span className="text-xs text-text-muted">{timeAgo(note.created_at)}</span>
+                  {note.is_private && (
+                    <span className="text-xs text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded">private</span>
+                  )}
                 </div>
                 {user?.id === note.user_id && (
                   <button
@@ -159,13 +166,24 @@ export function WordNotes({ word }: Props) {
             className="w-full bg-bg-tertiary border border-border rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent-cyan/40 placeholder:text-text-muted transition-colors resize-none"
           />
           {error && <p className="text-xs text-accent-red">{error}</p>}
-          <button
-            onClick={handleSubmit}
-            disabled={!input.trim() || submitting}
-            className="px-4 py-2 rounded-lg bg-accent-cyan text-bg-primary text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-all"
-          >
-            {submitting ? 'Posting…' : 'Post note'}
-          </button>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isPrivate}
+                onChange={(e) => setIsPrivate(e.target.checked)}
+                className="w-3.5 h-3.5 accent-accent-cyan"
+              />
+              <span className="text-xs text-text-muted">Private</span>
+            </label>
+            <button
+              onClick={handleSubmit}
+              disabled={!input.trim() || submitting}
+              className="px-4 py-2 rounded-lg bg-accent-cyan text-bg-primary text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-all"
+            >
+              {submitting ? 'Posting…' : 'Post note'}
+            </button>
+          </div>
         </div>
       ) : (
         <p className="text-xs text-text-muted">
