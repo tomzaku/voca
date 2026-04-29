@@ -145,6 +145,7 @@ function SelectionSpeaker({ containerRef }: { containerRef: React.RefObject<HTML
 function ConversationTab() {
   const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [spinning, setSpinning] = useState(false);
 
   const filtered = useMemo(
     () => selectedTopic === 'all' ? speakingQuestions : speakingQuestions.filter((q) => q.topic === selectedTopic),
@@ -157,11 +158,42 @@ function ConversationTab() {
     return map;
   }, []);
 
+  const pickRandomTopic = useCallback(() => {
+    const others = speakingTopics.filter((t) => t !== selectedTopic);
+    const pool = others.length > 0 ? others : [...speakingTopics];
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    setSpinning(true);
+    setSelectedTopic(pick);
+    setExpandedId(null);
+    setTimeout(() => setSpinning(false), 500);
+  }, [selectedTopic]);
+
   return (
     <>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-text-muted">
+          {selectedTopic === 'all' ? `${speakingQuestions.length} questions` : `${filtered.length} questions · ${selectedTopic}`}
+        </span>
+        <button
+          onClick={pickRandomTopic}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent-orange/20 bg-accent-orange/5 text-accent-orange hover:bg-accent-orange/10 transition-all cursor-pointer"
+        >
+          <svg
+            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            className={spinning ? 'animate-spin' : ''}
+          >
+            <polyline points="16 3 21 3 21 8" />
+            <line x1="4" y1="20" x2="21" y2="3" />
+            <polyline points="21 16 21 21 16 21" />
+            <line x1="15" y1="15" x2="21" y2="21" />
+          </svg>
+          Random Topic
+        </button>
+      </div>
+
       <div className="flex flex-wrap gap-1.5 mb-6">
         <button
-          onClick={() => setSelectedTopic('all')}
+          onClick={() => { setSelectedTopic('all'); setExpandedId(null); }}
           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
             selectedTopic === 'all'
               ? 'bg-accent-green/10 text-accent-green border-accent-green/20'
@@ -173,7 +205,7 @@ function ConversationTab() {
         {speakingTopics.map((topic) => (
           <button
             key={topic}
-            onClick={() => setSelectedTopic(topic)}
+            onClick={() => { setSelectedTopic(topic); setExpandedId(null); }}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
               selectedTopic === topic
                 ? 'bg-accent-green/10 text-accent-green border-accent-green/20'

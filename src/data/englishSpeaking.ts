@@ -1415,4 +1415,197 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'I also reviewed... from the team.',
     ],
   },
+
+  // ── IELTS-style Questions ──────────────────────────────
+  {
+    id: 'sp-70',
+    topic: 'Hometown & Travel',
+    question: 'Do you prefer living in a city or the countryside? Why?',
+    sampleAnswers: [
+      {
+        label: 'City Person',
+        answer:
+          "I'm definitely a city person. I've lived in Da Nang my whole life and I can't imagine trading that for a quiet rural lifestyle. I love the convenience — everything is within reach, whether it's restaurants, gyms, or hospitals. I also think cities offer more intellectual stimulation. You're constantly meeting different kinds of people and being exposed to new ideas. The countryside is beautiful to visit, but I think I'd find it too quiet and isolated long-term.",
+      },
+    ],
+    usefulPhrases: [
+      "I can't imagine trading... for...",
+      'Everything is within reach.',
+      'offer more intellectual stimulation',
+      "beautiful to visit, but...",
+      "I'd find it too... long-term.",
+    ],
+  },
+  {
+    id: 'sp-71',
+    topic: 'Opinions & Ideas',
+    question: 'What do you think about advertising? Does it have more benefits or drawbacks?',
+    sampleAnswers: [
+      {
+        label: 'Balanced Take',
+        answer:
+          "I think advertising has become so pervasive that it's hard to have a neutral view on it. On the positive side, it funds a lot of free content — without advertising, most of the internet we use for free wouldn't exist. It also connects people with products they genuinely need. But the downsides are real. Advertising increasingly uses psychological techniques to manipulate rather than inform. It creates insecurity — making people feel they need things they don't. And the sheer volume of ads is exhausting. I use an ad blocker and honestly, my mental health is better for it.",
+      },
+    ],
+    usefulPhrases: [
+      'has become so pervasive that...',
+      'On the positive side...',
+      'creates insecurity',
+      'the sheer volume of... is exhausting',
+      'my mental health is better for it',
+    ],
+  },
+  {
+    id: 'sp-72',
+    topic: 'Hobbies & Interests',
+    question: 'How important is music in your daily life?',
+    sampleAnswers: [
+      {
+        label: 'Music as Background',
+        answer:
+          "Music is a constant backdrop to my day. I have different playlists for different activities — lo-fi beats when I'm coding, upbeat music when I'm exercising, and mellow acoustic stuff when I'm winding down in the evening. I played guitar for several years, so I have a deeper appreciation for music than just passively listening. I notice things like chord progressions and song structure that most people probably filter out. Music genuinely affects my mood — the right song at the right moment can completely shift my mindset.",
+      },
+    ],
+    usefulPhrases: [
+      'a constant backdrop to my day',
+      'I have different playlists for different...',
+      'a deeper appreciation for... than just...',
+      'filter out',
+      'completely shift my mindset',
+    ],
+  },
+  {
+    id: 'sp-73',
+    topic: 'Education & Learning',
+    question: 'Do you think people read less now than in the past? Is that a problem?',
+    sampleAnswers: [
+      {
+        label: 'Nuanced View',
+        answer:
+          "It depends on what we mean by reading. People are probably reading more text than ever — messages, social media, articles, emails. But long-form reading — books, long essays — has definitely declined. Whether that's a problem is debatable. I'd argue that reading long-form content trains a kind of sustained attention that you don't get from short-form content. When everything is optimised for a 30-second attention span, it becomes harder to sit with complex ideas for extended periods. That's a loss worth taking seriously.",
+      },
+    ],
+    usefulPhrases: [
+      'It depends on what we mean by...',
+      'long-form reading has definitely declined',
+      'Whether that\'s a problem is debatable',
+      'trains a kind of sustained attention',
+      'That\'s a loss worth taking seriously',
+    ],
+  },
+  {
+    id: 'sp-74',
+    topic: 'Daily Life',
+    question: 'How do you feel about public transport in your city?',
+    sampleAnswers: [
+      {
+        label: 'Da Nang Reality',
+        answer:
+          "Honestly, Da Nang's public transport is pretty underdeveloped compared to bigger cities like Hanoi or Ho Chi Minh City. We have some bus routes, but they're not frequent or convenient enough for most people's commutes, which is why almost everyone uses a motorbike. It's one of the things I'd love to see improved. A proper bus rapid transit system or even a light rail would make such a difference — less congestion, less air pollution, and cheaper commuting for people who can't afford a vehicle. It's slowly improving, but it needs to move faster.",
+      },
+    ],
+    usefulPhrases: [
+      'pretty underdeveloped compared to...',
+      "convenient enough for most people's commutes",
+      "It's one of the things I'd love to see improved.",
+      'would make such a difference',
+      "It's slowly improving, but it needs to move faster.",
+    ],
+  },
+  {
+    id: 'sp-75',
+    topic: 'Opinions & Ideas',
+    question: 'Describe a time you changed your mind about something important.',
+    sampleAnswers: [
+      {
+        label: 'Career Opinion',
+        answer:
+          "I used to think that working for a large, well-known company was the ultimate goal — stability, prestige, good benefits. Then I joined a big corporation for about a year and found it stifling. There were so many layers of approval for any small decision. Your individual contribution felt invisible. After that experience, I completely flipped my view. I now believe that smaller teams, where you can see the direct impact of your work and move quickly, are far more fulfilling. It was a valuable lesson that took actually experiencing something to learn, rather than just hearing about it.",
+      },
+    ],
+    usefulPhrases: [
+      'I used to think that... was the ultimate goal.',
+      'I found it stifling.',
+      'I completely flipped my view.',
+      'far more fulfilling',
+      'took actually experiencing something to learn',
+    ],
+  },
+  {
+    id: 'sp-76',
+    topic: 'Environment & Nature',
+    question: 'What small things do you personally do to help the environment?',
+    sampleAnswers: [
+      {
+        label: 'Practical Habits',
+        answer:
+          "I try to keep it realistic rather than performative. I use a reusable bottle and coffee cup, I don't buy things I don't need, and I eat less meat than I used to — not zero, but less. I take my motorbike rather than a car, which means my carbon footprint for commuting is quite low. I also try to think about the longevity of the things I buy — choosing a quality item that lasts five years over a cheap one I'll throw away in six months. That said, I'm aware that individual actions are limited. The structural changes need to come from governments and corporations.",
+      },
+    ],
+    usefulPhrases: [
+      'I try to keep it realistic rather than performative.',
+      "I don't buy things I don't need",
+      'think about the longevity of the things I buy',
+      'individual actions are limited',
+      'The structural changes need to come from...',
+    ],
+  },
+  {
+    id: 'sp-77',
+    topic: 'Opinions & Ideas',
+    question: 'How important is it to learn about other cultures? How do you do it?',
+    sampleAnswers: [
+      {
+        label: 'Curious Learner',
+        answer:
+          "I think it's extremely important, especially for people working in international environments. Understanding how other cultures approach communication, hierarchy, and relationships prevents a lot of misunderstandings. I learn about other cultures mostly through media — films, books, podcasts. A well-made documentary or novel set in a different country can give you genuine insight that's hard to get any other way. Working with international teams has also been an education in itself. You quickly realize that what feels 'normal' or 'professional' is deeply culturally contingent.",
+      },
+    ],
+    usefulPhrases: [
+      'prevents a lot of misunderstandings',
+      'genuine insight that\'s hard to get any other way',
+      'has been an education in itself',
+      'what feels "normal" is deeply culturally contingent',
+      'especially for people working in international environments',
+    ],
+  },
+  {
+    id: 'sp-78',
+    topic: 'Future Plans',
+    question: 'Describe an achievement you are proud of.',
+    sampleAnswers: [
+      {
+        label: 'Professional Achievement',
+        answer:
+          "One achievement I'm genuinely proud of is building and shipping my first complete product — not at a company, but as a personal project. It's a vocabulary learning app that I built from scratch. I designed the UI, wrote the backend, set up the database, handled the deployment. At work, you're usually responsible for a small part of a larger system, so seeing the whole thing come together solo was a different kind of satisfaction. It's also something tangible I can point to and say — I built that, it works, real people use it.",
+      },
+    ],
+    usefulPhrases: [
+      'One achievement I\'m genuinely proud of is...',
+      'not at a company, but as a personal project',
+      'from scratch',
+      'a different kind of satisfaction',
+      'I built that, it works, real people use it',
+    ],
+  },
+  {
+    id: 'sp-79',
+    topic: 'Health & Wellness',
+    question: 'How do you balance screen time with other activities in your daily life?',
+    sampleAnswers: [
+      {
+        label: 'Developer\'s Challenge',
+        answer:
+          "It's a genuine challenge when your job involves looking at a screen for eight or more hours. What I've found helps is being intentional about my offline time. I try not to use my phone during meals. I go for a walk or exercise after work before I do anything else. I also have a rule about not checking work messages after 8 PM, which protects my evening. On weekends, I try to do at least one thing that is completely screen-free — a bike ride, cooking, playing guitar. You have to actively design offline time, because the default is everything pulling you back to a screen.",
+      },
+    ],
+    usefulPhrases: [
+      "It's a genuine challenge when...",
+      'being intentional about my offline time',
+      'I have a rule about...',
+      'protects my evening',
+      'actively design offline time',
+      'the default is everything pulling you back to...',
+    ],
+  },
 ];
