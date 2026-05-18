@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { speakWithKokoro, stopKokoroAudio } from '../lib/kokoroTts';
 import { ToggleSwitch } from './ToggleSwitch';
@@ -16,6 +16,7 @@ import {
   getApiKeyStorageMode,
   setApiKeyStorageMode,
   initApiKeyStorage,
+  syncPreferencesToSupabase,
   type ApiKeyStorageMode,
 } from '../lib/apiKeyStorage';
 import { WORD_PACKS, getWordPack, setWordPack, buildWordList, type PackId } from '../lib/wordLists';
@@ -50,7 +51,7 @@ const gradeColor: Record<string, string> = {
 
 export function SettingsPage() {
   const { engine, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed } = useTtsSettings();
-  const { user, signInWithGoogle, signOut } = useAuth();
+  const { user, keysLoaded, signInWithGoogle, signOut } = useAuth();
   const store = useVocabularyStore();
 
   const [previewState, setPreviewState] = useState<{ id: string; phase: 'loading' | 'playing' } | null>(null);
@@ -68,7 +69,17 @@ export function SettingsPage() {
   const [aiModel, setAiModel] = useState(getModel);
   const [aiApiKeyInput, setAiApiKeyInput] = useState('');
   const [aiApiKeySaved, setAiApiKeySaved] = useState(false);
-  const hasAiKey = !!getApiKeyForProvider(aiProvider);
+  const [hasAiKey, setHasAiKey] = useState(false);
+
+  // Re-sync provider/model/key state after keys are loaded from storage
+  useEffect(() => {
+    if (!keysLoaded) return;
+    const provider = getProvider() as ProviderId;
+    const model = getModel();
+    setAiProvider(provider);
+    setAiModel(model);
+    setHasAiKey(!!getApiKeyForProvider(provider));
+  }, [keysLoaded]);
 
   // API key storage mode
   const [keyStorageMode, setKeyStorageMode] = useState<ApiKeyStorageMode>(getApiKeyStorageMode);
@@ -82,11 +93,14 @@ export function SettingsPage() {
     setModelStorage(provider.defaultModel);
     setAiApiKeyInput('');
     setAiApiKeySaved(false);
+    setHasAiKey(!!getApiKeyForProvider(id));
+    syncPreferencesToSupabase();
   };
 
   const handleModelChange = (model: string) => {
     setAiModel(model);
     setModelStorage(model);
+    syncPreferencesToSupabase();
   };
 
   const handleSaveAiKey = async () => {
@@ -95,6 +109,7 @@ export function SettingsPage() {
       await setApiKeyForProvider(aiProvider, key);
       setAiApiKeyInput('');
       setAiApiKeySaved(true);
+      setHasAiKey(true);
       setTimeout(() => setAiApiKeySaved(false), 2000);
     }
   };

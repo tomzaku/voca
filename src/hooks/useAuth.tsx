@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  keysLoaded: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,
+  keysLoaded: false,
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
@@ -23,24 +25,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [keysLoaded, setKeysLoaded] = useState(false);
 
   useEffect(() => {
     if (!supabase) {
+      initApiKeyStorage(null);
+      setKeysLoaded(true);
       setLoading(false);
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      initApiKeyStorage(session?.user ?? null);
+      await initApiKeyStorage(session?.user ?? null);
+      setKeysLoaded(true);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setKeysLoaded(false);
       setSession(session);
       setUser(session?.user ?? null);
-      initApiKeyStorage(session?.user ?? null);
+      await initApiKeyStorage(session?.user ?? null);
+      setKeysLoaded(true);
       setLoading(false);
     });
 
@@ -61,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext value={{ user, session, loading, signInWithGoogle, signOut }}>
+    <AuthContext value={{ user, session, loading, keysLoaded, signInWithGoogle, signOut }}>
       {children}
     </AuthContext>
   );
