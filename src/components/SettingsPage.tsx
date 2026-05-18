@@ -12,6 +12,12 @@ import {
   setApiKeyForProvider,
   type ProviderId,
 } from '../lib/aiProviders';
+import {
+  getApiKeyStorageMode,
+  setApiKeyStorageMode,
+  initApiKeyStorage,
+  type ApiKeyStorageMode,
+} from '../lib/apiKeyStorage';
 import { WORD_PACKS, getWordPack, setWordPack, buildWordList, type PackId } from '../lib/wordLists';
 import { WORD_LIST } from '../lib/wordService';
 import { clearPrefetchQueue } from '../lib/prefetchService';
@@ -64,6 +70,10 @@ export function SettingsPage() {
   const [aiApiKeySaved, setAiApiKeySaved] = useState(false);
   const hasAiKey = !!getApiKeyForProvider(aiProvider);
 
+  // API key storage mode
+  const [keyStorageMode, setKeyStorageMode] = useState<ApiKeyStorageMode>(getApiKeyStorageMode);
+  const [storageSwitching, setStorageSwitching] = useState(false);
+
   const handleProviderChange = (id: ProviderId) => {
     setAiProvider(id);
     setProviderStorage(id);
@@ -79,14 +89,30 @@ export function SettingsPage() {
     setModelStorage(model);
   };
 
-  const handleSaveAiKey = () => {
+  const handleSaveAiKey = async () => {
     const key = aiApiKeyInput.trim();
     if (key) {
-      setApiKeyForProvider(aiProvider, key);
+      await setApiKeyForProvider(aiProvider, key);
       setAiApiKeyInput('');
       setAiApiKeySaved(true);
       setTimeout(() => setAiApiKeySaved(false), 2000);
     }
+  };
+
+  const handleStorageModeChange = async (mode: ApiKeyStorageMode) => {
+    if (mode === keyStorageMode) return;
+    if (mode === 'supabase' && !user) {
+      toast.error('Sign in to sync your API keys to your account.');
+      return;
+    }
+    setStorageSwitching(true);
+    const ok = await setApiKeyStorageMode(mode, user ?? null);
+    if (ok) {
+      await initApiKeyStorage(user ?? null);
+      setKeyStorageMode(mode);
+      toast.success(mode === 'supabase' ? 'API keys synced to your account.' : 'API keys stored locally.');
+    }
+    setStorageSwitching(false);
   };
 
   const preview = async (voiceId: string) => {
@@ -274,11 +300,59 @@ export function SettingsPage() {
                 <a href={provider.keysUrl} target="_blank" rel="noopener noreferrer" className="text-accent-purple hover:underline">
                   {provider.keysLabel}
                 </a>
-                . Stored locally in your browser only.
+                .
               </p>
             </div>
           );
         })()}
+
+        {/* Storage mode */}
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-medium text-text-secondary mb-1.5">Key storage</p>
+          {(['local', 'supabase'] as const).map((mode) => {
+            const isSupabase = mode === 'supabase';
+            const selected = keyStorageMode === mode;
+            const disabled = isSupabase && !user;
+            return (
+              <button
+                key={mode}
+                onClick={() => !disabled && !storageSwitching && handleStorageModeChange(mode)}
+                disabled={disabled || storageSwitching}
+                className={`w-full text-left p-3 rounded-lg border transition-all flex items-start gap-3 ${
+                  disabled
+                    ? 'opacity-40 cursor-not-allowed bg-bg-card border-border'
+                    : selected
+                    ? 'bg-accent-purple/5 border-accent-purple/30 ring-1 ring-accent-purple/20 cursor-pointer'
+                    : 'bg-bg-card border-border hover:border-text-muted/30 cursor-pointer'
+                }`}
+              >
+                <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selected ? 'border-accent-purple' : 'border-text-muted/40'}`}>
+                  {selected && <span className="w-2 h-2 rounded-full bg-accent-purple" />}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${selected ? 'text-accent-purple' : 'text-text-primary'}`}>
+                      {isSupabase ? 'Account (encrypted)' : 'This browser only'}
+                    </span>
+                    {isSupabase && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-cyan/15 text-accent-cyan">AES-256</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {isSupabase
+                      ? disabled
+                        ? 'Sign in to enable cross-device sync with end-to-end encryption.'
+                        : 'Encrypted before upload — only you can decrypt. Syncs across devices.'
+                      : 'Stored in localStorage. Fast, no account needed, this device only.'}
+                  </p>
+                </div>
+                {storageSwitching && selected && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" className="animate-spin shrink-0 mt-0.5 text-accent-purple" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2a10 10 0 0 1 10 10" /></svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* TTS Engine */}

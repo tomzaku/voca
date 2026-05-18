@@ -24,3 +24,19 @@ create policy "Users can manage their own progress"
   with check (auth.uid() = user_id);
 
 create index if not exists idx_user_word_progress_user_id on user_word_progress(user_id);
+
+-- ── 20260518000000_user_settings ────────────────────────────
+
+create table if not exists user_settings (
+  user_id uuid primary key references auth.users on delete cascade,
+  api_keys_encrypted text,
+  updated_at timestamptz not null default now()
+);
+
+alter table user_settings enable row level security;
+
+create policy "Users can manage their own settings"
+  on user_settings
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

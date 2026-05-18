@@ -77,9 +77,15 @@ export const AI_PROVIDERS: AIProvider[] = [
 
 // ─── Storage ────────────────────────────────────────────────────────
 
+export {
+  getApiKeyForProvider,
+  setApiKeyForProvider,
+} from './apiKeyStorage';
+
+import { getApiKeyForProvider } from './apiKeyStorage';
+
 const PROVIDER_KEY = 'voca-ai-provider';
 const MODEL_KEY = 'voca-ai-model';
-const API_KEY_PREFIX = 'voca-api-key';
 
 export function getProvider(): ProviderId {
   return (localStorage.getItem(PROVIDER_KEY) as ProviderId) || 'google';
@@ -98,14 +104,6 @@ export function getModel(): string {
 
 export function setModel(model: string): void {
   localStorage.setItem(MODEL_KEY, model);
-}
-
-export function getApiKeyForProvider(providerId: ProviderId): string {
-  return localStorage.getItem(`${API_KEY_PREFIX}-${providerId}`) || '';
-}
-
-export function setApiKeyForProvider(providerId: ProviderId, key: string): void {
-  localStorage.setItem(`${API_KEY_PREFIX}-${providerId}`, key);
 }
 
 export function getCurrentApiKey(): string {
