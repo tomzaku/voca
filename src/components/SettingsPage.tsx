@@ -70,6 +70,7 @@ export function SettingsPage() {
   const [aiApiKeyInput, setAiApiKeyInput] = useState('');
   const [aiApiKeySaved, setAiApiKeySaved] = useState(false);
   const [hasAiKey, setHasAiKey] = useState(false);
+  const [aiKeyLoading, setAiKeyLoading] = useState(false);
 
   // Re-sync provider/model/key state after keys are loaded from storage
   useEffect(() => {
@@ -110,8 +111,23 @@ export function SettingsPage() {
       setAiApiKeyInput('');
       setAiApiKeySaved(true);
       setHasAiKey(true);
+      toast.success(keyStorageMode === 'supabase' ? 'Key uploaded to your account.' : 'Key saved to this browser.');
       setTimeout(() => setAiApiKeySaved(false), 2000);
     }
+  };
+
+  // Account mode: pull the key (and provider/model prefs) back from the account.
+  const handleLoadAiKey = async () => {
+    if (!user) return;
+    setAiKeyLoading(true);
+    await initApiKeyStorage(user);
+    const provider = getProvider() as ProviderId;
+    setAiProvider(provider);
+    setAiModel(getModel());
+    const key = getApiKeyForProvider(provider);
+    setHasAiKey(!!key);
+    setAiKeyLoading(false);
+    toast[key ? 'success' : 'error'](key ? 'Key loaded from your account.' : 'No key found in your account.');
   };
 
   const handleStorageModeChange = async (mode: ApiKeyStorageMode) => {
@@ -285,86 +301,96 @@ export function SettingsPage() {
           );
         })()}
 
-        {/* API Key input */}
-        {(() => {
-          const provider = AI_PROVIDERS.find((p) => p.id === aiProvider)!;
-          return (
-            <div>
-              <label className="text-xs font-medium text-text-secondary block mb-1.5">
-                API Key {hasAiKey && <span className="text-accent-green ml-1.5">(saved)</span>}
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="password"
-                  value={aiApiKeyInput}
-                  onChange={(e) => setAiApiKeyInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSaveAiKey()}
-                  placeholder={hasAiKey ? '••••••••' : provider.placeholder}
-                  className="flex-1 bg-bg-primary border border-border rounded-lg px-3 py-2 text-sm text-text-primary font-code focus:outline-none focus:border-accent-purple/50 placeholder:text-text-muted"
-                />
-                <button
-                  onClick={handleSaveAiKey}
-                  disabled={!aiApiKeyInput.trim()}
-                  className="px-3 py-2 bg-accent-purple text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-purple/90 transition-colors cursor-pointer disabled:opacity-40"
-                >
-                  {aiApiKeySaved ? 'Saved!' : 'Save'}
-                </button>
-              </div>
-              <p className="text-[11px] text-text-muted mt-1.5">
-                Get your key from{' '}
-                <a href={provider.keysUrl} target="_blank" rel="noopener noreferrer" className="text-accent-purple hover:underline">
-                  {provider.keysLabel}
-                </a>
-                .
-              </p>
-            </div>
-          );
-        })()}
-
-        {/* Storage mode */}
-        <div className="mt-4 space-y-2">
+        {/* Storage mode — the selected option reveals its own API key controls */}
+        <div className="space-y-2">
           <p className="text-xs font-medium text-text-secondary mb-1.5">Key storage</p>
           {(['local', 'supabase'] as const).map((mode) => {
             const isSupabase = mode === 'supabase';
             const selected = keyStorageMode === mode;
             const disabled = isSupabase && !user;
+            const provider = AI_PROVIDERS.find((p) => p.id === aiProvider)!;
             return (
-              <button
+              <div
                 key={mode}
-                onClick={() => !disabled && !storageSwitching && handleStorageModeChange(mode)}
-                disabled={disabled || storageSwitching}
-                className={`w-full text-left p-3 rounded-lg border transition-all flex items-start gap-3 ${
+                className={`rounded-lg border transition-all ${
                   disabled
-                    ? 'opacity-40 cursor-not-allowed bg-bg-card border-border'
+                    ? 'opacity-40 bg-bg-card border-border'
                     : selected
-                    ? 'bg-accent-purple/5 border-accent-purple/30 ring-1 ring-accent-purple/20 cursor-pointer'
-                    : 'bg-bg-card border-border hover:border-text-muted/30 cursor-pointer'
+                    ? 'bg-accent-purple/5 border-accent-purple/30 ring-1 ring-accent-purple/20'
+                    : 'bg-bg-card border-border hover:border-text-muted/30'
                 }`}
               >
-                <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selected ? 'border-accent-purple' : 'border-text-muted/40'}`}>
-                  {selected && <span className="w-2 h-2 rounded-full bg-accent-purple" />}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${selected ? 'text-accent-purple' : 'text-text-primary'}`}>
-                      {isSupabase ? 'Account (encrypted)' : 'This browser only'}
-                    </span>
-                    {isSupabase && (
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-cyan/15 text-accent-cyan">AES-256</span>
-                    )}
+                <button
+                  onClick={() => !disabled && !storageSwitching && handleStorageModeChange(mode)}
+                  disabled={disabled || storageSwitching}
+                  className={`w-full text-left p-3 flex items-start gap-3 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selected ? 'border-accent-purple' : 'border-text-muted/40'}`}>
+                    {selected && <span className="w-2 h-2 rounded-full bg-accent-purple" />}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${selected ? 'text-accent-purple' : 'text-text-primary'}`}>
+                        {isSupabase ? 'Account (encrypted)' : 'This browser only'}
+                      </span>
+                      {isSupabase && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-cyan/15 text-accent-cyan">AES-256</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {isSupabase
+                        ? disabled
+                          ? 'Sign in to enable cross-device sync with end-to-end encryption.'
+                          : 'Encrypted before upload — only you can decrypt. Syncs across devices.'
+                        : 'Stored in localStorage. Fast, no account needed, this device only.'}
+                    </p>
                   </div>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    {isSupabase
-                      ? disabled
-                        ? 'Sign in to enable cross-device sync with end-to-end encryption.'
-                        : 'Encrypted before upload — only you can decrypt. Syncs across devices.'
-                      : 'Stored in localStorage. Fast, no account needed, this device only.'}
-                  </p>
-                </div>
-                {storageSwitching && selected && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" className="animate-spin shrink-0 mt-0.5 text-accent-purple" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2a10 10 0 0 1 10 10" /></svg>
+                  {storageSwitching && selected && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" className="animate-spin shrink-0 mt-0.5 text-accent-purple" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2a10 10 0 0 1 10 10" /></svg>
+                  )}
+                </button>
+
+                {selected && !disabled && (
+                  <div className="px-3 pb-3 pt-1 border-t border-border/60 mt-1">
+                    <label className="text-xs font-medium text-text-secondary block mb-1.5 mt-2">
+                      {provider.label} API Key {hasAiKey && <span className="text-accent-green ml-1.5">(saved)</span>}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        value={aiApiKeyInput}
+                        onChange={(e) => setAiApiKeyInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveAiKey()}
+                        placeholder={hasAiKey ? '••••••••' : provider.placeholder}
+                        className="flex-1 min-w-0 bg-bg-primary border border-border rounded-lg px-3 py-2 text-sm text-text-primary font-code focus:outline-none focus:border-accent-purple/50 placeholder:text-text-muted"
+                      />
+                      {isSupabase && (
+                        <button
+                          onClick={handleLoadAiKey}
+                          disabled={aiKeyLoading}
+                          className="px-3 py-2 border border-border text-text-secondary text-xs font-semibold rounded-lg hover:border-accent-purple/40 hover:text-accent-purple transition-colors cursor-pointer disabled:opacity-40 shrink-0"
+                        >
+                          {aiKeyLoading ? 'Loading…' : 'Load'}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleSaveAiKey}
+                        disabled={!aiApiKeyInput.trim()}
+                        className="px-3 py-2 bg-accent-purple text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-purple/90 transition-colors cursor-pointer disabled:opacity-40 shrink-0"
+                      >
+                        {aiApiKeySaved ? 'Saved!' : isSupabase ? 'Upload' : 'Save'}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-text-muted mt-1.5">
+                      Get your key from{' '}
+                      <a href={provider.keysUrl} target="_blank" rel="noopener noreferrer" className="text-accent-purple hover:underline">
+                        {provider.keysLabel}
+                      </a>
+                      {isSupabase ? '. Encrypted in your browser before upload.' : '.'}
+                    </p>
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>

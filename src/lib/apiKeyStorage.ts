@@ -98,6 +98,14 @@ async function saveToSupabase(userId: string): Promise<void> {
   );
 }
 
+async function clearSupabase(userId: string): Promise<void> {
+  if (!supabase) return;
+  await supabase.from('user_settings').upsert(
+    { user_id: userId, api_keys_encrypted: null, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id' },
+  );
+}
+
 // ─── Local helpers ───────────────────────────────────────────────────
 
 function loadFromLocal(): Record<string, string> {
@@ -127,15 +135,26 @@ function saveToLocal(keys: Record<string, string>): void {
 export async function initApiKeyStorage(user: User | null): Promise<void> {
   _userId = user?.id ?? null;
   const mode = getApiKeyStorageMode();
-  if (mode === 'supabase' && user) {
+
+  // When signed in, always check the account for synced keys — even if the
+  // local mode flag still says 'local'. The flag lives in localStorage, so on a
+  // fresh browser / second device / after clearing site data it would otherwise
+  // default to 'local' and the keys saved to the account would never load.
+  if (user) {
     const blob = await fetchFromSupabase(user.id);
-    keyCache = blob.keys;
-    // Restore provider/model to localStorage so the rest of the app picks them up
-    if (blob.provider) localStorage.setItem(PROVIDER_KEY, blob.provider);
-    if (blob.model) localStorage.setItem(MODEL_KEY, blob.model);
-  } else {
-    keyCache = loadFromLocal();
+    const hasAccountKeys = Object.keys(blob.keys).length > 0;
+    if (mode === 'supabase' || hasAccountKeys) {
+      keyCache = blob.keys;
+      // Restore provider/model to localStorage so the rest of the app picks them up
+      if (blob.provider) localStorage.setItem(PROVIDER_KEY, blob.provider);
+      if (blob.model) localStorage.setItem(MODEL_KEY, blob.model);
+      // Persist the mode so future writes keep syncing to the account.
+      if (hasAccountKeys) localStorage.setItem(STORAGE_MODE_KEY, 'supabase');
+      return;
+    }
   }
+
+  keyCache = loadFromLocal();
 }
 
 /** Synchronous read from in-memory cache. */
@@ -187,6 +206,9 @@ export async function setApiKeyStorageMode(
     saveToLocal({});
   } else {
     saveToLocal(keys);
+    // Drop the account copy so initApiKeyStorage doesn't auto-restore it and
+    // silently flip the user back to account sync on the next reload.
+    if (user) await clearSupabase(user.id);
   }
 
   return true;
