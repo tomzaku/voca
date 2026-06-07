@@ -43,13 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setKeysLoaded(false);
       setSession(session);
       setUser(session?.user ?? null);
-      await initApiKeyStorage(session?.user ?? null);
-      setKeysLoaded(true);
-      setLoading(false);
+      // Defer Supabase calls out of the auth callback. Supabase holds an internal
+      // lock for the duration of this callback; awaiting another Supabase call
+      // (initApiKeyStorage → fetchFromSupabase) here deadlocks it and hangs every
+      // subsequent Supabase request, including the storage-mode switch.
+      setTimeout(async () => {
+        await initApiKeyStorage(session?.user ?? null);
+        setKeysLoaded(true);
+        setLoading(false);
+      }, 0);
     });
 
     return () => subscription.unsubscribe();
