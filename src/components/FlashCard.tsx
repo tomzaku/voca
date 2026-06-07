@@ -337,19 +337,24 @@ export function FlashCard() {
             className="flex-1 flex gap-1.5 overflow-x-auto py-0.5"
             style={{ scrollbarWidth: 'none' }}
           >
-            {wordHistory.map((w, i) => (
-              <button
-                key={i}
-                onClick={() => navigateToHistory(i)}
-                className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                  i === historyIndex
-                    ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/40'
-                    : 'bg-bg-card border border-border text-text-muted hover:text-text-primary hover:border-border-light'
-                }`}
-              >
-                {w.word}
-              </button>
-            ))}
+            {wordHistory.map((w, i) => {
+              // Hide the current word while it's still being guessed — otherwise
+              // the answer is readable straight off the history strip.
+              const masked = i === historyIndex && phase === 'introduce';
+              return (
+                <button
+                  key={i}
+                  onClick={() => navigateToHistory(i)}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                    i === historyIndex
+                      ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/40'
+                      : 'bg-bg-card border border-border text-text-muted hover:text-text-primary hover:border-border-light'
+                  }`}
+                >
+                  {masked ? '• • •' : w.word}
+                </button>
+              );
+            })}
           </div>
 
           <button
