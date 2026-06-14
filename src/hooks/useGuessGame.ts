@@ -6,15 +6,16 @@ export interface GuessGameInfo {
   id: GuessGameMode;
   label: string;
   description: string;
+  icon: string;
 }
 
 export const GUESS_GAMES: GuessGameInfo[] = [
-  { id: 'letters',  label: 'Letters',    description: 'Reveal letters and type the word' },
-  { id: 'scramble', label: 'Unscramble', description: 'Tap the shuffled letters in order' },
-  { id: 'choice',   label: 'Choice',     description: 'Pick the word from its definition' },
-  { id: 'hangman',  label: 'Hangman',    description: 'Guess letters before your lives run out' },
-  { id: 'listen',   label: 'Listen',     description: 'Hear the word and spell it' },
-  { id: 'vowels',   label: 'No Vowels',  description: 'Fill in the missing vowels' },
+  { id: 'letters',  label: 'Letters',    icon: '🔡', description: 'Reveal letters and type the word' },
+  { id: 'scramble', label: 'Unscramble', icon: '🔀', description: 'Tap the shuffled letters in order' },
+  { id: 'choice',   label: 'Choice',     icon: '🎯', description: 'Pick the word from its definition' },
+  { id: 'hangman',  label: 'Hangman',    icon: '💀', description: 'Guess letters before your lives run out' },
+  { id: 'listen',   label: 'Listen',     icon: '🎧', description: 'Hear the word and spell it' },
+  { id: 'vowels',   label: 'No Vowels',  icon: '⭕', description: 'Fill in the missing vowels' },
 ];
 
 const GAME_KEY = 'voca-guess-game';

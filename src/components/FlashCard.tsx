@@ -8,6 +8,7 @@ import { WordTest } from './WordTest';
 import { WordNotes } from './WordNotes';
 import { GuessGame } from './GuessGame';
 import { useGuessGame } from '../hooks/useGuessGame';
+import { useGameScore } from '../hooks/useGameScore';
 import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
@@ -46,6 +47,7 @@ export function FlashCard() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { game, setGame } = useGuessGame();
+  const breakStreak = useGameScore((s) => s.breakStreak);
 
   // History
   const wordHistoryRef = useRef<VocabularyWord[]>([]);
@@ -161,6 +163,7 @@ export function FlashCard() {
 
   const handleReveal = () => {
     if (phase !== 'introduce') return;
+    breakStreak(); // gave up without guessing
     setPhase('revealed');
   };
 
@@ -178,6 +181,7 @@ export function FlashCard() {
 
   const handleSkip = () => {
     if (!wordData) return;
+    if (phase === 'introduce') breakStreak(); // skipped without guessing
     store.markWord(wordData.word, 'skipped', user?.id);
     loadNextWord(wordData.word);
   };
@@ -366,13 +370,33 @@ export function FlashCard() {
             </span>
           </div>
 
+          {/* Definition clue — surfaced at the top while guessing so the
+              hint sits above the game (key for mobile flow) */}
+          {phase === 'introduce' && (
+            <div className="mb-5 bg-bg-card border border-accent-cyan/25 rounded-2xl p-5 animate-fade-in">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-base leading-none">💡</span>
+                <h3 className="text-xs font-display font-bold text-accent-cyan uppercase tracking-wider">
+                  Definition — guess the word
+                </h3>
+                {wordData.partOfSpeech && (
+                  <span className="text-[10px] font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
+                    {wordData.partOfSpeech}
+                  </span>
+                )}
+              </div>
+              <p className="text-text-primary leading-relaxed text-base sm:text-lg">{wordData.definition}</p>
+            </div>
+          )}
+
           {/* Two-column layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
             {/* ── Left column ── */}
-            <div className="space-y-4">
-              {/* Image */}
-              <div className="relative h-56 bg-bg-tertiary rounded-2xl overflow-hidden">
+            <div className="flex flex-col gap-4">
+              {/* Image — a secondary visual hint; drops below the game while
+                  guessing so the definition → game flow stays tight on mobile */}
+              <div className={`relative h-44 sm:h-56 bg-bg-tertiary rounded-2xl overflow-hidden ${phase === 'introduce' ? 'order-last lg:order-none' : ''}`}>
                 {!imageLoaded && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-8 h-8 rounded-full border-2 border-border border-t-accent-cyan/40 animate-spin" />
@@ -501,13 +525,15 @@ export function FlashCard() {
 
             {/* ── Right column ── */}
             <div className="space-y-4">
-              {/* Definition */}
-              <div className="bg-bg-card border border-border rounded-2xl p-5">
-                <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
-                  Definition
-                </h3>
-                <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
-              </div>
+              {/* Definition — only here once revealed; while guessing it sits up top */}
+              {phase === 'revealed' && (
+                <div className="bg-bg-card border border-border rounded-2xl p-5">
+                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
+                    Definition
+                  </h3>
+                  <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
+                </div>
+              )}
 
               {/* Examples */}
               {wordData.examples.length > 0 && (

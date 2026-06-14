@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getActiveWordList } from '../lib/wordService';
 import { speakWithKokoro, stopKokoroAudio } from '../lib/kokoroTts';
 import { GUESS_GAMES, type GuessGameMode } from '../hooks/useGuessGame';
+import { useGameScore } from '../hooks/useGameScore';
 import type { VocabularyWord } from '../types';
 
 interface Props {
@@ -21,87 +22,160 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/** Tactile "keycap" tile shared across every game. */
 const boxBase =
-  'w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 transition-all';
+  'w-10 h-11 rounded-lg flex items-center justify-center font-display font-bold text-base uppercase border-2 transition-all animate-tile-in shadow-[inset_0_-3px_0_rgba(0,0,0,0.3)]';
+
+const CONFETTI_COLORS = ['#00d4ff', '#00e68a', '#ff9f43', '#a855f7', '#f0a500', '#ff4757'];
+
+function Confetti() {
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: 28 }, () => ({
+        dx: `${(Math.random() * 2 - 1) * 200}px`,
+        dy: `${40 + Math.random() * 150}px`,
+        rot: `${(Math.random() * 2 - 1) * 540}deg`,
+        delay: `${Math.random() * 0.12}s`,
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      })),
+    [],
+  );
+  return (
+    <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+      {pieces.map((p, i) => (
+        <span
+          key={i}
+          className="confetti-piece"
+          style={{
+            background: p.color,
+            // @ts-expect-error — CSS custom props
+            '--dx': p.dx, '--dy': p.dy, '--rot': p.rot,
+            animationDelay: p.delay,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
   const word = wordData.word;
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
+  const { points, streak, win, lastGain, winId } = useGameScore();
+  const info = GUESS_GAMES.find((g) => g.id === game)!;
 
   const solve = () => {
+    win();
     setResult('correct');
-    setTimeout(onSolved, 800);
+    setTimeout(onSolved, 1150);
   };
 
   return (
-    <div className="relative overflow-hidden bg-bg-card border border-border rounded-2xl p-6 space-y-5">
-      {/* Correct celebration overlay */}
+    <div className="relative overflow-hidden rounded-2xl border border-accent-cyan/20 bg-bg-card animate-glow-pulse">
+      {/* Top accent strip */}
+      <div className="h-1 w-full bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-green" />
+
+      {/* Confetti + celebration overlay */}
       {result === 'correct' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-bg-card/95 rounded-2xl z-10 animate-fade-in">
-          <div className="animate-pop-in text-center">
-            <div className="w-16 h-16 rounded-full bg-accent-green/20 border-2 border-accent-green/40 flex items-center justify-center mx-auto mb-3">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+        <>
+          <Confetti />
+          <div className="absolute inset-0 flex items-center justify-center bg-bg-card/95 rounded-2xl z-10 animate-fade-in">
+            <div className="animate-pop-in text-center">
+              <div className="w-16 h-16 rounded-full bg-accent-green/20 border-2 border-accent-green/40 flex items-center justify-center mx-auto mb-3">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <p className="text-accent-green font-display font-bold text-2xl">
+                {streak >= 3 ? `${streak}× combo!` : 'Correct!'}
+              </p>
+              <p className="text-accent-cyan font-display font-bold text-sm mt-1">+{lastGain} pts</p>
             </div>
-            <p className="text-accent-green font-display font-bold text-2xl">Correct!</p>
-            <p className="text-text-muted text-xs mt-1">Revealing the word…</p>
           </div>
-        </div>
+        </>
       )}
       {/* Wrong flash overlay */}
       {result === 'wrong' && (
         <div className="absolute inset-0 rounded-2xl bg-accent-red/10 pointer-events-none z-10 animate-flash-wrong" />
       )}
 
-      {/* Header + game selector */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
-            Guess the word
-          </p>
-          {wordData.partOfSpeech && (
-            <span className="text-xs font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
-              {wordData.partOfSpeech}
-            </span>
-          )}
-        </div>
-        <div className="flex gap-1 p-0.5 rounded-lg bg-bg-tertiary border border-border">
-          {GUESS_GAMES.map((g) => (
-            <button
-              key={g.id}
-              onClick={() => onGameChange(g.id)}
-              title={g.description}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                game === g.id
-                  ? 'bg-accent-cyan text-bg-primary'
-                  : 'text-text-muted hover:text-text-primary'
-              }`}
-            >
-              {g.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <div className="p-6 space-y-5">
+        {/* ── HUD: game badge + score/streak ── */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-2xl leading-none shrink-0">{info.icon}</span>
+            <div className="min-w-0">
+              <p className="text-sm font-display font-bold text-text-primary leading-tight truncate">{info.label}</p>
+              <p className="text-[10px] text-text-muted uppercase tracking-wider leading-tight">Guess the word</p>
+            </div>
+            {wordData.partOfSpeech && (
+              <span className="hidden sm:inline text-[10px] font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded shrink-0">
+                {wordData.partOfSpeech}
+              </span>
+            )}
+          </div>
 
-      {game === 'letters' && (
-        <LettersGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
-      )}
-      {game === 'scramble' && (
-        <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
-      )}
-      {game === 'choice' && (
-        <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} />
-      )}
-      {game === 'hangman' && (
-        <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
-      )}
-      {game === 'listen' && (
-        <ListenGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
-      )}
-      {game === 'vowels' && (
-        <VowelsGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
-      )}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="px-2.5 py-1 rounded-lg bg-bg-tertiary border border-border text-center min-w-[3rem]">
+              <span className="block text-sm font-display font-bold text-accent-cyan leading-none">{points}</span>
+              <span className="block text-[9px] text-text-muted uppercase tracking-wider">pts</span>
+            </div>
+            <div className="relative px-2.5 py-1 rounded-lg bg-accent-orange/10 border border-accent-orange/30 text-center min-w-[3rem]">
+              <span className="flex items-center justify-center gap-1 text-sm font-display font-bold text-accent-orange leading-none">
+                {streak > 0 && <span className="animate-flame">🔥</span>}
+                {streak}
+              </span>
+              <span className="block text-[9px] text-text-muted uppercase tracking-wider">streak</span>
+              {result === 'correct' && (
+                <span key={winId} className="absolute -top-4 left-1/2 -translate-x-1/2 text-xs font-display font-bold text-accent-green animate-float-up whitespace-nowrap">
+                  +{lastGain}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Game picker pills ── */}
+        <div className="flex flex-wrap gap-1.5">
+          {GUESS_GAMES.map((g) => {
+            const active = game === g.id;
+            return (
+              <button
+                key={g.id}
+                onClick={() => onGameChange(g.id)}
+                title={g.description}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all active:scale-95 ${
+                  active
+                    ? 'bg-accent-cyan text-bg-primary border-accent-cyan shadow-[0_0_12px_-2px_rgba(0,212,255,0.5)]'
+                    : 'bg-bg-tertiary text-text-secondary border-border hover:border-border-light hover:text-text-primary'
+                }`}
+              >
+                <span className="text-sm leading-none">{g.icon}</span>
+                <span>{g.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {game === 'letters' && (
+          <LettersGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+        )}
+        {game === 'scramble' && (
+          <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+        )}
+        {game === 'choice' && (
+          <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} />
+        )}
+        {game === 'hangman' && (
+          <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+        )}
+        {game === 'listen' && (
+          <ListenGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+        )}
+        {game === 'vowels' && (
+          <VowelsGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+        )}
+      </div>
     </div>
   );
 }
@@ -149,7 +223,7 @@ function LettersGame({ word, disabled, onSolve, onWrong }: GameProps) {
           const shown = i === 0 || i === word.length - 1 || revealed.has(i);
           const canReveal = !shown && !disabled;
           return shown ? (
-            <span key={i} className={`${boxBase} border-accent-cyan bg-accent-cyan/10 text-accent-cyan`}>
+            <span key={i} style={{ animationDelay: `${i * 45}ms` }} className={`${boxBase} border-accent-cyan bg-accent-cyan/10 text-accent-cyan`}>
               {char}
             </span>
           ) : (
@@ -158,7 +232,8 @@ function LettersGame({ word, disabled, onSolve, onWrong }: GameProps) {
               onClick={() => canReveal && setRevealed((p) => new Set([...p, i]))}
               disabled={!canReveal}
               title="Click to reveal this letter"
-              className={`${boxBase} border-border bg-bg-tertiary text-transparent select-none hover:border-accent-cyan/40 hover:bg-accent-cyan/5 cursor-pointer`}
+              style={{ animationDelay: `${i * 45}ms` }}
+              className={`${boxBase} border-border bg-bg-tertiary text-transparent select-none hover:border-accent-cyan/40 hover:bg-accent-cyan/5 cursor-pointer hover:-translate-y-0.5`}
             >
               ·
             </button>
@@ -223,8 +298,8 @@ function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
               key={i}
               className={`${boxBase} ${
                 char
-                  ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan'
-                  : 'border-border bg-bg-tertiary text-transparent'
+                  ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan animate-tile-pop'
+                  : 'border-dashed border-border bg-bg-tertiary text-transparent'
               }`}
             >
               {char ?? '·'}
@@ -235,7 +310,7 @@ function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
           <button
             onClick={() => setPicked((p) => p.slice(0, -1))}
             title="Remove last letter"
-            className="ml-1 w-9 h-9 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-border-light transition-all"
+            className="ml-1 w-10 h-11 rounded-lg flex items-center justify-center border-2 border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/40 transition-all active:scale-95"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" /><line x1="18" y1="9" x2="12" y2="15" /><line x1="12" y1="9" x2="18" y2="15" />
@@ -246,17 +321,18 @@ function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
 
       {/* Scrambled tile bank */}
       <div className="flex items-center gap-1.5 flex-wrap pt-1">
-        {tiles.map((t) => {
+        {tiles.map((t, i) => {
           const used = pickedSet.has(t.id);
           return (
             <button
               key={t.id}
               onClick={() => place(t.id)}
               disabled={used || disabled}
+              style={{ animationDelay: `${i * 50}ms` }}
               className={`${boxBase} ${
                 used
-                  ? 'border-border bg-bg-tertiary text-transparent opacity-40 cursor-default'
-                  : 'border-border-light bg-bg-tertiary text-text-primary hover:border-accent-cyan/50 hover:bg-accent-cyan/5 cursor-pointer'
+                  ? 'border-border bg-bg-tertiary text-transparent opacity-30 cursor-default'
+                  : 'border-border-light bg-gradient-to-b from-bg-tertiary to-bg-hover text-text-primary hover:border-accent-cyan/60 hover:-translate-y-0.5 hover:text-accent-cyan cursor-pointer active:scale-95'
               }`}
             >
               {t.char}
@@ -300,20 +376,26 @@ function ChoiceGame({ word, disabled, onSolve }: GameProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {options.map((opt) => {
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      {options.map((opt, i) => {
         const isWrong = wrongPick === opt;
         return (
           <button
             key={opt}
             onClick={() => pick(opt)}
             disabled={disabled || isWrong}
-            className={`px-4 py-3 rounded-xl border text-sm font-display font-medium text-left transition-all ${
+            style={{ animationDelay: `${i * 60}ms` }}
+            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 text-sm font-display font-medium text-left animate-tile-in transition-all ${
               isWrong
                 ? 'border-accent-red/50 bg-accent-red/10 text-accent-red/80 cursor-default animate-shake'
-                : 'border-border bg-bg-tertiary text-text-primary hover:border-accent-cyan/50 hover:bg-accent-cyan/5'
+                : 'border-border bg-gradient-to-b from-bg-tertiary to-bg-hover text-text-primary hover:border-accent-cyan/60 hover:-translate-y-0.5 hover:text-accent-cyan active:scale-[0.98]'
             }`}
           >
+            <span className={`w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-xs font-bold border ${
+              isWrong ? 'border-accent-red/40 text-accent-red/70' : 'border-border-light text-text-muted'
+            }`}>
+              {String.fromCharCode(65 + i)}
+            </span>
             {opt}
           </button>
         );
@@ -395,12 +477,12 @@ function HangmanGame({ word, disabled, onSolve, onWrong }: GameProps) {
               key={letter}
               onClick={() => guess(letter)}
               disabled={used || dead || disabled}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center font-display font-bold text-xs uppercase border-2 transition-all ${
+              className={`w-8 h-9 rounded-lg flex items-center justify-center font-display font-bold text-xs uppercase border-2 shadow-[inset_0_-2px_0_rgba(0,0,0,0.3)] transition-all ${
                 !used
-                  ? 'border-border bg-bg-tertiary text-text-primary hover:border-accent-cyan/50 hover:bg-accent-cyan/5 cursor-pointer'
+                  ? 'border-border bg-gradient-to-b from-bg-tertiary to-bg-hover text-text-primary hover:border-accent-cyan/60 hover:-translate-y-0.5 hover:text-accent-cyan cursor-pointer active:scale-95'
                   : hit
                   ? 'border-accent-green/50 bg-accent-green/10 text-accent-green cursor-default'
-                  : 'border-border bg-bg-tertiary text-text-muted/40 cursor-default'
+                  : 'border-border bg-bg-tertiary text-text-muted/40 opacity-50 cursor-default shadow-none'
               }`}
             >
               {letter}

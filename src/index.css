@@ -115,3 +115,59 @@ body {
 .animate-flash-wrong {
   animation: flashWrong 0.55s ease-out forwards;
 }
+
+/* ── Game flair ───────────────────────────────────────────────── */
+
+/* Tiles spring in, stagger via inline animation-delay */
+@keyframes tileIn {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.8); }
+  60%  { transform: translateY(-3px) scale(1.06); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-tile-in { animation: tileIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+
+/* Little press bounce when a tile is locked in */
+@keyframes tilePop {
+  0%   { transform: scale(0.7); }
+  60%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+.animate-tile-pop { animation: tilePop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Floating "+points" score gain */
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.85); }
+  15%  { opacity: 1; transform: translateY(-4px) scale(1.1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-34px) scale(1); }
+}
+.animate-float-up { animation: floatUp 1.2s ease-out forwards; }
+
+/* Idle neon glow on the active game card */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0); }
+  50%      { box-shadow: 0 0 26px -6px rgba(0, 212, 255, 0.28); }
+}
+.animate-glow-pulse { animation: glowPulse 3.2s ease-in-out infinite; }
+
+/* Confetti burst on a correct answer */
+@keyframes confettiFall {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); }
+}
+.confetti-piece {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  animation: confettiFall 0.95s ease-out forwards;
+}
+
+/* Streak flame flicker */
+@keyframes flameFlicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); }
+  50%      { transform: scale(1.15) rotate(2deg); }
+}
+.animate-flame { animation: flameFlicker 0.8s ease-in-out infinite; }
