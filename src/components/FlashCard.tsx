@@ -6,6 +6,8 @@ import { generateWordData, pickNextWord } from '../lib/wordService';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { WordTest } from './WordTest';
 import { WordNotes } from './WordNotes';
+import { GuessGame } from './GuessGame';
+import { useGuessGame } from '../hooks/useGuessGame';
 import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
@@ -43,10 +45,7 @@ export function FlashCard() {
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [guess, setGuess] = useState('');
-  const [guessResult, setGuessResult] = useState<'correct' | 'wrong' | null>(null);
-  const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
-  const guessInputRef = useRef<HTMLInputElement>(null);
+  const { game, setGame } = useGuessGame();
 
   // History
   const wordHistoryRef = useRef<VocabularyWord[]>([]);
@@ -75,9 +74,6 @@ export function FlashCard() {
     setWordData(null);
     setImageUrl(null);
     setImageLoaded(false);
-    setGuess('');
-    setGuessResult(null);
-    setRevealedIndices(new Set());
 
     const known = store.knownWords();
     const skipped = store.skippedWords();
@@ -121,9 +117,6 @@ export function FlashCard() {
     setWordData(null);
     setImageUrl(null);
     setImageLoaded(false);
-    setGuess('');
-    setGuessResult(null);
-    setRevealedIndices(new Set());
     setIsGenerating(true);
     try {
       const data = await generateWordData(word, 'intermediate', abortRef.current.signal);
@@ -169,22 +162,6 @@ export function FlashCard() {
   const handleReveal = () => {
     if (phase !== 'introduce') return;
     setPhase('revealed');
-  };
-
-  const handleGuess = () => {
-    if (!wordData || !guess.trim()) return;
-    const correct = guess.trim().toLowerCase() === wordData.word.toLowerCase();
-    if (correct) {
-      setGuessResult('correct');
-      setTimeout(() => setPhase('revealed'), 800);
-    } else {
-      setGuessResult('wrong');
-      setTimeout(() => {
-        setGuessResult(null);
-        setGuess('');
-        guessInputRef.current?.focus();
-      }, 900);
-    }
   };
 
   const handleSpeak = async () => {
@@ -243,9 +220,6 @@ export function FlashCard() {
     setHistoryIndex(index);
     setWordData(data);
     setPhase('revealed');
-    setGuess('');
-    setGuessResult(null);
-    setRevealedIndices(new Set());
   }, []);
 
   const handlePrev = useCallback(() => {
@@ -419,95 +393,13 @@ export function FlashCard() {
               </div>
 
               {phase === 'introduce' ? (
-                /* Guess card */
-                <div className="relative overflow-hidden bg-bg-card border border-border rounded-2xl p-6 space-y-5">
-                  {/* Correct celebration overlay */}
-                  {guessResult === 'correct' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-bg-card/95 rounded-2xl z-10 animate-fade-in">
-                      <div className="animate-pop-in text-center">
-                        <div className="w-16 h-16 rounded-full bg-accent-green/20 border-2 border-accent-green/40 flex items-center justify-center mx-auto mb-3">
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </div>
-                        <p className="text-accent-green font-display font-bold text-2xl">Correct!</p>
-                        <p className="text-text-muted text-xs mt-1">Revealing the word…</p>
-                      </div>
-                    </div>
-                  )}
-                  {/* Wrong flash overlay */}
-                  {guessResult === 'wrong' && (
-                    <div className="absolute inset-0 rounded-2xl bg-accent-red/10 pointer-events-none z-10 animate-flash-wrong" />
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
-                      Guess the word
-                    </p>
-                    {wordData.partOfSpeech && (
-                      <span className="text-xs font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
-                        {wordData.partOfSpeech}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Letter boxes */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {wordData.word.split('').map((char, i) => {
-                      const isFirst = i === 0;
-                      const isLast = i === wordData.word.length - 1;
-                      const revealed = isFirst || isLast || revealedIndices.has(i);
-                      const canReveal = !revealed && guessResult !== 'correct';
-                      return revealed ? (
-                        <span key={i} className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 border-accent-cyan bg-accent-cyan/10 text-accent-cyan">
-                          {char}
-                        </span>
-                      ) : (
-                        <button
-                          key={i}
-                          onClick={() => canReveal && setRevealedIndices((prev) => new Set([...prev, i]))}
-                          disabled={!canReveal}
-                          title="Click to reveal this letter"
-                          className="w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 border-border bg-bg-tertiary text-transparent select-none hover:border-accent-cyan/40 hover:bg-accent-cyan/5 cursor-pointer transition-all"
-                        >
-                          ·
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Guess input */}
-                  <div className="space-y-2">
-                    <div className={`flex gap-2 transition-all ${guessResult === 'wrong' ? 'animate-shake' : ''}`}>
-                      <input
-                        ref={guessInputRef}
-                        type="text"
-                        value={guess}
-                        onChange={(e) => setGuess(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
-                        placeholder="Type your guess…"
-                        disabled={guessResult === 'correct'}
-                        className={`flex-1 bg-bg-tertiary border rounded-xl px-4 py-3 text-text-primary text-sm font-display focus:outline-none placeholder:text-text-muted transition-colors ${
-                          guessResult === 'correct'
-                            ? 'border-accent-green bg-accent-green/10 text-accent-green'
-                            : guessResult === 'wrong'
-                            ? 'border-accent-red bg-accent-red/10'
-                            : 'border-border focus:border-accent-cyan/50'
-                        }`}
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                      />
-                      <button
-                        onClick={handleGuess}
-                        disabled={!guess.trim() || guessResult === 'correct'}
-                        className="px-4 py-3 rounded-xl bg-accent-cyan text-bg-primary text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all"
-                      >
-                        {guessResult === 'correct' ? '✓' : 'Check'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <GuessGame
+                  key={wordData.word}
+                  wordData={wordData}
+                  game={game}
+                  onGameChange={setGame}
+                  onSolved={() => setPhase('revealed')}
+                />
               ) : (
                 /* Revealed word card */
                 <div className="bg-bg-card border border-border rounded-2xl p-6 animate-flip-in">
