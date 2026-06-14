@@ -48,6 +48,9 @@ export function FlashCard() {
 
   const { game, setGame } = useGuessGame();
   const breakStreak = useGameScore((s) => s.breakStreak);
+  // Whether the word was revealed by giving up (vs. actually solving it).
+  // When given up, "Know it" makes no sense — just offer Next.
+  const [gaveUp, setGaveUp] = useState(false);
 
   // History
   const wordHistoryRef = useRef<VocabularyWord[]>([]);
@@ -73,6 +76,7 @@ export function FlashCard() {
     stopKokoroAudio();
     setIsSpeaking(false);
     setPhase('loading');
+    setGaveUp(false);
     setWordData(null);
     setImageUrl(null);
     setImageLoaded(false);
@@ -116,6 +120,7 @@ export function FlashCard() {
     stopKokoroAudio();
     setIsSpeaking(false);
     setPhase('loading');
+    setGaveUp(false);
     setWordData(null);
     setImageUrl(null);
     setImageLoaded(false);
@@ -164,6 +169,7 @@ export function FlashCard() {
   const handleReveal = () => {
     if (phase !== 'introduce') return;
     breakStreak(); // gave up without guessing
+    setGaveUp(true);
     setPhase('revealed');
   };
 
@@ -223,6 +229,7 @@ export function FlashCard() {
     historyIndexRef.current = index;
     setHistoryIndex(index);
     setWordData(data);
+    setGaveUp(false);
     setPhase('revealed');
   }, []);
 
@@ -422,7 +429,7 @@ export function FlashCard() {
                   wordData={wordData}
                   game={game}
                   onGameChange={setGame}
-                  onSolved={() => setPhase('revealed')}
+                  onSolved={() => { setGaveUp(false); setPhase('revealed'); }}
                 />
               ) : (
                 /* Revealed word card */
@@ -486,14 +493,15 @@ export function FlashCard() {
               ) : (
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={handleSkip}
-                    className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border border-border bg-bg-card text-text-muted hover:text-text-primary hover:border-border-light transition-all"
-                    title="Skip this word for now"
+                    onClick={handleNext}
+                    disabled={isGenerating}
+                    className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border border-accent-cyan/30 bg-accent-cyan/5 text-accent-cyan hover:bg-accent-cyan/15 hover:border-accent-cyan/50 active:scale-95 disabled:opacity-40 transition-all"
+                    title="Next word — keeps this word saved"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6" /><line x1="20" y1="6" x2="20" y2="18" />
+                      <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
                     </svg>
-                    <span className="text-xs">Skip</span>
+                    <span className="text-xs">Next</span>
                   </button>
                   <button
                     onClick={handleBookmark}
@@ -509,16 +517,20 @@ export function FlashCard() {
                     </svg>
                     <span className="text-xs">{isBookmarked ? 'Saved' : 'Save'}</span>
                   </button>
-                  <button
-                    onClick={handleKnow}
-                    className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border border-accent-green/30 bg-accent-green/10 text-accent-green hover:bg-accent-green/20 transition-all"
-                    title="I know this word!"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    <span className="text-xs">Know it</span>
-                  </button>
+                  {/* "Know it" only makes sense when you actually solved it.
+                      If you gave up, you don't know it — just move on. */}
+                  {!gaveUp && (
+                    <button
+                      onClick={handleKnow}
+                      className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border border-accent-green/30 bg-accent-green/10 text-accent-green hover:bg-accent-green/20 transition-all"
+                      title="I know this word!"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      <span className="text-xs">Know it</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
