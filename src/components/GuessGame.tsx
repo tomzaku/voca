@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getActiveWordList } from '../lib/wordService';
+import { speakWithKokoro, stopKokoroAudio } from '../lib/kokoroTts';
 import { GUESS_GAMES, type GuessGameMode } from '../hooks/useGuessGame';
 import type { VocabularyWord } from '../types';
 
@@ -91,6 +92,15 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
       )}
       {game === 'choice' && (
         <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} />
+      )}
+      {game === 'hangman' && (
+        <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+      )}
+      {game === 'listen' && (
+        <ListenGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+      )}
+      {game === 'vowels' && (
+        <VowelsGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
       )}
     </div>
   );
@@ -309,6 +319,224 @@ function ChoiceGame({ word, disabled, onSolve }: GameProps) {
         );
       })}
     </div>
+  );
+}
+
+// ─── Game 4 · Hangman ───────────────────────────────────────────────
+const ALPHABET = 'abcdefghijklmnopqrstuvwxyz'.split('');
+const MAX_LIVES = 6;
+
+function HangmanGame({ word, disabled, onSolve, onWrong }: GameProps) {
+  const answer = word.toLowerCase();
+  const letters = useMemo(() => new Set(answer.split('').filter((c) => /[a-z]/.test(c))), [answer]);
+  const [guessed, setGuessed] = useState<Set<string>>(new Set());
+  const [lives, setLives] = useState(MAX_LIVES);
+
+  const dead = lives <= 0;
+  const solved = [...letters].every((c) => guessed.has(c));
+
+  // Reveal once every letter is found.
+  useEffect(() => {
+    if (solved && letters.size > 0 && !disabled) onSolve();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solved]);
+
+  const guess = (letter: string) => {
+    if (disabled || dead || guessed.has(letter)) return;
+    setGuessed((p) => new Set([...p, letter]));
+    if (!letters.has(letter)) {
+      setLives((l) => l - 1);
+      onWrong?.();
+    }
+  };
+
+  return (
+    <>
+      {/* Masked word */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {word.split('').map((char, i) => {
+          const lower = char.toLowerCase();
+          const isLetter = /[a-z]/.test(lower);
+          const shown = !isLetter || guessed.has(lower) || dead;
+          return (
+            <span
+              key={i}
+              className={`${boxBase} ${
+                shown
+                  ? isLetter
+                    ? `border-accent-cyan bg-accent-cyan/10 ${dead && !guessed.has(lower) ? 'text-accent-red' : 'text-accent-cyan'}`
+                    : 'border-transparent text-text-muted'
+                  : 'border-border bg-bg-tertiary text-transparent'
+              }`}
+            >
+              {shown ? char : '·'}
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Lives */}
+      <div className="flex items-center gap-1.5">
+        {Array.from({ length: MAX_LIVES }).map((_, i) => (
+          <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill={i < lives ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" className={i < lives ? 'text-accent-red' : 'text-border'}>
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        ))}
+        {dead && <span className="ml-2 text-xs text-accent-red font-medium">Out of lives — “Give up” to reveal</span>}
+      </div>
+
+      {/* Keyboard */}
+      <div className="flex flex-wrap gap-1.5">
+        {ALPHABET.map((letter) => {
+          const used = guessed.has(letter);
+          const hit = used && letters.has(letter);
+          return (
+            <button
+              key={letter}
+              onClick={() => guess(letter)}
+              disabled={used || dead || disabled}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center font-display font-bold text-xs uppercase border-2 transition-all ${
+                !used
+                  ? 'border-border bg-bg-tertiary text-text-primary hover:border-accent-cyan/50 hover:bg-accent-cyan/5 cursor-pointer'
+                  : hit
+                  ? 'border-accent-green/50 bg-accent-green/10 text-accent-green cursor-default'
+                  : 'border-border bg-bg-tertiary text-text-muted/40 cursor-default'
+              }`}
+            >
+              {letter}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// ─── Game 5 · Listen & spell ────────────────────────────────────────
+function ListenGame({ word, disabled, onSolve, onWrong }: GameProps) {
+  const [guess, setGuess] = useState('');
+  const [wrong, setWrong] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const speak = async () => {
+    stopKokoroAudio();
+    setSpeaking(true);
+    await speakWithKokoro(word, { onEnd: () => setSpeaking(false) });
+  };
+
+  // Play the word once on mount, then focus the input.
+  useEffect(() => {
+    speak();
+    inputRef.current?.focus();
+    return () => stopKokoroAudio();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const check = () => {
+    if (!guess.trim() || disabled) return;
+    if (guess.trim().toLowerCase() === word.toLowerCase()) {
+      stopKokoroAudio();
+      onSolve();
+    } else {
+      setWrong(true);
+      onWrong?.();
+      setTimeout(() => { setWrong(false); setGuess(''); inputRef.current?.focus(); }, 700);
+    }
+  };
+
+  return (
+    <>
+      {/* Replay button */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={speak}
+          disabled={disabled}
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${
+            speaking
+              ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
+              : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
+          }`}
+          title="Hear the word again"
+        >
+          {speaking ? (
+            <svg width="20" height="20" viewBox="0 0 10 10" fill="currentColor">
+              <rect x="0" y="0" width="4" height="10" rx="1" /><rect x="6" y="0" width="4" height="10" rx="1" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+          )}
+        </button>
+        <div>
+          <p className="text-sm text-text-primary font-medium">Listen and spell the word</p>
+          <p className="text-xs text-text-muted">{word.length} letters · tap to replay</p>
+        </div>
+      </div>
+
+      <GuessInput
+        inputRef={inputRef}
+        value={guess}
+        wrong={wrong}
+        disabled={disabled}
+        onChange={setGuess}
+        onSubmit={check}
+      />
+    </>
+  );
+}
+
+// ─── Game 6 · Missing vowels ────────────────────────────────────────
+const VOWELS = new Set(['a', 'e', 'i', 'o', 'u']);
+
+function VowelsGame({ word, disabled, onSolve, onWrong }: GameProps) {
+  const [guess, setGuess] = useState('');
+  const [wrong, setWrong] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const check = () => {
+    if (!guess.trim() || disabled) return;
+    if (guess.trim().toLowerCase() === word.toLowerCase()) {
+      onSolve();
+    } else {
+      setWrong(true);
+      onWrong?.();
+      setTimeout(() => { setWrong(false); setGuess(''); inputRef.current?.focus(); }, 700);
+    }
+  };
+
+  return (
+    <>
+      {/* Consonants shown, vowels blanked */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {word.split('').map((char, i) => {
+          const isVowel = VOWELS.has(char.toLowerCase());
+          return (
+            <span
+              key={i}
+              className={`${boxBase} ${
+                isVowel
+                  ? 'border-accent-orange/40 bg-accent-orange/5 text-transparent'
+                  : 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan'
+              }`}
+            >
+              {isVowel ? '·' : char}
+            </span>
+          );
+        })}
+      </div>
+      <p className="text-xs text-text-muted -mt-2">Vowels (a, e, i, o, u) are hidden — type the full word.</p>
+
+      <GuessInput
+        inputRef={inputRef}
+        value={guess}
+        wrong={wrong}
+        disabled={disabled}
+        onChange={setGuess}
+        onSubmit={check}
+      />
+    </>
   );
 }
 

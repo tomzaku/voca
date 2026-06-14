@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-export type GuessGameMode = 'letters' | 'scramble' | 'choice';
+export type GuessGameMode = 'letters' | 'scramble' | 'choice' | 'hangman' | 'listen' | 'vowels';
 
 export interface GuessGameInfo {
   id: GuessGameMode;
@@ -9,15 +9,18 @@ export interface GuessGameInfo {
 }
 
 export const GUESS_GAMES: GuessGameInfo[] = [
-  { id: 'letters',  label: 'Letters',  description: 'Reveal letters and type the word' },
+  { id: 'letters',  label: 'Letters',    description: 'Reveal letters and type the word' },
   { id: 'scramble', label: 'Unscramble', description: 'Tap the shuffled letters in order' },
-  { id: 'choice',   label: 'Choice',   description: 'Pick the word from its definition' },
+  { id: 'choice',   label: 'Choice',     description: 'Pick the word from its definition' },
+  { id: 'hangman',  label: 'Hangman',    description: 'Guess letters before your lives run out' },
+  { id: 'listen',   label: 'Listen',     description: 'Hear the word and spell it' },
+  { id: 'vowels',   label: 'No Vowels',  description: 'Fill in the missing vowels' },
 ];
 
 const GAME_KEY = 'voca-guess-game';
 
 function isMode(v: string | null): v is GuessGameMode {
-  return v === 'letters' || v === 'scramble' || v === 'choice';
+  return GUESS_GAMES.some((g) => g.id === v);
 }
 
 export function getGuessGame(): GuessGameMode {
