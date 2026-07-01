@@ -653,6 +653,48 @@ export function FlashCard() {
               {/* Notes + AI test (revealed only) */}
               {phase === 'revealed' && (
                 <>
+                  {/* Real-world usage — clips of the word in videos and movies */}
+                  <div className="bg-bg-card border border-border rounded-2xl p-5">
+                    <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
+                      See it used
+                    </h3>
+                    <div className="flex flex-col gap-2">
+                      <a
+                        href={`https://youglish.com/pronounce/${encodeURIComponent(wordData.word)}/english`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-bg-tertiary hover:border-accent-red/40 hover:bg-accent-red/5 transition-all group"
+                      >
+                        <span className="w-8 h-8 rounded-lg bg-accent-red/10 text-accent-red flex items-center justify-center shrink-0">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M23 12s0-3.9-.5-5.8a3 3 0 0 0-2.1-2.1C18.5 3.6 12 3.6 12 3.6s-6.5 0-8.4.5A3 3 0 0 0 1.5 6.2C1 8.1 1 12 1 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 8.4.5 8.4.5s6.5 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.9 23 12 23 12zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z" />
+                          </svg>
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-text-primary">Real videos (YouGlish)</p>
+                          <p className="text-xs text-text-muted">Hear “{wordData.word}” spoken in real YouTube clips</p>
+                        </div>
+                      </a>
+                      <a
+                        href={`https://www.playphrase.me/#/search?q=${encodeURIComponent(wordData.word)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-bg-tertiary hover:border-accent-purple/40 hover:bg-accent-purple/5 transition-all"
+                      >
+                        <span className="w-8 h-8 rounded-lg bg-accent-purple/10 text-accent-purple flex items-center justify-center shrink-0">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="23 7 16 12 23 17 23 7" />
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                          </svg>
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-text-primary">Movie clips (PlayPhrase)</p>
+                          <p className="text-xs text-text-muted">Scenes from films using “{wordData.word}”</p>
+                        </div>
+                      </a>
+                    </div>
+                  </div>
+
                   <WordNotes word={wordData.word} />
                   <WordTest wordData={wordData} />
                 </>
