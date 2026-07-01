@@ -109,7 +109,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
               <p className="text-[10px] text-text-muted uppercase tracking-wider leading-tight">Guess the word</p>
             </div>
             {wordData.partOfSpeech && (
-              <span className="hidden sm:inline text-[10px] font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded shrink-0">
+              <span className="text-[10px] font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded shrink-0">
                 {wordData.partOfSpeech}
               </span>
             )}

@@ -9,7 +9,7 @@ export function Navbar() {
   const navLinks = [
     { to: '/', label: 'Learn', icon: '✦' },
     { to: '/speaking', label: 'Speak', icon: '🎙' },
-    { to: '/bookmarks', label: 'Saved', icon: '★' },
+    { to: '/bookmarks', label: 'History', icon: '★' },
   ];
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;

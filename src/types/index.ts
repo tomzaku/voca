@@ -11,10 +11,13 @@ export interface VocabularyWord {
   imageKeywords: string[];
 }
 
-export type WordStatus = 'bookmarked' | 'known' | 'skipped';
+// A word's learning outcome. Saving (bookmarking) is tracked separately via the
+// `bookmarked` flag so a word can be both "known" and "saved" at the same time.
+export type WordStatus = 'known' | 'skipped';
 
 export interface WordProgress {
   word: string;
-  status: WordStatus;
+  status?: WordStatus;
+  bookmarked?: boolean;
   seenAt: string;
 }

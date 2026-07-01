@@ -38,18 +38,26 @@ async function generateWithRetry(
   throw lastErr;
 }
 
-async function fetchImageUrl(wordData: VocabularyWord): Promise<string> {
+// Fetch a few relevant thumbnails from Openverse (Creative-Commons image
+// search, no API key). Several small results give better context for a word's
+// meaning than one large, often-unrelated guess. Returns [] on failure so the
+// UI can simply hide the image area rather than show a random placeholder.
+async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
   const keyword = wordData.imageKeywords?.[0] || wordData.word;
   try {
     const res = await fetch(
-      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(keyword)}`,
+      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(keyword)}&page_size=6&mature=false`,
     );
     if (res.ok) {
-      const data = await res.json() as { thumbnail?: { source: string } };
-      if (data.thumbnail?.source) return data.thumbnail.source;
+      const data = await res.json() as { results?: { thumbnail?: string; url?: string }[] };
+      const urls = (data.results ?? [])
+        .map((r) => r.thumbnail || r.url)
+        .filter((u): u is string => Boolean(u))
+        .slice(0, 4);
+      if (urls.length) return urls;
     }
   } catch { /* fall through */ }
-  return `https://picsum.photos/seed/${encodeURIComponent(wordData.word)}/600/300`;
+  return [];
 }
 
 export function FlashCard() {
@@ -61,8 +69,8 @@ export function FlashCard() {
   const [wordData, setWordData] = useState<VocabularyWord | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [imagesLoading, setImagesLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,8 +109,8 @@ export function FlashCard() {
     setPhase('loading');
     setGaveUp(false);
     setWordData(null);
-    setImageUrl(null);
-    setImageLoaded(false);
+    setImageUrls([]);
+    setImagesLoading(false);
 
     const known = store.knownWords();
     const skipped = store.skippedWords();
@@ -145,8 +153,8 @@ export function FlashCard() {
     setPhase('loading');
     setGaveUp(false);
     setWordData(null);
-    setImageUrl(null);
-    setImageLoaded(false);
+    setImageUrls([]);
+    setImagesLoading(false);
     setIsGenerating(true);
     try {
       const data = await generateWordData(word, 'intermediate', abortRef.current.signal);
@@ -194,9 +202,15 @@ export function FlashCard() {
   useEffect(() => {
     if (!wordData) return;
     setSearchParams({ word: wordData.word }, { replace: true });
-    setImageUrl(null);
-    setImageLoaded(false);
-    fetchImageUrl(wordData).then(setImageUrl);
+    setImageUrls([]);
+    setImagesLoading(true);
+    let cancelled = false;
+    fetchImageUrls(wordData).then((urls) => {
+      if (cancelled) return;
+      setImageUrls(urls);
+      setImagesLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [wordData, setSearchParams]);
 
   const handleReveal = () => {
@@ -227,14 +241,9 @@ export function FlashCard() {
 
   const handleBookmark = () => {
     if (!wordData) return;
-    const current = store.getStatus(wordData.word);
-    if (current === 'bookmarked') {
-      store.removeWord(wordData.word, user?.id);
-      toast.success('Removed from bookmarks');
-    } else {
-      store.markWord(wordData.word, 'bookmarked', user?.id);
-      toast.success('Saved to bookmarks!');
-    }
+    const saved = store.isBookmarked(wordData.word);
+    store.setBookmarked(wordData.word, !saved, user?.id);
+    toast.success(saved ? 'Removed from bookmarks' : 'Saved to bookmarks!');
   };
 
   const handleKnow = () => {
@@ -286,7 +295,7 @@ export function FlashCard() {
     chips[historyIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }, [historyIndex]);
 
-  const isBookmarked = wordData ? store.getStatus(wordData.word) === 'bookmarked' : false;
+  const isBookmarked = wordData ? store.isBookmarked(wordData.word) : false;
 
   const levelColor: Record<string, string> = {
     beginner: 'text-accent-green bg-accent-green/10',
@@ -434,27 +443,32 @@ export function FlashCard() {
 
             {/* ── Left column ── */}
             <div className="flex flex-col gap-4">
-              {/* Image — a secondary visual hint; drops below the game while
+              {/* Images — a few small visual hints; drops below the game while
                   guessing so the definition → game flow stays tight on mobile */}
-              <div className={`relative h-44 sm:h-56 bg-bg-tertiary rounded-2xl overflow-hidden ${phase === 'introduce' ? 'order-last lg:order-none' : ''}`}>
-                {!imageLoaded && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full border-2 border-border border-t-accent-cyan/40 animate-spin" />
-                  </div>
-                )}
-                {imageUrl && (
-                  <img
-                    src={imageUrl}
-                    alt="vocabulary visual"
-                    className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                    onLoad={() => setImageLoaded(true)}
-                    onError={() => setImageLoaded(true)}
-                  />
-                )}
-                {imageLoaded && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-bg-card/60 to-transparent" />
-                )}
-              </div>
+              {(imagesLoading || imageUrls.length > 0) && (
+                <div className={phase === 'introduce' ? 'order-last lg:order-none' : ''}>
+                  {imagesLoading ? (
+                    <div className="h-24 flex items-center justify-center bg-bg-tertiary rounded-2xl">
+                      <div className="w-8 h-8 rounded-full border-2 border-border border-t-accent-cyan/40 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-2">
+                      {imageUrls.map((url, i) => (
+                        <div key={`${url}-${i}`} className="relative aspect-square bg-bg-tertiary rounded-xl overflow-hidden">
+                          <img
+                            src={url}
+                            alt={`${wordData.word} visual ${i + 1}`}
+                            loading="lazy"
+                            className="w-full h-full object-cover"
+                            // Drop thumbnails that fail to load so no broken tiles show
+                            onError={() => setImageUrls((prev) => prev.filter((u) => u !== url))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {phase === 'introduce' ? (
                 <GuessGame

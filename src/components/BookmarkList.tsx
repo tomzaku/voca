@@ -9,10 +9,22 @@ import toast from 'react-hot-toast';
 import { BookmarkGame } from './BookmarkGame';
 import { SpellingGame } from './SpellingGame';
 
+type Tab = 'saved' | 'known' | 'unknown';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'saved', label: 'Saved' },
+  { id: 'known', label: 'Known' },
+  { id: 'unknown', label: "Don't know" },
+];
+
 export function BookmarkList() {
   const { user } = useAuth();
   const store = useVocabularyStore();
+  const [tab, setTab] = useState<Tab>('saved');
   const bookmarks = store.bookmarkedWords();
+  const known = store.wordsByStatus('known');
+  const unknown = store.wordsByStatus('skipped');
+  const list = tab === 'saved' ? bookmarks : tab === 'known' ? known : unknown;
   const [mode, setMode] = useState<'list' | 'quiz' | 'spelling'>('list');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [wordCache, setWordCache] = useState<Record<string, VocabularyWord>>({});
@@ -57,22 +69,13 @@ export function BookmarkList() {
 
   const handleRemove = (e: React.MouseEvent, word: string) => {
     e.stopPropagation();
-    store.removeWord(word, user?.id);
+    // On the Saved tab, "remove" only un-saves — it keeps any learning status.
+    // On the Known / Don't-know tabs it clears that word from the history.
+    if (tab === 'saved') store.setBookmarked(word, false, user?.id);
+    else store.clearStatus(word, user?.id);
     if (expanded === word) setExpanded(null);
     toast.success(`Removed "${word}"`);
   };
-
-  if (bookmarks.length === 0) {
-    return (
-      <div className="max-w-lg mx-auto px-4 py-16 text-center">
-        <div className="text-4xl mb-4">★</div>
-        <h2 className="text-xl font-display font-bold text-text-primary mb-2">No saved words yet</h2>
-        <p className="text-sm text-text-muted">
-          Bookmark words while learning to build your personal vocabulary list.
-        </p>
-      </div>
-    );
-  }
 
   if (mode === 'quiz') {
     return (
@@ -92,15 +95,49 @@ export function BookmarkList() {
     );
   }
 
+  const emptyCopy: Record<Tab, { icon: string; title: string; hint: string }> = {
+    saved: { icon: '★', title: 'No saved words yet', hint: 'Bookmark words while learning to build your personal vocabulary list.' },
+    known: { icon: '✓', title: 'No known words yet', hint: 'Words you mark as “Know it” while learning show up here.' },
+    unknown: { icon: '↷', title: 'Nothing skipped yet', hint: 'Words you skip while learning show up here so you can revisit them.' },
+  };
+
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-display font-bold text-text-primary">
-          Saved Words
-        </h1>
-        <div className="flex items-center gap-2">
-          {bookmarks.length >= 2 && (
-            <>
+      {/* ── Tabs ── */}
+      <div className="flex items-center gap-1.5 mb-6">
+        {TABS.map((t) => {
+          const count = t.id === 'saved' ? bookmarks.length : t.id === 'known' ? known.length : unknown.length;
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => { setTab(t.id); setExpanded(null); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                active
+                  ? 'bg-accent-cyan/10 border-accent-cyan/30 text-accent-cyan'
+                  : 'bg-bg-card border-border text-text-muted hover:text-text-primary hover:border-border-light'
+              }`}
+            >
+              {t.label}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-accent-cyan/20' : 'bg-bg-tertiary'}`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {list.length === 0 ? (
+        <div className="py-16 text-center">
+          <div className="text-4xl mb-4">{emptyCopy[tab].icon}</div>
+          <h2 className="text-xl font-display font-bold text-text-primary mb-2">{emptyCopy[tab].title}</h2>
+          <p className="text-sm text-text-muted">{emptyCopy[tab].hint}</p>
+        </div>
+      ) : (
+        <>
+          {/* Quiz / spelling only apply to saved words */}
+          {tab === 'saved' && bookmarks.length >= 2 && (
+            <div className="flex items-center gap-2 mb-4">
               <button
                 onClick={() => setMode('quiz')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium hover:bg-accent-cyan/20 transition-all"
@@ -120,16 +157,11 @@ export function BookmarkList() {
                 </svg>
                 Spelling
               </button>
-            </>
+            </div>
           )}
-          <span className="text-sm text-text-muted">
-            {bookmarks.length} {bookmarks.length === 1 ? 'word' : 'words'}
-          </span>
-        </div>
-      </div>
 
       <div className="space-y-2">
-        {bookmarks.map(({ word }) => {
+        {list.map(({ word }) => {
           const isOpen = expanded === word;
           const data = wordCache[word];
           const isLoading = loadingWord === word;
@@ -190,7 +222,7 @@ export function BookmarkList() {
                 <button
                   onClick={(e) => handleRemove(e, word)}
                   className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/30 transition-all"
-                  title="Remove bookmark"
+                  title={tab === 'saved' ? 'Remove from saved' : 'Remove from history'}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -255,6 +287,8 @@ export function BookmarkList() {
           );
         })}
       </div>
+        </>
+      )}
     </div>
   );
 }
