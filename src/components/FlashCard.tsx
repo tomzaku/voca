@@ -521,6 +521,16 @@ export function FlashCard() {
                 </div>
               )}
 
+              {/* Definition — kept with the word so the meaning is front and center */}
+              {phase === 'revealed' && (
+                <div className="bg-bg-card border border-border rounded-2xl p-5">
+                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
+                    Definition
+                  </h3>
+                  <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
+                </div>
+              )}
+
               {/* Actions */}
               {phase === 'introduce' ? (
                 <div className="flex gap-2">
@@ -584,16 +594,6 @@ export function FlashCard() {
 
             {/* ── Right column ── */}
             <div className="space-y-4">
-              {/* Definition — only here once revealed; while guessing it sits up top */}
-              {phase === 'revealed' && (
-                <div className="bg-bg-card border border-border rounded-2xl p-5">
-                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
-                    Definition
-                  </h3>
-                  <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
-                </div>
-              )}
-
               {/* Examples */}
               {wordData.examples.length > 0 && (
                 <div className="bg-bg-card border border-border rounded-2xl p-5">
