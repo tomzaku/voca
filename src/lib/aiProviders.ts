@@ -22,10 +22,11 @@ export const AI_PROVIDERS: AIProvider[] = [
     placeholder: 'sk-ant-...',
     keysUrl: 'https://console.anthropic.com/settings/keys',
     keysLabel: 'console.anthropic.com',
-    defaultModel: 'claude-sonnet-4-20250514',
+    defaultModel: 'claude-sonnet-5',
     models: [
-      { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-      { id: 'claude-haiku-4-20250414', label: 'Claude Haiku 4' },
+      { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+      { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+      { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
     ],
   },
   {
@@ -96,9 +97,12 @@ export function setProvider(id: ProviderId): void {
 }
 
 export function getModel(): string {
-  const stored = localStorage.getItem(MODEL_KEY);
-  if (stored) return stored;
   const provider = AI_PROVIDERS.find((p) => p.id === getProvider());
+  const stored = localStorage.getItem(MODEL_KEY);
+  // Only honor a stored model if it's still a known model for the current
+  // provider. Guards against stale IDs (e.g. a retired model saved to the
+  // account) that would otherwise 404 on every request.
+  if (stored && provider?.models.some((m) => m.id === stored)) return stored;
   return provider?.defaultModel || 'gemini-2.5-flash';
 }
 

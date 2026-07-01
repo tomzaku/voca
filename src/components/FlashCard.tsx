@@ -15,6 +15,29 @@ import toast from 'react-hot-toast';
 
 type CardPhase = 'loading' | 'introduce' | 'revealed';
 
+// Retry transient generation failures (network / rate-limit) a few times with
+// a short backoff. Aborts and missing-key errors won't succeed on retry, so
+// bail on those immediately.
+async function generateWithRetry(
+  word: string,
+  level: VocabularyWord['level'],
+  signal: AbortSignal,
+  retries = 3,
+): Promise<VocabularyWord> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await generateWordData(word, level, signal);
+    } catch (err) {
+      lastErr = err;
+      if ((err as Error).name === 'AbortError') throw err;
+      if ((err as Error).message?.includes('API key')) throw err;
+      if (attempt < retries) await new Promise((r) => setTimeout(r, 600 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
 async function fetchImageUrl(wordData: VocabularyWord): Promise<string> {
   const keyword = wordData.imageKeywords?.[0] || wordData.word;
   try {
@@ -30,7 +53,7 @@ async function fetchImageUrl(wordData: VocabularyWord): Promise<string> {
 }
 
 export function FlashCard() {
-  const { user } = useAuth();
+  const { user, keysLoaded } = useAuth();
   const store = useVocabularyStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -99,7 +122,7 @@ export function FlashCard() {
 
     setIsGenerating(true);
     try {
-      const data = await generateWordData(word, level, abortRef.current.signal);
+      const data = await generateWithRetry(word, level, abortRef.current.signal);
       pushWord(data);
       setWordData(data);
       setPhase('introduce');
@@ -140,7 +163,13 @@ export function FlashCard() {
     }
   }, [pushWord]);
 
+  // Kick off the first word only once API keys are ready. On refresh with an
+  // account-synced key, initApiKeyStorage loads asynchronously — starting
+  // generation before then calls the AI with an empty key and fails to load.
+  const didInit = useRef(false);
   useEffect(() => {
+    if (!keysLoaded || didInit.current) return;
+    didInit.current = true;
     const wordParam = searchParams.get('word');
     const known = store.knownWords();
     const skipped = store.skippedWords();
@@ -150,12 +179,16 @@ export function FlashCard() {
     } else {
       loadNextWord();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keysLoaded]);
+
+  // Abort any in-flight work on unmount.
+  useEffect(() => {
     return () => {
       abortRef.current?.abort();
       searchAbortRef.current?.abort();
       stopKokoroAudio();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
