@@ -505,19 +505,19 @@ export function FlashCard() {
 
               {/* Actions */}
               {phase === 'introduce' ? (
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <button
                     onClick={handleReveal}
-                    className="btn-3d flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-accent-orange text-bg-primary text-sm"
+                    className="btn-3d flex-1 flex items-center justify-center gap-2 py-4 bg-accent-orange text-bg-primary text-base font-bold"
                   >
-                    <Icon icon="solar:flag-2-bold" className="text-lg" />
+                    <Icon icon="solar:flag-2-bold" className="text-2xl" />
                     Give up
                   </button>
                   <button
                     onClick={handleSkip}
-                    className="btn-3d flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-accent-blue text-bg-primary text-sm"
+                    className="btn-3d flex-1 flex items-center justify-center gap-2 py-4 bg-accent-blue text-bg-primary text-base font-bold"
                   >
-                    <Icon icon="solar:skip-next-bold" className="text-lg" />
+                    <Icon icon="solar:skip-next-bold" className="text-2xl" />
                     Skip
                   </button>
                 </div>
