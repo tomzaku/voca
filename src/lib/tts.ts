@@ -89,7 +89,7 @@ export async function getKokoroTTS(): Promise<KokoroTTSInstance> {
   return ttsPromise!;
 }
 
-export function preloadKokoro() {
+export function preloadTts() {
   if (lowPower) return;
   const engine = getTtsEngine();
   if (engine === 'piper') { preloadPiper(); return; }
@@ -208,14 +208,14 @@ function speakNative(text: string, options?: { speed?: number; onStart?: () => v
   });
 }
 
-export function stopKokoroAudio() {
+export function stopSpeaking() {
   cancelled = true;
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   if (currentUrl) { URL.revokeObjectURL(currentUrl); currentUrl = null; }
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 
-export function isKokoroPlaying(): boolean {
+export function isTtsPlaying(): boolean {
   return (currentAudio !== null && !currentAudio.paused) || speechSynthesis.speaking;
 }
 
@@ -256,7 +256,7 @@ export async function speakConversation(
   messages: Array<{ text: string; role: 'ai' | 'user' }>,
   options?: { onStart?: () => void; onEnd?: () => void },
 ): Promise<void> {
-  stopKokoroAudio();
+  stopSpeaking();
   cancelled = false;
   sessionStart = performance.now();
   options?.onStart?.();
@@ -270,11 +270,11 @@ export async function speakConversation(
   options?.onEnd?.();
 }
 
-export async function speakWithKokoro(
+export async function speakText(
   text: string,
   options?: { voice?: string; speed?: number; onStart?: () => void; onEnd?: () => void },
 ): Promise<void> {
-  stopKokoroAudio();
+  stopSpeaking();
   cancelled = false;
   sessionStart = performance.now();
 

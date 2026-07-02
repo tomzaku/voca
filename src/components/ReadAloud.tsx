@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { speakWithKokoro, stopKokoroAudio, preloadKokoro } from '../lib/kokoroTts';
+import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 
 interface ReadAloudProps {
   text: string;
@@ -11,10 +11,10 @@ export function ReadAloud({ text }: ReadAloudProps) {
 
   useEffect(() => {
     if (typeof requestIdleCallback === 'function') {
-      const id = requestIdleCallback(() => preloadKokoro(), { timeout: 3000 });
+      const id = requestIdleCallback(() => preloadTts(), { timeout: 3000 });
       return () => cancelIdleCallback(id);
     } else {
-      const id = setTimeout(() => preloadKokoro(), 3000);
+      const id = setTimeout(() => preloadTts(), 3000);
       return () => clearTimeout(id);
     }
   }, []);
@@ -23,18 +23,18 @@ export function ReadAloud({ text }: ReadAloudProps) {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      stopKokoroAudio();
+      stopSpeaking();
     };
   }, []);
 
   useEffect(() => {
-    stopKokoroAudio();
+    stopSpeaking();
     setState('idle');
   }, [text]);
 
   const speak = useCallback(async () => {
     if (state === 'loading' || state === 'playing') {
-      stopKokoroAudio();
+      stopSpeaking();
       setState('idle');
       return;
     }
@@ -42,7 +42,7 @@ export function ReadAloud({ text }: ReadAloudProps) {
     setState('loading');
 
     try {
-      await speakWithKokoro(text, {
+      await speakText(text, {
         onStart: () => { if (mountedRef.current) setState('playing'); },
         onEnd: () => { if (mountedRef.current) setState('idle'); },
       });

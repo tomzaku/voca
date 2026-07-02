@@ -241,6 +241,103 @@ The "translation" field MUST be written in ${motherLang}.${
   throw lastError;
 }
 
+// ─── Cloze paragraph (drag-and-drop fill-the-gap game) ──────────────
+
+export interface ClozeSegment {
+  type: 'text' | 'blank';
+  /** For 'text': the literal text. For 'blank': the correct word for that gap. */
+  value: string;
+}
+
+export interface ClozeParagraph {
+  segments: ClozeSegment[];
+  /** The ordered correct answers, one per blank. */
+  answers: string[];
+}
+
+/**
+ * Generate a short paragraph that naturally uses each of `words` exactly once,
+ * with every target word wrapped in [[ ]] so we can turn them into gaps. In a
+ * non-English learn language the AI translates each word and wraps the
+ * translation, so the draggable tiles match the gaps regardless of language.
+ */
+export async function generateClozeParagraph(
+  words: string[],
+  signal?: AbortSignal,
+): Promise<ClozeParagraph> {
+  const learnLang = getLearnLanguage();
+  const isEnglish = learnLang.trim().toLowerCase() === 'english';
+  const list = words.map((w) => `"${w}"`).join(', ');
+
+  const system = `You write short, engaging vocabulary-practice paragraphs. Return ONLY valid JSON, no markdown, no explanation.`;
+
+  const prompt = `Write ONE coherent, engaging paragraph (about ${Math.min(
+    Math.max(words.length * 22, 70),
+    170,
+  )} words) suitable for a language learner.${
+    isEnglish ? '' : ` Write the paragraph in ${learnLang}.`
+  }
+
+You MUST use each of these vocabulary words exactly once, in a natural context: ${list}.
+
+${
+    isEnglish
+      ? 'Wrap each of those target words in double square brackets, e.g. she felt [[anxious]] about it.'
+      : `For each English word above, use its most natural ${learnLang} equivalent and wrap THAT ${learnLang} word in double square brackets, e.g. [[word]].`
+  } Only wrap the ${words.length} target words — nothing else. Do not wrap the same word more than once.
+
+Return this exact JSON (no markdown, no extra text):
+{ "paragraph": "the paragraph text with each target word wrapped in [[ ]]" }`;
+
+  const MAX_ATTEMPTS = 4;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const raw = await callAI({
+        system,
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 600,
+        signal,
+      });
+      const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      const { paragraph } = JSON.parse(jsonText) as { paragraph: string };
+      const parsed = parseCloze(paragraph);
+      // Need at least two gaps for a meaningful drag-and-drop round.
+      if (parsed.answers.length >= 2) return parsed;
+      throw new Error('Paragraph had too few gaps.');
+    } catch (err) {
+      lastError = err;
+      if ((err as Error).name === 'AbortError') throw err;
+      if (attempt < MAX_ATTEMPTS) continue;
+    }
+  }
+
+  throw lastError;
+}
+
+/** Split a `[[ ]]`-annotated paragraph into ordered text / blank segments. */
+export function parseCloze(paragraph: string): ClozeParagraph {
+  const segments: ClozeSegment[] = [];
+  const answers: string[] = [];
+  const re = /\[\[(.+?)\]\]/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(paragraph)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: 'text', value: paragraph.slice(lastIndex, match.index) });
+    }
+    const answer = match[1].trim();
+    segments.push({ type: 'blank', value: answer });
+    answers.push(answer);
+    lastIndex = re.lastIndex;
+  }
+  if (lastIndex < paragraph.length) {
+    segments.push({ type: 'text', value: paragraph.slice(lastIndex) });
+  }
+  return { segments, answers };
+}
+
 // ─── Active word list (respects selected pack) ──────────────────────
 
 export function getActiveWordList() {

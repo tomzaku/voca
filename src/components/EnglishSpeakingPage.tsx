@@ -3,7 +3,7 @@ import { speakingQuestions, speakingTopics } from '../data/englishSpeaking';
 import { podcasts, podcastTopics } from '../data/englishPodcasts';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { ReadAloud } from './ReadAloud';
-import { speakWithKokoro, stopKokoroAudio, preloadKokoro } from '../lib/kokoroTts';
+import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 
 type Tab = 'conversation' | 'podcast' | 'ielts';
 
@@ -73,10 +73,10 @@ function SelectionSpeaker({ containerRef }: { containerRef: React.RefObject<HTML
 
   const play = useCallback(async () => {
     if (!popup) return;
-    stopKokoroAudio();
+    stopSpeaking();
     setState('loading');
     try {
-      await speakWithKokoro(popup.text, {
+      await speakText(popup.text, {
         onStart: () => { if (mountedRef.current) setState('playing'); },
         onEnd: () => { if (mountedRef.current) setState(hasSelection() ? 'done' : 'idle'); },
       });
@@ -86,7 +86,7 @@ function SelectionSpeaker({ containerRef }: { containerRef: React.RefObject<HTML
   }, [popup]);
 
   const stop = useCallback(() => {
-    stopKokoroAudio();
+    stopSpeaking();
     setState(hasSelection() ? 'done' : 'idle');
   }, []);
 
@@ -443,21 +443,21 @@ function ReadAloudVoice({ text, role }: { text: string; role: 'examiner' | 'cand
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; stopKokoroAudio(); };
+    return () => { mountedRef.current = false; stopSpeaking(); };
   }, []);
 
-  useEffect(() => { stopKokoroAudio(); setState('idle'); }, [text]);
+  useEffect(() => { stopSpeaking(); setState('idle'); }, [text]);
 
   const speak = useCallback(async () => {
     if (state === 'loading' || state === 'playing') {
-      stopKokoroAudio();
+      stopSpeaking();
       setState('idle');
       return;
     }
     setState('loading');
     const voice = IELTS_VOICES[role];
     try {
-      await speakWithKokoro(text, {
+      await speakText(text, {
         voice,
         onStart: () => { if (mountedRef.current) setState('playing'); },
         onEnd: () => { if (mountedRef.current) setState('idle'); },
@@ -507,22 +507,22 @@ function PlayAllExchanges({ conversation }: { conversation: IeltsConversation })
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; stopKokoroAudio(); };
+    return () => { mountedRef.current = false; stopSpeaking(); };
   }, []);
 
   useEffect(() => {
     if (typeof requestIdleCallback === 'function') {
-      const id = requestIdleCallback(() => preloadKokoro(), { timeout: 3000 });
+      const id = requestIdleCallback(() => preloadTts(), { timeout: 3000 });
       return () => cancelIdleCallback(id);
     } else {
-      const id = setTimeout(() => preloadKokoro(), 3000);
+      const id = setTimeout(() => preloadTts(), 3000);
       return () => clearTimeout(id);
     }
   }, []);
 
   const playAll = useCallback(async () => {
     if (state === 'loading' || state === 'playing') {
-      stopKokoroAudio();
+      stopSpeaking();
       cancelledRef.current = true;
       setState('idle');
       setCurrentIndex(-1);
@@ -538,7 +538,7 @@ function PlayAllExchanges({ conversation }: { conversation: IeltsConversation })
       const ex = exchanges[i];
       if (mountedRef.current) setCurrentIndex(i);
       await new Promise<void>((resolve) => {
-        speakWithKokoro(ex.text, {
+        speakText(ex.text, {
           voice: IELTS_VOICES[ex.role],
           onStart: () => { if (mountedRef.current && i === 0) setState('playing'); },
           onEnd: () => resolve(),

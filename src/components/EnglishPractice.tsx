@@ -3,7 +3,7 @@ import { useEnglishChat, ENGLISH_TOPICS, type TopicId, type PracticeMode } from 
 import { useEnglishConversations, type EnglishConversation } from '../hooks/useEnglishConversations';
 import { useLearnings, type LearningCategory } from '../hooks/useLearnings';
 import { ReadAloud } from './ReadAloud';
-import { speakWithKokoro, stopKokoroAudio, preloadKokoro } from '../lib/kokoroTts';
+import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 import { transcribeBlob } from '../lib/whisperStt';
 import { getCurrentApiKey, getProviderConfig } from '../lib/aiProviders';
 import { useFabStore } from '../hooks/useFabStore';
@@ -110,7 +110,7 @@ export function EnglishPractice() {
   const { items: allLearnings, addItems: addLearningsToStore, removeItem: removeLearning, clear: clearLearnings } = useLearnings();
   const [showAllLearnings, setShowAllLearnings] = useState(false);
 
-  useEffect(() => { if (open) preloadKokoro(); }, [open]);
+  useEffect(() => { if (open) preloadTts(); }, [open]);
 
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden';
@@ -158,14 +158,14 @@ export function EnglishPractice() {
       autoReadQueueRef.current = lastMsg.content;
       const timer = setTimeout(() => {
         const text = autoReadQueueRef.current;
-        if (text) { autoReadQueueRef.current = null; speakWithKokoro(text).catch(() => {}); }
+        if (text) { autoReadQueueRef.current = null; speakText(text).catch(() => {}); }
       }, 150);
       return () => clearTimeout(timer);
     }
   }, [messages, isLoading, autoRead, open]);
 
   useEffect(() => {
-    if (!open) { autoReadQueueRef.current = null; stopKokoroAudio(); }
+    if (!open) { autoReadQueueRef.current = null; stopSpeaking(); }
   }, [open]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isLoading, summaryText]);
@@ -198,7 +198,7 @@ export function EnglishPractice() {
 
   const handleSummarize = async () => {
     if (messages.length < 2 || isLoading || isSummarizing) return;
-    stopKokoroAudio();
+    stopSpeaking();
     setIsSummarizing(true);
     const result = await summarizeMistakes(messages);
     setIsSummarizing(false);
@@ -363,7 +363,7 @@ export function EnglishPractice() {
   };
 
   const handleNewConversation = useCallback(() => {
-    stopKokoroAudio();
+    stopSpeaking();
     autoReadQueueRef.current = null;
     recognitionRef.current?.abort();
     recognitionRef.current = null;
@@ -381,7 +381,7 @@ export function EnglishPractice() {
   }, [reset]);
 
   const handleLoadConversation = useCallback((conv: EnglishConversation) => {
-    stopKokoroAudio();
+    stopSpeaking();
     autoReadQueueRef.current = null;
     setMessages(conv.messages);
     setCurrentTopic(conv.topicId);
@@ -614,7 +614,7 @@ export function EnglishPractice() {
       {open && (
         <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-          onClick={() => { stopKokoroAudio(); closePanel(); }}
+          onClick={() => { stopSpeaking(); closePanel(); }}
         />
       )}
 
@@ -679,7 +679,7 @@ export function EnglishPractice() {
               )}
             </button>
             <button
-              onClick={() => { stopKokoroAudio(); closePanel(); }}
+              onClick={() => { stopSpeaking(); closePanel(); }}
               className="p-1.5 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

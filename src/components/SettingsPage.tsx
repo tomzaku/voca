@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
-import { speakWithKokoro, stopKokoroAudio } from '../lib/kokoroTts';
+import { speakText, stopSpeaking } from '../lib/tts';
 import { ToggleSwitch } from './ToggleSwitch';
 import {
   AI_PROVIDERS,
@@ -174,10 +174,10 @@ export function SettingsPage() {
   };
 
   const preview = async (voiceId: string) => {
-    stopKokoroAudio();
+    stopSpeaking();
     setPreviewState({ id: voiceId, phase: 'loading' });
     try {
-      await speakWithKokoro('The word "serendipity" means happy accident. What a beautiful discovery!', {
+      await speakText('The word "serendipity" means happy accident. What a beautiful discovery!', {
         voice: voiceId,
         onStart: () => setPreviewState({ id: voiceId, phase: 'playing' }),
         onEnd: () => setPreviewState(null),
@@ -187,7 +187,7 @@ export function SettingsPage() {
     }
   };
 
-  const stopPreview = () => { stopKokoroAudio(); setPreviewState(null); };
+  const stopPreview = () => { stopSpeaking(); setPreviewState(null); };
 
   const handleResetProgress = () => {
     if (!confirm('Reset all learning progress? This cannot be undone.')) return;

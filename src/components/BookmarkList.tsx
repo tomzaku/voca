@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData } from '../lib/wordService';
-import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
+import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
 import { BookmarkGame } from './BookmarkGame';
 import { SpellingGame } from './SpellingGame';
+import { ParagraphGame } from './ParagraphGame';
 
 type Tab = 'saved' | 'known' | 'unknown';
 
@@ -25,7 +26,7 @@ export function BookmarkList() {
   const known = store.wordsByStatus('known');
   const unknown = store.wordsByStatus('skipped');
   const list = tab === 'saved' ? bookmarks : tab === 'known' ? known : unknown;
-  const [mode, setMode] = useState<'list' | 'quiz' | 'spelling'>('list');
+  const [mode, setMode] = useState<'list' | 'quiz' | 'spelling' | 'paragraph'>('list');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [wordCache, setWordCache] = useState<Record<string, VocabularyWord>>({});
   const [loadingWord, setLoadingWord] = useState<string | null>(null);
@@ -53,18 +54,18 @@ export function BookmarkList() {
 
   const handleSpeak = async (e: React.MouseEvent, word: string) => {
     e.stopPropagation();
-    if (speakingWord === word && isKokoroPlaying()) {
-      stopKokoroAudio();
+    if (speakingWord === word && isTtsPlaying()) {
+      stopSpeaking();
       setSpeakingWord(null);
       return;
     }
-    stopKokoroAudio();
+    stopSpeaking();
     const data = wordCache[word];
     const text = data
       ? `${word}. ${data.definition}. ${data.examples.join(' ')}`
       : word;
     setSpeakingWord(word);
-    await speakWithKokoro(text, { onEnd: () => setSpeakingWord(null) });
+    await speakText(text, { onEnd: () => setSpeakingWord(null) });
   };
 
   const handleRemove = (e: React.MouseEvent, word: string) => {
@@ -89,6 +90,15 @@ export function BookmarkList() {
   if (mode === 'spelling') {
     return (
       <SpellingGame
+        bookmarks={bookmarks.map((b) => b.word)}
+        onBack={() => setMode('list')}
+      />
+    );
+  }
+
+  if (mode === 'paragraph') {
+    return (
+      <ParagraphGame
         bookmarks={bookmarks.map((b) => b.word)}
         onBack={() => setMode('list')}
       />
@@ -156,6 +166,16 @@ export function BookmarkList() {
                   <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
                 Spelling
+              </button>
+              <button
+                onClick={() => setMode('paragraph')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-green/10 border border-accent-green/20 text-accent-green text-xs font-medium hover:bg-accent-green/20 transition-all"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" />
+                  <path d="M9 20h6" /><path d="M12 4v16" />
+                </svg>
+                Story Gaps
               </button>
             </div>
           )}

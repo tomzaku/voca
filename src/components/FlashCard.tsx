@@ -10,7 +10,7 @@ import { WordNotes } from './WordNotes';
 import { GuessGame } from './GuessGame';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
-import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
+import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import { encodeWord, decodeWord } from '../lib/wordCode';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
@@ -106,7 +106,7 @@ export function FlashCard() {
   const loadNextWord = useCallback(async (excludeWord?: string) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
-    stopKokoroAudio();
+    stopSpeaking();
     setIsSpeaking(false);
     setPhase('loading');
     setGaveUp(false);
@@ -150,7 +150,7 @@ export function FlashCard() {
   const loadSpecificWord = useCallback(async (word: string) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
-    stopKokoroAudio();
+    stopSpeaking();
     setIsSpeaking(false);
     setPhase('loading');
     setGaveUp(false);
@@ -199,7 +199,7 @@ export function FlashCard() {
     return () => {
       abortRef.current?.abort();
       searchAbortRef.current?.abort();
-      stopKokoroAudio();
+      stopSpeaking();
     };
   }, []);
 
@@ -226,14 +226,14 @@ export function FlashCard() {
 
   const handleSpeak = async () => {
     if (!wordData) return;
-    if (isKokoroPlaying() || isSpeaking) {
-      stopKokoroAudio();
+    if (isTtsPlaying() || isSpeaking) {
+      stopSpeaking();
       setIsSpeaking(false);
       return;
     }
     const text = `${wordData.word}. ${wordData.definition}. ${wordData.examples.join(' ')}`;
     setIsSpeaking(true);
-    await speakWithKokoro(text, { onEnd: () => setIsSpeaking(false) });
+    await speakText(text, { onEnd: () => setIsSpeaking(false) });
   };
 
   const handleSkip = () => {
@@ -270,7 +270,7 @@ export function FlashCard() {
     const data = wordHistoryRef.current[index];
     if (!data) return;
     abortRef.current?.abort();
-    stopKokoroAudio();
+    stopSpeaking();
     setIsSpeaking(false);
     historyIndexRef.current = index;
     setHistoryIndex(index);
@@ -340,7 +340,6 @@ export function FlashCard() {
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
               <button
                 type="submit"
-                disabled={isGenerating}
                 className="btn-3d px-4 py-1.5 bg-accent-cyan text-bg-primary text-sm"
               >
                 Go!

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { callAI } from '../lib/aiProviders';
-import { speakConversation, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
+import { speakConversation, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import type { VocabularyWord } from '../types';
 
 type Mode = 'sample' | 'chat' | 'translate';
@@ -100,10 +100,10 @@ B: response`,
   }, [loaded, wordData]);
 
   // Cleanup on unmount
-  useEffect(() => () => { stopKokoroAudio(); }, []);
+  useEffect(() => () => { stopSpeaking(); }, []);
 
   const readAloud = () => {
-    if (playing || isKokoroPlaying()) { stopKokoroAudio(); return; }
+    if (playing || isTtsPlaying()) { stopSpeaking(); return; }
     if (messages.length === 0) return;
 
     speakConversation(messages, {

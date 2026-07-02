@@ -167,7 +167,11 @@ async function callAnthropic(apiKey: string, model: string, opts: CallOptions): 
   }
 
   const data = await response.json();
-  return data.content?.[0]?.text || 'No response received.';
+  // The response may lead with a `thinking` block (extended thinking) before the
+  // `text` block, so grab the first text block rather than content[0] blindly.
+  const text = (data.content as { type: string; text?: string }[] | undefined)
+    ?.find((b) => b.type === 'text')?.text;
+  return text || 'No response received.';
 }
 
 function getOpenAICompatibleEndpoint(providerId: ProviderId): string {

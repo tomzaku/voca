@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { getActiveWordList } from '../lib/wordService';
-import { speakWithKokoro, stopKokoroAudio } from '../lib/kokoroTts';
+import { speakText, stopSpeaking } from '../lib/tts';
 import { GUESS_GAMES, type GuessGameMode } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import type { VocabularyWord } from '../types';
@@ -504,23 +504,23 @@ function ListenGame({ word, disabled, onSolve, onWrong }: GameProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const speak = async () => {
-    stopKokoroAudio();
+    stopSpeaking();
     setSpeaking(true);
-    await speakWithKokoro(word, { onEnd: () => setSpeaking(false) });
+    await speakText(word, { onEnd: () => setSpeaking(false) });
   };
 
   // Play the word once on mount, then focus the input.
   useEffect(() => {
     speak();
     inputRef.current?.focus();
-    return () => stopKokoroAudio();
+    return () => stopSpeaking();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const check = () => {
     if (!guess.trim() || disabled) return;
     if (guess.trim().toLowerCase() === word.toLowerCase()) {
-      stopKokoroAudio();
+      stopSpeaking();
       onSolve();
     } else {
       setWrong(true);
