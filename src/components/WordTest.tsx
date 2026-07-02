@@ -245,12 +245,10 @@ function TranslateMode({ wordData }: { wordData: VocabularyWord }) {
   const [langInput, setLangInput] = useState(getStoredLang);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fetchedLang, setFetchedLang] = useState('');
 
   const fetchTranslation = (targetLang: string) => {
-    if (loading || fetchedLang === targetLang) return;
+    if (loading) return;
     setLoading(true);
-    setFetchedLang(targetLang);
     setMessages([]);
 
     callAI({
@@ -273,43 +271,50 @@ Keep it short and practical.`,
       .finally(() => setLoading(false));
   };
 
-  // Auto-fetch on mount with stored lang
-  useEffect(() => { fetchTranslation(lang); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleChangeLang = () => {
-    const trimmed = langInput.trim();
-    if (!trimmed || trimmed === lang) return;
-    localStorage.setItem(LANG_KEY, trimmed);
-    setLang(trimmed);
-    setFetchedLang('');
-    fetchTranslation(trimmed);
+  const handleExplain = () => {
+    const target = langInput.trim() || lang;
+    if (target !== lang) {
+      localStorage.setItem(LANG_KEY, target);
+      setLang(target);
+    }
+    fetchTranslation(target);
   };
 
   return (
     <div className="px-4 py-3 space-y-3">
-      {/* Language picker */}
+      {/* Quick translation baked into the word — shown instantly, no AI call */}
+      {wordData.translation && (
+        <div className="rounded-lg border border-accent-purple/20 bg-accent-purple/5 px-3 py-2">
+          <p className="text-[10px] font-display font-bold uppercase tracking-wider text-text-muted mb-0.5">{lang}</p>
+          <p className="text-sm text-text-primary">{wordData.translation}</p>
+        </div>
+      )}
+
+      {/* Language + on-demand detailed explanation */}
       <div className="flex gap-2">
         <input
           value={langInput}
           onChange={(e) => setLangInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleChangeLang()}
+          onKeyDown={(e) => e.key === 'Enter' && handleExplain()}
           placeholder="Language (e.g. Vietnamese)"
           className="flex-1 bg-bg-card border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/40"
         />
         <button
-          onClick={handleChangeLang}
-          disabled={loading || !langInput.trim() || langInput.trim() === lang}
-          className="px-3 py-1.5 rounded-lg bg-accent-purple/15 text-accent-purple text-xs font-medium hover:bg-accent-purple/25 transition-colors disabled:opacity-40"
+          onClick={handleExplain}
+          disabled={loading || !langInput.trim()}
+          className="px-3 py-1.5 rounded-lg bg-accent-purple/15 text-accent-purple text-xs font-medium hover:bg-accent-purple/25 transition-colors disabled:opacity-40 whitespace-nowrap"
         >
-          Apply
+          {loading ? 'Loading…' : 'Explain & examples'}
         </button>
       </div>
 
-      {/* Translation result */}
-      <div className="max-h-56 overflow-y-auto space-y-2">
-        {messages.map((m, i) => <Bubble key={i} msg={m} />)}
-        {loading && <TypingIndicator />}
-      </div>
+      {/* AI detailed result (only after the user asks) */}
+      {(messages.length > 0 || loading) && (
+        <div className="max-h-56 overflow-y-auto space-y-2">
+          {messages.map((m, i) => <Bubble key={i} msg={m} />)}
+          {loading && <TypingIndicator />}
+        </div>
+      )}
     </div>
   );
 }
@@ -323,7 +328,9 @@ const MODES: { id: Mode; label: string; icon: string }[] = [
 ];
 
 export function WordTest({ wordData }: Props) {
-  const [mode, setMode] = useState<Mode | null>(null);
+  // Open the Translate tab by default so learners see the meaning in their
+  // mother language right away.
+  const [mode, setMode] = useState<Mode | null>('translate');
 
   if (!mode) {
     return (

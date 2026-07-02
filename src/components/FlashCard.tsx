@@ -378,7 +378,7 @@ export function FlashCard() {
                       : 'bg-bg-card border border-border text-text-muted hover:text-text-primary hover:border-border-light'
                   }`}
                 >
-                  {masked ? '• • •' : w.word}
+                  {masked ? '• • •' : (w.headword || w.word)}
                 </button>
               );
             })}
@@ -484,7 +484,7 @@ export function FlashCard() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h1 className="text-4xl font-display font-bold text-text-primary tracking-tight mb-1">
-                        {wordData.word}
+                        {wordData.headword || wordData.word}
                       </h1>
                       {wordData.phonetic && (
                         <p className="text-sm font-code text-text-muted">{wordData.phonetic}</p>
@@ -528,6 +528,11 @@ export function FlashCard() {
                     Definition
                   </h3>
                   <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
+                  {wordData.translation && (
+                    <p className="mt-3 pt-3 border-t border-border/60 text-sm text-accent-cyan">
+                      {wordData.translation}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -602,8 +607,9 @@ export function FlashCard() {
                   </h3>
                   <ul className="space-y-2">
                     {(phase === 'introduce' ? wordData.examples.slice(0, 2) : wordData.examples).map((ex, i) => {
+                      const answerWord = wordData.headword || wordData.word;
                       const text = phase === 'introduce'
-                        ? ex.replace(new RegExp(`\\b${wordData.word}\\b`, 'gi'), '____')
+                        ? ex.replace(new RegExp(`\\b${answerWord}\\b`, 'gi'), '____')
                         : ex;
                       return (
                         <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">

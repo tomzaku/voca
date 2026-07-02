@@ -60,7 +60,8 @@ function Confetti() {
 }
 
 export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
-  const word = wordData.word;
+  // Guess the learn-language headword when set (falls back to the English word).
+  const word = wordData.headword || wordData.word;
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
   const { points, streak, win, lastGain, winId } = useGameScore();
   const info = GUESS_GAMES.find((g) => g.id === game)!;

@@ -20,6 +20,13 @@ import {
   type ApiKeyStorageMode,
 } from '../lib/apiKeyStorage';
 import { WORD_PACKS, getWordPack, setWordPack, buildWordList, type PackId } from '../lib/wordLists';
+import {
+  LANGUAGES,
+  getLearnLanguage,
+  setLearnLanguage,
+  getMotherLanguage,
+  setMotherLanguage,
+} from '../lib/languages';
 import { GUESS_GAMES, useGuessGame } from '../hooks/useGuessGame';
 import { WORD_LIST } from '../lib/wordService';
 import { clearPrefetchQueue } from '../lib/prefetchService';
@@ -59,6 +66,23 @@ export function SettingsPage() {
 
   const [previewState, setPreviewState] = useState<{ id: string; phase: 'loading' | 'playing' } | null>(null);
   const [wordPack, setWordPackState] = useState<PackId>(getWordPack);
+
+  const [learnLang, setLearnLangState] = useState(getLearnLanguage);
+  const [motherLang, setMotherLangState] = useState(getMotherLanguage);
+
+  const handleLearnLangChange = (lang: string) => {
+    setLearnLanguage(lang);
+    setLearnLangState(lang);
+    clearPrefetchQueue(); // upcoming words are generated in the new language
+    toast.success(`Learning ${lang}`);
+  };
+
+  const handleMotherLangChange = (lang: string) => {
+    setMotherLanguage(lang);
+    setMotherLangState(lang);
+    clearPrefetchQueue(); // translations are regenerated for the new language
+    toast.success(`Translations in ${lang}`);
+  };
 
   const handlePackChange = (id: PackId) => {
     setWordPack(id);
@@ -213,6 +237,36 @@ export function SettingsPage() {
             </button>
           </div>
         )}
+      </section>
+
+      {/* Languages */}
+      <section className="mb-8">
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Languages</h2>
+        <p className="text-xs text-text-muted mb-3">
+          Words are generated in the language you're learning and translated into your mother language.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-text-secondary block mb-1.5">Language to learn</label>
+            <select
+              value={learnLang}
+              onChange={(e) => handleLearnLangChange(e.target.value)}
+              className="w-full bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
+            >
+              {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-text-secondary block mb-1.5">Mother language</label>
+            <select
+              value={motherLang}
+              onChange={(e) => handleMotherLangChange(e.target.value)}
+              className="w-full bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
+            >
+              {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
       </section>
 
       {/* Vocabulary Pack */}

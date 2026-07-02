@@ -1,5 +1,6 @@
 import { callAI } from './aiProviders';
 import { buildWordList, getWordPack } from './wordLists';
+import { getLearnLanguage, getMotherLanguage } from './languages';
 import type { VocabularyWord } from '../types';
 
 // ─── Built-in word list ─────────────────────────────────────────────
@@ -142,11 +143,15 @@ export const WORD_LIST: { word: string; level: VocabularyWord['level'] }[] = [
 
 // ─── Cache ──────────────────────────────────────────────────────────
 
-const CACHE_KEY_PREFIX = 'voca-word-v3-';
+// Cache key includes the mother language so switching it regenerates entries
+// (each carries a translation into that language).
+function cacheKey(word: string): string {
+  return `voca-word-v4-${getLearnLanguage()}-${getMotherLanguage()}-${word}`;
+}
 
 function getCachedWord(word: string): VocabularyWord | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY_PREFIX + word);
+    const raw = localStorage.getItem(cacheKey(word));
     if (raw) return JSON.parse(raw) as VocabularyWord;
   } catch { /* ignore */ }
   return null;
@@ -154,7 +159,7 @@ function getCachedWord(word: string): VocabularyWord | null {
 
 function cacheWord(word: VocabularyWord) {
   try {
-    localStorage.setItem(CACHE_KEY_PREFIX + word.word, JSON.stringify(word));
+    localStorage.setItem(cacheKey(word.word), JSON.stringify(word));
   } catch { /* ignore */ }
 }
 
@@ -168,16 +173,27 @@ export async function generateWordData(
   const cached = getCachedWord(word);
   if (cached) return cached;
 
+  const learnLang = getLearnLanguage();
+  const motherLang = getMotherLanguage();
+  const isEnglish = learnLang.trim().toLowerCase() === 'english';
+
   const system = `You are a vocabulary tutor. Return ONLY valid JSON, no markdown, no explanation.`;
 
-  const prompt = `Generate vocabulary data for the word "${word}" (level: ${level}).
+  const headwordSpec = isEnglish
+    ? `"word": "${word}",`
+    : `"word": "the single ${learnLang} word that best translates the English word \\"${word}\\"",`;
+
+  const prompt = `Generate vocabulary data for ${
+    isEnglish ? `the English word "${word}"` : `the ${learnLang} equivalent of the English word "${word}"`
+  } (level: ${level}).
 
 Return this exact JSON structure (no markdown, no extra text):
 {
-  "word": "${word}",
+  ${headwordSpec}
   "phonetic": "IPA phonetic notation like /wɜːrd/",
   "partOfSpeech": "noun | verb | adjective | adverb | etc",
-  "definition": "Clear, concise definition in 1-2 sentences",
+  "definition": "Clear, concise definition in 1-2 sentences${isEnglish ? '' : `, written in ${learnLang}`}",
+  "translation": "the word's meaning translated into ${motherLang} (the most natural equivalent)",
   "examples": [
     "Natural example sentence showing the word in context.",
     "Another example with different usage.",
@@ -189,7 +205,9 @@ Return this exact JSON structure (no markdown, no extra text):
   "imageKeywords": ["concrete visual noun 1", "concept 2"]
 }
 
-For imageKeywords, provide 1-2 simple concrete nouns or short phrases that visually represent the word's meaning (used for image search).`;
+The "translation" field MUST be written in ${motherLang}.${
+    isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", and "antonyms" MUST all be written in ${learnLang}.`
+  } For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
 
   const MAX_ATTEMPTS = 5;
   let lastError: unknown;
@@ -206,6 +224,12 @@ For imageKeywords, provide 1-2 simple concrete nouns or short phrases that visua
       // Parse JSON — strip markdown fences if present
       const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
       const data = JSON.parse(jsonText) as VocabularyWord;
+      // Keep the English seed as the stable identity (progress/selection); the
+      // AI's learn-language word becomes the headword shown and guessed.
+      if (!isEnglish) {
+        data.headword = data.word;
+        data.word = word;
+      }
       cacheWord(data);
       return data;
     } catch (err) {
