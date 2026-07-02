@@ -21,6 +21,15 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+// True when the current URL looks like an in-progress OAuth callback — a PKCE
+// `?code=` param or an implicit-flow `#access_token=` fragment. Used to avoid
+// finalizing keys from a not-yet-parsed (null) session on the OAuth return.
+function isOAuthRedirectPending(): boolean {
+  if (typeof window === 'undefined') return false;
+  const { hash, search } = window.location;
+  return hash.includes('access_token=') || new URLSearchParams(search).has('code');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -36,6 +45,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // During a Google OAuth redirect the session isn't parsed from the URL
+      // yet, so getSession() returns null momentarily. Loading keys now would
+      // use the logged-out/local set and let vocabulary generate before the
+      // account's synced API keys arrive. Skip and let onAuthStateChange
+      // (SIGNED_IN, fired once the URL is processed) load the account keys.
+      if (!session && isOAuthRedirectPending()) return;
       setSession(session);
       setUser(session?.user ?? null);
       await initApiKeyStorage(session?.user ?? null);
