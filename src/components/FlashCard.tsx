@@ -63,7 +63,7 @@ async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
 }
 
 export function FlashCard() {
-  const { user, keysLoaded } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const store = useVocabularyStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -173,12 +173,12 @@ export function FlashCard() {
     }
   }, [pushWord]);
 
-  // Kick off the first word only once API keys are ready. On refresh with an
-  // account-synced key, initApiKeyStorage loads asynchronously — starting
-  // generation before then calls the AI with an empty key and fails to load.
+  // Kick off the first word only once auth has resolved. AI calls are proxied
+  // through the server and require the user's session token, so we wait for the
+  // session to load before generating (avoids a spurious "please sign in").
   const didInit = useRef(false);
   useEffect(() => {
-    if (!keysLoaded || didInit.current) return;
+    if (authLoading || didInit.current) return;
     didInit.current = true;
     // Prefer the encoded `w` param; fall back to legacy plaintext `?word=` links.
     const encoded = searchParams.get('w');
@@ -192,7 +192,7 @@ export function FlashCard() {
       loadNextWord();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keysLoaded]);
+  }, [authLoading]);
 
   // Abort any in-flight work on unmount.
   useEffect(() => {

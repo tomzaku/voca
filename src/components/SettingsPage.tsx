@@ -1,24 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { ToggleSwitch } from './ToggleSwitch';
-import {
-  AI_PROVIDERS,
-  getProvider,
-  setProvider as setProviderStorage,
-  getModel,
-  setModel as setModelStorage,
-  getApiKeyForProvider,
-  setApiKeyForProvider,
-  type ProviderId,
-} from '../lib/aiProviders';
-import {
-  getApiKeyStorageMode,
-  setApiKeyStorageMode,
-  initApiKeyStorage,
-  syncPreferencesToSupabase,
-  type ApiKeyStorageMode,
-} from '../lib/apiKeyStorage';
 import { WORD_PACKS, getWordPack, setWordPack, buildWordList, type PackId } from '../lib/wordLists';
 import {
   LANGUAGES,
@@ -59,7 +42,7 @@ const gradeColor: Record<string, string> = {
 
 export function SettingsPage() {
   const { engine, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed } = useTtsSettings();
-  const { user, keysLoaded, signInWithGoogle, signOut } = useAuth();
+  const { user, signInWithGoogle, signOut } = useAuth();
   const store = useVocabularyStore();
 
   const { game: guessGame, setGame: setGuessGame } = useGuessGame();
@@ -89,88 +72,6 @@ export function SettingsPage() {
     setWordPackState(id);
     clearPrefetchQueue();
     toast.success(`Switched to ${WORD_PACKS.find((p) => p.id === id)?.label}`);
-  };
-
-  // AI Provider state
-  const [aiProvider, setAiProvider] = useState<ProviderId>(getProvider);
-  const [aiModel, setAiModel] = useState(getModel);
-  const [aiApiKeyInput, setAiApiKeyInput] = useState('');
-  const [aiApiKeySaved, setAiApiKeySaved] = useState(false);
-  const [hasAiKey, setHasAiKey] = useState(false);
-  const [aiKeyLoading, setAiKeyLoading] = useState(false);
-
-  // Re-sync provider/model/key state after keys are loaded from storage
-  useEffect(() => {
-    if (!keysLoaded) return;
-    const provider = getProvider() as ProviderId;
-    const model = getModel();
-    setAiProvider(provider);
-    setAiModel(model);
-    setHasAiKey(!!getApiKeyForProvider(provider));
-  }, [keysLoaded]);
-
-  // API key storage mode
-  const [keyStorageMode, setKeyStorageMode] = useState<ApiKeyStorageMode>(getApiKeyStorageMode);
-  const [storageSwitching, setStorageSwitching] = useState(false);
-
-  const handleProviderChange = (id: ProviderId) => {
-    setAiProvider(id);
-    setProviderStorage(id);
-    const provider = AI_PROVIDERS.find((p) => p.id === id)!;
-    setAiModel(provider.defaultModel);
-    setModelStorage(provider.defaultModel);
-    setAiApiKeyInput('');
-    setAiApiKeySaved(false);
-    setHasAiKey(!!getApiKeyForProvider(id));
-    syncPreferencesToSupabase();
-  };
-
-  const handleModelChange = (model: string) => {
-    setAiModel(model);
-    setModelStorage(model);
-    syncPreferencesToSupabase();
-  };
-
-  const handleSaveAiKey = async () => {
-    const key = aiApiKeyInput.trim();
-    if (key) {
-      await setApiKeyForProvider(aiProvider, key);
-      setAiApiKeyInput('');
-      setAiApiKeySaved(true);
-      setHasAiKey(true);
-      toast.success(keyStorageMode === 'supabase' ? 'Key uploaded to your account.' : 'Key saved to this browser.');
-      setTimeout(() => setAiApiKeySaved(false), 2000);
-    }
-  };
-
-  // Account mode: pull the key (and provider/model prefs) back from the account.
-  const handleLoadAiKey = async () => {
-    if (!user) return;
-    setAiKeyLoading(true);
-    await initApiKeyStorage(user);
-    const provider = getProvider() as ProviderId;
-    setAiProvider(provider);
-    setAiModel(getModel());
-    const key = getApiKeyForProvider(provider);
-    setHasAiKey(!!key);
-    setAiKeyLoading(false);
-    toast[key ? 'success' : 'error'](key ? 'Key loaded from your account.' : 'No key found in your account.');
-  };
-
-  const handleStorageModeChange = async (mode: ApiKeyStorageMode) => {
-    if (mode === keyStorageMode) return;
-    if (mode === 'supabase' && !user) {
-      toast.error('Sign in to sync your API keys to your account.');
-      return;
-    }
-    setStorageSwitching(true);
-    const ok = await setApiKeyStorageMode(mode, user ?? null);
-    if (ok) {
-      await initApiKeyStorage(user ?? null);
-      setKeyStorageMode(mode);
-      toast.success(mode === 'supabase' ? 'API keys synced to your account.' : 'API keys stored locally.');
-    }
-    setStorageSwitching(false);
   };
 
   const preview = async (voiceId: string) => {
@@ -329,158 +230,6 @@ export function SettingsPage() {
                 </div>
                 <p className="text-xs text-text-muted">{g.description}</p>
               </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* AI Provider */}
-      <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">AI Provider</h2>
-        <p className="text-xs text-text-muted mb-3">Used to generate word definitions and examples.</p>
-
-        <div className="space-y-2 mb-4">
-          {AI_PROVIDERS.map((p) => {
-            const selected = aiProvider === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => handleProviderChange(p.id)}
-                className={`w-full text-left p-4 rounded-lg border transition-all cursor-pointer ${
-                  selected
-                    ? 'bg-accent-purple/5 border-accent-purple/30 ring-1 ring-accent-purple/20'
-                    : 'bg-bg-card border-border hover:border-text-muted/30'
-                }`}
-              >
-                <div className="flex items-center gap-3 mb-1">
-                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selected ? 'border-accent-purple' : 'border-text-muted/40'}`}>
-                    {selected && <span className="w-2 h-2 rounded-full bg-accent-purple" />}
-                  </span>
-                  <span className={`text-sm font-medium ${selected ? 'text-accent-purple' : 'text-text-primary'}`}>{p.label}</span>
-                  {p.badge && (
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-cyan/15 text-accent-cyan">
-                      {p.badge}
-                    </span>
-                  )}
-                  {hasAiKey && selected && (
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-green/15 text-accent-green">Key set</span>
-                  )}
-                </div>
-                <p className="text-xs text-text-muted ml-7">{p.description}</p>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Model picker */}
-        {(() => {
-          const provider = AI_PROVIDERS.find((p) => p.id === aiProvider)!;
-          return (
-            <div className="mb-4">
-              <label className="text-xs font-medium text-text-secondary block mb-1.5">Model</label>
-              <select
-                value={aiModel}
-                onChange={(e) => handleModelChange(e.target.value)}
-                className="w-full bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-purple/50 cursor-pointer"
-              >
-                {provider.models.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-          );
-        })()}
-
-        {/* Storage mode — the selected option reveals its own API key controls */}
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-text-secondary mb-1.5">Key storage</p>
-          {(['local', 'supabase'] as const).map((mode) => {
-            const isSupabase = mode === 'supabase';
-            const selected = keyStorageMode === mode;
-            const disabled = isSupabase && !user;
-            const provider = AI_PROVIDERS.find((p) => p.id === aiProvider)!;
-            return (
-              <div
-                key={mode}
-                className={`rounded-lg border transition-all ${
-                  disabled
-                    ? 'opacity-40 bg-bg-card border-border'
-                    : selected
-                    ? 'bg-accent-purple/5 border-accent-purple/30 ring-1 ring-accent-purple/20'
-                    : 'bg-bg-card border-border hover:border-text-muted/30'
-                }`}
-              >
-                <button
-                  onClick={() => !disabled && !storageSwitching && handleStorageModeChange(mode)}
-                  disabled={disabled || storageSwitching}
-                  className={`w-full text-left p-3 flex items-start gap-3 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <span className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selected ? 'border-accent-purple' : 'border-text-muted/40'}`}>
-                    {selected && <span className="w-2 h-2 rounded-full bg-accent-purple" />}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium ${selected ? 'text-accent-purple' : 'text-text-primary'}`}>
-                        {isSupabase ? 'Account (encrypted)' : 'This browser only'}
-                      </span>
-                      {isSupabase && (
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-cyan/15 text-accent-cyan">AES-256</span>
-                      )}
-                    </div>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {isSupabase
-                        ? disabled
-                          ? 'Sign in to enable cross-device sync with end-to-end encryption.'
-                          : 'Encrypted before upload — only you can decrypt. Syncs across devices.'
-                        : 'Stored in localStorage. Fast, no account needed, this device only.'}
-                    </p>
-                  </div>
-                  {storageSwitching && selected && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" className="animate-spin shrink-0 mt-0.5 text-accent-purple" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2a10 10 0 0 1 10 10" /></svg>
-                  )}
-                </button>
-
-                {selected && !disabled && (
-                  <div className="px-3 pb-3 pt-1 border-t border-border/60 mt-1">
-                    <label className="text-xs font-medium text-text-secondary block mb-1.5 mt-2">
-                      {provider.label} API Key {hasAiKey && <span className="text-accent-green ml-1.5">(saved)</span>}
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="password"
-                        value={aiApiKeyInput}
-                        onChange={(e) => setAiApiKeyInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSaveAiKey()}
-                        placeholder={hasAiKey ? '••••••••' : provider.placeholder}
-                        className="flex-1 min-w-0 bg-bg-primary border border-border rounded-lg px-3 py-2 text-sm text-text-primary font-code focus:outline-none focus:border-accent-purple/50 placeholder:text-text-muted"
-                      />
-                      {isSupabase && (
-                        <button
-                          onClick={handleLoadAiKey}
-                          disabled={aiKeyLoading}
-                          className="px-3 py-2 border border-border text-text-secondary text-xs font-semibold rounded-lg hover:border-accent-purple/40 hover:text-accent-purple transition-colors cursor-pointer disabled:opacity-40 shrink-0"
-                        >
-                          {aiKeyLoading ? 'Loading…' : 'Load'}
-                        </button>
-                      )}
-                      <button
-                        onClick={handleSaveAiKey}
-                        disabled={!aiApiKeyInput.trim()}
-                        className="px-3 py-2 bg-accent-purple text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-purple/90 transition-colors cursor-pointer disabled:opacity-40 shrink-0"
-                      >
-                        {aiApiKeySaved ? 'Saved!' : isSupabase ? 'Upload' : 'Save'}
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-text-muted mt-1.5">
-                      Get your key from{' '}
-                      <a href={provider.keysUrl} target="_blank" rel="noopener noreferrer" className="text-accent-purple hover:underline">
-                        {provider.keysLabel}
-                      </a>
-                      {isSupabase ? '. Encrypted in your browser before upload.' : '.'}
-                    </p>
-                  </div>
-                )}
-              </div>
             );
           })}
         </div>
