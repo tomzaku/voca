@@ -114,7 +114,7 @@ export function BookmarkList() {
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
       {/* ── Tabs ── */}
-      <div className="flex items-center gap-1.5 mb-6">
+      <div className="flex items-stretch gap-1 mb-6 border-b-2 border-border">
         {TABS.map((t) => {
           const count = t.id === 'saved' ? bookmarks.length : t.id === 'known' ? known.length : unknown.length;
           const active = tab === t.id;
@@ -122,14 +122,14 @@ export function BookmarkList() {
             <button
               key={t.id}
               onClick={() => { setTab(t.id); setExpanded(null); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 -mb-0.5 border-b-[3px] text-sm font-extrabold transition-all ${
                 active
-                  ? 'bg-accent-cyan/10 border-accent-cyan/30 text-accent-cyan'
-                  : 'bg-bg-card border-border text-text-muted hover:text-text-primary hover:border-border-light'
+                  ? 'border-accent-cyan text-accent-cyan'
+                  : 'border-transparent text-text-muted hover:text-text-primary'
               }`}
             >
               {t.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-accent-cyan/20' : 'bg-bg-tertiary'}`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-accent-cyan/20 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
                 {count}
               </span>
             </button>
