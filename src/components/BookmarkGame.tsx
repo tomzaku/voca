@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { generateWordData, WORD_LIST } from '../lib/wordService';
+import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
 import type { VocabularyWord } from '../types';
 
 type GamePhase = 'loading' | 'playing' | 'finished';
@@ -80,11 +81,17 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
   const handleSelect = (option: string) => {
     if (selected !== null) return;
     setSelected(option);
-    if (option === questions[current].word) setScore((s) => s + 1);
+    if (option === questions[current].word) {
+      setScore((s) => s + 1);
+      playCorrect();
+    } else {
+      playWrong();
+    }
 
     setTimeout(() => {
       const next = current + 1;
       if (next >= questions.length) {
+        playWin();
         setPhase('finished');
       } else {
         setCurrent(next);
@@ -96,6 +103,7 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
 
   const revealLetter = (i: number) => {
     if (selected !== null || revealedIndices.has(i)) return;
+    playSelect();
     setRevealedIndices((prev) => new Set([...prev, i]));
   };
 

@@ -8,6 +8,9 @@
 
 const SFX_KEY = 'voca-sfx';
 
+// Master volume applied to every sound's gain. Bumped to 1.5 (+50% louder).
+const MASTER_VOLUME = 1.5;
+
 let ctx: AudioContext | null = null;
 
 export function isSfxEnabled(): boolean {
@@ -47,7 +50,7 @@ function tone(c: AudioContext, { freq, start, dur, type = 'triangle', gain = 0.1
   if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
   // Quick attack, exponential decay — a clean plucky envelope.
   g.gain.setValueAtTime(0.0001, t0);
-  g.gain.linearRampToValueAtTime(gain, t0 + 0.008);
+  g.gain.linearRampToValueAtTime(gain * MASTER_VOLUME, t0 + 0.008);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   osc.connect(g).connect(c.destination);
   osc.start(t0);

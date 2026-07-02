@@ -10,6 +10,7 @@ import { WordNotes } from './WordNotes';
 import { GuessGame } from './GuessGame';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
+import { useWordSearch } from '../hooks/useWordSearch';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import { encodeWord, decodeWord } from '../lib/wordCode';
 import type { VocabularyWord } from '../types';
@@ -74,10 +75,6 @@ export function FlashCard() {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imagesLoading, setImagesLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-
-  const [searchQuery, setSearchQuery] = useState('');
-  const searchAbortRef = useRef<AbortController | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { game, setGame } = useGuessGame();
   const breakStreak = useGameScore((s) => s.breakStreak);
@@ -186,6 +183,9 @@ export function FlashCard() {
     const known = store.knownWords();
     const skipped = store.skippedWords();
     fillPrefetchQueue(known, skipped);
+    // A header search may already be pending (e.g. navigated here from another
+    // page) — the search effect below will load it, so don't load a default.
+    if (useWordSearch.getState().pending) return;
     if (wordParam) {
       loadSpecificWord(wordParam);
     } else {
@@ -194,11 +194,19 @@ export function FlashCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading]);
 
+  // Load a word requested from the header search (works whether this page was
+  // already open or was just navigated to).
+  const pendingSearch = useWordSearch((s) => s.pending);
+  useEffect(() => {
+    if (!pendingSearch) return;
+    useWordSearch.getState().consume();
+    loadSpecificWord(pendingSearch);
+  }, [pendingSearch, loadSpecificWord]);
+
   // Abort any in-flight work on unmount.
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
-      searchAbortRef.current?.abort();
       stopSpeaking();
     };
   }, []);
@@ -257,14 +265,6 @@ export function FlashCard() {
     loadNextWord(wordData.word);
   };
 
-  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const query = searchQuery.trim().toLowerCase().replace(/\s+/g, ' ').split(' ')[0];
-    if (!query) return;
-    setSearchQuery('');
-    loadSpecificWord(query);
-  };
-
   const navigateToHistory = useCallback((index: number) => {
     if (index === historyIndexRef.current) return;
     const data = wordHistoryRef.current[index];
@@ -311,44 +311,6 @@ export function FlashCard() {
 
   return (
     <div className="max-w-[74rem] mx-auto px-4 py-8">
-
-      {/* ── Search bar — always visible, centered ── */}
-      <div className="max-w-xl mx-auto mb-8">
-        <form onSubmit={handleSearch} className="relative">
-          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none">
-            {isGenerating ? (
-              <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            )}
-          </div>
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search any word…"
-            className="w-full bg-bg-card border-[3px] border-border rounded-2xl pl-11 pr-24 py-3.5 text-text-primary font-semibold focus:outline-none focus:border-accent-cyan placeholder:text-text-muted transition-colors shadow-[0_4px_0_0_var(--shadow-game)]"
-            autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-          {searchQuery.trim() && (
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-              <button
-                type="submit"
-                className="btn-3d px-4 py-1.5 bg-accent-cyan text-bg-primary text-sm"
-              >
-                Go!
-              </button>
-            </div>
-          )}
-        </form>
-
-      </div>
 
       {/* ── History navigation ── */}
       {wordHistory.length > 0 && (

@@ -1,11 +1,35 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
+import { useWordSearch } from '../hooks/useWordSearch';
+
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const requestSearch = useWordSearch((s) => s.requestSearch);
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the field when the search bar opens.
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const word = query.trim().toLowerCase().replace(/\s+/g, ' ').split(' ')[0];
+    if (!word) return;
+    setQuery('');
+    setSearchOpen(false);
+    navigate('/');          // ensure the flashcard page is mounted
+    requestSearch(word);    // FlashCard picks this up and loads the word
+  };
 
   const navLinks = [
     { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
@@ -52,6 +76,16 @@ export function Navbar() {
         {/* Right controls */}
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setSearchOpen((o) => !o)}
+            className={`btn-3d w-9 h-9 rounded-full flex items-center justify-center ${
+              searchOpen ? 'bg-accent-cyan text-bg-primary' : 'bg-bg-card text-text-secondary'
+            }`}
+            title="Search a word"
+          >
+            <Icon icon={searchOpen ? 'lucide:x' : 'lucide:search'} className="text-lg" />
+          </button>
+
+          <button
             onClick={toggleTheme}
             className="btn-3d w-9 h-9 rounded-full bg-accent-yellow text-bg-primary flex items-center justify-center"
             title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
@@ -88,6 +122,40 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Collapsible search bar */}
+      {searchOpen && (
+        <div className="border-t-2 border-border bg-bg-secondary/95 backdrop-blur animate-fade-in">
+          <form onSubmit={handleSearch} className="max-w-2xl mx-auto px-4 py-3 relative">
+            <Icon
+              icon="lucide:search"
+              className="absolute left-7 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none"
+            />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+              placeholder="Search any word…"
+              className="w-full bg-bg-card border-[3px] border-border rounded-2xl pl-11 pr-20 py-2.5 text-text-primary font-semibold focus:outline-none focus:border-accent-cyan placeholder:text-text-muted transition-colors"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            {query.trim() && (
+              <div className="absolute right-6 top-1/2 -translate-y-1/2">
+                <button
+                  type="submit"
+                  className="btn-3d px-4 py-1 bg-accent-cyan text-bg-primary text-sm"
+                >
+                  Go!
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
+      )}
     </header>
   );
 }
