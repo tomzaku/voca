@@ -306,7 +306,7 @@ export function FlashCard() {
   const hasSynAnt = (wordData?.synonyms?.length ?? 0) > 0 || (wordData?.antonyms?.length ?? 0) > 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-[74rem] mx-auto px-4 py-8">
 
       {/* ── Search bar — always visible, centered ── */}
       <div className="max-w-xl mx-auto mb-8">
@@ -347,7 +347,7 @@ export function FlashCard() {
 
       {/* ── History navigation ── */}
       {wordHistory.length > 0 && (
-        <div className="max-w-5xl mx-auto mb-5 flex items-center gap-2">
+        <div className="max-w-[74rem] mx-auto mb-5 flex items-center gap-2">
           <button
             onClick={handlePrev}
             disabled={historyIndex <= 0 || isGenerating}
@@ -439,7 +439,7 @@ export function FlashCard() {
           )}
 
           {/* Two-column layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.618fr_1fr] gap-5 items-start">
 
             {/* ── Left column ── */}
             <div className="flex flex-col gap-4">

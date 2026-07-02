@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Icon } from '@iconify/react';
 import { callAI } from '../lib/aiProviders';
 import { speakConversation, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
 import type { VocabularyWord } from '../types';
@@ -316,9 +317,9 @@ Keep it short and practical.`,
 // ─── Main component ──────────────────────────────────────────────────
 
 const MODES: { id: Mode; label: string; icon: string }[] = [
-  { id: 'sample',    label: 'Conversations', icon: '💬' },
-  { id: 'chat',      label: 'Practice',      icon: '🤖' },
-  { id: 'translate', label: 'Translate',     icon: '🌏' },
+  { id: 'sample',    label: 'Conversations', icon: 'lucide:messages-square' },
+  { id: 'chat',      label: 'Practice',      icon: 'lucide:bot' },
+  { id: 'translate', label: 'Translate',     icon: 'lucide:languages' },
 ];
 
 export function WordTest({ wordData }: Props) {
@@ -333,7 +334,7 @@ export function WordTest({ wordData }: Props) {
             onClick={() => setMode(m.id)}
             className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-border bg-bg-card text-text-muted hover:border-accent-purple/30 hover:text-accent-purple hover:bg-accent-purple/5 transition-all"
           >
-            <span className="text-lg">{m.icon}</span>
+            <Icon icon={m.icon} className="text-xl" />
             <span className="text-xs font-medium">{m.label}</span>
           </button>
         ))}
@@ -355,7 +356,7 @@ export function WordTest({ wordData }: Props) {
                 : 'text-text-muted hover:text-text-secondary'
             }`}
           >
-            <span>{m.icon}</span>
+            <Icon icon={m.icon} className="text-base" />
             <span>{m.label}</span>
           </button>
         ))}

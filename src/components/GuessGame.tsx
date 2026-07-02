@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Icon } from '@iconify/react';
 import { getActiveWordList } from '../lib/wordService';
 import { speakWithKokoro, stopKokoroAudio } from '../lib/kokoroTts';
 import { GUESS_GAMES, type GuessGameMode } from '../hooks/useGuessGame';
@@ -103,7 +104,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
         {/* ── HUD: game badge + score/streak ── */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-2xl leading-none shrink-0">{info.icon}</span>
+            <Icon icon={info.icon} className="text-2xl text-accent-cyan shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-display font-bold text-text-primary leading-tight truncate">{info.label}</p>
               <p className="text-[10px] text-text-muted uppercase tracking-wider leading-tight">Guess the word</p>
@@ -150,7 +151,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
                     : 'bg-bg-tertiary text-text-secondary border-border hover:border-border-light hover:text-text-primary'
                 }`}
               >
-                <span className="text-sm leading-none">{g.icon}</span>
+                <Icon icon={g.icon} className="text-base" />
                 <span>{g.label}</span>
               </button>
             );

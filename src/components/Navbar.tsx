@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 export function Navbar() {
@@ -7,9 +8,9 @@ export function Navbar() {
   const location = useLocation();
 
   const navLinks = [
-    { to: '/', label: 'Learn', icon: '✦' },
-    { to: '/speaking', label: 'Speak', icon: '🎙' },
-    { to: '/bookmarks', label: 'History', icon: '★' },
+    { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
+    { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
+    { to: '/bookmarks', label: 'History', icon: 'lucide:history' },
   ];
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
@@ -40,7 +41,7 @@ export function Navbar() {
                 }`}
               >
                 <span className="hidden sm:inline">{link.label}</span>
-                <span className="sm:hidden">{link.icon}</span>
+                <Icon icon={link.icon} className="sm:hidden text-lg" />
               </Link>
             );
           })}
@@ -53,7 +54,7 @@ export function Navbar() {
             className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
             title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
           >
-            {theme === 'dark' ? '☀' : '☾'}
+            <Icon icon={theme === 'dark' ? 'lucide:sun' : 'lucide:moon'} className="text-lg" />
           </button>
 
           {user ? (

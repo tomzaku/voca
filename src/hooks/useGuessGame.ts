@@ -9,13 +9,14 @@ export interface GuessGameInfo {
   icon: string;
 }
 
+// `icon` values are Iconify names (Lucide set) — rendered with <Icon icon=… />.
 export const GUESS_GAMES: GuessGameInfo[] = [
-  { id: 'letters',  label: 'Letters',    icon: '🔡', description: 'Reveal letters and type the word' },
-  { id: 'scramble', label: 'Unscramble', icon: '🔀', description: 'Tap the shuffled letters in order' },
-  { id: 'choice',   label: 'Choice',     icon: '🎯', description: 'Pick the word from its definition' },
-  { id: 'hangman',  label: 'Hangman',    icon: '💀', description: 'Guess letters before your lives run out' },
-  { id: 'listen',   label: 'Listen',     icon: '🎧', description: 'Hear the word and spell it' },
-  { id: 'vowels',   label: 'No Vowels',  icon: '⭕', description: 'Fill in the missing vowels' },
+  { id: 'letters',  label: 'Letters',    icon: 'lucide:type',          description: 'Reveal letters and type the word' },
+  { id: 'scramble', label: 'Unscramble', icon: 'lucide:shuffle',       description: 'Tap the shuffled letters in order' },
+  { id: 'choice',   label: 'Choice',     icon: 'lucide:list-checks',   description: 'Pick the word from its definition' },
+  { id: 'hangman',  label: 'Hangman',    icon: 'lucide:skull',         description: 'Guess letters before your lives run out' },
+  { id: 'listen',   label: 'Listen',     icon: 'lucide:headphones',    description: 'Hear the word and spell it' },
+  { id: 'vowels',   label: 'No Vowels',  icon: 'lucide:circle-dashed', description: 'Fill in the missing vowels' },
 ];
 
 const GAME_KEY = 'voca-guess-game';
