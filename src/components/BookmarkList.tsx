@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData } from '../lib/wordService';
+import { getRecentDailyWords } from '../lib/dailyWord';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord } from '../types';
@@ -9,6 +11,100 @@ import toast from 'react-hot-toast';
 import { BookmarkGame } from './BookmarkGame';
 import { SpellingGame } from './SpellingGame';
 import { ParagraphGame } from './ParagraphGame';
+
+const LEVEL_COLOR: Record<string, string> = {
+  beginner: 'text-accent-green',
+  intermediate: 'text-accent-orange',
+  advanced: 'text-accent-red',
+};
+
+/** Human label for a `YYYY-MM-DD` key relative to today. */
+function dayLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - date.getTime()) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** Word-of-the-Day — a big card for today, with previous days tucked behind a toggle. */
+function DailyWords() {
+  const days = useMemo(() => getRecentDailyWords(30), []);
+  const [showPast, setShowPast] = useState(false);
+  if (days.length === 0) return null;
+
+  const [today, ...past] = days;
+
+  return (
+    <section className="mb-8">
+      {/* Today — hero card */}
+      <Link
+        to={`/?word=${encodeURIComponent(today.word)}`}
+        className="group block rounded-2xl border border-accent-cyan/30 bg-gradient-to-br from-accent-cyan/10 to-bg-card p-6 transition-all hover:border-accent-cyan/50"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[11px] font-bold text-accent-cyan uppercase tracking-wider">
+            Word of the Day
+          </span>
+          <span className={`text-xs font-medium ${LEVEL_COLOR[today.level]}`}>{today.level}</span>
+        </div>
+        <div className="flex items-end justify-between gap-3">
+          <span className="font-display font-extrabold text-3xl text-text-primary group-hover:text-accent-cyan transition-colors">
+            {today.word}
+          </span>
+          <svg
+            width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+            strokeLinecap="round" strokeLinejoin="round"
+            className="mb-1 text-text-muted group-hover:text-accent-cyan group-hover:translate-x-0.5 transition-all"
+          >
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </div>
+      </Link>
+
+      {/* Previous days — collapsed by default */}
+      {past.length > 0 && (
+        <div className="mt-3">
+          <button
+            onClick={() => setShowPast((v) => !v)}
+            className="flex items-center gap-1.5 px-1 py-1 text-xs font-bold text-text-muted hover:text-text-primary transition-colors"
+          >
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+              className={`transition-transform ${showPast ? 'rotate-90' : ''}`}
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            {showPast ? 'Hide previous days' : `Previous days (${past.length})`}
+          </button>
+
+          {showPast && (
+            <div className="mt-2 rounded-xl border border-border bg-bg-card divide-y divide-border max-h-72 overflow-y-auto animate-fade-in">
+              {past.map(({ date, word, level }) => (
+                <Link
+                  key={date}
+                  to={`/?word=${encodeURIComponent(word)}`}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-tertiary transition-colors"
+                >
+                  <span className="w-24 shrink-0 text-xs text-text-muted">{dayLabel(date)}</span>
+                  <span className="flex-1 min-w-0 font-display font-bold text-accent-cyan truncate hover:underline">
+                    {word}
+                  </span>
+                  <span className={`text-[11px] font-medium ${LEVEL_COLOR[level]}`}>{level}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
 
 type Tab = 'saved' | 'known' | 'unknown';
 
@@ -113,6 +209,9 @@ export function BookmarkList() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
+      {/* ── Word of the Day ── */}
+      <DailyWords />
+
       {/* ── Tabs ── */}
       <div className="flex items-stretch gap-1 mb-6 border-b-2 border-border">
         {TABS.map((t) => {
@@ -189,12 +288,6 @@ export function BookmarkList() {
           const wordEntry = WORD_LIST.find((w) => w.word === word);
           const level = wordEntry?.level ?? 'intermediate';
 
-          const levelColor: Record<string, string> = {
-            beginner: 'text-accent-green',
-            intermediate: 'text-accent-orange',
-            advanced: 'text-accent-red',
-          };
-
           return (
             <div
               key={word}
@@ -206,7 +299,14 @@ export function BookmarkList() {
               {/* Header row */}
               <div className="flex items-center gap-3 p-4">
                 <div className="flex-1 min-w-0">
-                  <span className="font-display font-bold text-text-primary">{word}</span>
+                  <Link
+                    to={`/?word=${encodeURIComponent(word)}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="font-display font-bold text-text-primary hover:text-accent-cyan hover:underline transition-colors"
+                    title={`Open "${word}"`}
+                  >
+                    {word}
+                  </Link>
                   {data?.partOfSpeech && (
                     <span className="ml-2 text-xs text-accent-purple bg-accent-purple/10 px-1.5 py-0.5 rounded">
                       {data.partOfSpeech}
@@ -214,7 +314,7 @@ export function BookmarkList() {
                   )}
                 </div>
 
-                <span className={`text-xs font-medium ${levelColor[level]}`}>{level}</span>
+                <span className={`text-xs font-medium ${LEVEL_COLOR[level]}`}>{level}</span>
 
                 {/* Speak button */}
                 <button
