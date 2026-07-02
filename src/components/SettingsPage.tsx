@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { speakText, stopSpeaking } from '../lib/tts';
+import { isSfxEnabled, setSfxEnabled, playCorrect } from '../lib/sfx';
 import { ToggleSwitch } from './ToggleSwitch';
 import { WORD_PACKS, getWordPack, setWordPack, buildWordList, type PackId } from '../lib/wordLists';
 import {
@@ -52,6 +53,7 @@ export function SettingsPage() {
 
   const [learnLang, setLearnLangState] = useState(getLearnLanguage);
   const [motherLang, setMotherLangState] = useState(getMotherLanguage);
+  const [sfxOn, setSfxOn] = useState(isSfxEnabled);
 
   const handleLearnLangChange = (lang: string) => {
     setLearnLanguage(lang);
@@ -352,6 +354,27 @@ export function SettingsPage() {
           </section>
         );
       })()}
+
+      {/* Sound effects toggle */}
+      <section className="mb-8">
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Sound Effects</h2>
+        <button
+          onClick={() => {
+            const next = !sfxOn;
+            setSfxEnabled(next);
+            setSfxOn(next);
+            if (next) playCorrect(); // preview the sound when turning it on
+            toast.success(next ? 'Sound effects on' : 'Sound effects off');
+          }}
+          className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all cursor-pointer"
+        >
+          <div className="flex-1 text-left">
+            <span className="text-sm font-medium text-text-primary block">Game sounds</span>
+            <span className="text-xs text-text-muted mt-0.5 block">Play blips for correct, wrong, and choosing answers.</span>
+          </div>
+          <ToggleSwitch checked={sfxOn} />
+        </button>
+      </section>
 
       {/* Auto-speak toggle */}
       <section className="mb-8">

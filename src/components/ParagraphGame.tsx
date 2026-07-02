@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { generateClozeParagraph, type ClozeParagraph } from '../lib/wordService';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
+import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -91,7 +92,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(word)) next.delete(word);
-      else if (next.size < MAX_WORDS) next.add(word);
+      else if (next.size < MAX_WORDS) { next.add(word); playSelect(); }
       else toast(`Up to ${MAX_WORDS} words per paragraph`);
       return next;
     });
@@ -150,8 +151,14 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
       next[gapIndex] = cloze.answers[gapIndex]; // store canonical form
       setPlaced(next);
       setActiveTile(null);
-      if (next.every((p) => p !== null)) setTimeout(() => setPhase('finished'), 650);
+      if (next.every((p) => p !== null)) {
+        playWin();
+        setTimeout(() => setPhase('finished'), 650);
+      } else {
+        playCorrect();
+      }
     } else {
+      playWrong();
       setWrongGap(gapIndex);
       setActiveTile(null);
       setTimeout(() => setWrongGap(null), 500);
@@ -377,7 +384,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
                   setActiveTile(word);
                 }}
                 onDragEnd={() => setDragOverGap(null)}
-                onClick={() => setActiveTile((t) => (t === word ? null : word))}
+                onClick={() => { playSelect(); setActiveTile((t) => (t === word ? null : word)); }}
                 className={`px-4 py-2.5 rounded-xl font-display font-extrabold text-base border-[3px] tile-lip cursor-grab active:cursor-grabbing transition-all hover:-translate-y-0.5 ${
                   activeTile === word
                     ? 'bg-accent-cyan text-bg-primary border-accent-cyan scale-105'

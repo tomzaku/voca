@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { getActiveWordList } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
+import { playCorrect, playWrong, playSelect } from '../lib/sfx';
 import { GUESS_GAMES, type GuessGameMode } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import type { VocabularyWord } from '../types';
@@ -68,6 +69,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
 
   const solve = () => {
     win();
+    playCorrect();
     setResult('correct');
     setTimeout(onSolved, 1150);
   };
@@ -144,7 +146,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
             return (
               <button
                 key={g.id}
-                onClick={() => onGameChange(g.id)}
+                onClick={() => { playSelect(); onGameChange(g.id); }}
                 title={g.description}
                 className={`btn-3d flex items-center gap-1 px-3 py-1.5 text-xs ${
                   active
@@ -184,6 +186,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
 
 /** Briefly flash the shared wrong overlay. */
 function flash(setResult: (r: 'correct' | 'wrong' | null) => void) {
+  playWrong();
   setResult('wrong');
   setTimeout(() => setResult(null), 600);
 }
@@ -231,7 +234,7 @@ function LettersGame({ word, disabled, onSolve, onWrong }: GameProps) {
           ) : (
             <button
               key={i}
-              onClick={() => canReveal && setRevealed((p) => new Set([...p, i]))}
+              onClick={() => { if (canReveal) { playSelect(); setRevealed((p) => new Set([...p, i])); } }}
               disabled={!canReveal}
               title="Click to reveal this letter"
               style={{ animationDelay: `${i * 45}ms` }}
@@ -277,7 +280,9 @@ function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
     if (disabled || pickedSet.has(id)) return;
     const next = [...picked, id];
     setPicked(next);
-    if (next.length === word.length) {
+    if (next.length < word.length) {
+      playSelect();
+    } else {
       const attempt = next.map((pid) => tiles.find((t) => t.id === pid)!.char).join('');
       if (attempt.toLowerCase() === word.toLowerCase()) {
         onSolve();
@@ -373,6 +378,7 @@ function ChoiceGame({ word, disabled, onSolve }: GameProps) {
     if (opt.toLowerCase() === word.toLowerCase()) {
       onSolve();
     } else {
+      playWrong();
       setWrongPick(opt);
     }
   };
