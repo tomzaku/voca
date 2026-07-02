@@ -25,9 +25,9 @@ function shuffle<T>(arr: T[]): T[] {
 
 /** Tactile "keycap" tile shared across every game. */
 const boxBase =
-  'w-10 h-11 rounded-lg flex items-center justify-center font-display font-bold text-base uppercase border-2 transition-all animate-tile-in shadow-[inset_0_-3px_0_rgba(0,0,0,0.3)]';
+  'w-11 h-12 rounded-xl flex items-center justify-center font-display font-extrabold text-lg uppercase border-[3px] transition-all animate-tile-in shadow-[inset_0_-4px_0_rgba(0,0,0,0.28)]';
 
-const CONFETTI_COLORS = ['#00d4ff', '#00e68a', '#ff9f43', '#a855f7', '#f0a500', '#ff4757'];
+const CONFETTI_COLORS = ['#22d3ee', '#34e39b', '#ff9f43', '#b98bff', '#ffd23f', '#ff6ec7', '#ff5c8a'];
 
 function Confetti() {
   const pieces = useMemo(
@@ -73,7 +73,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-accent-cyan/20 bg-bg-card animate-glow-pulse">
+    <div className="relative overflow-hidden card-game border-accent-cyan animate-glow-pulse">
       {/* Top accent strip */}
       <div className="h-1 w-full bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-green" />
 
@@ -82,16 +82,16 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
         <>
           <Confetti />
           <div className="absolute inset-0 flex items-center justify-center bg-bg-card/95 rounded-2xl z-10 animate-fade-in">
-            <div className="animate-pop-in text-center">
-              <div className="w-16 h-16 rounded-full bg-accent-green/20 border-2 border-accent-green/40 flex items-center justify-center mx-auto mb-3">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-green">
+            <div className="animate-bounce-in text-center">
+              <div className="w-20 h-20 rounded-full bg-accent-green border-[3px] border-accent-green flex items-center justify-center mx-auto mb-3 animate-jelly shadow-[0_5px_0_0_var(--btn-lip)]">
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-bg-primary">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <p className="text-accent-green font-display font-bold text-2xl">
-                {streak >= 3 ? `${streak}× combo!` : 'Correct!'}
+              <p className="text-accent-green font-title text-3xl">
+                {streak >= 3 ? `${streak}× COMBO!` : 'Correct!'}
               </p>
-              <p className="text-accent-cyan font-display font-bold text-sm mt-1">+{lastGain} pts</p>
+              <p className="text-accent-cyan font-display font-extrabold text-base mt-1">+{lastGain} pts</p>
             </div>
           </div>
         </>
@@ -118,12 +118,12 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <div className="px-2.5 py-1 rounded-lg bg-bg-tertiary border border-border text-center min-w-[3rem]">
-              <span className="block text-sm font-display font-bold text-accent-cyan leading-none">{points}</span>
-              <span className="block text-[9px] text-text-muted uppercase tracking-wider">pts</span>
+            <div className="px-3 py-1.5 rounded-xl bg-bg-tertiary border-2 border-border text-center min-w-[3.25rem] tile-lip">
+              <span className="block text-base font-display font-extrabold text-accent-cyan leading-none">{points}</span>
+              <span className="block text-[9px] text-text-muted uppercase tracking-wider font-bold">pts</span>
             </div>
-            <div className="relative px-2.5 py-1 rounded-lg bg-accent-orange/10 border border-accent-orange/30 text-center min-w-[3rem]">
-              <span className="flex items-center justify-center gap-1 text-sm font-display font-bold text-accent-orange leading-none">
+            <div className="relative px-3 py-1.5 rounded-xl bg-accent-orange/15 border-2 border-accent-orange/40 text-center min-w-[3.25rem] tile-lip">
+              <span className="flex items-center justify-center gap-1 text-base font-display font-extrabold text-accent-orange leading-none">
                 {streak > 0 && <span className="animate-flame">🔥</span>}
                 {streak}
               </span>
@@ -146,10 +146,10 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
                 key={g.id}
                 onClick={() => onGameChange(g.id)}
                 title={g.description}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all active:scale-95 ${
+                className={`btn-3d flex items-center gap-1 px-3 py-1.5 text-xs ${
                   active
-                    ? 'bg-accent-cyan text-bg-primary border-accent-cyan shadow-[0_0_12px_-2px_rgba(0,212,255,0.5)]'
-                    : 'bg-bg-tertiary text-text-secondary border-border hover:border-border-light hover:text-text-primary'
+                    ? 'bg-accent-purple text-bg-primary'
+                    : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
                 }`}
               >
                 <Icon icon={g.icon} className="text-base" />
@@ -387,10 +387,10 @@ function ChoiceGame({ word, disabled, onSolve }: GameProps) {
             onClick={() => pick(opt)}
             disabled={disabled || isWrong}
             style={{ animationDelay: `${i * 60}ms` }}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 text-sm font-display font-medium text-left animate-tile-in transition-all ${
+            className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border-[3px] text-base font-display font-extrabold text-left animate-tile-in tile-lip transition-all ${
               isWrong
-                ? 'border-accent-red/50 bg-accent-red/10 text-accent-red/80 cursor-default animate-shake'
-                : 'border-border bg-gradient-to-b from-bg-tertiary to-bg-hover text-text-primary hover:border-accent-cyan/60 hover:-translate-y-0.5 hover:text-accent-cyan active:scale-[0.98]'
+                ? 'border-accent-red bg-accent-red/15 text-accent-red cursor-default animate-shake'
+                : 'border-border bg-bg-tertiary text-text-primary hover:border-accent-cyan hover:-translate-y-0.5 hover:text-accent-cyan active:translate-y-0.5'
             }`}
           >
             <span className={`w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-xs font-bold border ${
@@ -645,8 +645,8 @@ function GuessInput({ inputRef, value, wrong, disabled, onChange, onSubmit }: Gu
         onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
         placeholder="Type your guess…"
         disabled={disabled}
-        className={`flex-1 bg-bg-tertiary border rounded-xl px-4 py-3 text-text-primary text-sm font-display focus:outline-none placeholder:text-text-muted transition-colors ${
-          wrong ? 'border-accent-red bg-accent-red/10' : 'border-border focus:border-accent-cyan/50'
+        className={`flex-1 bg-bg-tertiary border-[3px] rounded-2xl px-4 py-3 text-text-primary text-base font-bold font-display focus:outline-none placeholder:text-text-muted placeholder:font-semibold transition-colors ${
+          wrong ? 'border-accent-red bg-accent-red/10' : 'border-border focus:border-accent-cyan'
         }`}
         autoComplete="off"
         autoCorrect="off"
@@ -655,9 +655,9 @@ function GuessInput({ inputRef, value, wrong, disabled, onChange, onSubmit }: Gu
       <button
         onClick={onSubmit}
         disabled={!value.trim() || disabled}
-        className="px-4 py-3 rounded-xl bg-accent-cyan text-bg-primary text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all"
+        className="btn-3d px-5 py-3 bg-accent-green text-bg-primary text-base"
       >
-        Check
+        Check ✓
       </button>
     </div>
   );

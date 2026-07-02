@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Icon } from '@iconify/react';
 import { useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
@@ -10,6 +11,7 @@ import { GuessGame } from './GuessGame';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { speakWithKokoro, stopKokoroAudio, isKokoroPlaying } from '../lib/kokoroTts';
+import { encodeWord, decodeWord } from '../lib/wordCode';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
 
@@ -178,7 +180,9 @@ export function FlashCard() {
   useEffect(() => {
     if (!keysLoaded || didInit.current) return;
     didInit.current = true;
-    const wordParam = searchParams.get('word');
+    // Prefer the encoded `w` param; fall back to legacy plaintext `?word=` links.
+    const encoded = searchParams.get('w');
+    const wordParam = encoded ? decodeWord(encoded) : searchParams.get('word');
     const known = store.knownWords();
     const skipped = store.skippedWords();
     fillPrefetchQueue(known, skipped);
@@ -201,7 +205,7 @@ export function FlashCard() {
 
   useEffect(() => {
     if (!wordData) return;
-    setSearchParams({ word: wordData.word }, { replace: true });
+    setSearchParams({ w: encodeWord(wordData.word) }, { replace: true });
     setImageUrls([]);
     setImagesLoading(true);
     let cancelled = false;
@@ -327,19 +331,21 @@ export function FlashCard() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search any word…"
-            className="w-full bg-bg-card border border-border rounded-xl pl-10 pr-24 py-3 text-text-primary text-sm focus:outline-none focus:border-accent-cyan/40 placeholder:text-text-muted transition-colors"
+            className="w-full bg-bg-card border-[3px] border-border rounded-2xl pl-11 pr-24 py-3.5 text-text-primary font-semibold focus:outline-none focus:border-accent-cyan placeholder:text-text-muted transition-colors shadow-[0_4px_0_0_var(--shadow-game)]"
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
           />
           {searchQuery.trim() && (
-            <button
-              type="submit"
-              disabled={isGenerating}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-accent-cyan text-bg-primary text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-all"
-            >
-              Search
-            </button>
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+              <button
+                type="submit"
+                disabled={isGenerating}
+                className="btn-3d px-4 py-1.5 bg-accent-cyan text-bg-primary text-sm"
+              >
+                Go!
+              </button>
+            </div>
           )}
         </form>
 
@@ -351,7 +357,7 @@ export function FlashCard() {
           <button
             onClick={handlePrev}
             disabled={historyIndex <= 0 || isGenerating}
-            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-card text-text-muted hover:text-text-primary hover:border-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            className="btn-3d shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-bg-card text-text-secondary hover:text-text-primary disabled:cursor-not-allowed"
             title="Previous word"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -372,10 +378,10 @@ export function FlashCard() {
                 <button
                   key={i}
                   onClick={() => navigateToHistory(i)}
-                  className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-extrabold whitespace-nowrap border-2 transition-all hover:-translate-y-0.5 ${
                     i === historyIndex
-                      ? 'bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/40'
-                      : 'bg-bg-card border border-border text-text-muted hover:text-text-primary hover:border-border-light'
+                      ? 'bg-accent-cyan text-bg-primary border-accent-cyan'
+                      : 'bg-bg-card border-border text-text-muted hover:text-text-primary hover:border-border-light'
                   }`}
                 >
                   {masked ? '• • •' : (w.headword || w.word)}
@@ -387,7 +393,7 @@ export function FlashCard() {
           <button
             onClick={handleNext}
             disabled={isGenerating}
-            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-card text-text-muted hover:text-text-primary hover:border-border-light disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            className="btn-3d shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-bg-card text-text-secondary hover:text-text-primary disabled:cursor-not-allowed"
             title="Next word"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -422,10 +428,10 @@ export function FlashCard() {
           {/* Definition clue — surfaced at the top while guessing so the
               hint sits above the game (key for mobile flow) */}
           {phase === 'introduce' && (
-            <div className="mb-5 bg-bg-card border border-accent-cyan/25 rounded-2xl p-5 animate-fade-in">
+            <div className="mb-5 card-game border-accent-cyan p-5 animate-bounce-in">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-base leading-none">💡</span>
-                <h3 className="text-xs font-display font-bold text-accent-cyan uppercase tracking-wider">
+                <span className="text-xl leading-none animate-bob">💡</span>
+                <h3 className="text-sm font-display font-extrabold text-accent-cyan uppercase tracking-wide">
                   Definition — guess the word
                 </h3>
                 {wordData.partOfSpeech && (
@@ -480,10 +486,10 @@ export function FlashCard() {
                 />
               ) : (
                 /* Revealed word card */
-                <div className="bg-bg-card border border-border rounded-2xl p-6 animate-flip-in">
+                <div className="card-game border-accent-purple p-6 animate-bounce-in">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h1 className="text-4xl font-display font-bold text-text-primary tracking-tight mb-1">
+                      <h1 className="text-5xl font-title text-accent-purple tracking-tight mb-1 drop-shadow-[0_2px_0_var(--btn-lip)]">
                         {wordData.headword || wordData.word}
                       </h1>
                       {wordData.phonetic && (
@@ -492,10 +498,10 @@ export function FlashCard() {
                     </div>
                     <button
                       onClick={handleSpeak}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all shrink-0 mt-1 ${
+                      className={`btn-3d w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-1 ${
                         isSpeaking
-                          ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
-                          : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
+                          ? 'bg-accent-cyan text-bg-primary'
+                          : 'bg-bg-tertiary text-text-secondary hover:text-accent-cyan'
                       }`}
                       title={isSpeaking ? 'Stop' : 'Hear pronunciation'}
                     >
@@ -523,7 +529,7 @@ export function FlashCard() {
 
               {/* Definition — kept with the word so the meaning is front and center */}
               {phase === 'revealed' && (
-                <div className="bg-bg-card border border-border rounded-2xl p-5">
+                <div className="card-game p-5">
                   <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
                     Definition
                   </h3>
@@ -541,15 +547,17 @@ export function FlashCard() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleReveal}
-                    className="flex-1 py-2.5 rounded-xl border border-accent-orange/30 bg-accent-orange/5 text-accent-orange text-xs font-medium hover:bg-accent-orange/15 hover:border-accent-orange/50 active:scale-95 transition-all duration-150"
+                    className="btn-3d flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-accent-orange text-bg-primary text-sm"
                   >
+                    <Icon icon="solar:flag-2-bold" className="text-lg" />
                     Give up
                   </button>
                   <button
                     onClick={handleSkip}
-                    className="flex-1 py-2.5 rounded-xl border border-accent-cyan/30 bg-accent-cyan/5 text-accent-cyan text-xs font-medium hover:bg-accent-cyan/15 hover:border-accent-cyan/50 active:scale-95 transition-all duration-150"
+                    className="btn-3d flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-accent-blue text-bg-primary text-sm"
                   >
-                    Skip word
+                    <Icon icon="solar:skip-next-bold" className="text-lg" />
+                    Skip
                   </button>
                 </div>
               ) : (
@@ -557,7 +565,7 @@ export function FlashCard() {
                   <button
                     onClick={handleNext}
                     disabled={isGenerating}
-                    className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border border-accent-cyan/30 bg-accent-cyan/5 text-accent-cyan hover:bg-accent-cyan/15 hover:border-accent-cyan/50 active:scale-95 disabled:opacity-40 transition-all"
+                    className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-cyan text-bg-primary"
                     title="Next word — keeps this word saved"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -567,10 +575,10 @@ export function FlashCard() {
                   </button>
                   <button
                     onClick={handleBookmark}
-                    className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border transition-all ${
+                    className={`btn-3d flex-1 flex flex-col items-center gap-1 py-3 ${
                       isBookmarked
-                        ? 'bg-accent-yellow/10 border-accent-yellow/30 text-accent-yellow'
-                        : 'border-border bg-bg-card text-text-muted hover:text-accent-yellow hover:border-accent-yellow/30'
+                        ? 'bg-accent-yellow text-bg-primary'
+                        : 'bg-bg-card text-text-secondary hover:text-accent-yellow'
                     }`}
                     title={isBookmarked ? 'Remove bookmark' : 'Bookmark this word'}
                   >
@@ -584,7 +592,7 @@ export function FlashCard() {
                   {!gaveUp && (
                     <button
                       onClick={handleKnow}
-                      className="flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border border-accent-green/30 bg-accent-green/10 text-accent-green hover:bg-accent-green/20 transition-all"
+                      className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-green text-bg-primary"
                       title="I know this word!"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -601,7 +609,7 @@ export function FlashCard() {
             <div className="space-y-4">
               {/* Examples */}
               {wordData.examples.length > 0 && (
-                <div className="bg-bg-card border border-border rounded-2xl p-5">
+                <div className="card-game p-5">
                   <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
                     Examples
                   </h3>
@@ -624,7 +632,7 @@ export function FlashCard() {
 
               {/* Synonyms + Antonyms */}
               {hasSynAnt && (
-                <div className="bg-bg-card border border-border rounded-2xl p-5 space-y-4">
+                <div className="card-game p-5 space-y-4">
                   {wordData.synonyms && wordData.synonyms.length > 0 && (
                     <div>
                       <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
@@ -660,7 +668,7 @@ export function FlashCard() {
               {phase === 'revealed' && (
                 <>
                   {/* Real-world usage — clips of the word in videos and movies */}
-                  <div className="bg-bg-card border border-border rounded-2xl p-5">
+                  <div className="card-game p-5">
                     <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
                       See it used
                     </h3>

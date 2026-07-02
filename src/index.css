@@ -1,47 +1,63 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #0a0a0f;
-  --color-bg-secondary: #12121a;
-  --color-bg-tertiary: #1a1a26;
-  --color-bg-card: #15151f;
-  --color-bg-hover: #1e1e2e;
-  --color-border: #2a2a3a;
-  --color-border-light: #3a3a4a;
-  --color-text-primary: #e4e4ef;
-  --color-text-secondary: #8888a0;
-  --color-text-muted: #5a5a70;
-  --color-accent-cyan: #00d4ff;
-  --color-accent-green: #00e68a;
+  /* ── Dark theme (default) · "Arcade Night" ─────────────────────── */
+  --color-bg-primary: #1b1246;
+  --color-bg-secondary: #241a5c;
+  --color-bg-tertiary: #2f2472;
+  --color-bg-card: #342b80;
+  --color-bg-hover: #3f3494;
+  --color-border: #5a4fc0;
+  --color-border-light: #7d70e6;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #d0c9f6;
+  --color-text-muted: #9c91da;
+  --color-accent-cyan: #22d3ee;
+  --color-accent-green: #34e39b;
   --color-accent-orange: #ff9f43;
-  --color-accent-red: #ff4757;
-  --color-accent-purple: #a855f7;
-  --color-accent-blue: #3b82f6;
-  --color-accent-yellow: #f0a500;
-  --font-display: "Space Mono", monospace;
-  --font-body: "IBM Plex Sans", sans-serif;
-  --font-code: "JetBrains Mono", "Fira Code", monospace;
+  --color-accent-red: #ff5c8a;
+  --color-accent-purple: #b98bff;
+  --color-accent-blue: #5b8dff;
+  --color-accent-yellow: #ffd23f;
+  --color-accent-pink: #ff6ec7;
+
+  --font-display: "Baloo 2", "Nunito", sans-serif;
+  --font-body: "Nunito", sans-serif;
+  --font-code: "Nunito", sans-serif;
+  --font-title: "Titan One", "Baloo 2", cursive;
 }
 
-/* Light theme */
+:root {
+  /* Chunky "sticker" drop shadow + button lip, themed per mode */
+  --shadow-game: rgba(11, 6, 40, 0.55);
+  --btn-lip: rgba(0, 0, 0, 0.32);
+  --bg-gradient: radial-gradient(circle at 15% -10%, #3a2a8f 0%, #1c1348 48%, #100a30 100%);
+}
+
+/* Light theme · "Candy Day" */
 [data-theme="light"] {
-  --color-bg-primary: #faf6f0;
-  --color-bg-secondary: #f3ede4;
-  --color-bg-tertiary: #ebe4d8;
-  --color-bg-card: #fff9f0;
-  --color-bg-hover: #f0e8db;
-  --color-border: #d9cfbf;
-  --color-border-light: #c7baa6;
-  --color-text-primary: #2c2416;
-  --color-text-secondary: #6b5d4d;
-  --color-text-muted: #9a8b78;
-  --color-accent-cyan: #0a7e96;
-  --color-accent-green: #1a7a4a;
-  --color-accent-orange: #c47a20;
-  --color-accent-red: #c43030;
-  --color-accent-purple: #7c3aed;
-  --color-accent-blue: #2563eb;
-  --color-accent-yellow: #b87a00;
+  --color-bg-primary: #cfe1ff;
+  --color-bg-secondary: #e4efff;
+  --color-bg-tertiary: #ebf2ff;
+  --color-bg-card: #ffffff;
+  --color-bg-hover: #f1f6ff;
+  --color-border: #b7c9ef;
+  --color-border-light: #8ea6e6;
+  --color-text-primary: #262357;
+  --color-text-secondary: #5c5a8c;
+  --color-text-muted: #8d8bb4;
+  --color-accent-cyan: #0bb5d6;
+  --color-accent-green: #10b862;
+  --color-accent-orange: #f97316;
+  --color-accent-red: #f43f6b;
+  --color-accent-purple: #8b5cf6;
+  --color-accent-blue: #3b6cff;
+  --color-accent-yellow: #f5a800;
+  --color-accent-pink: #ec4899;
+
+  --shadow-game: rgba(48, 52, 130, 0.22);
+  --btn-lip: rgba(30, 34, 90, 0.24);
+  --bg-gradient: linear-gradient(165deg, #d5e6ff 0%, #e9e0ff 55%, #ffe4f4 100%);
 }
 
 * {
@@ -49,23 +65,65 @@
   scrollbar-color: var(--color-border) transparent;
 }
 
+html, body {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
-  background: var(--color-bg-primary);
+  background: var(--bg-gradient) fixed;
   color: var(--color-text-primary);
   font-family: var(--font-body);
+  font-weight: 600;
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: rgba(0, 212, 255, 0.2);
+  background: rgba(34, 211, 238, 0.28);
   color: var(--color-accent-cyan);
 }
 
 [data-theme="light"] ::selection {
-  background: rgba(10, 126, 150, 0.15);
+  background: rgba(11, 181, 214, 0.18);
 }
 
+/* ── Signature chunky "sticker" card ─────────────────────────────── */
+.card-game {
+  background: var(--color-bg-card);
+  border: 3px solid var(--color-border);
+  border-radius: 1.5rem;
+  box-shadow: 0 6px 0 0 var(--shadow-game);
+}
+
+/* ── 3D pressable button — the Blooket staple ────────────────────── */
+.btn-3d {
+  position: relative;
+  font-family: var(--font-display);
+  font-weight: 800;
+  border-radius: 1rem;
+  box-shadow: 0 5px 0 0 var(--btn-lip), 0 6px 12px -4px rgba(0, 0, 0, 0.25);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+}
+.btn-3d:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 0 0 var(--btn-lip), 0 10px 16px -4px rgba(0, 0, 0, 0.28);
+  filter: brightness(1.05);
+}
+.btn-3d:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 0 var(--btn-lip);
+}
+.btn-3d:disabled {
+  opacity: 0.5;
+  box-shadow: 0 3px 0 0 var(--btn-lip);
+}
+
+/* Chunky tile lip used by game tiles/keys */
+.tile-lip {
+  box-shadow: 0 3px 0 0 var(--btn-lip);
+}
+
+/* ── Animations ──────────────────────────────────────────────────── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -143,10 +201,10 @@ body {
 }
 .animate-float-up { animation: floatUp 1.2s ease-out forwards; }
 
-/* Idle neon glow on the active game card */
+/* Idle glow on the active game card */
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0); }
-  50%      { box-shadow: 0 0 26px -6px rgba(0, 212, 255, 0.28); }
+  0%, 100% { box-shadow: 0 6px 0 0 var(--shadow-game), 0 0 0 0 rgba(34, 211, 238, 0); }
+  50%      { box-shadow: 0 6px 0 0 var(--shadow-game), 0 0 34px -4px rgba(34, 211, 238, 0.5); }
 }
 .animate-glow-pulse { animation: glowPulse 3.2s ease-in-out infinite; }
 
@@ -159,8 +217,8 @@ body {
   position: absolute;
   top: 42%;
   left: 50%;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
   animation: confettiFall 0.95s ease-out forwards;
 }
@@ -171,3 +229,36 @@ body {
   50%      { transform: scale(1.15) rotate(2deg); }
 }
 .animate-flame { animation: flameFlicker 0.8s ease-in-out infinite; }
+
+/* Playful wiggle on hover — for cards & icons */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25%      { transform: rotate(-3.5deg); }
+  75%      { transform: rotate(3.5deg); }
+}
+.hover-wiggle:hover { animation: wiggle 0.4s ease-in-out; }
+
+/* Gentle idle bob — for hero elements / mascots */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+.animate-bob { animation: bob 2.6s ease-in-out infinite; }
+
+/* Bouncy entrance */
+@keyframes bounceIn {
+  0%   { opacity: 0; transform: scale(0.3); }
+  55%  { transform: scale(1.08); }
+  75%  { transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-bounce-in { animation: bounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Squishy pulse — draws the eye to a primary CTA */
+@keyframes jelly {
+  0%, 100% { transform: scale(1, 1); }
+  30%      { transform: scale(1.06, 0.94); }
+  50%      { transform: scale(0.96, 1.04); }
+  70%      { transform: scale(1.03, 0.97); }
+}
+.animate-jelly { animation: jelly 2.8s ease-in-out infinite; }

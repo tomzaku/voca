@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { initApiKeyStorage } from '../lib/apiKeyStorage';
+import { useVocabularyStore } from './useVocabulary';
 
 interface AuthContextType {
   user: User | null;
@@ -54,6 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       await initApiKeyStorage(session?.user ?? null);
+      // Pull saved/known/skipped word progress from Supabase so History is
+      // populated on a fresh browser (writes sync up; this brings it back down).
+      if (session?.user) useVocabularyStore.getState().loadFromRemote(session.user.id);
       setKeysLoaded(true);
       setLoading(false);
     });
@@ -68,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // subsequent Supabase request, including the storage-mode switch.
       setTimeout(async () => {
         await initApiKeyStorage(session?.user ?? null);
+        if (session?.user) useVocabularyStore.getState().loadFromRemote(session.user.id);
         setKeysLoaded(true);
         setLoading(false);
       }, 0);
