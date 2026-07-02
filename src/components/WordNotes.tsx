@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -187,7 +188,7 @@ export function WordNotes({ word }: Props) {
         </div>
       ) : (
         <p className="text-xs text-text-muted">
-          <a href="/voca/login" className="text-accent-cyan hover:underline">Sign in</a>
+          <Link to="/login" className="text-accent-cyan hover:underline">Sign in</Link>
           {' '}to add a note
         </p>
       )}

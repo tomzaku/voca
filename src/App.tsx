@@ -14,7 +14,7 @@ import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter basename="/voca">
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/+$/, '') || '/'}>
         <div className="min-h-screen bg-bg-primary">
           <Navbar />
           <main>
