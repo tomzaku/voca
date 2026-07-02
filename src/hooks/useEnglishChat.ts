@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { callAI, getCurrentApiKey, getProviderConfig } from '../lib/aiProviders';
+import { callAI } from '../lib/aiProviders';
 import { extractLearnings } from './useLearnings';
 import type { Learning } from './useLearnings';
 
@@ -198,12 +198,6 @@ export function useEnglishChat() {
   }, [messages, processResponse]);
 
   const summarizeMistakes = useCallback(async (conversationMessages: ChatMessage[]): Promise<string | null> => {
-    if (!getCurrentApiKey()) {
-      const provider = getProviderConfig();
-      setError(`Please set your ${provider.label} API key first.`);
-      return null;
-    }
-
     setIsLoading(true);
     setError(null);
     abortRef.current = new AbortController();

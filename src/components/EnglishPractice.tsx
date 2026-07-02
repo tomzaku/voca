@@ -5,8 +5,8 @@ import { useLearnings, type LearningCategory } from '../hooks/useLearnings';
 import { ReadAloud } from './ReadAloud';
 import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 import { transcribeBlob } from '../lib/whisperStt';
-import { getCurrentApiKey, getProviderConfig } from '../lib/aiProviders';
 import { useFabStore } from '../hooks/useFabStore';
+import { useAuth } from '../hooks/useAuth';
 
 // ─── Web Speech API helpers ──────────────────────────────────────────
 interface SpeechRecognitionInstance extends EventTarget {
@@ -69,6 +69,7 @@ type DrawerTab = 'chat' | 'learnings';
 
 export function EnglishPractice() {
   const { panel, closePanel } = useFabStore();
+  const { user } = useAuth();
   const open = panel === 'englishPractice';
 
   const [input, setInput] = useState('');
@@ -353,7 +354,7 @@ export function EnglishPractice() {
   const handleSelectMode = (m: PracticeMode) => { setSelectedMode(m); setSetupStep('topic'); };
 
   const handlePickTopic = (topicId: TopicId) => {
-    if (!getCurrentApiKey() || !selectedMode) return;
+    if (!user || !selectedMode) return;
     lastReadIndexRef.current = -1;
     prevMessageCountRef.current = 0;
     setActiveConvId(null);
@@ -401,7 +402,7 @@ export function EnglishPractice() {
     if (activeConvId === id) { setActiveConvId(null); handleNewConversation(); }
   }, [deleteConversation, activeConvId, handleNewConversation]);
 
-  const hasApiKey = !!getCurrentApiKey();
+  const hasApiKey = !!user;
   const userMessageCount = messages.filter((m) => m.role === 'user').length;
   const inConversation = !!currentTopic;
 
@@ -424,7 +425,7 @@ export function EnglishPractice() {
           <p className="text-sm text-text-muted mb-5">Choose your conversation style.</p>
           {!hasApiKey && (
             <div className="mb-4 p-3 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-sm text-accent-yellow">
-              Set your {getProviderConfig().label} API key first — go to Settings to configure.
+              Sign in to start practicing — conversations are powered by AI on our server.
             </div>
           )}
           <div className="grid gap-3">
@@ -912,7 +913,7 @@ export function EnglishPractice() {
             )}
             <div className="flex items-center justify-between mt-2">
               <span className="text-xs text-text-muted">Enter to send · Shift+Enter new line · Mic for voice</span>
-              <span className="text-xs text-text-muted">Powered by {getProviderConfig().label}</span>
+              <span className="text-xs text-text-muted">Powered by AI</span>
             </div>
           </div>
         )}

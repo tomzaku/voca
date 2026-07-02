@@ -120,6 +120,15 @@ export function getProviderConfig(): AIProvider {
 }
 
 // ─── Unified API call ───────────────────────────────────────────────
+//
+// AI requests are proxied through our Supabase Edge Function (`ai`), which holds
+// the provider API key server-side. The browser only sends the user's Supabase
+// JWT — no AI key ever touches the client.
+
+import { supabase } from './supabase';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 interface CallOptions {
   system: string;
@@ -129,92 +138,31 @@ interface CallOptions {
 }
 
 export async function callAI(opts: CallOptions): Promise<string> {
-  const providerId = getProvider();
-  const apiKey = getCurrentApiKey();
-  const model = getModel();
+  if (!supabase) throw new Error('Supabase is not configured.');
 
-  if (!apiKey) {
-    throw new Error(`Please set your ${getProviderConfig().label} API key in Settings.`);
-  }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Please sign in to use AI features.');
 
-  if (providerId === 'anthropic') {
-    return callAnthropic(apiKey, model, opts);
-  }
-  return callOpenAICompatible(providerId, apiKey, model, opts);
-}
-
-async function callAnthropic(apiKey: string, model: string, opts: CallOptions): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({
-      model,
-      max_tokens: opts.maxTokens,
       system: opts.system,
-      messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: opts.messages,
+      maxTokens: opts.maxTokens,
     }),
     signal: opts.signal,
   });
 
   if (!response.ok) {
     const errData = await response.json().catch(() => null);
-    throw new Error(errData?.error?.message || `API error: ${response.status}`);
+    throw new Error(errData?.error || `AI request failed (${response.status}).`);
   }
 
   const data = await response.json();
-  // The response may lead with a `thinking` block (extended thinking) before the
-  // `text` block, so grab the first text block rather than content[0] blindly.
-  const text = (data.content as { type: string; text?: string }[] | undefined)
-    ?.find((b) => b.type === 'text')?.text;
-  return text || 'No response received.';
-}
-
-function getOpenAICompatibleEndpoint(providerId: ProviderId): string {
-  switch (providerId) {
-    case 'openai':
-      return 'https://api.openai.com/v1/chat/completions';
-    case 'perplexity':
-      return 'https://api.perplexity.ai/chat/completions';
-    case 'google':
-      return 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-    default:
-      throw new Error(`Unknown provider: ${providerId}`);
-  }
-}
-
-async function callOpenAICompatible(
-  providerId: ProviderId,
-  apiKey: string,
-  model: string,
-  opts: CallOptions,
-): Promise<string> {
-  const endpoint = getOpenAICompatibleEndpoint(providerId);
-  const messages = [
-    { role: 'system', content: opts.system },
-    ...opts.messages.map((m) => ({ role: m.role, content: m.content })),
-  ];
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model, max_tokens: opts.maxTokens, messages }),
-    signal: opts.signal,
-  });
-
-  if (!response.ok) {
-    const errData = await response.json().catch(() => null);
-    const msg = errData?.error?.message || errData?.message || `API error: ${response.status}`;
-    throw new Error(msg);
-  }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || 'No response received.';
+  return data.text || 'No response received.';
 }
