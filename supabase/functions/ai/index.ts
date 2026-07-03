@@ -1,53 +1,33 @@
-// Server-side AI proxy (Option A: app-owned key).
-//
-// The browser calls this function with the current user's Supabase JWT; the
-// function holds the real provider API key as a secret and makes the upstream
-// call. No AI key ever reaches the client.
+// Server-side AI proxy for the always-generative features (conversation, tutor,
+// dialogues, story-gaps, translation). Word data lives in its own cache-first
+// `word` function — see supabase/functions/word/index.ts.
 //
 // SECURITY: this is an ACTION API, not a raw prompt passthrough. The client may
 // only invoke a fixed set of named actions with small, validated params — it
 // can NOT supply the system prompt or arbitrary conversation. Every system
-// prompt and prompt template lives here, server-side, so the endpoint can't be
-// abused as a general-purpose LLM. A valid signed-in user is also required.
+// prompt and template lives here, server-side. A signed-in user is required,
+// and each user is rate-limited.
 //
 // Configure via `supabase secrets set`:
-//   AI_PROVIDER        anthropic | openai | perplexity | google   (default: google)
-//   AI_MODEL           optional model override
+//   AI_PROVIDER  anthropic | openai | perplexity | google   (default: google)
+//   AI_MODEL     optional model override
 //   ANTHROPIC_API_KEY / OPENAI_API_KEY / PERPLEXITY_API_KEY / GOOGLE_API_KEY
-// (SUPABASE_URL and SUPABASE_ANON_KEY are injected automatically.)
+//   AI_RATE_LIMIT (default 60), AI_RATE_WINDOW_SECONDS (default 60)
 //
 // Deploy: `supabase functions deploy ai`
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
-
-type Provider = 'anthropic' | 'openai' | 'perplexity' | 'google';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-const PROVIDER = (Deno.env.get('AI_PROVIDER') ?? 'google') as Provider;
-
-const KEY_ENV: Record<Provider, string> = {
-  anthropic: 'ANTHROPIC_API_KEY',
-  openai: 'OPENAI_API_KEY',
-  perplexity: 'PERPLEXITY_API_KEY',
-  google: 'GOOGLE_API_KEY',
-};
-
-const DEFAULT_MODEL: Record<Provider, string> = {
-  anthropic: 'claude-sonnet-5',
-  openai: 'gpt-4o',
-  perplexity: 'sonar',
-  google: 'gemini-2.5-flash',
-};
-
-interface ChatMessage {
-  role: string;
-  content: string;
-}
+import {
+  BadRequest,
+  callProvider,
+  type ChatMessage,
+  corsHeaders,
+  jsonResponse,
+  oneOf,
+  reqStr,
+  requireUser,
+  sanitizeHistory,
+  underRateLimit,
+} from '../_shared/ai.ts';
 
 /** What each action builder produces — everything the provider call needs. */
 interface BuiltRequest {
@@ -56,45 +36,7 @@ interface BuiltRequest {
   maxTokens: number;
 }
 
-function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-// ─── Input validation helpers ───────────────────────────────────────
-// Thrown validation errors become 400s. Caps keep any single request small so
-// the endpoint can't be turned into a bulk text generator.
-
-class BadRequest extends Error {}
-
-function reqStr(params: Record<string, unknown>, key: string, maxLen: number): string {
-  const v = params[key];
-  if (typeof v !== 'string') throw new BadRequest(`Missing or invalid "${key}".`);
-  const trimmed = v.trim();
-  if (!trimmed) throw new BadRequest(`"${key}" must not be empty.`);
-  return trimmed.slice(0, maxLen);
-}
-
-function oneOf<T extends string>(params: Record<string, unknown>, key: string, allowed: readonly T[], fallback?: T): T {
-  const v = params[key];
-  if (typeof v === 'string' && (allowed as readonly string[]).includes(v)) return v as T;
-  if (fallback !== undefined) return fallback;
-  throw new BadRequest(`"${key}" must be one of: ${allowed.join(', ')}.`);
-}
-
-/** Sanitize a client-supplied conversation: known roles, capped count & length. */
-function sanitizeHistory(v: unknown, maxCount: number, maxLen: number): ChatMessage[] {
-  if (!Array.isArray(v)) throw new BadRequest('"history" must be an array.');
-  return v.slice(-maxCount).map((m) => {
-    const content = typeof m?.content === 'string' ? m.content.slice(0, maxLen) : '';
-    const role = m?.role === 'assistant' ? 'assistant' : 'user';
-    return { role, content };
-  }).filter((m) => m.content);
-}
-
-// ─── English conversation prompts (ported from the old client) ──────
+// ─── English conversation prompts ───────────────────────────────────
 
 const ENGLISH_TOPIC_LABELS: Record<string, string> = {
   'daily-life': 'Daily Life',
@@ -207,53 +149,7 @@ ${LEARNINGS_BLOCK_INSTRUCTION}`;
 // Each builder validates its own params and returns the exact request. Adding a
 // capability means adding one entry here — never widening the client contract.
 
-const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
-
 const ACTIONS: Record<string, (p: Record<string, unknown>) => BuiltRequest> = {
-  word_data(p) {
-    const word = reqStr(p, 'word', 100);
-    const level = oneOf(p, 'level', LEVELS, 'intermediate');
-    const learnLang = reqStr(p, 'learnLang', 40);
-    const motherLang = reqStr(p, 'motherLang', 40);
-    const isEnglish = learnLang.toLowerCase() === 'english';
-
-    const headwordSpec = isEnglish
-      ? `"word": "${word}",`
-      : `"word": "the single ${learnLang} word that best translates the English word \\"${word}\\"",`;
-
-    const prompt = `Generate vocabulary data for ${
-      isEnglish ? `the English word "${word}"` : `the ${learnLang} equivalent of the English word "${word}"`
-    } (level: ${level}).
-
-Return this exact JSON structure (no markdown, no extra text):
-{
-  ${headwordSpec}
-  "phonetic": "IPA phonetic notation like /wɜːrd/",
-  "partOfSpeech": "noun | verb | adjective | adverb | etc",
-  "definition": "Clear, concise definition in 1-2 sentences${isEnglish ? '' : `, written in ${learnLang}`}",
-  "translation": "the word's meaning translated into ${motherLang} (the most natural equivalent)",
-  "examples": [
-    "Natural example sentence showing the word in context.",
-    "Another example with different usage.",
-    "A third example if the word has notable nuance."
-  ],
-  "synonyms": ["synonym1", "synonym2", "synonym3"],
-  "antonyms": ["antonym1", "antonym2"],
-  "level": "${level}",
-  "imageKeywords": ["concrete visual noun 1", "concept 2"]
-}
-
-The "translation" field MUST be written in ${motherLang}.${
-      isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", and "antonyms" MUST all be written in ${learnLang}.`
-    } For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
-
-    return {
-      system: 'You are a vocabulary tutor. Return ONLY valid JSON, no markdown, no explanation.',
-      messages: [{ role: 'user', content: prompt }],
-      maxTokens: 700,
-    };
-  },
-
   cloze(p) {
     if (!Array.isArray(p.words)) throw new BadRequest('"words" must be an array.');
     const words = p.words
@@ -394,27 +290,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
-  // Require a real signed-in user (rejects the bare anon key / no token).
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } },
-  );
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !user) return jsonResponse(401, { error: 'Please sign in to use AI features.' });
+  const auth = await requireUser(req);
+  if (!auth) return jsonResponse(401, { error: 'Please sign in to use AI features.' });
 
-  // Per-user rate limit (fixed window). Tunable without a redeploy via secrets:
-  //   AI_RATE_LIMIT (default 60), AI_RATE_WINDOW_SECONDS (default 60).
-  const rateLimit = Number(Deno.env.get('AI_RATE_LIMIT')) || 60;
-  const rateWindow = Number(Deno.env.get('AI_RATE_WINDOW_SECONDS')) || 60;
-  const { data: allowed, error: rlErr } = await supabase.rpc('check_ai_rate_limit', {
-    p_limit: rateLimit,
-    p_window_seconds: rateWindow,
-  });
-  // Fail open on infra errors (e.g. migration not applied yet); block only on an
-  // explicit false so a broken limiter never takes down all AI features.
-  if (allowed === false && !rlErr) {
+  if (!await underRateLimit(auth.supabase)) {
     return jsonResponse(429, { error: 'Too many requests — please slow down and try again shortly.' });
   }
 
@@ -438,83 +317,10 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: 'Invalid request parameters.' });
   }
 
-  const apiKey = Deno.env.get(KEY_ENV[PROVIDER]) ?? '';
-  if (!apiKey) return jsonResponse(500, { error: `Server is missing the ${PROVIDER} API key.` });
-
-  const model = Deno.env.get('AI_MODEL') || DEFAULT_MODEL[PROVIDER];
-  const max = Math.min(built.maxTokens, 4000);
-
   try {
-    const text = PROVIDER === 'anthropic'
-      ? await callAnthropic(apiKey, model, built.system, built.messages, max)
-      : await callOpenAICompatible(PROVIDER, apiKey, model, built.system, built.messages, max);
+    const text = await callProvider(built.system, built.messages, built.maxTokens);
     return jsonResponse(200, { text });
   } catch (err) {
     return jsonResponse(502, { error: (err as Error).message || 'AI provider error.' });
   }
 });
-
-async function callAnthropic(
-  apiKey: string,
-  model: string,
-  system: string,
-  messages: ChatMessage[],
-  maxTokens: number,
-): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error?.message || `API error: ${res.status}`);
-  }
-  const data = await res.json();
-  // Skip any leading `thinking` block; grab the first text block.
-  const text = (data.content as { type: string; text?: string }[] | undefined)
-    ?.find((b) => b.type === 'text')?.text;
-  return text || 'No response received.';
-}
-
-function endpointFor(provider: Provider): string {
-  switch (provider) {
-    case 'openai':
-      return 'https://api.openai.com/v1/chat/completions';
-    case 'perplexity':
-      return 'https://api.perplexity.ai/chat/completions';
-    case 'google':
-      return 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-    default:
-      throw new Error(`Unknown provider: ${provider}`);
-  }
-}
-
-async function callOpenAICompatible(
-  provider: Provider,
-  apiKey: string,
-  model: string,
-  system: string,
-  messages: ChatMessage[],
-  maxTokens: number,
-): Promise<string> {
-  const res = await fetch(endpointFor(provider), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      messages: [{ role: 'system', content: system }, ...messages],
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error?.message || err?.message || `API error: ${res.status}`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || 'No response received.';
-}

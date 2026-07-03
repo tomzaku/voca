@@ -1,4 +1,5 @@
 import { callAiAction } from './aiProviders';
+import { fetchWordData } from './wordApi';
 import { buildWordList, getWordPack } from './wordLists';
 import { getLearnLanguage, getMotherLanguage } from './languages';
 import type { VocabularyWord } from '../types';
@@ -177,31 +178,17 @@ export async function generateWordData(
   const motherLang = getMotherLanguage();
   const isEnglish = learnLang.trim().toLowerCase() === 'english';
 
-  const MAX_ATTEMPTS = 5;
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const raw = await callAiAction('word_data', { word, level, learnLang, motherLang }, { signal });
-
-    try {
-      // Parse JSON — strip markdown fences if present
-      const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-      const data = JSON.parse(jsonText) as VocabularyWord;
-      // Keep the English seed as the stable identity (progress/selection); the
-      // AI's learn-language word becomes the headword shown and guessed.
-      if (!isEnglish) {
-        data.headword = data.word;
-        data.word = word;
-      }
-      cacheWord(data);
-      return data;
-    } catch (err) {
-      lastError = err;
-      if (attempt < MAX_ATTEMPTS) continue;
-    }
+  // The `word` edge function is cache-first and returns a ready object (it does
+  // the generate/validate/retry server-side), so there's nothing to parse here.
+  const data = await fetchWordData({ word, level, learnLang, motherLang }, signal);
+  // Keep the English seed as the stable identity (progress/selection); the
+  // AI's learn-language word becomes the headword shown and guessed.
+  if (!isEnglish) {
+    data.headword = data.word;
+    data.word = word;
   }
-
-  throw lastError;
+  cacheWord(data);
+  return data;
 }
 
 // ─── Cloze paragraph (drag-and-drop fill-the-gap game) ──────────────
