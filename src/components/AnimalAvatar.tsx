@@ -5,7 +5,7 @@ interface Props {
   animalId: AnimalId;
   /** Growth stage 0–4 — scales the creature up and adds a Master crown. */
   stage?: number;
-  mood?: 'idle' | 'happy';
+  mood?: 'idle' | 'happy' | 'static';
   /** Overrides the idle/happy animation — a one-shot CSS class (skill preview). */
   anim?: string;
   size?: number;
@@ -21,7 +21,7 @@ export function AnimalAvatar({ animalId, stage = 0, mood = 'idle', anim, size = 
   const a = getAnimal(animalId);
   const scale = 0.82 + stage * 0.045; // Baby → Master grows a little each stage
   const isMaster = stage >= STAGE_MASTER;
-  const wrapperClass = anim || (mood === 'happy' ? 'companion-happy' : 'companion-idle');
+  const wrapperClass = anim || (mood === 'happy' ? 'companion-happy' : mood === 'static' ? '' : 'companion-idle');
 
   return (
     <div

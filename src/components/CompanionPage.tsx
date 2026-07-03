@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useGameScore } from '../hooks/useGameScore';
@@ -13,8 +13,12 @@ import {
   type AnimalId,
 } from '../lib/companion';
 
-// One-shot preview animation per skill index (0–4). Defined in index.css.
+// SVG motion per skill index (0–4), defined in index.css. Paired with a Lottie
+// effect burst (SkillFx) overlaid on top for richer, non-trivial previews.
 const PREVIEW_ANIMS = ['companion-pounce', 'companion-spin', 'companion-wiggle', 'companion-pop', 'companion-float'];
+
+// Lazy so lottie-react + the clips only load on the first skill preview.
+const SkillFx = lazy(() => import('./SkillFx'));
 
 export function CompanionPage() {
   const { animalId, name, choose, rename } = useCompanion();
@@ -117,16 +121,15 @@ function Companion({ animalId, name, known, onRename, onChange }: {
     return () => clearTimeout(t);
   }, [winId]);
 
-  // Play a skill's animation on the avatar when its Preview button is tapped.
-  // `id` bumps each click so the same animation replays (via the avatar's key).
-  const [preview, setPreview] = useState<{ cls: string; id: number } | null>(null);
+  // Preview a skill: bounce the SVG avatar (per-skill CSS motion) AND burst a
+  // Lottie effect over it. `id` bumps each click so both replay.
+  const [preview, setPreview] = useState<{ i: number; id: number } | null>(null);
   useEffect(() => {
     if (!preview) return;
-    const t = setTimeout(() => setPreview(null), 1050);
+    const t = setTimeout(() => setPreview(null), 1600);
     return () => clearTimeout(t);
   }, [preview]);
-  const doPreview = (i: number) =>
-    setPreview((p) => ({ cls: PREVIEW_ANIMS[i % PREVIEW_ANIMS.length], id: (p?.id ?? 0) + 1 }));
+  const doPreview = (i: number) => setPreview((p) => ({ i, id: (p?.id ?? 0) + 1 }));
 
   const toNext = next ? next.min - known : 0;
   const progress = next
@@ -138,7 +141,7 @@ function Companion({ animalId, name, known, onRename, onChange }: {
       {/* Avatar */}
       <div className="flex flex-col items-center text-center">
         <div
-          className="rounded-full mb-3"
+          className="relative rounded-full mb-3"
           style={{ background: `radial-gradient(circle at 50% 42%, ${a.colors.belly}, transparent 68%)` }}
         >
           <AnimalAvatar
@@ -146,9 +149,14 @@ function Companion({ animalId, name, known, onRename, onChange }: {
             animalId={animalId}
             stage={idx}
             mood={mood}
-            anim={preview?.cls}
+            anim={preview ? PREVIEW_ANIMS[preview.i % PREVIEW_ANIMS.length] : undefined}
             size={180}
           />
+          {preview && (
+            <Suspense fallback={null}>
+              <SkillFx key={preview.id} index={preview.i} />
+            </Suspense>
+          )}
         </div>
 
         <input

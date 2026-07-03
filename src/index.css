@@ -318,6 +318,13 @@ body {
   50% { transform: translateY(-28px) rotate(6deg); }
   100% { transform: translateY(0) rotate(0); }
 }
+@keyframes companionCheer {
+  0%, 100% { transform: translateY(0) rotate(-5deg); }
+  25% { transform: translateY(-11px) rotate(5deg); }
+  50% { transform: translateY(0) rotate(-5deg); }
+  75% { transform: translateY(-6px) rotate(4deg); }
+}
+.companion-cheer  { animation: companionCheer 0.5s ease-in-out infinite; }
 .companion-pounce { animation: companionPounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .companion-spin   { animation: companionSpin 0.9s ease-in-out; }
 .companion-wiggle { animation: companionWiggle 0.8s ease-in-out; }

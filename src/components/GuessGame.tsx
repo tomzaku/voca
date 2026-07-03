@@ -5,6 +5,10 @@ import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect } from '../lib/sfx';
 import { GUESS_GAMES, type GuessGameMode } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
+import { useCompanion } from '../hooks/useCompanion';
+import { useVocabularyStore } from '../hooks/useVocabulary';
+import { stageIndex } from '../lib/companion';
+import { AnimalAvatar } from './AnimalAvatar';
 import type { VocabularyWord } from '../types';
 
 interface Props {
@@ -67,6 +71,12 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
   const { points, streak, win, lastGain, winId } = useGameScore();
   const info = GUESS_GAMES.find((g) => g.id === game)!;
 
+  // The companion cheers on a correct answer.
+  const companion = useCompanion((s) => s.animalId);
+  const knownCount = useVocabularyStore(
+    (s) => Object.values(s.progress).filter((e) => e.status === 'known').length,
+  );
+
   const solve = () => {
     win();
     playCorrect();
@@ -88,11 +98,17 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
           <Confetti />
           <div className="absolute inset-0 flex items-center justify-center bg-bg-card/95 rounded-2xl z-10 animate-fade-in">
             <div className="animate-bounce-in text-center">
-              <div className="w-20 h-20 rounded-full bg-accent-green border-[3px] border-accent-green flex items-center justify-center mx-auto mb-3 animate-jelly shadow-[0_5px_0_0_var(--btn-lip)]">
-                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-bg-primary">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              </div>
+              {companion ? (
+                <div className="mx-auto mb-2 w-24 h-24">
+                  <AnimalAvatar animalId={companion} stage={stageIndex(knownCount)} anim="companion-cheer" size={96} />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-accent-green border-[3px] border-accent-green flex items-center justify-center mx-auto mb-3 animate-jelly shadow-[0_5px_0_0_var(--btn-lip)]">
+                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-bg-primary">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+              )}
               <p className="text-accent-green font-title text-3xl">
                 {streak >= 3 ? `${streak}× COMBO!` : 'Correct!'}
               </p>
