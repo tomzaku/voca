@@ -5,6 +5,24 @@ import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { useWordSearch } from '../hooks/useWordSearch';
 
+// The History tab cycles through what lives on that page.
+const HISTORY_LABELS = ['History', 'Review', 'Games'];
+
+/** Cycles through `words`, swapping one per second with a fade/slide-up. */
+function CyclingLabel({ words, className }: { words: string[]; className?: string }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((n) => (n + 1) % words.length), 1000);
+    return () => clearInterval(id);
+  }, [words.length]);
+  return (
+    <span className={`inline-flex justify-center ${className ?? ''}`}>
+      {/* keyed so each word re-mounts and re-runs the entrance animation */}
+      <span key={i} className="inline-block animate-fade-in">{words[i]}</span>
+    </span>
+  );
+}
+
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
@@ -66,7 +84,11 @@ export function Navbar() {
                     : 'bg-bg-card text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <span className="hidden sm:inline">{link.label}</span>
+                <span className="hidden sm:inline">
+                  {link.to === '/bookmarks'
+                    ? <CyclingLabel words={HISTORY_LABELS} className="min-w-[3.75rem]" />
+                    : link.label}
+                </span>
                 <Icon icon={link.icon} className="sm:hidden text-lg" />
               </Link>
             );
