@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { BookmarkGame } from './BookmarkGame';
 import { SpellingGame } from './SpellingGame';
 import { ParagraphGame } from './ParagraphGame';
+import { ReviewPanel } from './ReviewPanel';
 
 const LEVEL_COLOR: Record<string, string> = {
   beginner: 'text-accent-green',
@@ -209,6 +210,9 @@ export function BookmarkList() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
+      {/* ── Spaced-repetition review ── */}
+      <ReviewPanel />
+
       {/* ── Word of the Day ── */}
       <DailyWords />
 

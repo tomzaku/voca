@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { WordProgress, WordStatus } from '../types';
 import { supabase } from '../lib/supabase';
+import { gradeReview } from '../lib/srs';
 
 interface VocabularyState {
   progress: Record<string, WordProgress>;
@@ -31,11 +32,14 @@ export const useVocabularyStore = create<VocabularyState>()(
 
       markWord: (word, status, userId) => {
         const prev = get().progress[word];
+        // "known" is a successful review, "skipped" (incl. giving up) a lapse.
+        const srs = gradeReview(prev, status === 'known' ? 'good' : 'again');
         const entry: WordProgress = {
           word,
           status,
           bookmarked: prev?.bookmarked ?? false,
           seenAt: new Date().toISOString(),
+          ...srs,
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
         if (userId) syncWordToRemote(userId, entry);
@@ -110,17 +114,25 @@ export const useVocabularyStore = create<VocabularyState>()(
         if (!supabase) return;
         const { data } = await supabase
           .from('user_word_progress')
-          .select('word, status, bookmarked, learned_at')
+          .select('word, status, bookmarked, learned_at, reps, lapses, srs_interval, ease, due_at, last_reviewed_at, mastered')
           .eq('user_id', userId);
 
         if (!data) return;
         const remote: Record<string, WordProgress> = {};
         for (const row of data) {
-          remote[row.word as string] = {
-            word: row.word as string,
-            status: (row.status as WordStatus | null) ?? undefined,
-            bookmarked: Boolean(row.bookmarked),
-            seenAt: row.learned_at as string,
+          const r = row as Record<string, unknown>;
+          remote[r.word as string] = {
+            word: r.word as string,
+            status: (r.status as WordStatus | null) ?? undefined,
+            bookmarked: Boolean(r.bookmarked),
+            seenAt: r.learned_at as string,
+            reps: (r.reps as number | null) ?? undefined,
+            lapses: (r.lapses as number | null) ?? undefined,
+            interval: (r.srs_interval as number | null) ?? undefined,
+            ease: (r.ease as number | null) ?? undefined,
+            dueAt: (r.due_at as string | null) ?? undefined,
+            lastReviewedAt: (r.last_reviewed_at as string | null) ?? undefined,
+            mastered: (r.mastered as boolean | null) ?? undefined,
           };
         }
         // Merge: remote wins for conflicts (each remote row carries both fields).
@@ -144,6 +156,13 @@ function syncWordToRemote(userId: string, entry: WordProgress) {
       status: entry.status ?? null,
       bookmarked: entry.bookmarked ?? false,
       learned_at: entry.seenAt,
+      reps: entry.reps ?? 0,
+      lapses: entry.lapses ?? 0,
+      srs_interval: entry.interval ?? 0,
+      ease: entry.ease ?? 2.5,
+      due_at: entry.dueAt ?? null,
+      last_reviewed_at: entry.lastReviewedAt ?? null,
+      mastered: entry.mastered ?? false,
     })
     .then(({ error }) => {
       if (error) console.warn('[voca] sync error:', error.message);

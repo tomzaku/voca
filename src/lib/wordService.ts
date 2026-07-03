@@ -2,6 +2,8 @@ import { callAiAction } from './aiProviders';
 import { fetchWordData } from './wordApi';
 import { buildWordList, getWordPack } from './wordLists';
 import { getLearnLanguage, getMotherLanguage } from './languages';
+import { useVocabularyStore } from '../hooks/useVocabulary';
+import { isDue, dueTime } from './srs';
 import type { VocabularyWord } from '../types';
 
 // ─── Built-in word list ─────────────────────────────────────────────
@@ -269,25 +271,45 @@ export function getActiveWordList() {
 
 // ─── Word selection ─────────────────────────────────────────────────
 
+// Spaced-repetition selection: surface words that are due for review first,
+// then introduce fresh words, then fall back to the soonest upcoming review.
+// Mastered words drop out of rotation. (The known/skipped sets are no longer
+// needed — the schedule in the store drives everything — but the signature is
+// kept for the existing call sites.)
 export function pickNextWord(
-  knownWords: Set<string>,
-  skippedWords: Set<string>,
+  _knownWords: Set<string>,
+  _skippedWords: Set<string>,
   exclude: Set<string> = new Set(),
 ): { word: string; level: VocabularyWord['level'] } {
   const list = getActiveWordList();
-  const available = list.filter(
-    (w) => !knownWords.has(w.word) && !exclude.has(w.word),
-  );
+  const progress = useVocabularyStore.getState().progress;
+  const now = Date.now();
+  const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-  if (available.length === 0) {
-    // All words known — fall back to unskipped
-    const fallback = list.filter((w) => !skippedWords.has(w.word) && !exclude.has(w.word));
-    if (fallback.length === 0) return list[Math.floor(Math.random() * list.length)];
-    return fallback[Math.floor(Math.random() * fallback.length)];
+  // 1) Due reviews — soonest due first.
+  const due = list.filter((w) => !exclude.has(w.word) && isDue(progress[w.word], now));
+  if (due.length) {
+    due.sort((a, b) => dueTime(progress[a.word]) - dueTime(progress[b.word]));
+    return due[0];
   }
 
-  // Prefer words not yet skipped
-  const notSkipped = available.filter((w) => !skippedWords.has(w.word));
-  const pool = notSkipped.length > 0 ? notSkipped : available;
-  return pool[Math.floor(Math.random() * pool.length)];
+  // 2) New words — never reviewed and not mastered.
+  const fresh = list.filter((w) => {
+    const p = progress[w.word];
+    return !exclude.has(w.word) && !p?.mastered && !p?.dueAt;
+  });
+  if (fresh.length) return pick(fresh);
+
+  // 3) Soonest upcoming non-mastered review (nothing due yet, no new words left).
+  const upcoming = list.filter((w) => {
+    const p = progress[w.word];
+    return !exclude.has(w.word) && !!p?.dueAt && !p.mastered;
+  });
+  if (upcoming.length) {
+    upcoming.sort((a, b) => dueTime(progress[a.word]) - dueTime(progress[b.word]));
+    return upcoming[0];
+  }
+
+  // Everything mastered / excluded — just pick anything so the UI never stalls.
+  return pick(list);
 }

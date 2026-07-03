@@ -22,4 +22,12 @@ export interface WordProgress {
   status?: WordStatus;
   bookmarked?: boolean;
   seenAt: string;
+  // ── Spaced repetition (SM-2-lite) ── all optional so pre-SRS data still loads.
+  reps?: number;          // successful reviews in a row
+  lapses?: number;        // times forgotten
+  interval?: number;      // days until next due
+  ease?: number;          // SM-2 ease factor (default 2.5)
+  dueAt?: string;         // ISO — when the word should resurface
+  lastReviewedAt?: string;
+  mastered?: boolean;     // graduated out of active rotation
 }

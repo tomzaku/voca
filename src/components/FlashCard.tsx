@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData, pickNextWord } from '../lib/wordService';
+import { reviewsUntilMastered } from '../lib/srs';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { WordTest } from './WordTest';
 import { WordNotes } from './WordNotes';
@@ -227,8 +228,9 @@ export function FlashCard() {
   }, [wordData, setSearchParams]);
 
   const handleReveal = () => {
-    if (phase !== 'introduce') return;
+    if (phase !== 'introduce' || !wordData) return;
     breakStreak(); // gave up without guessing
+    store.markWord(wordData.word, 'skipped', user?.id); // giving up counts as a lapse
     setGaveUp(true);
     setPhase('revealed');
   };
@@ -376,15 +378,32 @@ export function FlashCard() {
       ) : wordData ? (
         <>
           {/* Progress row */}
-          <div className="flex items-center justify-between mb-5 text-xs text-text-muted">
+          <div className="flex items-center justify-between gap-2 mb-5 text-xs text-text-muted">
             <span>
               <span className="text-accent-green font-medium">{store.knownWords().size}</span> known
               {' · '}
               <span className="text-accent-cyan font-medium">{store.bookmarkedWords().length}</span> saved
             </span>
-            <span className={`px-2 py-0.5 rounded font-medium ${levelColor[wordData.level]}`}>
-              {wordData.level}
-            </span>
+            <div className="flex items-center gap-2">
+              {(() => {
+                const p = store.progress[wordData.word];
+                const reps = p?.reps ?? 0;
+                if (p?.mastered) {
+                  return <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-medium">Mastered ✨</span>;
+                }
+                if (reps > 0) {
+                  return (
+                    <span className="px-2 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-medium">
+                      Seen {reps}× · {reviewsUntilMastered(p)} to master
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+              <span className={`px-2 py-0.5 rounded font-medium ${levelColor[wordData.level]}`}>
+                {wordData.level}
+              </span>
+            </div>
           </div>
 
           {/* Definition clue — surfaced at the top while guessing so the
