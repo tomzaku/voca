@@ -681,6 +681,7 @@ export function FlashCard() {
                 </div>
               )}
 
+              <BuddyBadge />
               {/* Notes + AI test (revealed only) */}
               {phase === 'revealed' && (
                 <>
@@ -726,11 +727,10 @@ export function FlashCard() {
                     </div>
                   </div>
 
-                  <WordNotes word={wordData.word} />
                   <WordTest wordData={wordData} />
+                  <WordNotes word={wordData.word} />
                 </>
               )}
-              <BuddyBadge />
             </div>
           </div>
         </>
