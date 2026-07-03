@@ -126,6 +126,7 @@ export function FlashCard() {
       pushWord(queued.data);
       setWordData(queued.data);
       setPhase('introduce');
+      store.recordView(queued.word, user?.id);
       fillPrefetchQueue(known, skipped, queued.word);
       return;
     }
@@ -140,6 +141,7 @@ export function FlashCard() {
       pushWord(data);
       setWordData(data);
       setPhase('introduce');
+      store.recordView(word, user?.id);
       fillPrefetchQueue(known, skipped, word);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
@@ -149,7 +151,7 @@ export function FlashCard() {
     } finally {
       setIsGenerating(false);
     }
-  }, [store, pushWord]);
+  }, [store, pushWord, user?.id]);
 
   const loadSpecificWord = useCallback(async (word: string) => {
     abortRef.current?.abort();
@@ -168,6 +170,7 @@ export function FlashCard() {
       pushWord(data);
       setWordData(data);
       setPhase('revealed');
+      store.recordView(word, user?.id);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       const msg = (err as Error).message || '';
@@ -176,7 +179,7 @@ export function FlashCard() {
     } finally {
       setIsGenerating(false);
     }
-  }, [pushWord]);
+  }, [pushWord, store, user?.id]);
 
   // Kick off the first word only once auth has resolved. AI calls are proxied
   // through the server and require the user's session token, so we wait for the

@@ -8,6 +8,8 @@ interface VocabularyState {
   progress: Record<string, WordProgress>;
   /** Set the learning outcome (known / skipped). Preserves the saved flag. */
   markWord: (word: string, status: WordStatus, userId?: string) => void;
+  /** Count one viewing of a word (opened on the flashcard). Leaves status/SR intact. */
+  recordView: (word: string, userId?: string) => void;
   /** Save/unsave a word. Preserves the learning status. */
   setBookmarked: (word: string, bookmarked: boolean, userId?: string) => void;
   /** Clear the learning outcome (remove from known / don't-know lists). */
@@ -39,8 +41,28 @@ export const useVocabularyStore = create<VocabularyState>()(
           status,
           bookmarked: prev?.bookmarked ?? false,
           seenAt: new Date().toISOString(),
-          views: (prev?.views ?? 0) + 1,
+          views: prev?.views ?? 0, // views count opens, not judgments (see recordView)
           ...srs,
+        };
+        set((s) => ({ progress: { ...s.progress, [word]: entry } }));
+        if (userId) syncWordToRemote(userId, entry);
+      },
+
+      recordView: (word, userId) => {
+        const prev = get().progress[word];
+        const entry: WordProgress = {
+          word,
+          status: prev?.status,
+          bookmarked: prev?.bookmarked ?? false,
+          seenAt: new Date().toISOString(),
+          reps: prev?.reps,
+          lapses: prev?.lapses,
+          interval: prev?.interval,
+          ease: prev?.ease,
+          dueAt: prev?.dueAt,
+          lastReviewedAt: prev?.lastReviewedAt,
+          mastered: prev?.mastered,
+          views: (prev?.views ?? 0) + 1,
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
         if (userId) syncWordToRemote(userId, entry);

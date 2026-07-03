@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData } from '../lib/wordService';
@@ -319,8 +320,9 @@ export function BookmarkList() {
                 </div>
 
                 {views > 0 && (
-                  <span className="text-[11px] text-text-muted whitespace-nowrap" title={`Reviewed ${views} time${views === 1 ? '' : 's'}`}>
-                    👁 {views}×
+                  <span className="flex items-center gap-1 text-[11px] text-text-muted whitespace-nowrap" title={`Seen ${views} time${views === 1 ? '' : 's'}`}>
+                    {views}
+                    <Icon icon="lucide:eye" className="text-sm" />
                   </span>
                 )}
                 <span className={`text-xs font-medium ${LEVEL_COLOR[level]}`}>{level}</span>
