@@ -1,4 +1,4 @@
-import { callAI } from './aiProviders';
+import { callAiAction } from './aiProviders';
 import { buildWordList, getWordPack } from './wordLists';
 import { getLearnLanguage, getMotherLanguage } from './languages';
 import type { VocabularyWord } from '../types';
@@ -177,48 +177,11 @@ export async function generateWordData(
   const motherLang = getMotherLanguage();
   const isEnglish = learnLang.trim().toLowerCase() === 'english';
 
-  const system = `You are a vocabulary tutor. Return ONLY valid JSON, no markdown, no explanation.`;
-
-  const headwordSpec = isEnglish
-    ? `"word": "${word}",`
-    : `"word": "the single ${learnLang} word that best translates the English word \\"${word}\\"",`;
-
-  const prompt = `Generate vocabulary data for ${
-    isEnglish ? `the English word "${word}"` : `the ${learnLang} equivalent of the English word "${word}"`
-  } (level: ${level}).
-
-Return this exact JSON structure (no markdown, no extra text):
-{
-  ${headwordSpec}
-  "phonetic": "IPA phonetic notation like /wɜːrd/",
-  "partOfSpeech": "noun | verb | adjective | adverb | etc",
-  "definition": "Clear, concise definition in 1-2 sentences${isEnglish ? '' : `, written in ${learnLang}`}",
-  "translation": "the word's meaning translated into ${motherLang} (the most natural equivalent)",
-  "examples": [
-    "Natural example sentence showing the word in context.",
-    "Another example with different usage.",
-    "A third example if the word has notable nuance."
-  ],
-  "synonyms": ["synonym1", "synonym2", "synonym3"],
-  "antonyms": ["antonym1", "antonym2"],
-  "level": "${level}",
-  "imageKeywords": ["concrete visual noun 1", "concept 2"]
-}
-
-The "translation" field MUST be written in ${motherLang}.${
-    isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", and "antonyms" MUST all be written in ${learnLang}.`
-  } For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
-
   const MAX_ATTEMPTS = 5;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const raw = await callAI({
-      system,
-      messages: [{ role: 'user', content: prompt }],
-      maxTokens: 700,
-      signal,
-    });
+    const raw = await callAiAction('word_data', { word, level, learnLang, motherLang }, { signal });
 
     try {
       // Parse JSON — strip markdown fences if present
@@ -266,40 +229,13 @@ export async function generateClozeParagraph(
   signal?: AbortSignal,
 ): Promise<ClozeParagraph> {
   const learnLang = getLearnLanguage();
-  const isEnglish = learnLang.trim().toLowerCase() === 'english';
-  const list = words.map((w) => `"${w}"`).join(', ');
-
-  const system = `You write short, engaging vocabulary-practice paragraphs. Return ONLY valid JSON, no markdown, no explanation.`;
-
-  const prompt = `Write ONE coherent, engaging paragraph (about ${Math.min(
-    Math.max(words.length * 22, 70),
-    170,
-  )} words) suitable for a language learner.${
-    isEnglish ? '' : ` Write the paragraph in ${learnLang}.`
-  }
-
-You MUST use each of these vocabulary words exactly once, in a natural context: ${list}.
-
-${
-    isEnglish
-      ? 'Wrap each of those target words in double square brackets, e.g. she felt [[anxious]] about it.'
-      : `For each English word above, use its most natural ${learnLang} equivalent and wrap THAT ${learnLang} word in double square brackets, e.g. [[word]].`
-  } Only wrap the ${words.length} target words — nothing else. Do not wrap the same word more than once.
-
-Return this exact JSON (no markdown, no extra text):
-{ "paragraph": "the paragraph text with each target word wrapped in [[ ]]" }`;
 
   const MAX_ATTEMPTS = 4;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const raw = await callAI({
-        system,
-        messages: [{ role: 'user', content: prompt }],
-        maxTokens: 600,
-        signal,
-      });
+      const raw = await callAiAction('cloze', { words, learnLang }, { signal });
       const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
       const { paragraph } = JSON.parse(jsonText) as { paragraph: string };
       const parsed = parseCloze(paragraph);

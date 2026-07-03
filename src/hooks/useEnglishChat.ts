@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { callAI } from '../lib/aiProviders';
+import { callAiAction } from '../lib/aiProviders';
 import { extractLearnings } from './useLearnings';
 import type { Learning } from './useLearnings';
 
@@ -25,97 +25,6 @@ export const ENGLISH_TOPICS = [
 ] as const;
 
 export type TopicId = (typeof ENGLISH_TOPICS)[number]['id'];
-
-const LEARNINGS_BLOCK_INSTRUCTION = `
-
-IMPORTANT — at the very end of EVERY response (after your conversational text), append a structured data block with any corrections or tips. Use this exact format:
-
-~~~learnings
-[
-  {"category": "grammar", "original": "what the user said", "corrected": "the corrected version", "explanation": "why"},
-  {"category": "vocabulary", "original": "word used", "corrected": "better alternative", "explanation": "why it's more natural"},
-  {"category": "rephrase", "original": "user's sentence", "corrected": "more native phrasing", "explanation": "why this sounds more natural"},
-  {"category": "tip", "original": "", "corrected": "the tip or idiom", "explanation": "when to use it"}
-]
-~~~
-
-Rules for the block:
-- Include ALL applicable categories — omit any that don't apply
-- If there are no corrections or tips, output an empty array: ~~~learnings\\n[]\\n~~~
-- The block is hidden from the user — they only see the conversational text above it
-- Always include the block, even if the array is empty
-
-IMPORTANT — this is SPEAKING practice, not writing practice:
-- Do NOT correct capitalization, punctuation, or formatting
-- Focus on grammar structure, word choice, natural phrasing
-- Corrections should reflect how native speakers actually talk in casual conversation
-- Contractions like "gonna", "wanna", "gotta" are natural in spoken English`;
-
-function buildSystemPrompt(topicId: TopicId, mode: PracticeMode): string {
-  const topicLabel = ENGLISH_TOPICS.find((t) => t.id === topicId)?.label || topicId;
-
-  if (mode === 'smooth') {
-    return `You are a friendly English conversation partner helping someone practice their English speaking skills. The topic is: "${topicLabel}".
-
-Rules:
-- Ask one question at a time — keep it conversational and natural
-- ${topicId === 'random' ? 'Pick a random interesting topic for each question' : `Stay on the topic of "${topicLabel}" but explore different angles`}
-- After the user responds, briefly acknowledge their answer (1 sentence), then ask a follow-up or new question
-- Do NOT correct grammar in your conversational text — just keep it flowing naturally
-- Keep your responses concise — 2-4 sentences max
-- Be warm, patient, and encouraging
-- Do NOT use bullet points or lists — keep it conversational
-${LEARNINGS_BLOCK_INSTRUCTION}`;
-  }
-
-  return `You are a friendly English conversation partner helping someone practice their English speaking skills. The topic is: "${topicLabel}".
-
-Rules:
-- Ask one question at a time — keep it conversational and natural
-- ${topicId === 'random' ? 'Pick a random interesting topic for each question' : `Stay on the topic of "${topicLabel}" but explore different angles`}
-- After the user responds, briefly acknowledge their answer (1 sentence)
-- Then provide detailed feedback on their English. Use this EXACT format for each issue:
-
-  📝 **Grammar:** You said "_original_" → "_corrected_". (explanation)
-  📖 **Vocabulary:** "_word used_" → "_better alternative_". (why it's more natural)
-  🔄 **Rephrase:** A more native way to say "_original_" would be: "_rephrased_"
-  💡 **Tip:** (useful idiom, collocation, or pattern)
-
-- After the feedback, ask a follow-up question
-- Be warm and encouraging
-${LEARNINGS_BLOCK_INSTRUCTION}`;
-}
-
-function buildSummaryPrompt(): string {
-  return `You are an English language coach. Analyze ALL of the user's messages and provide a detailed summary.
-
-Format your response like this:
-
-## Grammar Issues
-
-For each grammar mistake:
-- **What you said:** "the exact quote"
-- **Corrected:** "the corrected version"
-- **Rule:** brief explanation
-
-## Vocabulary & Phrasing
-
-For unnatural or non-native phrasing:
-- **What you said:** "the phrase"
-- **More natural:** "the native-sounding alternative"
-- **Why:** why it sounds more natural
-
-## Native Speaker Tips
-
-3-5 specific tips to sound more natural based on patterns you noticed.
-
-## What You Did Well
-
-Mention 2-3 things the user did well.
-
-Be thorough but encouraging.
-${LEARNINGS_BLOCK_INSTRUCTION}`;
-}
 
 export function useEnglishChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -151,12 +60,11 @@ export function useEnglishChat() {
     abortRef.current = new AbortController();
 
     try {
-      const rawText = await callAI({
-        system: buildSystemPrompt(topicId, practiceMode),
-        messages: [{ role: 'user', content: 'Start the conversation. Greet me and ask me the first question.' }],
-        maxTokens: practiceMode === 'feedback' ? 1024 : 512,
-        signal: abortRef.current.signal,
-      });
+      const rawText = await callAiAction(
+        'chat_start',
+        { topicId, mode: practiceMode },
+        { signal: abortRef.current.signal },
+      );
       const displayText = processResponse(rawText);
       setMessages([{ role: 'assistant', content: displayText }]);
     } catch (err) {
@@ -180,12 +88,11 @@ export function useEnglishChat() {
     abortRef.current = new AbortController();
 
     try {
-      const rawText = await callAI({
-        system: buildSystemPrompt(topic, practiceMode),
-        messages: newMessages,
-        maxTokens: practiceMode === 'feedback' ? 1024 : 512,
-        signal: abortRef.current.signal,
-      });
+      const rawText = await callAiAction(
+        'chat_reply',
+        { topicId: topic, mode: practiceMode, messages: newMessages },
+        { signal: abortRef.current.signal },
+      );
       const displayText = processResponse(rawText);
       setMessages([...newMessages, { role: 'assistant', content: displayText }]);
     } catch (err) {
@@ -207,12 +114,11 @@ export function useEnglishChat() {
         .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
         .join('\n\n');
 
-      const rawText = await callAI({
-        system: buildSummaryPrompt(),
-        messages: [{ role: 'user', content: `Here is my conversation:\n\n${conversationText}` }],
-        maxTokens: 2048,
-        signal: abortRef.current.signal,
-      });
+      const rawText = await callAiAction(
+        'chat_summary',
+        { conversationText },
+        { signal: abortRef.current.signal },
+      );
 
       return processResponse(rawText);
     } catch (err) {

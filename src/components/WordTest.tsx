@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-import { callAI } from '../lib/aiProviders';
+import { callAiAction } from '../lib/aiProviders';
 import { speakConversation, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import type { VocabularyWord } from '../types';
 
@@ -64,24 +64,7 @@ function SampleMode({ wordData }: { wordData: VocabularyWord }) {
     setLoading(true);
     setLoaded(true);
 
-    callAI({
-      system: `You generate short example dialogues for vocabulary learning. Return ONLY the dialogues, no extra text.`,
-      messages: [{
-        role: 'user',
-        content: `Create 3 short, natural dialogues (2 lines each) that naturally use the word "${wordData.word}".
-
-Format exactly like this:
-A: sentence using the word
-B: response
-
-A: another use
-B: response
-
-A: third use
-B: response`,
-      }],
-      maxTokens: 300,
-    })
+    callAiAction('word_dialogues', { word: wordData.word })
       .then((raw) => {
         // Parse into alternating A/B bubbles
         const pairs = raw.trim().split(/\n\n+/);
@@ -169,11 +152,7 @@ function ChatMode({ wordData }: { wordData: VocabularyWord }) {
     setStarted(true);
     setLoading(true);
 
-    callAI({
-      system: `You are a friendly vocabulary tutor testing the student on the word "${wordData.word}". Definition: ${wordData.definition}. Keep replies brief (1-3 sentences). Be warm and encouraging.`,
-      messages: [{ role: 'user', content: `Ask the student one engaging question to test their understanding of "${wordData.word}". Options: use it in a sentence, describe a situation, or explain it in their own words.` }],
-      maxTokens: 150,
-    })
+    callAiAction('tutor_start', { word: wordData.word, definition: wordData.definition })
       .then((r) => { setMessages([{ role: 'ai', text: r.trim() }]); setTurn(1); })
       .catch(() => { setMessages([{ role: 'ai', text: 'Could not start. Check your AI settings.' }]); setDone(true); })
       .finally(() => { setLoading(false); setTimeout(() => inputRef.current?.focus(), 100); });
@@ -190,11 +169,7 @@ function ChatMode({ wordData }: { wordData: VocabularyWord }) {
     const isLast = turn >= MAX_TURNS;
     const history = updated.map((m) => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text }));
 
-    callAI({
-      system: `You are a friendly vocabulary tutor. Word: "${wordData.word}". Definition: ${wordData.definition}. Be brief (1-3 sentences). ${isLast ? 'This is the final turn — give a warm closing summary.' : ''}`,
-      messages: [...history, { role: 'user', content: isLast ? 'Give brief closing feedback and summarize what they learned.' : 'Give brief feedback on their answer, then ask one follow-up question.' }],
-      maxTokens: 180,
-    })
+    callAiAction('tutor_reply', { word: wordData.word, definition: wordData.definition, history, isLast })
       .then((r) => {
         setMessages([...updated, { role: 'ai', text: r.trim() }]);
         if (isLast) setDone(true); else setTurn((t) => t + 1);
@@ -251,21 +226,7 @@ function TranslateMode({ wordData }: { wordData: VocabularyWord }) {
     setLoading(true);
     setMessages([]);
 
-    callAI({
-      system: `You are a bilingual vocabulary tutor. Be concise and practical.`,
-      messages: [{
-        role: 'user',
-        content: `Translate and explain the English word "${wordData.word}" for a ${targetLang} speaker.
-
-Provide:
-1. **${targetLang} equivalent** — the most natural translation
-2. **Example** — one English sentence with ${targetLang} translation below it
-3. **Note** — one brief usage tip in ${targetLang}
-
-Keep it short and practical.`,
-      }],
-      maxTokens: 250,
-    })
+    callAiAction('translate_word', { word: wordData.word, targetLang })
       .then((r) => setMessages([{ role: 'ai', text: r.trim() }]))
       .catch(() => setMessages([{ role: 'ai', text: 'Could not translate. Check your AI settings.' }]))
       .finally(() => setLoading(false));
