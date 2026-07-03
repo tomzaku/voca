@@ -7,7 +7,7 @@ import { generateWordData } from '../lib/wordService';
 import { getRecentDailyWords } from '../lib/dailyWord';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import { WORD_LIST } from '../lib/wordService';
-import type { VocabularyWord } from '../types';
+import type { VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
 import { BookmarkGame } from './BookmarkGame';
 import { SpellingGame } from './SpellingGame';
@@ -30,6 +30,37 @@ function dayLabel(dateStr: string): string {
   if (diff === 0) return 'Today';
   if (diff === 1) return 'Yesterday';
   return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** Local `YYYY-MM-DD` for an ISO timestamp. */
+function localDateKey(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Bucket words by the day they were last seen. Input is already newest-first,
+ *  so groups (and words within them) come out newest-first too. */
+function groupByDate(items: WordProgress[]): { key: string; items: WordProgress[] }[] {
+  const groups: { key: string; items: WordProgress[] }[] = [];
+  const index = new Map<string, WordProgress[]>();
+  for (const it of items) {
+    const key = it.seenAt ? localDateKey(it.seenAt) : 'unknown';
+    let bucket = index.get(key);
+    if (!bucket) {
+      bucket = [];
+      index.set(key, bucket);
+      groups.push({ key, items: bucket });
+    }
+    bucket.push(it);
+  }
+  return groups;
+}
+
+function groupLabel(key: string): string {
+  return key === 'unknown' ? 'Earlier' : dayLabel(key);
 }
 
 /** Word-of-the-Day — a big card for today, with previous days tucked behind a toggle. */
@@ -282,8 +313,18 @@ export function BookmarkList() {
             </div>
           )}
 
-      <div className="space-y-2">
-        {list.map((item) => {
+      <div className="space-y-6">
+        {groupByDate(list).map((group) => (
+          <div key={group.key}>
+            {/* Day header with count so users see how many they learned that day */}
+            <div className="flex items-center justify-between mb-2 px-1">
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider">{groupLabel(group.key)}</h3>
+              <span className="text-[11px] font-bold text-accent-cyan">
+                {group.items.length} word{group.items.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className="space-y-2">
+        {group.items.map((item) => {
           const { word } = item;
           const views = item.views ?? 0;
           const isOpen = expanded === word;
@@ -417,6 +458,9 @@ export function BookmarkList() {
             </div>
           );
         })}
+            </div>
+          </div>
+        ))}
       </div>
         </>
       )}
