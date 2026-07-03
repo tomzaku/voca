@@ -11,6 +11,7 @@ import { FabMenu } from './components/FabMenu';
 import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 import { OnboardingModal } from './components/OnboardingModal';
+import { LoginGate } from './components/LoginGate';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
         </div>
         <FabMenu />
         <EnglishPractice />
+        <LoginGate />
         <OnboardingModal />
         <Toaster
           position="bottom-center"

@@ -71,6 +71,9 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
     win();
     playCorrect();
     setResult('correct');
+    // Read the solved word aloud as reinforcement, just after the win chime.
+    stopSpeaking();
+    setTimeout(() => speakText(word), 250);
     setTimeout(onSolved, 1150);
   };
 
