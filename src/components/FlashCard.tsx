@@ -73,6 +73,7 @@ export function FlashCard() {
   const [phase, setPhase] = useState<CardPhase>('loading');
   const [wordData, setWordData] = useState<VocabularyWord | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingExample, setSpeakingExample] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imagesLoading, setImagesLoading] = useState(false);
@@ -242,9 +243,23 @@ export function FlashCard() {
       setIsSpeaking(false);
       return;
     }
-    const text = `${wordData.word}. ${wordData.definition}. ${wordData.examples.join(' ')}`;
+    // Speak just the word — reading the whole definition + examples is slow.
+    stopSpeaking();
+    setSpeakingExample(null);
     setIsSpeaking(true);
-    await speakText(text, { onEnd: () => setIsSpeaking(false) });
+    await speakText(wordData.headword || wordData.word, { onEnd: () => setIsSpeaking(false) });
+  };
+
+  const handleSpeakExample = async (index: number, text: string) => {
+    if (speakingExample === index && isTtsPlaying()) {
+      stopSpeaking();
+      setSpeakingExample(null);
+      return;
+    }
+    stopSpeaking();
+    setIsSpeaking(false);
+    setSpeakingExample(index);
+    await speakText(text, { onEnd: () => setSpeakingExample(null) });
   };
 
   const handleSkip = () => {
@@ -600,7 +615,30 @@ export function FlashCard() {
                         : ex;
                       return (
                         <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">
-                          <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
+                          {phase === 'introduce' ? (
+                            <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
+                          ) : (
+                            <button
+                              onClick={() => handleSpeakExample(i, text)}
+                              title="Read aloud"
+                              className={`shrink-0 w-6 h-6 mt-0.5 rounded-md flex items-center justify-center border transition-all ${
+                                speakingExample === i
+                                  ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
+                                  : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
+                              }`}
+                            >
+                              {speakingExample === i ? (
+                                <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor">
+                                  <rect x="0" y="0" width="4" height="10" rx="1" /><rect x="6" y="0" width="4" height="10" rx="1" />
+                                </svg>
+                              ) : (
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                                </svg>
+                              )}
+                            </button>
+                          )}
                           <span className={phase === 'introduce' ? 'italic' : ''}>{text}</span>
                         </li>
                       );
