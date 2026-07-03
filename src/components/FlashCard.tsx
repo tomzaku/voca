@@ -8,6 +8,7 @@ import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchS
 import { WordTest } from './WordTest';
 import { WordNotes } from './WordNotes';
 import { GuessGame } from './GuessGame';
+import { BuddyBadge } from './BuddyBadge';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useWordSearch } from '../hooks/useWordSearch';
@@ -312,6 +313,7 @@ export function FlashCard() {
   return (
     <div className="max-w-[74rem] mx-auto px-4 py-8">
 
+
       {/* ── History navigation ── */}
       {wordHistory.length > 0 && (
         <div className="max-w-[74rem] mx-auto mb-5 flex items-center gap-2">
@@ -339,11 +341,10 @@ export function FlashCard() {
                 <button
                   key={i}
                   onClick={() => navigateToHistory(i)}
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-extrabold whitespace-nowrap border-2 transition-all hover:-translate-y-0.5 ${
-                    i === historyIndex
+                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-extrabold whitespace-nowrap border-2 transition-all hover:-translate-y-0.5 ${i === historyIndex
                       ? 'bg-accent-cyan text-bg-primary border-accent-cyan'
                       : 'bg-bg-card border-border text-text-muted hover:text-text-primary hover:border-border-light'
-                  }`}
+                    }`}
                 >
                   {masked ? '• • •' : (w.headword || w.word)}
                 </button>
@@ -459,11 +460,10 @@ export function FlashCard() {
                     </div>
                     <button
                       onClick={handleSpeak}
-                      className={`btn-3d w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-1 ${
-                        isSpeaking
+                      className={`btn-3d w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-1 ${isSpeaking
                           ? 'bg-accent-cyan text-bg-primary'
                           : 'bg-bg-tertiary text-text-secondary hover:text-accent-cyan'
-                      }`}
+                        }`}
                       title={isSpeaking ? 'Stop' : 'Hear pronunciation'}
                     >
                       {isSpeaking ? (
@@ -536,11 +536,10 @@ export function FlashCard() {
                   </button>
                   <button
                     onClick={handleBookmark}
-                    className={`btn-3d flex-1 flex flex-col items-center gap-1 py-3 ${
-                      isBookmarked
+                    className={`btn-3d flex-1 flex flex-col items-center gap-1 py-3 ${isBookmarked
                         ? 'bg-accent-yellow text-bg-primary'
                         : 'bg-bg-card text-text-secondary hover:text-accent-yellow'
-                    }`}
+                      }`}
                     title={isBookmarked ? 'Remove bookmark' : 'Bookmark this word'}
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -674,6 +673,7 @@ export function FlashCard() {
                   <WordTest wordData={wordData} />
                 </>
               )}
+              <BuddyBadge />
             </div>
           </div>
         </>
