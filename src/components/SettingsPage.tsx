@@ -154,7 +154,7 @@ export function SettingsPage() {
             <select
               value={learnLang}
               onChange={(e) => handleLearnLangChange(e.target.value)}
-              className="w-full bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
+              className="select-field w-full bg-bg-card border border-border rounded-lg pl-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
             >
               {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
@@ -164,7 +164,7 @@ export function SettingsPage() {
             <select
               value={motherLang}
               onChange={(e) => handleMotherLangChange(e.target.value)}
-              className="w-full bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
+              className="select-field w-full bg-bg-card border border-border rounded-lg pl-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
             >
               {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>

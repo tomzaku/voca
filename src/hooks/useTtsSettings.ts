@@ -127,5 +127,12 @@ export function useTtsSettings() {
 
 export function getTtsEngine(): TtsEngine { return getStoredEngine(); }
 export function getTtsVoice(): string { return getStoredVoice(); }
+
+export function setTtsEngine(e: TtsEngine): void {
+  try { localStorage.setItem(ENGINE_KEY, e); } catch { /* ignore */ }
+}
+export function setTtsVoice(v: string): void {
+  try { localStorage.setItem(VOICE_KEY, v); } catch { /* ignore */ }
+}
 export function getPiperVoice(): string { return getStoredPiperVoice(); }
 export function getTtsSpeed(): number { return getStoredSpeed(); }

@@ -41,6 +41,16 @@ function isSafari(): boolean {
 }
 
 let kokoroUnavailable = isSafari();
+
+/**
+ * Whether this browser can run the Kokoro AI voice model. Kokoro loads on WASM
+ * or WebGPU everywhere except Safari (which we blocklist). Used to decide the
+ * default voice engine during onboarding.
+ */
+export function isKokoroSupported(): boolean {
+  return typeof navigator !== 'undefined' && !isSafari();
+}
+
 let ttsInstance: KokoroTTSInstance | null = null;
 let ttsPromise: Promise<KokoroTTSInstance> | null = null;
 

@@ -10,6 +10,7 @@ import { ProfilePage } from './components/ProfilePage';
 import { FabMenu } from './components/FabMenu';
 import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
+import { OnboardingModal } from './components/OnboardingModal';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
         </div>
         <FabMenu />
         <EnglishPractice />
+        <OnboardingModal />
         <Toaster
           position="bottom-center"
           toastOptions={{

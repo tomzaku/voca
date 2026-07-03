@@ -118,6 +118,18 @@ body {
   box-shadow: 0 3px 0 0 var(--btn-lip);
 }
 
+/* Custom-styled <select>: replaces the cramped native arrow with a chevron that
+   has breathing room from the right edge. Pair with `pl-3` for left padding. */
+.select-field {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%238d8bb4'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpolyline%20points='6%209%2012%2015%2018%209'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
 /* Chunky tile lip used by game tiles/keys */
 .tile-lip {
   box-shadow: 0 3px 0 0 var(--btn-lip);
