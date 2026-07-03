@@ -30,4 +30,5 @@ export interface WordProgress {
   dueAt?: string;         // ISO — when the word should resurface
   lastReviewedAt?: string;
   mastered?: boolean;     // graduated out of active rotation
+  views?: number;         // total times reviewed (how many times you've seen it)
 }

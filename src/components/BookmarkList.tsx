@@ -209,12 +209,10 @@ export function BookmarkList() {
   };
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-8">
-      {/* ── Spaced-repetition review ── */}
-      <ReviewPanel />
-
-      {/* ── Word of the Day ── */}
-      <DailyWords />
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_19rem] gap-6 items-start">
+        {/* ── Left: word lists ── */}
+        <div className="min-w-0">
 
       {/* ── Tabs ── */}
       <div className="flex items-stretch gap-1 mb-6 border-b-2 border-border">
@@ -284,7 +282,9 @@ export function BookmarkList() {
           )}
 
       <div className="space-y-2">
-        {list.map(({ word }) => {
+        {list.map((item) => {
+          const { word } = item;
+          const views = item.views ?? 0;
           const isOpen = expanded === word;
           const data = wordCache[word];
           const isLoading = loadingWord === word;
@@ -318,6 +318,11 @@ export function BookmarkList() {
                   )}
                 </div>
 
+                {views > 0 && (
+                  <span className="text-[11px] text-text-muted whitespace-nowrap" title={`Reviewed ${views} time${views === 1 ? '' : 's'}`}>
+                    👁 {views}×
+                  </span>
+                )}
                 <span className={`text-xs font-medium ${LEVEL_COLOR[level]}`}>{level}</span>
 
                 {/* Speak button */}
@@ -413,6 +418,14 @@ export function BookmarkList() {
       </div>
         </>
       )}
+        </div>
+
+        {/* ── Right: review + word of the day ── */}
+        <aside className="lg:sticky lg:top-20">
+          <ReviewPanel />
+          <DailyWords />
+        </aside>
+      </div>
     </div>
   );
 }

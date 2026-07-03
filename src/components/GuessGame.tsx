@@ -17,6 +17,8 @@ interface Props {
   onGameChange: (game: GuessGameMode) => void;
   /** Called once the player solves (or is given) the word — parent reveals it. */
   onSolved: () => void;
+  /** Called when a wrong multiple-choice pick ends the round (counts as a miss). */
+  onGaveUp: () => void;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -64,7 +66,7 @@ function Confetti() {
   );
 }
 
-export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
+export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: Props) {
   // Guess the learn-language headword when set (falls back to the English word).
   const word = wordData.headword || wordData.word;
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
@@ -187,7 +189,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved }: Props) {
           <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
         )}
         {game === 'choice' && (
-          <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} />
+          <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onGaveUp={onGaveUp} />
         )}
         {game === 'hangman' && (
           <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
@@ -215,6 +217,8 @@ interface GameProps {
   disabled: boolean;
   onSolve: () => void;
   onWrong?: () => void;
+  /** End the round as a miss (reveal the answer). Used by multiple-choice. */
+  onGaveUp?: () => void;
 }
 
 // ─── Game 1 · Letters ───────────────────────────────────────────────
@@ -371,7 +375,7 @@ function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
 }
 
 // ─── Game 3 · Multiple choice ───────────────────────────────────────
-function ChoiceGame({ word, disabled, onSolve }: GameProps) {
+function ChoiceGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
   const options = useMemo(() => {
     const answer = word.toLowerCase();
     const pool = getActiveWordList()
@@ -391,14 +395,19 @@ function ChoiceGame({ word, disabled, onSolve }: GameProps) {
   }, [word]);
 
   const [wrongPick, setWrongPick] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
 
   const pick = (opt: string) => {
-    if (disabled) return;
+    if (disabled || locked) return;
     if (opt.toLowerCase() === word.toLowerCase()) {
       onSolve();
     } else {
+      // One wrong pick ends the round — no reselecting. Show the mistake and the
+      // correct answer briefly, then reveal (counts as a miss).
       playWrong();
       setWrongPick(opt);
+      setLocked(true);
+      setTimeout(() => onGaveUp?.(), 850);
     }
   };
 
@@ -406,20 +415,25 @@ function ChoiceGame({ word, disabled, onSolve }: GameProps) {
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
       {options.map((opt, i) => {
         const isWrong = wrongPick === opt;
+        const isAnswer = locked && opt.toLowerCase() === word.toLowerCase();
         return (
           <button
             key={opt}
             onClick={() => pick(opt)}
-            disabled={disabled || isWrong}
+            disabled={disabled || locked}
             style={{ animationDelay: `${i * 60}ms` }}
             className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border-[3px] text-base font-display font-extrabold text-left animate-tile-in tile-lip transition-all ${
               isWrong
                 ? 'border-accent-red bg-accent-red/15 text-accent-red cursor-default animate-shake'
-                : 'border-border bg-bg-tertiary text-text-primary hover:border-accent-cyan hover:-translate-y-0.5 hover:text-accent-cyan active:translate-y-0.5'
+                : isAnswer
+                  ? 'border-accent-green bg-accent-green/15 text-accent-green cursor-default'
+                  : locked
+                    ? 'border-border bg-bg-tertiary text-text-muted opacity-60 cursor-default'
+                    : 'border-border bg-bg-tertiary text-text-primary hover:border-accent-cyan hover:-translate-y-0.5 hover:text-accent-cyan active:translate-y-0.5'
             }`}
           >
             <span className={`w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-xs font-bold border ${
-              isWrong ? 'border-accent-red/40 text-accent-red/70' : 'border-border-light text-text-muted'
+              isWrong ? 'border-accent-red/40 text-accent-red/70' : isAnswer ? 'border-accent-green/40 text-accent-green/70' : 'border-border-light text-text-muted'
             }`}>
               {String.fromCharCode(65 + i)}
             </span>

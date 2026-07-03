@@ -39,6 +39,7 @@ export const useVocabularyStore = create<VocabularyState>()(
           status,
           bookmarked: prev?.bookmarked ?? false,
           seenAt: new Date().toISOString(),
+          views: (prev?.views ?? 0) + 1,
           ...srs,
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
@@ -114,7 +115,7 @@ export const useVocabularyStore = create<VocabularyState>()(
         if (!supabase) return;
         const { data } = await supabase
           .from('user_word_progress')
-          .select('word, status, bookmarked, learned_at, reps, lapses, srs_interval, ease, due_at, last_reviewed_at, mastered')
+          .select('word, status, bookmarked, learned_at, reps, lapses, srs_interval, ease, due_at, last_reviewed_at, mastered, views')
           .eq('user_id', userId);
 
         if (!data) return;
@@ -133,6 +134,7 @@ export const useVocabularyStore = create<VocabularyState>()(
             dueAt: (r.due_at as string | null) ?? undefined,
             lastReviewedAt: (r.last_reviewed_at as string | null) ?? undefined,
             mastered: (r.mastered as boolean | null) ?? undefined,
+            views: (r.views as number | null) ?? undefined,
           };
         }
         // Merge: remote wins for conflicts (each remote row carries both fields).
@@ -163,6 +165,7 @@ function syncWordToRemote(userId: string, entry: WordProgress) {
       due_at: entry.dueAt ?? null,
       last_reviewed_at: entry.lastReviewedAt ?? null,
       mastered: entry.mastered ?? false,
+      views: entry.views ?? 0,
     })
     .then(({ error }) => {
       if (error) console.warn('[voca] sync error:', error.message);

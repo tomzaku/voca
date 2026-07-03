@@ -84,6 +84,9 @@ export function FlashCard() {
   // Whether the word was revealed by giving up (vs. actually solving it).
   // When given up, "Know it" makes no sense — just offer Next.
   const [gaveUp, setGaveUp] = useState(false);
+  // Whether the current word was solved in the guess game (already recorded as a
+  // review, so we don't also show a redundant "Know it" button).
+  const [solved, setSolved] = useState(false);
 
   // History
   const wordHistoryRef = useRef<VocabularyWord[]>([]);
@@ -110,6 +113,7 @@ export function FlashCard() {
     setIsSpeaking(false);
     setPhase('loading');
     setGaveUp(false);
+    setSolved(false);
     setWordData(null);
     setImageUrls([]);
     setImagesLoading(false);
@@ -154,6 +158,7 @@ export function FlashCard() {
     setIsSpeaking(false);
     setPhase('loading');
     setGaveUp(false);
+    setSolved(false);
     setWordData(null);
     setImageUrls([]);
     setImagesLoading(false);
@@ -294,6 +299,7 @@ export function FlashCard() {
     setHistoryIndex(index);
     setWordData(data);
     setGaveUp(false);
+    setSolved(true); // past words are already resolved — no "Know it" prompt
     setPhase('revealed');
   }, []);
 
@@ -478,7 +484,14 @@ export function FlashCard() {
                   wordData={wordData}
                   game={game}
                   onGameChange={setGame}
-                  onSolved={() => { setGaveUp(false); setPhase('revealed'); }}
+                  onSolved={() => {
+                    setGaveUp(false);
+                    setSolved(true);
+                    // Solving the guess counts as a successful review (schedules the word).
+                    store.markWord(wordData.word, 'known', user?.id);
+                    setPhase('revealed');
+                  }}
+                  onGaveUp={handleReveal}
                 />
               ) : (
                 /* Revealed word card */
@@ -583,7 +596,7 @@ export function FlashCard() {
                   </button>
                   {/* "Know it" only makes sense when you actually solved it.
                       If you gave up, you don't know it — just move on. */}
-                  {!gaveUp && (
+                  {!gaveUp && !solved && (
                     <button
                       onClick={handleKnow}
                       className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-green text-bg-primary"
