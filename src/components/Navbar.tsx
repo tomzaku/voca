@@ -53,6 +53,7 @@ export function Navbar() {
     { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
     { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
     { to: '/bookmarks', label: 'History', icon: 'lucide:history' },
+    { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print' },
   ];
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;

@@ -10,6 +10,8 @@ import { LANGUAGES, getMotherLanguage, setMotherLanguage } from '../lib/language
 import { isKokoroSupported } from '../lib/tts';
 import { setTtsEngine, setTtsVoice } from '../hooks/useTtsSettings';
 import { buildPlacementTest, scorePlacement, type TestWord } from '../lib/placementTest';
+import { useCompanion } from '../hooks/useCompanion';
+import { ANIMALS } from '../lib/companion';
 
 // Kokoro's male "Fenrir" voice — the preferred default when the browser can run
 // the AI model. Otherwise we fall back to the browser's built-in speech.
@@ -27,6 +29,7 @@ export function OnboardingModal() {
   const [pack, setPack] = useState<PackId>(getWordPack);
   const [mother, setMother] = useState<string>(getMotherLanguage);
   const [saving, setSaving] = useState(false);
+  const { animalId, choose } = useCompanion();
 
   // Placement test ("Find your level").
   const [mode, setMode] = useState<'setup' | 'test'>('setup');
@@ -181,6 +184,31 @@ export function OnboardingModal() {
             <p className="text-xs text-text-muted mt-1.5">Used for translations.</p>
           </div>
 
+          {/* Companion */}
+          <div className="mb-6">
+            <label className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-2">
+              Pick a learning buddy
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {ANIMALS.map((a) => {
+                const active = animalId === a.id;
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => choose(a.id)}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-lg border transition-all ${
+                      active ? 'border-accent-cyan bg-accent-cyan/10' : 'border-border bg-bg-tertiary hover:border-border-light'
+                    }`}
+                  >
+                    <span className="text-2xl">{a.emoji}</span>
+                    <span className={`text-[11px] font-bold ${active ? 'text-accent-cyan' : 'text-text-muted'}`}>{a.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-text-muted mt-1.5">It grows as you learn. Change it anytime.</p>
+          </div>
+
           {/* Voice (auto) */}
           <div className="mb-6 flex items-start gap-2.5 px-3 py-2.5 rounded-lg border border-border bg-bg-tertiary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-accent-purple">
@@ -201,10 +229,10 @@ export function OnboardingModal() {
 
           <button
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || !animalId}
             className="btn-3d w-full py-3 bg-accent-cyan text-bg-primary font-bold disabled:opacity-60"
           >
-            {saving ? 'Saving…' : 'Get started'}
+            {saving ? 'Saving…' : animalId ? 'Get started' : 'Pick a buddy to continue'}
           </button>
           </>
           )}

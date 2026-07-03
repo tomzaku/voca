@@ -10,6 +10,7 @@ import { ProfilePage } from './components/ProfilePage';
 import { FabMenu } from './components/FabMenu';
 import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
+import { CompanionPage } from './components/CompanionPage';
 import { OnboardingModal } from './components/OnboardingModal';
 import { LoginGate } from './components/LoginGate';
 
@@ -24,6 +25,7 @@ export default function App() {
               <Route path="/" element={<FlashCard />} />
               <Route path="/speaking" element={<EnglishSpeakingPage />} />
               <Route path="/bookmarks" element={<BookmarkList />} />
+              <Route path="/companion" element={<CompanionPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/profile" element={<ProfilePage />} />
