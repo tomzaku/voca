@@ -31,7 +31,7 @@ export function BuddyBadge() {
   return (
     <Link
       to="/companion"
-      className="flex items-center gap-3 max-w-sm mb-5 px-3 py-2 rounded-2xl border-2 border-border bg-bg-card tile-lip hover:border-border-light hover:-translate-y-0.5 transition-all"
+      className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl border-2 border-border bg-bg-card tile-lip hover:border-border-light hover:-translate-y-0.5 transition-all"
       title="View your companion"
     >
       <span className="w-9 h-9 shrink-0"><AnimalAvatar animalId={animalId} mood="static" stage={stageIndex(known)} size={36} /></span>
