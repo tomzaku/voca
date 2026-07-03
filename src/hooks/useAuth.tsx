@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useVocabularyStore } from './useVocabulary';
+import { useCompanion } from './useCompanion';
 
 interface AuthContextType {
   user: User | null;
@@ -48,7 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       // Pull saved/known/skipped word progress from Supabase so History is
       // populated on a fresh browser (writes sync up; this brings it back down).
-      if (session?.user) useVocabularyStore.getState().loadFromRemote(session.user.id);
+      if (session?.user) {
+        useVocabularyStore.getState().loadFromRemote(session.user.id);
+        useCompanion.getState().loadFromRemote(session.user.id);
+      }
       setLoading(false);
     });
 
@@ -59,7 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // lock for the duration of this callback; awaiting another Supabase call
       // here deadlocks it and hangs every subsequent Supabase request.
       setTimeout(() => {
-        if (session?.user) useVocabularyStore.getState().loadFromRemote(session.user.id);
+        if (session?.user) {
+          useVocabularyStore.getState().loadFromRemote(session.user.id);
+          useCompanion.getState().loadFromRemote(session.user.id);
+        }
         setLoading(false);
       }, 0);
     });
