@@ -93,7 +93,7 @@ function SynAnt({ wordData }: { wordData: VocabularyWord }) {
   const hasAnt = (wordData.antonyms?.length ?? 0) > 0;
   if (!hasSyn && !hasAnt) return null;
   return (
-    <div className="mt-3 pt-3 border-t border-border/60 space-y-2.5">
+    <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-2 gap-x-4 gap-y-2.5">
       {hasSyn && (
         <div>
           <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">Synonyms</h4>
@@ -613,10 +613,17 @@ export function FlashCard() {
                 /* Revealed word card */
                 <div className="card-game border-accent-purple p-6 animate-bounce-in">
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h1 className="text-5xl font-title text-accent-purple tracking-tight mb-1 drop-shadow-[0_2px_0_var(--btn-lip)]">
-                        {wordData.headword || wordData.word}
-                      </h1>
+                    <div className="min-w-0">
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
+                        <h1 className="text-2xl sm:text-4xl font-title text-accent-purple tracking-tight drop-shadow-[0_2px_0_var(--btn-lip)] break-words">
+                          {wordData.headword || wordData.word}
+                        </h1>
+                        {wordData.partOfSpeech && (
+                          <span className="text-xs font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
+                            {wordData.partOfSpeech}
+                          </span>
+                        )}
+                      </div>
                       {wordData.phonetic && (
                         <p className="text-sm font-code text-text-muted">{wordData.phonetic}</p>
                       )}
@@ -643,11 +650,6 @@ export function FlashCard() {
                       )}
                     </button>
                   </div>
-                  {wordData.partOfSpeech && (
-                    <span className="inline-block mt-3 text-xs font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
-                      {wordData.partOfSpeech}
-                    </span>
-                  )}
                 </div>
               )}
 

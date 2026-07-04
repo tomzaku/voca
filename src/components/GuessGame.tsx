@@ -11,8 +11,10 @@ import { stageIndex } from '../lib/companion';
 import { AnimalAvatar } from './AnimalAvatar';
 import type { VocabularyWord } from '../types';
 
-// The two guess modes shown by default; the rest live behind a "More" toggle.
+// Modes shown by default on all sizes; DESKTOP_EXTRA_MODES also show on desktop.
+// Everything else lives behind the "More" toggle.
 const PRIMARY_MODES: GuessGameMode[] = ['letters', 'choice'];
+const DESKTOP_EXTRA_MODES: GuessGameMode[] = ['listen'];
 
 interface Props {
   wordData: VocabularyWord;
@@ -94,12 +96,15 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
   const [moreModes, setMoreModes] = useState(false);
   const { points, streak, win, lastGain, winId } = useGameScore();
-  const info = GUESS_GAMES.find((g) => g.id === game)!;
 
-  // Keep the picker to a single row by default: show the two primary modes (plus
-  // the current one if it's another), and tuck the rest behind a "More" toggle.
-  const alwaysShow = GUESS_GAMES.filter((g) => PRIMARY_MODES.includes(g.id) || g.id === game);
-  const extraModes = GUESS_GAMES.filter((g) => !alwaysShow.includes(g));
+  // Pill visibility: mobile shows the two primary modes; desktop also shows the
+  // desktop-extra ones; the rest live behind "More". The active game is always
+  // visible. `contents` keeps the button in the parent flex (no wrapper box).
+  const pillWrapClass = (id: GuessGameMode): string => {
+    if (PRIMARY_MODES.includes(id) || moreModes || id === game) return 'contents';
+    if (DESKTOP_EXTRA_MODES.includes(id)) return 'hidden sm:contents';
+    return 'hidden';
+  };
 
   // The companion cheers on a correct answer.
   const companion = useCompanion((s) => s.animalId);
@@ -153,23 +158,25 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
       )}
 
       <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
-        {/* ── HUD: game badge + score/streak ── */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Icon icon={info.icon} className="text-2xl text-accent-cyan shrink-0" />
-            <div className="min-w-0">
-              <p className="text-sm font-display font-bold text-text-primary leading-tight truncate">{info.label}</p>
-              <p className="text-[10px] text-text-muted uppercase tracking-wider leading-tight">Guess the word</p>
-            </div>
-            {wordData.partOfSpeech && (
-              <span className="text-[10px] font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded shrink-0">
-                {wordData.partOfSpeech}
+        {/* ── HUD: game picker (left) + score/streak (right) ── */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap gap-1.5 min-w-0">
+            {GUESS_GAMES.map((g) => (
+              <span key={g.id} className={pillWrapClass(g.id)}>
+                <ModePill g={g} active={game === g.id} onGameChange={onGameChange} />
               </span>
-            )}
+            ))}
+            <button
+              onClick={() => setMoreModes((o) => !o)}
+              className="btn-3d flex items-center gap-1 px-3 py-1.5 text-xs bg-bg-tertiary text-text-secondary hover:text-text-primary"
+            >
+              <Icon icon={moreModes ? 'lucide:chevron-up' : 'lucide:ellipsis'} className="text-base" />
+              <span>{moreModes ? 'Less' : 'More'}</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <div className="px-3 py-1.5 rounded-xl bg-bg-tertiary border-2 border-border text-center min-w-[3.25rem] tile-lip">
+            <div className="hidden sm:block px-3 py-1.5 rounded-xl bg-bg-tertiary border-2 border-border text-center min-w-[3.25rem] tile-lip">
               <span className="block text-base font-display font-extrabold text-accent-cyan leading-none">{points}</span>
               <span className="block text-[9px] text-text-muted uppercase tracking-wider font-bold">pts</span>
             </div>
@@ -186,25 +193,6 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
               )}
             </div>
           </div>
-        </div>
-
-        {/* ── Game picker pills ── */}
-        <div className="flex flex-wrap gap-1.5">
-          {alwaysShow.map((g) => (
-            <ModePill key={g.id} g={g} active={game === g.id} onGameChange={onGameChange} />
-          ))}
-          {moreModes && extraModes.map((g) => (
-            <ModePill key={g.id} g={g} active={game === g.id} onGameChange={onGameChange} />
-          ))}
-          {extraModes.length > 0 && (
-            <button
-              onClick={() => setMoreModes((o) => !o)}
-              className="btn-3d flex items-center gap-1 px-3 py-1.5 text-xs bg-bg-tertiary text-text-secondary hover:text-text-primary"
-            >
-              <Icon icon={moreModes ? 'lucide:chevron-up' : 'lucide:ellipsis'} className="text-base" />
-              <span>{moreModes ? 'Less' : 'More'}</span>
-            </button>
-          )}
         </div>
 
         {game === 'letters' && (
