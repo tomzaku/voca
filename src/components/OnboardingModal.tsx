@@ -5,13 +5,14 @@ import {
   hasOnboarded,
   saveOnboardingPrefs,
 } from '../lib/userSettings';
-import { WORD_PACKS, getWordPack, setWordPack, type PackId } from '../lib/wordLists';
 import { LANGUAGES, getMotherLanguage, setMotherLanguage } from '../lib/languages';
 import { isKokoroSupported } from '../lib/tts';
 import { setTtsEngine, setTtsVoice } from '../hooks/useTtsSettings';
 import { buildPlacementTest, scorePlacement, type TestWord } from '../lib/placementTest';
 import { useCompanion } from '../hooks/useCompanion';
 import { ANIMALS } from '../lib/companion';
+import { useCollections } from '../hooks/useCollections';
+import { listCollections, getCollection } from '../lib/collections';
 
 // Kokoro's male "Fenrir" voice — the preferred default when the browser can run
 // the AI model. Otherwise we fall back to the browser's built-in speech.
@@ -26,7 +27,8 @@ const FENRIR_VOICE = 'am_fenrir';
 export function OnboardingModal() {
   const { user, loading } = useAuth();
   const [show, setShow] = useState(false);
-  const [pack, setPack] = useState<PackId>(getWordPack);
+  const collections = listCollections();
+  const [collectionId, setCollectionId] = useState<string>(() => useCollections.getState().activeId);
   const [mother, setMother] = useState<string>(getMotherLanguage);
   const [saving, setSaving] = useState(false);
   const { animalId, choose } = useCompanion();
@@ -35,7 +37,7 @@ export function OnboardingModal() {
   const [mode, setMode] = useState<'setup' | 'test'>('setup');
   const [testWords, setTestWords] = useState<TestWord[]>([]);
   const [known, setKnown] = useState<Set<string>>(new Set());
-  const [recommended, setRecommended] = useState<PackId | null>(null);
+  const [recommended, setRecommended] = useState<string | null>(null);
 
   const startTest = () => {
     setTestWords(buildPlacementTest());
@@ -52,8 +54,8 @@ export function OnboardingModal() {
   };
 
   const finishTest = () => {
-    const { pack: rec } = scorePlacement(known, testWords);
-    setPack(rec);
+    const { collectionId: rec } = scorePlacement(known, testWords);
+    setCollectionId(rec);
     setRecommended(rec);
     setMode('setup');
   };
@@ -79,15 +81,15 @@ export function OnboardingModal() {
     const engine = kokoro ? 'kokoro' : 'native';
     const voice = kokoro ? FENRIR_VOICE : null;
 
-    // Apply locally so the app (which reads localStorage) picks it up right away.
-    setWordPack(pack);
+    // Apply locally so the app picks it up right away.
+    useCollections.getState().setActive(collectionId);
     setMotherLanguage(mother);
     setTtsEngine(engine);
     if (voice) setTtsVoice(voice);
 
     // Persist so we don't ask again (on this or any other device).
     await saveOnboardingPrefs(user.id, {
-      word_pack: pack,
+      word_pack: collectionId,
       mother_language: mother,
       tts_engine: engine,
       tts_voice: voice,
@@ -133,19 +135,18 @@ export function OnboardingModal() {
                 <span className="text-sm leading-none mt-0.5">✨</span>
                 <p className="text-xs text-text-secondary">
                   Based on your test, we suggest{' '}
-                  <span className="font-bold text-accent-cyan">
-                    {WORD_PACKS.find((p) => p.id === recommended)?.label}
-                  </span>. You can change it below.
+                  <span className="font-bold text-accent-cyan">{getCollection(recommended).name}</span>.
+                  You can change it below.
                 </p>
               </div>
             )}
             <div className="space-y-1.5">
-              {WORD_PACKS.map((p) => {
-                const active = pack === p.id;
+              {collections.map((c) => {
+                const active = collectionId === c.id;
                 return (
                   <button
-                    key={p.id}
-                    onClick={() => setPack(p.id)}
+                    key={c.id}
+                    onClick={() => setCollectionId(c.id)}
                     className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all ${
                       active
                         ? 'border-accent-cyan/50 bg-accent-cyan/10'
@@ -154,7 +155,7 @@ export function OnboardingModal() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className={`text-sm font-bold ${active ? 'text-accent-cyan' : 'text-text-primary'}`}>
-                        {p.label}
+                        {c.name}
                       </span>
                       {active && (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-accent-cyan">
@@ -162,7 +163,7 @@ export function OnboardingModal() {
                         </svg>
                       )}
                     </div>
-                    <p className="text-xs text-text-muted mt-0.5">{p.description}</p>
+                    <p className="text-xs text-text-muted mt-0.5">{c.description}</p>
                   </button>
                 );
               })}

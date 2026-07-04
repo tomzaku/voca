@@ -3,7 +3,6 @@ import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../
 import { speakText, stopSpeaking } from '../lib/tts';
 import { isSfxEnabled, setSfxEnabled, playCorrect } from '../lib/sfx';
 import { ToggleSwitch } from './ToggleSwitch';
-import { WORD_PACKS, getWordPack, setWordPack, buildWordList, type PackId } from '../lib/wordLists';
 import {
   LANGUAGES,
   getLearnLanguage,
@@ -12,7 +11,8 @@ import {
   setMotherLanguage,
 } from '../lib/languages';
 import { GUESS_GAMES, useGuessGame } from '../hooks/useGuessGame';
-import { WORD_LIST } from '../lib/wordService';
+import { useCollections } from '../hooks/useCollections';
+import { listCollections, getCollection } from '../lib/collections';
 import { clearPrefetchQueue } from '../lib/prefetchService';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
@@ -49,7 +49,9 @@ export function SettingsPage() {
   const { game: guessGame, setGame: setGuessGame } = useGuessGame();
 
   const [previewState, setPreviewState] = useState<{ id: string; phase: 'loading' | 'playing' } | null>(null);
-  const [wordPack, setWordPackState] = useState<PackId>(getWordPack);
+  const activeCollection = useCollections((s) => s.activeId);
+  const setActiveCollection = useCollections((s) => s.setActive);
+  const collections = listCollections();
 
   const [learnLang, setLearnLangState] = useState(getLearnLanguage);
   const [motherLang, setMotherLangState] = useState(getMotherLanguage);
@@ -69,11 +71,10 @@ export function SettingsPage() {
     toast.success(`Translations in ${lang}`);
   };
 
-  const handlePackChange = (id: PackId) => {
-    setWordPack(id);
-    setWordPackState(id);
+  const handlePackChange = (id: string) => {
+    setActiveCollection(id);
     clearPrefetchQueue();
-    toast.success(`Switched to ${WORD_PACKS.find((p) => p.id === id)?.label}`);
+    toast.success(`Switched to ${getCollection(id).name}`);
   };
 
   const preview = async (voiceId: string) => {
@@ -174,16 +175,15 @@ export function SettingsPage() {
 
       {/* Vocabulary Pack */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Vocabulary Pack</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Collection</h2>
         <p className="text-xs text-text-muted mb-3">Choose the vocabulary set you want to study.</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {WORD_PACKS.map((pack) => {
-            const selected = wordPack === pack.id;
-            const count = buildWordList(pack.id, WORD_LIST).length;
+          {collections.map((c) => {
+            const selected = activeCollection === c.id;
             return (
               <button
-                key={pack.id}
-                onClick={() => handlePackChange(pack.id)}
+                key={c.id}
+                onClick={() => handlePackChange(c.id)}
                 className={`p-4 rounded-xl border text-left transition-all ${
                   selected
                     ? 'bg-accent-cyan/5 border-accent-cyan/30 ring-1 ring-accent-cyan/20'
@@ -192,12 +192,12 @@ export function SettingsPage() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-sm font-display font-bold ${selected ? 'text-accent-cyan' : 'text-text-primary'}`}>
-                    {pack.label}
+                    {c.name}
                   </span>
                   {selected && <span className="text-[10px] text-accent-cyan">✓ Active</span>}
                 </div>
-                <p className="text-xs text-text-muted">{pack.description}</p>
-                <p className="text-xs font-code text-text-muted/60 mt-1">{count} words</p>
+                <p className="text-xs text-text-muted">{c.description}</p>
+                <p className="text-xs font-code text-text-muted/60 mt-1">{c.count} words</p>
               </button>
             );
           })}

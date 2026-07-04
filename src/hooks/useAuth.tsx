@@ -3,6 +3,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useVocabularyStore } from './useVocabulary';
 import { useCompanion } from './useCompanion';
+import { useCollections } from './useCollections';
 
 interface AuthContextType {
   user: User | null;
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         useVocabularyStore.getState().loadFromRemote(session.user.id);
         useCompanion.getState().loadFromRemote(session.user.id);
+        useCollections.getState().loadFromRemote(session.user.id);
       }
       setLoading(false);
     });
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           useVocabularyStore.getState().loadFromRemote(session.user.id);
           useCompanion.getState().loadFromRemote(session.user.id);
+          useCollections.getState().loadFromRemote(session.user.id);
         }
         setLoading(false);
       }, 0);

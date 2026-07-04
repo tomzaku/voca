@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
   { to: '/bookmarks', label: 'History', icon: 'lucide:history' },
   { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print' },
+  { to: '/collections', label: 'Collections', icon: 'lucide:library' },
   { to: '/settings', label: 'Settings', icon: 'lucide:settings' },
 ];
 

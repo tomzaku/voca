@@ -1,8 +1,8 @@
 import { callAiAction } from './aiProviders';
 import { fetchWordData } from './wordApi';
-import { buildWordList, getWordPack } from './wordLists';
 import { getLearnLanguage, getMotherLanguage } from './languages';
 import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useCollections } from '../hooks/useCollections';
 import { isDue, dueTime } from './srs';
 import type { VocabularyWord } from '../types';
 
@@ -265,10 +265,10 @@ export function parseCloze(paragraph: string): ClozeParagraph {
   return { segments, answers };
 }
 
-// ─── Active word list (respects selected pack) ──────────────────────
+// ─── Active word list (the selected collection's words) ─────────────
 
 export function getActiveWordList() {
-  return buildWordList(getWordPack(), WORD_LIST);
+  return useCollections.getState().activeWords();
 }
 
 // ─── Word selection ─────────────────────────────────────────────────
