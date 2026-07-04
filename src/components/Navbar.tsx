@@ -61,7 +61,7 @@ export function Navbar() {
   const initial = name[0]?.toUpperCase() ?? '?';
 
   return (
-    <header className="sticky top-0 z-10 bg-bg-secondary/85 backdrop-blur border-b-[3px] border-border">
+    <header className="sticky top-0 z-10 bg-bg-secondary/85 backdrop-blur border-b-[3px] border-border pt-[env(safe-area-inset-top)]">
       <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="group flex items-center gap-0.5 hover-wiggle">
