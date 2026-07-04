@@ -118,17 +118,28 @@ const ACCENT_LABELS: { locale: string; label: string; flag: string }[] = [
   { locale: 'en-GB', label: 'UK', flag: '🇬🇧' },
 ];
 
-/** Per-accent pronunciations, keyed by locale (e.g. en-US, en-GB). */
+/** Per-accent pronunciations, keyed by locale. Accents that share the same IPA
+ *  are combined (both flags, one transcription). */
 function PhoneticList({ wordData }: { wordData: VocabularyWord }) {
   const map = wordData.phonetics ?? {};
-  const entries = ACCENT_LABELS.filter((a) => map[a.locale]);
-  if (entries.length === 0) return null;
+  // Group accents by identical IPA, preserving the ACCENT_LABELS order.
+  const groups: { ipa: string; accents: typeof ACCENT_LABELS }[] = [];
+  for (const a of ACCENT_LABELS) {
+    const ipa = map[a.locale];
+    if (!ipa) continue;
+    const existing = groups.find((g) => g.ipa === ipa);
+    if (existing) existing.accents.push(a);
+    else groups.push({ ipa, accents: [a] });
+  }
+  if (groups.length === 0) return null;
   return (
     <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm font-code text-text-muted">
-      {entries.map((a) => (
-        <span key={a.locale} className="flex items-center gap-1.5" title={a.label}>
-          <span className="text-base leading-none" aria-label={a.label}>{a.flag}</span>
-          {map[a.locale]}
+      {groups.map((g) => (
+        <span key={g.ipa} className="flex items-center gap-1.5" title={g.accents.map((a) => a.label).join(' / ')}>
+          <span className="text-base leading-none" aria-label={g.accents.map((a) => a.label).join(' / ')}>
+            {g.accents.map((a) => a.flag).join('')}
+          </span>
+          {g.ipa}
         </span>
       ))}
     </div>
@@ -562,34 +573,6 @@ export function FlashCard() {
         </div>
       ) : wordData ? (
         <>
-          {/* Progress row */}
-          <div className="flex items-center justify-between gap-2 mb-5 text-xs text-text-muted">
-            <span>
-              <span className="text-accent-green font-medium">{store.knownWords().size}</span> known
-              {' · '}
-              <span className="text-accent-cyan font-medium">{store.bookmarkedWords().length}</span> saved
-            </span>
-            <div className="flex items-center gap-2">
-              {(() => {
-                const p = store.progress[wordData.word];
-                const reps = p?.reps ?? 0;
-                if (p?.mastered) {
-                  return <span className="px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-medium">Mastered ✨</span>;
-                }
-                if (reps > 0) {
-                  return (
-                    <span className="px-2 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-medium">
-                      Seen {reps}× · {reviewsUntilMastered(p)} to master
-                    </span>
-                  );
-                }
-                return null;
-              })()}
-              <span className={`px-2 py-0.5 rounded font-medium ${levelColor[wordData.level]}`}>
-                {wordData.level}
-              </span>
-            </div>
-          </div>
 
           {/* Definition clue — surfaced at the top while guessing so the
               hint sits above the game (key for mobile flow) */}
@@ -597,14 +580,17 @@ export function FlashCard() {
             <div className="mb-4 sm:mb-5 card-game border-accent-cyan p-4 sm:p-5 animate-bounce-in">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xl leading-none animate-bob">💡</span>
-                <h3 className="text-sm font-display font-extrabold text-accent-cyan uppercase tracking-wide">
-                  Definition — guess the word
+                <h3 className="text-sm font-display font-extrabold text-accent-cyan uppercase tracking-wide whitespace-nowrap">
+                  Guess the word
                 </h3>
                 {wordData.partOfSpeech && (
                   <span className="text-[10px] font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
                     {wordData.partOfSpeech}
                   </span>
                 )}
+                <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${levelColor[wordData.level]}`}>
+                  {wordData.level}
+                </span>
               </div>
               <p className="text-text-primary leading-relaxed text-base sm:text-lg">{wordData.definition}</p>
               <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
@@ -705,9 +691,20 @@ export function FlashCard() {
                   full meaning is front and center */}
               {phase === 'revealed' && (
                 <div className="card-game p-5">
-                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
-                    Definition
-                  </h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
+                      Definition
+                    </h3>
+                    {(() => {
+                      const p = store.progress[wordData.word];
+                      if (p?.mastered) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-medium">Mastered ✨</span>;
+                      if ((p?.reps ?? 0) > 0) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-medium">Seen {p!.reps}× · {reviewsUntilMastered(p)} to master</span>;
+                      return null;
+                    })()}
+                    <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${levelColor[wordData.level]}`}>
+                      {wordData.level}
+                    </span>
+                  </div>
                   <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
                   {wordData.translation && (
                     <p className="mt-3 pt-3 border-t border-border/60 text-sm text-accent-cyan">
