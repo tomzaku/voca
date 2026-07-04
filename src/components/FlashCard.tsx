@@ -706,6 +706,22 @@ export function FlashCard() {
                 </div>
               )}
 
+              {/* Collocations — natural word pairings (revealed only) */}
+              {phase === 'revealed' && (wordData.collocations?.length ?? 0) > 0 && (
+                <div className="card-game p-4 sm:p-5">
+                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
+                    Common phrases
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {wordData.collocations!.map((c) => (
+                      <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-accent-purple/10 text-accent-purple border border-accent-purple/20">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <BuddyBadge />
               {/* Notes + AI test (revealed only) */}
               {phase === 'revealed' && (

@@ -7,6 +7,7 @@ export interface VocabularyWord {
   examples: string[];
   synonyms?: string[];
   antonyms?: string[];
+  collocations?: string[]; // common natural word pairings (e.g. "make a decision")
   translation?: string; // the word rendered in the user's mother language
   level: 'beginner' | 'intermediate' | 'advanced';
   hints?: string[]; // legacy — no longer shown in UI

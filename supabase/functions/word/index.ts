@@ -4,7 +4,7 @@
 //
 //   POST { word, level, learnLang, motherLang }
 //   → 200 { word, phonetic, partOfSpeech, definition, translation, examples,
-//           synonyms, antonyms, level, imageKeywords }
+//           synonyms, antonyms, collocations, level, imageKeywords }
 //
 // Cache model (word_cache): one row per word holds the language-neutral content;
 // translations are a per-mother-tongue map. A new mother tongue triggers a cheap
@@ -39,6 +39,7 @@ interface WordData {
   examples?: string[];
   synonyms?: string[];
   antonyms?: string[];
+  collocations?: string[];
   level?: string;
   imageKeywords?: string[];
 }
@@ -81,7 +82,8 @@ Deno.serve(async (req) => {
       const translations = (row.translations ?? {}) as Record<string, string>;
       let translation = translations[motherKey];
       // Cached, but not in this user's language — top it up cheaply instead of
-      // regenerating (skipped if the user is over their rate limit).
+      // regenerating (skipped if the user is over their rate limit). Collocations
+      // are handled by the one-off backfill script, so no top-up needed here.
       if (!translation && await underRateLimit(auth.supabase)) {
         try {
           translation = await translateWord(String(row.headword ?? wordKey), String(row.definition), motherLang);
@@ -141,12 +143,13 @@ Return this exact JSON structure (no markdown, no extra text):
   ],
   "synonyms": ["synonym1", "synonym2", "synonym3"],
   "antonyms": ["antonym1", "antonym2"],
+  "collocations": ["natural phrase 1", "natural phrase 2", "phrase 3", "phrase 4", "phrase 5"],
   "level": "${level}",
   "imageKeywords": ["concrete visual noun 1", "concept 2"]
 }
 
-The "translation" field MUST be written in ${motherLang}.${
-    isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", and "antonyms" MUST all be written in ${learnLang}.`
+Provide EXACTLY 5 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). The "translation" field MUST be written in ${motherLang}.${
+    isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", "antonyms", and "collocations" MUST all be written in ${learnLang}.`
   } For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
 
   const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
@@ -188,6 +191,7 @@ function wordDataFromRow(row: Record<string, unknown>, translation?: string): Wo
     examples: asArray(row.examples),
     synonyms: asArray(row.synonyms),
     antonyms: asArray(row.antonyms),
+    collocations: asArray(row.collocations),
     level: (row.level as string) ?? undefined,
     imageKeywords: asArray(row.image_keywords),
   };
@@ -208,6 +212,7 @@ function storeWord(svc: Svc, wordKey: string, motherKey: string, d: WordData): v
     examples: asArray(d.examples),
     synonyms: asArray(d.synonyms),
     antonyms: asArray(d.antonyms),
+    collocations: asArray(d.collocations),
     image_keywords: asArray(d.imageKeywords),
     level: d.level ?? null,
     translations: hasTranslation ? { [motherKey]: d.translation } : {},
