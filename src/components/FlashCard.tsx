@@ -47,6 +47,12 @@ async function generateWithRetry(
 // search, no API key). Several small results give better context for a word's
 // meaning than one large, often-unrelated guess. Returns [] on failure so the
 // UI can simply hide the image area rather than show a random placeholder.
+// Images only help for concrete things — i.e. nouns. For verbs/adjectives/etc.
+// the search returns misleading pictures, so we skip images entirely.
+function isNoun(wordData: VocabularyWord): boolean {
+  return /noun/i.test(wordData.partOfSpeech ?? '');
+}
+
 async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
   const keyword = wordData.imageKeywords?.[0] || wordData.word;
   try {
@@ -63,6 +69,37 @@ async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
     }
   } catch { /* fall through */ }
   return [];
+}
+
+/** Synonyms + antonyms chips, shown under the definition in both phases. */
+function SynAnt({ wordData }: { wordData: VocabularyWord }) {
+  const hasSyn = (wordData.synonyms?.length ?? 0) > 0;
+  const hasAnt = (wordData.antonyms?.length ?? 0) > 0;
+  if (!hasSyn && !hasAnt) return null;
+  return (
+    <div className="mt-4 pt-4 border-t border-border/60 space-y-3">
+      {hasSyn && (
+        <div>
+          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Synonyms</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {wordData.synonyms!.map((s) => (
+              <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">{s}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      {hasAnt && (
+        <div>
+          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Antonyms</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {wordData.antonyms!.map((a) => (
+              <span key={a} className="text-xs px-2.5 py-1 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20">{a}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function FlashCard() {
@@ -226,6 +263,11 @@ export function FlashCard() {
     if (!wordData) return;
     setSearchParams({ w: encodeWord(wordData.word) }, { replace: true });
     setImageUrls([]);
+    // Skip images for non-nouns — the search would return misleading pictures.
+    if (!isNoun(wordData)) {
+      setImagesLoading(false);
+      return;
+    }
     setImagesLoading(true);
     let cancelled = false;
     fetchImageUrls(wordData).then((urls) => {
@@ -333,8 +375,6 @@ export function FlashCard() {
     intermediate: 'text-accent-orange bg-accent-orange/10',
     advanced: 'text-accent-red bg-accent-red/10',
   };
-
-  const hasSynAnt = (wordData?.synonyms?.length ?? 0) > 0 || (wordData?.antonyms?.length ?? 0) > 0;
 
   return (
     <div className="max-w-[74rem] mx-auto px-4 py-8">
@@ -446,6 +486,7 @@ export function FlashCard() {
                 )}
               </div>
               <p className="text-text-primary leading-relaxed text-base sm:text-lg">{wordData.definition}</p>
+              <SynAnt wordData={wordData} />
             </div>
           )}
 
@@ -538,7 +579,8 @@ export function FlashCard() {
                 </div>
               )}
 
-              {/* Definition — kept with the word so the meaning is front and center */}
+              {/* Definition + synonyms/antonyms — kept together with the word so the
+                  full meaning is front and center */}
               {phase === 'revealed' && (
                 <div className="card-game p-5">
                   <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
@@ -550,6 +592,7 @@ export function FlashCard() {
                       {wordData.translation}
                     </p>
                   )}
+                  <SynAnt wordData={wordData} />
                 </div>
               )}
 
@@ -660,40 +703,6 @@ export function FlashCard() {
                       );
                     })}
                   </ul>
-                </div>
-              )}
-
-              {/* Synonyms + Antonyms */}
-              {hasSynAnt && (
-                <div className="card-game p-5 space-y-4">
-                  {wordData.synonyms && wordData.synonyms.length > 0 && (
-                    <div>
-                      <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
-                        Synonyms
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        {wordData.synonyms.map((s) => (
-                          <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {wordData.antonyms && wordData.antonyms.length > 0 && (
-                    <div>
-                      <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
-                        Antonyms
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        {wordData.antonyms.map((a) => (
-                          <span key={a} className="text-xs px-2.5 py-1 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20">
-                            {a}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
