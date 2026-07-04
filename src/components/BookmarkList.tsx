@@ -422,9 +422,10 @@ export function BookmarkList() {
                     </div>
                   ) : data ? (
                     <div className="space-y-4">
-                      {data.phonetic && (
-                        <p className="text-sm font-code text-text-muted">{data.phonetic}</p>
-                      )}
+                      {(() => {
+                        const ipa = data.phonetics?.['en-US'] || data.phonetics?.['en-GB'];
+                        return ipa ? <p className="text-sm font-code text-text-muted">{ipa}</p> : null;
+                      })()}
                       <div>
                         <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Definition</h4>
                         <p className="text-sm text-text-primary leading-relaxed">{data.definition}</p>

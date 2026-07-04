@@ -112,26 +112,27 @@ async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
   return [];
 }
 
-/** US / UK pronunciations. Falls back to the legacy single `phonetic`. */
+// Preferred accents to show, and how to label each locale.
+const ACCENT_LABELS: { locale: string; label: string }[] = [
+  { locale: 'en-US', label: 'US' },
+  { locale: 'en-GB', label: 'UK' },
+];
+
+/** Per-accent pronunciations, keyed by locale (e.g. en-US, en-GB). */
 function PhoneticList({ wordData }: { wordData: VocabularyWord }) {
-  const p = wordData.phonetics ?? {};
-  const us = p.us || wordData.phonetic;
-  const uk = p.uk;
-  if (!us && !uk) return null;
+  const map = wordData.phonetics ?? {};
+  const entries = ACCENT_LABELS
+    .filter((a) => map[a.locale])
+    .map((a) => ({ label: a.label, ipa: map[a.locale] }));
+  if (entries.length === 0) return null;
   return (
     <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm font-code text-text-muted">
-      {us && (
-        <span className="flex items-center gap-1.5">
-          <span className="text-[10px] font-display font-bold text-text-muted/70 uppercase tracking-wider">US</span>
-          {us}
+      {entries.map((e) => (
+        <span key={e.label} className="flex items-center gap-1.5">
+          <span className="text-[10px] font-display font-bold text-text-muted/70 uppercase tracking-wider">{e.label}</span>
+          {e.ipa}
         </span>
-      )}
-      {uk && (
-        <span className="flex items-center gap-1.5">
-          <span className="text-[10px] font-display font-bold text-text-muted/70 uppercase tracking-wider">UK</span>
-          {uk}
-        </span>
-      )}
+      ))}
     </div>
   );
 }

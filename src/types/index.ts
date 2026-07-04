@@ -1,8 +1,7 @@
 export interface VocabularyWord {
   word: string;            // stable identity (the English seed) — used for progress/selection
   headword?: string;       // the word to display/guess, in the learn language (falls back to `word`)
-  phonetic?: string; // legacy single IPA — fall back to this if `phonetics` is empty
-  phonetics?: { us?: string; uk?: string }; // per-accent IPA
+  phonetics?: Record<string, string>; // IPA keyed by locale, e.g. { "en-US": "…", "en-GB": "…" }
   partOfSpeech?: string;
   definition: string;
   examples: string[];
