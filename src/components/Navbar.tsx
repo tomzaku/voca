@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { useTheme } from '../hooks/useTheme';
-import { useAuth } from '../hooks/useAuth';
 import { useWordSearch } from '../hooks/useWordSearch';
+import { Sidebar } from './Sidebar';
 
 // The History tab cycles through what lives on that page.
 const HISTORY_LABELS = ['History', 'Review', 'Games'];
@@ -24,13 +23,12 @@ function CyclingLabel({ words, className }: { words: string[]; className?: strin
 }
 
 export function Navbar() {
-  const { theme, toggleTheme } = useTheme();
-  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const requestSearch = useWordSearch((s) => s.requestSearch);
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -49,16 +47,11 @@ export function Navbar() {
     requestSearch(word);    // FlashCard picks this up and loads the word
   };
 
+  // Primary tabs only — everything else lives in the sidebar.
   const navLinks = [
     { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
-    { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
     { to: '/bookmarks', label: 'History', icon: 'lucide:history' },
-    { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print' },
   ];
-
-  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
-  const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || '';
-  const initial = name[0]?.toUpperCase() ?? '?';
 
   return (
     <header className="sticky top-0 z-10 bg-bg-secondary/85 backdrop-blur border-b-[3px] border-border pt-[env(safe-area-inset-top)]">
@@ -109,40 +102,12 @@ export function Navbar() {
           </button>
 
           <button
-            onClick={toggleTheme}
-            className="btn-3d w-9 h-9 rounded-full bg-accent-yellow text-bg-primary flex items-center justify-center"
-            title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+            onClick={() => setMenuOpen(true)}
+            className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary flex items-center justify-center"
+            title="Menu"
           >
-            <Icon icon={theme === 'dark' ? 'lucide:sun' : 'lucide:moon'} className="text-lg" />
+            <Icon icon="lucide:menu" className="text-lg" />
           </button>
-
-          {user ? (
-            <Link
-              to="/profile"
-              title="Profile"
-              className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center border-[3px] transition-all hover:-translate-y-0.5 ${
-                location.pathname === '/profile'
-                  ? 'border-accent-cyan'
-                  : 'border-border hover:border-accent-cyan/60'
-              }`}
-              style={{ boxShadow: '0 3px 0 0 var(--btn-lip)' }}
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="w-full h-full bg-accent-purple/20 flex items-center justify-center text-sm font-extrabold text-accent-purple">
-                  {initial}
-                </span>
-              )}
-            </Link>
-          ) : (
-            <Link
-              to="/login"
-              className="btn-3d text-sm px-3.5 py-1.5 bg-accent-green text-bg-primary"
-            >
-              Sign in
-            </Link>
-          )}
         </div>
       </div>
 
@@ -179,6 +144,8 @@ export function Navbar() {
           </form>
         </div>
       )}
+
+      <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
     </header>
   );
 }
