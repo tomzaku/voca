@@ -11,6 +11,9 @@ import { stageIndex } from '../lib/companion';
 import { AnimalAvatar } from './AnimalAvatar';
 import type { VocabularyWord } from '../types';
 
+// The two guess modes shown by default; the rest live behind a "More" toggle.
+const PRIMARY_MODES: GuessGameMode[] = ['letters', 'choice'];
+
 interface Props {
   wordData: VocabularyWord;
   game: GuessGameMode;
@@ -66,12 +69,37 @@ function Confetti() {
   );
 }
 
+function ModePill({ g, active, onGameChange }: {
+  g: (typeof GUESS_GAMES)[number];
+  active: boolean;
+  onGameChange: (id: GuessGameMode) => void;
+}) {
+  return (
+    <button
+      onClick={() => { playSelect(); onGameChange(g.id); }}
+      title={g.description}
+      className={`btn-3d flex items-center gap-1 px-3 py-1.5 text-xs ${
+        active ? 'bg-accent-purple text-bg-primary' : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
+      }`}
+    >
+      <Icon icon={g.icon} className="text-base" />
+      <span>{g.label}</span>
+    </button>
+  );
+}
+
 export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: Props) {
   // Guess the learn-language headword when set (falls back to the English word).
   const word = wordData.headword || wordData.word;
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
+  const [moreModes, setMoreModes] = useState(false);
   const { points, streak, win, lastGain, winId } = useGameScore();
   const info = GUESS_GAMES.find((g) => g.id === game)!;
+
+  // Keep the picker to a single row by default: show the two primary modes (plus
+  // the current one if it's another), and tuck the rest behind a "More" toggle.
+  const alwaysShow = GUESS_GAMES.filter((g) => PRIMARY_MODES.includes(g.id) || g.id === game);
+  const extraModes = GUESS_GAMES.filter((g) => !alwaysShow.includes(g));
 
   // The companion cheers on a correct answer.
   const companion = useCompanion((s) => s.animalId);
@@ -124,7 +152,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
         <div className="absolute inset-0 rounded-2xl bg-accent-red/10 pointer-events-none z-10 animate-flash-wrong" />
       )}
 
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
         {/* ── HUD: game badge + score/streak ── */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -162,24 +190,21 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
 
         {/* ── Game picker pills ── */}
         <div className="flex flex-wrap gap-1.5">
-          {GUESS_GAMES.map((g) => {
-            const active = game === g.id;
-            return (
-              <button
-                key={g.id}
-                onClick={() => { playSelect(); onGameChange(g.id); }}
-                title={g.description}
-                className={`btn-3d flex items-center gap-1 px-3 py-1.5 text-xs ${
-                  active
-                    ? 'bg-accent-purple text-bg-primary'
-                    : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <Icon icon={g.icon} className="text-base" />
-                <span>{g.label}</span>
-              </button>
-            );
-          })}
+          {alwaysShow.map((g) => (
+            <ModePill key={g.id} g={g} active={game === g.id} onGameChange={onGameChange} />
+          ))}
+          {moreModes && extraModes.map((g) => (
+            <ModePill key={g.id} g={g} active={game === g.id} onGameChange={onGameChange} />
+          ))}
+          {extraModes.length > 0 && (
+            <button
+              onClick={() => setMoreModes((o) => !o)}
+              className="btn-3d flex items-center gap-1 px-3 py-1.5 text-xs bg-bg-tertiary text-text-secondary hover:text-text-primary"
+            >
+              <Icon icon={moreModes ? 'lucide:chevron-up' : 'lucide:ellipsis'} className="text-base" />
+              <span>{moreModes ? 'Less' : 'More'}</span>
+            </button>
+          )}
         </div>
 
         {game === 'letters' && (

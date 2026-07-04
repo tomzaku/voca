@@ -77,10 +77,10 @@ function SynAnt({ wordData }: { wordData: VocabularyWord }) {
   const hasAnt = (wordData.antonyms?.length ?? 0) > 0;
   if (!hasSyn && !hasAnt) return null;
   return (
-    <div className="mt-4 pt-4 border-t border-border/60 space-y-3">
+    <div className="mt-3 pt-3 border-t border-border/60 space-y-2.5">
       {hasSyn && (
         <div>
-          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Synonyms</h4>
+          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">Synonyms</h4>
           <div className="flex flex-wrap gap-1.5">
             {wordData.synonyms!.map((s) => (
               <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">{s}</span>
@@ -90,7 +90,7 @@ function SynAnt({ wordData }: { wordData: VocabularyWord }) {
       )}
       {hasAnt && (
         <div>
-          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Antonyms</h4>
+          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">Antonyms</h4>
           <div className="flex flex-wrap gap-1.5">
             {wordData.antonyms!.map((a) => (
               <span key={a} className="text-xs px-2.5 py-1 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20">{a}</span>
@@ -377,7 +377,7 @@ export function FlashCard() {
   };
 
   return (
-    <div className="max-w-[74rem] mx-auto px-4 py-8">
+    <div className="max-w-[74rem] mx-auto px-3 sm:px-4 py-4 sm:py-8">
 
 
       {/* ── History navigation ── */}
@@ -473,7 +473,7 @@ export function FlashCard() {
           {/* Definition clue — surfaced at the top while guessing so the
               hint sits above the game (key for mobile flow) */}
           {phase === 'introduce' && (
-            <div className="mb-5 card-game border-accent-cyan p-5 animate-bounce-in">
+            <div className="mb-4 sm:mb-5 card-game border-accent-cyan p-4 sm:p-5 animate-bounce-in">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xl leading-none animate-bob">💡</span>
                 <h3 className="text-sm font-display font-extrabold text-accent-cyan uppercase tracking-wide">
@@ -491,10 +491,10 @@ export function FlashCard() {
           )}
 
           {/* Two-column layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1.618fr_1fr] gap-5 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.618fr_1fr] gap-4 sm:gap-5 items-start">
 
             {/* ── Left column ── */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:gap-4">
               {/* Images — a few small visual hints; drops below the game while
                   guessing so the definition → game flow stays tight on mobile */}
               {(imagesLoading || imageUrls.length > 0) && (
