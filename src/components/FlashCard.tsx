@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { Icon } from '@iconify/react';
 import { useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
@@ -43,20 +43,45 @@ async function generateWithRetry(
   throw lastErr;
 }
 
-// Blank out the answer in an example while guessing. Masks not just the exact
-// word but its inflections (adumbrate → adumbrated/adumbrating/…) by matching on
-// the stem — otherwise an example could reveal the answer. Over-masking a rare
-// look-alike is fine; leaking the answer is not.
+// A regex matching the answer word and its inflections (adumbrate →
+// adumbrated/adumbrating/…). Drops a trailing silent 'e'/'y' so the stem covers
+// -ed/-ing/-ies forms, and skips short tokens (a, an, of…). Returns null when
+// there's nothing worth matching. Shared by the mask and the highlight.
+function answerRegex(answer: string): RegExp | null {
+  const stems = answer
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((t) => t.length >= 3)
+    .map((t) => (/[ey]$/.test(t) ? t.slice(0, -1) : t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (stems.length === 0) return null;
+  return new RegExp(`\\b(?:${stems.join('|')})[a-z]*\\b`, 'gi');
+}
+
+// Blank out the answer (and its inflections) in an example while guessing —
+// otherwise an example could reveal the answer. Over-masking a rare look-alike
+// is fine; leaking the answer is not.
 function maskAnswer(example: string, answer: string): string {
-  let masked = example;
-  for (const token of answer.toLowerCase().split(/[^a-z]+/)) {
-    if (token.length < 3) continue; // skip short words (a, an, of…) to avoid over-masking
-    // Drop a trailing silent 'e' or 'y' so the stem covers -ed/-ing/-ies forms.
-    const stem = /[ey]$/.test(token) ? token.slice(0, -1) : token;
-    const esc = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    masked = masked.replace(new RegExp(`\\b${esc}[a-z]*\\b`, 'gi'), '____');
+  const re = answerRegex(answer);
+  return re ? example.replace(re, '____') : example;
+}
+
+// Render an example with the answer word (and its inflections) bold + highlighted.
+function highlightAnswer(example: string, answer: string): ReactNode {
+  const re = answerRegex(answer);
+  if (!re) return example;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(example)) !== null) {
+    if (m.index > last) parts.push(example.slice(last, m.index));
+    parts.push(
+      <strong key={m.index} className="font-extrabold text-accent-purple">{m[0]}</strong>,
+    );
+    last = m.index + m[0].length;
+    if (m.index === re.lastIndex) re.lastIndex++; // guard against zero-length matches
   }
-  return masked;
+  if (last < example.length) parts.push(example.slice(last));
+  return parts;
 }
 
 // Fetch a few relevant thumbnails from Openverse (Creative-Commons image
@@ -85,6 +110,30 @@ async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
     }
   } catch { /* fall through */ }
   return [];
+}
+
+/** US / UK pronunciations. Falls back to the legacy single `phonetic`. */
+function PhoneticList({ wordData }: { wordData: VocabularyWord }) {
+  const p = wordData.phonetics ?? {};
+  const us = p.us || wordData.phonetic;
+  const uk = p.uk;
+  if (!us && !uk) return null;
+  return (
+    <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm font-code text-text-muted">
+      {us && (
+        <span className="flex items-center gap-1.5">
+          <span className="text-[10px] font-display font-bold text-text-muted/70 uppercase tracking-wider">US</span>
+          {us}
+        </span>
+      )}
+      {uk && (
+        <span className="flex items-center gap-1.5">
+          <span className="text-[10px] font-display font-bold text-text-muted/70 uppercase tracking-wider">UK</span>
+          {uk}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /** Synonyms + antonyms chips, shown under the definition in both phases. */
@@ -164,7 +213,9 @@ function ExampleList({ wordData, phase, speakingExample, onSpeak }: {
                   )}
                 </button>
               )}
-              <span className={phase === 'introduce' ? 'italic' : ''}>{text}</span>
+              <span className={phase === 'introduce' ? 'italic' : ''}>
+                {phase === 'introduce' ? text : highlightAnswer(ex, answerWord)}
+              </span>
             </li>
           );
         })}
@@ -624,9 +675,7 @@ export function FlashCard() {
                           </span>
                         )}
                       </div>
-                      {wordData.phonetic && (
-                        <p className="text-sm font-code text-text-muted">{wordData.phonetic}</p>
-                      )}
+                      <PhoneticList wordData={wordData} />
                     </div>
                     <button
                       onClick={handleSpeak}

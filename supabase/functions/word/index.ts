@@ -3,8 +3,9 @@
 // function. Returns the word object directly (not a `{ text }` wrapper).
 //
 //   POST { word, level, learnLang, motherLang }
-//   → 200 { word, phonetic, partOfSpeech, definition, translation, examples,
-//           synonyms, antonyms, collocations, level, imageKeywords }
+//   → 200 { word, phonetic, phonetics:{us,uk}, partOfSpeech, definition,
+//           translation, examples, synonyms, antonyms, collocations, level,
+//           imageKeywords }
 //
 // Cache model (word_cache): one row per word holds the language-neutral content;
 // translations are a per-mother-tongue map. A new mother tongue triggers a cheap
@@ -33,6 +34,7 @@ const GENERATE_ATTEMPTS = 4;
 interface WordData {
   word?: string;
   phonetic?: string;
+  phonetics?: { us?: string; uk?: string };
   partOfSpeech?: string;
   definition?: string;
   translation?: string;
@@ -132,7 +134,7 @@ async function generateWordData(
 Return this exact JSON structure (no markdown, no extra text):
 {
   ${headwordSpec}
-  "phonetic": "IPA phonetic notation like /wɜːrd/",
+  "phonetics": { "us": "US IPA like /wɜːrd/", "uk": "UK IPA like /wɜːd/" },
   "partOfSpeech": "noun | verb | adjective | adverb | etc",
   "definition": "Clear, concise definition in 1-2 sentences${isEnglish ? '' : `, written in ${learnLang}`}",
   "translation": "the word's meaning translated into ${motherLang} (the most natural equivalent)",
@@ -182,9 +184,14 @@ async function translateWord(word: string, definition: string, motherLang: strin
 
 /** Rebuild the object the client expects from a cached row + this user's translation. */
 function wordDataFromRow(row: Record<string, unknown>, translation?: string): WordData {
+  const legacyPhonetic = (row.phonetic as string) ?? undefined;
+  const stored = (row.phonetics ?? {}) as { us?: string; uk?: string };
+  // Fall back to the legacy single phonetic (as US) for rows made before phonetics.
+  const phonetics = (stored.us || stored.uk) ? stored : (legacyPhonetic ? { us: legacyPhonetic } : {});
   return {
     word: (row.headword as string) ?? (row.word as string),
-    phonetic: (row.phonetic as string) ?? undefined,
+    phonetic: legacyPhonetic,
+    phonetics,
     partOfSpeech: (row.part_of_speech as string) ?? undefined,
     definition: row.definition as string,
     translation: translation || undefined,
@@ -206,7 +213,9 @@ function storeWord(svc: Svc, wordKey: string, motherKey: string, d: WordData): v
   const row = {
     word: wordKey,
     headword: typeof d.word === 'string' ? d.word : wordKey,
-    phonetic: d.phonetic ?? null,
+    // Keep the legacy column populated (US) for backward compatibility.
+    phonetic: d.phonetics?.us ?? d.phonetic ?? null,
+    phonetics: d.phonetics ?? {},
     part_of_speech: d.partOfSpeech ?? null,
     definition: d.definition,
     examples: asArray(d.examples),
