@@ -118,6 +118,61 @@ function SynAnt({ wordData }: { wordData: VocabularyWord }) {
   );
 }
 
+/**
+ * Example sentences, shown beneath the definition. While guessing (introduce),
+ * shows the first two with the answer masked; once revealed, shows all with a
+ * per-sentence read-aloud button.
+ */
+function ExampleList({ wordData, phase, speakingExample, onSpeak }: {
+  wordData: VocabularyWord;
+  phase: CardPhase;
+  speakingExample: number | null;
+  onSpeak: (index: number, text: string) => void;
+}) {
+  if (wordData.examples.length === 0) return null;
+  const answerWord = wordData.headword || wordData.word;
+  const examples = phase === 'introduce' ? wordData.examples.slice(0, 2) : wordData.examples;
+  return (
+    <div className="mt-3 pt-3 border-t border-border/60">
+      <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Examples</h4>
+      <ul className="space-y-2">
+        {examples.map((ex, i) => {
+          const text = phase === 'introduce' ? maskAnswer(ex, answerWord) : ex;
+          return (
+            <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">
+              {phase === 'introduce' ? (
+                <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
+              ) : (
+                <button
+                  onClick={() => onSpeak(i, text)}
+                  title="Read aloud"
+                  className={`shrink-0 w-6 h-6 mt-0.5 rounded-md flex items-center justify-center border transition-all ${
+                    speakingExample === i
+                      ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
+                      : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
+                  }`}
+                >
+                  {speakingExample === i ? (
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor">
+                      <rect x="0" y="0" width="4" height="10" rx="1" /><rect x="6" y="0" width="4" height="10" rx="1" />
+                    </svg>
+                  ) : (
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                    </svg>
+                  )}
+                </button>
+              )}
+              <span className={phase === 'introduce' ? 'italic' : ''}>{text}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function FlashCard() {
   const { user, loading: authLoading } = useAuth();
   const store = useVocabularyStore();
@@ -502,6 +557,7 @@ export function FlashCard() {
                 )}
               </div>
               <p className="text-text-primary leading-relaxed text-base sm:text-lg">{wordData.definition}</p>
+              <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
               <SynAnt wordData={wordData} />
             </div>
           )}
@@ -608,6 +664,7 @@ export function FlashCard() {
                       {wordData.translation}
                     </p>
                   )}
+                  <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
                   <SynAnt wordData={wordData} />
                 </div>
               )}
@@ -676,52 +733,6 @@ export function FlashCard() {
 
             {/* ── Right column ── */}
             <div className="space-y-4">
-              {/* Examples */}
-              {wordData.examples.length > 0 && (
-                <div className="card-game p-5">
-                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-                    Examples
-                  </h3>
-                  <ul className="space-y-2">
-                    {(phase === 'introduce' ? wordData.examples.slice(0, 2) : wordData.examples).map((ex, i) => {
-                      const answerWord = wordData.headword || wordData.word;
-                      const text = phase === 'introduce'
-                        ? maskAnswer(ex, answerWord)
-                        : ex;
-                      return (
-                        <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">
-                          {phase === 'introduce' ? (
-                            <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
-                          ) : (
-                            <button
-                              onClick={() => handleSpeakExample(i, text)}
-                              title="Read aloud"
-                              className={`shrink-0 w-6 h-6 mt-0.5 rounded-md flex items-center justify-center border transition-all ${
-                                speakingExample === i
-                                  ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
-                                  : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
-                              }`}
-                            >
-                              {speakingExample === i ? (
-                                <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor">
-                                  <rect x="0" y="0" width="4" height="10" rx="1" /><rect x="6" y="0" width="4" height="10" rx="1" />
-                                </svg>
-                              ) : (
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                                </svg>
-                              )}
-                            </button>
-                          )}
-                          <span className={phase === 'introduce' ? 'italic' : ''}>{text}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
-
               {/* Collocations — natural word pairings (revealed only) */}
               {phase === 'revealed' && (wordData.collocations?.length ?? 0) > 0 && (
                 <div className="card-game p-4 sm:p-5">
