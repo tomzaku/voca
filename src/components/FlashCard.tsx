@@ -43,6 +43,22 @@ async function generateWithRetry(
   throw lastErr;
 }
 
+// Blank out the answer in an example while guessing. Masks not just the exact
+// word but its inflections (adumbrate → adumbrated/adumbrating/…) by matching on
+// the stem — otherwise an example could reveal the answer. Over-masking a rare
+// look-alike is fine; leaking the answer is not.
+function maskAnswer(example: string, answer: string): string {
+  let masked = example;
+  for (const token of answer.toLowerCase().split(/[^a-z]+/)) {
+    if (token.length < 3) continue; // skip short words (a, an, of…) to avoid over-masking
+    // Drop a trailing silent 'e' or 'y' so the stem covers -ed/-ing/-ies forms.
+    const stem = /[ey]$/.test(token) ? token.slice(0, -1) : token;
+    const esc = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    masked = masked.replace(new RegExp(`\\b${esc}[a-z]*\\b`, 'gi'), '____');
+  }
+  return masked;
+}
+
 // Fetch a few relevant thumbnails from Openverse (Creative-Commons image
 // search, no API key). Several small results give better context for a word's
 // meaning than one large, often-unrelated guess. Returns [] on failure so the
@@ -670,7 +686,7 @@ export function FlashCard() {
                     {(phase === 'introduce' ? wordData.examples.slice(0, 2) : wordData.examples).map((ex, i) => {
                       const answerWord = wordData.headword || wordData.word;
                       const text = phase === 'introduce'
-                        ? ex.replace(new RegExp(`\\b${answerWord}\\b`, 'gi'), '____')
+                        ? maskAnswer(ex, answerWord)
                         : ex;
                       return (
                         <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">
