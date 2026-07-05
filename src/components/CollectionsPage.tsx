@@ -44,6 +44,78 @@ function CompletionBar({ pct }: { pct: number }) {
   );
 }
 
+/** Up to `n` random words from a collection, for the preview modal. */
+function sampleWords(words: string[], n = 20): string[] {
+  const a = [...words];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, n);
+}
+
+/** Small eye button that opens the word preview for a collection. */
+function PreviewButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title="Preview words"
+      className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
+    >
+      <Icon icon="lucide:eye" className="text-sm" />
+    </button>
+  );
+}
+
+/** Modal showing a random sample of a collection's words. */
+function PreviewModal({ name, total, words, onReshuffle, onClose }: {
+  name: string;
+  total: number;
+  words: string[];
+  onReshuffle: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-border bg-bg-card shadow-2xl p-5 max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <h3 className="font-display font-bold text-text-primary truncate">{name}</h3>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary"
+            title="Close"
+          >
+            <Icon icon="lucide:x" />
+          </button>
+        </div>
+        <p className="text-xs text-text-muted mb-3">
+          {words.length} of {total} words, picked at random
+        </p>
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {words.map((w) => (
+            <span key={w} className="text-xs px-2.5 py-1 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">
+              {w}
+            </span>
+          ))}
+        </div>
+        <button
+          onClick={onReshuffle}
+          className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-accent-cyan transition-colors"
+        >
+          <Icon icon="lucide:shuffle" />
+          Show different words
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** "N learners" chip for server collections. */
 function Learners({ count }: { count: number }) {
   return (
@@ -95,6 +167,11 @@ export function CollectionsPage() {
     });
     return () => { cancelled = true; };
   }, [sharedId]);
+
+  // ── Word preview ──
+  const [preview, setPreview] = useState<{ name: string; all: string[]; sample: string[] } | null>(null);
+  const openPreview = (name: string, all: string[]) =>
+    setPreview({ name, all, sample: sampleWords(all) });
 
   // ── Create form ──
   const [creating, setCreating] = useState(false);
@@ -171,6 +248,7 @@ export function CollectionsPage() {
               {sharedCol.description && <p className="text-xs text-text-muted mt-0.5">{sharedCol.description}</p>}
               <CompletionBar pct={completionPct(sharedCol.words, progress)} />
             </div>
+            <PreviewButton onClick={() => openPreview(sharedCol.name, sharedCol.words)} />
             <button
               onClick={() => pick(sharedCol.id, sharedCol.name)}
               className="btn-3d shrink-0 px-4 py-2 text-sm bg-accent-purple text-bg-primary font-bold"
@@ -258,6 +336,7 @@ export function CollectionsPage() {
                     </div>
                     <CompletionBar pct={completionPct(c.words, progress)} />
                   </button>
+                  <PreviewButton onClick={() => openPreview(c.name, c.words)} />
                   <button
                     onClick={() => handleShare(c.id)}
                     title="Copy share link (makes the collection public)"
@@ -288,16 +367,15 @@ export function CollectionsPage() {
             {joined.map((c) => {
               const active = c.id === activeId;
               return (
-                <button
+                <div
                   key={c.id}
-                  onClick={() => pick(c.id, c.name)}
-                  className={`w-full flex items-center gap-3 text-left rounded-2xl border-2 p-4 transition-all ${
+                  className={`flex items-center gap-2 rounded-2xl border-2 p-4 transition-all ${
                     active
                       ? 'border-accent-purple bg-accent-purple/10'
-                      : 'border-border bg-bg-card hover:border-border-light hover:-translate-y-0.5'
+                      : 'border-border bg-bg-card hover:border-border-light'
                   }`}
                 >
-                  <div className="flex-1 min-w-0">
+                  <button onClick={() => pick(c.id, c.name)} className="flex-1 min-w-0 text-left">
                     <div className="flex items-center flex-wrap gap-2">
                       <span className={`font-display font-bold truncate ${active ? 'text-accent-purple' : 'text-text-primary'}`}>{c.name}</span>
                       <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold shrink-0">
@@ -307,9 +385,10 @@ export function CollectionsPage() {
                     </div>
                     {c.description && <p className="text-xs text-text-muted mt-0.5">{c.description}</p>}
                     <CompletionBar pct={completionPct(c.words, progress)} />
-                  </div>
+                  </button>
+                  <PreviewButton onClick={() => openPreview(c.name, c.words)} />
                   {active && <Icon icon="lucide:check-circle-2" className="text-xl text-accent-purple shrink-0" />}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -323,16 +402,15 @@ export function CollectionsPage() {
           {systemCollections.map((c) => {
             const active = c.id === activeId;
             return (
-              <button
+              <div
                 key={c.id}
-                onClick={() => pick(c.id, c.name)}
-                className={`w-full flex items-center gap-3 text-left rounded-2xl border-2 p-4 transition-all ${
+                className={`flex items-center gap-2 rounded-2xl border-2 p-4 transition-all ${
                   active
                     ? 'border-accent-cyan bg-accent-cyan/10'
-                    : 'border-border bg-bg-card hover:border-border-light hover:-translate-y-0.5'
+                    : 'border-border bg-bg-card hover:border-border-light'
                 }`}
               >
-                <div className="flex-1 min-w-0">
+                <button onClick={() => pick(c.id, c.name)} className="flex-1 min-w-0 text-left">
                   <div className="flex items-center gap-2">
                     <span className={`font-display font-bold ${active ? 'text-accent-cyan' : 'text-text-primary'}`}>{c.name}</span>
                     <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold">
@@ -341,13 +419,14 @@ export function CollectionsPage() {
                   </div>
                   <p className="text-xs text-text-muted mt-0.5">{c.description}</p>
                   <CompletionBar pct={completionPct(getCollection(c.id).words.map((w) => w.word), progress)} />
-                </div>
+                </button>
+                <PreviewButton onClick={() => openPreview(c.name, getCollection(c.id).words.map((w) => w.word))} />
                 {active ? (
                   <Icon icon="lucide:check-circle-2" className="text-xl text-accent-cyan shrink-0" />
                 ) : (
                   <Icon icon="lucide:circle" className="text-xl text-text-muted/40 shrink-0" />
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
@@ -359,6 +438,16 @@ export function CollectionsPage() {
       >
         Start learning
       </button>
+
+      {preview && (
+        <PreviewModal
+          name={preview.name}
+          total={preview.all.length}
+          words={preview.sample}
+          onReshuffle={() => setPreview({ ...preview, sample: sampleWords(preview.all) })}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   );
 }
