@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
+import { CollectionQuiz } from './CollectionQuiz';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import type { WordProgress } from '../types';
@@ -63,6 +64,19 @@ function PreviewButton({ onClick }: { onClick: () => void }) {
       className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
     >
       <Icon icon="lucide:eye" className="text-sm" />
+    </button>
+  );
+}
+
+/** Small play button that starts a quiz on a collection. */
+function QuizButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title="Quiz this collection"
+      className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-green hover:border-accent-green/30 transition-all"
+    >
+      <Icon icon="lucide:play" className="text-sm" />
     </button>
   );
 }
@@ -173,6 +187,9 @@ export function CollectionsPage() {
   const openPreview = (name: string, all: string[]) =>
     setPreview({ name, all, sample: sampleWords(all) });
 
+  // ── Quiz ──
+  const [quiz, setQuiz] = useState<{ name: string; words: string[] } | null>(null);
+
   // ── Create form ──
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -222,6 +239,10 @@ export function CollectionsPage() {
 
   const isForeignShared = sharedCol && sharedCol.ownerId !== user?.id;
 
+  if (quiz) {
+    return <CollectionQuiz name={quiz.name} words={quiz.words} onBack={() => setQuiz(null)} />;
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Collections</h1>
@@ -249,6 +270,7 @@ export function CollectionsPage() {
               <CompletionBar pct={completionPct(sharedCol.words, progress)} />
             </div>
             <PreviewButton onClick={() => openPreview(sharedCol.name, sharedCol.words)} />
+            <QuizButton onClick={() => setQuiz({ name: sharedCol.name, words: sharedCol.words })} />
             <button
               onClick={() => pick(sharedCol.id, sharedCol.name)}
               className="btn-3d shrink-0 px-4 py-2 text-sm bg-accent-purple text-bg-primary font-bold"
@@ -337,6 +359,7 @@ export function CollectionsPage() {
                     <CompletionBar pct={completionPct(c.words, progress)} />
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
+                  <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
                   <button
                     onClick={() => handleShare(c.id)}
                     title="Copy share link (makes the collection public)"
@@ -387,6 +410,7 @@ export function CollectionsPage() {
                     <CompletionBar pct={completionPct(c.words, progress)} />
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
+                  <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
                   {active && <Icon icon="lucide:check-circle-2" className="text-xl text-accent-purple shrink-0" />}
                 </div>
               );
@@ -421,6 +445,7 @@ export function CollectionsPage() {
                   <CompletionBar pct={completionPct(getCollection(c.id).words.map((w) => w.word), progress)} />
                 </button>
                 <PreviewButton onClick={() => openPreview(c.name, getCollection(c.id).words.map((w) => w.word))} />
+                <QuizButton onClick={() => setQuiz({ name: c.name, words: getCollection(c.id).words.map((w) => w.word) })} />
                 {active ? (
                   <Icon icon="lucide:check-circle-2" className="text-xl text-accent-cyan shrink-0" />
                 ) : (
