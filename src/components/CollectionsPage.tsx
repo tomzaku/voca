@@ -7,6 +7,7 @@ import { listCollections, getCollection } from '../lib/collections';
 import { CollectionQuiz } from './CollectionQuiz';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
+import { supabase } from '../lib/supabase';
 import type { WordProgress } from '../types';
 
 /** Parse a free-form words input (newlines/commas) into clean single words. */
@@ -126,6 +127,71 @@ function PreviewModal({ name, total, words, onReshuffle, onClose }: {
           Show different words
         </button>
       </div>
+    </div>
+  );
+}
+
+interface MemberProgress {
+  user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  done: number;
+  total: number;
+}
+
+/**
+ * Avatars of everyone who joined a collection, each wrapped in a progress ring
+ * showing how far through the collection they are. Public collections only
+ * (the RPC refuses otherwise).
+ */
+function MemberAvatars({ collectionId }: { collectionId: string }) {
+  const [members, setMembers] = useState<MemberProgress[]>([]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let cancelled = false;
+    supabase.rpc('collection_members_progress', { cid: collectionId }).then(({ data, error }) => {
+      if (cancelled || error || !data) return;
+      setMembers(data as MemberProgress[]);
+    });
+    return () => { cancelled = true; };
+  }, [collectionId]);
+
+  if (members.length === 0) return null;
+
+  const shown = members.slice(0, 8);
+  const extra = members.length - shown.length;
+
+  return (
+    <div className="flex items-center gap-1.5 mt-2">
+      {shown.map((m) => {
+        const pct = m.total > 0 ? Math.round((m.done / m.total) * 100) : 0;
+        const name = m.display_name || 'Learner';
+        const deg = pct * 3.6;
+        return (
+          <div
+            key={m.user_id}
+            title={`${name} — ${pct}% complete`}
+            className="w-9 h-9 rounded-full p-[3px] shrink-0"
+            style={{
+              background: `conic-gradient(var(--color-accent-green, #34e39b) ${deg}deg, var(--color-border, #444) ${deg}deg)`,
+            }}
+          >
+            <span className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-bg-card">
+              {m.avatar_url ? (
+                <img src={m.avatar_url} alt={name} className="w-full h-full object-cover rounded-full" />
+              ) : (
+                <span className="text-[11px] font-extrabold text-accent-purple">
+                  {name[0]?.toUpperCase() ?? '?'}
+                </span>
+              )}
+            </span>
+          </div>
+        );
+      })}
+      {extra > 0 && (
+        <span className="text-[11px] font-bold text-text-muted">+{extra}</span>
+      )}
     </div>
   );
 }
@@ -285,6 +351,7 @@ export function CollectionsPage() {
               </div>
               {sharedCol.description && <p className="text-xs text-text-muted mt-0.5">{sharedCol.description}</p>}
               <CompletionBar pct={completionPct(sharedCol.words, progress)} />
+              <MemberAvatars collectionId={sharedCol.id} />
             </div>
             <PreviewButton onClick={() => openPreview(sharedCol.name, sharedCol.words)} />
             <QuizButton onClick={() => setQuiz({ name: sharedCol.name, words: sharedCol.words })} />
@@ -377,6 +444,7 @@ export function CollectionsPage() {
                       <Learners count={c.memberCount} />
                     </div>
                     <CompletionBar pct={completionPct(c.words, progress)} />
+                    {c.isPublic && <MemberAvatars collectionId={c.id} />}
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
@@ -435,6 +503,7 @@ export function CollectionsPage() {
                     </div>
                     {c.description && <p className="text-xs text-text-muted mt-0.5">{c.description}</p>}
                     <CompletionBar pct={completionPct(c.words, progress)} />
+                    <MemberAvatars collectionId={c.id} />
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
