@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import { getActiveWordList } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect } from '../lib/sfx';
-import { GUESS_GAMES, type GuessGameMode } from '../hooks/useGuessGame';
+import { GUESS_GAMES, REAL_GUESS_GAMES, type GuessGameMode, type RealGuessGameMode } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
@@ -13,7 +13,7 @@ import type { VocabularyWord } from '../types';
 
 // Modes shown by default on all sizes; DESKTOP_EXTRA_MODES also show on desktop.
 // Everything else lives behind the "More" toggle.
-const PRIMARY_MODES: GuessGameMode[] = ['letters', 'choice'];
+const PRIMARY_MODES: GuessGameMode[] = ['random', 'letters', 'choice'];
 const DESKTOP_EXTRA_MODES: GuessGameMode[] = ['listen'];
 
 interface Props {
@@ -96,6 +96,13 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
   const [moreModes, setMoreModes] = useState(false);
   const { points, streak, win, lastGain, winId } = useGameScore();
+
+  // "Random" resolves to a real game per word. The component is keyed by word
+  // in FlashCard, so this initializer re-rolls on every new word.
+  const [randomPick] = useState<RealGuessGameMode>(
+    () => REAL_GUESS_GAMES[Math.floor(Math.random() * REAL_GUESS_GAMES.length)].id,
+  );
+  const activeGame: RealGuessGameMode = game === 'random' ? randomPick : game;
 
   // Pill visibility: mobile shows the two primary modes; desktop also shows the
   // desktop-extra ones; the rest live behind "More". The active game is always
@@ -195,22 +202,22 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
           </div>
         </div>
 
-        {game === 'letters' && (
+        {activeGame === 'letters' && (
           <LettersGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
         )}
-        {game === 'scramble' && (
+        {activeGame === 'scramble' && (
           <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
         )}
-        {game === 'choice' && (
+        {activeGame === 'choice' && (
           <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onGaveUp={onGaveUp} />
         )}
-        {game === 'hangman' && (
+        {activeGame === 'hangman' && (
           <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
         )}
-        {game === 'listen' && (
+        {activeGame === 'listen' && (
           <ListenGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
         )}
-        {game === 'vowels' && (
+        {activeGame === 'vowels' && (
           <VowelsGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
         )}
       </div>

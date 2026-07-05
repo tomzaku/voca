@@ -235,6 +235,10 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
     const pct = Math.round((score / questions.length) * 100);
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
+        <div className="flex items-center justify-center gap-1.5 mb-4 text-sm font-display font-bold text-text-muted">
+          <Icon icon="lucide:library" className="text-accent-purple" />
+          {name}
+        </div>
         <div className="text-5xl mb-4">{pct >= 80 ? '🏆' : pct >= 50 ? '🎉' : '💪'}</div>
         <h1 className="text-2xl font-display font-bold text-text-primary mb-1">
           {score} / {questions.length}
@@ -256,6 +260,12 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
   const typeMeta = MODES.find((m) => m.id === q.type)!;
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
+      {/* Collection being quizzed */}
+      <div className="flex items-center justify-center gap-1.5 mb-3 text-sm font-display font-bold text-text-primary">
+        <Icon icon="lucide:library" className="text-accent-purple" />
+        <span className="truncate">{name}</span>
+      </div>
+
       {/* Progress */}
       <div className="flex items-center justify-between mb-2 text-xs font-bold text-text-muted">
         <span>{current + 1} / {questions.length}</span>

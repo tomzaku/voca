@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 
-export type GuessGameMode = 'letters' | 'scramble' | 'choice' | 'hangman' | 'listen' | 'vowels';
+// 'random' picks a different real game for every word.
+export type GuessGameMode = 'random' | 'letters' | 'scramble' | 'choice' | 'hangman' | 'listen' | 'vowels';
+export type RealGuessGameMode = Exclude<GuessGameMode, 'random'>;
 
 export interface GuessGameInfo {
   id: GuessGameMode;
@@ -11,6 +13,7 @@ export interface GuessGameInfo {
 
 // `icon` values are Iconify names (Lucide set) — rendered with <Icon icon=… />.
 export const GUESS_GAMES: GuessGameInfo[] = [
+  { id: 'random',   label: 'Random',     icon: 'lucide:dices',         description: 'A different game for every word' },
   { id: 'letters',  label: 'Letters',    icon: 'lucide:type',          description: 'Reveal letters and type the word' },
   { id: 'scramble', label: 'Unscramble', icon: 'lucide:shuffle',       description: 'Tap the shuffled letters in order' },
   { id: 'choice',   label: 'Choice',     icon: 'lucide:list-checks',   description: 'Pick the word from its definition' },
@@ -18,6 +21,8 @@ export const GUESS_GAMES: GuessGameInfo[] = [
   { id: 'listen',   label: 'Listen',     icon: 'lucide:headphones',    description: 'Hear the word and spell it' },
   { id: 'vowels',   label: 'No Vowels',  icon: 'lucide:circle-dashed', description: 'Fill in the missing vowels' },
 ];
+
+export const REAL_GUESS_GAMES = GUESS_GAMES.filter((g) => g.id !== 'random') as (GuessGameInfo & { id: RealGuessGameMode })[];
 
 const GAME_KEY = 'voca-guess-game';
 
@@ -30,7 +35,7 @@ export function getGuessGame(): GuessGameMode {
     const v = localStorage.getItem(GAME_KEY);
     if (isMode(v)) return v;
   } catch { /* ignore */ }
-  return 'letters';
+  return 'random';
 }
 
 /** Persisted default guess game for the home page. */
