@@ -816,9 +816,14 @@ export function FlashCard() {
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
                     {wordData.collocations!.map((c) => (
-                      <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-accent-purple/10 text-accent-purple border border-accent-purple/20">
+                      <button
+                        key={c}
+                        onClick={() => useWordSearch.getState().requestSearch(c)}
+                        title={`Look up “${c}”`}
+                        className="text-xs px-2.5 py-1 rounded-full bg-accent-purple/10 text-accent-purple border border-accent-purple/20 hover:bg-accent-purple/20 hover:border-accent-purple/40 transition-all cursor-pointer"
+                      >
                         {c}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 </div>

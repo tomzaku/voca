@@ -32,40 +32,46 @@ export function clearPrefetchQueue(): void {
   inFlight.clear();
 }
 
+let filling = false;
+
 /**
- * Start filling the queue up to QUEUE_SIZE in parallel.
- * Safe to call frequently — skips if already at capacity.
+ * Fill the queue up to QUEUE_SIZE, fetching ONE word at a time. Sequential on
+ * purpose: parallel prefetch bursts trip provider rate limits (Gemini free-tier
+ * RPM), causing 429s on the word the user is actually waiting for.
+ * Safe to call frequently — only a single fill loop runs at a time.
  */
 export function fillPrefetchQueue(
   knownWords: Set<string>,
   skippedWords: Set<string>,
   currentWord?: string,
 ): void {
-  const needed = QUEUE_SIZE - queue.length - inFlight.size;
-  if (needed <= 0) return;
+  if (filling) return;
+  filling = true;
 
-  // Build exclusion set: current word + already queued/in-flight
-  const exclude = new Set<string>(getPrefetchedWords());
-  if (currentWord) exclude.add(currentWord);
+  (async () => {
+    try {
+      while (queue.length + inFlight.size < QUEUE_SIZE) {
+        const exclude = new Set<string>(getPrefetchedWords());
+        if (currentWord) exclude.add(currentWord);
 
-  for (let i = 0; i < needed; i++) {
-    const { word, level } = pickNextWord(knownWords, skippedWords, exclude);
+        const { word, level } = pickNextWord(knownWords, skippedWords, exclude);
+        // pickNextWord may return an excluded word when the list is nearly exhausted
+        if (exclude.has(word)) break;
 
-    // pickNextWord may return a word already excluded when the list is nearly exhausted
-    if (exclude.has(word)) break;
-    exclude.add(word);
-    inFlight.add(word);
-
-    generateWordData(word, level)
-      .then((data) => {
-        inFlight.delete(word);
-        // Guard against duplicates from concurrent calls
-        if (!queue.find((q) => q.word === word)) {
-          queue.push({ word, level, data });
+        inFlight.add(word);
+        try {
+          const data = await generateWordData(word, level);
+          if (!queue.find((q) => q.word === word)) {
+            queue.push({ word, level, data });
+          }
+        } catch {
+          inFlight.delete(word);
+          break; // provider trouble — stop prefetching, retry on next fill call
         }
-      })
-      .catch(() => {
         inFlight.delete(word);
-      });
-  }
+      }
+    } finally {
+      filling = false;
+    }
+  })();
 }

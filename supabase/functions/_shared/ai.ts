@@ -82,9 +82,14 @@ export async function callProvider(system: string, messages: ChatMessage[], maxT
   if (!apiKey) throw new Error(`Server is missing the ${PROVIDER} API key.`);
   const model = Deno.env.get('AI_MODEL') || DEFAULT_MODEL[PROVIDER];
   const max = Math.min(maxTokens, 4000);
-  return PROVIDER === 'anthropic'
-    ? callAnthropic(apiKey, model, system, messages, max)
-    : callOpenAICompatible(PROVIDER, apiKey, model, system, messages, max);
+  console.log(`[ai] provider=${PROVIDER} model=${model} maxTokens=${max}`);
+  const text = PROVIDER === 'anthropic'
+    ? await callAnthropic(apiKey, model, system, messages, max)
+    : await callOpenAICompatible(PROVIDER, apiKey, model, system, messages, max);
+  // Perplexity (Sonar) is search-grounded and embeds citation markers like
+  // [1][2] in its text — meaningless in our UI, so strip them. (Double-bracket
+  // cloze markers [[word]] are untouched: they contain letters, not digits.)
+  return PROVIDER === 'perplexity' ? text.replace(/\[\d+\]/g, '') : text;
 }
 
 async function callAnthropic(
@@ -141,11 +146,22 @@ async function callOpenAICompatible(
       model,
       max_tokens: maxTokens,
       messages: [{ role: 'system', content: system }, ...messages],
+      // Gemini 2.5 models "think" by default and the thinking tokens count
+      // against max_tokens — small budgets then truncate the actual output
+      // (unterminated-JSON errors). Our prompts are simple; disable thinking.
+      ...(provider === 'google' ? { reasoning_effort: 'none' } : {}),
     }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error?.message || err?.message || `API error: ${res.status}`);
+    // Keep the raw body in the error — providers put the useful detail there
+    // (e.g. WHICH Google quota was exceeded: per-minute vs per-day, and model).
+    const body = await res.text().catch(() => '');
+    let msg = '';
+    try {
+      const err = JSON.parse(body);
+      msg = err?.error?.message || err?.message || '';
+    } catch { /* not JSON */ }
+    throw new Error(`API error ${res.status} (model=${model})${msg ? `: ${msg}` : body ? `: ${body.slice(0, 300)}` : ''}`);
   }
   const data = await res.json();
   return data.choices?.[0]?.message?.content || 'No response received.';

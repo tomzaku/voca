@@ -88,6 +88,8 @@ Deno.serve(async (req) => {
   const wordKey = word.toLowerCase();
   const motherKey = motherLang.toLowerCase();
   const svc = serviceClient();
+  const t0 = Date.now();
+  console.log(`[word] request word="${wordKey}" learn=${learnLang} mother=${motherKey} user=${auth.user.id}`);
 
   // ── Cache hit ──
   if (svc) {
@@ -100,24 +102,31 @@ Deno.serve(async (req) => {
       // are handled by the one-off backfill script, so no top-up needed here.
       if (!translation && await underRateLimit(auth.supabase)) {
         try {
+          console.log(`[word] AI call: translate-only "${wordKey}" -> ${motherKey}`);
           translation = await translateWord(String(row.headword ?? wordKey), String(row.definition), motherLang);
           mergeTranslation(wordKey, translations, motherKey, translation);
-        } catch { /* return cached content without a translation this once */ }
+        } catch (err) {
+          console.warn(`[word] translate-only failed for "${wordKey}":`, (err as Error).message);
+        }
       }
       const wordFamily = await fetchFamily(svc, wordKey, String(row.headword ?? wordKey));
+      console.log(`[word] cache HIT "${wordKey}" (${Date.now() - t0}ms, family=${wordFamily.length})`);
       return jsonResponse(200, { ...wordDataFromRow(row, translation), wordFamily });
     }
   }
 
   // ── Cache miss → generate ──
   if (!await underRateLimit(auth.supabase)) {
+    console.warn(`[word] rate-limited user=${auth.user.id} word="${wordKey}"`);
     return jsonResponse(429, { error: 'Too many requests — please slow down and try again shortly.' });
   }
 
+  console.log(`[word] cache MISS "${wordKey}" — AI call: full generation`);
   let data: WordData;
   try {
     data = await generateWordData(word, level, learnLang, motherLang);
   } catch (err) {
+    console.error(`[word] generation FAILED "${wordKey}" (${Date.now() - t0}ms):`, (err as Error).message);
     return jsonResponse(502, { error: (err as Error).message || 'Failed to generate word data.' });
   }
 
@@ -125,6 +134,7 @@ Deno.serve(async (req) => {
     storeWord(svc, wordKey, motherKey, data);
     storeFamily(svc, wordKey, data);
   }
+  console.log(`[word] generated "${wordKey}" (${Date.now() - t0}ms, family=${data.wordFamily?.length ?? 0})`);
   return jsonResponse(200, data);
 });
 
@@ -167,7 +177,7 @@ Return this exact JSON structure (no markdown, no extra text):
   "imageKeywords": ["concrete visual noun 1", "concept 2"]
 }
 
-Provide EXACTLY 5 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}.${
+Provide 5 to 15 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). Give more for very common words with many natural pairings (e.g. "go", "make"), fewer for rare or specialized words. For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}.${
     isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", "antonyms", "collocations", and "wordFamily" MUST all be written in ${learnLang}.`
   } For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
 
@@ -175,12 +185,22 @@ Provide EXACTLY 5 "collocations": short, natural word pairings that commonly go 
   let lastError: unknown;
   for (let attempt = 1; attempt <= GENERATE_ATTEMPTS; attempt++) {
     try {
-      const raw = await callProvider(system, messages, 700);
+      // Generous budget: the word JSON (examples, collocations, family, two
+      // phonetics) can exceed 700 tokens and truncate into invalid JSON.
+      const raw = await callProvider(system, messages, 2000);
       const data = JSON.parse(stripFences(raw)) as WordData;
       if (typeof data.definition === 'string' && data.definition) return data;
       throw new Error('Model returned incomplete word data.');
     } catch (err) {
       lastError = err;
+      const msg = (err as Error).message ?? '';
+      console.warn(`[word] generate attempt ${attempt}/${GENERATE_ATTEMPTS} failed for "${word}":`, msg);
+      if (attempt < GENERATE_ATTEMPTS) {
+        // Back off before retrying — hammering a rate-limited provider (429)
+        // just burns the remaining attempts. Longer waits for 429s.
+        const base = msg.includes('429') ? 2500 : 700;
+        await new Promise((r) => setTimeout(r, base * attempt));
+      }
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Failed to generate word data.');
@@ -232,7 +252,7 @@ function storeWord(svc: Svc, wordKey: string, motherKey: string, d: WordData): v
     examples: asArray(d.examples),
     synonyms: asArray(d.synonyms),
     antonyms: asArray(d.antonyms),
-    collocations: asArray(d.collocations),
+    collocations: asArray(d.collocations).slice(0, 15),
     image_keywords: asArray(d.imageKeywords),
     level: d.level ?? null,
     translations: hasTranslation ? { [motherKey]: d.translation } : {},
