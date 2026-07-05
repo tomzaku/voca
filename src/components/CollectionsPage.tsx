@@ -67,8 +67,17 @@ export function CollectionsPage() {
   const activeId = useCollections((s) => s.activeId);
   const setActive = useCollections((s) => s.setActive);
   const mine = useCollections((s) => s.mine);
+  const shared = useCollections((s) => s.shared);
+  const joinedIds = useCollections((s) => s.joinedIds);
   const progress = useVocabularyStore((s) => s.progress);
   const navigate = useNavigate();
+
+  // Collections joined via share links (someone else's) — durable across
+  // refreshes: hydrated from collection_members on login, cached locally.
+  const joined = joinedIds
+    .filter((id) => !mine.some((c) => c.id === id))
+    .map((id) => shared[id])
+    .filter((c): c is UserCollection => Boolean(c));
   const [searchParams] = useSearchParams();
   const systemCollections = useMemo(() => listCollections(), []);
 
@@ -270,6 +279,42 @@ export function CollectionsPage() {
           </div>
         )}
       </section>
+
+      {/* ── Joined via share links ── */}
+      {joined.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Joined</h2>
+          <div className="space-y-2">
+            {joined.map((c) => {
+              const active = c.id === activeId;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => pick(c.id, c.name)}
+                  className={`w-full flex items-center gap-3 text-left rounded-2xl border-2 p-4 transition-all ${
+                    active
+                      ? 'border-accent-purple bg-accent-purple/10'
+                      : 'border-border bg-bg-card hover:border-border-light hover:-translate-y-0.5'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center flex-wrap gap-2">
+                      <span className={`font-display font-bold truncate ${active ? 'text-accent-purple' : 'text-text-primary'}`}>{c.name}</span>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold shrink-0">
+                        {c.words.length} words
+                      </span>
+                      <Learners count={c.memberCount} />
+                    </div>
+                    {c.description && <p className="text-xs text-text-muted mt-0.5">{c.description}</p>}
+                    <CompletionBar pct={completionPct(c.words, progress)} />
+                  </div>
+                  {active && <Icon icon="lucide:check-circle-2" className="text-xl text-accent-purple shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ── System collections ── */}
       <section>

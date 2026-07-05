@@ -34,19 +34,19 @@ function loadActive(): string {
 
 // Cache of server collections so a picked collection keeps working offline and
 // before the login fetch completes.
-function loadUserCache(): { mine: UserCollection[]; shared: Record<string, UserCollection> } {
+function loadUserCache(): { mine: UserCollection[]; shared: Record<string, UserCollection>; joinedIds: string[] } {
   try {
     const raw = localStorage.getItem(USER_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { mine: parsed.mine ?? [], shared: parsed.shared ?? {} };
+      return { mine: parsed.mine ?? [], shared: parsed.shared ?? {}, joinedIds: parsed.joinedIds ?? [] };
     }
   } catch { /* ignore */ }
-  return { mine: [], shared: {} };
+  return { mine: [], shared: {}, joinedIds: [] };
 }
 
-function saveUserCache(mine: UserCollection[], shared: Record<string, UserCollection>) {
-  try { localStorage.setItem(USER_KEY, JSON.stringify({ mine, shared })); } catch { /* ignore */ }
+function saveUserCache(mine: UserCollection[], shared: Record<string, UserCollection>, joinedIds: string[]) {
+  try { localStorage.setItem(USER_KEY, JSON.stringify({ mine, shared, joinedIds })); } catch { /* ignore */ }
 }
 
 function rowToCollection(r: Record<string, unknown>): UserCollection {
@@ -73,6 +73,8 @@ interface CollectionsState {
   mine: UserCollection[];
   /** Other people's public collections we've opened via a share link, by id. */
   shared: Record<string, UserCollection>;
+  /** Ids of collections the user has joined (studies), incl. other people's. */
+  joinedIds: string[];
   setActive: (id: string) => void;
   /** Which words the active collection studies. Synchronous — safe for pickNextWord etc. */
   activeWords: () => W[];
@@ -81,6 +83,8 @@ interface CollectionsState {
   /** Pull selection + owned collections from the server on login (remote wins). */
   loadFromRemote: (userId: string) => Promise<void>;
   refreshMine: () => Promise<void>;
+  /** Fetch the collections this user has joined (from collection_members). */
+  refreshJoined: () => Promise<void>;
   createCollection: (name: string, words: string[]) => Promise<UserCollection>;
   deleteCollection: (id: string) => Promise<void>;
   /** Make a collection public (idempotent) and return its share URL. */
@@ -100,8 +104,14 @@ export const useCollections = create<CollectionsState>((set, get) => ({
     set({ activeId: id });
     syncActive(id);
     // Studying a server collection counts you as one of its learners
-    // (idempotent server-side; fire-and-forget).
+    // (idempotent server-side; fire-and-forget). Track the join locally too so
+    // the collection stays listed on the Collections page after a refresh.
     if (userCol && supabase) {
+      if (!get().joinedIds.includes(id)) {
+        const joinedIds = [...get().joinedIds, id];
+        set({ joinedIds });
+        saveUserCache(get().mine, get().shared, joinedIds);
+      }
       supabase.rpc('join_collection', { cid: id }).then(({ error }) => {
         if (error) console.warn('[voca] join_collection error:', error.message);
       });
@@ -122,7 +132,7 @@ export const useCollections = create<CollectionsState>((set, get) => ({
 
   loadFromRemote: async (userId) => {
     if (!supabase) return;
-    await get().refreshMine();
+    await Promise.all([get().refreshMine(), get().refreshJoined()]);
 
     const { data } = await supabase
       .from('user_settings')
@@ -153,7 +163,35 @@ export const useCollections = create<CollectionsState>((set, get) => ({
     if (error || !data) return;
     const mine = data.map(rowToCollection);
     set({ mine });
-    saveUserCache(mine, get().shared);
+    saveUserCache(mine, get().shared, get().joinedIds);
+  },
+
+  refreshJoined: async () => {
+    if (!supabase) return;
+    const { data: session } = await supabase.auth.getSession();
+    const uid = session.session?.user.id;
+    if (!uid) return;
+    // Memberships are the durable record of what this user joined (RLS lets a
+    // user read only their own rows). The joined collections themselves are
+    // fetched alongside so they render after a refresh / on a new device.
+    const { data, error } = await supabase
+      .from('collection_members')
+      .select('collection_id, collections(*)')
+      .eq('user_id', uid);
+    if (error || !data) return;
+    const joinedIds: string[] = [];
+    const shared = { ...get().shared };
+    for (const row of data) {
+      const id = row.collection_id as string;
+      joinedIds.push(id);
+      // supabase-js types embedded relations loosely (array), but a to-one FK
+      // returns an object at runtime — normalize both shapes defensively.
+      const raw = row.collections as unknown;
+      const col = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown> | null;
+      if (col) shared[id] = rowToCollection(col);
+    }
+    set({ joinedIds, shared });
+    saveUserCache(get().mine, shared, joinedIds);
   },
 
   createCollection: async (name, words) => {
@@ -170,7 +208,7 @@ export const useCollections = create<CollectionsState>((set, get) => ({
     const created = rowToCollection(data);
     const mine = [...get().mine, created];
     set({ mine });
-    saveUserCache(mine, get().shared);
+    saveUserCache(mine, get().shared, get().joinedIds);
     return created;
   },
 
@@ -180,7 +218,7 @@ export const useCollections = create<CollectionsState>((set, get) => ({
     if (error) throw new Error(error.message);
     const mine = get().mine.filter((c) => c.id !== id);
     set({ mine });
-    saveUserCache(mine, get().shared);
+    saveUserCache(mine, get().shared, get().joinedIds);
     // Deleting the collection you're studying falls back to the default.
     if (get().activeId === id) get().setActive(DEFAULT_COLLECTION_ID);
   },
@@ -193,7 +231,7 @@ export const useCollections = create<CollectionsState>((set, get) => ({
       if (error) throw new Error(error.message);
       const mine = get().mine.map((c) => (c.id === id ? { ...c, isPublic: true } : c));
       set({ mine });
-      saveUserCache(mine, get().shared);
+      saveUserCache(mine, get().shared, get().joinedIds);
     }
     return collectionShareUrl(id);
   },
@@ -207,7 +245,7 @@ export const useCollections = create<CollectionsState>((set, get) => ({
     const col = rowToCollection(data);
     const shared = { ...get().shared, [id]: col };
     set({ shared });
-    saveUserCache(get().mine, shared);
+    saveUserCache(get().mine, shared, get().joinedIds);
     return col;
   },
 }));
