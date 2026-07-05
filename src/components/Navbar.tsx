@@ -47,10 +47,13 @@ export function Navbar() {
     requestSearch(word);    // FlashCard picks this up and loads the word
   };
 
-  // Primary tabs only — everything else lives in the sidebar.
-  const navLinks = [
+  // Mobile keeps just the primary tabs; desktop shows Collections + Buddy too.
+  // Everything else lives in the sidebar.
+  const navLinks: { to: string; label: string; icon: string; desktopOnly?: boolean }[] = [
     { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
     { to: '/bookmarks', label: 'History', icon: 'lucide:history' },
+    { to: '/collections', label: 'Collections', icon: 'lucide:library', desktopOnly: true },
+    { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print', desktopOnly: true },
   ];
 
   return (
@@ -73,6 +76,8 @@ export function Navbar() {
                 key={link.to}
                 to={link.to}
                 className={`btn-3d px-3.5 py-1.5 text-sm font-extrabold transition-all ${
+                  link.desktopOnly ? 'hidden sm:inline-block' : ''
+                } ${
                   active
                     ? 'bg-accent-cyan text-bg-primary'
                     : 'bg-bg-card text-text-secondary hover:text-text-primary'
