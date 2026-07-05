@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { Icon } from '@iconify/react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useCollections } from '../hooks/useCollections';
+import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData, pickNextWord } from '../lib/wordService';
 import { reviewsUntilMastered } from '../lib/srs';
@@ -502,6 +504,15 @@ export function FlashCard() {
 
   const isBookmarked = wordData ? store.isBookmarked(wordData.word) : false;
 
+  // The collection currently being studied — shown on the history header.
+  const activeCollectionId = useCollections((s) => s.activeId);
+  const myCollections = useCollections((s) => s.mine);
+  const sharedCollections = useCollections((s) => s.shared);
+  const collectionName =
+    myCollections.find((c) => c.id === activeCollectionId)?.name
+    ?? sharedCollections[activeCollectionId]?.name
+    ?? getCollection(activeCollectionId).name;
+
   const levelColor: Record<string, string> = {
     beginner: 'text-accent-green bg-accent-green/10',
     intermediate: 'text-accent-orange bg-accent-orange/10',
@@ -515,6 +526,16 @@ export function FlashCard() {
       {/* ── History navigation ── */}
       {wordHistory.length > 0 && (
         <div className="max-w-[74rem] mx-auto mb-5 flex items-center gap-2">
+          {/* Active collection — tap to switch on the Collections page */}
+          <Link
+            to="/collections"
+            title="Change collection"
+            className="btn-3d shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent-purple/15 border-2 border-accent-purple/30 text-accent-purple text-xs font-extrabold max-w-[10rem]"
+          >
+            <Icon icon="lucide:library" className="text-sm shrink-0" />
+            <span className="truncate">{collectionName}</span>
+          </Link>
+
           <button
             onClick={handlePrev}
             disabled={historyIndex <= 0 || isGenerating}
