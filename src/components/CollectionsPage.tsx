@@ -171,7 +171,12 @@ function MemberRing({ m, size = 'w-9 h-9' }: { m: MemberProgress; size?: string 
  * A "Members" button opens the full list. Public collections only (the RPC
  * refuses otherwise).
  */
-function MemberAvatars({ collectionId, name }: { collectionId: string; name: string }) {
+function MemberAvatars({ collectionId, name, openSignal = 0 }: {
+  collectionId: string;
+  name: string;
+  /** Bump to open the full members modal from outside (e.g. a ⋯ menu item). */
+  openSignal?: number;
+}) {
   const [members, setMembers] = useState<MemberProgress[]>([]);
   const [showAll, setShowAll] = useState(false);
 
@@ -185,21 +190,19 @@ function MemberAvatars({ collectionId, name }: { collectionId: string; name: str
     return () => { cancelled = true; };
   }, [collectionId]);
 
+  useEffect(() => {
+    if (openSignal > 0) setShowAll(true);
+  }, [openSignal]);
+
   if (members.length === 0) return null;
 
   const shown = members.slice(0, 6);
+  const extra = members.length - shown.length;
 
   return (
     <div className="flex items-center gap-1.5 mt-2">
       {shown.map((m) => <MemberRing key={m.user_id} m={m} />)}
-      <button
-        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowAll(true); }}
-        className="flex items-center gap-1 px-2 py-1 rounded-full border border-border bg-bg-tertiary text-[11px] font-bold text-text-muted hover:text-accent-purple hover:border-accent-purple/30 transition-all"
-        title="Show all members"
-      >
-        <Icon icon="lucide:users" className="text-[11px]" />
-        {members.length} member{members.length === 1 ? '' : 's'}
-      </button>
+      {extra > 0 && <span className="text-[11px] font-bold text-text-muted">+{extra}</span>}
 
       {showAll && (
         <div
@@ -243,11 +246,12 @@ function MemberAvatars({ collectionId, name }: { collectionId: string; name: str
   );
 }
 
-/** "N learners" chip for server collections. */
+/** "N learners" chip for server collections (desktop only — mobile rows are tight,
+ *  and the Members button below already carries the count). */
 function Learners({ count }: { count: number }) {
   return (
     <span
-      className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-bold shrink-0"
+      className="hidden sm:flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-bold shrink-0"
       title={`${count} learner${count === 1 ? '' : 's'} study this collection`}
     >
       <Icon icon="lucide:users" className="text-[11px]" />
@@ -305,6 +309,13 @@ export function CollectionsPage() {
 
   // ── Owner options menu (edit / share / delete live behind ⋯) ──
   const [menuId, setMenuId] = useState<string | null>(null);
+
+  // Per-collection bump counters that open the members modal from a menu item.
+  const [membersSignal, setMembersSignal] = useState<Record<string, number>>({});
+  const openMembers = (id: string) => {
+    setMenuId(null);
+    setMembersSignal((s) => ({ ...s, [id]: (s[id] ?? 0) + 1 }));
+  };
 
   // ── Create / edit form ── (editingId null = creating a new one)
   const [creating, setCreating] = useState(false);
@@ -491,7 +502,7 @@ export function CollectionsPage() {
                         </span>
                       )}
                     </div>
-                    {c.isPublic && <MemberAvatars collectionId={c.id} name={c.name} />}
+                    {c.isPublic && <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal[c.id] ?? 0} />}
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
@@ -509,6 +520,14 @@ export function CollectionsPage() {
                         {/* click-away backdrop */}
                         <div className="fixed inset-0 z-30" onClick={() => setMenuId(null)} />
                         <div className="absolute right-0 top-9 z-40 w-40 rounded-xl border-2 border-border bg-bg-card shadow-xl overflow-hidden animate-fade-in">
+                          {c.isPublic && (
+                            <button
+                              onClick={() => openMembers(c.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-purple transition-colors"
+                            >
+                              <Icon icon="lucide:users" className="text-sm" /> Learners
+                            </button>
+                          )}
                           <button
                             onClick={() => { setMenuId(null); openEdit(c); }}
                             className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
@@ -564,10 +583,32 @@ export function CollectionsPage() {
                       <Learners count={c.memberCount} />
                     </div>
                     {c.description && <p className="text-xs text-text-muted mt-0.5">{c.description}</p>}
-                    <MemberAvatars collectionId={c.id} name={c.name} />
+                    <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal[c.id] ?? 0} />
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={() => setMenuId(menuId === c.id ? null : c.id)}
+                      title="Options"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-border-light transition-all"
+                    >
+                      <Icon icon="lucide:ellipsis-vertical" className="text-sm" />
+                    </button>
+                    {menuId === c.id && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setMenuId(null)} />
+                        <div className="absolute right-0 top-9 z-40 w-40 rounded-xl border-2 border-border bg-bg-card shadow-xl overflow-hidden animate-fade-in">
+                          <button
+                            onClick={() => openMembers(c.id)}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-purple transition-colors"
+                          >
+                            <Icon icon="lucide:users" className="text-sm" /> Learners
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   {active && <Icon icon="lucide:check-circle-2" className="text-xl text-accent-purple shrink-0" />}
                 </div>
               );
