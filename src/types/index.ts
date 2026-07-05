@@ -8,6 +8,7 @@ export interface VocabularyWord {
   synonyms?: string[];
   antonyms?: string[];
   collocations?: string[]; // common natural word pairings (e.g. "make a decision")
+  wordFamily?: { word: string; pos: string }[]; // related forms (decide → decision/noun)
   translation?: string; // the word rendered in the user's mother language
   level: 'beginner' | 'intermediate' | 'advanced';
   hints?: string[]; // legacy — no longer shown in UI

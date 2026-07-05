@@ -796,6 +796,23 @@ export function FlashCard() {
                 </div>
               )}
 
+              {/* Word family — related forms across parts of speech (revealed only) */}
+              {phase === 'revealed' && (wordData.wordFamily?.length ?? 0) > 0 && (
+                <div className="card-game p-4 sm:p-5">
+                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
+                    Word family
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {wordData.wordFamily!.map((f) => (
+                      <span key={`${f.word}-${f.pos}`} className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-accent-orange/10 border border-accent-orange/20">
+                        <span className="font-bold text-accent-orange">{f.word}</span>
+                        <span className="text-text-muted">{f.pos}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <BuddyBadge />
               {/* Notes + AI test (revealed only) */}
               {phase === 'revealed' && (

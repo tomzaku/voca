@@ -14,6 +14,8 @@ export interface UserCollection {
   description: string | null;
   words: string[];
   isPublic: boolean;
+  /** How many users study this collection (denormalized on the server). */
+  memberCount: number;
 }
 
 type W = { word: string; level: VocabularyWord['level'] };
@@ -55,6 +57,7 @@ function rowToCollection(r: Record<string, unknown>): UserCollection {
     description: (r.description as string | null) ?? null,
     words: (r.words as string[]) ?? [],
     isPublic: Boolean(r.is_public),
+    memberCount: (r.member_count as number | null) ?? 0,
   };
 }
 
@@ -91,10 +94,18 @@ export const useCollections = create<CollectionsState>((set, get) => ({
   ...loadUserCache(),
 
   setActive: (id) => {
-    if (!isCollectionId(id) && !get().getUserCollection(id)) return;
+    const userCol = get().getUserCollection(id);
+    if (!isCollectionId(id) && !userCol) return;
     try { localStorage.setItem(KEY, id); } catch { /* ignore */ }
     set({ activeId: id });
     syncActive(id);
+    // Studying a server collection counts you as one of its learners
+    // (idempotent server-side; fire-and-forget).
+    if (userCol && supabase) {
+      supabase.rpc('join_collection', { cid: id }).then(({ error }) => {
+        if (error) console.warn('[voca] join_collection error:', error.message);
+      });
+    }
   },
 
   activeWords: () => {

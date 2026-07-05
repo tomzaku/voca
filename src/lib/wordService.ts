@@ -149,9 +149,9 @@ export const WORD_LIST: { word: string; level: VocabularyWord['level'] }[] = [
 // Cache key includes the mother language so switching it regenerates entries
 // (each carries a translation into that language).
 function cacheKey(word: string): string {
-  // Bump the version when the cached word shape changes (v5: phonetics map,
-  // collocations) so stale entries are re-fetched instead of shown missing fields.
-  return `voca-word-v5-${getLearnLanguage()}-${getMotherLanguage()}-${word}`;
+  // Bump the version when the cached word shape changes (v6: wordFamily) so
+  // stale entries are re-fetched instead of shown missing fields.
+  return `voca-word-v6-${getLearnLanguage()}-${getMotherLanguage()}-${word}`;
 }
 
 function getCachedWord(word: string): VocabularyWord | null {

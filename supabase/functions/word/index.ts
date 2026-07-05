@@ -3,9 +3,9 @@
 // function. Returns the word object directly (not a `{ text }` wrapper).
 //
 //   POST { word, level, learnLang, motherLang }
-//   → 200 { word, phonetic, phonetics:{ "en-US":…, "en-GB":… }, partOfSpeech, definition,
-//           translation, examples, synonyms, antonyms, collocations, level,
-//           imageKeywords }
+//   → 200 { word, phonetics:{ "en-US":…, "en-GB":… }, partOfSpeech, definition,
+//           translation, examples, synonyms, antonyms, collocations,
+//           wordFamily:[{word,pos}], level, imageKeywords }
 //
 // Cache model (word_cache): one row per word holds the language-neutral content;
 // translations are a per-mother-tongue map. A new mother tongue triggers a cheap
@@ -31,6 +31,11 @@ import {
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
 const GENERATE_ATTEMPTS = 4;
 
+interface FamilyEntry {
+  word: string;
+  pos: string;
+}
+
 interface WordData {
   word?: string;
   phonetics?: Record<string, string>; // keyed by locale, e.g. { "en-US": "…", "en-GB": "…" }
@@ -41,11 +46,19 @@ interface WordData {
   synonyms?: string[];
   antonyms?: string[];
   collocations?: string[];
+  wordFamily?: FamilyEntry[]; // related forms across parts of speech
   level?: string;
   imageKeywords?: string[];
 }
 
 const asArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
+
+/** Sanitize a word-family array: keep well-formed { word, pos } entries only. */
+const asFamily = (v: unknown): FamilyEntry[] =>
+  (Array.isArray(v) ? v : [])
+    .filter((e): e is FamilyEntry => !!e && typeof e.word === 'string' && typeof e.pos === 'string')
+    .map((e) => ({ word: e.word.slice(0, 60), pos: e.pos.slice(0, 30) }))
+    .slice(0, 8);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -91,7 +104,8 @@ Deno.serve(async (req) => {
           mergeTranslation(wordKey, translations, motherKey, translation);
         } catch { /* return cached content without a translation this once */ }
       }
-      return jsonResponse(200, wordDataFromRow(row, translation));
+      const wordFamily = await fetchFamily(svc, wordKey, String(row.headword ?? wordKey));
+      return jsonResponse(200, { ...wordDataFromRow(row, translation), wordFamily });
     }
   }
 
@@ -107,7 +121,10 @@ Deno.serve(async (req) => {
     return jsonResponse(502, { error: (err as Error).message || 'Failed to generate word data.' });
   }
 
-  if (svc) storeWord(svc, wordKey, motherKey, data);
+  if (svc) {
+    storeWord(svc, wordKey, motherKey, data);
+    storeFamily(svc, wordKey, data);
+  }
   return jsonResponse(200, data);
 });
 
@@ -145,12 +162,13 @@ Return this exact JSON structure (no markdown, no extra text):
   "synonyms": ["synonym1", "synonym2", "synonym3"],
   "antonyms": ["antonym1", "antonym2"],
   "collocations": ["natural phrase 1", "natural phrase 2", "phrase 3", "phrase 4", "phrase 5"],
+  "wordFamily": [{ "word": "related form", "pos": "noun | verb | adjective | adverb" }],
   "level": "${level}",
   "imageKeywords": ["concrete visual noun 1", "concept 2"]
 }
 
-Provide EXACTLY 5 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). The "translation" field MUST be written in ${motherLang}.${
-    isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", "antonyms", and "collocations" MUST all be written in ${learnLang}.`
+Provide EXACTLY 5 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}.${
+    isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", "antonyms", "collocations", and "wordFamily" MUST all be written in ${learnLang}.`
   } For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
 
   const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
@@ -220,6 +238,59 @@ function storeWord(svc: Svc, wordKey: string, motherKey: string, d: WordData): v
     translations: hasTranslation ? { [motherKey]: d.translation } : {},
   };
   fireAndForget(svc.from('word_cache').upsert(row));
+}
+
+/**
+ * Look up a word's family in the normalized tables. Families are stored once
+ * per family (word_families) with every member mapped to it — so we exclude the
+ * word being viewed from what we return.
+ */
+async function fetchFamily(svc: Svc, wordKey: string, headword: string): Promise<FamilyEntry[]> {
+  const { data } = await svc
+    .from('word_family_members')
+    .select('word_families(members)')
+    .eq('word', wordKey)
+    .maybeSingle();
+  const members = asFamily((data?.word_families as { members?: unknown } | null)?.members);
+  const exclude = new Set([wordKey.toLowerCase(), headword.toLowerCase()]);
+  return members.filter((m) => !exclude.has(m.word.toLowerCase()));
+}
+
+/**
+ * Store a freshly generated family ONCE and map every member (plus the English
+ * seed) to it, so any member viewed later finds it without a new AI call.
+ * Members that already belong to a family keep their existing mapping.
+ */
+function storeFamily(svc: Svc, seedKey: string, d: WordData): void {
+  const family = asFamily(d.wordFamily);
+  if (family.length === 0) return;
+
+  const headword = typeof d.word === 'string' ? d.word : seedKey;
+  const seen = new Set<string>();
+  const members: FamilyEntry[] = [];
+  for (const m of [{ word: headword, pos: d.partOfSpeech ?? '' }, ...family]) {
+    const key = m.word.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); members.push(m); }
+  }
+
+  const write = (async () => {
+    const { data: fam, error } = await svc
+      .from('word_families')
+      .insert({ members })
+      .select('id')
+      .single();
+    if (error || !fam) throw error ?? new Error('no family id');
+    const keys = new Set(members.map((m) => m.word.toLowerCase()));
+    keys.add(seedKey.toLowerCase()); // English seed always resolves, any learn language
+    const rows = [...keys].map((word) => ({ word, family_id: fam.id }));
+    const { error: mapErr } = await svc
+      .from('word_family_members')
+      .upsert(rows, { onConflict: 'word', ignoreDuplicates: true });
+    if (mapErr) throw mapErr;
+  })().catch((err: unknown) => console.warn('[word] family write failed:', err));
+
+  const rt = (globalThis as unknown as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(write);
 }
 
 /** Merge one mother-tongue translation into an existing row's map (non-blocking). */

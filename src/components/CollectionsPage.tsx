@@ -3,8 +3,10 @@ import { Icon } from '@iconify/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCollections, type UserCollection } from '../hooks/useCollections';
-import { listCollections } from '../lib/collections';
+import { listCollections, getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
+import { useVocabularyStore } from '../hooks/useVocabulary';
+import type { WordProgress } from '../types';
 
 /** Parse a free-form words input (newlines/commas) into clean single words. */
 function parseWords(input: string): string[] {
@@ -14,6 +16,45 @@ function parseWords(input: string): string[] {
     if (/^[a-z]+(?:[ '-][a-z]+)*$/.test(w) && w.length >= 2) seen.add(w);
   }
   return [...seen].slice(0, 1000);
+}
+
+/** Percent of a collection's words the viewer has finished (known or mastered). */
+function completionPct(words: string[], progress: Record<string, WordProgress>): number {
+  if (words.length === 0) return 0;
+  let done = 0;
+  for (const w of words) {
+    const p = progress[w];
+    if (p?.status === 'known' || p?.mastered) done++;
+  }
+  return Math.round((done / words.length) * 100);
+}
+
+/** Thin progress bar + percent label for a collection row. */
+function CompletionBar({ pct }: { pct: number }) {
+  return (
+    <div className="flex items-center gap-2 mt-1.5">
+      <div className="flex-1 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-accent-green' : 'bg-accent-cyan'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[10px] font-bold text-text-muted shrink-0">{pct}%</span>
+    </div>
+  );
+}
+
+/** "N learners" chip for server collections. */
+function Learners({ count }: { count: number }) {
+  return (
+    <span
+      className="flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-bold shrink-0"
+      title={`${count} learner${count === 1 ? '' : 's'} study this collection`}
+    >
+      <Icon icon="lucide:users" className="text-[11px]" />
+      {count}
+    </span>
+  );
 }
 
 /**
@@ -26,6 +67,7 @@ export function CollectionsPage() {
   const activeId = useCollections((s) => s.activeId);
   const setActive = useCollections((s) => s.setActive);
   const mine = useCollections((s) => s.mine);
+  const progress = useVocabularyStore((s) => s.progress);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const systemCollections = useMemo(() => listCollections(), []);
@@ -110,11 +152,15 @@ export function CollectionsPage() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <span className="font-display font-bold text-text-primary">{sharedCol.name}</span>
-              <span className="ml-2 text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold">
-                {sharedCol.words.length} words
-              </span>
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="font-display font-bold text-text-primary">{sharedCol.name}</span>
+                <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold">
+                  {sharedCol.words.length} words
+                </span>
+                <Learners count={sharedCol.memberCount} />
+              </div>
               {sharedCol.description && <p className="text-xs text-text-muted mt-0.5">{sharedCol.description}</p>}
+              <CompletionBar pct={completionPct(sharedCol.words, progress)} />
             </div>
             <button
               onClick={() => pick(sharedCol.id, sharedCol.name)}
@@ -199,7 +245,9 @@ export function CollectionsPage() {
                           Public
                         </span>
                       )}
+                      <Learners count={c.memberCount} />
                     </div>
+                    <CompletionBar pct={completionPct(c.words, progress)} />
                   </button>
                   <button
                     onClick={() => handleShare(c.id)}
@@ -247,6 +295,7 @@ export function CollectionsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-text-muted mt-0.5">{c.description}</p>
+                  <CompletionBar pct={completionPct(getCollection(c.id).words.map((w) => w.word), progress)} />
                 </div>
                 {active ? (
                   <Icon icon="lucide:check-circle-2" className="text-xl text-accent-cyan shrink-0" />
