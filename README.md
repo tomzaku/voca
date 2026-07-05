@@ -108,3 +108,5 @@ npm run db:push        # supabase db push
 - **STT** uses on-device Whisper.
 - **Progress** (known / skipped / saved words) is stored in `localStorage` and synced to Supabase
   per user, so History follows you across devices when signed in.
+
+  
