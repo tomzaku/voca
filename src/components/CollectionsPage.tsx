@@ -256,6 +256,9 @@ export function CollectionsPage() {
   // ── Quiz ──
   const [quiz, setQuiz] = useState<{ name: string; words: string[] } | null>(null);
 
+  // ── Owner options menu (edit / share / delete live behind ⋯) ──
+  const [menuId, setMenuId] = useState<string | null>(null);
+
   // ── Create / edit form ── (editingId null = creating a new one)
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -448,27 +451,42 @@ export function CollectionsPage() {
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
-                  <button
-                    onClick={() => openEdit(c)}
-                    title="Edit collection"
-                    className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-orange hover:border-accent-orange/30 transition-all"
-                  >
-                    <Icon icon="lucide:pencil" className="text-sm" />
-                  </button>
-                  <button
-                    onClick={() => handleShare(c.id)}
-                    title="Copy share link (makes the collection public)"
-                    className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
-                  >
-                    <Icon icon="lucide:share-2" className="text-sm" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(c)}
-                    title="Delete collection"
-                    className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/30 transition-all"
-                  >
-                    <Icon icon="lucide:trash-2" className="text-sm" />
-                  </button>
+                  {/* Owner actions tucked behind an options menu */}
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={() => setMenuId(menuId === c.id ? null : c.id)}
+                      title="Options"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-border-light transition-all"
+                    >
+                      <Icon icon="lucide:ellipsis-vertical" className="text-sm" />
+                    </button>
+                    {menuId === c.id && (
+                      <>
+                        {/* click-away backdrop */}
+                        <div className="fixed inset-0 z-30" onClick={() => setMenuId(null)} />
+                        <div className="absolute right-0 top-9 z-40 w-40 rounded-xl border-2 border-border bg-bg-card shadow-xl overflow-hidden animate-fade-in">
+                          <button
+                            onClick={() => { setMenuId(null); openEdit(c); }}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+                          >
+                            <Icon icon="lucide:pencil" className="text-sm" /> Edit
+                          </button>
+                          <button
+                            onClick={() => { setMenuId(null); handleShare(c.id); }}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-cyan transition-colors"
+                          >
+                            <Icon icon="lucide:share-2" className="text-sm" /> Share
+                          </button>
+                          <button
+                            onClick={() => { setMenuId(null); handleDelete(c); }}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-muted hover:bg-accent-red/10 hover:text-accent-red transition-colors"
+                          >
+                            <Icon icon="lucide:trash-2" className="text-sm" /> Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   {active && <Icon icon="lucide:check-circle-2" className="text-xl text-accent-cyan shrink-0" />}
                 </div>
               );
