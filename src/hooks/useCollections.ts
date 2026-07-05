@@ -86,6 +86,7 @@ interface CollectionsState {
   /** Fetch the collections this user has joined (from collection_members). */
   refreshJoined: () => Promise<void>;
   createCollection: (name: string, words: string[]) => Promise<UserCollection>;
+  updateCollection: (id: string, name: string, words: string[]) => Promise<void>;
   deleteCollection: (id: string) => Promise<void>;
   /** Make a collection public (idempotent) and return its share URL. */
   shareCollection: (id: string) => Promise<string>;
@@ -210,6 +211,18 @@ export const useCollections = create<CollectionsState>((set, get) => ({
     set({ mine });
     saveUserCache(mine, get().shared, get().joinedIds);
     return created;
+  },
+
+  updateCollection: async (id, name, words) => {
+    if (!supabase) throw new Error('Supabase is not configured.');
+    const { error } = await supabase
+      .from('collections')
+      .update({ name, words, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+    const mine = get().mine.map((c) => (c.id === id ? { ...c, name, words } : c));
+    set({ mine });
+    saveUserCache(mine, get().shared, get().joinedIds);
   },
 
   deleteCollection: async (id) => {

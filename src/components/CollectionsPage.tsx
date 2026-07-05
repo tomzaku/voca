@@ -190,11 +190,23 @@ export function CollectionsPage() {
   // ── Quiz ──
   const [quiz, setQuiz] = useState<{ name: string; words: string[] } | null>(null);
 
-  // ── Create form ──
+  // ── Create / edit form ── (editingId null = creating a new one)
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [wordsInput, setWordsInput] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const closeForm = () => { setCreating(false); setEditingId(null); setName(''); setWordsInput(''); };
+
+  const openCreate = () => { setEditingId(null); setName(''); setWordsInput(''); setCreating(true); };
+
+  const openEdit = (col: UserCollection) => {
+    setEditingId(col.id);
+    setName(col.name);
+    setWordsInput(col.words.join('\n'));
+    setCreating(true);
+  };
 
   const pick = (id: string, label: string) => {
     setActive(id);
@@ -207,11 +219,16 @@ export function CollectionsPage() {
     if (words.length < 2) { toast.error('Add at least 2 words (one per line).'); return; }
     setSaving(true);
     try {
-      const created = await useCollections.getState().createCollection(name.trim(), words);
-      toast.success(`Created “${created.name}” (${words.length} words)`);
-      setName(''); setWordsInput(''); setCreating(false);
+      if (editingId) {
+        await useCollections.getState().updateCollection(editingId, name.trim(), words);
+        toast.success(`Updated “${name.trim()}” (${words.length} words)`);
+      } else {
+        const created = await useCollections.getState().createCollection(name.trim(), words);
+        toast.success(`Created “${created.name}” (${words.length} words)`);
+      }
+      closeForm();
     } catch (err) {
-      toast.error((err as Error).message || 'Could not create collection.');
+      toast.error((err as Error).message || 'Could not save collection.');
     } finally {
       setSaving(false);
     }
@@ -291,7 +308,7 @@ export function CollectionsPage() {
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">My collections</h2>
           <button
-            onClick={() => setCreating((v) => !v)}
+            onClick={() => (creating ? closeForm() : openCreate())}
             className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
           >
             <Icon icon={creating ? 'lucide:x' : 'lucide:plus'} />
@@ -301,6 +318,9 @@ export function CollectionsPage() {
 
         {creating && (
           <div className="mb-3 p-4 rounded-2xl border-2 border-accent-cyan/40 bg-bg-card space-y-3 animate-fade-in">
+            {editingId && (
+              <p className="text-xs font-bold text-accent-cyan uppercase tracking-wider">Editing collection</p>
+            )}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -322,7 +342,7 @@ export function CollectionsPage() {
                 disabled={saving}
                 className="btn-3d px-4 py-2 text-sm bg-accent-cyan text-bg-primary font-bold disabled:opacity-60"
               >
-                {saving ? 'Creating…' : 'Create'}
+                {saving ? 'Saving…' : editingId ? 'Save changes' : 'Create'}
               </button>
             </div>
           </div>
@@ -360,6 +380,13 @@ export function CollectionsPage() {
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
+                  <button
+                    onClick={() => openEdit(c)}
+                    title="Edit collection"
+                    className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-orange hover:border-accent-orange/30 transition-all"
+                  >
+                    <Icon icon="lucide:pencil" className="text-sm" />
+                  </button>
                   <button
                     onClick={() => handleShare(c.id)}
                     title="Copy share link (makes the collection public)"
