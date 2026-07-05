@@ -490,7 +490,6 @@ export function CollectionsPage() {
                           Public
                         </span>
                       )}
-                      <Learners count={c.memberCount} />
                     </div>
                     {c.isPublic && <MemberAvatars collectionId={c.id} name={c.name} />}
                   </button>
