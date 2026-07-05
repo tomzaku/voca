@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { Icon } from '@iconify/react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
+import { getMotherLanguage } from '../lib/languages';
 import { useCollections } from '../hooks/useCollections';
 import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
@@ -728,9 +729,15 @@ export function FlashCard() {
                   </div>
                   <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
                   {wordData.translation && (
-                    <p className="mt-3 pt-3 border-t border-border/60 text-sm text-accent-cyan">
-                      {wordData.translation}
-                    </p>
+                    <div className="mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-accent-cyan/10 border border-accent-cyan/25">
+                      <Icon icon="lucide:languages" className="text-accent-cyan text-xl shrink-0" />
+                      <div className="min-w-0">
+                        <span className="block text-[10px] font-bold text-accent-cyan/70 uppercase tracking-wider">
+                          {getMotherLanguage()}
+                        </span>
+                        <span className="text-base font-bold text-accent-cyan">{wordData.translation}</span>
+                      </div>
+                    </div>
                   )}
                   <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
                   <SynAnt wordData={wordData} />
