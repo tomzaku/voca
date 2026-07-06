@@ -4,19 +4,14 @@ import { callAiAction } from '../lib/aiProviders';
 import { speakConversation, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import type { VocabularyWord } from '../types';
 
-type Mode = 'sample' | 'chat' | 'translate';
+type Mode = 'sample' | 'chat';
 type MsgRole = 'ai' | 'user';
 
 interface Message { role: MsgRole; text: string }
 
 interface Props { wordData: VocabularyWord }
 
-const LANG_KEY = 'voca-translate-lang';
 const MAX_TURNS = 3;
-
-function getStoredLang(): string {
-  return localStorage.getItem(LANG_KEY) || 'Vietnamese';
-}
 
 // ─── Shared chat bubble UI ───────────────────────────────────────────
 
@@ -213,99 +208,45 @@ function ChatMode({ wordData }: { wordData: VocabularyWord }) {
   );
 }
 
-// ─── Mode 3: Translation ─────────────────────────────────────────────
-
-function TranslateMode({ wordData }: { wordData: VocabularyWord }) {
-  const [lang, setLang] = useState(getStoredLang);
-  const [langInput, setLangInput] = useState(getStoredLang);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const fetchTranslation = (targetLang: string) => {
-    if (loading) return;
-    setLoading(true);
-    setMessages([]);
-
-    callAiAction('translate_word', { word: wordData.word, targetLang })
-      .then((r) => setMessages([{ role: 'ai', text: r.trim() }]))
-      .catch(() => setMessages([{ role: 'ai', text: 'Could not translate. Check your AI settings.' }]))
-      .finally(() => setLoading(false));
-  };
-
-  const handleExplain = () => {
-    const target = langInput.trim() || lang;
-    if (target !== lang) {
-      localStorage.setItem(LANG_KEY, target);
-      setLang(target);
-    }
-    fetchTranslation(target);
-  };
-
-  return (
-    <div className="px-4 py-3 space-y-3">
-      {/* Quick translation baked into the word — shown instantly, no AI call */}
-      {wordData.translation && (
-        <div className="rounded-lg border border-accent-purple/20 bg-accent-purple/5 px-3 py-2">
-          <p className="text-[10px] font-display font-bold uppercase tracking-wider text-text-muted mb-0.5">{lang}</p>
-          <p className="text-sm text-text-primary">{wordData.translation}</p>
-        </div>
-      )}
-
-      {/* Language + on-demand detailed explanation */}
-      <div className="flex gap-2">
-        <input
-          value={langInput}
-          onChange={(e) => setLangInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleExplain()}
-          placeholder="Language (e.g. Vietnamese)"
-          className="flex-1 bg-bg-card border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/40"
-        />
-        <button
-          onClick={handleExplain}
-          disabled={loading || !langInput.trim()}
-          className="px-3 py-1.5 rounded-lg bg-accent-purple/15 text-accent-purple text-xs font-medium hover:bg-accent-purple/25 transition-colors disabled:opacity-40 whitespace-nowrap"
-        >
-          {loading ? 'Loading…' : 'Explain & examples'}
-        </button>
-      </div>
-
-      {/* AI detailed result (only after the user asks) */}
-      {(messages.length > 0 || loading) && (
-        <div className="max-h-56 overflow-y-auto space-y-2">
-          {messages.map((m, i) => <Bubble key={i} msg={m} />)}
-          {loading && <TypingIndicator />}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Main component ──────────────────────────────────────────────────
 
 const MODES: { id: Mode; label: string; icon: string }[] = [
-  { id: 'sample',    label: 'Conversations', icon: 'lucide:messages-square' },
-  { id: 'chat',      label: 'Practice',      icon: 'lucide:bot' },
-  { id: 'translate', label: 'Translate',     icon: 'lucide:languages' },
+  { id: 'sample', label: 'Conversations', icon: 'lucide:messages-square' },
+  { id: 'chat',   label: 'Practice',      icon: 'lucide:bot' },
 ];
 
 export function WordTest({ wordData }: Props) {
-  // Open the Translate tab by default so learners see the meaning in their
-  // mother language right away.
-  const [mode, setMode] = useState<Mode | null>('translate');
+  // Start with an intro card — AI calls only fire once the user picks a mode.
+  const [mode, setMode] = useState<Mode | null>(null);
 
   if (!mode) {
     return (
-      <div className="grid grid-cols-3 gap-2">
-        {MODES.map((m) => (
+      <div className="rounded-xl border border-accent-purple/20 bg-accent-purple/5 p-4 sm:p-5 animate-fade-in">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="w-7 h-7 rounded-lg bg-accent-purple/15 border border-accent-purple/20 flex items-center justify-center text-accent-purple text-sm shrink-0">✦</span>
+          <h3 className="text-xs font-display font-bold text-accent-purple uppercase tracking-wider">
+            Learn with AI
+          </h3>
+        </div>
+        <p className="text-sm text-text-secondary leading-relaxed mb-3">
+          See “{wordData.headword || wordData.word}” used in real conversations, or practice using it yourself with an AI tutor.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
           <button
-            key={m.id}
-            onClick={() => setMode(m.id)}
-            className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-border bg-bg-card text-text-muted hover:border-accent-purple/30 hover:text-accent-purple hover:bg-accent-purple/5 transition-all"
+            onClick={() => setMode('sample')}
+            className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border border-border bg-bg-card text-text-muted hover:border-accent-purple/30 hover:text-accent-purple hover:bg-accent-purple/5 transition-all"
           >
-            <Icon icon={m.icon} className="text-xl" />
-            <span className="text-xs font-medium">{m.label}</span>
+            <Icon icon="lucide:messages-square" className="text-xl" />
+            <span className="text-xs font-medium">See it in action</span>
           </button>
-        ))}
+          <button
+            onClick={() => setMode('chat')}
+            className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border border-border bg-bg-card text-text-muted hover:border-accent-purple/30 hover:text-accent-purple hover:bg-accent-purple/5 transition-all"
+          >
+            <Icon icon="lucide:bot" className="text-xl" />
+            <span className="text-xs font-medium">Practice with AI</span>
+          </button>
+        </div>
       </div>
     );
   }
@@ -331,9 +272,8 @@ export function WordTest({ wordData }: Props) {
       </div>
 
       {/* Mode content — key forces remount on word change */}
-      {mode === 'sample'    && <SampleMode    key={`sample-${wordData.word}`}    wordData={wordData} />}
-      {mode === 'chat'      && <ChatMode      key={`chat-${wordData.word}`}      wordData={wordData} />}
-      {mode === 'translate' && <TranslateMode key={`translate-${wordData.word}`} wordData={wordData} />}
+      {mode === 'sample' && <SampleMode key={`sample-${wordData.word}`} wordData={wordData} />}
+      {mode === 'chat'   && <ChatMode   key={`chat-${wordData.word}`}   wordData={wordData} />}
     </div>
   );
 }

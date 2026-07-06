@@ -16,7 +16,8 @@ import { BuddyBadge } from './BuddyBadge';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useWordSearch } from '../hooks/useWordSearch';
-import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
+import { speakText, stopSpeaking, isTtsPlaying, isKokoroSupported } from '../lib/tts';
+import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../hooks/useTtsSettings';
 import { encodeWord, decodeWord } from '../lib/wordCode';
 import { answerRegex, maskAnswer } from '../lib/answerMask';
 import { SynAnt } from './SynAnt';
@@ -93,6 +94,16 @@ async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
     }
   } catch { /* fall through */ }
   return [];
+}
+
+// Voices cycled through when the pronunciation button is clicked repeatedly
+// (Kokoro only). The user's chosen voice always plays first; the rest add
+// variety across gender and accent. Capped at 5 voices, then wraps around.
+const VOICE_CYCLE_IDS = ['af_heart', 'am_michael', 'bf_emma', 'bm_george', 'af_bella'];
+
+function kokoroVoiceCycle(): string[] {
+  const preferred = getTtsVoice();
+  return [preferred, ...VOICE_CYCLE_IDS.filter((id) => id !== preferred)].slice(0, 5);
 }
 
 // Preferred accents to show, with a flag + label per locale.
@@ -345,6 +356,7 @@ export function FlashCard() {
 
   useEffect(() => {
     if (!wordData) return;
+    speakClicksRef.current = 0; // new word — voice cycle starts over
     setSearchParams({ w: encodeWord(wordData.word) }, { replace: true });
     setImageUrls([]);
     // Skip images for non-nouns — the search would return misleading pictures.
@@ -370,8 +382,34 @@ export function FlashCard() {
     setPhase('revealed');
   };
 
+  // How many times the pronunciation button was clicked for the current word —
+  // with Kokoro, each click reads the word in the next voice of the cycle.
+  const speakClicksRef = useRef(0);
+
   const handleSpeak = async () => {
     if (!wordData) return;
+    const word = wordData.headword || wordData.word;
+
+    // Kokoro: don't toggle-stop — every click (re)reads the word. The first
+    // two clicks use the preferred voice (hear it twice), then each click
+    // advances through up to 5 different voices so the learner hears variety.
+    if (getTtsEngine() === 'kokoro' && isKokoroSupported()) {
+      const cycle = kokoroVoiceCycle();
+      const clicks = speakClicksRef.current;
+      const idx = clicks === 0 ? 0 : (clicks - 1) % cycle.length;
+      const voiceId = cycle[idx];
+      speakClicksRef.current++;
+      if (idx > 0) {
+        const v = KOKORO_VOICES.find((k) => k.id === voiceId);
+        if (v) toast(`🎙️ ${v.name} — ${v.accent} ${v.gender}`, { duration: 1200 });
+      }
+      stopSpeaking();
+      setSpeakingExample(null);
+      setIsSpeaking(true);
+      await speakText(word, { voice: voiceId, onEnd: () => setIsSpeaking(false) });
+      return;
+    }
+
     if (isTtsPlaying() || isSpeaking) {
       stopSpeaking();
       setIsSpeaking(false);
@@ -381,7 +419,7 @@ export function FlashCard() {
     stopSpeaking();
     setSpeakingExample(null);
     setIsSpeaking(true);
-    await speakText(wordData.headword || wordData.word, { onEnd: () => setIsSpeaking(false) });
+    await speakText(word, { onEnd: () => setIsSpeaking(false) });
   };
 
   const handleSpeakExample = async (index: number, text: string) => {
@@ -639,7 +677,11 @@ export function FlashCard() {
                           ? 'bg-accent-cyan text-bg-primary'
                           : 'bg-bg-tertiary text-text-secondary hover:text-accent-cyan'
                         }`}
-                      title={isSpeaking ? 'Stop' : 'Hear pronunciation'}
+                      title={
+                        getTtsEngine() === 'kokoro' && isKokoroSupported()
+                          ? 'Hear pronunciation — click again for another voice'
+                          : isSpeaking ? 'Stop' : 'Hear pronunciation'
+                      }
                     >
                       {isSpeaking ? (
                         <svg width="14" height="14" viewBox="0 0 10 10" fill="currentColor">
@@ -846,7 +888,9 @@ export function FlashCard() {
                     </div>
                   </div>
 
-                  <WordTest wordData={wordData} />
+                  {/* Reset to the AI intro card on each new word so no AI call
+                      fires until the learner opts in */}
+                  <WordTest key={wordData.word} wordData={wordData} />
                   <WordNotes word={wordData.word} />
                 </>
               )}
