@@ -18,6 +18,8 @@ import { useGameScore } from '../hooks/useGameScore';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import { encodeWord, decodeWord } from '../lib/wordCode';
+import { answerRegex, maskAnswer } from '../lib/answerMask';
+import { SynAnt } from './SynAnt';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
 
@@ -44,28 +46,6 @@ async function generateWithRetry(
     }
   }
   throw lastErr;
-}
-
-// A regex matching the answer word and its inflections (adumbrate →
-// adumbrated/adumbrating/…). Drops a trailing silent 'e'/'y' so the stem covers
-// -ed/-ing/-ies forms, and skips short tokens (a, an, of…). Returns null when
-// there's nothing worth matching. Shared by the mask and the highlight.
-function answerRegex(answer: string): RegExp | null {
-  const stems = answer
-    .toLowerCase()
-    .split(/[^a-z]+/)
-    .filter((t) => t.length >= 3)
-    .map((t) => (/[ey]$/.test(t) ? t.slice(0, -1) : t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  if (stems.length === 0) return null;
-  return new RegExp(`\\b(?:${stems.join('|')})[a-z]*\\b`, 'gi');
-}
-
-// Blank out the answer (and its inflections) in an example while guessing —
-// otherwise an example could reveal the answer. Over-masking a rare look-alike
-// is fine; leaking the answer is not.
-function maskAnswer(example: string, answer: string): string {
-  const re = answerRegex(answer);
-  return re ? example.replace(re, '____') : example;
 }
 
 // Render an example with the answer word (and its inflections) bold + highlighted.
@@ -145,37 +125,6 @@ function PhoneticList({ wordData }: { wordData: VocabularyWord }) {
           {g.ipa}
         </span>
       ))}
-    </div>
-  );
-}
-
-/** Synonyms + antonyms chips, shown under the definition in both phases. */
-function SynAnt({ wordData }: { wordData: VocabularyWord }) {
-  const hasSyn = (wordData.synonyms?.length ?? 0) > 0;
-  const hasAnt = (wordData.antonyms?.length ?? 0) > 0;
-  if (!hasSyn && !hasAnt) return null;
-  return (
-    <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-2 gap-x-4 gap-y-2.5">
-      {hasSyn && (
-        <div>
-          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">Synonyms</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {wordData.synonyms!.map((s) => (
-              <span key={s} className="text-xs px-2.5 py-1 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">{s}</span>
-            ))}
-          </div>
-        </div>
-      )}
-      {hasAnt && (
-        <div>
-          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">Antonyms</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {wordData.antonyms!.map((a) => (
-              <span key={a} className="text-xs px-2.5 py-1 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20">{a}</span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -10,6 +10,18 @@ import { useVocabularyStore } from '../hooks/useVocabulary';
 import { supabase } from '../lib/supabase';
 import type { WordProgress } from '../types';
 
+/** ChatGPT URL pre-filled with a prompt that yields a paste-ready word list. */
+function chatGptWordsUrl(topic: string): string {
+  const prompt = `List English vocabulary words for this request: "${topic}".
+
+Rules:
+- Output ONLY the words, one per line
+- lowercase, no numbering, no bullets, no explanations, no duplicates
+
+I will paste your answer directly into a vocabulary app.`;
+  return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
+}
+
 /** Parse a free-form words input (newlines/commas) into clean single words. */
 function parseWords(input: string): string[] {
   const seen = new Set<string>();
@@ -307,6 +319,9 @@ export function CollectionsPage() {
   // ── Quiz ──
   const [quiz, setQuiz] = useState<{ name: string; words: string[] } | null>(null);
 
+  // ── AI word-list helper (opens ChatGPT with a paste-ready prompt) ──
+  const [aiTopic, setAiTopic] = useState('');
+
   // ── Owner options menu (edit / share / delete live behind ⋯) ──
   const [menuId, setMenuId] = useState<string | null>(null);
 
@@ -455,6 +470,40 @@ export function CollectionsPage() {
               maxLength={60}
               className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
             />
+
+            {/* AI helper: describe a topic → ChatGPT opens with a prompt whose
+                answer (one word per line) pastes straight into the box below. */}
+            <div className="p-3 rounded-xl bg-bg-tertiary/60 border border-border space-y-2">
+              <p className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted uppercase tracking-wider">
+                <Icon icon="lucide:sparkles" className="text-accent-purple" />
+                Need words? Ask AI
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  placeholder="Topic: family, animals, travel, business… or 200 collocations"
+                  maxLength={200}
+                  className="flex-1 min-w-0 bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/50"
+                />
+                <a
+                  href={aiTopic.trim() ? chatGptWordsUrl(aiTopic.trim()) : undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => { if (!aiTopic.trim()) e.preventDefault(); }}
+                  className={`btn-3d shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold ${
+                    aiTopic.trim() ? 'bg-accent-purple text-bg-primary' : 'bg-bg-card text-text-muted cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <Icon icon="lucide:external-link" className="text-sm" />
+                  Ask ChatGPT
+                </a>
+              </div>
+              <p className="text-[11px] text-text-muted">
+                Copy the reply and paste it into the words box below.
+              </p>
+            </div>
+
             <textarea
               value={wordsInput}
               onChange={(e) => setWordsInput(e.target.value)}

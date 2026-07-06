@@ -3,6 +3,8 @@ import { Icon } from '@iconify/react';
 import { generateWordData } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
+import { maskAnswer } from '../lib/answerMask';
+import { SynAnt } from './SynAnt';
 import type { VocabularyWord } from '../types';
 
 // Question formats. "random" mixes the other four, one per question.
@@ -28,6 +30,7 @@ interface Question {
   options?: string[];   // choice/gap
   pos?: string;         // part of speech, shown as a hint on letters questions
   hint?: string;        // letter skeleton (first · middle · last), letters only
+  data?: VocabularyWord; // full word data — choice shows masked examples + syn/ant
 }
 
 // Letter skeleton hint: reveal the first, middle and last letters, hide the
@@ -48,16 +51,6 @@ function shuffle<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
-
-// Blank the answer (and inflections) out of an example sentence — same stem
-// approach as the flashcard's maskAnswer.
-function maskWord(sentence: string, answer: string): string {
-  const stems = answer.toLowerCase().split(/[^a-z]+/)
-    .filter((t) => t.length >= 3)
-    .map((t) => (/[ey]$/.test(t) ? t.slice(0, -1) : t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  if (!stems.length) return sentence;
-  return sentence.replace(new RegExp(`\\b(?:${stems.join('|')})[a-z]*\\b`, 'gi'), '____');
 }
 
 interface Props {
@@ -105,9 +98,9 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
       // Fill-gap needs example sentences that actually contain the word.
       // Give two examples when available — more context to infer the answer.
       const gapExamples = data.examples
-        .filter((ex) => maskWord(ex, data.headword || word) !== ex)
+        .filter((ex) => maskAnswer(ex, data.headword || word) !== ex)
         .slice(0, 2)
-        .map((ex) => maskWord(ex, data.headword || word));
+        .map((ex) => maskAnswer(ex, data.headword || word));
       if (type === 'gap' && gapExamples.length === 0) type = 'choice';
 
       const distractors = shuffle([...loaded.filter((w) => w !== word), ...pool]).slice(0, 3);
@@ -118,6 +111,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
         options: type === 'choice' || type === 'gap' ? shuffle([word, ...distractors]) : undefined,
         pos: data.partOfSpeech,
         hint: type === 'letters' ? letterHint(word) : undefined,
+        data,
       };
     });
 
@@ -312,6 +306,33 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
                   </span>
                 )}
               </div>
+            )}
+            {/* Choice & Letters get the fuller clue card (like Guess the Word):
+                masked examples + synonyms/antonyms. */}
+            {(q.type === 'choice' || q.type === 'letters') && q.data && (
+              <>
+                {(() => {
+                  const answer = q.data!.headword || q.word;
+                  const examples = q.data!.examples
+                    .map((ex) => maskAnswer(ex, answer))
+                    .slice(0, 2);
+                  if (examples.length === 0) return null;
+                  return (
+                    <div className="mt-3 pt-3 border-t border-border/60">
+                      <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Examples</h4>
+                      <ul className="space-y-2">
+                        {examples.map((ex, i) => (
+                          <li key={i} className="flex gap-2.5 text-sm text-text-secondary leading-relaxed">
+                            <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
+                            <span className="italic">{ex}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
+                <SynAnt wordData={q.data} />
+              </>
             )}
           </>
         )}
