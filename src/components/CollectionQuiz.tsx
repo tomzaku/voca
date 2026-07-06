@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { Link } from 'react-router-dom';
 import { generateWordData } from '../lib/wordService';
+import { encodeWord } from '../lib/wordCode';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
 import { maskAnswer } from '../lib/answerMask';
@@ -72,6 +74,8 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
   const [current, setCurrent] = useState(0);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState<'correct' | 'wrong' | null>(null);
+  // Words answered incorrectly this round — summarized on the results screen.
+  const [missed, setMissed] = useState<string[]>([]);
   const [picked, setPicked] = useState<string | null>(null);
   const [typed, setTyped] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -116,7 +120,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
     });
 
     setQuestions(shuffle(qs));
-    setCurrent(0); setScore(0); setAnswered(null); setPicked(null); setTyped('');
+    setCurrent(0); setScore(0); setAnswered(null); setPicked(null); setTyped(''); setMissed([]);
     setPhase('playing');
   };
 
@@ -132,7 +136,8 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
 
   const grade = (ok: boolean) => {
     setAnswered(ok ? 'correct' : 'wrong');
-    if (ok) { playCorrect(); setScore((s) => s + 1); } else { playWrong(); }
+    if (ok) { playCorrect(); setScore((s) => s + 1); }
+    else { playWrong(); setMissed((m) => [...m, q.word]); }
   };
 
   const pickOption = (opt: string) => {
@@ -238,6 +243,32 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
           {score} / {questions.length}
         </h1>
         <p className="text-sm text-text-muted mb-8">{pct >= 80 ? 'Outstanding!' : pct >= 50 ? 'Nice work — keep going!' : 'Practice makes perfect.'}</p>
+
+        {/* Missed words — tap one to open its flash card and study it */}
+        {missed.length > 0 && (
+          <div className="card-game p-4 sm:p-5 mb-8 text-left">
+            <h2 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1">
+              Words to review
+            </h2>
+            <p className="text-xs text-text-muted mb-3">
+              You missed {missed.length} {missed.length === 1 ? 'word' : 'words'} — tap one to learn more.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {missed.map((w) => (
+                <Link
+                  key={w}
+                  to={`/?w=${encodeWord(w)}`}
+                  title={`Open “${w}”`}
+                  className="flex items-center gap-1 text-sm font-bold px-3 py-1.5 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 hover:border-accent-red/40 transition-all"
+                >
+                  {w}
+                  <Icon icon="lucide:arrow-up-right" className="text-xs opacity-70" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button onClick={() => setPhase('settings')} className="btn-3d flex-1 py-3 bg-accent-cyan text-bg-primary font-bold">
             Play again
