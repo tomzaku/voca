@@ -5,7 +5,7 @@ import { generateWordData } from '../lib/wordService';
 import { encodeWord } from '../lib/wordCode';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
-import { maskAnswer } from '../lib/answerMask';
+import { familyForms, maskAnswer } from '../lib/answerMask';
 import { SynAnt } from './SynAnt';
 import type { VocabularyWord } from '../types';
 
@@ -99,19 +99,25 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
       let type: QuestionType = mode === 'random'
         ? shuffle<QuestionType>(['choice', 'letters', 'listen', 'gap'])[0]
         : mode;
+      const answer = data.headword || word;
+      const family = familyForms(data.wordFamily);
       // Fill-gap needs example sentences that actually contain the word.
       // Give two examples when available — more context to infer the answer.
       const gapExamples = data.examples
-        .filter((ex) => maskAnswer(ex, data.headword || word) !== ex)
+        .filter((ex) => maskAnswer(ex, answer, family) !== ex)
         .slice(0, 2)
-        .map((ex) => maskAnswer(ex, data.headword || word));
+        .map((ex) => maskAnswer(ex, answer, family));
       if (type === 'gap' && gapExamples.length === 0) type = 'choice';
 
       const distractors = shuffle([...loaded.filter((w) => w !== word), ...pool]).slice(0, 3);
       return {
         type,
         word,
-        prompt: type === 'gap' ? gapExamples.join('\n') : data.definition,
+        // Mask the answer out of the definition too — AI definitions sometimes
+        // restate the word ("to draw criticism means…").
+        prompt: type === 'gap'
+          ? gapExamples.join('\n')
+          : maskAnswer(data.definition, answer, family),
         options: type === 'choice' || type === 'gap' ? shuffle([word, ...distractors]) : undefined,
         pos: data.partOfSpeech,
         hint: type === 'letters' ? letterHint(word) : undefined,
@@ -345,7 +351,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
                 {(() => {
                   const answer = q.data!.headword || q.word;
                   const examples = q.data!.examples
-                    .map((ex) => maskAnswer(ex, answer))
+                    .map((ex) => maskAnswer(ex, answer, familyForms(q.data!.wordFamily)))
                     .slice(0, 2);
                   if (examples.length === 0) return null;
                   return (
@@ -362,7 +368,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
                     </div>
                   );
                 })()}
-                <SynAnt wordData={q.data} />
+                <SynAnt wordData={q.data} maskWord={q.data.headword || q.word} />
               </>
             )}
           </>

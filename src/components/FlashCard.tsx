@@ -19,7 +19,7 @@ import { useWordSearch } from '../hooks/useWordSearch';
 import { speakText, stopSpeaking, isTtsPlaying, isKokoroSupported } from '../lib/tts';
 import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../hooks/useTtsSettings';
 import { encodeWord, decodeWord } from '../lib/wordCode';
-import { answerRegex, maskAnswer } from '../lib/answerMask';
+import { answerRegex, familyForms, maskAnswer } from '../lib/answerMask';
 import { SynAnt } from './SynAnt';
 import type { VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
@@ -159,7 +159,7 @@ function ExampleList({ wordData, phase, speakingExample, onSpeak }: {
       <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Examples</h4>
       <ul className="space-y-2">
         {examples.map((ex, i) => {
-          const text = phase === 'introduce' ? maskAnswer(ex, answerWord) : ex;
+          const text = phase === 'introduce' ? maskAnswer(ex, answerWord, familyForms(wordData.wordFamily)) : ex;
           return (
             <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">
               {phase === 'introduce' ? (
@@ -601,9 +601,13 @@ export function FlashCard() {
                   {wordData.level}
                 </span>
               </div>
-              <p className="text-text-primary leading-relaxed text-base sm:text-lg">{wordData.definition}</p>
+              {/* Mask the answer out of the definition and syn/ant chips —
+                  AI text sometimes restates the word while it's being guessed */}
+              <p className="text-text-primary leading-relaxed text-base sm:text-lg">
+                {maskAnswer(wordData.definition, wordData.headword || wordData.word, familyForms(wordData.wordFamily))}
+              </p>
               <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
-              <SynAnt wordData={wordData} />
+              <SynAnt wordData={wordData} maskWord={wordData.headword || wordData.word} />
             </div>
           )}
 
