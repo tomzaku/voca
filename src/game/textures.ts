@@ -30,6 +30,31 @@ export function loadBuddyTexture(scene: Phaser.Scene, animalId: AnimalId): void 
   }
 }
 
+// ── Station monsters ── Each collection appears as a little monster from the
+// same pack (64×64 sheets, identical direction/frame layout as the buddies).
+// Public collections get the cuddly ones; levels get progressively scarier.
+
+export const CUTE_MONSTERS = ['racoon', 'panda', 'owl', 'butterfly', 'mouse', 'axolot', 'mole', 'bear'] as const;
+export const SCARY_MONSTERS = ['slime', 'mushroom', 'kappa', 'lizard', 'snake', 'cyclope', 'skull', 'flam', 'dragon', 'trex'] as const;
+
+export type MonsterId = (typeof CUTE_MONSTERS | typeof SCARY_MONSTERS)[number];
+
+export function monsterTextureKey(monster: MonsterId): string {
+  return `monster-${monster}`;
+}
+
+/** Queue every station-monster sheet (call from a scene's preload). */
+export function loadMonsterTextures(scene: Phaser.Scene): void {
+  for (const m of [...CUTE_MONSTERS, ...SCARY_MONSTERS]) {
+    const key = monsterTextureKey(m);
+    if (scene.textures.exists(key)) continue;
+    scene.load.spritesheet(key, `${import.meta.env.BASE_URL}game/stations/${m}.png`, {
+      frameWidth: BUDDY_FRAME,
+      frameHeight: BUDDY_FRAME,
+    });
+  }
+}
+
 /** Tileable grass speckle, drawn once per theme. */
 export function ensureDotsTexture(scene: Phaser.Scene, key: string, dotRgba: string): void {
   if (scene.textures.exists(key)) return;

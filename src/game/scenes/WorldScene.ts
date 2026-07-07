@@ -2,12 +2,15 @@ import Phaser from 'phaser';
 import type { AnimalId } from '../../lib/companion';
 import { WORLD_EVENTS, type WorldStation } from '../types';
 import {
-  computeLayout, snapToRoad,
-  REACH, ROAD_W, SPEED, type PlacedStation, type WorldLayout,
-} from '../road';
+  computeLayout, clampToRects, rectContains,
+  REACH, SPEED, WALL,
+  type PlacedStation, type Room, type WorldLayout, type ZoneId,
+} from '../layout';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
-  BUDDY_DIRS, buddyTextureKey, loadBuddyTexture, ensureDotsTexture, type BuddyDir,
+  BUDDY_DIRS, buddyTextureKey, loadBuddyTexture, ensureDotsTexture,
+  CUTE_MONSTERS, SCARY_MONSTERS, monsterTextureKey, loadMonsterTextures,
+  type BuddyDir, type MonsterId,
 } from '../textures';
 
 export interface WorldSceneData {
@@ -22,20 +25,24 @@ export interface WorldSceneData {
 
 const KIND_EMOJI = { mine: '👤', joined: '👥', level: '🎓' } as const;
 
-const TREES = ['🌲', '🌳'];
-const DECOR = ['🌼', '🌷', '🍄', '🪨', '🌻', '🌿', '🪵', '🌸', '🦋', '🌾'];
+const THEME_DECOR = {
+  forest: ['🌲', '🌳', '🌼', '🍄', '🪨', '🦋', '🌷', '🌾'],
+  desert: ['🌵', '🪨', '🦎', '🌾', '🏺', '🌵'],
+} as const;
 
 interface StationNode {
   station: PlacedStation;
   root: Phaser.GameObjects.Container;
-  frame: Phaser.GameObjects.Graphics;
+  /** Highlight ring shown when the buddy is in reach. */
+  ring: Phaser.GameObjects.Arc;
 }
 
 /**
- * The explorable Word Meadow. Owns the simulation only: movement, camera,
- * proximity. It reports the nearest station on `game.events` (WORLD_EVENTS)
- * and the React shell around the canvas renders all real UI (station card,
- * HUD, modals) from that.
+ * The explorable world: two walled rooms (forest = Public, desert = System)
+ * with free Gather-style movement inside them and a doorway between. The scene
+ * owns the simulation only: movement, collision, camera, proximity. It reports
+ * the nearest station on `game.events` (WORLD_EVENTS) and the React shell
+ * around the canvas renders all real UI (station card, HUD, modals) from that.
  */
 export class WorldScene extends Phaser.Scene {
   static readonly KEY = 'world';
@@ -52,7 +59,8 @@ export class WorldScene extends Phaser.Scene {
   private sprite!: Phaser.GameObjects.Sprite;
   private walking = false;
   private facing: BuddyDir = 'down';
-  private target: { x: number; y: number } | null = null;
+  /** Waypoints for tap-to-walk (routed through the door across rooms). */
+  private route: number[][] = [];
   private targetMark!: Phaser.GameObjects.Arc;
   private nearestId: string | null = null;
 
@@ -69,6 +77,7 @@ export class WorldScene extends Phaser.Scene {
 
   preload() {
     loadBuddyTexture(this, this.args.animalId);
+    loadMonsterTextures(this);
   }
 
   create() {
@@ -82,6 +91,19 @@ export class WorldScene extends Phaser.Scene {
         .get(buddyTextureKey(this.args.animalId, sheet))
         .setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
+    for (const m of [...CUTE_MONSTERS, ...SCARY_MONSTERS]) {
+      this.textures.get(monsterTextureKey(m)).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      // Facing-down walk cycle doubles as the monster's idle bounce.
+      const anim = `${monsterTextureKey(m)}-bob`;
+      if (!this.anims.exists(anim)) {
+        this.anims.create({
+          key: anim,
+          frames: this.anims.generateFrameNumbers(monsterTextureKey(m), { frames: [0, 4, 8, 12] }),
+          frameRate: 5,
+          repeat: -1,
+        });
+      }
+    }
 
     const kb = this.input.keyboard!;
     this.cursors = kb.createCursorKeys();
@@ -89,12 +111,12 @@ export class WorldScene extends Phaser.Scene {
     // Stop arrows/space from scrolling the page while the world has the screen.
     kb.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
 
-    // Tap the ground → walk to the nearest spot on the road.
+    // Tap the ground → walk there (through the door if it's the other room).
     this.input.on(
       'pointerdown',
       (pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
         if (over.length > 0) return; // a station handled it
-        this.walkTo(pointer.worldX, pointer.worldY);
+        this.routeTo(pointer.worldX, pointer.worldY);
       },
     );
 
@@ -147,230 +169,212 @@ export class WorldScene extends Phaser.Scene {
     const viewW = Math.max(this.scale.width / this.args.dpr, 320);
     const viewH = Math.max(this.scale.height / this.args.dpr, 320);
     this.layout = computeLayout(this.args.stations, viewW, viewH);
-    const { worldW, worldH, spawn, placed, pathPts } = this.layout;
+    const { worldW, worldH, rooms, door, placed } = this.layout;
 
     this.worldLayer?.destroy();
     this.nodes = [];
     const layer = this.add.container(0, 0).setDepth(0);
     this.worldLayer = layer;
 
-    // Ground: grass, light patches, speckle, forest edge, props.
-    layer.add(this.add.rectangle(0, 0, worldW, worldH, this.pal.grass).setOrigin(0));
+    // The void outside the rooms.
+    layer.add(this.add.rectangle(0, 0, worldW, worldH, this.pal.void).setOrigin(0));
+
+    for (const room of rooms) this.drawRoom(layer, room);
+
+    // Doorway: ground drawn over the walls opens the passage; half per biome.
+    const topHalf = rooms[0].rect.y + rooms[0].rect.h - door.y;
+    layer.add(
+      this.add
+        .rectangle(door.x, door.y, door.w, topHalf, this.pal.zones.forest.base)
+        .setOrigin(0),
+    );
+    layer.add(
+      this.add
+        .rectangle(door.x, door.y + topHalf, door.w, door.h - topHalf, this.pal.zones.desert.base)
+        .setOrigin(0),
+    );
+
+    // Each collection is a resident monster: cute ones in the Public forest,
+    // progressively scarier ones for the System levels.
+    let cute = 0, scary = 0;
+    for (const p of placed) {
+      const monster: MonsterId = p.kind === 'level'
+        ? SCARY_MONSTERS[Math.min(scary++, SCARY_MONSTERS.length - 1)]
+        : CUTE_MONSTERS[cute++ % CUTE_MONSTERS.length];
+      this.addStation(layer, p, monster);
+    }
+
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBackgroundColor(this.pal.void);
+
+    // A rebuild can move the rooms out from under the buddy — reel it back in.
+    if (this.buddy) {
+      const pos = clampToRects(this.layout.walk, this.buddy.x, this.buddy.y);
+      this.buddy.setPosition(pos.x, pos.y);
+    }
+    this.route = [];
+  }
+
+  private drawRoom(layer: Phaser.GameObjects.Container, room: Room) {
+    const zone = this.pal.zones[room.theme];
+    const { x, y, w, h } = room.rect;
+
+    layer.add(this.add.rectangle(x, y, w, h, zone.base).setOrigin(0));
+
+    // Lighter ground patches.
     const patches = this.add.graphics();
-    patches.fillStyle(this.pal.patch, this.pal.patchAlpha);
-    for (let i = 0; i < Math.ceil(worldW / 450); i++) {
+    patches.fillStyle(zone.patch, zone.patchAlpha);
+    for (let i = 0; i < Math.ceil(w / 420); i++) {
       patches.fillEllipse(
-        225 + i * 450 + ((i * 97) % 120),
-        (i % 2 === 0 ? 0.3 : 0.7) * worldH,
-        460, 300,
+        x + 210 + i * 420 + ((i * 97) % 90),
+        y + (i % 2 === 0 ? 0.32 : 0.68) * h,
+        380, 240,
       );
     }
     layer.add(patches);
-    const dotsKey = this.pal.light ? 'dots-light' : 'dots-dark';
-    ensureDotsTexture(this, dotsKey, this.pal.dotRgba);
-    layer.add(this.add.tileSprite(0, 0, worldW, worldH, dotsKey).setOrigin(0));
 
-    this.drawRoad(layer, pathPts, this.layout.dashSegs);
-    this.plantScenery(layer, worldW, worldH, placed);
+    // Speckle texture, per biome and theme.
+    const dotsKey = `dots-${room.theme}-${this.pal.light ? 'l' : 'd'}`;
+    ensureDotsTexture(this, dotsKey, zone.dotRgba);
+    layer.add(this.add.tileSprite(x, y, w, h, dotsKey).setOrigin(0));
 
-    layer.add(this.makeBubble(spawn.x, spawn.y - 54, 'WORD MEADOW', this.pal.mutedCss));
-
-    // Region banners: Public (mine + joined) up top, System (levels) below.
-    for (const b of this.layout.banners) {
-      const color = b.region === 'public' ? this.pal.kind.mine.css : this.pal.kind.level.css;
+    // Decor along the top and bottom of the room, clear of the door.
+    const decor = THEME_DECOR[room.theme];
+    const doorGap = (px: number) => Math.abs(px - (this.layout.door.x + this.layout.door.w / 2)) < 110;
+    for (let dx = 46, i = 0; dx < w - 40; dx += 120, i++) {
+      const px = x + dx + ((i * 37) % 36);
       layer.add(
         this.add
-          .text(b.x, b.y, b.label, {
-            fontFamily: FONT,
-            fontSize: '14px',
-            fontStyle: 'bold',
-            color,
-            backgroundColor: this.pal.cardCss,
-            padding: { x: 14, y: 6 },
+          .text(px, y + 34 + ((i * 23) % 16), decor[i % decor.length], {
+            fontSize: `${18 + ((i * 13) % 8)}px`,
             resolution: this.args.dpr,
           })
           .setOrigin(0.5),
       );
-    }
-
-    for (const p of placed) this.addStation(layer, p);
-
-    this.cameras.main.setBounds(0, 0, worldW, worldH);
-    this.cameras.main.setBackgroundColor(this.pal.grassEdge);
-
-    // A rebuild can move the road out from under the buddy — reel it back in.
-    if (this.buddy) {
-      const pos = snapToRoad(pathPts, this.buddy.x, this.buddy.y);
-      this.buddy.setPosition(pos.x, pos.y);
-    }
-    this.target = null;
-  }
-
-  private drawRoad(layer: Phaser.GameObjects.Container, pts: number[][], dashSegs: number[][]) {
-    const g = this.add.graphics();
-    const pass = (width: number, color: number, alpha = 1) => {
-      g.lineStyle(width, color, alpha);
-      g.fillStyle(color, alpha);
-      for (let i = 0; i < pts.length - 1; i++) {
-        g.lineBetween(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
-      }
-      // Round the joints — Graphics strokes have butt caps.
-      for (const [x, y] of pts) g.fillCircle(x, y, width / 2);
-    };
-    pass(ROAD_W + 10, this.pal.roadEdge);
-    pass(ROAD_W, this.pal.road);
-
-    // Dashed centerline (deduplicated segments — the polyline retraces itself).
-    g.lineStyle(3, this.pal.dash, this.pal.dashAlpha);
-    const DASH = 12, GAP = 18;
-    for (const [x1, y1, x2, y2] of dashSegs) {
-      const len = Math.hypot(x2 - x1, y2 - y1);
-      const ux = (x2 - x1) / (len || 1), uy = (y2 - y1) / (len || 1);
-      for (let d = GAP / 2; d + DASH < len; d += DASH + GAP) {
-        g.lineBetween(x1 + ux * d, y1 + uy * d, x1 + ux * (d + DASH), y1 + uy * (d + DASH));
-      }
-    }
-    layer.add(g);
-  }
-
-  private plantScenery(
-    layer: Phaser.GameObjects.Container,
-    worldW: number,
-    worldH: number,
-    placed: PlacedStation[],
-  ) {
-    const put = (x: number, y: number, emoji: string, size: number) =>
-      layer.add(
-        this.add
-          .text(x, y, emoji, { fontSize: `${size}px`, resolution: this.args.dpr })
-          .setOrigin(0.5),
-      );
-
-    // Forest edge on all four sides (deterministic pseudo-random offsets).
-    for (let x = 30, i = 0; x < worldW + 40; x += 82, i++) {
-      put(x + ((i * 37) % 40) - 20, 28 + ((i * 23) % 30), TREES[i % 3 === 0 ? 1 : 0], 30 + ((i * 13) % 14));
-      put(x + ((i * 53) % 44) - 22, worldH - 24 - ((i * 31) % 30), TREES[i % 3 === 1 ? 1 : 0], 30 + ((i * 7) % 14));
-    }
-    for (let y = 100, i = 0; y < worldH - 80; y += 86, i++) {
-      put(26 + ((i * 19) % 22), y, TREES[i % 3 === 2 ? 1 : 0], 28 + ((i * 11) % 12));
-      put(worldW - 24 - ((i * 29) % 22), y + 40, TREES[i % 2], 28 + ((i * 17) % 12));
-    }
-
-    // Ambient props sprinkled around each station, clear of the road.
-    placed.forEach((p, i) => {
-      for (let k = 0; k < 2; k++) {
-        const j = i * 2 + k;
-        const dx = (j % 2 === 0 ? -1 : 1) * (76 + ((j * 31) % 52));
-        const dy = (j % 3 === 0 ? -1 : 1) * (82 + ((j * 17) % 44));
-        put(
-          Math.min(Math.max(p.x + dx, 64), worldW - 64),
-          Math.min(Math.max(p.y + dy, 92), worldH - 84),
-          DECOR[j % DECOR.length],
-          17 + ((j * 11) % 10),
+      if (!doorGap(px)) {
+        layer.add(
+          this.add
+            .text(px + 24, y + h - 22 - ((i * 31) % 14), decor[(i + 3) % decor.length], {
+              fontSize: `${16 + ((i * 7) % 8)}px`,
+              resolution: this.args.dpr,
+            })
+            .setOrigin(0.5),
         );
       }
-    });
+    }
+
+    // Walls.
+    const wall = this.add.graphics();
+    wall.lineStyle(WALL, zone.wall, 1);
+    wall.strokeRoundedRect(x + WALL / 2, y + WALL / 2, w - WALL, h - WALL, 14);
+    layer.add(wall);
+
+    // Room label, Gather-style, pinned to the top-left corner.
+    layer.add(
+      this.add
+        .text(x + 16, y + 14, room.label, {
+          fontFamily: FONT,
+          fontSize: '12px',
+          fontStyle: 'bold',
+          color: zone.labelCss,
+          backgroundColor: this.pal.cardCss,
+          padding: { x: 10, y: 4 },
+          resolution: this.args.dpr,
+        })
+        .setOrigin(0),
+    );
   }
 
-  /** Small pill label (zone names, spawn sign, studying badge). */
-  private makeBubble(x: number, y: number, label: string, color: string, bg?: string) {
-    return this.add
-      .text(x, y, label, {
-        fontFamily: FONT,
-        fontSize: '10px',
-        fontStyle: 'bold',
-        color,
-        backgroundColor: bg ?? this.pal.cardCss,
-        padding: { x: 7, y: 3 },
-        resolution: this.args.dpr,
-      })
-      .setOrigin(0.5);
-  }
-
-  private addStation(layer: Phaser.GameObjects.Container, p: PlacedStation) {
+  private addStation(layer: Phaser.GameObjects.Container, p: PlacedStation, monster: MonsterId) {
     const kind = this.pal.kind[p.kind];
     const root = this.add.container(p.x, p.y);
 
-    const frame = this.add.graphics();
-    this.drawFrame(frame, p, false);
-    root.add(frame);
+    // Highlight ring, lit while the buddy is in reach (always on when active).
+    const ring = this.add
+      .circle(0, -12, 30)
+      .setStrokeStyle(2.5, kind.color, 0.9)
+      .setFillStyle(kind.color, 0.10)
+      .setVisible(p.active);
+    root.add(ring);
 
-    // Icon bubble.
-    const bubble = this.add.graphics();
-    bubble.fillStyle(kind.color, 0.18);
-    bubble.fillCircle(0, -26, 17);
-    root.add(bubble);
+    // The monster itself, idling with its walk-down bounce.
+    root.add(this.add.ellipse(0, 2, 30, 8, 0x000000, 0.25));
+    const sprite = this.add
+      .sprite(0, 2, monsterTextureKey(monster), 0)
+      .setOrigin(0.5, 1)
+      .setScale(2.4);
+    sprite.play({ key: `${monsterTextureKey(monster)}-bob`, delay: (p.x * 7 + p.y) % 400 });
+    root.add(sprite);
+
+    // Name pill under the monster, kind emoji inline.
     root.add(
       this.add
-        .text(0, -26, KIND_EMOJI[p.kind], { fontSize: '16px', resolution: this.args.dpr })
-        .setOrigin(0.5),
-    );
-
-    root.add(
-      this.add
-        .text(0, 0, p.name, {
+        .text(0, 12, `${KIND_EMOJI[p.kind]} ${p.name}`, {
           fontFamily: FONT,
-          fontSize: '11px',
+          fontSize: '10px',
           fontStyle: 'bold',
           color: this.pal.textCss,
+          backgroundColor: this.pal.cardCss,
+          padding: { x: 7, y: 3 },
           align: 'center',
-          wordWrap: { width: 94 },
+          wordWrap: { width: 110 },
           maxLines: 2,
           resolution: this.args.dpr,
         })
-        .setOrigin(0.5, 0.5),
+        .setOrigin(0.5, 0),
     );
 
-    const meta = `${p.words.length} words${p.learners ? `  ·  ${p.learners} 👥` : ''}`;
+    const meta = `${p.words.length} words${p.learners ? ` · ${p.learners} 👥` : ''}`;
     root.add(
       this.add
-        .text(0, 20, meta, {
+        .text(0, 36, meta, {
           fontFamily: FONT,
-          fontSize: '9px',
+          fontSize: '8px',
           fontStyle: 'bold',
           color: this.pal.mutedCss,
           resolution: this.args.dpr,
         })
-        .setOrigin(0.5),
+        .setOrigin(0.5, 0),
     );
 
     // Progress bar.
     const bar = this.add.graphics();
     bar.fillStyle(this.pal.track, 1);
-    bar.fillRoundedRect(-42, 30, 84, 5, 2.5);
+    bar.fillRoundedRect(-28, 49, 56, 4, 2);
     if (p.pct > 0) {
       bar.fillStyle(kind.color, 1);
-      bar.fillRoundedRect(-42, 30, Math.max(84 * (p.pct / 100), 6), 5, 2.5);
+      bar.fillRoundedRect(-28, 49, Math.max(56 * (p.pct / 100), 5), 4, 2);
     }
     root.add(bar);
 
     if (p.active) {
-      root.add(this.makeBubble(0, 62, 'STUDYING', this.pal.light ? '#ffffff' : '#1b1246', kind.css));
+      root.add(
+        this.add
+          .text(0, 58, 'STUDYING', {
+            fontFamily: FONT,
+            fontSize: '8px',
+            fontStyle: 'bold',
+            color: this.pal.light ? '#ffffff' : '#1b1246',
+            backgroundColor: kind.css,
+            padding: { x: 6, y: 2 },
+            resolution: this.args.dpr,
+          })
+          .setOrigin(0.5, 0),
+      );
     }
 
-    root.setSize(110, 100);
+    root.setSize(84, 100);
     root.setInteractive({ useHandCursor: true });
     root.on(
       'pointerdown',
       (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
         event.stopPropagation();
-        this.walkTo(p.x, p.y + 62); // stroll up to it — the card opens on arrival
+        this.routeTo(p.x, p.y + 50); // stroll up to it — the card opens on arrival
       },
     );
 
     layer.add(root);
-    this.nodes.push({ station: p, root, frame });
-  }
-
-  private drawFrame(g: Phaser.GameObjects.Graphics, p: PlacedStation, near: boolean) {
-    const kind = this.pal.kind[p.kind];
-    g.clear();
-    g.fillStyle(0x000000, 0.14);
-    g.fillRoundedRect(-52, -44, 104, 96, 16); // soft drop shadow
-    g.fillStyle(this.pal.card, 1);
-    g.fillRoundedRect(-52, -48, 104, 96, 16);
-    g.lineStyle(2, near || p.active ? kind.color : this.pal.border, 1);
-    g.strokeRoundedRect(-52, -48, 104, 96, 16);
+    this.nodes.push({ station: p, root, ring });
   }
 
   // ── The buddy ──
@@ -388,23 +392,23 @@ export class WorldScene extends Phaser.Scene {
         frames: this.anims.generateFrameNumbers(walkKey, {
           frames: [col, col + 4, col + 8, col + 12],
         }),
-        frameRate: 8,
+        frameRate: 11,
         repeat: -1,
       });
     });
 
-    // Container origin = the buddy's feet on the road.
+    // Container origin = the buddy's feet.
     this.buddy = this.add.container(spawn.x, spawn.y).setDepth(10);
-    this.buddy.add(this.add.ellipse(0, 3, 40, 10, 0x000000, 0.28));
+    this.buddy.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.28));
     // 16px pixel-art frame, scaled up; the buddy grows a little per stage.
     this.sprite = this.add
-      .sprite(0, 3, buddyTextureKey(this.args.animalId, 'idle'), 0)
+      .sprite(0, 2, buddyTextureKey(this.args.animalId, 'idle'), 0)
       .setOrigin(0.5, 1)
-      .setScale(4.5 + this.args.stage * 0.35);
+      .setScale(2.55 + this.args.stage * 0.2);
     this.buddy.add(this.sprite);
     this.buddy.add(
       this.add
-        .text(0, 16, this.args.buddyName, {
+        .text(0, 10, this.args.buddyName, {
           fontFamily: FONT,
           fontSize: '10px',
           fontStyle: 'bold',
@@ -430,16 +434,39 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private walkTo(x: number, y: number) {
-    this.target = snapToRoad(this.layout.pathPts, x, y);
+  // ── Movement ──
+
+  private canStand(x: number, y: number): boolean {
+    return this.layout.walk.some((r) => rectContains(r, x, y));
   }
 
-  // ── Simulation ──
+  private zoneAt(x: number, y: number): ZoneId | null {
+    for (const room of this.layout.rooms) {
+      if (rectContains(room.rect, x, y)) return room.zone;
+    }
+    return null;
+  }
+
+  /** Walk to (x, y), detouring through the doorway when crossing rooms. */
+  private routeTo(x: number, y: number) {
+    const target = clampToRects(this.layout.walk, x, y);
+    const from = this.zoneAt(this.buddy.x, this.buddy.y);
+    const to = this.zoneAt(target.x, target.y);
+    const route: number[][] = [];
+    if (from && to && from !== to) {
+      const d = this.layout.door;
+      const cx = d.x + d.w / 2;
+      const top = [cx, d.y + 10];
+      const bottom = [cx, d.y + d.h - 10];
+      route.push(...(from === 'public' ? [top, bottom] : [bottom, top]));
+    }
+    route.push([target.x, target.y]);
+    this.route = route;
+  }
 
   update(_time: number, dtMs: number) {
     if (!this.ready) return;
     const dt = Math.min(dtMs / 1000, 0.05);
-    const { pathPts, worldW, worldH } = this.layout;
 
     let vx = 0, vy = 0;
     const left = this.cursors.left.isDown || this.wasd.A.isDown;
@@ -448,27 +475,30 @@ export class WorldScene extends Phaser.Scene {
     const down = this.cursors.down.isDown || this.wasd.S.isDown;
 
     if (left || right || up || down) {
-      this.target = null; // keyboard overrides tap-to-walk
+      this.route = []; // keyboard overrides tap-to-walk
       vx = (right ? 1 : 0) - (left ? 1 : 0);
       vy = (down ? 1 : 0) - (up ? 1 : 0);
       const len = Math.hypot(vx, vy) || 1;
       vx = (vx / len) * SPEED;
       vy = (vy / len) * SPEED;
-    } else if (this.target) {
-      const dx = this.target.x - this.buddy.x, dy = this.target.y - this.buddy.y;
+    } else if (this.route.length > 0) {
+      const [tx, ty] = this.route[0];
+      const dx = tx - this.buddy.x, dy = ty - this.buddy.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < 6) this.target = null;
-      else {
+      if (dist < 6) {
+        this.route.shift();
+      } else {
         vx = (dx / dist) * SPEED;
         vy = (dy / dist) * SPEED;
       }
     }
 
-    const nx = Math.min(Math.max(this.buddy.x + vx * dt, 44), worldW - 44);
-    const ny = Math.min(Math.max(this.buddy.y + vy * dt, 50), worldH - 50);
-    // No wandering into the grass — slide along the road's edge.
-    const pos = snapToRoad(pathPts, nx, ny);
-    this.buddy.setPosition(pos.x, pos.y);
+    // Walls: slide along them instead of stopping dead.
+    const nx = this.buddy.x + vx * dt;
+    const ny = this.buddy.y + vy * dt;
+    if (this.canStand(nx, ny)) this.buddy.setPosition(nx, ny);
+    else if (this.canStand(nx, this.buddy.y)) this.buddy.setX(nx);
+    else if (this.canStand(this.buddy.x, ny)) this.buddy.setY(ny);
 
     const moving = vx !== 0 || vy !== 0;
     if (moving) {
@@ -478,8 +508,12 @@ export class WorldScene extends Phaser.Scene {
     }
     this.applyAnim(moving);
 
-    this.targetMark.setVisible(Boolean(this.target));
-    if (this.target) this.targetMark.setPosition(this.target.x, this.target.y);
+    const hasRoute = this.route.length > 0;
+    this.targetMark.setVisible(hasRoute);
+    if (hasRoute) {
+      const [tx, ty] = this.route[this.route.length - 1];
+      this.targetMark.setPosition(tx, ty);
+    }
 
     // Nearest station within reach → tell React (rare change).
     let best: StationNode | null = null;
@@ -492,12 +526,12 @@ export class WorldScene extends Phaser.Scene {
     if (id !== this.nearestId) {
       const prev = this.nodes.find((n) => n.station.id === this.nearestId);
       if (prev) {
-        this.drawFrame(prev.frame, prev.station, false);
+        prev.ring.setVisible(prev.station.active);
         this.tweens.add({ targets: prev.root, scale: 1, duration: 150 });
       }
       if (best) {
-        this.drawFrame(best.frame, best.station, true);
-        this.tweens.add({ targets: best.root, scale: 1.08, duration: 150, ease: 'back.out' });
+        best.ring.setVisible(true);
+        this.tweens.add({ targets: best.root, scale: 1.12, duration: 150, ease: 'back.out' });
       }
       this.nearestId = id;
       this.game.events.emit(WORLD_EVENTS.near, id);
