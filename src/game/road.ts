@@ -1,25 +1,33 @@
 // Pure world-layout geometry: no Phaser, no React, unit-testable.
-// The road snakes like lines of text: across a row, down at the edge, back the
-// other way across the next row. Stations per row adapt to the view width so
-// the world always fills the whole viewport.
+//
+// The map is a ladder:            [A]------[B]
+//                                      |
+//                                 [C]------[D]
+//                                      |
+//                                 [E]------[F]
+// Two stations per rung, connected by a vertical road through the middle.
+// Rungs are grouped into two regions — Public (mine + joined) and System
+// (levels) — with a banner and extra breathing room at each region start.
 
 import type { WorldStation } from './types';
 
-export const GAP_X = 230;          // horizontal spacing between stations
-export const GAP_Y = 240;          // vertical spacing between rows
-export const TURN_EXT = 120;       // road overshoot past a row's last station at a turn
-export const EDGE = TURN_EXT + 80; // margin kept clear of the world edge for turns
+export const GAP_Y = 240;          // vertical spacing between rungs
+export const REGION_PAD = 110;     // headroom above a region's first rung (banner lives here)
 export const ROAD_W = 64;          // road stroke width
 export const ROAD_R = ROAD_W / 2;  // how far off the centerline the buddy may step
 export const SPEED = 250;          // buddy speed, px/s
 export const REACH = 105;          // distance at which a station "opens"
-export const SPAWN_X = 90;
 
 export interface PlacedStation extends WorldStation {
   x: number;
   y: number;
-  /** First station of its kind — carries the zone label. */
-  zoneStart: boolean;
+}
+
+export interface WorldBanner {
+  label: string;
+  region: 'public' | 'system';
+  x: number;
+  y: number;
 }
 
 export interface WorldLayout {
@@ -27,48 +35,92 @@ export interface WorldLayout {
   worldH: number;
   spawn: { x: number; y: number };
   placed: PlacedStation[];
-  /** Road centerline: spawn → across each row → down at the edge → back across. */
+  /** Road centerline as one polyline (revisited segments are harmless). */
   pathPts: number[][];
+  /** De-duplicated segments for the dashed centerline: [x1, y1, x2, y2]. */
+  dashSegs: number[][];
+  banners: WorldBanner[];
 }
 
-/** Boustrophedon layout: even rows run left → right, odd rows right → left. */
+interface Rung {
+  region: WorldBanner['region'];
+  list: WorldStation[];
+}
+
 export function computeLayout(stations: WorldStation[], viewW: number, viewH: number): WorldLayout {
-  const perRow = Math.max(1, Math.floor((viewW - 2 * EDGE) / GAP_X) + 1);
-  const rowCount = Math.max(1, Math.ceil(stations.length / perRow));
-  const contentH = (rowCount - 1) * GAP_Y;
-  const worldH = Math.max(viewH, contentH + 330);
-  const baseY = Math.round((worldH - contentH) / 2);
+  const pub = stations.filter((s) => s.kind !== 'level');
+  const sys = stations.filter((s) => s.kind === 'level');
 
-  const cols = Math.min(perRow, Math.max(stations.length, 1));
-  const rowSpan = (cols - 1) * GAP_X;
-  const worldW = Math.max(viewW, rowSpan + 2 * EDGE);
-  const baseX = Math.round((worldW - rowSpan) / 2);
+  // Station columns sit either side of the center connector, squeezing on
+  // narrow screens; the world is never narrower than the viewport.
+  const colOff = Math.max(150, Math.min(250, Math.round((viewW - 260) / 2)));
+  const worldW = Math.max(viewW, colOff * 2 + 320);
+  const midX = Math.round(worldW / 2);
 
-  const placed: PlacedStation[] = stations.map((s, i) => {
-    const row = Math.floor(i / perRow);
-    const c = i % perRow;
-    const col = row % 2 === 0 ? c : perRow - 1 - c;
-    return {
-      ...s,
-      x: baseX + col * GAP_X,
-      y: baseY + row * GAP_Y + Math.round(Math.sin(i * 2.3) * 14),
-      zoneStart: i === 0 || stations[i - 1].kind !== s.kind,
-    };
+  const rungs: Rung[] = [];
+  ([['public', pub], ['system', sys]] as const).forEach(([region, list]) => {
+    for (let i = 0; i < list.length; i += 2) rungs.push({ region, list: list.slice(i, i + 2) });
   });
 
-  const pathPts: number[][] = [[SPAWN_X, baseY + 26]];
-  placed.forEach((p, i) => {
-    pathPts.push([p.x, p.y + 26]);
-    const next = placed[i + 1];
-    if (next && Math.floor(i / perRow) !== Math.floor((i + 1) / perRow)) {
-      // Row change: overshoot past the row's last station, turn straight down.
-      const dir = Math.floor(i / perRow) % 2 === 0 ? 1 : -1;
-      pathPts.push([p.x + dir * TURN_EXT, p.y + 26]);
-      pathPts.push([p.x + dir * TURN_EXT, next.y + 26]);
+  // Vertical rhythm: banner headroom at each region start, then rungs.
+  const rungY: number[] = [];
+  const banners: WorldBanner[] = [];
+  let cursor = 0;
+  let prev: WorldBanner['region'] | null = null;
+  for (const rung of rungs) {
+    if (rung.region !== prev) {
+      banners.push({
+        label: rung.region === 'public' ? 'PUBLIC' : 'SYSTEM',
+        region: rung.region,
+        x: midX,
+        y: cursor,
+      });
+      cursor += REGION_PAD;
+      prev = rung.region;
+    }
+    rungY.push(cursor);
+    cursor += GAP_Y;
+  }
+  const contentH = Math.max(cursor - GAP_Y, 0);
+  const worldH = Math.max(viewH, contentH + 300);
+  const baseY = Math.round((worldH - contentH) / 2);
+  for (const b of banners) b.y += baseY - 22;
+
+  if (rungs.length === 0) {
+    const spawn = { x: midX, y: Math.round(worldH / 2) };
+    return { worldW, worldH, spawn, placed: [], pathPts: [[spawn.x, spawn.y]], dashSegs: [], banners: [] };
+  }
+
+  const placed: PlacedStation[] = [];
+  rungs.forEach((rung, r) => {
+    const y = baseY + rungY[r];
+    rung.list.forEach((s, i) => {
+      placed.push({
+        ...s,
+        x: i === 0 ? midX - colOff : midX + colOff,
+        y: y + Math.round(Math.sin(placed.length * 2.3) * 12),
+      });
+    });
+  });
+
+  // Road: spawn → across each rung → back to the middle → drop to the next.
+  const spawn = { x: Math.max(70, midX - colOff - 150), y: baseY + rungY[0] + 26 };
+  const pathPts: number[][] = [[spawn.x, spawn.y]];
+  const dashSegs: number[][] = [];
+  rungs.forEach((rung, r) => {
+    const y = baseY + rungY[r] + 26;
+    const left = midX - colOff;
+    const right = rung.list.length > 1 ? midX + colOff : midX;
+    pathPts.push([left, y], [right, y], [midX, y]);
+    dashSegs.push([r === 0 ? spawn.x : left, y, right, y]);
+    if (r + 1 < rungs.length) {
+      const nextY = baseY + rungY[r + 1] + 26;
+      pathPts.push([midX, nextY]);
+      dashSegs.push([midX, y, midX, nextY]);
     }
   });
 
-  return { worldW, worldH, spawn: { x: SPAWN_X, y: baseY + 26 }, placed, pathPts };
+  return { worldW, worldH, spawn, placed, pathPts, dashSegs, banners };
 }
 
 /** Closest point on the road centerline to (x, y), plus its distance. */

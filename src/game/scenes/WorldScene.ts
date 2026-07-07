@@ -6,7 +6,9 @@ import {
   REACH, ROAD_W, SPEED, type PlacedStation, type WorldLayout,
 } from '../road';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
-import { buddyTextureKey, loadBuddyTexture, ensureDotsTexture } from '../textures';
+import {
+  BUDDY_DIRS, buddyTextureKey, loadBuddyTexture, ensureDotsTexture, type BuddyDir,
+} from '../textures';
 
 export interface WorldSceneData {
   stations: WorldStation[];
@@ -18,11 +20,7 @@ export interface WorldSceneData {
   dpr: number;
 }
 
-const KIND = {
-  mine: { emoji: '👤', zone: 'My collections' },
-  joined: { emoji: '👥', zone: 'Joined' },
-  level: { emoji: '🎓', zone: 'Levels' },
-} as const;
+const KIND_EMOJI = { mine: '👤', joined: '👥', level: '🎓' } as const;
 
 const TREES = ['🌲', '🌳'];
 const DECOR = ['🌼', '🌷', '🍄', '🪨', '🌻', '🌿', '🪵', '🌸', '🦋', '🌾'];
@@ -53,8 +51,7 @@ export class WorldScene extends Phaser.Scene {
   private buddy!: Phaser.GameObjects.Container;
   private sprite!: Phaser.GameObjects.Sprite;
   private walking = false;
-  private idleTween?: Phaser.Tweens.Tween;
-  private facing = 1;
+  private facing: BuddyDir = 'down';
   private target: { x: number; y: number } | null = null;
   private targetMark!: Phaser.GameObjects.Arc;
   private nearestId: string | null = null;
@@ -77,6 +74,14 @@ export class WorldScene extends Phaser.Scene {
   create() {
     this.pal = worldPalette();
     this.cameras.main.setZoom(this.args.dpr);
+    this.cameras.main.setRoundPixels(true);
+    // Belt and braces: the pixelArt config flag doesn't reliably reach
+    // runtime-loaded sheets, and linear filtering blurs 16px art badly.
+    for (const sheet of ['idle', 'walk'] as const) {
+      this.textures
+        .get(buddyTextureKey(this.args.animalId, sheet))
+        .setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
 
     const kb = this.input.keyboard!;
     this.cursors = kb.createCursorKeys();
@@ -165,10 +170,28 @@ export class WorldScene extends Phaser.Scene {
     ensureDotsTexture(this, dotsKey, this.pal.dotRgba);
     layer.add(this.add.tileSprite(0, 0, worldW, worldH, dotsKey).setOrigin(0));
 
-    this.drawRoad(layer, pathPts);
+    this.drawRoad(layer, pathPts, this.layout.dashSegs);
     this.plantScenery(layer, worldW, worldH, placed);
 
     layer.add(this.makeBubble(spawn.x, spawn.y - 54, 'WORD MEADOW', this.pal.mutedCss));
+
+    // Region banners: Public (mine + joined) up top, System (levels) below.
+    for (const b of this.layout.banners) {
+      const color = b.region === 'public' ? this.pal.kind.mine.css : this.pal.kind.level.css;
+      layer.add(
+        this.add
+          .text(b.x, b.y, b.label, {
+            fontFamily: FONT,
+            fontSize: '14px',
+            fontStyle: 'bold',
+            color,
+            backgroundColor: this.pal.cardCss,
+            padding: { x: 14, y: 6 },
+            resolution: this.args.dpr,
+          })
+          .setOrigin(0.5),
+      );
+    }
 
     for (const p of placed) this.addStation(layer, p);
 
@@ -183,7 +206,7 @@ export class WorldScene extends Phaser.Scene {
     this.target = null;
   }
 
-  private drawRoad(layer: Phaser.GameObjects.Container, pts: number[][]) {
+  private drawRoad(layer: Phaser.GameObjects.Container, pts: number[][], dashSegs: number[][]) {
     const g = this.add.graphics();
     const pass = (width: number, color: number, alpha = 1) => {
       g.lineStyle(width, color, alpha);
@@ -197,11 +220,10 @@ export class WorldScene extends Phaser.Scene {
     pass(ROAD_W + 10, this.pal.roadEdge);
     pass(ROAD_W, this.pal.road);
 
-    // Dashed centerline, walked segment by segment.
+    // Dashed centerline (deduplicated segments — the polyline retraces itself).
     g.lineStyle(3, this.pal.dash, this.pal.dashAlpha);
     const DASH = 12, GAP = 18;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+    for (const [x1, y1, x2, y2] of dashSegs) {
       const len = Math.hypot(x2 - x1, y2 - y1);
       const ux = (x2 - x1) / (len || 1), uy = (y2 - y1) / (len || 1);
       for (let d = GAP / 2; d + DASH < len; d += DASH + GAP) {
@@ -280,7 +302,7 @@ export class WorldScene extends Phaser.Scene {
     root.add(bubble);
     root.add(
       this.add
-        .text(0, -26, KIND[p.kind].emoji, { fontSize: '16px', resolution: this.args.dpr })
+        .text(0, -26, KIND_EMOJI[p.kind], { fontSize: '16px', resolution: this.args.dpr })
         .setOrigin(0.5),
     );
 
@@ -322,9 +344,6 @@ export class WorldScene extends Phaser.Scene {
     }
     root.add(bar);
 
-    if (p.zoneStart) {
-      root.add(this.makeBubble(0, -72, KIND[p.kind].zone.toUpperCase(), kind.css));
-    }
     if (p.active) {
       root.add(this.makeBubble(0, 62, 'STUDYING', this.pal.light ? '#ffffff' : '#1b1246', kind.css));
     }
@@ -358,29 +377,34 @@ export class WorldScene extends Phaser.Scene {
 
   private createBuddy() {
     const { spawn } = this.layout;
-    const key = buddyTextureKey(this.args.animalId);
-    const anim = `${key}-walk`;
-    if (!this.anims.exists(anim)) {
+    // One walk clip per direction: sheet columns are directions, rows are the
+    // four animation frames, so a direction's frames are col, col+4, col+8, col+12.
+    const walkKey = buddyTextureKey(this.args.animalId, 'walk');
+    BUDDY_DIRS.forEach((dir, col) => {
+      const key = `${walkKey}-${dir}`;
+      if (this.anims.exists(key)) return;
       this.anims.create({
-        key: anim,
-        frames: this.anims.generateFrameNumbers(key, { start: 0, end: 1 }),
-        frameRate: 6,
+        key,
+        frames: this.anims.generateFrameNumbers(walkKey, {
+          frames: [col, col + 4, col + 8, col + 12],
+        }),
+        frameRate: 8,
         repeat: -1,
       });
-    }
+    });
 
     // Container origin = the buddy's feet on the road.
     this.buddy = this.add.container(spawn.x, spawn.y).setDepth(10);
-    this.buddy.add(this.add.ellipse(0, 2, 40, 10, 0x000000, 0.28));
+    this.buddy.add(this.add.ellipse(0, 3, 40, 10, 0x000000, 0.28));
     // 16px pixel-art frame, scaled up; the buddy grows a little per stage.
     this.sprite = this.add
-      .sprite(0, 0, key, 0)
+      .sprite(0, 3, buddyTextureKey(this.args.animalId, 'idle'), 0)
       .setOrigin(0.5, 1)
-      .setScale(4 + this.args.stage * 0.35);
+      .setScale(4.5 + this.args.stage * 0.35);
     this.buddy.add(this.sprite);
     this.buddy.add(
       this.add
-        .text(0, 14, this.args.buddyName, {
+        .text(0, 16, this.args.buddyName, {
           fontFamily: FONT,
           fontSize: '10px',
           fontStyle: 'bold',
@@ -391,32 +415,18 @@ export class WorldScene extends Phaser.Scene {
         })
         .setOrigin(0.5, 0),
     );
-    this.startIdle();
   }
 
-  private startIdle() {
-    this.sprite.stop();
-    this.sprite.setFrame(0);
-    this.idleTween = this.tweens.add({
-      targets: this.sprite,
-      y: -3,
-      duration: 900,
-      yoyo: true,
-      repeat: -1,
-      ease: 'sine.inout',
-    });
-  }
-
-  private setWalking(on: boolean) {
-    if (on === this.walking) return;
-    this.walking = on;
-    this.idleTween?.remove();
-    this.idleTween = undefined;
-    if (on) {
-      this.sprite.setY(0);
-      this.sprite.play(`${buddyTextureKey(this.args.animalId)}-walk`);
-    } else {
-      this.startIdle();
+  /** Play the right clip for the current motion: 4-direction walk or a still
+   *  idle frame facing wherever the buddy last walked. */
+  private applyAnim(moving: boolean) {
+    if (moving) {
+      this.walking = true;
+      this.sprite.play(`${buddyTextureKey(this.args.animalId, 'walk')}-${this.facing}`, true);
+    } else if (this.walking) {
+      this.walking = false;
+      this.sprite.stop();
+      this.sprite.setTexture(buddyTextureKey(this.args.animalId, 'idle'), BUDDY_DIRS.indexOf(this.facing));
     }
   }
 
@@ -429,7 +439,7 @@ export class WorldScene extends Phaser.Scene {
   update(_time: number, dtMs: number) {
     if (!this.ready) return;
     const dt = Math.min(dtMs / 1000, 0.05);
-    const { pathPts, placed, worldW, worldH } = this.layout;
+    const { pathPts, worldW, worldH } = this.layout;
 
     let vx = 0, vy = 0;
     const left = this.cursors.left.isDown || this.wasd.A.isDown;
@@ -460,9 +470,13 @@ export class WorldScene extends Phaser.Scene {
     const pos = snapToRoad(pathPts, nx, ny);
     this.buddy.setPosition(pos.x, pos.y);
 
-    if (vx !== 0) this.facing = vx > 0 ? 1 : -1;
-    this.sprite.setFlipX(this.facing < 0);
-    this.setWalking(vx !== 0 || vy !== 0);
+    const moving = vx !== 0 || vy !== 0;
+    if (moving) {
+      this.facing = Math.abs(vx) >= Math.abs(vy)
+        ? (vx > 0 ? 'right' : 'left')
+        : (vy > 0 ? 'down' : 'up');
+    }
+    this.applyAnim(moving);
 
     this.targetMark.setVisible(Boolean(this.target));
     if (this.target) this.targetMark.setPosition(this.target.x, this.target.y);

@@ -1,34 +1,33 @@
 // Texture loading for the world scene.
 //
-// Buddy sprites are 2-frame 16×16 pixel-art flipbooks (facing right) from the
-// CC0 Ninja Adventure pack — see public/game/animals/README.md for the
-// mapping and license. Richer sheets (4-direction walks, skill effects) can
-// drop in here later without touching the scene.
+// Buddy sprites are 16×16 four-direction characters from the CC0 Ninja
+// Adventure pack. Direction order in both sheets is down, up, left, right:
+// the walk sheet is 4 direction columns × 4 frame rows, the idle sheet is one
+// frame per direction. See public/game/animals/README.md for the mapping.
 
 import Phaser from 'phaser';
 import type { AnimalId } from '../lib/companion';
 
 export const BUDDY_FRAME = 16;
 
-const SHEETS: Record<AnimalId, string> = {
-  fox: 'fox.png',
-  owl: 'owl.png',
-  cat: 'cat.png',
-  turtle: 'turtle.png',
-};
+/** Direction order of the sheet columns. */
+export const BUDDY_DIRS = ['down', 'up', 'left', 'right'] as const;
+export type BuddyDir = (typeof BUDDY_DIRS)[number];
 
-export function buddyTextureKey(animalId: AnimalId): string {
-  return `buddy-${animalId}`;
+export function buddyTextureKey(animalId: AnimalId, sheet: 'idle' | 'walk'): string {
+  return `buddy-${animalId}-${sheet}`;
 }
 
-/** Queue the buddy's spritesheet (call from a scene's preload). */
+/** Queue the buddy's idle + walk spritesheets (call from a scene's preload). */
 export function loadBuddyTexture(scene: Phaser.Scene, animalId: AnimalId): void {
-  const key = buddyTextureKey(animalId);
-  if (scene.textures.exists(key)) return;
-  scene.load.spritesheet(key, `${import.meta.env.BASE_URL}game/animals/${SHEETS[animalId]}`, {
-    frameWidth: BUDDY_FRAME,
-    frameHeight: BUDDY_FRAME,
-  });
+  for (const sheet of ['idle', 'walk'] as const) {
+    const key = buddyTextureKey(animalId, sheet);
+    if (scene.textures.exists(key)) continue;
+    scene.load.spritesheet(key, `${import.meta.env.BASE_URL}game/animals/${animalId}-${sheet}.png`, {
+      frameWidth: BUDDY_FRAME,
+      frameHeight: BUDDY_FRAME,
+    });
+  }
 }
 
 /** Tileable grass speckle, drawn once per theme. */
