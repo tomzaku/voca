@@ -4,7 +4,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
+import { isMobile } from '../lib/device';
 import { CollectionQuiz } from './CollectionQuiz';
+import { CollectionWorld, type WorldStation } from './CollectionWorld';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { supabase } from '../lib/supabase';
@@ -21,6 +23,8 @@ Rules:
 I will paste your answer directly into a vocabulary app.`;
   return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
 }
+
+const VIEW_KEY = 'voca-collections-view';
 
 /** Parse a free-form words input (newlines/commas) into clean single words. */
 function parseWords(input: string): string[] {
@@ -289,12 +293,45 @@ export function CollectionsPage() {
 
   // Collections joined via share links (someone else's) — durable across
   // refreshes: hydrated from collection_members on login, cached locally.
-  const joined = joinedIds
+  const joined = useMemo(() => joinedIds
     .filter((id) => !mine.some((c) => c.id === id))
     .map((id) => shared[id])
-    .filter((c): c is UserCollection => Boolean(c));
+    .filter((c): c is UserCollection => Boolean(c)), [joinedIds, mine, shared]);
   const [searchParams] = useSearchParams();
   const systemCollections = useMemo(() => listCollections(), []);
+
+  // ── List vs Explore (walk your buddy around the map) ──
+  const [view, setView] = useState<'list' | 'world'>(() => {
+    try {
+      const saved = localStorage.getItem(VIEW_KEY);
+      if (saved === 'world' || saved === 'list') return saved;
+    } catch { /* ignore */ }
+    // No saved choice yet: desktop starts in Explore, small screens in List.
+    return isMobile() ? 'list' : 'world';
+  });
+  const switchView = (v: 'list' | 'world') => {
+    setView(v);
+    try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ }
+  };
+
+  // Every collection as a station on the Explore map: mine → joined → levels.
+  const stations = useMemo<WorldStation[]>(() => [
+    ...mine.map((c) => ({
+      id: c.id, name: c.name, kind: 'mine' as const, words: c.words,
+      pct: completionPct(c.words, progress), active: c.id === activeId,
+    })),
+    ...joined.map((c) => ({
+      id: c.id, name: c.name, kind: 'joined' as const, words: c.words,
+      pct: completionPct(c.words, progress), active: c.id === activeId,
+    })),
+    ...systemCollections.map((c) => {
+      const words = getCollection(c.id).words.map((w) => w.word);
+      return {
+        id: c.id, name: c.name, kind: 'level' as const, words,
+        pct: completionPct(words, progress), active: c.id === activeId,
+      };
+    }),
+  ], [mine, joined, systemCollections, progress, activeId]);
 
   // ── Shared link (?c=<id>) ──
   const sharedId = searchParams.get('c');
@@ -404,9 +441,31 @@ export function CollectionsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Collections</h1>
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <h1 className="text-2xl font-display font-bold text-text-primary">Collections</h1>
+        <div className="flex rounded-xl border-2 border-border bg-bg-card p-0.5 shrink-0">
+          <button
+            onClick={() => switchView('list')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+              view === 'list' ? 'bg-accent-cyan text-bg-primary' : 'text-text-muted hover:text-text-primary'
+            }`}
+          >
+            <Icon icon="lucide:list" /> List
+          </button>
+          <button
+            onClick={() => switchView('world')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+              view === 'world' ? 'bg-accent-cyan text-bg-primary' : 'text-text-muted hover:text-text-primary'
+            }`}
+          >
+            <Icon icon="lucide:map" /> Explore
+          </button>
+        </div>
+      </div>
       <p className="text-sm text-text-muted mb-6">
-        Pick the set of words you want to study. Your choice syncs across devices.
+        {view === 'world'
+          ? 'Walk your buddy up to a collection to study it.'
+          : 'Pick the set of words you want to study. Your choice syncs across devices.'}
       </p>
 
       {/* ── Shared with you (via link) ── */}
@@ -445,6 +504,17 @@ export function CollectionsPage() {
         </div>
       )}
 
+      {/* ── Explore mode: your buddy walks the map to pick a collection ── */}
+      {view === 'world' && (
+        <CollectionWorld
+          stations={stations}
+          onStudy={(s) => pick(s.id, s.name)}
+          onPreview={(s) => openPreview(s.name, s.words)}
+          onQuiz={(s) => setQuiz({ name: s.name, words: s.words })}
+        />
+      )}
+
+      {view === 'list' && (<>
       {/* ── My collections ── */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-2">
@@ -703,6 +773,7 @@ export function CollectionsPage() {
           })}
         </div>
       </section>
+      </>)}
 
       <button
         onClick={() => navigate('/')}
