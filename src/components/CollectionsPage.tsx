@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -6,8 +6,13 @@ import { useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
 import { isMobile } from '../lib/device';
 import { CollectionQuiz } from './CollectionQuiz';
-import { CollectionWorld, type WorldStation } from './CollectionWorld';
+import type { WorldStation } from '../game/types';
 import { MemberAvatars } from './MemberAvatars';
+
+// Explore mode pulls in Phaser (~1 MB) — only load it when someone opens it.
+const CollectionWorld = lazy(() =>
+  import('./CollectionWorld').then((m) => ({ default: m.CollectionWorld })),
+);
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import type { WordProgress } from '../types';
@@ -393,12 +398,20 @@ export function CollectionsPage() {
 
       {/* ── Explore mode: your buddy walks the map to pick a collection ── */}
       {view === 'world' && (
-        <CollectionWorld
-          stations={stations}
-          onStudy={(s) => pick(s.id, s.name)}
-          onPreview={(s) => openPreview(s.name, s.words)}
-          onQuiz={(s) => setQuiz({ name: s.name, words: s.words })}
-        />
+        <Suspense
+          fallback={
+            <div className="h-[440px] rounded-2xl border-2 border-border bg-bg-card flex items-center justify-center text-sm font-bold text-text-muted">
+              Loading the meadow…
+            </div>
+          }
+        >
+          <CollectionWorld
+            stations={stations}
+            onStudy={(s) => pick(s.id, s.name)}
+            onPreview={(s) => openPreview(s.name, s.words)}
+            onQuiz={(s) => setQuiz({ name: s.name, words: s.words })}
+          />
+        </Suspense>
       )}
 
       {view === 'list' && (<>

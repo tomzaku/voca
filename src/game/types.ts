@@ -1,0 +1,24 @@
+// Types that cross the React ↔ Phaser boundary. Keep this file dependency-free
+// so game code never imports React and components never import game internals.
+
+/** A collection rendered as a station on the world map. */
+export interface WorldStation {
+  id: string;
+  name: string;
+  kind: 'mine' | 'joined' | 'level';
+  words: string[];
+  /** Percent of the words the viewer has finished. */
+  pct: number;
+  /** Currently the active (studying) collection. */
+  active: boolean;
+  /** How many users study this collection (shown when > 0). */
+  learners?: number;
+}
+
+export type StationKind = WorldStation['kind'];
+
+/** Events the game emits on `game.events` for the React shell. */
+export const WORLD_EVENTS = {
+  /** Buddy walked within reach of a station (payload: station id or null). */
+  near: 'world:near',
+} as const;
