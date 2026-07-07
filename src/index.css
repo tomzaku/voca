@@ -332,12 +332,33 @@ body {
 .companion-float  { animation: companionFloat 1s ease-in-out; }
 
 /* ── Collection world (explore mode) ── */
+/* A forest clearing: mossy grass with lighter patches and a dirt road.
+   Dark theme = the clearing at night; light theme = a sunny meadow. */
 .world-ground {
+  --world-grass-1: #1e4230;
+  --world-grass-2: #173325;
+  --world-patch: rgba(140, 230, 170, 0.06);
+  --world-dot: rgba(160, 235, 185, 0.12);
+  --world-road: #55482e;
+  --world-road-edge: #423821;
+  --world-road-dash: rgba(255, 235, 175, 0.38);
   background:
-    radial-gradient(circle, var(--color-bg-tertiary) 2px, transparent 2.5px) 0 0 / 34px 34px,
-    radial-gradient(circle, var(--color-bg-tertiary) 1.5px, transparent 2px) 17px 17px / 34px 34px,
-    var(--color-bg-secondary);
+    radial-gradient(closest-side, var(--world-patch), transparent) 10% 25% / 460px 280px no-repeat,
+    radial-gradient(closest-side, var(--world-patch), transparent) 50% 80% / 540px 300px no-repeat,
+    radial-gradient(closest-side, var(--world-patch), transparent) 85% 30% / 480px 300px no-repeat,
+    radial-gradient(circle, var(--world-dot) 2px, transparent 2.5px) 0 0 / 34px 34px,
+    radial-gradient(circle, var(--world-dot) 1.5px, transparent 2px) 17px 17px / 34px 34px,
+    linear-gradient(180deg, var(--world-grass-2) 0%, var(--world-grass-1) 28%, var(--world-grass-1) 72%, var(--world-grass-2) 100%);
   cursor: pointer;
+}
+[data-theme="light"] .world-ground {
+  --world-grass-1: #a3d87e;
+  --world-grass-2: #8fca6a;
+  --world-patch: rgba(255, 255, 255, 0.25);
+  --world-dot: rgba(60, 125, 60, 0.16);
+  --world-road: #e8cd96;
+  --world-road-edge: #cfab6e;
+  --world-road-dash: rgba(255, 255, 255, 0.8);
 }
 /* Waddle while moving; gentle bob while standing still. */
 .world-buddy { animation: companionBob 3s ease-in-out infinite; }
