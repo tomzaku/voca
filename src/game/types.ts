@@ -17,6 +17,9 @@ export interface WorldStation {
 
 export type StationKind = WorldStation['kind'];
 
+/** Biome looks a map template can use for its areas. */
+export type ThemeId = 'forest' | 'desert';
+
 /** Events the game emits on `game.events` for the React shell. */
 export const WORLD_EVENTS = {
   /** Buddy walked within reach of a station (payload: station id or null). */

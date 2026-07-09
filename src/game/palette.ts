@@ -3,8 +3,7 @@
 // world-specific (they don't exist as app variables): each biome has a light
 // (day) and dark (night) look.
 
-import type { StationKind } from './types';
-import type { ThemeId } from './layout';
+import type { StationKind, ThemeId } from './types';
 
 function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();

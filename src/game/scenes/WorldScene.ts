@@ -1,14 +1,10 @@
 import Phaser from 'phaser';
 import type { AnimalId } from '../../lib/companion';
 import { WORLD_EVENTS, type WorldStation } from '../types';
-import {
-  computeLayout, clampToRects, rectContains,
-  REACH, SPEED, WALL,
-  type PlacedStation, type Room, type WorldLayout, type ZoneId,
-} from '../layout';
+import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
-  BUDDY_DIRS, buddyTextureKey, loadBuddyTexture, ensureDotsTexture,
+  BUDDY_DIRS, buddyTextureKey, loadBuddyTexture,
   CUTE_MONSTERS, SCARY_MONSTERS, monsterTextureKey, loadMonsterTextures,
   type BuddyDir, type MonsterId,
 } from '../textures';
@@ -23,12 +19,17 @@ export interface WorldSceneData {
   dpr: number;
 }
 
+const SPEED = 360;      // buddy speed, px/s
+const REACH = 95;       // distance at which a station "opens"
+const SCALE = 2;        // map render scale: 16px tiles drawn at 32px
+const NIGHT_TINT = 0x8d92c4; // dims the day-lit tile art in dark mode
+
 const KIND_EMOJI = { mine: '👤', joined: '👥', level: '🎓' } as const;
 
-const THEME_DECOR = {
-  forest: ['🌲', '🌳', '🌼', '🍄', '🪨', '🦋', '🌷', '🌾'],
-  desert: ['🌵', '🪨', '🦎', '🌾', '🏺', '🌵'],
-} as const;
+interface PlacedStation extends WorldStation {
+  x: number;
+  y: number;
+}
 
 interface StationNode {
   station: PlacedStation;
@@ -37,29 +38,45 @@ interface StationNode {
   ring: Phaser.GameObjects.Arc;
 }
 
+interface MapMeta {
+  spawn: { x: number; y: number };
+  doors: { x: number; y: number }[];
+  labels: { x: number; y: number; text: string; theme: 'forest' | 'desert' }[];
+  slots: Record<'public' | 'system', { x: number; y: number; slot: number }[]>;
+}
+
 /**
- * The explorable world: two walled rooms (forest = Public, desert = System)
- * with free Gather-style movement inside them and a doorway between. The scene
- * owns the simulation only: movement, collision, camera, proximity. It reports
- * the nearest station on `game.events` (WORLD_EVENTS) and the React shell
- * around the canvas renders all real UI (station card, HUD, modals) from that.
+ * The explorable world, driven entirely by a Tiled map template (see
+ * src/game/maps.ts and scripts/generate-world-map.mjs for the contract):
+ * tile layers paint the world, `walls` tiles block movement, and the map's
+ * object layer provides the spawn point, area labels, door waypoints, and
+ * station slots that collections are bound to at runtime.
+ *
+ * The scene owns the simulation only: movement, collision, camera, proximity.
+ * It reports the nearest station on `game.events` (WORLD_EVENTS) and the React
+ * shell around the canvas renders all real UI (station card, HUD, modals).
  */
 export class WorldScene extends Phaser.Scene {
   static readonly KEY = 'world';
 
   private args!: WorldSceneData;
   private pal!: WorldPalette;
-  private layout!: WorldLayout;
   private ready = false;
 
+  private map?: Phaser.Tilemaps.Tilemap;
   private worldLayer?: Phaser.GameObjects.Container;
   private nodes: StationNode[] = [];
+  /** Collision grid from the map's `walls` layer, indexed [tileY][tileX]. */
+  private blocked: boolean[][] = [];
+  private meta!: MapMeta;
+  private worldW = 0;
+  private worldH = 0;
 
   private buddy!: Phaser.GameObjects.Container;
   private sprite!: Phaser.GameObjects.Sprite;
   private walking = false;
   private facing: BuddyDir = 'down';
-  /** Waypoints for tap-to-walk (routed through the door across rooms). */
+  /** Waypoints for tap-to-walk (routed through doors across areas). */
   private route: number[][] = [];
   private targetMark!: Phaser.GameObjects.Arc;
   private nearestId: string | null = null;
@@ -76,6 +93,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   preload() {
+    const src = defaultMap();
+    this.load.image(`tiles-${src.key}`, src.tilesetUrl);
+    this.load.tilemapTiledJSON(`map-${src.key}`, src.tmjUrl);
     loadBuddyTexture(this, this.args.animalId);
     loadMonsterTextures(this);
   }
@@ -86,6 +106,8 @@ export class WorldScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     // Belt and braces: the pixelArt config flag doesn't reliably reach
     // runtime-loaded sheets, and linear filtering blurs 16px art badly.
+    const src = defaultMap();
+    this.textures.get(`tiles-${src.key}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
     for (const sheet of ['idle', 'walk'] as const) {
       this.textures
         .get(buddyTextureKey(this.args.animalId, sheet))
@@ -111,7 +133,7 @@ export class WorldScene extends Phaser.Scene {
     // Stop arrows/space from scrolling the page while the world has the screen.
     kb.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
 
-    // Tap the ground → walk there (through the door if it's the other room).
+    // Tap the ground → walk there (through a door if it's another area).
     this.input.on(
       'pointerdown',
       (pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
@@ -136,10 +158,6 @@ export class WorldScene extends Phaser.Scene {
     });
 
     this.cameras.main.startFollow(this.buddy, true, 0.12, 0.12);
-    this.scale.on(Phaser.Scale.Events.RESIZE, this.onResize, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
-    });
     this.ready = true;
   }
 
@@ -160,129 +178,122 @@ export class WorldScene extends Phaser.Scene {
 
   // ── World construction ──
 
-  private onResize() {
-    if (this.ready) this.buildWorld();
-  }
-
   private buildWorld() {
-    // Layout runs in CSS pixels; the canvas itself is dpr× larger.
-    const viewW = Math.max(this.scale.width / this.args.dpr, 320);
-    const viewH = Math.max(this.scale.height / this.args.dpr, 320);
-    this.layout = computeLayout(this.args.stations, viewW, viewH);
-    const { worldW, worldH, rooms, door, placed } = this.layout;
-
+    const src = defaultMap();
+    this.map?.destroy();
     this.worldLayer?.destroy();
     this.nodes = [];
-    const layer = this.add.container(0, 0).setDepth(0);
+
+    const map = this.make.tilemap({ key: `map-${src.key}` });
+    this.map = map;
+    const tiles = map.addTilesetImage(src.tilesetName, `tiles-${src.key}`)!;
+    for (const name of ['ground', 'decor', 'walls'] as const) {
+      const layer = map.createLayer(name, tiles)!;
+      layer.setScale(SCALE).setDepth(0);
+      // Night falls on the same (day-lit) art. GPU tilemap layers have no tint.
+      if (!this.pal.light && layer instanceof Phaser.Tilemaps.TilemapLayer) {
+        layer.setTint(NIGHT_TINT);
+      }
+    }
+    this.worldW = map.widthInPixels * SCALE;
+    this.worldH = map.heightInPixels * SCALE;
+
+    // Collision straight from the walls layer.
+    const walls = map.getLayer('walls')!;
+    this.blocked = walls.data.map((row) => row.map((t) => t.index > 0));
+
+    this.meta = this.readMeta(map);
+
+    const layer = this.add.container(0, 0).setDepth(1);
     this.worldLayer = layer;
 
-    // The void outside the rooms.
-    layer.add(this.add.rectangle(0, 0, worldW, worldH, this.pal.void).setOrigin(0));
-
-    for (const room of rooms) this.drawRoom(layer, room);
-
-    // Doorway: ground drawn over the walls opens the passage; half per biome.
-    const topHalf = rooms[0].rect.y + rooms[0].rect.h - door.y;
-    layer.add(
-      this.add
-        .rectangle(door.x, door.y, door.w, topHalf, this.pal.zones.forest.base)
-        .setOrigin(0),
-    );
-    layer.add(
-      this.add
-        .rectangle(door.x, door.y + topHalf, door.w, door.h - topHalf, this.pal.zones.desert.base)
-        .setOrigin(0),
-    );
-
-    // Each collection is a resident monster: cute ones in the Public forest,
-    // progressively scarier ones for the System levels.
-    let cute = 0, scary = 0;
-    for (const p of placed) {
-      const monster: MonsterId = p.kind === 'level'
-        ? SCARY_MONSTERS[Math.min(scary++, SCARY_MONSTERS.length - 1)]
-        : CUTE_MONSTERS[cute++ % CUTE_MONSTERS.length];
-      this.addStation(layer, p, monster);
+    for (const l of this.meta.labels) {
+      layer.add(
+        this.add
+          .text(l.x, l.y, l.text, {
+            fontFamily: FONT,
+            fontSize: '12px',
+            fontStyle: 'bold',
+            color: this.pal.zones[l.theme].labelCss,
+            backgroundColor: this.pal.cardCss,
+            padding: { x: 10, y: 4 },
+            resolution: this.args.dpr,
+          })
+          .setOrigin(0, 0.5),
+      );
     }
 
-    this.cameras.main.setBounds(0, 0, worldW, worldH);
+    // Bind collections to the template's station slots: public collections
+    // fill the public slots in order, levels fill the system slots.
+    const pub = this.args.stations.filter((s) => s.kind !== 'level');
+    const sys = this.args.stations.filter((s) => s.kind === 'level');
+    let cute = 0, scary = 0;
+    const bind = (list: WorldStation[], slots: MapMeta['slots']['public']) => {
+      list.forEach((s, i) => {
+        const slot = slots[i];
+        if (!slot) {
+          console.warn(`[voca] world template has no free ${s.kind} slot for "${s.name}"`);
+          return;
+        }
+        const placed: PlacedStation = { ...s, x: slot.x, y: slot.y };
+        const monster: MonsterId = s.kind === 'level'
+          ? SCARY_MONSTERS[Math.min(scary++, SCARY_MONSTERS.length - 1)]
+          : CUTE_MONSTERS[cute++ % CUTE_MONSTERS.length];
+        this.addStation(layer, placed, monster);
+      });
+    };
+    bind(pub, this.meta.slots.public);
+    bind(sys, this.meta.slots.system);
+
+    this.cameras.main.setBounds(0, 0, this.worldW, this.worldH);
     this.cameras.main.setBackgroundColor(this.pal.void);
 
-    // A rebuild can move the rooms out from under the buddy — reel it back in.
-    if (this.buddy) {
-      const pos = clampToRects(this.layout.walk, this.buddy.x, this.buddy.y);
-      this.buddy.setPosition(pos.x, pos.y);
+    // A rebuild can move walls under the buddy — reel it back in if so.
+    if (this.buddy && !this.canStand(this.buddy.x, this.buddy.y)) {
+      this.buddy.setPosition(this.meta.spawn.x, this.meta.spawn.y);
     }
     this.route = [];
   }
 
-  private drawRoom(layer: Phaser.GameObjects.Container, room: Room) {
-    const zone = this.pal.zones[room.theme];
-    const { x, y, w, h } = room.rect;
-
-    layer.add(this.add.rectangle(x, y, w, h, zone.base).setOrigin(0));
-
-    // Lighter ground patches.
-    const patches = this.add.graphics();
-    patches.fillStyle(zone.patch, zone.patchAlpha);
-    for (let i = 0; i < Math.ceil(w / 420); i++) {
-      patches.fillEllipse(
-        x + 210 + i * 420 + ((i * 97) % 90),
-        y + (i % 2 === 0 ? 0.32 : 0.68) * h,
-        380, 240,
-      );
-    }
-    layer.add(patches);
-
-    // Speckle texture, per biome and theme.
-    const dotsKey = `dots-${room.theme}-${this.pal.light ? 'l' : 'd'}`;
-    ensureDotsTexture(this, dotsKey, zone.dotRgba);
-    layer.add(this.add.tileSprite(x, y, w, h, dotsKey).setOrigin(0));
-
-    // Decor along the top and bottom of the room, clear of the door.
-    const decor = THEME_DECOR[room.theme];
-    const doorGap = (px: number) => Math.abs(px - (this.layout.door.x + this.layout.door.w / 2)) < 110;
-    for (let dx = 46, i = 0; dx < w - 40; dx += 120, i++) {
-      const px = x + dx + ((i * 37) % 36);
-      layer.add(
-        this.add
-          .text(px, y + 34 + ((i * 23) % 16), decor[i % decor.length], {
-            fontSize: `${18 + ((i * 13) % 8)}px`,
-            resolution: this.args.dpr,
-          })
-          .setOrigin(0.5),
-      );
-      if (!doorGap(px)) {
-        layer.add(
-          this.add
-            .text(px + 24, y + h - 22 - ((i * 31) % 14), decor[(i + 3) % decor.length], {
-              fontSize: `${16 + ((i * 7) % 8)}px`,
-              resolution: this.args.dpr,
-            })
-            .setOrigin(0.5),
-        );
+  /** Pull spawn/doors/labels/station slots out of the map's object layer. */
+  private readMeta(map: Phaser.Tilemaps.Tilemap): MapMeta {
+    const meta: MapMeta = {
+      spawn: { x: this.worldW / 2, y: this.worldH / 2 },
+      doors: [],
+      labels: [],
+      slots: { public: [], system: [] },
+    };
+    type TiledProp = { name: string; value: unknown };
+    const objects = map.getObjectLayer('meta')?.objects ?? [];
+    for (const obj of objects) {
+      const props = (obj.properties ?? []) as TiledProp[];
+      const get = (name: string) => props.find((p) => p.name === name)?.value;
+      const x = (obj.x ?? 0) * SCALE;
+      const y = (obj.y ?? 0) * SCALE;
+      switch (obj.type) {
+        case 'spawn':
+          meta.spawn = { x, y };
+          break;
+        case 'door':
+          meta.doors.push({ x, y });
+          break;
+        case 'label':
+          meta.labels.push({
+            x, y,
+            text: String(get('text') ?? ''),
+            theme: get('theme') === 'desert' ? 'desert' : 'forest',
+          });
+          break;
+        case 'station': {
+          const region = get('region') === 'system' ? 'system' : 'public';
+          meta.slots[region].push({ x, y, slot: Number(get('slot') ?? 0) });
+          break;
+        }
       }
     }
-
-    // Walls.
-    const wall = this.add.graphics();
-    wall.lineStyle(WALL, zone.wall, 1);
-    wall.strokeRoundedRect(x + WALL / 2, y + WALL / 2, w - WALL, h - WALL, 14);
-    layer.add(wall);
-
-    // Room label, Gather-style, pinned to the top-left corner.
-    layer.add(
-      this.add
-        .text(x + 16, y + 14, room.label, {
-          fontFamily: FONT,
-          fontSize: '12px',
-          fontStyle: 'bold',
-          color: zone.labelCss,
-          backgroundColor: this.pal.cardCss,
-          padding: { x: 10, y: 4 },
-          resolution: this.args.dpr,
-        })
-        .setOrigin(0),
-    );
+    meta.slots.public.sort((a, b) => a.slot - b.slot);
+    meta.slots.system.sort((a, b) => a.slot - b.slot);
+    return meta;
   }
 
   private addStation(layer: Phaser.GameObjects.Container, p: PlacedStation, monster: MonsterId) {
@@ -324,10 +335,10 @@ export class WorldScene extends Phaser.Scene {
         .setOrigin(0.5, 0),
     );
 
-    const meta = `${p.words.length} words${p.learners ? ` · ${p.learners} 👥` : ''}`;
+    const metaLine = `${p.words.length} words${p.learners ? ` · ${p.learners} 👥` : ''}`;
     root.add(
       this.add
-        .text(0, 36, meta, {
+        .text(0, 36, metaLine, {
           fontFamily: FONT,
           fontSize: '8px',
           fontStyle: 'bold',
@@ -380,7 +391,7 @@ export class WorldScene extends Phaser.Scene {
   // ── The buddy ──
 
   private createBuddy() {
-    const { spawn } = this.layout;
+    const { spawn } = this.meta;
     // One walk clip per direction: sheet columns are directions, rows are the
     // four animation frames, so a direction's frames are col, col+4, col+8, col+12.
     const walkKey = buddyTextureKey(this.args.animalId, 'walk');
@@ -437,28 +448,48 @@ export class WorldScene extends Phaser.Scene {
   // ── Movement ──
 
   private canStand(x: number, y: number): boolean {
-    return this.layout.walk.some((r) => rectContains(r, x, y));
+    const tile = 16 * SCALE;
+    const tx = Math.floor(x / tile);
+    const ty = Math.floor(y / tile);
+    const row = this.blocked[ty];
+    if (row === undefined || row[tx] === undefined) return false;
+    return !row[tx];
   }
 
-  private zoneAt(x: number, y: number): ZoneId | null {
-    for (const room of this.layout.rooms) {
-      if (rectContains(room.rect, x, y)) return room.zone;
+  /** Nearest standable point to (x, y), searching outward tile by tile. */
+  private clampToWalkable(x: number, y: number): { x: number; y: number } | null {
+    if (this.canStand(x, y)) return { x, y };
+    const tile = 16 * SCALE;
+    const tx = Math.floor(x / tile);
+    const ty = Math.floor(y / tile);
+    for (let r = 1; r <= 6; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const cx = (tx + dx + 0.5) * tile;
+          const cy = (ty + dy + 0.5) * tile;
+          if (this.canStand(cx, cy)) return { x: cx, y: cy };
+        }
+      }
     }
     return null;
   }
 
-  /** Walk to (x, y), detouring through the doorway when crossing rooms. */
+  /** Walk to (x, y), detouring through a door when crossing areas. */
   private routeTo(x: number, y: number) {
-    const target = clampToRects(this.layout.walk, x, y);
-    const from = this.zoneAt(this.buddy.x, this.buddy.y);
-    const to = this.zoneAt(target.x, target.y);
+    const target = this.clampToWalkable(x, y);
+    if (!target) return;
     const route: number[][] = [];
-    if (from && to && from !== to) {
-      const d = this.layout.door;
-      const cx = d.x + d.w / 2;
-      const top = [cx, d.y + 10];
-      const bottom = [cx, d.y + d.h - 10];
-      route.push(...(from === 'public' ? [top, bottom] : [bottom, top]));
+    // If a door's horizontal wall line separates buddy and target, pass
+    // through it: approach above/below the door point, then continue.
+    for (const d of this.meta.doors) {
+      if ((this.buddy.y < d.y) !== (target.y < d.y)) {
+        const lead = 16 * SCALE * 2.5; // far enough to land on the banks, not mid-crossing
+        const near: number[][] = this.buddy.y < d.y
+          ? [[d.x, d.y - lead], [d.x, d.y + lead]]
+          : [[d.x, d.y + lead], [d.x, d.y - lead]];
+        route.push(...near);
+      }
     }
     route.push([target.x, target.y]);
     this.route = route;
