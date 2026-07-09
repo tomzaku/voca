@@ -4,7 +4,7 @@ import { WORLD_EVENTS, type WorldStation } from '../types';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
-  BUDDY_DIRS, buddyTextureKey, loadBuddyTexture,
+  BUDDY_ANIMS, buddyTextureKey, loadBuddyTexture,
   CUTE_MONSTERS, SCARY_MONSTERS, monsterTextureKey, loadMonsterTextures,
   type BuddyDir, type MonsterId,
 } from '../textures';
@@ -74,7 +74,6 @@ export class WorldScene extends Phaser.Scene {
 
   private buddy!: Phaser.GameObjects.Container;
   private sprite!: Phaser.GameObjects.Sprite;
-  private walking = false;
   private facing: BuddyDir = 'down';
   /** Waypoints for tap-to-walk (routed through doors across areas). */
   private route: number[][] = [];
@@ -108,11 +107,9 @@ export class WorldScene extends Phaser.Scene {
     // runtime-loaded sheets, and linear filtering blurs 16px art badly.
     const src = defaultMap();
     this.textures.get(`tiles-${src.key}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    for (const sheet of ['idle', 'walk'] as const) {
-      this.textures
-        .get(buddyTextureKey(this.args.animalId, sheet))
-        .setFilter(Phaser.Textures.FilterMode.NEAREST);
-    }
+    this.textures
+      .get(buddyTextureKey(this.args.animalId))
+      .setFilter(Phaser.Textures.FilterMode.NEAREST);
     for (const m of [...CUTE_MONSTERS, ...SCARY_MONSTERS]) {
       this.textures.get(monsterTextureKey(m)).setFilter(Phaser.Textures.FilterMode.NEAREST);
       // Facing-down walk cycle doubles as the monster's idle bounce.
@@ -392,30 +389,30 @@ export class WorldScene extends Phaser.Scene {
 
   private createBuddy() {
     const { spawn } = this.meta;
-    // One walk clip per direction: sheet columns are directions, rows are the
-    // four animation frames, so a direction's frames are col, col+4, col+8, col+12.
-    const walkKey = buddyTextureKey(this.args.animalId, 'walk');
-    BUDDY_DIRS.forEach((dir, col) => {
-      const key = `${walkKey}-${dir}`;
-      if (this.anims.exists(key)) return;
-      this.anims.create({
-        key,
-        frames: this.anims.generateFrameNumbers(walkKey, {
-          frames: [col, col + 4, col + 8, col + 12],
-        }),
-        frameRate: 11,
-        repeat: -1,
-      });
-    });
+    // Per direction: a 4-frame animated idle and an 8-frame run, at the frame
+    // ranges the pack's Aseprite tags declare.
+    const texKey = buddyTextureKey(this.args.animalId);
+    for (const [dir, ranges] of Object.entries(BUDDY_ANIMS)) {
+      for (const [anim, [start, end]] of Object.entries(ranges)) {
+        const key = `${texKey}-${anim}-${dir}`;
+        if (this.anims.exists(key)) continue;
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(texKey, { start, end }),
+          frameRate: anim === 'run' ? 14 : 5,
+          repeat: -1,
+        });
+      }
+    }
 
     // Container origin = the buddy's feet.
     this.buddy = this.add.container(spawn.x, spawn.y).setDepth(10);
     this.buddy.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.28));
-    // 16px pixel-art frame, scaled up; the buddy grows a little per stage.
+    // 32px pixel-art frame, scaled up; the buddy grows a little per stage.
     this.sprite = this.add
-      .sprite(0, 2, buddyTextureKey(this.args.animalId, 'idle'), 0)
+      .sprite(0, 2, texKey, 0)
       .setOrigin(0.5, 1)
-      .setScale(2.55 + this.args.stage * 0.2);
+      .setScale(1.3 + this.args.stage * 0.1);
     this.buddy.add(this.sprite);
     this.buddy.add(
       this.add
@@ -432,17 +429,11 @@ export class WorldScene extends Phaser.Scene {
     );
   }
 
-  /** Play the right clip for the current motion: 4-direction walk or a still
-   *  idle frame facing wherever the buddy last walked. */
+  /** Play the right clip for the current motion: directional run while moving,
+   *  animated directional idle when standing. */
   private applyAnim(moving: boolean) {
-    if (moving) {
-      this.walking = true;
-      this.sprite.play(`${buddyTextureKey(this.args.animalId, 'walk')}-${this.facing}`, true);
-    } else if (this.walking) {
-      this.walking = false;
-      this.sprite.stop();
-      this.sprite.setTexture(buddyTextureKey(this.args.animalId, 'idle'), BUDDY_DIRS.indexOf(this.facing));
-    }
+    const key = `${buddyTextureKey(this.args.animalId)}-${moving ? 'run' : 'idle'}-${this.facing}`;
+    this.sprite.play(key, true);
   }
 
   // ── Movement ──

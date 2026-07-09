@@ -1,21 +1,30 @@
 # Buddy sprites
 
-From the [Ninja Adventure Asset Pack](https://pixel-boy.itch.io/ninja-adventure-asset-pack)
-by Pixel-boy & AAA — CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/).
-Attribution not required but appreciated, so: thank you, Pixel-boy!
+From [BIRD + CAT + FOX + RACCOON SPRITES](https://pixelfight.itch.io/birdcat)
+by PixelFight — CC0. Free for commercial and non-commercial use; attribution
+not required but appreciated, so: thank you, PixelFight!
 
-16×16 frames. Direction order in both sheets: **down, up, left, right**.
+One 128×416 sheet per buddy: 32×32 frames, 4 per row, row-major frame indices.
+Animation tags (from the pack's Aseprite file):
 
-- `<id>-walk.png` — 64×64: 4 direction columns × 4 animation-frame rows
-  (walk-down = frames 0, 4, 8, 12 … i.e. `column + row * 4`).
-- `<id>-idle.png` — 64×16: one standing frame per direction.
-
-| App buddy | Pack character |
+| Tag | Frames |
 |---|---|
-| fox | MaskRacoon |
-| owl | Tengu |
-| cat | Lion |
-| turtle | MaskFrog |
+| Idle Down | 0–3 |
+| Idle Right | 4–7 |
+| Idle Left | 8–11 |
+| Idle Up | 12–15 |
+| Facing Direction (unused) | 16–19 |
+| Run Down | 20–27 |
+| Run Left | 28–35 |
+| Run Right | 36–43 |
+| Run Up | 44–51 |
 
-The pack also has ~90 more characters with the same layout (plus Attack /
-Jump / Special sheets — good for future skill animations).
+| App buddy | Pack sheet |
+|---|---|
+| fox | FOXSPRITESHEET |
+| owl | BIRDSPRITESHEET_Blue |
+| cat | CATSPRITESHEET_Orange |
+| turtle | RACCOONSPRITESHEET |
+
+The pack also has Bird (white) and Cat (gray) colorways plus the Aseprite
+source if you want to recolor or extend.
