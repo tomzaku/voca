@@ -12,6 +12,10 @@ interface VocabularyState {
   markWord: (word: string, status: WordStatus, userId?: string, mistakes?: number) => void;
   /** Count one viewing of a word (opened on the flashcard). Leaves status/SR intact. */
   recordView: (word: string, userId?: string) => void;
+  /** Manual triage (collection stats popup): known=true graduates the word out
+   *  of rotation (mastered); known=false flags it difficult and due now. Not a
+   *  graded review — tallies and the answer log stay untouched. */
+  triageWord: (word: string, known: boolean, userId?: string) => void;
   /** Save/unsave a word. Preserves the learning status. */
   setBookmarked: (word: string, bookmarked: boolean, userId?: string) => void;
   /** Clear the learning outcome (remove from known / don't-know lists). */
@@ -102,6 +106,28 @@ export const useVocabularyStore = create<VocabularyState>()(
           history: prev?.history,
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
+        if (userId) syncWordToRemote(userId, entry);
+      },
+
+      triageWord: (word, known, userId) => {
+        // Match existing progress case-insensitively (collections keep the
+        // user's casing) and keep its key, so one word never splits in two.
+        const prev = get().progress[word]
+          ?? Object.values(get().progress).find((p) => p.word.toLowerCase() === word.toLowerCase());
+        const key = prev?.word ?? word;
+        const now = new Date().toISOString();
+        const entry: WordProgress = {
+          ...prev,
+          word: key,
+          // 'known' + mastered exits every pick pool; 'skipped' + due-now lands
+          // in the difficult pool and is served first (matches wordBucket).
+          status: known ? 'known' : 'skipped',
+          bookmarked: prev?.bookmarked ?? false,
+          seenAt: now,
+          dueAt: known ? prev?.dueAt : now,
+          mastered: known,
+        };
+        set((s) => ({ progress: { ...s.progress, [key]: entry } }));
         if (userId) syncWordToRemote(userId, entry);
       },
 

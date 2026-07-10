@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { progressLookup, wordBucket, type WordBucket } from '../lib/progress';
 import { isDue, dueTime } from '../lib/srs';
@@ -48,7 +49,9 @@ interface Props {
  * will show next and when.
  */
 export function CollectionStats({ name, words, onClose }: Props) {
+  const { user } = useAuth();
   const progress = useVocabularyStore((s) => s.progress);
+  const triageWord = useVocabularyStore((s) => s.triageWord);
   const now = Date.now();
 
   const { counts, rows, dueNow, answered, correctTotal, wrongTotal } = useMemo(() => {
@@ -167,6 +170,26 @@ export function CollectionStats({ name, words, onClose }: Props) {
                 <span className={`text-[11px] font-bold shrink-0 ${bucket === 'difficult' && nextShow(bucket, p, now) === 'now' ? 'text-accent-orange' : 'text-text-muted'}`}>
                   {nextShow(bucket, p, now)}
                 </span>
+                {/* Manual triage — one button, matching the word's state:
+                    mastered words offer "Don't know" (bring it back), everything
+                    else offers "Know it" (graduate it out of the random pick). */}
+                {bucket === 'mastered' ? (
+                  <button
+                    onClick={() => triageWord(word, false, user?.id)}
+                    title="Bring it back — practice this word again"
+                    className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-md border border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/40 transition-all"
+                  >
+                    Don't know
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => triageWord(word, true, user?.id)}
+                    title="I already know this — stop showing it"
+                    className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-md border border-border bg-bg-tertiary text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-all"
+                  >
+                    Know it
+                  </button>
+                )}
               </div>
             );
           })}
