@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Generates the starter world template `public/game/maps/meadow.tmj` — a
-// standard Tiled JSON map you can open and reshape in the Tiled editor
+// Generates the world template `public/game/maps/village.tmj` — a standard
+// Tiled JSON map you can open and reshape in the Tiled editor
 // (https://www.mapeditor.org) without touching any code.
 //
+//   node scripts/compose-village-tileset.mjs   (only when the tileset changes)
 //   node scripts/generate-world-map.mjs
 //
 // The map contract the game relies on (any template must follow it):
@@ -15,99 +16,118 @@
 //       type "label"    text,theme       → area name signs
 // Everything else (art, shape, size, number of areas) is free.
 //
-// This template: a tree-lined meadow (PUBLIC) and a fenced farm (SYSTEM)
-// separated by a river, crossed by a wooden bridge.
+// This template: two villages split by a river and joined by a wooden bridge.
+// North bank is a forest village (PUBLIC collections), south bank a desert
+// village (SYSTEM levels). Every station slot sits at the door of a house —
+// walk up to a house to open its collection.
 //
-// Art: Sprout Lands (Basic pack) by Cup Nooble — see public/game/maps/README.md
-// for license/credit. Tile picks live in the tileset composition script.
+// Art: Ninja Adventure Asset Pack by Pixel-boy & AAA — CC0 1.0. Tile picks
+// live in scripts/compose-village-tileset.mjs; see public/game/maps/README.md.
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const W = 60; // map size in tiles
-const H = 44;
+const H = 56;
 const T = 16; // tile size px
 
-// Tile GIDs in tileset-meadow.png (index + 1).
-const GRASS = 1, GRASS2 = 2, GRASS3 = 3, GRASSP = 4;   // meadow ground
-const FARM = 5, FARM2 = 6, FARMP = 7;                  // farm ground
-const FENCE_H = 8, FENCE_V = 9;                        // collides
-const WATER = 10;                                      // collides
-const BRIDGE_ROWS = [[11, 12], [13, 14], [15, 16]];    // top / mid / bottom, 2 cols
-const TREE = [17, 18, 19, 20];                         // 2x2 round tree, collides
-const TREE_APPLE = [21, 22, 23, 24];                   // 2x2 apple tree, collides
-const MEADOW_DECOR = [25, 28, 29, 30];                 // heart, pink & yellow flowers, mushroom
-const FARM_DECOR = [26, 27];                           // sprout, rock
-const SUNFLOWER = [31, 32];                            // 1x2, decor layer
+const MAPS = new URL('../public/game/maps/', import.meta.url);
+const ts = JSON.parse(readFileSync(fileURLToPath(new URL('tileset-village.json', MAPS)), 'utf8'));
 
-const RIVER = { from: 20, to: 22 };                    // water rows
-const BRIDGE = { cols: [29, 30], from: 19, to: 23 };   // one tile onto each bank
-const DESERT_ROWS = { from: 23, to: 42, wall: 43 };    // farm side
-const FARM_ROWS = DESERT_ROWS;
-
-// Stations huddle around the map center — collections are few, so keep the
-// bosses close together and let the outskirts be scenery.
-const STATION_COLS = [18, 26, 34, 42];
-const MEADOW_STATION_ROWS = [7, 11, 15];
-const FARM_STATION_ROWS = [26, 30, 34];
-
-// Deterministic PRNG so regeneration is stable.
-let seed = 20260707;
-const rand = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
+/** GID of a named tile (dx/dy index into multi-tile blocks). */
+const gid = (name, dx = 0, dy = 0) => {
+  const t = ts.tiles[name];
+  if (!t) throw new Error(`unknown tile "${name}"`);
+  return 1 + (t.y + dy) * ts.columns + (t.x + dx);
+};
 
 const ground = new Array(W * H).fill(0);
 const decor = new Array(W * H).fill(0);
 const walls = new Array(W * H).fill(0);
 const at = (x, y) => y * W + x;
 
-// ── Ground ──
+/** Stamp a (possibly multi-tile) named block onto a layer. */
+const place = (layer, name, x, y) => {
+  const t = ts.tiles[name];
+  for (let dy = 0; dy < t.h; dy++) {
+    for (let dx = 0; dx < t.w; dx++) layer[at(x + dx, y + dy)] = gid(name, dx, dy);
+  }
+};
+
+// Deterministic PRNG so regeneration is stable.
+let seed = 20260710;
+const rand = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
+const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+
+const RIVER = { from: 26, to: 28 };                     // water rows
+const BRIDGE = { cols: [29, 30], from: 25, to: 29 };    // one tile onto each bank
+const HOUSE_COLS = [8, 21, 34, 47];                     // left edge of each house
+const FOREST_HOUSE_ROWS = [3, 10, 17];
+const DESERT_HOUSE_ROWS = [31, 38, 45];
+const FOREST_STYLES = ['house_a', 'house_b', 'house_c', 'house_d'];
+
+// ── Ground ── grass up north, sand down south.
 for (let y = 0; y < H; y++) {
   for (let x = 0; x < W; x++) {
-    const farmSide = y > RIVER.to;
     const r = rand();
-    ground[at(x, y)] = farmSide
-      ? r < 0.8 ? FARM : r < 0.94 ? FARM2 : FARMP
-      : r < 0.74 ? GRASS : r < 0.86 ? GRASS2 : r < 0.95 ? GRASS3 : GRASSP;
+    ground[at(x, y)] = y > RIVER.to
+      ? r < 0.9 ? gid('sand1') : r < 0.95 ? gid('sand_pebble') : gid('sand_dune')
+      : r < 0.55 ? gid('grass1') : r < 0.7 ? gid('grass2') : r < 0.85 ? gid('grass3')
+        : gid('grass4');
   }
 }
 
-// ── River ── full width, on the walls layer so it blocks movement.
-for (let y = RIVER.from; y <= RIVER.to; y++) {
-  for (let x = 0; x < W; x++) walls[at(x, y)] = WATER;
+// ── River ── on the walls layer so it blocks movement; the banks carry the
+// waterline into the grass/sand on either side.
+for (let x = 0; x < W; x++) {
+  walls[at(x, RIVER.from)] = gid('bank_top');
+  for (let y = RIVER.from + 1; y < RIVER.to; y++) walls[at(x, y)] = gid('water');
+  walls[at(x, RIVER.to)] = gid('bank_bottom');
 }
 
-// ── Borders ── tall trees around the meadow, fences around the farm
-// (the river rows stay water — it runs off the map edges).
-const block = (gids, w, x, y) => {
-  gids.forEach((gid, i) => walls[at(x + (i % w), y + Math.floor(i / w))] = gid);
+// ── Roads ── dirt paths in front of each house row, plus the main street
+// through the villages and over the bridge.
+const road = new Set();
+const pave = (x, y) => {
+  const r = rand();
+  ground[at(x, y)] = y > RIVER.to
+    ? r < 0.7 ? gid('sand_road') : r < 0.8 ? gid('sand_road2') : gid('sand_road3')
+    : gid('dirt');
+  road.add(at(x, y));
 };
-const tree = (x, y, apple = false) => block(apple ? TREE_APPLE : TREE, 2, x, y);
-
-for (let x = 0; x < W - 1; x += 2) tree(x, 0, x % 6 === 4);    // top edge
-for (let y = 2, i = 0; y <= RIVER.from - 4; y += 2, i++) {     // side edges
-  tree(0, y, i % 3 === 1);
-  tree(W - 2, y, i % 3 === 2);
+for (const rows of [FOREST_HOUSE_ROWS, DESERT_HOUSE_ROWS]) {
+  for (const r of rows) {
+    for (let x = HOUSE_COLS[0] - 2; x <= HOUSE_COLS[3] + 5; x++) pave(x, r + 4);
+  }
 }
-// A few free-standing trees in the meadow.
-for (const [x, y, a] of [[6, 5, 0], [12, 13, 1], [46, 4, 1], [50, 12, 0], [8, 16, 0]]) {
-  tree(x, y, Boolean(a));
+for (let y = FOREST_HOUSE_ROWS[0] + 4; y <= DESERT_HOUSE_ROWS[2] + 4; y++) {
+  for (const x of BRIDGE.cols) pave(x, y);
 }
 
-for (let x = 0; x < W; x++) walls[at(x, FARM_ROWS.wall)] = FENCE_H;
-for (let y = FARM_ROWS.from; y < FARM_ROWS.wall; y++) {
-  walls[at(0, y)] = FENCE_V;
-  walls[at(W - 1, y)] = FENCE_V;
-}
-
-// ── Bridge ── planks on the ground layer, water cleared beneath.
+// ── Bridge ── wooden deck on the ground layer, water cleared beneath.
 for (let y = BRIDGE.from; y <= BRIDGE.to; y++) {
-  const row = y === BRIDGE.from ? BRIDGE_ROWS[0] : y === BRIDGE.to ? BRIDGE_ROWS[2] : BRIDGE_ROWS[1];
-  BRIDGE.cols.forEach((x, i) => {
-    ground[at(x, y)] = row[i];
-    walls[at(x, y)] = 0;
-  });
+  // No 'bridge_top' cap: the deck's raised top rim reads as a hole from above,
+  // so the planks run straight off the grass bank instead.
+  const kind = y === BRIDGE.to ? 'bridge_bottom' : 'bridge_mid';
+  ground[at(BRIDGE.cols[0], y)] = gid(kind);          // left column (left edge)
+  ground[at(BRIDGE.cols[1], y)] = gid(`${kind}_r`);   // right column (right edge)
+  walls[at(BRIDGE.cols[0], y)] = 0;
+  walls[at(BRIDGE.cols[1], y)] = 0;
 }
 
-// ── Stations (slots the app binds collections to) ──
+// ── Borders ── trees ring the forest, palms ring the desert.
+for (let x = 0; x < W - 1; x += 2) place(walls, 'tree_small', x, 0);
+for (let y = 2; y <= RIVER.from - 4; y += 2) {
+  place(walls, 'tree_small', 0, y);
+  place(walls, 'tree_small', W - 2, y);
+}
+for (let x = 0; x < W - 1; x += 2) place(walls, x % 4 === 0 ? 'palm_small' : 'palm_small2', x, H - 2);
+for (let y = RIVER.to + 2; y <= H - 4; y += 2) {
+  place(walls, y % 4 === 0 ? 'palm_small' : 'palm_small2', 0, y);
+  place(walls, y % 4 === 2 ? 'palm_small' : 'palm_small2', W - 2, y);
+}
+
+// ── Houses (the station slots the app binds collections to) ──
 const objects = [];
 let objectId = 1;
 const point = (type, x, y, properties = []) => ({
@@ -117,63 +137,96 @@ const point = (type, x, y, properties = []) => ({
 const prop = (name, type, value) => ({ name, type, value });
 
 const slotTiles = [];
-const addSlots = (region, rows) => {
+const addVillage = (region, rows, styleAt) => {
   let slot = 0;
-  for (const r of rows) {
-    for (const c of STATION_COLS) {
-      objects.push(point('station', (c + 0.5) * T, (r + 0.5) * T, [
+  rows.forEach((r, ri) => {
+    HOUSE_COLS.forEach((c, ci) => {
+      const style = styleAt(ri, ci);
+      place(walls, style, c, r);
+      // The station point sits one tile below the door (door = local col 1).
+      const doorY = r + ts.tiles[style].h + 1;
+      objects.push(point('station', (c + 1.5) * T, doorY * T, [
         prop('region', 'string', region),
         prop('slot', 'int', slot++),
       ]));
-      slotTiles.push([c, r]);
-    }
-  }
+      slotTiles.push([c + 1, doorY]);
+    });
+  });
 };
-addSlots('public', MEADOW_STATION_ROWS);
-addSlots('system', FARM_STATION_ROWS);
+addVillage('public', FOREST_HOUSE_ROWS, (ri, ci) => FOREST_STYLES[(ri + ci) % FOREST_STYLES.length]);
+addVillage('system', DESERT_HOUSE_ROWS, (ri, ci) => ((ri + ci) % 2 === 0 ? 'dhouse' : 'dtower'));
 
-objects.push(point('spawn', 30 * T, (17 + 0.5) * T));
-// The bridge is the passage between areas: route through its center.
-objects.push(point('door', 30 * T, 21.5 * T));
-objects.push(point('label', 3 * T, 3.5 * T, [
-  prop('text', 'string', 'PUBLIC'),
-  prop('theme', 'string', 'forest'),
-]));
-objects.push(point('label', 3 * T, (FARM_ROWS.from + 1.5) * T, [
-  prop('text', 'string', 'SYSTEM'),
-  prop('theme', 'string', 'farm'),
-]));
+// ── Landmarks ── a torii gate over the main street (walk-under decor), a
+// well by the desert road, and big trees / palms flanking each village.
+place(decor, 'torii', 28, 22);
+place(walls, 'well', 25, 31);
+for (const r of FOREST_HOUSE_ROWS) {
+  place(walls, 'tree_big', 2, r);
+  place(walls, 'tree_big', 53, r);
+}
+for (const r of DESERT_HOUSE_ROWS) {
+  place(walls, 'palm_big', 2, r);
+  place(walls, 'palm_big', 53, r);
+}
+place(walls, 'stump', 14, 8);
+place(walls, 'tree_round', 44, 8);
+place(walls, 'tree_round', 15, 22);
+place(walls, 'rock_b', 45, 15);
+place(walls, 'rock_a', 26, 8);
+place(walls, 'rock_b', 33, 51);
+place(walls, 'rock_a', 18, 51);
 
-// ── Decor ── sparse, clear of stations, walls, river banks and the bridge.
+// ── Decor ── sparse, clear of walls, roads, stations, river and bridge.
 const nearSlot = (x, y) =>
   slotTiles.some(([sx, sy]) => Math.abs(sx - x) <= 1 && Math.abs(sy - y) <= 1);
 const clear = (x, y) =>
-  !walls[at(x, y)] && !decor[at(x, y)] && !nearSlot(x, y) &&
-  !(BRIDGE.cols.includes(x) && y >= BRIDGE.from - 1 && y <= BRIDGE.to + 1);
+  x > 1 && x < W - 2 && !walls[at(x, y)] && !decor[at(x, y)] &&
+  !road.has(at(x, y)) && !nearSlot(x, y) &&
+  !(y >= RIVER.from - 1 && y <= RIVER.to + 1);
 
-// Sunflower patches on the farm (1x2 on the decor layer).
-for (const [x, y] of [[8, 27], [14, 36], [44, 26], [50, 34], [10, 39], [46, 30]]) {
-  if (clear(x, y) && clear(x, y + 1)) {
-    decor[at(x, y)] = SUNFLOWER[0];
-    decor[at(x, y + 1)] = SUNFLOWER[1];
+for (let y = 2; y < H - 2; y++) {
+  const desert = y > RIVER.to;
+  for (let x = 2; x < W - 2; x++) {
+    if (!clear(x, y) || rand() >= 0.045) continue;
+    decor[at(x, y)] = desert
+      ? gid(pick(['dtuft', 'dtuft', 'sprout1', 'sprout2', 'pot1', 'pot2']))
+      : gid(pick(['tuft1', 'tuft2', 'tuft3', 'flower1', 'flower2', 'flower3']));
   }
 }
-for (let y = 1; y < H - 1; y++) {
-  if (y >= RIVER.from - 1 && y <= RIVER.to + 1) continue;
-  for (let x = 1; x < W - 1; x++) {
-    if (!clear(x, y)) continue;
-    if (rand() < 0.05) {
-      const set = y < RIVER.from ? MEADOW_DECOR : FARM_DECOR;
-      decor[at(x, y)] = set[Math.floor(rand() * set.length)];
-    }
+for (const [x, y] of [[16, 33], [42, 47], [26, 40]]) {
+  if (clear(x, y) && clear(x + 1, y) && clear(x, y + 1) && clear(x + 1, y + 1)) {
+    place(decor, 'dplant', x, y);
   }
 }
+
+// ── Meta objects ──
+objects.push(point('spawn', 30 * T, 21 * T));
+// The bridge is the passage between areas: route through its center.
+objects.push(point('door', 30 * T, 27.5 * T));
+objects.push(point('label', 3 * T, 2.5 * T, [
+  prop('text', 'string', 'PUBLIC'),
+  prop('theme', 'string', 'forest'),
+]));
+objects.push(point('label', 3 * T, 30.5 * T, [
+  prop('text', 'string', 'SYSTEM'),
+  prop('theme', 'string', 'desert'),
+]));
 
 // ── Assemble the Tiled document ──
 const tileLayer = (id, name, data) => ({
   id, name, type: 'tilelayer', width: W, height: H, x: 0, y: 0,
   opacity: 1, visible: true, data,
 });
+
+const collides = Object.values(ts.tiles)
+  .filter((t) => t.collides)
+  .flatMap((t) => {
+    const ids = [];
+    for (let dy = 0; dy < t.h; dy++) {
+      for (let dx = 0; dx < t.w; dx++) ids.push((t.y + dy) * ts.columns + (t.x + dx));
+    }
+    return ids;
+  });
 
 const map = {
   type: 'map',
@@ -197,25 +250,21 @@ const map = {
   tilesets: [
     {
       firstgid: 1,
-      name: 'meadow',
-      image: 'tileset-meadow.png',
-      imagewidth: 128,
-      imageheight: 64,
-      columns: 8,
-      tilecount: 32,
+      name: 'village',
+      image: 'tileset-village.png',
+      imagewidth: ts.columns * T,
+      imageheight: (ts.tilecount / ts.columns) * T,
+      columns: ts.columns,
+      tilecount: ts.tilecount,
       tilewidth: T,
       tileheight: T,
       margin: 0,
       spacing: 0,
-      tiles: [FENCE_H, FENCE_V, WATER, ...TREE, ...TREE_APPLE]
-        .map((gid) => ({
-          id: gid - 1,
-          properties: [prop('collides', 'bool', true)],
-        })),
+      tiles: collides.map((id) => ({ id, properties: [prop('collides', 'bool', true)] })),
     },
   ],
 };
 
-const out = new URL('../public/game/maps/meadow.tmj', import.meta.url).pathname;
+const out = fileURLToPath(new URL('village.tmj', MAPS));
 writeFileSync(out, JSON.stringify(map));
 console.log(`wrote ${out} (${W}x${H} tiles, ${objects.length} objects)`);

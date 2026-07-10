@@ -1,15 +1,20 @@
 # World map template
 
-`meadow.tmj` is a standard Tiled map (edit it in https://www.mapeditor.org);
-`tileset-meadow.png` is its tileset. Regenerate from scratch with
-`node scripts/generate-world-map.mjs`.
+`village.tmj` is a standard Tiled map (edit it in https://www.mapeditor.org);
+`tileset-village.png` is its tileset and `tileset-village.json` the name → tile
+mapping the generator uses. Regenerate from scratch with:
 
-## Art credit (required by license)
+```
+node scripts/compose-village-tileset.mjs   # tileset from the Ninja Adventure pack
+node scripts/generate-world-map.mjs        # the map itself
+```
 
-Tileset art: **Sprout Lands (Basic pack) — by Cup Nooble**
-(https://cupnooble.itch.io/sprout-lands-asset-pack)
+The composer needs the "Ninja Adventure - Asset Pack" folder at the repo root
+(not committed — download it from the link below).
 
-License summary (see the pack's read_me.txt): free for **non-commercial**
-projects only, credit required, no NFT/AI use, the raw asset pack itself may
-not be redistributed or resold. If voca ever becomes commercial, upgrade to
-the Sprout Lands premium license or swap this tileset back to CC0 art.
+## Art credit
+
+Tileset art: **Ninja Adventure Asset Pack — by Pixel-boy & AAA**
+(https://pixel-boy.itch.io/ninja-adventure-asset-pack) — CC0 1.0, free for
+commercial and non-commercial use. Attribution not required but appreciated.
+The station monsters (public/game/stations) come from the same pack.

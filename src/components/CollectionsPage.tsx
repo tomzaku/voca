@@ -419,7 +419,7 @@ export function CollectionsPage() {
         <Suspense
           fallback={
             <div className="h-[440px] rounded-2xl border-2 border-border bg-bg-card flex items-center justify-center text-sm font-bold text-text-muted">
-              Loading the meadow…
+              Loading the village…
             </div>
           }
         >

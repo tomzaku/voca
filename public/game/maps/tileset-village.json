@@ -1,0 +1,357 @@
+{
+  "columns": 16,
+  "tilecount": 256,
+  "tileSize": 16,
+  "tiles": {
+    "grass1": {
+      "x": 0,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "grass2": {
+      "x": 1,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "grass3": {
+      "x": 2,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "grass4": {
+      "x": 3,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "sand1": {
+      "x": 4,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "sand_pebble": {
+      "x": 5,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "sand_dune": {
+      "x": 6,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "sand_road": {
+      "x": 7,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "sand_road2": {
+      "x": 8,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "sand_road3": {
+      "x": 9,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "dirt": {
+      "x": 10,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "bank_top": {
+      "x": 11,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "water": {
+      "x": 12,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "bank_bottom": {
+      "x": 13,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "bridge_top": {
+      "x": 14,
+      "y": 0,
+      "w": 2,
+      "h": 1,
+      "collides": false
+    },
+    "bridge_mid": {
+      "x": 0,
+      "y": 1,
+      "w": 2,
+      "h": 1,
+      "collides": false
+    },
+    "bridge_bottom": {
+      "x": 2,
+      "y": 1,
+      "w": 2,
+      "h": 1,
+      "collides": false
+    },
+    "bridge_top_r": {
+      "x": 4,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "bridge_mid_r": {
+      "x": 5,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "bridge_bottom_r": {
+      "x": 6,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "tree_small": {
+      "x": 7,
+      "y": 1,
+      "w": 2,
+      "h": 2,
+      "collides": true
+    },
+    "tree_big": {
+      "x": 9,
+      "y": 1,
+      "w": 4,
+      "h": 3,
+      "collides": true
+    },
+    "tree_round": {
+      "x": 13,
+      "y": 1,
+      "w": 2,
+      "h": 2,
+      "collides": true
+    },
+    "stump": {
+      "x": 0,
+      "y": 4,
+      "w": 2,
+      "h": 2,
+      "collides": true
+    },
+    "tuft1": {
+      "x": 2,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "tuft2": {
+      "x": 3,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "tuft3": {
+      "x": 4,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "flower1": {
+      "x": 5,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "flower2": {
+      "x": 6,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "flower3": {
+      "x": 7,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "rock_a": {
+      "x": 8,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "rock_b": {
+      "x": 9,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "house_a": {
+      "x": 10,
+      "y": 4,
+      "w": 4,
+      "h": 3,
+      "collides": true
+    },
+    "house_b": {
+      "x": 0,
+      "y": 7,
+      "w": 4,
+      "h": 3,
+      "collides": true
+    },
+    "house_c": {
+      "x": 4,
+      "y": 7,
+      "w": 4,
+      "h": 3,
+      "collides": true
+    },
+    "house_d": {
+      "x": 8,
+      "y": 7,
+      "w": 4,
+      "h": 3,
+      "collides": true
+    },
+    "torii": {
+      "x": 12,
+      "y": 7,
+      "w": 3,
+      "h": 2,
+      "collides": false
+    },
+    "fence_h": {
+      "x": 15,
+      "y": 7,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "dhouse": {
+      "x": 0,
+      "y": 10,
+      "w": 3,
+      "h": 3,
+      "collides": true
+    },
+    "dtower": {
+      "x": 3,
+      "y": 10,
+      "w": 3,
+      "h": 4,
+      "collides": true
+    },
+    "well": {
+      "x": 6,
+      "y": 10,
+      "w": 2,
+      "h": 2,
+      "collides": true
+    },
+    "palm_big": {
+      "x": 8,
+      "y": 10,
+      "w": 4,
+      "h": 3,
+      "collides": true
+    },
+    "palm_small": {
+      "x": 12,
+      "y": 10,
+      "w": 2,
+      "h": 2,
+      "collides": true
+    },
+    "palm_small2": {
+      "x": 14,
+      "y": 10,
+      "w": 2,
+      "h": 2,
+      "collides": true
+    },
+    "dtuft": {
+      "x": 0,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "dplant": {
+      "x": 1,
+      "y": 14,
+      "w": 2,
+      "h": 2,
+      "collides": false
+    },
+    "sprout1": {
+      "x": 3,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "sprout2": {
+      "x": 4,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "pot1": {
+      "x": 5,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "pot2": {
+      "x": 6,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    }
+  }
+}

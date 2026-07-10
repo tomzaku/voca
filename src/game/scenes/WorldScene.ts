@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { AnimalId } from '../../lib/companion';
-import { WORLD_EVENTS, type WorldStation } from '../types';
+import { WORLD_EVENTS, type ThemeId, type WorldStation } from '../types';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
@@ -41,7 +41,7 @@ interface StationNode {
 interface MapMeta {
   spawn: { x: number; y: number };
   doors: { x: number; y: number }[];
-  labels: { x: number; y: number; text: string; theme: 'forest' | 'farm' }[];
+  labels: { x: number; y: number; text: string; theme: ThemeId }[];
   slots: Record<'public' | 'system', { x: number; y: number; slot: number }[]>;
 }
 
@@ -278,7 +278,7 @@ export class WorldScene extends Phaser.Scene {
           meta.labels.push({
             x, y,
             text: String(get('text') ?? ''),
-            theme: get('theme') === 'farm' ? 'farm' : 'forest',
+            theme: get('theme') === 'desert' ? 'desert' : 'forest',
           });
           break;
         case 'station': {

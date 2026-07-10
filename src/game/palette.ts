@@ -64,7 +64,7 @@ export function worldPalette(): WorldPalette {
             base: 0x1e4230, wall: 0x0f2a1d, patch: 0x8ce6aa, patchAlpha: 0.05,
             dotRgba: 'rgba(160, 235, 185, 0.12)', labelCss: green,
           },
-      farm: light
+      desert: light
         ? {
             base: 0xecd9a3, wall: 0xc29c5c, patch: 0xffffff, patchAlpha: 0.3,
             dotRgba: 'rgba(150, 110, 50, 0.18)', labelCss: orange,
