@@ -41,7 +41,7 @@ interface StationNode {
 interface MapMeta {
   spawn: { x: number; y: number };
   doors: { x: number; y: number }[];
-  labels: { x: number; y: number; text: string; theme: 'forest' | 'desert' }[];
+  labels: { x: number; y: number; text: string; theme: 'forest' | 'farm' }[];
   slots: Record<'public' | 'system', { x: number; y: number; slot: number }[]>;
 }
 
@@ -278,7 +278,7 @@ export class WorldScene extends Phaser.Scene {
           meta.labels.push({
             x, y,
             text: String(get('text') ?? ''),
-            theme: get('theme') === 'desert' ? 'desert' : 'forest',
+            theme: get('theme') === 'farm' ? 'farm' : 'forest',
           });
           break;
         case 'station': {
