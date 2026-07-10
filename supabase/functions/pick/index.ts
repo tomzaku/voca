@@ -3,14 +3,16 @@
 // authoritative, cross-device state — so a device with stale local progress
 // still gets the words the user is actually incorrect on / has never checked.
 //
-//   POST { words: string[], exclude?: string[], count?: number, mode?: 'learn' | 'quiz' }
+//   POST { words: string[], exclude?: string[], count?: number, mode?: 'learn' | 'quiz',
+//          sources?: { random?: boolean, unseen?: boolean, mistakes?: boolean } }
 //   → 200 { words: string[] }   (ordered picks, drawn from the submitted list)
 //
 // 'learn' mirrors the client's pickNextWord: a 50/50 mix of difficult words
 // (last round failed, or more wrong answers than correct) and never-answered
 // words; correctly-answered words only return when their FSRS review is due.
-// 'quiz' mirrors sampleQuizWords: 50% high-mistake-rate (>30% wrong) and 50%
-// never answered, topped up with the rest when the pools run short.
+// 'quiz' mirrors sampleQuizWords: an even round-robin over the pools the user
+// checked — 'mistakes' (>30% wrong), 'unseen' (never answered) and 'random'
+// (anything) — each defaulting to on when omitted.
 // Dismissed (skipped-for-good) words are never picked in either mode.
 //
 // The client falls back to the same algorithm over local state when offline.
@@ -109,35 +111,52 @@ function pickLearnWord(
   return inRotation.length ? pickRandom(inRotation) : null;
 }
 
+interface QuizSources {
+  random: boolean;
+  unseen: boolean;
+  mistakes: boolean;
+}
+
 /** Quiz-mode sample — mirrors the client's sampleQuizWords. */
 function sampleQuizWords(
   words: string[],
   prog: (w: string) => Prog | undefined,
   count: number,
+  sources: QuizSources,
 ): string[] {
   const available = words.filter((w) => prog(w)?.status !== 'dismissed');
-  const mistakes = shuffle(available.filter((w) => {
+  const pools: string[][] = [];
+  if (sources.mistakes) pools.push(shuffle(available.filter((w) => {
     const p = prog(w);
     const total = (p?.correct ?? 0) + (p?.wrong ?? 0);
     return total > 0 && (p?.wrong ?? 0) / total > 0.3;
-  }));
-  const unseen = shuffle(available.filter((w) => {
+  })));
+  if (sources.unseen) pools.push(shuffle(available.filter((w) => {
     const p = prog(w);
     return !p?.status && p?.dueAt == null;
-  }));
+  })));
+  if (sources.random) pools.push(shuffle(available.length ? available : words));
 
+  // Round-robin across the checked pools (even share each), skipping words
+  // already taken. With 'random' unchecked, the result may come up short.
   const n = Math.min(count, available.length || words.length);
-  const sampled = mistakes.slice(0, Math.ceil(n / 2));
-  sampled.push(...unseen.slice(0, n - sampled.length));
-  if (sampled.length < n) {
-    const chosen = new Set(sampled);
-    for (const w of [...mistakes, ...unseen, ...shuffle(available.length ? available : words)]) {
-      if (sampled.length >= n) break;
-      if (!chosen.has(w)) {
-        chosen.add(w);
-        sampled.push(w);
+  const sampled: string[] = [];
+  const chosen = new Set<string>();
+  const idx = pools.map(() => 0);
+  while (sampled.length < n) {
+    let advanced = false;
+    for (let i = 0; i < pools.length && sampled.length < n; i++) {
+      while (idx[i] < pools[i].length) {
+        const w = pools[i][idx[i]++];
+        if (!chosen.has(w)) {
+          chosen.add(w);
+          sampled.push(w);
+          advanced = true;
+          break;
+        }
       }
     }
+    if (!advanced) break; // every checked pool is exhausted
   }
   return sampled;
 }
@@ -161,6 +180,17 @@ Deno.serve(async (req) => {
   const exclude = new Set(asWords(params.exclude, MAX_EXCLUDE).map((w) => w.toLowerCase()));
   const count = Math.min(MAX_COUNT, Math.max(1, Number(params.count) || 1));
   const mode = params.mode === 'quiz' ? 'quiz' : 'learn';
+  // Quiz pools — each defaults to on when omitted (old clients send none).
+  const src = (params.sources ?? {}) as Record<string, unknown>;
+  let sources: QuizSources = {
+    random: src.random !== false,
+    unseen: src.unseen !== false,
+    mistakes: src.mistakes !== false,
+  };
+  // Nothing checked would pick nothing — treat it as "everything".
+  if (!sources.random && !sources.unseen && !sources.mistakes) {
+    sources = { random: true, unseen: true, mistakes: true };
+  }
 
   // The user's own progress rows (RLS-scoped client). Keyed lowercase so
   // custom-collection casing still matches.
@@ -185,7 +215,7 @@ Deno.serve(async (req) => {
   const now = Date.now();
   let picks: string[];
   if (mode === 'quiz') {
-    picks = sampleQuizWords(words.filter((w) => !exclude.has(w.toLowerCase())), prog, count);
+    picks = sampleQuizWords(words.filter((w) => !exclude.has(w.toLowerCase())), prog, count, sources);
   } else {
     picks = [];
     const taken = new Set(exclude);

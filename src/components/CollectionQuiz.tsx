@@ -7,8 +7,9 @@ import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
 import { familyForms, maskAnswer } from '../lib/answerMask';
 import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useAuth } from '../hooks/useAuth';
 import { progressLookup } from '../lib/progress';
-import { fetchPickedWords } from '../lib/pickApi';
+import { fetchPickedWords, type QuizSources } from '../lib/pickApi';
 import { SynAnt } from './SynAnt';
 import type { VocabularyWord } from '../types';
 
@@ -25,6 +26,13 @@ const MODES: { id: QuizMode; label: string; icon: string; description: string }[
 
 const COUNTS = [5, 10, 15, 20];
 const DEFAULT_COUNT = 10;
+
+// Word-selection pools (checkboxes on the settings screen, at least one on).
+const SOURCES: { id: keyof QuizSources; label: string; icon: string; description: string }[] = [
+  { id: 'random',   label: 'Random',        icon: 'lucide:shuffle', description: 'Any word from the collection' },
+  { id: 'unseen',   label: 'Unknown words', icon: 'lucide:eye-off', description: 'Words you have never answered' },
+  { id: 'mistakes', label: 'Often missed',  icon: 'lucide:target',  description: 'Words with more than 30% wrong answers' },
+];
 
 type QuestionType = Exclude<QuizMode, 'random'>;
 
@@ -59,40 +67,49 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /**
- * Sample quiz words: 50% words with a high mistake rate (>30% of answers
- * wrong) and 50% words never answered — quizzing what needs work rather than
- * what's already known. Well-known words only fill in when both pools run
- * short; dismissed (skipped-for-good) words are left out entirely.
- * This is the local fallback — the server's `pick` function (mode 'quiz')
- * runs the same algorithm against the authoritative synced progress.
+ * Sample quiz words from the checked pools: "mistakes" (high mistake rate,
+ * >30% of answers wrong), "unseen" (never answered) and "random" (anything).
+ * Draws round-robin so each checked pool gets an even share; when a pool runs
+ * short the others fill in. With random unchecked, the quiz may come up
+ * shorter than requested. Dismissed (skipped-for-good) words are left out
+ * entirely. This is the local fallback — the server's `pick` function
+ * (mode 'quiz') runs the same algorithm against the authoritative synced
+ * progress.
  */
-function sampleQuizWords(words: string[], count: number): string[] {
+function sampleQuizWords(words: string[], count: number, sources: QuizSources): string[] {
   const prog = progressLookup(useVocabularyStore.getState().progress);
 
   const available = words.filter((w) => prog(w)?.status !== 'dismissed');
-  const mistakes = shuffle(available.filter((w) => {
+  const pools: string[][] = [];
+  if (sources.mistakes) pools.push(shuffle(available.filter((w) => {
     const p = prog(w);
     const total = (p?.correct ?? 0) + (p?.wrong ?? 0);
     return total > 0 && (p?.wrong ?? 0) / total > 0.3;
-  }));
-  const unseen = shuffle(available.filter((w) => {
+  })));
+  if (sources.unseen) pools.push(shuffle(available.filter((w) => {
     const p = prog(w);
     return !p?.status && !p?.dueAt;
-  }));
+  })));
+  if (sources.random) pools.push(shuffle(available.length ? available : words));
 
   const n = Math.min(count, available.length || words.length);
-  const sampled = mistakes.slice(0, Math.ceil(n / 2));
-  sampled.push(...unseen.slice(0, n - sampled.length));
-  // Both pools short — top up with whatever remains (well-known words last).
-  if (sampled.length < n) {
-    const chosen = new Set(sampled);
-    for (const w of [...mistakes, ...unseen, ...shuffle(available.length ? available : words)]) {
-      if (sampled.length >= n) break;
-      if (!chosen.has(w)) {
-        chosen.add(w);
-        sampled.push(w);
+  const sampled: string[] = [];
+  const chosen = new Set<string>();
+  const idx = pools.map(() => 0);
+  while (sampled.length < n) {
+    let advanced = false;
+    for (let i = 0; i < pools.length && sampled.length < n; i++) {
+      while (idx[i] < pools[i].length) {
+        const w = pools[i][idx[i]++];
+        if (!chosen.has(w)) {
+          chosen.add(w);
+          sampled.push(w);
+          advanced = true;
+          break;
+        }
       }
     }
+    if (!advanced) break; // every checked pool is exhausted
   }
   return sampled;
 }
@@ -108,9 +125,19 @@ interface Props {
  * many questions, default random × 10), then plays through sampled words.
  */
 export function CollectionQuiz({ name, words, onBack }: Props) {
+  const { user } = useAuth();
+  const markWord = useVocabularyStore((s) => s.markWord);
   const [phase, setPhase] = useState<'settings' | 'loading' | 'playing' | 'finished'>('settings');
   const [mode, setMode] = useState<QuizMode>('random');
   const [count, setCount] = useState(DEFAULT_COUNT);
+  const [sources, setSources] = useState<QuizSources>({ random: true, unseen: true, mistakes: true });
+
+  const toggleSource = (key: keyof QuizSources) =>
+    setSources((s) => {
+      const next = { ...s, [key]: !s[key] };
+      // At least one pool must stay checked, or there is nothing to quiz.
+      return next.random || next.unseen || next.mistakes ? next : s;
+    });
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [current, setCurrent] = useState(0);
@@ -128,8 +155,8 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
     setPhase('loading');
     // Server-side sample (authoritative cross-device progress), local fallback.
     const sampled =
-      (await fetchPickedWords({ words, count, mode: 'quiz' }))
-      ?? sampleQuizWords(words, count);
+      (await fetchPickedWords({ words, count, mode: 'quiz', sources }))
+      ?? sampleQuizWords(words, count, sources);
 
     const dataMap: Record<string, VocabularyWord> = {};
     await Promise.all(sampled.map(async (word) => {
@@ -189,6 +216,9 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
     setAnswered(ok ? 'correct' : 'wrong');
     if (ok) { playCorrect(); setScore((s) => s + 1); }
     else { playWrong(); setMissed((m) => [...m, q.word]); }
+    // Record the answer in word progress (tally + history + SR schedule) —
+    // the same store the flash cards write to, so quiz sampling learns from it.
+    markWord(q.word, ok ? 'known' : 'skipped', user?.id);
   };
 
   const pickOption = (opt: string) => {
@@ -246,6 +276,35 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
                   <span className="block text-xs text-text-muted">{m.description}</span>
                 </span>
                 {active && <Icon icon="lucide:check" className="text-accent-cyan shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+
+        <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">Word selection</h2>
+        <div className="space-y-1.5 mb-6">
+          {SOURCES.map((s) => {
+            const active = sources[s.id];
+            return (
+              <button
+                key={s.id}
+                onClick={() => toggleSource(s.id)}
+                className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg border transition-all ${
+                  active ? 'border-accent-cyan/50 bg-accent-cyan/10' : 'border-border bg-bg-card hover:border-border-light'
+                }`}
+              >
+                <Icon icon={s.icon} className={`text-lg shrink-0 ${active ? 'text-accent-cyan' : 'text-text-muted'}`} />
+                <span className="flex-1 min-w-0">
+                  <span className={`block text-sm font-bold ${active ? 'text-accent-cyan' : 'text-text-primary'}`}>{s.label}</span>
+                  <span className="block text-xs text-text-muted">{s.description}</span>
+                </span>
+                <span
+                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    active ? 'border-accent-cyan bg-accent-cyan text-bg-primary' : 'border-border'
+                  }`}
+                >
+                  {active && <Icon icon="lucide:check" className="text-sm" />}
+                </span>
               </button>
             );
           })}

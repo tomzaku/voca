@@ -9,11 +9,20 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const TIMEOUT_MS = 4000; // a slow pick must not block the next word — fall back
 
+/** Which pools quiz sampling draws from — checked boxes on the quiz settings. */
+export interface QuizSources {
+  random: boolean;   // any word in the collection
+  unseen: boolean;   // never answered
+  mistakes: boolean; // >30% of answers wrong
+}
+
 export interface PickParams {
   words: string[];
   exclude?: string[];
   count?: number;
   mode: 'learn' | 'quiz';
+  /** Quiz mode only. Omitted = all pools (server default). */
+  sources?: QuizSources;
 }
 
 export async function fetchPickedWords(params: PickParams): Promise<string[] | null> {
