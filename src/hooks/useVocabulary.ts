@@ -6,8 +6,10 @@ import { gradeReview } from '../lib/srs';
 
 interface VocabularyState {
   progress: Record<string, WordProgress>;
-  /** Set the learning outcome (known / skipped). Preserves the saved flag. */
-  markWord: (word: string, status: WordStatus, userId?: string) => void;
+  /** Set the learning outcome (known / skipped / dismissed). Preserves the saved
+   *  flag. `mistakes` is how many wrong attempts the round took (games differ in
+   *  difficulty, so mistakes are tallied when the word is revealed). */
+  markWord: (word: string, status: WordStatus, userId?: string, mistakes?: number) => void;
   /** Count one viewing of a word (opened on the flashcard). Leaves status/SR intact. */
   recordView: (word: string, userId?: string) => void;
   /** Save/unsave a word. Preserves the learning status. */
@@ -32,16 +34,46 @@ export const useVocabularyStore = create<VocabularyState>()(
     (set, get) => ({
       progress: {},
 
-      markWord: (word, status, userId) => {
+      markWord: (word, status, userId, mistakes = 0) => {
         const prev = get().progress[word];
-        // "known" is a successful review, "skipped" (incl. giving up) a lapse.
-        const srs = gradeReview(prev, status === 'known' ? 'good' : 'again');
+        const now = new Date();
+        // FSRS grade: a clean solve is 'good', a solve that needed wrong
+        // attempts is 'hard' (shorter next interval), giving up is 'again'.
+        // "dismissed" (the Skip button) isn't a review — the word just leaves
+        // rotation, so its SR fields are kept as-is in case it's restored.
+        const srs = status === 'dismissed'
+          ? {
+              reps: prev?.reps,
+              lapses: prev?.lapses,
+              interval: prev?.interval,
+              stability: prev?.stability,
+              difficulty: prev?.difficulty,
+              ease: prev?.ease,
+              dueAt: prev?.dueAt,
+              lastReviewedAt: prev?.lastReviewedAt,
+              mastered: prev?.mastered,
+            }
+          : gradeReview(prev, status === 'known' ? (mistakes > 0 ? 'hard' : 'good') : 'again', now);
+        // Lifetime answer tally. In-round wrong attempts arrive via `mistakes`;
+        // a failed round without a counted attempt (giving up straight away)
+        // still tallies one wrong.
+        const correct = (prev?.correct ?? 0) + (status === 'known' ? 1 : 0);
+        const wrong = (prev?.wrong ?? 0) + Math.max(mistakes, status === 'skipped' ? 1 : 0);
+        // Answer log — the datetime of every correct/incorrect answer (last 50).
+        // FSRS reschedules from the real elapsed time (via lastReviewedAt); the
+        // log itself feeds the analytics dashboard.
+        const history = status === 'dismissed'
+          ? prev?.history
+          : [...(prev?.history ?? []), { at: now.toISOString(), ok: status === 'known' }].slice(-50);
         const entry: WordProgress = {
           word,
           status,
           bookmarked: prev?.bookmarked ?? false,
-          seenAt: new Date().toISOString(),
+          seenAt: now.toISOString(),
           views: prev?.views ?? 0, // views count opens, not judgments (see recordView)
+          correct,
+          wrong,
+          history,
           ...srs,
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
@@ -58,11 +90,16 @@ export const useVocabularyStore = create<VocabularyState>()(
           reps: prev?.reps,
           lapses: prev?.lapses,
           interval: prev?.interval,
+          stability: prev?.stability,
+          difficulty: prev?.difficulty,
           ease: prev?.ease,
           dueAt: prev?.dueAt,
           lastReviewedAt: prev?.lastReviewedAt,
           mastered: prev?.mastered,
           views: (prev?.views ?? 0) + 1,
+          correct: prev?.correct,
+          wrong: prev?.wrong,
+          history: prev?.history,
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
         if (userId) syncWordToRemote(userId, entry);
@@ -137,7 +174,7 @@ export const useVocabularyStore = create<VocabularyState>()(
         if (!supabase) return;
         const { data } = await supabase
           .from('user_word_progress')
-          .select('word, status, bookmarked, learned_at, reps, lapses, srs_interval, ease, due_at, last_reviewed_at, mastered, views')
+          .select('word, status, bookmarked, learned_at, reps, lapses, srs_interval, stability, difficulty, ease, due_at, last_reviewed_at, mastered, views, correct_count, wrong_count, review_log')
           .eq('user_id', userId);
 
         if (!data) return;
@@ -152,11 +189,16 @@ export const useVocabularyStore = create<VocabularyState>()(
             reps: (r.reps as number | null) ?? undefined,
             lapses: (r.lapses as number | null) ?? undefined,
             interval: (r.srs_interval as number | null) ?? undefined,
+            stability: (r.stability as number | null) ?? undefined,
+            difficulty: (r.difficulty as number | null) ?? undefined,
             ease: (r.ease as number | null) ?? undefined,
             dueAt: (r.due_at as string | null) ?? undefined,
             lastReviewedAt: (r.last_reviewed_at as string | null) ?? undefined,
             mastered: (r.mastered as boolean | null) ?? undefined,
             views: (r.views as number | null) ?? undefined,
+            correct: (r.correct_count as number | null) ?? undefined,
+            wrong: (r.wrong_count as number | null) ?? undefined,
+            history: (r.review_log as WordProgress['history'] | null) ?? undefined,
           };
         }
         // Merge: remote wins for conflicts (each remote row carries both fields).
@@ -183,11 +225,16 @@ function syncWordToRemote(userId: string, entry: WordProgress) {
       reps: entry.reps ?? 0,
       lapses: entry.lapses ?? 0,
       srs_interval: entry.interval ?? 0,
+      stability: entry.stability ?? null,
+      difficulty: entry.difficulty ?? null,
       ease: entry.ease ?? 2.5,
       due_at: entry.dueAt ?? null,
       last_reviewed_at: entry.lastReviewedAt ?? null,
       mastered: entry.mastered ?? false,
       views: entry.views ?? 0,
+      correct_count: entry.correct ?? 0,
+      wrong_count: entry.wrong ?? 0,
+      review_log: entry.history ?? [],
     })
     .then(({ error }) => {
       if (error) console.warn('[voca] sync error:', error.message);

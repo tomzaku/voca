@@ -139,12 +139,13 @@ function DailyWords() {
   );
 }
 
-type Tab = 'saved' | 'known' | 'unknown';
+type Tab = 'saved' | 'known' | 'unknown' | 'skipped';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'saved', label: 'Saved' },
   { id: 'known', label: 'Known' },
   { id: 'unknown', label: "Don't know" },
+  { id: 'skipped', label: 'Skipped' },
 ];
 
 export function BookmarkList() {
@@ -154,7 +155,9 @@ export function BookmarkList() {
   const bookmarks = store.bookmarkedWords();
   const known = store.wordsByStatus('known');
   const unknown = store.wordsByStatus('skipped');
-  const list = tab === 'saved' ? bookmarks : tab === 'known' ? known : unknown;
+  const dismissed = store.wordsByStatus('dismissed');
+  const list =
+    tab === 'saved' ? bookmarks : tab === 'known' ? known : tab === 'unknown' ? unknown : dismissed;
   const [mode, setMode] = useState<'list' | 'quiz' | 'spelling' | 'paragraph'>('list');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [wordCache, setWordCache] = useState<Record<string, VocabularyWord>>({});
@@ -201,10 +204,11 @@ export function BookmarkList() {
     e.stopPropagation();
     // On the Saved tab, "remove" only un-saves — it keeps any learning status.
     // On the Known / Don't-know tabs it clears that word from the history.
+    // On the Skipped tab it restores the word into the learning rotation.
     if (tab === 'saved') store.setBookmarked(word, false, user?.id);
     else store.clearStatus(word, user?.id);
     if (expanded === word) setExpanded(null);
-    toast.success(`Removed "${word}"`);
+    toast.success(tab === 'skipped' ? `"${word}" will show up again` : `Removed "${word}"`);
   };
 
   if (mode === 'quiz') {
@@ -237,7 +241,8 @@ export function BookmarkList() {
   const emptyCopy: Record<Tab, { icon: string; title: string; hint: string }> = {
     saved: { icon: '★', title: 'No saved words yet', hint: 'Bookmark words while learning to build your personal vocabulary list.' },
     known: { icon: '✓', title: 'No known words yet', hint: 'Words you mark as “Know it” while learning show up here.' },
-    unknown: { icon: '↷', title: 'Nothing skipped yet', hint: 'Words you skip while learning show up here so you can revisit them.' },
+    unknown: { icon: '↷', title: 'Nothing here yet', hint: 'Words you couldn’t guess show up here — they keep coming back until you learn them.' },
+    skipped: { icon: '🙈', title: 'Nothing skipped yet', hint: 'Words you skip while learning land here and stop appearing. Remove one to bring it back.' },
   };
 
   return (
@@ -249,7 +254,11 @@ export function BookmarkList() {
       {/* ── Tabs ── */}
       <div className="flex items-stretch gap-1 mb-6 border-b-2 border-border">
         {TABS.map((t) => {
-          const count = t.id === 'saved' ? bookmarks.length : t.id === 'known' ? known.length : unknown.length;
+          const count =
+            t.id === 'saved' ? bookmarks.length
+            : t.id === 'known' ? known.length
+            : t.id === 'unknown' ? unknown.length
+            : dismissed.length;
           const active = tab === t.id;
           return (
             <button
@@ -394,7 +403,11 @@ export function BookmarkList() {
                 <button
                   onClick={(e) => handleRemove(e, word)}
                   className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/30 transition-all"
-                  title={tab === 'saved' ? 'Remove from saved' : 'Remove from history'}
+                  title={
+                    tab === 'saved' ? 'Remove from saved'
+                    : tab === 'skipped' ? 'Show this word again'
+                    : 'Remove from history'
+                  }
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18" />

@@ -6,6 +6,7 @@ import { useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
 import { isMobile } from '../lib/device';
 import { CollectionQuiz } from './CollectionQuiz';
+import { CollectionStats } from './CollectionStats';
 import type { WorldStation } from '../game/types';
 import { MemberAvatars } from './MemberAvatars';
 
@@ -99,6 +100,19 @@ function QuizButton({ onClick }: { onClick: () => void }) {
       className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-green hover:border-accent-green/30 transition-all"
     >
       <Icon icon="lucide:play" className="text-sm" />
+    </button>
+  );
+}
+
+/** Small chart button that opens the analytics popup for a collection. */
+function StatsButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title="Progress stats"
+      className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-purple hover:border-accent-purple/30 transition-all"
+    >
+      <Icon icon="lucide:chart-pie" className="text-sm" />
     </button>
   );
 }
@@ -248,6 +262,9 @@ export function CollectionsPage() {
   // ── Quiz ──
   const [quiz, setQuiz] = useState<{ name: string; words: string[] } | null>(null);
 
+  // ── Analytics popup ──
+  const [stats, setStats] = useState<{ name: string; words: string[] } | null>(null);
+
   // ── AI word-list helper (opens ChatGPT with a paste-ready prompt) ──
   const [aiTopic, setAiTopic] = useState('');
 
@@ -380,6 +397,7 @@ export function CollectionsPage() {
               <MemberAvatars collectionId={sharedCol.id} name={sharedCol.name} />
             </div>
             <PreviewButton onClick={() => openPreview(sharedCol.name, sharedCol.words)} />
+            <StatsButton onClick={() => setStats({ name: sharedCol.name, words: sharedCol.words })} />
             <QuizButton onClick={() => setQuiz({ name: sharedCol.name, words: sharedCol.words })} />
             <button
               onClick={() => pick(sharedCol.id, sharedCol.name)}
@@ -524,6 +542,7 @@ export function CollectionsPage() {
                     {c.isPublic && <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal[c.id] ?? 0} />}
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
+                  <StatsButton onClick={() => setStats({ name: c.name, words: c.words })} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
                   {/* Owner actions tucked behind an options menu */}
                   <div className="relative shrink-0">
@@ -605,6 +624,7 @@ export function CollectionsPage() {
                     <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal[c.id] ?? 0} />
                   </button>
                   <PreviewButton onClick={() => openPreview(c.name, c.words)} />
+                  <StatsButton onClick={() => setStats({ name: c.name, words: c.words })} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
                   <div className="relative shrink-0">
                     <button
@@ -662,6 +682,7 @@ export function CollectionsPage() {
                   <CompletionBar pct={completionPct(getCollection(c.id).words.map((w) => w.word), progress)} />
                 </button>
                 <PreviewButton onClick={() => openPreview(c.name, getCollection(c.id).words.map((w) => w.word))} />
+                <StatsButton onClick={() => setStats({ name: c.name, words: getCollection(c.id).words.map((w) => w.word) })} />
                 <QuizButton onClick={() => setQuiz({ name: c.name, words: getCollection(c.id).words.map((w) => w.word) })} />
                 {active ? (
                   <Icon icon="lucide:check-circle-2" className="text-xl text-accent-cyan shrink-0" />
@@ -692,6 +713,10 @@ export function CollectionsPage() {
           onReshuffle={() => setPreview({ ...preview, sample: sampleWords(preview.all) })}
           onClose={() => setPreview(null)}
         />
+      )}
+
+      {stats && (
+        <CollectionStats name={stats.name} words={stats.words} onClose={() => setStats(null)} />
       )}
     </div>
   );

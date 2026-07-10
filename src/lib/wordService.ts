@@ -4,6 +4,8 @@ import { getLearnLanguage, getMotherLanguage } from './languages';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useCollections } from '../hooks/useCollections';
 import { isDue, dueTime } from './srs';
+import { progressLookup, wordBucket } from './progress';
+import { fetchPickedWords } from './pickApi';
 import type { VocabularyWord } from '../types';
 
 // ─── Built-in word list ─────────────────────────────────────────────
@@ -180,14 +182,16 @@ export async function generateWordData(
 
   const learnLang = getLearnLanguage();
   const motherLang = getMotherLanguage();
-  const isEnglish = learnLang.trim().toLowerCase() === 'english';
 
   // The `word` edge function is cache-first and returns a ready object (it does
   // the generate/validate/retry server-side), so there's nothing to parse here.
   const data = await fetchWordData({ word, level, learnLang, motherLang }, signal);
-  // Keep the English seed as the stable identity (progress/selection); the
-  // AI's learn-language word becomes the headword shown and guessed.
-  if (!isEnglish) {
+  // Keep the seed as the stable identity (progress/selection/cache keys); the
+  // returned word — a learn-language translation or a normalized/spell-corrected
+  // English form — becomes the headword shown and guessed. Without this, review
+  // progress is saved under a key the collection list never matches, so the
+  // word looks forever-new and hogs the rotation.
+  if (data.word !== word) {
     data.headword = data.word;
     data.word = word;
   }
@@ -273,11 +277,55 @@ export function getActiveWordList() {
 
 // ─── Word selection ─────────────────────────────────────────────────
 
-// Spaced-repetition selection: surface words that are due for review first,
-// then introduce fresh words, then fall back to the soonest upcoming review.
-// Mastered words drop out of rotation. (The known/skipped sets are no longer
-// needed — the schedule in the store drives everything — but the signature is
-// kept for the existing call sites.)
+// Word selection: a 50/50 mix of "difficult" words (the last round failed, or
+// more wrong answers than correct — they repeat until learned) and brand-new
+// words. Words answered correctly stay away until their spaced-repetition
+// review is due, and only surface once no difficult/new words remain. Mastered
+// and dismissed words drop out of rotation.
+
+/**
+ * Pick the next `count` words to study. Selection runs on the SERVER (the
+ * `pick` edge function) against the authoritative synced progress, so a device
+ * with stale local data still gets the words the user is actually incorrect on
+ * or has never checked. Offline / signed out / server trouble falls back to
+ * `pickNextWord` — the same algorithm over local state.
+ */
+export async function pickNextWords(
+  exclude: Set<string> = new Set(),
+  count = 1,
+): Promise<{ word: string; level: VocabularyWord['level'] }[]> {
+  const list = getActiveWordList();
+  if (list.length === 0) return [];
+
+  const remote = await fetchPickedWords({
+    words: list.map((w) => w.word),
+    exclude: [...exclude],
+    count,
+    mode: 'learn',
+  });
+  if (remote) {
+    // Map back onto the collection entries (restores the level metadata).
+    const byLower = new Map(list.map((w) => [w.word.toLowerCase(), w]));
+    const picks = remote
+      .map((w) => byLower.get(w.toLowerCase()))
+      .filter((w): w is (typeof list)[number] => Boolean(w));
+    if (picks.length) return picks;
+  }
+
+  const picks: { word: string; level: VocabularyWord['level'] }[] = [];
+  const taken = new Set(exclude);
+  for (let i = 0; i < count; i++) {
+    const p = pickNextWord(new Set(), new Set(), taken);
+    if (!p || taken.has(p.word)) break; // list exhausted
+    picks.push(p);
+    taken.add(p.word);
+  }
+  return picks;
+}
+
+// Local selection — the fallback path and the reference implementation the
+// server mirrors. (The known/skipped sets are no longer needed — progress in
+// the store drives everything — but the signature is kept for call sites.)
 export function pickNextWord(
   _knownWords: Set<string>,
   _skippedWords: Set<string>,
@@ -288,30 +336,55 @@ export function pickNextWord(
   const now = Date.now();
   const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
-  // 1) Due reviews — soonest due first.
-  const due = list.filter((w) => !exclude.has(w.word) && isDue(progress[w.word], now));
+  const prog = progressLookup(progress);
+
+  // Dismissed words (the Skip button) never come back unless restored.
+  const inRotation = list.filter(
+    (w) => !exclude.has(w.word) && prog(w.word)?.status !== 'dismissed',
+  );
+
+  // Difficult words — the last round failed (gave up) or the word has more
+  // wrong answers than correct. These need extra care until learned.
+  const difficult = inRotation.filter((w) => wordBucket(prog(w.word)) === 'difficult');
+
+  // New words — never answered yet.
+  const fresh = inRotation.filter((w) => wordBucket(prog(w.word)) === 'pending');
+
+  // 50/50 mix of difficult and new; when the coin-flipped pool is empty the
+  // other takes its turn.
+  const pools = Math.random() < 0.5 ? [difficult, fresh] : [fresh, difficult];
+  for (const pool of pools) {
+    if (!pool.length) continue;
+    if (pool === difficult) {
+      // Lapsed words come back promptly: due ones first, soonest first.
+      const dueDifficult = pool.filter((w) => isDue(prog(w.word), now));
+      if (dueDifficult.length) {
+        dueDifficult.sort((a, b) => dueTime(prog(a.word)) - dueTime(prog(b.word)));
+        return dueDifficult[0];
+      }
+    }
+    return pick(pool);
+  }
+
+  // No difficult or new words left — fall back to the review schedule:
+  // 1) due reviews of known words, soonest first.
+  const due = inRotation.filter((w) => isDue(prog(w.word), now));
   if (due.length) {
-    due.sort((a, b) => dueTime(progress[a.word]) - dueTime(progress[b.word]));
+    due.sort((a, b) => dueTime(prog(a.word)) - dueTime(prog(b.word)));
     return due[0];
   }
 
-  // 2) New words — never reviewed and not mastered.
-  const fresh = list.filter((w) => {
-    const p = progress[w.word];
-    return !exclude.has(w.word) && !p?.mastered && !p?.dueAt;
-  });
-  if (fresh.length) return pick(fresh);
-
-  // 3) Soonest upcoming non-mastered review (nothing due yet, no new words left).
-  const upcoming = list.filter((w) => {
-    const p = progress[w.word];
-    return !exclude.has(w.word) && !!p?.dueAt && !p.mastered;
+  // 2) soonest upcoming non-mastered review.
+  const upcoming = inRotation.filter((w) => {
+    const p = prog(w.word);
+    return !!p?.dueAt && !p.mastered;
   });
   if (upcoming.length) {
-    upcoming.sort((a, b) => dueTime(progress[a.word]) - dueTime(progress[b.word]));
+    upcoming.sort((a, b) => dueTime(prog(a.word)) - dueTime(prog(b.word)));
     return upcoming[0];
   }
 
-  // Everything mastered / excluded — just pick anything so the UI never stalls.
-  return pick(list);
+  // Everything mastered / dismissed / excluded — pick anything still in
+  // rotation, or anything at all, so the UI never stalls.
+  return pick(inRotation.length ? inRotation : list);
 }

@@ -6,7 +6,7 @@ import { getMotherLanguage } from '../lib/languages';
 import { useCollections } from '../hooks/useCollections';
 import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
-import { generateWordData, pickNextWord } from '../lib/wordService';
+import { generateWordData, pickNextWords } from '../lib/wordService';
 import { reviewsUntilMastered } from '../lib/srs';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { WordTest } from './WordTest';
@@ -21,7 +21,7 @@ import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../hooks/useTtsSetting
 import { encodeWord, decodeWord } from '../lib/wordCode';
 import { answerRegex, familyForms, maskAnswer } from '../lib/answerMask';
 import { SynAnt } from './SynAnt';
-import type { VocabularyWord } from '../types';
+import type { VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
 
 type CardPhase = 'loading' | 'introduce' | 'revealed';
@@ -197,6 +197,44 @@ function ExampleList({ wordData, phase, speakingExample, onSpeak }: {
   );
 }
 
+/**
+ * Lifetime correct/incorrect tally for the word, shown once revealed. Both
+ * segments carry an icon + word + count so the meter never relies on the
+ * green/red hues alone (they blend for red-green colorblind readers).
+ */
+function AnswerTally({ progress }: { progress: WordProgress | undefined }) {
+  const correct = progress?.correct ?? 0;
+  const wrong = progress?.wrong ?? 0;
+  const total = correct + wrong;
+  if (total === 0) return null;
+  return (
+    <div className="mt-3 pt-3 border-t border-border/60">
+      <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
+        Your answers
+      </h4>
+      <div className="flex items-center justify-between mb-1.5 text-xs font-bold">
+        <span className="flex items-center gap-1 text-accent-green">
+          <Icon icon="lucide:check" className="text-sm" />
+          {correct} correct
+        </span>
+        <span className="flex items-center gap-1 text-accent-red">
+          <Icon icon="lucide:x" className="text-sm" />
+          {wrong} wrong
+        </span>
+      </div>
+      <div
+        className="flex h-2 rounded-full overflow-hidden bg-bg-tertiary"
+        role="img"
+        aria-label={`${correct} correct, ${wrong} wrong`}
+      >
+        {correct > 0 && <div className="bg-accent-green rounded-full" style={{ width: `${(correct / total) * 100}%` }} />}
+        {correct > 0 && wrong > 0 && <div className="w-0.5 shrink-0" />}
+        {wrong > 0 && <div className="bg-accent-red rounded-full" style={{ width: `${(wrong / total) * 100}%` }} />}
+      </div>
+    </div>
+  );
+}
+
 export function FlashCard() {
   const { user, loading: authLoading } = useAuth();
   const store = useVocabularyStore();
@@ -219,6 +257,10 @@ export function FlashCard() {
   // Whether the current word was solved in the guess game (already recorded as a
   // review, so we don't also show a redundant "Know it" button).
   const [solved, setSolved] = useState(false);
+  // Wrong attempts made during the current round (typed guesses, wrong letters,
+  // wrong picks — reported by GuessGame). The games differ in difficulty, so
+  // mistakes are tallied here and recorded when the word is revealed.
+  const roundMistakesRef = useRef(0);
 
   // History
   const wordHistoryRef = useRef<VocabularyWord[]>([]);
@@ -246,6 +288,7 @@ export function FlashCard() {
     setPhase('loading');
     setGaveUp(false);
     setSolved(false);
+    roundMistakesRef.current = 0;
     setWordData(null);
     setImageUrls([]);
     setImagesLoading(false);
@@ -265,9 +308,16 @@ export function FlashCard() {
 
     const exclude = new Set(getPrefetchedWords());
     if (excludeWord) exclude.add(excludeWord);
-    const { word, level } = pickNextWord(known, skipped, exclude);
-
     setIsGenerating(true);
+    // Server-side pick (authoritative cross-device progress), local fallback.
+    const [next] = await pickNextWords(exclude);
+    if (!next) {
+      setIsGenerating(false);
+      toast.error('No words to study in this collection.');
+      return;
+    }
+    const { word, level } = next;
+
     try {
       const data = await generateWithRetry(word, level, abortRef.current.signal);
       pushWord(data);
@@ -293,6 +343,7 @@ export function FlashCard() {
     setPhase('loading');
     setGaveUp(false);
     setSolved(false);
+    roundMistakesRef.current = 0;
     setWordData(null);
     setImageUrls([]);
     setImagesLoading(false);
@@ -377,7 +428,8 @@ export function FlashCard() {
   const handleReveal = () => {
     if (phase !== 'introduce' || !wordData) return;
     breakStreak(); // gave up without guessing
-    store.markWord(wordData.word, 'skipped', user?.id); // giving up counts as a lapse
+    // Giving up counts as a lapse; the round's wrong attempts are recorded too.
+    store.markWord(wordData.word, 'skipped', user?.id, roundMistakesRef.current);
     setGaveUp(true);
     setPhase('revealed');
   };
@@ -437,7 +489,10 @@ export function FlashCard() {
   const handleSkip = () => {
     if (!wordData) return;
     if (phase === 'introduce') breakStreak(); // skipped without guessing
-    store.markWord(wordData.word, 'skipped', user?.id);
+    // Skip = "don't show me this word again" — it leaves the rotation for good
+    // (restorable from History), unlike giving up, which repeats the word.
+    store.markWord(wordData.word, 'dismissed', user?.id, roundMistakesRef.current);
+    toast(`"${wordData.headword || wordData.word}" won't be shown again`, { icon: '🙈' });
     loadNextWord(wordData.word);
   };
 
@@ -467,6 +522,7 @@ export function FlashCard() {
     setWordData(data);
     setGaveUp(false);
     setSolved(true); // past words are already resolved — no "Know it" prompt
+    roundMistakesRef.current = 0;
     setPhase('revealed');
   }, []);
 
@@ -652,11 +708,13 @@ export function FlashCard() {
                   onSolved={() => {
                     setGaveUp(false);
                     setSolved(true);
-                    // Solving the guess counts as a successful review (schedules the word).
-                    store.markWord(wordData.word, 'known', user?.id);
+                    // Solving the guess counts as a successful review (schedules the
+                    // word); wrong attempts made along the way are recorded with it.
+                    store.markWord(wordData.word, 'known', user?.id, roundMistakesRef.current);
                     setPhase('revealed');
                   }}
                   onGaveUp={handleReveal}
+                  onMistake={() => { roundMistakesRef.current += 1; }}
                 />
               ) : (
                 /* Revealed word card */
@@ -736,25 +794,40 @@ export function FlashCard() {
                   )}
                   <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
                   <SynAnt wordData={wordData} />
+                  <AnswerTally progress={store.progress[wordData.word]} />
                 </div>
               )}
 
               {/* Actions */}
               {phase === 'introduce' ? (
                 <div className="flex gap-3">
+                  {/* Hovering swaps the label for what the button actually does —
+                      the default label slides out and the hint slides in. */}
                   <button
                     onClick={handleReveal}
-                    className="btn-3d flex-1 flex items-center justify-center gap-2 py-4 bg-accent-orange text-bg-primary text-base font-bold"
+                    className="group btn-3d relative overflow-hidden flex-1 py-4 bg-accent-orange text-bg-primary text-base font-bold"
                   >
-                    <Icon icon="solar:flag-2-bold" className="text-2xl" />
-                    Give up
+                    <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
+                      <Icon icon="solar:flag-2-bold" className="text-2xl" />
+                      Give up
+                    </span>
+                    <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                      <Icon icon="solar:eye-bold" className="text-2xl" />
+                      Reveal the answer
+                    </span>
                   </button>
                   <button
                     onClick={handleSkip}
-                    className="btn-3d flex-1 flex items-center justify-center gap-2 py-4 bg-accent-blue text-bg-primary text-base font-bold"
+                    className="group btn-3d relative overflow-hidden flex-1 py-4 bg-accent-blue text-bg-primary text-base font-bold"
                   >
-                    <Icon icon="solar:skip-next-bold" className="text-2xl" />
-                    Skip
+                    <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
+                      <Icon icon="solar:skip-next-bold" className="text-2xl" />
+                      Skip
+                    </span>
+                    <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                      <Icon icon="solar:eye-closed-bold" className="text-2xl" />
+                      Never show again
+                    </span>
                   </button>
                 </div>
               ) : (

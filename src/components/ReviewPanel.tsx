@@ -13,7 +13,8 @@ const DAY_LABELS = ['Today', '+1', '+2', '+3', '+4', '+5', '+6'];
  */
 export function ReviewPanel() {
   const progress = useVocabularyStore((s) => s.progress);
-  const entries = Object.values(progress);
+  // Dismissed words (skipped for good) are out of rotation — not part of the schedule.
+  const entries = Object.values(progress).filter((p) => p.status !== 'dismissed');
   const learning = entries.filter((p) => p.dueAt && !p.mastered);
   const mastered = entries.filter((p) => p.mastered).length;
   const now = Date.now();

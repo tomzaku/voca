@@ -1,4 +1,4 @@
-import { generateWordData, pickNextWord } from './wordService';
+import { generateWordData, pickNextWords } from './wordService';
 import type { VocabularyWord } from '../types';
 
 // ─── Module-level queue (survives re-renders) ────────────────────────
@@ -35,14 +35,18 @@ export function clearPrefetchQueue(): void {
 let filling = false;
 
 /**
- * Fill the queue up to QUEUE_SIZE, fetching ONE word at a time. Sequential on
- * purpose: parallel prefetch bursts trip provider rate limits (Gemini free-tier
- * RPM), causing 429s on the word the user is actually waiting for.
+ * Fill the queue up to QUEUE_SIZE. The words are picked in ONE batch (a single
+ * server-side `pick` call against synced progress, local fallback), then their
+ * data is fetched one at a time — sequential on purpose: parallel prefetch
+ * bursts trip provider rate limits (Gemini free-tier RPM), causing 429s on the
+ * word the user is actually waiting for.
  * Safe to call frequently — only a single fill loop runs at a time.
+ * (The known/skipped sets are unused since selection reads the progress store,
+ * but the signature is kept for the existing call sites.)
  */
 export function fillPrefetchQueue(
-  knownWords: Set<string>,
-  skippedWords: Set<string>,
+  _knownWords: Set<string>,
+  _skippedWords: Set<string>,
   currentWord?: string,
 ): void {
   if (filling) return;
@@ -50,14 +54,15 @@ export function fillPrefetchQueue(
 
   (async () => {
     try {
-      while (queue.length + inFlight.size < QUEUE_SIZE) {
-        const exclude = new Set<string>(getPrefetchedWords());
-        if (currentWord) exclude.add(currentWord);
+      const need = QUEUE_SIZE - queue.length - inFlight.size;
+      if (need <= 0) return;
 
-        const { word, level } = pickNextWord(knownWords, skippedWords, exclude);
-        // pickNextWord may return an excluded word when the list is nearly exhausted
-        if (exclude.has(word)) break;
+      const exclude = new Set<string>(getPrefetchedWords());
+      if (currentWord) exclude.add(currentWord);
+      const picks = await pickNextWords(exclude, need);
 
+      for (const { word, level } of picks) {
+        if (exclude.has(word)) continue; // near-exhausted list may repeat
         inFlight.add(word);
         try {
           const data = await generateWordData(word, level);

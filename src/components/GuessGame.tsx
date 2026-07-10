@@ -24,6 +24,9 @@ interface Props {
   onSolved: () => void;
   /** Called when a wrong multiple-choice pick ends the round (counts as a miss). */
   onGaveUp: () => void;
+  /** Called on every wrong attempt (typed guess, wrong letter, wrong pick) so
+   *  the parent can tally mistakes and record them when the word is revealed. */
+  onMistake?: () => void;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -90,7 +93,7 @@ function ModePill({ g, active, onGameChange }: {
   );
 }
 
-export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: Props) {
+export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, onMistake }: Props) {
   // Guess the learn-language headword when set (falls back to the English word).
   const word = wordData.headword || wordData.word;
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
@@ -118,6 +121,12 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
   const knownCount = useVocabularyStore(
     (s) => Object.values(s.progress).filter((e) => e.status === 'known').length,
   );
+
+  // Every wrong attempt counts toward the word's mistake tally.
+  const miss = () => {
+    onMistake?.();
+    flash(setResult);
+  };
 
   const solve = () => {
     win();
@@ -203,22 +212,22 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp }: 
         </div>
 
         {activeGame === 'letters' && (
-          <LettersGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+          <LettersGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
         )}
         {activeGame === 'scramble' && (
-          <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+          <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
         )}
         {activeGame === 'choice' && (
-          <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onGaveUp={onGaveUp} />
+          <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onGaveUp={() => { onMistake?.(); onGaveUp(); }} />
         )}
         {activeGame === 'hangman' && (
-          <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+          <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
         )}
         {activeGame === 'listen' && (
-          <ListenGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+          <ListenGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
         )}
         {activeGame === 'vowels' && (
-          <VowelsGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={() => flash(setResult)} />
+          <VowelsGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
         )}
       </div>
     </div>

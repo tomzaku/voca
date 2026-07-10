@@ -6,6 +6,9 @@ import { encodeWord } from '../lib/wordCode';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
 import { familyForms, maskAnswer } from '../lib/answerMask';
+import { useVocabularyStore } from '../hooks/useVocabulary';
+import { progressLookup } from '../lib/progress';
+import { fetchPickedWords } from '../lib/pickApi';
 import { SynAnt } from './SynAnt';
 import type { VocabularyWord } from '../types';
 
@@ -55,6 +58,45 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/**
+ * Sample quiz words: 50% words with a high mistake rate (>30% of answers
+ * wrong) and 50% words never answered — quizzing what needs work rather than
+ * what's already known. Well-known words only fill in when both pools run
+ * short; dismissed (skipped-for-good) words are left out entirely.
+ * This is the local fallback — the server's `pick` function (mode 'quiz')
+ * runs the same algorithm against the authoritative synced progress.
+ */
+function sampleQuizWords(words: string[], count: number): string[] {
+  const prog = progressLookup(useVocabularyStore.getState().progress);
+
+  const available = words.filter((w) => prog(w)?.status !== 'dismissed');
+  const mistakes = shuffle(available.filter((w) => {
+    const p = prog(w);
+    const total = (p?.correct ?? 0) + (p?.wrong ?? 0);
+    return total > 0 && (p?.wrong ?? 0) / total > 0.3;
+  }));
+  const unseen = shuffle(available.filter((w) => {
+    const p = prog(w);
+    return !p?.status && !p?.dueAt;
+  }));
+
+  const n = Math.min(count, available.length || words.length);
+  const sampled = mistakes.slice(0, Math.ceil(n / 2));
+  sampled.push(...unseen.slice(0, n - sampled.length));
+  // Both pools short — top up with whatever remains (well-known words last).
+  if (sampled.length < n) {
+    const chosen = new Set(sampled);
+    for (const w of [...mistakes, ...unseen, ...shuffle(available.length ? available : words)]) {
+      if (sampled.length >= n) break;
+      if (!chosen.has(w)) {
+        chosen.add(w);
+        sampled.push(w);
+      }
+    }
+  }
+  return sampled;
+}
+
 interface Props {
   name: string;
   words: string[];
@@ -84,7 +126,10 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
 
   const start = async () => {
     setPhase('loading');
-    const sampled = shuffle(words).slice(0, Math.min(count, words.length));
+    // Server-side sample (authoritative cross-device progress), local fallback.
+    const sampled =
+      (await fetchPickedWords({ words, count, mode: 'quiz' }))
+      ?? sampleQuizWords(words, count);
 
     const dataMap: Record<string, VocabularyWord> = {};
     await Promise.all(sampled.map(async (word) => {
@@ -150,6 +195,10 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
     if (answered) return;
     setPicked(opt);
     grade(opt === q.word);
+    // Read the selected word aloud (just after the correct/wrong chime) so the
+    // learner hears the pronunciation of every option they pick.
+    stopSpeaking();
+    setTimeout(() => speakText(opt), 250);
   };
 
   const submitTyped = () => {
