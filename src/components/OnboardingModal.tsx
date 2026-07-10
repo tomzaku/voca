@@ -8,7 +8,7 @@ import {
 import { LANGUAGES, getMotherLanguage, setMotherLanguage } from '../lib/languages';
 import { isKokoroSupported } from '../lib/tts';
 import { setTtsEngine, setTtsVoice } from '../hooks/useTtsSettings';
-import { buildPlacementTest, scorePlacement, type TestWord } from '../lib/placementTest';
+import { LevelPicker } from './LevelPicker';
 import { useCompanion } from '../hooks/useCompanion';
 import { ANIMALS } from '../lib/companion';
 import { useCollections } from '../hooks/useCollections';
@@ -33,32 +33,10 @@ export function OnboardingModal() {
   const [saving, setSaving] = useState(false);
   const { animalId, choose } = useCompanion();
 
-  // Placement test ("Find your level").
+  // Level test ("Find your level") — the same shared three-phase word picker
+  // as the /level-test page.
   const [mode, setMode] = useState<'setup' | 'test'>('setup');
-  const [testWords, setTestWords] = useState<TestWord[]>([]);
-  const [known, setKnown] = useState<Set<string>>(new Set());
   const [recommended, setRecommended] = useState<string | null>(null);
-
-  const startTest = () => {
-    setTestWords(buildPlacementTest());
-    setKnown(new Set());
-    setMode('test');
-  };
-
-  const toggleKnown = (word: string) => {
-    setKnown((prev) => {
-      const next = new Set(prev);
-      if (next.has(word)) next.delete(word); else next.add(word);
-      return next;
-    });
-  };
-
-  const finishTest = () => {
-    const { collectionId: rec } = scorePlacement(known, testWords);
-    setCollectionId(rec);
-    setRecommended(rec);
-    setMode('setup');
-  };
 
   useEffect(() => {
     if (loading || !user) {
@@ -103,12 +81,13 @@ export function OnboardingModal() {
       <div className="w-full max-w-md rounded-2xl border border-border bg-bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {mode === 'test' ? (
-            <PlacementTestView
-              words={testWords}
-              known={known}
-              onToggle={toggleKnown}
+            <LevelPicker
               onBack={() => setMode('setup')}
-              onFinish={finishTest}
+              onDone={({ collectionId: rec }) => {
+                setCollectionId(rec);
+                setRecommended(rec);
+                setMode('setup');
+              }}
             />
           ) : (
           <>
@@ -124,7 +103,7 @@ export function OnboardingModal() {
                 Your level
               </label>
               <button
-                onClick={startTest}
+                onClick={() => setMode('test')}
                 className="text-xs font-bold text-accent-cyan hover:underline"
               >
                 Not sure? Find your level →
@@ -243,60 +222,3 @@ export function OnboardingModal() {
   );
 }
 
-function PlacementTestView({
-  words,
-  known,
-  onToggle,
-  onBack,
-  onFinish,
-}: {
-  words: TestWord[];
-  known: Set<string>;
-  onToggle: (word: string) => void;
-  onBack: () => void;
-  onFinish: () => void;
-}) {
-  return (
-    <div>
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1 text-xs font-bold text-text-muted hover:text-text-primary mb-3"
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-        Back
-      </button>
-      <h2 className="text-xl font-display font-bold text-text-primary">Find your level</h2>
-      <p className="text-sm text-text-muted mt-1 mb-5">
-        Tap every word you know. We'll pick a starting pack for you.
-      </p>
-
-      <div className="flex flex-wrap gap-2 mb-6">
-        {words.map((t) => {
-          const sel = known.has(t.word);
-          return (
-            <button
-              key={t.word}
-              onClick={() => onToggle(t.word)}
-              className={`px-3 py-1.5 rounded-lg border text-sm font-bold transition-all ${
-                sel
-                  ? 'border-accent-cyan/50 bg-accent-cyan/15 text-accent-cyan'
-                  : 'border-border bg-bg-tertiary text-text-primary hover:border-border-light'
-              }`}
-            >
-              {t.word}
-            </button>
-          );
-        })}
-      </div>
-
-      <button
-        onClick={onFinish}
-        className="btn-3d w-full py-3 bg-accent-cyan text-bg-primary font-bold"
-      >
-        See my level{known.size > 0 ? ` (${known.size} known)` : ''}
-      </button>
-    </div>
-  );
-}

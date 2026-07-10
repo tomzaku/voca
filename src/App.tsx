@@ -12,6 +12,7 @@ import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 import { CompanionPage } from './components/CompanionPage';
 import { CollectionsPage } from './components/CollectionsPage';
+import { LevelTestPage } from './components/LevelTestPage';
 import { OnboardingModal } from './components/OnboardingModal';
 import { LoginGate } from './components/LoginGate';
 
@@ -28,6 +29,7 @@ export default function App() {
               <Route path="/bookmarks" element={<BookmarkList />} />
               <Route path="/companion" element={<CompanionPage />} />
               <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/level-test" element={<LevelTestPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/profile" element={<ProfilePage />} />

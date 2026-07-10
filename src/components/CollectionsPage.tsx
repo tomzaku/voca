@@ -658,7 +658,16 @@ export function CollectionsPage() {
 
       {/* ── System collections ── */}
       <section>
-        <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Levels</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Levels</h2>
+          <button
+            onClick={() => navigate('/level-test')}
+            className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
+          >
+            <Icon icon="lucide:target" />
+            Find my level
+          </button>
+        </div>
         <div className="space-y-2">
           {systemCollections.map((c) => {
             const active = c.id === activeId;
