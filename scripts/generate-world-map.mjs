@@ -218,15 +218,28 @@ const tileLayer = (id, name, data) => ({
   opacity: 1, visible: true, data,
 });
 
-const collides = Object.values(ts.tiles)
-  .filter((t) => t.collides)
-  .flatMap((t) => {
-    const ids = [];
-    for (let dy = 0; dy < t.h; dy++) {
-      for (let dx = 0; dx < t.w; dx++) ids.push((t.y + dy) * ts.columns + (t.x + dx));
+// Per-tile metadata: collides flags plus tile animations (standard Tiled
+// format — Phaser plays these natively, e.g. the rippling river water).
+const localId = (name) => ts.tiles[name].y * ts.columns + ts.tiles[name].x;
+const tileEntries = new Map();
+const entryFor = (id) => {
+  if (!tileEntries.has(id)) tileEntries.set(id, { id });
+  return tileEntries.get(id);
+};
+for (const t of Object.values(ts.tiles)) {
+  if (!t.collides) continue;
+  for (let dy = 0; dy < t.h; dy++) {
+    for (let dx = 0; dx < t.w; dx++) {
+      entryFor((t.y + dy) * ts.columns + (t.x + dx)).properties = [prop('collides', 'bool', true)];
     }
-    return ids;
-  });
+  }
+}
+for (const anim of Object.values(ts.animations ?? {})) {
+  entryFor(localId(anim.frames[0])).animation = anim.frames.map((f) => ({
+    tileid: localId(f),
+    duration: anim.frameDuration,
+  }));
+}
 
 const map = {
   type: 'map',
@@ -260,7 +273,7 @@ const map = {
       tileheight: T,
       margin: 0,
       spacing: 0,
-      tiles: collides.map((id) => ({ id, properties: [prop('collides', 'bool', true)] })),
+      tiles: [...tileEntries.values()],
     },
   ],
 };

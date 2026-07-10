@@ -42,6 +42,9 @@ const PICKS = {
   // ── river & bridge (TilesetWater) ──
   bank_top: ['TilesetWater.png', 5, 5, 1, 1, true],     // grass above, water below
   water: ['../Animated/Water Ripples/SpriteSheet16x16.png', 0, 0, 1, 1, true],
+  water_f2: ['../Animated/Water Ripples/SpriteSheet16x16.png', 1, 0, 1, 1, true],
+  water_f3: ['../Animated/Water Ripples/SpriteSheet16x16.png', 2, 0, 1, 1, true],
+  water_f4: ['../Animated/Water Ripples/SpriteSheet16x16.png', 3, 0, 1, 1, true],
   bank_bottom: ['TilesetWater.png', 5, 2, 1, 1, true],  // water above, sand below
   bridge_top: ['TilesetWater.png', 4, 11, 2, 1, false], // wooden deck, 2 cols wide
   bridge_mid: ['TilesetWater.png', 4, 12, 2, 1, false],
@@ -85,6 +88,12 @@ const PICKS = {
   pot2: ['TilesetDesert.png', 7, 11, 1, 1, false],
 };
 
+// Tile animations (standard Tiled format; Phaser plays them natively).
+// name → frame names + per-frame duration in ms.
+const ANIMATIONS = {
+  water: { frames: ['water', 'water_f2', 'water_f3', 'water_f4'], frameDuration: 300 },
+};
+
 // Shelf-pack the blocks into a COLUMNS-wide sheet, in declaration order.
 let cx = 0, cy = 0, shelf = 0;
 const placed = {}; // name → { x, y, w, h, collides }
@@ -119,6 +128,6 @@ await sharp({
 
 writeFileSync(
   fileURLToPath(new URL('tileset-village.json', OUT)),
-  JSON.stringify({ columns: COLUMNS, tilecount: COLUMNS * ROWS, tileSize: T, tiles: placed }, null, 2),
+  JSON.stringify({ columns: COLUMNS, tilecount: COLUMNS * ROWS, tileSize: T, tiles: placed, animations: ANIMATIONS }, null, 2),
 );
 console.log(`wrote tileset-village.png (${COLUMNS * T}x${ROWS * T}) + tileset-village.json (${Object.keys(placed).length} entries)`);

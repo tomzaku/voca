@@ -344,6 +344,74 @@ export function CollectionsPage() {
 
   const isForeignShared = sharedCol && sharedCol.ownerId !== user?.id;
 
+  // The create/edit form fields, shared by the inline card (list view) and
+  // the modal (Explore view's "build a collection" flow).
+  const collectionFormFields = (
+    <>
+      {editingId && (
+        <p className="text-xs font-bold text-accent-cyan uppercase tracking-wider">Editing collection</p>
+      )}
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Collection name (e.g. IELTS Essentials)"
+        maxLength={60}
+        className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
+      />
+
+      {/* AI helper: describe a topic → ChatGPT opens with a prompt whose
+          answer (one word per line) pastes straight into the box below. */}
+      <div className="p-3 rounded-xl bg-bg-tertiary/60 border border-border space-y-2">
+        <p className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted uppercase tracking-wider">
+          <Icon icon="lucide:sparkles" className="text-accent-purple" />
+          Need words? Ask AI
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={aiTopic}
+            onChange={(e) => setAiTopic(e.target.value)}
+            placeholder="Topic: family, animals, travel, business… or 200 collocations"
+            maxLength={200}
+            className="flex-1 min-w-0 bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/50"
+          />
+          <a
+            href={aiTopic.trim() ? chatGptWordsUrl(aiTopic.trim()) : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => { if (!aiTopic.trim()) e.preventDefault(); }}
+            className={`btn-3d shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold ${
+              aiTopic.trim() ? 'bg-accent-purple text-bg-primary' : 'bg-bg-card text-text-muted cursor-not-allowed opacity-60'
+            }`}
+          >
+            <Icon icon="lucide:external-link" className="text-sm" />
+            Ask ChatGPT
+          </a>
+        </div>
+        <p className="text-[11px] text-text-muted">
+          Copy the reply and paste it into the words box below.
+        </p>
+      </div>
+
+      <textarea
+        value={wordsInput}
+        onChange={(e) => setWordsInput(e.target.value)}
+        placeholder={'One word per line (or comma-separated):\nserendipity\nebullient\nmeticulous'}
+        rows={6}
+        className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm font-code text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50 resize-y"
+      />
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-text-muted">{parseWords(wordsInput).length} words detected</span>
+        <button
+          onClick={handleCreate}
+          disabled={saving}
+          className="btn-3d px-4 py-2 text-sm bg-accent-cyan text-bg-primary font-bold disabled:opacity-60"
+        >
+          {saving ? 'Saving…' : editingId ? 'Save changes' : 'Create'}
+        </button>
+      </div>
+    </>
+  );
+
   if (quiz) {
     return <CollectionQuiz name={quiz.name} words={quiz.words} onBack={() => setQuiz(null)} />;
   }
@@ -428,8 +496,43 @@ export function CollectionsPage() {
             onStudy={(s) => pick(s.id, s.name)}
             onPreview={(s) => openPreview(s.name, s.words)}
             onQuiz={(s) => setQuiz({ name: s.name, words: s.words })}
+            onStats={(s) => setStats({ name: s.name, words: s.words })}
+            onCreate={openCreate}
+            onEdit={(s) => { const c = mine.find((x) => x.id === s.id); if (c) openEdit(c); }}
+            onShare={(s) => handleShare(s.id)}
+            onDelete={(s) => { const c = mine.find((x) => x.id === s.id); if (c) handleDelete(c); }}
           />
         </Suspense>
+      )}
+
+      {/* In Explore the create form opens as a modal over the map. */}
+      {view === 'world' && creating && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={closeForm}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-border bg-bg-card shadow-2xl p-4 max-h-[85vh] overflow-y-auto space-y-3"
+            onClick={(e) => e.stopPropagation()}
+            // Keep typing (Space, arrows) away from the Phaser keyboard
+            // captures, which preventDefault on window in the bubble phase.
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-display font-bold text-text-primary">
+                {editingId ? 'Edit collection' : 'Build a new collection'}
+              </h3>
+              <button
+                onClick={closeForm}
+                className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary"
+                title="Close"
+              >
+                <Icon icon="lucide:x" />
+              </button>
+            </div>
+            {collectionFormFields}
+          </div>
+        </div>
       )}
 
       {view === 'list' && (<>
@@ -448,67 +551,7 @@ export function CollectionsPage() {
 
         {creating && (
           <div className="mb-3 p-4 rounded-2xl border-2 border-accent-cyan/40 bg-bg-card space-y-3 animate-fade-in">
-            {editingId && (
-              <p className="text-xs font-bold text-accent-cyan uppercase tracking-wider">Editing collection</p>
-            )}
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Collection name (e.g. IELTS Essentials)"
-              maxLength={60}
-              className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
-            />
-
-            {/* AI helper: describe a topic → ChatGPT opens with a prompt whose
-                answer (one word per line) pastes straight into the box below. */}
-            <div className="p-3 rounded-xl bg-bg-tertiary/60 border border-border space-y-2">
-              <p className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted uppercase tracking-wider">
-                <Icon icon="lucide:sparkles" className="text-accent-purple" />
-                Need words? Ask AI
-              </p>
-              <div className="flex gap-2">
-                <input
-                  value={aiTopic}
-                  onChange={(e) => setAiTopic(e.target.value)}
-                  placeholder="Topic: family, animals, travel, business… or 200 collocations"
-                  maxLength={200}
-                  className="flex-1 min-w-0 bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/50"
-                />
-                <a
-                  href={aiTopic.trim() ? chatGptWordsUrl(aiTopic.trim()) : undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => { if (!aiTopic.trim()) e.preventDefault(); }}
-                  className={`btn-3d shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold ${
-                    aiTopic.trim() ? 'bg-accent-purple text-bg-primary' : 'bg-bg-card text-text-muted cursor-not-allowed opacity-60'
-                  }`}
-                >
-                  <Icon icon="lucide:external-link" className="text-sm" />
-                  Ask ChatGPT
-                </a>
-              </div>
-              <p className="text-[11px] text-text-muted">
-                Copy the reply and paste it into the words box below.
-              </p>
-            </div>
-
-            <textarea
-              value={wordsInput}
-              onChange={(e) => setWordsInput(e.target.value)}
-              placeholder={'One word per line (or comma-separated):\nserendipity\nebullient\nmeticulous'}
-              rows={6}
-              className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm font-code text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50 resize-y"
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-text-muted">{parseWords(wordsInput).length} words detected</span>
-              <button
-                onClick={handleCreate}
-                disabled={saving}
-                className="btn-3d px-4 py-2 text-sm bg-accent-cyan text-bg-primary font-bold disabled:opacity-60"
-              >
-                {saving ? 'Saving…' : editingId ? 'Save changes' : 'Create'}
-              </button>
-            </div>
+            {collectionFormFields}
           </div>
         )}
 

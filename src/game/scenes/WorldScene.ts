@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { AnimalId } from '../../lib/companion';
-import { WORLD_EVENTS, type ThemeId, type WorldStation } from '../types';
+import { CREATE_STATION_ID, WORLD_EVENTS, type ThemeId, type WorldStation } from '../types';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
@@ -173,6 +173,28 @@ export class WorldScene extends Phaser.Scene {
     this.buildWorld();
   }
 
+  /** Fast travel: fade out, drop the buddy at the station's door, fade in. */
+  travelTo(stationId: string) {
+    if (!this.ready) return;
+    const node = this.nodes.find((n) => n.station.id === stationId);
+    if (!node) return;
+    const spot = this.clampToWalkable(node.station.x, node.station.y + 50)
+      ?? { x: node.station.x, y: node.station.y + 50 };
+    this.route = [];
+    const cam = this.cameras.main;
+    const [r, g, b] = this.pal.light ? [255, 255, 255] : [0, 0, 0];
+    // A travel may interrupt a travel: clear the old fade and its handler.
+    cam.off(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE);
+    cam.resetFX();
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.buddy.setPosition(spot.x, spot.y);
+      // Re-follow to snap the camera instead of lerping across the map.
+      cam.startFollow(this.buddy, true, 0.12, 0.12);
+      cam.fadeIn(200, r, g, b);
+    });
+    cam.fadeOut(150, r, g, b);
+  }
+
   // ── World construction ──
 
   private buildWorld() {
@@ -241,6 +263,11 @@ export class WorldScene extends Phaser.Scene {
     };
     bind(pub, this.meta.slots.public);
     bind(sys, this.meta.slots.system);
+
+    // The next empty house up north is a build plot: walk up (or fast travel)
+    // to start a new collection there.
+    const free = this.meta.slots.public[pub.length];
+    if (free) this.addCreateSpot(layer, free.x, free.y);
 
     this.cameras.main.setBounds(0, 0, this.worldW, this.worldH);
     this.cameras.main.setBackgroundColor(this.pal.void);
@@ -383,6 +410,76 @@ export class WorldScene extends Phaser.Scene {
 
     layer.add(root);
     this.nodes.push({ station: p, root, ring });
+  }
+
+  /** The "build a new collection" plot: a plus marker that behaves like a
+   *  station (ring, proximity event) but is handled by React as a create CTA. */
+  private addCreateSpot(layer: Phaser.GameObjects.Container, x: number, y: number) {
+    const kind = this.pal.kind.mine;
+    const root = this.add.container(x, y);
+
+    const ring = this.add
+      .circle(0, -12, 30)
+      .setStrokeStyle(2.5, kind.color, 0.9)
+      .setFillStyle(kind.color, 0.10)
+      .setVisible(false);
+    root.add(ring);
+
+    root.add(this.add.ellipse(0, 2, 30, 8, 0x000000, 0.25));
+    const disc = this.add
+      .circle(0, -16, 15, kind.color, 0.16)
+      .setStrokeStyle(2.5, kind.color, 0.95);
+    root.add(disc);
+    root.add(
+      this.add
+        .text(0, -16, '+', {
+          fontFamily: FONT,
+          fontSize: '20px',
+          fontStyle: 'bold',
+          color: kind.css,
+          resolution: this.args.dpr,
+        })
+        .setOrigin(0.5, 0.52),
+    );
+    this.tweens.add({
+      targets: disc,
+      scale: { from: 1, to: 1.12 },
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'sine.inOut',
+    });
+
+    root.add(
+      this.add
+        .text(0, 12, '🏗️ New collection', {
+          fontFamily: FONT,
+          fontSize: '10px',
+          fontStyle: 'bold',
+          color: this.pal.textCss,
+          backgroundColor: this.pal.cardCss,
+          padding: { x: 7, y: 3 },
+          resolution: this.args.dpr,
+        })
+        .setOrigin(0.5, 0),
+    );
+
+    const station: PlacedStation = {
+      id: CREATE_STATION_ID, name: 'New collection', kind: 'mine',
+      words: [], pct: 0, active: false, x, y,
+    };
+    root.setSize(84, 80);
+    root.setInteractive({ useHandCursor: true });
+    root.on(
+      'pointerdown',
+      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.routeTo(x, y + 50);
+      },
+    );
+
+    layer.add(root);
+    this.nodes.push({ station, root, ring });
   }
 
   // ── The buddy ──

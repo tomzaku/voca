@@ -7,7 +7,7 @@ import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, type WorldSceneData } from '../game/scenes/WorldScene';
-import { WORLD_EVENTS, type WorldStation } from '../game/types';
+import { CREATE_STATION_ID, WORLD_EVENTS, type WorldStation } from '../game/types';
 
 export type { WorldStation } from '../game/types';
 
@@ -16,6 +16,12 @@ interface Props {
   onStudy: (s: WorldStation) => void;
   onPreview: (s: WorldStation) => void;
   onQuiz: (s: WorldStation) => void;
+  onStats: (s: WorldStation) => void;
+  onCreate: () => void;
+  /** Owner actions — only offered on the user's own (`kind: 'mine'`) stations. */
+  onEdit: (s: WorldStation) => void;
+  onShare: (s: WorldStation) => void;
+  onDelete: (s: WorldStation) => void;
 }
 
 const MIN_H = 440; // viewport height floor
@@ -32,7 +38,9 @@ const KIND_META: Record<WorldStation['kind'], { label: string; icon: string; col
  * owns the canvas lifecycle and renders the DOM UI on top: HUD chips and the
  * station card that opens when the buddy walks up to a collection.
  */
-export function CollectionWorld({ stations, onStudy, onPreview, onQuiz }: Props) {
+export function CollectionWorld({
+  stations, onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
+}: Props) {
   const animalId = useCompanion((s) => s.animalId);
   const buddyName = useCompanion((s) => s.name);
   const known = useVocabularyStore(
@@ -46,6 +54,18 @@ export function CollectionWorld({ stations, onStudy, onPreview, onQuiz }: Props)
 
   const [nearestId, setNearestId] = useState<string | null>(null);
   const nearest = nearestId ? stations.find((s) => s.id === nearestId) ?? null : null;
+  const atBuildSpot = nearestId === CREATE_STATION_ID;
+
+  // ── Fast-travel drawer (top right) ──
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // ── Owner ⋯ menu on the station card ──
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => setMenuOpen(false), [nearestId]);
+  const travelTo = (id: string) => {
+    (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.travelTo(id);
+    setDrawerOpen(false);
+  };
 
   // Latest props for stable event/keyboard handlers.
   const live = useRef({ stations, onStudy, nearestId });
@@ -150,14 +170,102 @@ export function CollectionWorld({ stations, onStudy, onPreview, onQuiz }: Props)
         <span className="hidden sm:inline">Walk with WASD / arrows, or tap the ground</span>
         <span className="sm:hidden">Tap the ground to walk</span>
       </div>
-      {!animalId && (
-        <Link
-          to="/companion"
-          className="absolute top-3 right-3 flex items-center gap-1.5 text-[11px] font-bold text-accent-orange bg-bg-card/85 border border-accent-orange/40 rounded-full px-2.5 py-1"
+      <div className="absolute top-3 right-3 flex items-center gap-2">
+        {!animalId && (
+          <Link
+            to="/companion"
+            className="flex items-center gap-1.5 text-[11px] font-bold text-accent-orange bg-bg-card/85 border border-accent-orange/40 rounded-full px-2.5 py-1"
+          >
+            <Icon icon="lucide:paw-print" />
+            Choose your buddy
+          </Link>
+        )}
+        <button
+          onClick={() => setDrawerOpen((o) => !o)}
+          title="Fast travel to a collection"
+          className={`flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-1.5 border transition-all ${
+            drawerOpen
+              ? 'bg-accent-cyan text-bg-primary border-accent-cyan'
+              : 'bg-bg-card/85 text-text-primary border-border hover:border-accent-cyan/60'
+          }`}
         >
-          <Icon icon="lucide:paw-print" />
-          Choose your buddy
-        </Link>
+          <Icon icon="lucide:compass" className="text-sm" />
+          <span className="hidden sm:inline">Travel</span>
+        </button>
+      </div>
+
+      {/* ── Fast-travel drawer ── */}
+      {drawerOpen && (
+        <>
+          <div className="absolute inset-0 z-10" onClick={() => setDrawerOpen(false)} />
+          <div className="absolute top-12 right-3 bottom-3 z-20 w-[min(78%,260px)] flex flex-col rounded-2xl border-2 border-border bg-bg-card/95 backdrop-blur-sm shadow-2xl animate-fade-in overflow-hidden">
+            <div className="flex items-center justify-between px-3 pt-3 pb-2">
+              <span className="text-xs font-bold text-text-muted uppercase tracking-wider">Fast travel</span>
+              <button
+                onClick={() => { setDrawerOpen(false); onCreate(); }}
+                className="flex items-center gap-1 text-[11px] font-bold text-accent-cyan hover:underline"
+              >
+                <Icon icon="lucide:plus" /> New
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+              {(['mine', 'joined', 'level'] as const).map((kind) => {
+                const group = stations.filter((s) => s.kind === kind);
+                if (group.length === 0) return null;
+                return (
+                  <div key={kind}>
+                    <p className="px-1.5 pt-2 pb-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                      {KIND_META[kind].label}
+                      {kind !== 'joined' && 's'}
+                    </p>
+                    {group.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => travelTo(s.id)}
+                        className="w-full flex items-center gap-2 px-1.5 py-1.5 rounded-lg text-left hover:bg-bg-tertiary transition-colors"
+                      >
+                        <Icon
+                          icon={KIND_META[s.kind].icon}
+                          className="shrink-0 text-sm"
+                          style={{ color: KIND_META[s.kind].color }}
+                        />
+                        <span className="flex-1 min-w-0 text-xs font-bold text-text-primary truncate">
+                          {s.name}
+                        </span>
+                        {s.active && <Icon icon="lucide:check" className="shrink-0 text-xs text-accent-green" />}
+                        <span className="shrink-0 text-[10px] font-bold text-text-muted">{s.pct}%</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Build card (the buddy reached the empty plot) ── */}
+      {atBuildSpot && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 border-accent-cyan bg-bg-card shadow-2xl p-3 animate-fade-in">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-accent-cyan/15 text-accent-cyan">
+              <Icon icon="lucide:hammer" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="font-display font-bold text-text-primary text-sm">Empty plot</p>
+              <p className="text-[10px] font-bold text-text-muted">
+                Build a new collection from your own word list
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onCreate}
+            className="btn-3d w-full py-2 text-xs font-bold text-bg-primary bg-accent-cyan"
+          >
+            <Icon icon="lucide:plus" className="inline -mt-0.5 mr-1" />
+            New collection
+          </button>
+        </div>
       )}
 
       {/* ── Station card (opens when the buddy is close) ── */}
@@ -213,6 +321,51 @@ export function CollectionWorld({ stations, onStudy, onPreview, onQuiz }: Props)
             >
               <Icon icon="lucide:play" className="text-sm" />
             </button>
+            <button
+              onClick={() => onStats(nearest)}
+              title="Progress stats"
+              className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-purple transition-all"
+            >
+              <Icon icon="lucide:chart-pie" className="text-sm" />
+            </button>
+            {/* Owner actions tucked behind an options menu, same as List view */}
+            {nearest.kind === 'mine' && (
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => setMenuOpen((o) => !o)}
+                  title="Options"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-text-primary transition-all"
+                >
+                  <Icon icon="lucide:ellipsis-vertical" className="text-sm" />
+                </button>
+                {menuOpen && (
+                  <>
+                    {/* click-away backdrop */}
+                    <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                    <div className="absolute right-0 bottom-11 z-40 w-36 rounded-xl border-2 border-border bg-bg-card shadow-xl overflow-hidden animate-fade-in">
+                      <button
+                        onClick={() => { setMenuOpen(false); onEdit(nearest); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+                      >
+                        <Icon icon="lucide:pencil" className="text-sm" /> Edit
+                      </button>
+                      <button
+                        onClick={() => { setMenuOpen(false); onShare(nearest); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-cyan transition-colors"
+                      >
+                        <Icon icon="lucide:share-2" className="text-sm" /> Share
+                      </button>
+                      <button
+                        onClick={() => { setMenuOpen(false); onDelete(nearest); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-muted hover:bg-accent-red/10 hover:text-accent-red transition-colors"
+                      >
+                        <Icon icon="lucide:trash-2" className="text-sm" /> Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

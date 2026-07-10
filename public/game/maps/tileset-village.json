@@ -94,141 +94,162 @@
       "h": 1,
       "collides": true
     },
-    "bank_bottom": {
+    "water_f2": {
       "x": 13,
       "y": 0,
       "w": 1,
       "h": 1,
       "collides": true
     },
-    "bridge_top": {
+    "water_f3": {
       "x": 14,
       "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "water_f4": {
+      "x": 15,
+      "y": 0,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "bank_bottom": {
+      "x": 0,
+      "y": 1,
+      "w": 1,
+      "h": 1,
+      "collides": true
+    },
+    "bridge_top": {
+      "x": 1,
+      "y": 1,
       "w": 2,
       "h": 1,
       "collides": false
     },
     "bridge_mid": {
-      "x": 0,
+      "x": 3,
       "y": 1,
       "w": 2,
       "h": 1,
       "collides": false
     },
     "bridge_bottom": {
-      "x": 2,
+      "x": 5,
       "y": 1,
       "w": 2,
       "h": 1,
       "collides": false
     },
     "bridge_top_r": {
-      "x": 4,
+      "x": 7,
       "y": 1,
       "w": 1,
       "h": 1,
       "collides": false
     },
     "bridge_mid_r": {
-      "x": 5,
+      "x": 8,
       "y": 1,
       "w": 1,
       "h": 1,
       "collides": false
     },
     "bridge_bottom_r": {
-      "x": 6,
+      "x": 9,
       "y": 1,
       "w": 1,
       "h": 1,
       "collides": false
     },
     "tree_small": {
-      "x": 7,
+      "x": 10,
       "y": 1,
       "w": 2,
       "h": 2,
       "collides": true
     },
     "tree_big": {
-      "x": 9,
+      "x": 12,
       "y": 1,
       "w": 4,
       "h": 3,
       "collides": true
     },
     "tree_round": {
-      "x": 13,
-      "y": 1,
-      "w": 2,
-      "h": 2,
-      "collides": true
-    },
-    "stump": {
       "x": 0,
       "y": 4,
       "w": 2,
       "h": 2,
       "collides": true
     },
-    "tuft1": {
+    "stump": {
       "x": 2,
       "y": 4,
-      "w": 1,
-      "h": 1,
-      "collides": false
+      "w": 2,
+      "h": 2,
+      "collides": true
     },
-    "tuft2": {
-      "x": 3,
-      "y": 4,
-      "w": 1,
-      "h": 1,
-      "collides": false
-    },
-    "tuft3": {
+    "tuft1": {
       "x": 4,
       "y": 4,
       "w": 1,
       "h": 1,
       "collides": false
     },
-    "flower1": {
+    "tuft2": {
       "x": 5,
       "y": 4,
       "w": 1,
       "h": 1,
       "collides": false
     },
-    "flower2": {
+    "tuft3": {
       "x": 6,
       "y": 4,
       "w": 1,
       "h": 1,
       "collides": false
     },
-    "flower3": {
+    "flower1": {
       "x": 7,
       "y": 4,
       "w": 1,
       "h": 1,
       "collides": false
     },
-    "rock_a": {
+    "flower2": {
       "x": 8,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "flower3": {
+      "x": 9,
+      "y": 4,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "rock_a": {
+      "x": 10,
       "y": 4,
       "w": 1,
       "h": 1,
       "collides": true
     },
     "rock_b": {
-      "x": 9,
+      "x": 11,
       "y": 4,
       "w": 1,
       "h": 1,
       "collides": true
     },
     "house_a": {
-      "x": 10,
+      "x": 12,
       "y": 4,
       "w": 4,
       "h": 3,
@@ -352,6 +373,17 @@
       "w": 1,
       "h": 1,
       "collides": false
+    }
+  },
+  "animations": {
+    "water": {
+      "frames": [
+        "water",
+        "water_f2",
+        "water_f3",
+        "water_f4"
+      ],
+      "frameDuration": 300
     }
   }
 }

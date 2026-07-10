@@ -25,3 +25,7 @@ export const WORLD_EVENTS = {
   /** Buddy walked within reach of a station (payload: station id or null). */
   near: 'world:near',
 } as const;
+
+/** Pseudo-station id for the "build a new collection" spot on the map.
+ *  Emitted through WORLD_EVENTS.near like a real station id. */
+export const CREATE_STATION_ID = '__create__';
