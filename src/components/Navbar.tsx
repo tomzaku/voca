@@ -39,7 +39,9 @@ export function Navbar() {
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const word = query.trim().toLowerCase().replace(/\s+/g, ' ').split(' ')[0];
+    // Keep the whole phrase — phrasal verbs and idioms ("go on", "give up")
+    // are valid lookups; just collapse stray whitespace.
+    const word = query.trim().toLowerCase().replace(/\s+/g, ' ');
     if (!word) return;
     setQuery('');
     setSearchOpen(false);

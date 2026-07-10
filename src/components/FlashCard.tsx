@@ -358,7 +358,8 @@ export function FlashCard() {
 
   const loadNextWord = useCallback(async (excludeWord?: string) => {
     abortRef.current?.abort();
-    abortRef.current = new AbortController();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     stopSpeaking();
     setIsSpeaking(false);
     setPhase('loading');
@@ -395,7 +396,8 @@ export function FlashCard() {
     const { word, level } = next;
 
     try {
-      const data = await generateWithRetry(word, level, abortRef.current.signal);
+      const data = await generateWithRetry(word, level, ctrl.signal);
+      if (ctrl.signal.aborted) return; // superseded by a newer load
       pushWord(data);
       setWordData(data);
       setPhase('introduce');
@@ -413,7 +415,8 @@ export function FlashCard() {
 
   const loadSpecificWord = useCallback(async (word: string) => {
     abortRef.current?.abort();
-    abortRef.current = new AbortController();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     stopSpeaking();
     setIsSpeaking(false);
     setPhase('loading');
@@ -425,7 +428,10 @@ export function FlashCard() {
     setImagesLoading(false);
     setIsGenerating(true);
     try {
-      const data = await generateWordData(word, 'intermediate', abortRef.current.signal);
+      const data = await generateWordData(word, 'intermediate', ctrl.signal);
+      // A newer load superseded this one while we awaited (e.g. the StrictMode
+      // dev remount) — its result is already on screen, don't push a duplicate.
+      if (ctrl.signal.aborted) return;
       pushWord(data);
       setWordData(data);
       setPhase('revealed');
@@ -461,6 +467,10 @@ export function FlashCard() {
     } else {
       loadNextWord();
     }
+    // StrictMode (dev) unmount/remount: the unmount cleanup below aborts the
+    // load this effect kicked off; reset the guard so the remount's run loads
+    // again instead of leaving the card stuck on the spinner.
+    return () => { didInit.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading]);
 

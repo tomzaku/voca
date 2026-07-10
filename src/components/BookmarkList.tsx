@@ -20,6 +20,22 @@ const LEVEL_COLOR: Record<string, string> = {
   advanced: 'text-accent-red',
 };
 
+/** ChatGPT URL pre-filled with a prompt that draws a handwritten mind-map
+ *  image of the given words (same open-in-ChatGPT pattern as the collection
+ *  builder's word-list helper). */
+function chatGptMindmapUrl(words: string[]): string {
+  const prompt = `Create a handwritten-style mind map image to help me memorize these English vocabulary words:
+
+${words.join(', ')}
+
+Rules:
+- Generate it as ONE image, drawn like a hand-written sketchnote mind map
+- Group related words into labeled branches by theme
+- Keep every word large and legible
+- Add a small doodle next to each word that hints at its meaning`;
+  return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
+}
+
 /** Human label for a `YYYY-MM-DD` key relative to today. */
 function dayLabel(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -319,6 +335,18 @@ export function BookmarkList() {
                 </svg>
                 Story Gaps
               </button>
+              {/* Opens ChatGPT pre-filled with a prompt to draw a handwritten
+                  mind-map image of every saved word. */}
+              <a
+                href={chatGptMindmapUrl(bookmarks.map((b) => b.word))}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Ask ChatGPT to draw a handwritten mind-map image of all your saved words"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-orange/10 border border-accent-orange/20 text-accent-orange text-xs font-medium hover:bg-accent-orange/20 transition-all"
+              >
+                <Icon icon="lucide:git-fork" className="text-sm" />
+                Mind Map
+              </a>
             </div>
           )}
 
