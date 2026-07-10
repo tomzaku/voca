@@ -20,10 +20,11 @@ interface Props {
   wordData: VocabularyWord;
   game: GuessGameMode;
   onGameChange: (game: GuessGameMode) => void;
-  /** Called once the player solves (or is given) the word — parent reveals it. */
-  onSolved: () => void;
+  /** Called once the player solves (or is given) the word — parent reveals it.
+   *  Receives the game that was actually played ('random' already resolved). */
+  onSolved: (game: RealGuessGameMode) => void;
   /** Called when a wrong multiple-choice pick ends the round (counts as a miss). */
-  onGaveUp: () => void;
+  onGaveUp: (game: RealGuessGameMode) => void;
   /** Called on every wrong attempt (typed guess, wrong letter, wrong pick) so
    *  the parent can tally mistakes and record them when the word is revealed. */
   onMistake?: () => void;
@@ -135,7 +136,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
     // Read the solved word aloud as reinforcement, just after the win chime.
     stopSpeaking();
     setTimeout(() => speakText(word), 250);
-    setTimeout(onSolved, 1150);
+    setTimeout(() => onSolved(activeGame), 1150);
   };
 
   return (
@@ -218,7 +219,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
           <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
         )}
         {activeGame === 'choice' && (
-          <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onGaveUp={() => { onMistake?.(); onGaveUp(); }} />
+          <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onGaveUp={() => { onMistake?.(); onGaveUp(activeGame); }} />
         )}
         {activeGame === 'hangman' && (
           <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />

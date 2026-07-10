@@ -218,7 +218,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
     else { playWrong(); setMissed((m) => [...m, q.word]); }
     // Record the answer in word progress (tally + history + SR schedule) —
     // the same store the flash cards write to, so quiz sampling learns from it.
-    markWord(q.word, ok ? 'known' : 'skipped', user?.id);
+    markWord(q.word, ok ? 'known' : 'skipped', user?.id, 0, q.type);
   };
 
   const pickOption = (opt: string) => {

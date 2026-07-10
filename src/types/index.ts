@@ -21,10 +21,22 @@ export interface VocabularyWord {
 // 'dismissed' = the Skip button — "don't show me this word again".
 export type WordStatus = 'known' | 'skipped' | 'dismissed';
 
+/**
+ * How an answer was given — a quiz question format ('choice' | 'letters' |
+ * 'listen' | 'gap'), a flash-card guess game (those plus 'scramble' |
+ * 'hangman' | 'vowels'), or 'flashcard' for direct flash-card actions that
+ * skip the game (the Know-it and Reveal buttons).
+ */
+export type AnswerVia =
+  | 'choice' | 'letters' | 'listen' | 'gap'
+  | 'scramble' | 'hangman' | 'vowels'
+  | 'flashcard';
+
 /** One recorded answer: when it happened and whether it was correct. */
 export interface ReviewEvent {
-  at: string;   // ISO datetime
-  ok: boolean;  // true = answered correctly
+  at: string;      // ISO datetime
+  ok: boolean;     // true = answered correctly
+  via?: AnswerVia; // question type answered (absent on pre-existing entries)
 }
 
 export interface WordProgress {

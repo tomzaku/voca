@@ -21,7 +21,7 @@ import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../hooks/useTtsSetting
 import { encodeWord, decodeWord } from '../lib/wordCode';
 import { answerRegex, familyForms, maskAnswer } from '../lib/answerMask';
 import { SynAnt } from './SynAnt';
-import type { VocabularyWord, WordProgress } from '../types';
+import type { AnswerVia, VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
 
 type CardPhase = 'loading' | 'introduce' | 'revealed';
@@ -207,6 +207,20 @@ function timeAgo(iso: string, now: number): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// How an answer was given, shown on each history row — quiz question formats
+// and guess games (labels/icons match their pickers), plus the game-less
+// flash-card actions (Know it / Reveal).
+const VIA_META: Record<AnswerVia, { label: string; icon: string }> = {
+  choice:    { label: 'Choice',     icon: 'lucide:list-checks' },
+  letters:   { label: 'Letters',    icon: 'lucide:type' },
+  listen:    { label: 'Listen',     icon: 'lucide:headphones' },
+  gap:       { label: 'Fill gap',   icon: 'lucide:text-cursor-input' },
+  scramble:  { label: 'Unscramble', icon: 'lucide:shuffle' },
+  hangman:   { label: 'Hangman',    icon: 'lucide:skull' },
+  vowels:    { label: 'No Vowels',  icon: 'lucide:circle-dashed' },
+  flashcard: { label: 'Flash card', icon: 'lucide:layers' },
+};
+
 /**
  * Lifetime correct/incorrect tally for the word, shown once revealed. Both
  * segments carry an icon + word + count so the meter never relies on the
@@ -271,6 +285,12 @@ function AnswerTally({ progress }: { progress: WordProgress | undefined }) {
                 <span className={`font-bold ${ev.ok ? 'text-accent-green' : 'text-accent-red'}`}>
                   {ev.ok ? 'Correct' : 'Wrong'}
                 </span>
+                {ev.via && VIA_META[ev.via] && (
+                  <span className="flex items-center gap-1 text-text-muted">
+                    <Icon icon={VIA_META[ev.via].icon} className="text-sm shrink-0" />
+                    {VIA_META[ev.via].label}
+                  </span>
+                )}
                 <span
                   className="ml-auto text-text-muted"
                   title={new Date(ev.at).toLocaleString()}
@@ -481,11 +501,13 @@ export function FlashCard() {
     return () => { cancelled = true; };
   }, [wordData, setSearchParams]);
 
-  const handleReveal = () => {
+  // `via` is the guess game that ended in giving up; the Reveal button (no
+  // game finished) falls back to the generic flash-card tag.
+  const handleReveal = (via: AnswerVia = 'flashcard') => {
     if (phase !== 'introduce' || !wordData) return;
     breakStreak(); // gave up without guessing
     // Giving up counts as a lapse; the round's wrong attempts are recorded too.
-    store.markWord(wordData.word, 'skipped', user?.id, roundMistakesRef.current);
+    store.markWord(wordData.word, 'skipped', user?.id, roundMistakesRef.current, via);
     setGaveUp(true);
     setPhase('revealed');
   };
@@ -561,7 +583,7 @@ export function FlashCard() {
 
   const handleKnow = () => {
     if (!wordData) return;
-    store.markWord(wordData.word, 'known', user?.id);
+    store.markWord(wordData.word, 'known', user?.id, 0, 'flashcard');
     toast.success('Great! Moving on.');
     loadNextWord(wordData.word);
   };
@@ -761,12 +783,12 @@ export function FlashCard() {
                   wordData={wordData}
                   game={game}
                   onGameChange={setGame}
-                  onSolved={() => {
+                  onSolved={(playedGame) => {
                     setGaveUp(false);
                     setSolved(true);
                     // Solving the guess counts as a successful review (schedules the
                     // word); wrong attempts made along the way are recorded with it.
-                    store.markWord(wordData.word, 'known', user?.id, roundMistakesRef.current);
+                    store.markWord(wordData.word, 'known', user?.id, roundMistakesRef.current, playedGame);
                     setPhase('revealed');
                   }}
                   onGaveUp={handleReveal}
@@ -860,7 +882,7 @@ export function FlashCard() {
                   {/* Hovering swaps the label for what the button actually does —
                       the default label slides out and the hint slides in. */}
                   <button
-                    onClick={handleReveal}
+                    onClick={() => handleReveal()}
                     className="group btn-3d relative overflow-hidden flex-1 py-4 bg-accent-orange text-bg-primary text-base font-bold"
                   >
                     <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">

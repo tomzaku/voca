@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { WordProgress, WordStatus } from '../types';
+import type { AnswerVia, WordProgress, WordStatus } from '../types';
 import { supabase } from '../lib/supabase';
 import { gradeReview } from '../lib/srs';
 
@@ -8,8 +8,10 @@ interface VocabularyState {
   progress: Record<string, WordProgress>;
   /** Set the learning outcome (known / skipped / dismissed). Preserves the saved
    *  flag. `mistakes` is how many wrong attempts the round took (games differ in
-   *  difficulty, so mistakes are tallied when the word is revealed). */
-  markWord: (word: string, status: WordStatus, userId?: string, mistakes?: number) => void;
+   *  difficulty, so mistakes are tallied when the word is revealed). `via` labels
+   *  the answer-log entry with how the word was answered (quiz question type or
+   *  flash card). */
+  markWord: (word: string, status: WordStatus, userId?: string, mistakes?: number, via?: AnswerVia) => void;
   /** Count one viewing of a word (opened on the flashcard). Leaves status/SR intact. */
   recordView: (word: string, userId?: string) => void;
   /** Manual triage (collection stats popup): known=true graduates the word out
@@ -38,7 +40,7 @@ export const useVocabularyStore = create<VocabularyState>()(
     (set, get) => ({
       progress: {},
 
-      markWord: (word, status, userId, mistakes = 0) => {
+      markWord: (word, status, userId, mistakes = 0, via) => {
         const prev = get().progress[word];
         const now = new Date();
         // FSRS grade: a clean solve is 'good', a solve that needed wrong
@@ -68,7 +70,7 @@ export const useVocabularyStore = create<VocabularyState>()(
         // log itself feeds the analytics dashboard.
         const history = status === 'dismissed'
           ? prev?.history
-          : [...(prev?.history ?? []), { at: now.toISOString(), ok: status === 'known' }].slice(-50);
+          : [...(prev?.history ?? []), { at: now.toISOString(), ok: status === 'known', ...(via ? { via } : {}) }].slice(-50);
         const entry: WordProgress = {
           word,
           status,
