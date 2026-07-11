@@ -182,17 +182,57 @@ function parseMindMap(text: string): MindMapNode {
 
 interface Pt { x: number; y: number }
 
+// Stroke width at the root end and the card end — the line swells as it
+// travels outward, like a marker pressed harder toward the target.
+const ARROW_W_START = 3;
+const ARROW_W_END = 25;
+
+interface ArrowPaths { body: string; head: string }
+
 /**
- * One wavy hand-drawn marker stroke between two points. The wobble is seeded
- * (per branch index) so re-renders don't make the lines jiggle.
+ * Hand-drawn tapered arrow from the root to a card. The body is one
+ * gently-bowed cubic sweep (wobbled control points — no S-curves) rendered as
+ * a FILLED ribbon whose width grows from ARROW_W_START at the root to
+ * ARROW_W_END at the card (SVG strokes can't vary width, so the centerline is
+ * sampled and offset perpendicular on both sides). `head` is the two-barb
+ * arrowhead, drawn as strokes. `d` is the unit direction the stroke leaves
+ * the root AND arrives at the card with (both edges face each other). The
+ * wobble is seeded per branch so re-renders don't make the lines jiggle.
  */
-function sketchPath(from: Pt, to: Pt, seed: number): string {
+function sketchArrow(from: Pt, to: Pt, d: Pt, seed: number): ArrowPaths {
   const wobble = (k: number, amp: number) => Math.sin(seed + k * 2.1) * amp;
-  const midX = (from.x + to.x) / 2 + wobble(1, 14);
-  const midY = (from.y + to.y) / 2 + wobble(2, 10);
-  // Q to a wobbled midpoint, then T mirrors the control point — one smooth
-  // continuous wave, like a single confident marker sweep.
-  return `M ${from.x} ${from.y} Q ${from.x + wobble(0, 9)} ${(from.y + midY) / 2} ${midX} ${midY} T ${to.x} ${to.y}`;
+  const dist = Math.hypot(to.x - from.x, to.y - from.y);
+  const ext = Math.min(Math.max(dist * 0.35, 40), 170);
+  const perpX = -d.y;
+  const perpY = d.x;
+  const p0 = from;
+  const p1 = { x: from.x + d.x * ext + perpX * wobble(0, 12), y: from.y + d.y * ext + perpY * wobble(0, 12) };
+  const p2 = { x: to.x - d.x * ext + perpX * wobble(1, 12), y: to.y - d.y * ext + perpY * wobble(1, 12) };
+  const p3 = to;
+
+  const STEPS = 24;
+  const leftPts: string[] = [];
+  const rightPts: string[] = [];
+  for (let j = 0; j <= STEPS; j++) {
+    const t = j / STEPS;
+    const mt = 1 - t;
+    const x = mt ** 3 * p0.x + 3 * mt ** 2 * t * p1.x + 3 * mt * t ** 2 * p2.x + t ** 3 * p3.x;
+    const y = mt ** 3 * p0.y + 3 * mt ** 2 * t * p1.y + 3 * mt * t ** 2 * p2.y + t ** 3 * p3.y;
+    const dx = 3 * mt ** 2 * (p1.x - p0.x) + 6 * mt * t * (p2.x - p1.x) + 3 * t ** 2 * (p3.x - p2.x);
+    const dy = 3 * mt ** 2 * (p1.y - p0.y) + 6 * mt * t * (p2.y - p1.y) + 3 * t ** 2 * (p3.y - p2.y);
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const half = (ARROW_W_START + (ARROW_W_END - ARROW_W_START) * t) / 2;
+    leftPts.push(`${(x + nx * half).toFixed(1)} ${(y + ny * half).toFixed(1)}`);
+    rightPts.push(`${(x - nx * half).toFixed(1)} ${(y - ny * half).toFixed(1)}`);
+  }
+  const body = `M ${leftPts[0]} L ${leftPts.slice(1).join(' L ')} L ${rightPts.reverse().join(' L ')} Z`;
+
+  // Arrowhead: two barbs splayed ±~150° off the arrival direction.
+  const th = Math.atan2(d.y, d.x);
+  const barb = (a: number) => `M ${to.x} ${to.y} L ${to.x + Math.cos(th + a) * 34} ${to.y + Math.sin(th + a) * 34}`;
+  return { body, head: `${barb(2.55)} ${barb(-2.55)}` };
 }
 
 type Slot = 'right' | 'left' | 'top' | 'bottom';
@@ -220,7 +260,13 @@ function ThemeCard({
   innerRef: (el: HTMLDivElement | null) => void;
 }) {
   return (
-    <div ref={innerRef} className="mm-node" style={{ borderColor: color }}>
+    <div
+      ref={innerRef}
+      className="mm-node"
+      // Pale wash of the theme color (solid — translucency would let the
+      // paper dot-grid show through the card).
+      style={{ borderColor: color, background: `color-mix(in srgb, ${color} 7%, #ffffff)` }}
+    >
       <div className="mm-card-title" style={{ color }}>
         {branch.emoji ? `${branch.emoji} ` : ''}
         {branch.topic}
@@ -283,7 +329,7 @@ function RadialMap({
   const [view, setView] = useState({ x: 0, y: 0, s: 1 });
   const viewRef = useRef(view);
   viewRef.current = view;
-  const [lines, setLines] = useState<{ d: string; color: string }[]>([]);
+  const [lines, setLines] = useState<{ body: string; head: string; color: string }[]>([]);
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
   const [speakingWord, setSpeakingWord] = useState<string | null>(null);
   const centeredForRef = useRef<MindMapNode | null>(null);
@@ -345,23 +391,41 @@ function RadialMap({
     });
     const root = rel(rootEl.getBoundingClientRect());
 
-    const next: { d: string; color: string }[] = [];
+    const next: { body: string; head: string; color: string }[] = [];
     tree.children.forEach((b, i) => {
       const el = cardRefs.current.get(b.id);
       if (!el) return;
       const card = rel(el.getBoundingClientRect());
-      const dx = card.x - root.x;
-      const dy = card.y - root.y;
-      // Attach to facing edges: horizontally for side cards, vertically for
-      // cards above/below the root.
-      const horizontal = Math.abs(dx) * root.h > Math.abs(dy) * root.w;
-      const from: Pt = horizontal
-        ? { x: root.x + Math.sign(dx) * root.w * 0.46, y: root.y }
-        : { x: root.x, y: root.y + Math.sign(dy) * root.h * 0.46 };
-      const to: Pt = horizontal
-        ? { x: card.x - Math.sign(dx) * card.w * 0.5, y: card.y }
-        : { x: card.x, y: card.y - Math.sign(dy) * card.h * 0.5 };
-      next.push({ d: sketchPath(from, to, i * 3.7 + 1), color: PALETTE[i % PALETTE.length] });
+      // Attachment comes from the card's SLOT, not its measured position: a
+      // left-column card always connects on its RIGHT edge (the side facing
+      // the root), a top-band card on its bottom edge, and so on — even when
+      // the card sits well above or below the root's level.
+      const gap = 6; // keep the arrowhead just off the card border
+      let from: Pt;
+      let to: Pt;
+      let dir: Pt;
+      switch (slots[i]) {
+        case 'left':
+          dir = { x: -1, y: 0 };
+          from = { x: root.x - root.w * 0.5, y: root.y };
+          to = { x: card.x + card.w * 0.5 + gap, y: card.y };
+          break;
+        case 'right':
+          dir = { x: 1, y: 0 };
+          from = { x: root.x + root.w * 0.5, y: root.y };
+          to = { x: card.x - card.w * 0.5 - gap, y: card.y };
+          break;
+        case 'top':
+          dir = { x: 0, y: -1 };
+          from = { x: root.x, y: root.y - root.h * 0.5 };
+          to = { x: card.x, y: card.y + card.h * 0.5 + gap };
+          break;
+        default: // bottom
+          dir = { x: 0, y: 1 };
+          from = { x: root.x, y: root.y + root.h * 0.5 };
+          to = { x: card.x, y: card.y - card.h * 0.5 - gap };
+      }
+      next.push({ ...sketchArrow(from, to, dir, i * 3.7 + 1), color: PALETTE[i % PALETTE.length] });
     });
     setLines(next);
 
@@ -465,7 +529,10 @@ function RadialMap({
       >
         <svg className="mm-lines" width={canvasSize.w} height={canvasSize.h} aria-hidden>
           {lines.map((l, i) => (
-            <path key={i} d={l.d} stroke={l.color} />
+            <g key={i}>
+              <path className="mm-arrow-body" d={l.body} fill={l.color} />
+              <path className="mm-arrow-head" d={l.head} stroke={l.color} />
+            </g>
           ))}
         </svg>
         <div className="mm-ring">

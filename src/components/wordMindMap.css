@@ -32,9 +32,15 @@
   pointer-events: none;
 }
 
-.word-mindmap .mm-lines path {
+/* Arrow bodies are FILLED tapered ribbons (width grows root → card, built in
+   sketchArrow); only the arrowhead barbs are stroked. */
+.word-mindmap .mm-lines .mm-arrow-body {
+  stroke: none;
+}
+
+.word-mindmap .mm-lines .mm-arrow-head {
   fill: none;
-  stroke-width: 11px;
+  stroke-width: 18px;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
