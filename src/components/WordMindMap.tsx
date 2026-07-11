@@ -187,9 +187,10 @@ function esc(s: string): string {
 }
 
 /**
- * Convert the AI tree into mind-elixir data. Word→id mapping is returned so
- * the double-click handler can resolve a clicked topic back to its word.
- * Definitions become each word's only child, collapsed unless `defsOpen`.
+ * Convert the AI tree into mind-elixir data. Like the classic vocabulary
+ * poster, each theme is ONE card node listing all its words (doodle + word +
+ * inline definition when `defsOpen`) — far more compact than a node per word.
+ * Word rows carry data-word; a container click listener navigates on tap.
  * `doodles` maps doodleKey(word) → thumbnail data URI; a word with a doodle
  * shows it, otherwise its emoji stands in.
  */
@@ -197,40 +198,27 @@ function toMindElixirData(
   tree: MindMapNode,
   defsOpen: boolean,
   doodles: Record<string, string>,
-): { data: MindElixirData; wordById: Map<string, string> } {
-  const wordById = new Map<string, string>();
-
+): { data: MindElixirData } {
   const branches: NodeObj[] = tree.children.map((branch, i) => {
     const hex = PALETTE[i % PALETTE.length];
+    const rows = branch.children
+      .map((w) => {
+        const doodle = doodles[doodleKey(w.topic)];
+        const visual = doodle
+          ? `<img class="mm-doodle" src="${doodle}" alt="" />`
+          : `<span class="mm-emoji">${esc(w.emoji ?? '✏️')}</span>`;
+        const def = defsOpen && w.definition ? `<span class="mm-def">— ${esc(w.definition)}</span>` : '';
+        return `<div class="mm-row">${visual}<span class="mm-row-text"><span class="mm-word" data-word="${esc(w.topic)}" title="Open “${esc(w.topic)}”">${esc(w.topic)}</span>${def}</span></div>`;
+      })
+      .join('');
     return {
       id: branch.id,
       topic: branch.topic,
-      dangerouslySetInnerHTML: `<span class="mm-branch">${branch.emoji ? `${esc(branch.emoji)} ` : ''}${esc(branch.topic)}</span>`,
+      dangerouslySetInnerHTML: `<div class="mm-card"><div class="mm-card-title" style="color:${hex}">${branch.emoji ? `${esc(branch.emoji)} ` : ''}${esc(branch.topic)}</div>${rows}</div>`,
       branchColor: hex,
-      style: { color: hex, border: `2px solid ${hex}`, background: '#ffffff' },
+      style: { border: `2px solid ${hex}`, background: '#ffffff' },
       expanded: true,
-      children: branch.children.map((w): NodeObj => {
-        wordById.set(w.id, w.topic);
-        const doodle = doodles[doodleKey(w.topic)];
-        const visual = doodle
-          ? `<img class="mm-doodle" src="${doodle}" alt="" /> `
-          : w.emoji
-            ? `<span class="mm-emoji">${esc(w.emoji)}</span> `
-            : '';
-        return {
-          id: w.id,
-          topic: w.topic,
-          dangerouslySetInnerHTML: `<span class="mm-word">${visual}${esc(w.topic)}</span>`,
-          expanded: defsOpen,
-          children: w.definition
-            ? [{
-                id: `${w.id}-def`,
-                topic: w.definition,
-                dangerouslySetInnerHTML: `<span class="mm-def">${esc(w.definition)}</span>`,
-              }]
-            : [],
-        };
-      }),
+      children: [],
     };
   });
 
@@ -243,7 +231,6 @@ function toMindElixirData(
         children: branches,
       },
     },
-    wordById,
   };
 }
 
@@ -256,11 +243,11 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   const [tree, setTree] = useState<MindMapNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [defsOpen, setDefsOpen] = useState(false);
+  // Definitions render inline in the theme cards (poster style) — on by default.
+  const [defsOpen, setDefsOpen] = useState(true);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mindRef = useRef<MindElixirInstance | null>(null);
-  const wordByIdRef = useRef<Map<string, string>>(new Map());
   const loadedKeyRef = useRef<string | null>(null);
 
   // Doodles live in a ref (mutated by background workers); bumping the tick
@@ -284,7 +271,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
       if (!force && loadedKeyRef.current === key) return;
       setLoading(true);
       setError(null);
-      setDefsOpen(false);
+      setDefsOpen(true);
 
       if (!force) {
         try {
@@ -326,8 +313,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
     const el = mapRef.current;
     if (!tree || !el || !chosen) return;
 
-    const { data, wordById } = toMindElixirData(tree, false, doodlesRef.current);
-    wordByIdRef.current = wordById;
+    const { data } = toMindElixirData(tree, defsOpen, doodlesRef.current);
 
     const mind = new MindElixir({
       el,
@@ -354,6 +340,12 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           '--root-radius': '235px 25px 215px 25px / 25px 215px 25px 235px',
           '--main-radius': '255px 15px 225px 15px / 15px 225px 15px 255px',
           '--topic-padding': '3px 10px',
+          // Tight gaps — theme cards are dense, so the default airy spacing
+          // just wastes canvas.
+          '--main-gap-x': '16px',
+          '--main-gap-y': '8px',
+          '--node-gap-x': '12px',
+          '--node-gap-y': '6px',
           '--panel-color': INK,
           '--panel-bgcolor': '#ffffff',
           '--panel-border-color': '#b7c9ef',
@@ -363,24 +355,25 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
     mind.init(data);
     mindRef.current = mind;
 
-    // Double-click a word topic → open its word page. Capture phase so we win
-    // over any internal dblclick handling; children of me-tpc don't receive
-    // pointer events, so the target resolves to the topic element itself.
-    const onDblClick = (e: MouseEvent) => {
-      const tpc = (e.target as HTMLElement).closest?.('me-tpc') as (HTMLElement & { nodeObj?: NodeObj }) | null;
-      const id = tpc?.nodeObj?.id;
-      const word = id ? wordByIdRef.current.get(id) : undefined;
+    // Click a word row → open its word page. Word spans carry data-word and
+    // re-enabled pointer-events (mind-elixir disables them inside me-tpc).
+    const onClick = (e: MouseEvent) => {
+      const t = (e.target as HTMLElement).closest?.('.mm-word') as HTMLElement | null;
+      const word = t?.dataset.word;
       if (!word) return;
       e.stopPropagation();
       navigate(`/?word=${encodeURIComponent(word)}`);
     };
-    el.addEventListener('dblclick', onDblClick, true);
+    el.addEventListener('click', onClick, true);
 
     return () => {
-      el.removeEventListener('dblclick', onDblClick, true);
+      el.removeEventListener('click', onClick, true);
       mind.destroy();
       mindRef.current = null;
     };
+    // defsOpen is applied via refresh() in toggleDefs — remounting on its
+    // change would wipe the user's pan/zoom.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tree, chosen, navigate]);
 
   // Load doodles for the current tree — FREE sources only. localStorage and
@@ -560,8 +553,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   // Redraw the map when new doodles arrive.
   useEffect(() => {
     if (doodleTick === 0 || !tree || !mindRef.current) return;
-    const { data, wordById } = toMindElixirData(tree, defsOpen, doodlesRef.current);
-    wordByIdRef.current = wordById;
+    const { data } = toMindElixirData(tree, defsOpen, doodlesRef.current);
     mindRef.current.refresh(data);
     // defsOpen is read but must not trigger this effect — toggleDefs already
     // refreshes; reacting to it here would refresh twice.
@@ -572,8 +564,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
     if (!tree || !mindRef.current) return;
     const next = !defsOpen;
     setDefsOpen(next);
-    const { data, wordById } = toMindElixirData(tree, next, doodlesRef.current);
-    wordByIdRef.current = wordById;
+    const { data } = toMindElixirData(tree, next, doodlesRef.current);
     mindRef.current.refresh(data);
   };
 
@@ -677,7 +668,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="w-full px-3 py-6">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <button
@@ -695,7 +686,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           Pro
         </span>
         <span className="hidden sm:block text-[11px] text-text-muted">
-          drag to pan · scroll to zoom · <b>+</b> shows a definition · double-click a word to study it
+          drag to pan · scroll to zoom · click a word to study it
         </span>
 
         <div className="ml-auto flex items-center gap-2">
@@ -766,7 +757,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
       ) : tree ? (
         <div
           ref={mapRef}
-          className="word-mindmap h-[calc(100vh-14rem)] min-h-[30rem] rounded-2xl border-2 border-border overflow-hidden animate-fade-in"
+          className="word-mindmap h-[calc(100vh-11rem)] min-h-[30rem] rounded-2xl border-2 border-border overflow-hidden animate-fade-in"
         />
       ) : null}
     </div>

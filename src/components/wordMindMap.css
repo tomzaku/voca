@@ -40,13 +40,46 @@
   transform: rotate(0.6deg);
 }
 
-/* Words: plain handwritten text sitting on the branch, underlined like notes */
+/* Theme card: one box per theme listing all its words, like the classic
+   vocabulary-poster layout. Lives inside me-tpc via dangerouslySetInnerHTML. */
+.word-mindmap .mm-card {
+  max-width: 21em;
+  padding: 2px 4px;
+  text-align: left;
+}
+
+.word-mindmap .mm-card-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  transform: rotate(-0.6deg);
+}
+
+.word-mindmap .mm-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 0;
+}
+
+.word-mindmap .mm-row-text {
+  min-width: 0;
+  line-height: 1.15;
+}
+
+/* Words: handwritten, underlined like notes. mind-elixir disables pointer
+   events inside me-tpc; re-enable so the row is clickable (→ word page). */
 .word-mindmap .mm-word {
   font-size: 19px;
   color: #262357;
   text-decoration: underline dotted #b9b4d8 1.5px;
   text-underline-offset: 4px;
   cursor: pointer;
+  pointer-events: auto;
+}
+
+.word-mindmap .mm-word:hover {
+  color: #0bb5d6;
 }
 
 .word-mindmap .mm-emoji {
@@ -59,25 +92,28 @@
    transparency client-side, and the map canvas is always white paper, so the
    ink floats straight on it — no chip needed in either app theme. */
 .word-mindmap .mm-doodle {
-  width: 126px;
-  height: 126px;
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 8px;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
   object-fit: cover;
   background: transparent;
   border-radius: 12px 8px 13px 7px / 8px 13px 7px 12px;
   transform: rotate(-3deg);
 }
 
-/* Definitions: smaller, muted, slightly tilted — a scribbled side note */
+.word-mindmap .mm-row .mm-emoji {
+  width: 52px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 26px;
+}
+
+/* Definitions: smaller, muted — a scribbled note inline after the word */
 .word-mindmap .mm-def {
-  font-size: 15px;
-  line-height: 1.25;
+  font-size: 14px;
+  line-height: 1.15;
   color: #6b6890;
-  display: inline-block;
-  max-width: 16em;
-  transform: rotate(-0.5deg);
+  margin-left: 4px;
 }
 
 /* Give every wobbly-rectangle a slightly different corner mix so boxes don't
