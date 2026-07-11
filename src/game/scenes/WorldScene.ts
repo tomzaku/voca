@@ -1,17 +1,17 @@
 import Phaser from 'phaser';
-import type { AnimalId } from '../../lib/companion';
 import { CREATE_STATION_ID, WORLD_EVENTS, type ThemeId, type WorldStation } from '../types';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
-  BUDDY_ANIMS, buddyTextureKey, loadBuddyTexture,
+  buddySpec, type BuddyLook, type BuddySpec,
   CUTE_MONSTERS, SCARY_MONSTERS, monsterTextureKey, loadMonsterTextures,
   type BuddyDir, type MonsterId,
 } from '../textures';
 
 export interface WorldSceneData {
   stations: WorldStation[];
-  animalId: AnimalId;
+  /** The sprite that walks the map: companion animal or hero look. */
+  look: BuddyLook;
   stage: number;
   buddyName: string;
   /** Device pixel ratio: the canvas renders at native res, the camera zooms by
@@ -60,6 +60,7 @@ export class WorldScene extends Phaser.Scene {
   static readonly KEY = 'world';
 
   private args!: WorldSceneData;
+  private spec!: BuddySpec;
   private pal!: WorldPalette;
   private ready = false;
 
@@ -89,27 +90,27 @@ export class WorldScene extends Phaser.Scene {
 
   init(data: WorldSceneData) {
     this.args = data;
+    this.spec = buddySpec(data.look);
   }
 
   preload() {
     const src = defaultMap();
     this.load.image(`tiles-${src.key}`, src.tilesetUrl);
     this.load.tilemapTiledJSON(`map-${src.key}`, src.tmjUrl);
-    loadBuddyTexture(this, this.args.animalId);
+    this.spec.load(this);
     loadMonsterTextures(this);
   }
 
   create() {
     this.pal = worldPalette();
+    this.spec.prepare?.(this); // e.g. compose the avatar sheet from its layers
     this.cameras.main.setZoom(this.args.dpr);
     this.cameras.main.setRoundPixels(true);
     // Belt and braces: the pixelArt config flag doesn't reliably reach
     // runtime-loaded sheets, and linear filtering blurs 16px art badly.
     const src = defaultMap();
     this.textures.get(`tiles-${src.key}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures
-      .get(buddyTextureKey(this.args.animalId))
-      .setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.textures.get(this.spec.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     for (const m of [...CUTE_MONSTERS, ...SCARY_MONSTERS]) {
       this.textures.get(monsterTextureKey(m)).setFilter(Phaser.Textures.FilterMode.NEAREST);
       // Facing-down walk cycle doubles as the monster's idle bounce.
@@ -486,17 +487,17 @@ export class WorldScene extends Phaser.Scene {
 
   private createBuddy() {
     const { spawn } = this.meta;
-    // Per direction: a 4-frame animated idle and an 8-frame run, at the frame
-    // ranges the pack's Aseprite tags declare.
-    const texKey = buddyTextureKey(this.args.animalId);
-    for (const [dir, ranges] of Object.entries(BUDDY_ANIMS)) {
-      for (const [anim, [start, end]] of Object.entries(ranges)) {
+    // Directional idle and run clips, from the look's spec (animals: animated
+    // 4-frame idles and 8-frame runs; the avatar: static idle, 4-frame walk).
+    const { key: texKey, anims, rates } = this.spec;
+    for (const [dir, clips] of Object.entries(anims)) {
+      for (const [anim, frames] of Object.entries(clips)) {
         const key = `${texKey}-${anim}-${dir}`;
         if (this.anims.exists(key)) continue;
         this.anims.create({
           key,
-          frames: this.anims.generateFrameNumbers(texKey, { start, end }),
-          frameRate: anim === 'run' ? 14 : 5,
+          frames: this.anims.generateFrameNumbers(texKey, { frames }),
+          frameRate: rates[anim as 'idle' | 'run'],
           repeat: -1,
         });
       }
@@ -505,11 +506,11 @@ export class WorldScene extends Phaser.Scene {
     // Container origin = the buddy's feet.
     this.buddy = this.add.container(spawn.x, spawn.y).setDepth(10);
     this.buddy.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.28));
-    // 32px pixel-art frame, scaled up; the buddy grows a little per stage.
+    // Pixel-art frame, scaled up; the buddy grows a little per stage.
     this.sprite = this.add
       .sprite(0, 2, texKey, 0)
       .setOrigin(0.5, 1)
-      .setScale(1.3 + this.args.stage * 0.1);
+      .setScale(this.spec.baseScale * (1.3 + this.args.stage * 0.1));
     this.buddy.add(this.sprite);
     this.buddy.add(
       this.add
@@ -529,7 +530,7 @@ export class WorldScene extends Phaser.Scene {
   /** Play the right clip for the current motion: directional run while moving,
    *  animated directional idle when standing. */
   private applyAnim(moving: boolean) {
-    const key = `${buddyTextureKey(this.args.animalId)}-${moving ? 'run' : 'idle'}-${this.facing}`;
+    const key = `${this.spec.key}-${moving ? 'run' : 'idle'}-${this.facing}`;
     this.sprite.play(key, true);
   }
 

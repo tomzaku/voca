@@ -3,10 +3,12 @@ import Phaser from 'phaser';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { MemberAvatars } from './MemberAvatars';
+import { CharacterPicker } from './CharacterPicker';
 import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, type WorldSceneData } from '../game/scenes/WorldScene';
+import type { BuddyLook } from '../game/textures';
 import { CREATE_STATION_ID, WORLD_EVENTS, type WorldStation } from '../game/types';
 
 export type { WorldStation } from '../game/types';
@@ -42,6 +44,7 @@ export function CollectionWorld({
   stations, onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
 }: Props) {
   const animalId = useCompanion((s) => s.animalId);
+  const avatar = useCompanion((s) => s.avatar);
   const buddyName = useCompanion((s) => s.name);
   const known = useVocabularyStore(
     (s) => Object.values(s.progress).filter((e) => e.status === 'known').length,
@@ -62,6 +65,9 @@ export function CollectionWorld({
   // ── Owner ⋯ menu on the station card ──
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [nearestId]);
+
+  // ── Character picker (body / hat / cloth) ──
+  const [pickerOpen, setPickerOpen] = useState(false);
   const travelTo = (id: string) => {
     (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.travelTo(id);
     setDrawerOpen(false);
@@ -93,11 +99,14 @@ export function CollectionWorld({
     // otherwise the browser upscales the canvas on retina screens and both
     // text and sprites come out blurry.
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const look: BuddyLook = avatar
+      ? { kind: 'avatar', config: avatar }
+      : { kind: 'animal', id: animal.id };
     const data: WorldSceneData = {
       stations: live.current.stations,
-      animalId: animal.id,
+      look,
       stage,
-      buddyName: buddyName || animal.name,
+      buddyName: buddyName || (avatar ? 'Hero' : animal.name),
       dpr,
     };
     const game = new Phaser.Game({
@@ -123,7 +132,7 @@ export function CollectionWorld({
       game.events.off(WORLD_EVENTS.near, onNear);
       game.destroy(true);
     };
-  }, [animal.id, animal.name, stage, buddyName]);
+  }, [animal.id, animal.name, stage, buddyName, avatar]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
 
@@ -181,6 +190,14 @@ export function CollectionWorld({
           </Link>
         )}
         <button
+          onClick={() => setPickerOpen(true)}
+          title="Choose your character"
+          className="flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-1.5 border bg-bg-card/85 text-text-primary border-border hover:border-accent-purple/60 transition-all"
+        >
+          <Icon icon="lucide:shirt" className="text-sm" />
+          <span className="hidden sm:inline">Character</span>
+        </button>
+        <button
           onClick={() => setDrawerOpen((o) => !o)}
           title="Fast travel to a collection"
           className={`flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-1.5 border transition-all ${
@@ -193,6 +210,8 @@ export function CollectionWorld({
           <span className="hidden sm:inline">Travel</span>
         </button>
       </div>
+
+      {pickerOpen && <CharacterPicker onClose={() => setPickerOpen(false)} />}
 
       {/* ── Fast-travel drawer ── */}
       {drawerOpen && (
