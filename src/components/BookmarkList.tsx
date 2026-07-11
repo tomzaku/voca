@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
+import { useIsPro } from '../hooks/useProStatus';
 import { generateWordData } from '../lib/wordService';
 import { getRecentDailyWords } from '../lib/dailyWord';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
@@ -13,6 +14,7 @@ import { BookmarkGame } from './BookmarkGame';
 import { SpellingGame } from './SpellingGame';
 import { ParagraphGame } from './ParagraphGame';
 import { ReviewPanel } from './ReviewPanel';
+import { WordMindMap } from './WordMindMap';
 
 const LEVEL_COLOR: Record<string, string> = {
   beginner: 'text-accent-green',
@@ -174,7 +176,8 @@ export function BookmarkList() {
   const dismissed = store.wordsByStatus('dismissed');
   const list =
     tab === 'saved' ? bookmarks : tab === 'known' ? known : tab === 'unknown' ? unknown : dismissed;
-  const [mode, setMode] = useState<'list' | 'quiz' | 'spelling' | 'paragraph'>('list');
+  const [mode, setMode] = useState<'list' | 'quiz' | 'spelling' | 'paragraph' | 'mindmap'>('list');
+  const { isPro } = useIsPro();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [wordCache, setWordCache] = useState<Record<string, VocabularyWord>>({});
   const [loadingWord, setLoadingWord] = useState<string | null>(null);
@@ -249,6 +252,15 @@ export function BookmarkList() {
     return (
       <ParagraphGame
         bookmarks={bookmarks.map((b) => b.word)}
+        onBack={() => setMode('list')}
+      />
+    );
+  }
+
+  if (mode === 'mindmap') {
+    return (
+      <WordMindMap
+        words={bookmarks.map((b) => b.word)}
         onBack={() => setMode('list')}
       />
     );
@@ -347,6 +359,30 @@ export function BookmarkList() {
                 <Icon icon="lucide:git-fork" className="text-sm" />
                 Mind Map
               </a>
+              {/* Pro: interactive in-app mind map (collapsible themes, tap a
+                  word for its definition or to open its page). The button is
+                  always visible as a teaser; the server re-checks Pro. */}
+              <button
+                onClick={() => {
+                  if (!isPro) {
+                    toast('The interactive Mind Map is a Pro feature.', { icon: '👑' });
+                    return;
+                  }
+                  setMode('mindmap');
+                }}
+                title={
+                  isPro
+                    ? 'Open an interactive mind map of all your saved words'
+                    : 'Pro feature — interactive mind map of your saved words'
+                }
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-accent-yellow text-xs font-medium hover:bg-accent-yellow/20 transition-all"
+              >
+                <Icon icon={isPro ? 'lucide:pencil-line' : 'lucide:lock'} className="text-sm" />
+                Mind Map
+                <span className="text-[9px] px-1 py-px rounded bg-accent-yellow/20 font-extrabold uppercase tracking-wider">
+                  Pro
+                </span>
+              </button>
             </div>
           )}
 

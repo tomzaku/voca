@@ -20,13 +20,14 @@ export type AiAction =
   | 'tutor_reply'
   | 'chat_start'
   | 'chat_reply'
-  | 'chat_summary';
+  | 'chat_summary'
+  | 'mindmap';
 
-export async function callAiAction(
-  action: AiAction,
+async function postAi(
+  action: string,
   params: Record<string, unknown>,
-  opts: { signal?: AbortSignal } = {},
-): Promise<string> {
+  signal?: AbortSignal,
+): Promise<Record<string, unknown>> {
   if (!supabase) throw new Error('Supabase is not configured.');
 
   const { data: { session } } = await supabase.auth.getSession();
@@ -40,14 +41,41 @@ export async function callAiAction(
       Authorization: `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({ action, params }),
-    signal: opts.signal,
+    signal,
   });
 
+  const data = await response.json().catch(() => null);
   if (!response.ok) {
-    const errData = await response.json().catch(() => null);
-    throw new Error(errData?.error || `AI request failed (${response.status}).`);
+    throw new Error(data?.error || `AI request failed (${response.status}).`);
   }
+  return data ?? {};
+}
 
-  const data = await response.json();
-  return data.text || 'No response received.';
+export async function callAiAction(
+  action: AiAction,
+  params: Record<string, unknown>,
+  opts: { signal?: AbortSignal } = {},
+): Promise<string> {
+  const data = await postAi(action, params, opts.signal);
+  return (data.text as string) || 'No response received.';
+}
+
+/** Pro mind map: one small hand-drawn doodle for a word, as a base64 `data:`
+ *  URI (the caller keys out the background + caches it). With `cachedOnly`
+ *  the server only checks its shared cache — it never generates (never
+ *  costs), and a miss resolves to null instead of throwing. */
+export async function callAiDoodle(
+  word: string,
+  definition?: string,
+  opts: { signal?: AbortSignal; cachedOnly?: boolean } = {},
+): Promise<string | null> {
+  const data = await postAi(
+    'mindmap_doodle',
+    { word, definition, cachedOnly: opts.cachedOnly === true },
+    opts.signal,
+  );
+  const image = data.image as string | null | undefined;
+  if (typeof image === 'string' && image.startsWith('data:image/')) return image;
+  if (opts.cachedOnly) return null;
+  throw new Error('No doodle image received.');
 }

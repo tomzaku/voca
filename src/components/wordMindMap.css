@@ -1,0 +1,87 @@
+/* Hand-drawn skin for the mind-elixir map (Pro mind map).
+   mind-elixir renders custom elements (me-root / me-main / me-parent / me-tpc)
+   inside a .map-container; everything here is scoped under .word-mindmap so it
+   can't leak into the rest of the app. The wobbly look comes from asymmetric
+   border-radius pairs (the classic "sketchy border" trick) + handwriting fonts
+   loaded in index.html (Patrick Hand for nodes, Caveat for the root). */
+
+.word-mindmap .map-container {
+  font-family: 'Patrick Hand', 'Segoe Print', 'Comic Sans MS', cursive;
+  /* Always white paper with a faint dot-grid, in BOTH app themes — colored/
+     dark canvases made the ink sketch hard to read. Node colors are fixed
+     ink values to match (see the theme cssVar in WordMindMap.tsx). */
+  background-color: #ffffff;
+  background-image: radial-gradient(#e3e0f0 1px, transparent 1px);
+  background-size: 22px 22px;
+  border-radius: 16px;
+}
+
+.word-mindmap me-tpc {
+  font-family: inherit;
+}
+
+/* Root: big cloud-like bubble in the center, like the sample image */
+.word-mindmap me-root me-tpc {
+  font-family: 'Caveat', 'Patrick Hand', cursive;
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.1;
+  text-align: center;
+  border-width: 3px !important;
+  box-shadow:
+    0 0 0 5px #ffffff,
+    0 0 0 7px #d5d9f0;
+  transform: rotate(-1.2deg);
+}
+
+/* Theme branches: sketchy pills (border color is set per node from the palette) */
+.word-mindmap me-main > me-wrapper > me-parent > me-tpc {
+  font-size: 19px;
+  transform: rotate(0.6deg);
+}
+
+/* Words: plain handwritten text sitting on the branch, underlined like notes */
+.word-mindmap .mm-word {
+  font-size: 19px;
+  color: #262357;
+  text-decoration: underline dotted #b9b4d8 1.5px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.word-mindmap .mm-emoji {
+  font-size: 21px;
+  display: inline-block;
+  transform: rotate(-4deg);
+}
+
+/* AI-sketched doodle next to each word. The background is keyed out to
+   transparency client-side, and the map canvas is always white paper, so the
+   ink floats straight on it — no chip needed in either app theme. */
+.word-mindmap .mm-doodle {
+  width: 126px;
+  height: 126px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+  object-fit: cover;
+  background: transparent;
+  border-radius: 12px 8px 13px 7px / 8px 13px 7px 12px;
+  transform: rotate(-3deg);
+}
+
+/* Definitions: smaller, muted, slightly tilted — a scribbled side note */
+.word-mindmap .mm-def {
+  font-size: 15px;
+  line-height: 1.25;
+  color: #6b6890;
+  display: inline-block;
+  max-width: 16em;
+  transform: rotate(-0.5deg);
+}
+
+/* Give every wobbly-rectangle a slightly different corner mix so boxes don't
+   look stamped from one mold */
+.word-mindmap me-main:nth-child(odd) > me-wrapper > me-parent > me-tpc {
+  border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
+}

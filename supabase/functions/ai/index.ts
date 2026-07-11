@@ -13,6 +13,9 @@
 //   AI_MODEL     optional model override
 //   ANTHROPIC_API_KEY / OPENAI_API_KEY / PERPLEXITY_API_KEY / GOOGLE_API_KEY
 //   AI_RATE_LIMIT (default 60), AI_RATE_WINDOW_SECONDS (default 60)
+//   GOOGLE_API_KEY is also needed (regardless of AI_PROVIDER) for the pro
+//   mind-map doodles; MINDMAP_IMAGE_MODEL overrides the image model
+//   (default imagen-4.0-fast-generate-001).
 //
 // Deploy: `supabase functions deploy ai`
 
@@ -26,8 +29,10 @@ import {
   reqStr,
   requireUser,
   sanitizeHistory,
+  serviceClient,
   underRateLimit,
 } from '../_shared/ai.ts';
+import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
 /** What each action builder produces — everything the provider call needs. */
 interface BuiltRequest {
@@ -148,6 +153,115 @@ ${LEARNINGS_BLOCK_INSTRUCTION}`;
 // ─── Action registry ────────────────────────────────────────────────
 // Each builder validates its own params and returns the exact request. Adding a
 // capability means adding one entry here — never widening the client contract.
+
+// Actions in this set additionally require a row in `pro_users` (granted
+// manually — see the pro_users migration). Checked in the request handler.
+const PRO_ACTIONS = new Set(['mindmap', 'mindmap_doodle']);
+
+// ─── Doodle image generation (pro mind map) ─────────────────────────
+// Unlike every other action, `mindmap_doodle` returns an image, not text, so
+// it bypasses the ACTIONS/callProvider path. It always uses Google's image
+// API regardless of AI_PROVIDER — set GOOGLE_API_KEY for doodles to work.
+//
+// Default model is Imagen 4 Fast: ~2x lower latency and ~half the price of
+// the Gemini image model. Neither offers outputs below 1024×1024 — "1K" is
+// the floor — so speed comes from the model choice, not a smaller canvas.
+// Override with MINDMAP_IMAGE_MODEL: an `imagen-*` id uses the :predict
+// endpoint, anything else (e.g. gemini-2.5-flash-image) uses :generateContent.
+
+const DOODLE_THUMB = 192; // px — the map shows doodles in a 126px box; 192 keeps them crisp on retina
+
+/** Downscale a generated doodle to a small PNG thumbnail data URI so the
+ *  shared cache stores ~15KB per word, not ~1.5MB. Falls back to the
+ *  original image if decoding fails. */
+async function shrinkDoodle(mime: string, b64: string): Promise<string> {
+  try {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const img = await Image.decode(bytes);
+    img.resize(DOODLE_THUMB, DOODLE_THUMB);
+    const png = await img.encode();
+    let out = '';
+    const CHUNK = 0x8000; // btoa input built in chunks — spreading 15KB+ at once overflows the arg limit
+    for (let i = 0; i < png.length; i += CHUNK) {
+      out += String.fromCharCode(...png.subarray(i, i + CHUNK));
+    }
+    return `data:image/png;base64,${btoa(out)}`;
+  } catch {
+    return `data:${mime};base64,${b64}`;
+  }
+}
+
+/** Throw a friendly error for a failed image API response. */
+async function throwImageApiError(res: Response, model: string): Promise<never> {
+  const body = await res.text().catch(() => '');
+  // Free-tier keys have ZERO image-generation quota ("limit: 0") — surface
+  // that as a plain sentence instead of Google's multi-line quota dump.
+  if (res.status === 429 && /free_tier|limit:\s*0/.test(body)) {
+    throw new Error(
+      'The Google API key has no image-generation quota (free tier). Enable billing on its Google Cloud project to generate doodles.',
+    );
+  }
+  let msg = '';
+  try {
+    msg = JSON.parse(body)?.error?.message || '';
+  } catch { /* not JSON */ }
+  throw new Error(`Image API error ${res.status} (model=${model})${msg ? `: ${msg}` : ''}`);
+}
+
+async function generateDoodle(word: string, definition: string): Promise<{ mime: string; b64: string }> {
+  const apiKey = Deno.env.get('GOOGLE_API_KEY') ?? '';
+  if (!apiKey) throw new Error('Doodles require a Google API key on the server.');
+  const model = Deno.env.get('MINDMAP_IMAGE_MODEL') || 'imagen-4.0-fast-generate-001';
+
+  const prompt = `A tiny hand-drawn doodle that hints at the meaning of the English word "${word}"${
+    definition ? ` (meaning: ${definition})` : ''
+  }. Style: quick felt-tip pen sketchnote doodle, 2-3 flat accent colors, plain transparent background, ONE simple centered drawing with thick clean lines, like a margin doodle in a study notebook. Absolutely no text, letters, or numbers in the image.`;
+
+  const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+
+  // Imagen models use the :predict endpoint with a different payload shape.
+  if (model.startsWith('imagen')) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: { sampleCount: 1, aspectRatio: '1:1' },
+        }),
+      },
+    );
+    if (!res.ok) await throwImageApiError(res, model);
+    const data = await res.json();
+    const pred: { mimeType?: string; bytesBase64Encoded?: string } | undefined =
+      data.predictions?.[0];
+    if (!pred?.bytesBase64Encoded) throw new Error('The image model returned no image.');
+    return { mime: pred.mimeType || 'image/png', b64: pred.bytesBase64Encoded };
+  }
+
+  // Gemini image models (e.g. gemini-2.5-flash-image) via :generateContent.
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+      }),
+    },
+  );
+  if (!res.ok) await throwImageApiError(res, model);
+  const data = await res.json();
+  const parts: { inlineData?: { mimeType?: string; data?: string } }[] =
+    data.candidates?.[0]?.content?.parts ?? [];
+  const inline = parts.find((p) => p.inlineData?.data)?.inlineData;
+  if (!inline?.data) throw new Error('The image model returned no image.');
+  return { mime: inline.mimeType || 'image/png', b64: inline.data };
+}
 
 const ACTIONS: Record<string, (p: Record<string, unknown>) => BuiltRequest> = {
   cloze(p) {
@@ -276,6 +390,57 @@ Keep it short and practical.`,
     };
   },
 
+  // Pro-only: interactive mind map of the user's saved words. Returns a
+  // jsMind-style "node_tree" JSON document that the WordMindMap component
+  // renders (collapsible branches, per-word definitions, emoji per node).
+  mindmap(p) {
+    if (!Array.isArray(p.words)) throw new BadRequest('"words" must be an array.');
+    const words = p.words
+      .filter((w): w is string => typeof w === 'string')
+      .slice(0, 40)
+      .map((w) => w.trim().slice(0, 60))
+      .filter(Boolean);
+    if (words.length < 2) throw new BadRequest('"words" needs at least 2 entries.');
+    const list = words.map((w) => `"${w}"`).join(', ');
+
+    const prompt = `Organize these English vocabulary words into a mind map that helps a learner memorize them: ${list}.
+
+Group the words into ${Math.min(Math.max(Math.ceil(words.length / 5), 2), 8)} (or so) themed branches with short, memorable names (e.g. "Emotions & Attitudes", "Actions & Behavior"). Every input word must appear exactly once, as a leaf node under exactly one branch, spelled EXACTLY as given above.
+
+Return ONLY this JSON (jsMind node_tree format), no markdown, no extra text:
+{
+  "meta": { "name": "vocabulary-mindmap", "version": "1.0" },
+  "format": "node_tree",
+  "data": {
+    "id": "root",
+    "topic": "a short catchy title for the whole map (2-4 words)",
+    "emoji": "one emoji for the map",
+    "children": [
+      {
+        "id": "branch-1",
+        "topic": "theme name",
+        "emoji": "one emoji hinting at the theme",
+        "children": [
+          {
+            "id": "word-<the word>",
+            "topic": "<the word exactly as given>",
+            "emoji": "one emoji hinting at the word's meaning",
+            "definition": "very short plain-English definition (max 12 words)",
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}`;
+
+    return {
+      system: 'You design vocabulary mind maps for language learners. Return ONLY valid JSON matching the requested schema — no markdown fences, no commentary.',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: Math.min(600 + words.length * 60, 4000),
+    };
+  },
+
   chat_summary(p) {
     const conversationText = reqStr(p, 'conversationText', 40000);
     return {
@@ -305,8 +470,70 @@ Deno.serve(async (req) => {
   }
 
   const action = payload.action;
-  if (!action || typeof action !== 'string' || !(action in ACTIONS)) {
+  if (!action || typeof action !== 'string' || !(action in ACTIONS || action === 'mindmap_doodle')) {
     return jsonResponse(400, { error: `Unknown action "${action}".` });
+  }
+
+  if (PRO_ACTIONS.has(action)) {
+    // The user-scoped client can only see the caller's own pro_users row
+    // (RLS), so a returned row is proof this user has Pro. A NULL expires_at
+    // is a lifetime grant; otherwise Pro lasts until that moment.
+    const { data: proRow, error: proErr } = await auth.supabase
+      .from('pro_users')
+      .select('expires_at')
+      .eq('user_id', auth.user.id)
+      .maybeSingle();
+    if (proErr) return jsonResponse(500, { error: 'Could not verify Pro status.' });
+    if (!proRow) return jsonResponse(403, { error: 'This feature requires a Pro account.' });
+    if (proRow.expires_at && new Date(proRow.expires_at) <= new Date()) {
+      return jsonResponse(403, { error: 'Your Pro access has expired.' });
+    }
+  }
+
+  // Image action — returns { image: dataUri } instead of { text }.
+  if (action === 'mindmap_doodle') {
+    let word: string;
+    let definition: string;
+    let cachedOnly: boolean;
+    try {
+      const p = payload.params ?? {};
+      word = reqStr(p, 'word', 60);
+      definition = typeof p.definition === 'string' ? p.definition.slice(0, 200) : '';
+      cachedOnly = p.cachedOnly === true;
+    } catch (err) {
+      if (err instanceof BadRequest) return jsonResponse(400, { error: err.message });
+      return jsonResponse(400, { error: 'Invalid request parameters.' });
+    }
+
+    // A doodle is the same for everyone, so it lives on the word's shared
+    // cache row (same keying as the `word` function) — generated once, ever.
+    const wordKey = word.toLowerCase();
+    const svc = serviceClient();
+    if (svc) {
+      const { data: row } = await svc
+        .from('word_cache')
+        .select('doodle')
+        .eq('word', wordKey)
+        .maybeSingle();
+      if (row?.doodle) return jsonResponse(200, { image: row.doodle });
+    }
+
+    // cachedOnly = a free lookup: never falls through to paid generation.
+    // The client uses it on map open; generation waits for an explicit
+    // "Sketch doodles" click.
+    if (cachedOnly) return jsonResponse(200, { image: null });
+
+    try {
+      const { mime, b64 } = await generateDoodle(word, definition);
+      const image = await shrinkDoodle(mime, b64);
+      // Save onto the word's cache row. Bookmarked words practically always
+      // have one (created when the word was learned); if not, the update
+      // matches nothing and the doodle is simply regenerated next time.
+      if (svc) await svc.from('word_cache').update({ doodle: image }).eq('word', wordKey);
+      return jsonResponse(200, { image });
+    } catch (err) {
+      return jsonResponse(502, { error: (err as Error).message || 'Image generation failed.' });
+    }
   }
 
   let built: BuiltRequest;
