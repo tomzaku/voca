@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -36,6 +36,19 @@ function nextShow(bucket: WordBucket, p: WordProgress | undefined, now: number):
 }
 
 const MAX_ROWS = 200;
+
+// Word-list filter tabs. "Known" = answered correctly (or graduated);
+// "Unknown" = everything not known yet; "Mistaken" = any wrong answer ever.
+type ListTab = 'all' | 'known' | 'unknown' | 'mistaken';
+
+const isKnown = (p: WordProgress | undefined) => p?.status === 'known' || !!p?.mastered;
+
+const TAB_FILTERS: { id: ListTab; label: string; match: (p: WordProgress | undefined) => boolean }[] = [
+  { id: 'all',      label: 'All words', match: () => true },
+  { id: 'known',    label: 'Known',     match: (p) => isKnown(p) },
+  { id: 'unknown',  label: 'Unknown',   match: (p) => !isKnown(p) },
+  { id: 'mistaken', label: 'Mistaken',  match: (p) => (p?.wrong ?? 0) > 0 },
+];
 
 interface Props {
   name: string;
@@ -83,6 +96,11 @@ export function CollectionStats({ name, words, onClose }: Props) {
 
   const total = words.length;
   const shownBuckets = BUCKETS.filter((b) => counts[b.id] > 0);
+
+  // ── Word-list filter ──
+  const [tab, setTab] = useState<ListTab>('all');
+  const tabCount = (t: (typeof TAB_FILTERS)[number]) => rows.filter((r) => t.match(r.p)).length;
+  const filteredRows = rows.filter((r) => TAB_FILTERS.find((t) => t.id === tab)!.match(r.p));
 
   return (
     <div
@@ -147,8 +165,28 @@ export function CollectionStats({ name, words, onClose }: Props) {
         <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">
           Words · next review
         </h4>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {TAB_FILTERS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-2.5 py-1 rounded-full border text-[11px] font-bold transition-all ${
+                tab === t.id
+                  ? 'border-accent-purple bg-accent-purple/10 text-accent-purple'
+                  : 'border-border bg-bg-tertiary text-text-muted hover:text-text-primary'
+              }`}
+            >
+              {t.label} · {tabCount(t)}
+            </button>
+          ))}
+        </div>
         <div className="divide-y divide-border/60 rounded-xl border border-border overflow-hidden">
-          {rows.slice(0, MAX_ROWS).map(({ word, bucket, p }) => {
+          {filteredRows.length === 0 && (
+            <p className="px-3 py-3 text-xs text-text-muted bg-bg-tertiary/40">
+              No words here yet.
+            </p>
+          )}
+          {filteredRows.slice(0, MAX_ROWS).map(({ word, bucket, p }) => {
             const meta = BUCKETS.find((b) => b.id === bucket)!;
             return (
               <div key={word} className="flex items-center gap-2 px-3 py-2 text-sm bg-bg-tertiary/40">
@@ -193,9 +231,9 @@ export function CollectionStats({ name, words, onClose }: Props) {
               </div>
             );
           })}
-          {rows.length > MAX_ROWS && (
+          {filteredRows.length > MAX_ROWS && (
             <p className="px-3 py-2 text-xs text-text-muted bg-bg-tertiary/40">
-              +{rows.length - MAX_ROWS} more words
+              +{filteredRows.length - MAX_ROWS} more words
             </p>
           )}
         </div>
