@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 import type { ReviewEvent, WordProgress } from '../types';
 
 // 'random' picks a different real game for every word; 'smart' picks by the
@@ -67,28 +68,51 @@ export function smartPick(word: WordProgress | undefined, overallAccuracy: numbe
   return GAME_LADDER[Math.max(0, Math.min(GAME_LADDER.length - 1, rank))];
 }
 
-const GAME_KEY = 'voca-guess-game';
-
-function isMode(v: string | null): v is GuessGameMode {
+function isMode(v: unknown): v is GuessGameMode {
   return GUESS_GAMES.some((g) => g.id === v);
 }
 
-export function getGuessGame(): GuessGameMode {
-  try {
-    const v = localStorage.getItem(GAME_KEY);
-    if (isMode(v)) return v;
-  } catch { /* ignore */ }
-  return 'random';
+interface GuessGameState {
+  game: GuessGameMode;
+  setGame: (g: GuessGameMode) => void;
+  /** Pull the saved mode from Supabase on login (user_settings.guess_game). */
+  loadFromRemote: (userId: string) => Promise<void>;
 }
 
-/** Persisted default guess game for the home page. */
-export function useGuessGame() {
-  const [game, setGameState] = useState<GuessGameMode>(getGuessGame);
+/** The guess-game mode for the learn page. Kept on the server (user_settings)
+ *  so it follows the user across devices; 'smart' until they pick one. */
+export const useGuessGame = create<GuessGameState>((set) => ({
+  game: 'smart',
 
-  const setGame = useCallback((g: GuessGameMode) => {
-    setGameState(g);
-    try { localStorage.setItem(GAME_KEY, g); } catch { /* ignore */ }
-  }, []);
+  setGame: (g) => {
+    set({ game: g });
+    syncGuessGame(g);
+  },
 
-  return { game, setGame };
+  loadFromRemote: async (userId) => {
+    if (!supabase) return;
+    const { data } = await supabase
+      .from('user_settings')
+      .select('guess_game')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (isMode(data?.guess_game)) set({ game: data.guess_game });
+  },
+}));
+
+/** Upsert the mode onto the user's settings row (fire-and-forget). */
+function syncGuessGame(game: GuessGameMode) {
+  if (!supabase) return;
+  const client = supabase;
+  (async () => {
+    const { data } = await client.auth.getSession();
+    const uid = data.session?.user.id;
+    if (!uid) return; // not signed in — the choice lasts for this session only
+    const { error } = await client.from('user_settings').upsert({
+      user_id: uid,
+      guess_game: game,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) console.warn('[voca] guess-game sync error:', error.message);
+  })();
 }

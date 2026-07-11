@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useVocabularyStore } from './useVocabulary';
 import { useCompanion } from './useCompanion';
 import { useCollections } from './useCollections';
+import { useGuessGame } from './useGuessGame';
 
 interface AuthContextType {
   user: User | null;
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         useVocabularyStore.getState().loadFromRemote(session.user.id);
         useCompanion.getState().loadFromRemote(session.user.id);
         useCollections.getState().loadFromRemote(session.user.id);
+        useGuessGame.getState().loadFromRemote(session.user.id);
       }
       setLoading(false);
     });
@@ -69,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           useVocabularyStore.getState().loadFromRemote(session.user.id);
           useCompanion.getState().loadFromRemote(session.user.id);
           useCollections.getState().loadFromRemote(session.user.id);
+          useGuessGame.getState().loadFromRemote(session.user.id);
         }
         setLoading(false);
       }, 0);

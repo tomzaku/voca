@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
-import { isMobile } from '../lib/device';
 import { CollectionQuiz } from './CollectionQuiz';
 import { CollectionStats } from './CollectionStats';
 import type { WorldStation } from '../game/types';
@@ -29,8 +28,6 @@ Rules:
 I will paste your answer directly into a vocabulary app.`;
   return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
 }
-
-const VIEW_KEY = 'voca-collections-view';
 
 /** Parse a free-form words input (newlines/commas) into clean single words. */
 function parseWords(input: string): string[] {
