@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 .env
 .env.local
+
+# Raw game asset packs (composed outputs live in public/game)
+Ninja Adventure - Asset Pack/
+Sprout Lands - Sprites - Basic pack/
+
+# LPC avatar download cache
+.lpc-cache/

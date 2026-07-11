@@ -24,7 +24,7 @@ import toast from 'react-hot-toast';
 import MindElixir, { type MindElixirData, type MindElixirInstance, type NodeObj } from 'mind-elixir';
 import 'mind-elixir/style.css';
 import './wordMindMap.css';
-import { callAiAction, callAiDoodle } from '../lib/aiProviders';
+import { callAiAction, callAiDoodleSheet } from '../lib/aiProviders';
 
 interface MindMapNode {
   id: string;
@@ -47,25 +47,21 @@ const PALETTE = ['#0bb5d6', '#8b5cf6', '#f97316', '#10b862', '#ec4899', '#3b6cff
 // (muted/def ink lives in wordMindMap.css).
 const INK = '#262357';
 
-// Doodle GENERATION is switched off: 1024px is the smallest any current
-// image model produces (~$0.02+/word), which is too expensive. Doodles that
-// already exist (localStorage / shared word_cache) still load and render for
-// free. Flip this to true to bring back the "Sketch doodles" button once a
-// cheaper/smaller model exists — the whole pipeline underneath still works.
-const DOODLE_GENERATION_ENABLED = false;
+// Doodle generation is affordable again: words are drawn as SHEETS — one
+// generated 1024px image holds a grid of up to 16 doodles, cropped apart
+// server-side — so a word costs ~$0.001 instead of ~$0.02. Flip this off to
+// hide the "Sketch doodles" button (cached doodles keep loading for free).
+const DOODLE_GENERATION_ENABLED = true;
+const SHEET_SIZE = 16; // words per generated sheet — keep in sync with SHEET_MAX server-side
 
 const CACHE_PREFIX = 'voca-mindmap-v1:';
-// v3 doodles key out the background by sampling the image's actual border
-// color (Gemini "white" is really off-white, and lossy WebP shifts it more —
-// a fixed near-255 threshold missed it). Older cache entries are reprocessed
-// locally — no AI call.
-const DOODLE_PREFIX = 'voca-doodle-v3:';
+// v7: v3-v6 held sheet crops from failed layout attempts (invisible grids,
+// non-square grids, mini-tables inside cells, and an uncapped 38-word 7x7
+// sheet), so all are deliberately abandoned (NOT in the legacy list). v1/v2
+// were known-good single doodles; they still migrate locally (no AI call).
+const DOODLE_PREFIX = 'voca-doodle-v7:';
 const DOODLE_PREFIXES_LEGACY = ['voca-doodle-v2:', 'voca-doodle-v1:'];
 const DOODLE_SIZE = 192; // thumbnail px — sized for the 126px display box on retina screens
-// Parallel doodle generations. Generation latency (~5-15s each, fixed-size
-// 1024px output) dominates; more workers cut wall-clock time. Kept below the
-// per-user AI rate limit (60/min) with headroom for the map request itself.
-const DOODLE_CONCURRENCY = 5;
 const MAX_DEPTH = 4;
 const MAX_WORDS = 40; // the server's `mindmap` action caps words at 40
 
@@ -420,6 +416,9 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
       } catch { /* storage unavailable — regenerate below */ }
       missing.push(w);
     }
+    console.log(
+      `[mindmap] doodles: ${leaves.length} words — local=${leaves.length - missing.length - migrate.length} migrate=${migrate.length} toLookup=${missing.length}`,
+    );
     setDoodleTick((t) => t + 1); // paint cached doodles
 
     if (migrate.length > 0) {
@@ -441,38 +440,46 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
 
     if (missing.length === 0) return;
 
-    // Pull server-cached doodles (a free lookup — cachedOnly never generates).
-    const queue = [...missing];
-    const remaining: MindMapNode[] = [];
-    let pulled = 0;
-    const worker = async () => {
-      for (;;) {
-        const w = queue.shift();
-        if (!w || cancelled) return;
+    // Pull server-cached doodles in ONE batched request (a free lookup —
+    // cachedOnly never generates). Misses become the sketchable set.
+    void (async () => {
+      let images: Record<string, string> = {};
+      try {
+        images = await callAiDoodleSheet(
+          missing.map((w) => ({ word: w.topic, definition: w.definition })),
+          { cachedOnly: true },
+        );
+      } catch (err) {
+        // Lookup failed (e.g. offline) — everything stays sketchable.
+        console.warn(`[mindmap] cachedOnly batch lookup failed: ${(err as Error).message}`);
+      }
+      if (cancelled) return;
+
+      const remaining: MindMapNode[] = [];
+      let pulled = 0;
+      for (const w of missing) {
+        const img = images[w.topic];
+        if (!img) {
+          remaining.push(w);
+          continue;
+        }
         try {
-          const img = await callAiDoodle(w.topic, w.definition, { cachedOnly: true });
+          const thumb = await shrinkDataUri(img);
           if (cancelled) return;
-          if (img) {
-            const thumb = await shrinkDataUri(img);
-            const k = doodleKey(w.topic);
-            doodlesRef.current[k] = thumb;
-            pulled += 1;
-            try {
-              localStorage.setItem(DOODLE_PREFIX + k, thumb);
-            } catch { /* storage full — the in-memory copy still renders */ }
-          } else {
-            remaining.push(w);
-          }
+          const k = doodleKey(w.topic);
+          doodlesRef.current[k] = thumb;
+          pulled += 1;
+          try {
+            localStorage.setItem(DOODLE_PREFIX + k, thumb);
+          } catch { /* storage full — the in-memory copy still renders */ }
         } catch {
-          remaining.push(w); // lookup failed — offer it for sketching anyway
+          remaining.push(w); // undecodable image — offer it for sketching
         }
       }
-    };
-    void Promise.all(Array.from({ length: DOODLE_CONCURRENCY }, worker)).then(() => {
-      if (cancelled) return;
+      console.log(`[mindmap] server cache pull done: hits=${pulled} unsketched=${remaining.length}`);
       if (pulled > 0) setDoodleTick((t) => t + 1);
       setUnsketched(remaining);
-    });
+    })();
 
     return () => {
       cancelled = true;
@@ -480,55 +487,74 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   }, [tree]);
 
   // Explicit, paid generation of the words that have no doodle anywhere.
+  // Words go up in SHEETS of up to 9 — the server draws them as a grid in one
+  // generated image and crops it apart, so a sheet costs the same as a single
+  // doodle used to.
   const sketchDoodles = () => {
     const targets = unsketched;
     if (targets.length === 0 || sketching) return;
     setUnsketched([]);
     setSketching({ done: 0, total: targets.length });
 
-    const queue = [...targets];
+    const sheets: MindMapNode[][] = [];
+    for (let i = 0; i < targets.length; i += SHEET_SIZE) {
+      sheets.push(targets.slice(i, i + SHEET_SIZE));
+    }
+
     const failed: MindMapNode[] = [];
     let done = 0;
     let succeeded = 0;
     let firstError = '';
-    const worker = async () => {
-      for (;;) {
-        const w = queue.shift();
-        if (!w || !aliveRef.current) return;
+    // Sheets go sequentially — each is one slow image generation, and
+    // parallel sheets would just trip the per-user rate limit.
+    void (async () => {
+      for (const sheet of sheets) {
+        if (!aliveRef.current) return;
         try {
-          const raw = await callAiDoodle(w.topic, w.definition);
-          if (!raw) throw new Error('No doodle image received.');
-          const thumb = await shrinkDataUri(raw);
-          if (!aliveRef.current) return;
-          const k = doodleKey(w.topic);
-          doodlesRef.current[k] = thumb;
-          succeeded += 1;
-          try {
-            localStorage.setItem(DOODLE_PREFIX + k, thumb);
-          } catch { /* storage full — the in-memory copy still renders */ }
+          console.log(`[mindmap] sketching sheet of ${sheet.length}: [${sheet.map((w) => w.topic).join(', ')}]`);
+          const images = await callAiDoodleSheet(
+            sheet.map((w) => ({ word: w.topic, definition: w.definition })),
+          );
+          console.log(`[mindmap] sheet returned ${Object.keys(images).length}/${sheet.length} images`);
+          for (const w of sheet) {
+            const img = images[w.topic];
+            if (!img) {
+              failed.push(w);
+              continue;
+            }
+            try {
+              const thumb = await shrinkDataUri(img);
+              if (!aliveRef.current) return;
+              const k = doodleKey(w.topic);
+              doodlesRef.current[k] = thumb;
+              succeeded += 1;
+              try {
+                localStorage.setItem(DOODLE_PREFIX + k, thumb);
+              } catch { /* storage full — the in-memory copy still renders */ }
+            } catch {
+              failed.push(w);
+            }
+          }
         } catch (err) {
-          failed.push(w);
+          console.error(`[mindmap] sheet failed: ${(err as Error).message}`);
+          failed.push(...sheet);
           if (!firstError) firstError = (err as Error).message || 'Unknown error.';
         }
-        done += 1;
+        done += sheet.length;
         if (!aliveRef.current) return;
         setSketching({ done, total: targets.length });
-        // Repaint in waves so early doodles show up without a jarring
-        // full-map refresh after every single image.
-        if (done % 8 === 0) setDoodleTick((t) => t + 1);
+        setDoodleTick((t) => t + 1); // paint each finished sheet
       }
-    };
-    void Promise.all(Array.from({ length: DOODLE_CONCURRENCY }, worker)).then(() => {
       if (!aliveRef.current) return;
       setSketching(null);
       setUnsketched(failed); // failures stay available for another attempt
       setDoodleTick((t) => t + 1);
       if (succeeded === 0 && firstError) {
         toast.error(`Doodles couldn't be sketched: ${firstError}`, { duration: 8000 });
-      } else if (firstError) {
+      } else if (failed.length > 0) {
         toast(`${failed.length} doodle(s) failed — try sketching again.`, { icon: '✍️' });
       }
-    });
+    })();
   };
 
   // Redraw the map when new doodles arrive.
@@ -691,7 +717,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
             <button
               onClick={sketchDoodles}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-xs font-medium hover:bg-accent-purple/20 transition-all"
-              title={`Generate hand-drawn doodles for ${unsketched.length} word(s) with AI — one-time cost, cached for everyone afterwards`}
+              title={`Generate hand-drawn doodles for ${unsketched.length} word(s) with AI — drawn ${SHEET_SIZE} to a sheet to keep cost low, then cached for everyone forever`}
             >
               <Icon icon="lucide:paintbrush" className="text-sm" />
               Sketch doodles ({unsketched.length})

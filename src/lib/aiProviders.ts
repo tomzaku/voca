@@ -60,22 +60,19 @@ export async function callAiAction(
   return (data.text as string) || 'No response received.';
 }
 
-/** Pro mind map: one small hand-drawn doodle for a word, as a base64 `data:`
- *  URI (the caller keys out the background + caches it). With `cachedOnly`
- *  the server only checks its shared cache — it never generates (never
- *  costs), and a miss resolves to null instead of throwing. */
-export async function callAiDoodle(
-  word: string,
-  definition?: string,
+/** Pro mind map: doodles for several words drawn as ONE generated image and
+ *  cropped server-side — ~16x cheaper per word than one image each. Returns
+ *  word (as sent) → data URI; words without a doodle are absent. With
+ *  `cachedOnly` the server only reads its shared cache (up to 40 words, one
+ *  free batch lookup, never generates). */
+export async function callAiDoodleSheet(
+  items: { word: string; definition?: string }[],
   opts: { signal?: AbortSignal; cachedOnly?: boolean } = {},
-): Promise<string | null> {
+): Promise<Record<string, string>> {
   const data = await postAi(
-    'mindmap_doodle',
-    { word, definition, cachedOnly: opts.cachedOnly === true },
+    'mindmap_doodle_sheet',
+    { words: items, cachedOnly: opts.cachedOnly === true },
     opts.signal,
   );
-  const image = data.image as string | null | undefined;
-  if (typeof image === 'string' && image.startsWith('data:image/')) return image;
-  if (opts.cachedOnly) return null;
-  throw new Error('No doodle image received.');
+  return (data.images as Record<string, string> | undefined) ?? {};
 }
