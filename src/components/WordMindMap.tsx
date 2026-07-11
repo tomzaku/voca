@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
-import MindElixir, { type MindElixirData, type MindElixirInstance, type NodeObj } from 'mind-elixir';
+import MindElixir, { type MainLineParams, type MindElixirData, type MindElixirInstance, type NodeObj } from 'mind-elixir';
 import 'mind-elixir/style.css';
 import './wordMindMap.css';
 import { callAiAction, callAiDoodleSheet } from '../lib/aiProviders';
@@ -187,6 +187,26 @@ function esc(s: string): string {
 }
 
 /**
+ * Hand-drawn main branch: ONE wavy marker stroke from the root out to each
+ * theme card, replacing mind-elixir's default tidy elbow curve. The wobble is
+ * seeded from the endpoint so re-renders (doodle refreshes, def toggles)
+ * don't make the lines jiggle. Stroke thickness comes from wordMindMap.css.
+ */
+function sketchMainBranch({ pT, pL, pW, pH, cT, cL, cW, cH, direction }: MainLineParams): string {
+  const fromX = direction === 'lhs' ? pL + pW * 0.2 : pL + pW * 0.8;
+  const fromY = pT + pH / 2;
+  const toX = direction === 'lhs' ? cL + cW : cL;
+  const toY = cT + cH / 2;
+  const seed = (toX * 7 + toY * 13) % 97;
+  const wobble = (k: number, amp: number) => Math.sin(seed + k * 2.1) * amp;
+  const midX = (fromX + toX) / 2 + wobble(1, 14);
+  const midY = (fromY + toY) / 2 + wobble(2, 10);
+  // Q to a wobbled midpoint, then T mirrors the control point — one smooth
+  // continuous wave, like a single confident marker sweep.
+  return `M ${fromX} ${fromY} Q ${fromX + wobble(0, 9)} ${(fromY + midY) / 2} ${midX} ${midY} T ${toX} ${toY}`;
+}
+
+/**
  * Convert the AI tree into mind-elixir data. Like the classic vocabulary
  * poster, each theme is ONE card node listing all its words (doodle + word +
  * inline definition when `defsOpen`) — far more compact than a node per word.
@@ -325,6 +345,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
       theme: {
         name: 'Sketch',
         palette: PALETTE,
+        generateMainBranch: sketchMainBranch,
         // Fixed ink-on-white-paper colors — the map stays white in both app
         // themes (blue/dark canvases made the sketch hard to read).
         cssVar: {

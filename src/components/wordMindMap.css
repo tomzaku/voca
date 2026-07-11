@@ -121,3 +121,12 @@
 .word-mindmap me-main:nth-child(odd) > me-wrapper > me-parent > me-tpc {
   border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
 }
+
+/* Root→theme connectors: one thick marker stroke (path shape comes from
+   sketchMainBranch in WordMindMap.tsx; mind-elixir hardcodes stroke-width=3
+   as an attribute, which CSS properties override). */
+.word-mindmap svg.lines path {
+  stroke-width: 6px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
