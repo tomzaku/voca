@@ -1,55 +1,113 @@
-/* Hand-drawn skin for the mind-elixir map (Pro mind map).
-   mind-elixir renders custom elements (me-root / me-main / me-parent / me-tpc)
-   inside a .map-container; everything here is scoped under .word-mindmap so it
-   can't leak into the rest of the app. The wobbly look comes from asymmetric
-   border-radius pairs (the classic "sketchy border" trick) + handwriting fonts
-   loaded in index.html (Patrick Hand for nodes, Caveat for the root). */
+/* Hand-drawn look for the Pro mind map (custom radial renderer — see
+   RadialMap in WordMindMap.tsx). Everything is scoped under .word-mindmap so
+   it can't leak into the rest of the app. The wobbly look comes from
+   asymmetric border-radius pairs (the classic "sketchy border" trick) +
+   handwriting fonts loaded in index.html (Patrick Hand for cards, Caveat for
+   the root). The map is always ink-on-white-paper in BOTH app themes —
+   colored/dark canvases made the sketch hard to read. */
 
-.word-mindmap .map-container {
+.word-mindmap {
   font-family: 'Patrick Hand', 'Segoe Print', 'Comic Sans MS', cursive;
-  /* Always white paper with a faint dot-grid, in BOTH app themes — colored/
-     dark canvases made the ink sketch hard to read. Node colors are fixed
-     ink values to match (see the theme cssVar in WordMindMap.tsx). */
+  /* White paper with a faint dot-grid */
   background-color: #ffffff;
   background-image: radial-gradient(#e3e0f0 1px, transparent 1px);
   background-size: 22px 22px;
-  border-radius: 16px;
 }
 
-.word-mindmap me-tpc {
-  font-family: inherit;
+/* The pannable/zoomable sheet — sized by its content, moved via transform. */
+.word-mindmap .mm-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  transform-origin: 0 0;
 }
 
-/* Root: big cloud-like bubble in the center, like the sample image */
-.word-mindmap me-root me-tpc {
+/* Connector strokes live behind the cards. */
+.word-mindmap .mm-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.word-mindmap .mm-lines path {
+  fill: none;
+  stroke-width: 11px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The "ring": side columns + center column (top band / root / bottom band).
+   Plain flex, so variable-height cards can never overlap. */
+.word-mindmap .mm-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 64px;
+  padding: 48px;
+  width: max-content;
+}
+
+.word-mindmap .mm-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 40px;
+}
+
+.word-mindmap .mm-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 52px;
+}
+
+.word-mindmap .mm-band {
+  display: flex;
+  align-items: flex-start;
+  gap: 48px;
+}
+
+/* Root: big cloud-like bubble in the center, like the sample poster */
+.word-mindmap .mm-root-node {
   font-family: 'Caveat', 'Patrick Hand', cursive;
   font-weight: 700;
-  font-size: 34px;
+  font-size: 40px;
   line-height: 1.1;
   text-align: center;
-  border-width: 3px !important;
+  color: #262357;
+  background: #ffffff;
+  padding: 14px 36px;
+  border: 3px solid #8ea6e6;
+  border-radius: 235px 25px 215px 25px / 25px 215px 25px 235px;
   box-shadow:
     0 0 0 5px #ffffff,
     0 0 0 7px #d5d9f0;
   transform: rotate(-1.2deg);
-}
-
-/* Theme branches: sketchy pills (border color is set per node from the palette) */
-.word-mindmap me-main > me-wrapper > me-parent > me-tpc {
-  font-size: 19px;
-  transform: rotate(0.6deg);
+  white-space: nowrap;
 }
 
 /* Theme card: one box per theme listing all its words, like the classic
-   vocabulary-poster layout. Lives inside me-tpc via dangerouslySetInnerHTML. */
-.word-mindmap .mm-card {
-  max-width: 21em;
-  padding: 2px 4px;
+   vocabulary-poster layout. Border color is set inline from the palette. */
+.word-mindmap .mm-node {
+  max-width: 23em;
+  padding: 8px 14px 10px;
   text-align: left;
+  background: #ffffff;
+  border: 2px solid #8ea6e6;
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  transform: rotate(0.5deg);
+}
+
+.word-mindmap .mm-node:nth-child(odd) {
+  border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
+  transform: rotate(-0.5deg);
 }
 
 .word-mindmap .mm-card-title {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 700;
   margin-bottom: 4px;
   transform: rotate(-0.6deg);
@@ -67,30 +125,22 @@
   line-height: 1.15;
 }
 
-/* Words: handwritten, underlined like notes. mind-elixir disables pointer
-   events inside me-tpc; re-enable so the row is clickable (→ word page). */
+/* Words: handwritten, underlined like notes; click opens the word page. */
 .word-mindmap .mm-word {
   font-size: 19px;
   color: #262357;
   text-decoration: underline dotted #b9b4d8 1.5px;
   text-underline-offset: 4px;
   cursor: pointer;
-  pointer-events: auto;
 }
 
 .word-mindmap .mm-word:hover {
   color: #0bb5d6;
 }
 
-.word-mindmap .mm-emoji {
-  font-size: 21px;
-  display: inline-block;
-  transform: rotate(-4deg);
-}
-
 /* AI-sketched doodle next to each word. The background is keyed out to
    transparency client-side, and the map canvas is always white paper, so the
-   ink floats straight on it — no chip needed in either app theme. */
+   ink floats straight on it. Emoji is the stand-in until a doodle exists. */
 .word-mindmap .mm-doodle {
   width: 52px;
   height: 52px;
@@ -106,6 +156,28 @@
   flex-shrink: 0;
   text-align: center;
   font-size: 26px;
+  display: inline-block;
+  transform: rotate(-4deg);
+}
+
+/* Speak-aloud button: tiny muted speaker inline after the word */
+.word-mindmap .mm-speak {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 2px 0 6px;
+  font-size: 15px;
+  color: #b9b4d8;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.word-mindmap .mm-speak:hover,
+.word-mindmap .mm-speak.mm-speak-on {
+  color: #0bb5d6;
 }
 
 /* Definitions: smaller, muted — a scribbled note inline after the word */
@@ -114,19 +186,4 @@
   line-height: 1.15;
   color: #6b6890;
   margin-left: 4px;
-}
-
-/* Give every wobbly-rectangle a slightly different corner mix so boxes don't
-   look stamped from one mold */
-.word-mindmap me-main:nth-child(odd) > me-wrapper > me-parent > me-tpc {
-  border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
-}
-
-/* Root→theme connectors: one thick marker stroke (path shape comes from
-   sketchMainBranch in WordMindMap.tsx; mind-elixir hardcodes stroke-width=3
-   as an attribute, which CSS properties override). */
-.word-mindmap svg.lines path {
-  stroke-width: 6px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }

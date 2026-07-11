@@ -2,29 +2,30 @@
 //
 // The `mindmap` AI action (pro-gated server-side) returns a jsMind-style
 // "node_tree" JSON document: themed branches with one leaf per word carrying
-// an emoji + short definition. We render it with mind-elixir (MindElixir.SIDE
-// puts the root in the center with branches radiating both ways) skinned to
-// look hand-written — see wordMindMap.css. Each word hides its definition in
-// a collapsed child node (mind-elixir's native +/− expander toggles it), and
-// double-clicking a word opens its word page. Results are cached in
-// localStorage per word-set so coming back doesn't spend another AI call —
+// an emoji + short definition. Rendering is a small custom RADIAL renderer
+// (no mind-map library: they all lay out left/right columns only, and we
+// want theme cards surrounding the root on ALL sides like a study poster).
+// Each theme is one card listing its words; cards are distributed
+// right/left/top/bottom around the center title and connected with thick
+// hand-drawn SVG strokes. Pan (drag) and zoom (wheel/buttons) are hand-rolled
+// on a CSS transform. Clicking a word opens its word page. Results are cached
+// in localStorage per word-set so coming back doesn't spend another AI call —
 // "Redraw" forces a fresh map.
 //
 // Each word also gets a small hand-drawn doodle image hinting at its meaning
-// (the `mindmap_doodle` action → Gemini image model → base64 data URI). Big
-// generated images are downscaled to a thumbnail in a canvas and cached in
-// localStorage PER WORD (independent of the map), so a doodle is only ever
-// generated once — redrawing the map reuses them. The word's emoji shows as a
-// placeholder while its doodle is being sketched (or if generation fails).
+// (the `mindmap_doodle_sheet` action → Gemini image model → base64 data URI,
+// 16 words per generated image). Doodles are downscaled to thumbnails in a
+// canvas and cached in localStorage PER WORD (independent of the map), so a
+// doodle is only ever generated once — redrawing the map reuses them. The
+// word's emoji shows as a placeholder until its doodle exists.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
-import MindElixir, { type MainLineParams, type MindElixirData, type MindElixirInstance, type NodeObj } from 'mind-elixir';
-import 'mind-elixir/style.css';
 import './wordMindMap.css';
 import { callAiAction, callAiDoodleSheet } from '../lib/aiProviders';
+import { isTtsPlaying, speakText, stopSpeaking } from '../lib/tts';
 
 interface MindMapNode {
   id: string;
@@ -40,12 +41,8 @@ const ROOT_TOPIC = 'Master English Vocabulary';
 
 // Branch line/border colors. The map canvas is always white paper (whatever
 // the app theme), so these are the deeper accent variants that stay legible
-// on white. mind-elixir wants concrete colors for the SVG strokes.
+// on white.
 const PALETTE = ['#0bb5d6', '#8b5cf6', '#f97316', '#10b862', '#ec4899', '#3b6cff', '#f5a800', '#f43f6b'];
-
-// Fixed ink color for the paper look — deliberately NOT a theme variable
-// (muted/def ink lives in wordMindMap.css).
-const INK = '#262357';
 
 // Doodle generation is affordable again: words are drawn as SHEETS — one
 // generated 1024px image holds a grid of up to 16 doodles, cropped apart
@@ -181,77 +178,327 @@ function parseMindMap(text: string): MindMapNode {
   return root;
 }
 
-/** Escape text before it goes into a node's dangerouslySetInnerHTML. */
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-}
+// ─── Radial renderer ─────────────────────────────────────────────────
+
+interface Pt { x: number; y: number }
 
 /**
- * Hand-drawn main branch: ONE wavy marker stroke from the root out to each
- * theme card, replacing mind-elixir's default tidy elbow curve. The wobble is
- * seeded from the endpoint so re-renders (doodle refreshes, def toggles)
- * don't make the lines jiggle. Stroke thickness comes from wordMindMap.css.
+ * One wavy hand-drawn marker stroke between two points. The wobble is seeded
+ * (per branch index) so re-renders don't make the lines jiggle.
  */
-function sketchMainBranch({ pT, pL, pW, pH, cT, cL, cW, cH, direction }: MainLineParams): string {
-  const fromX = direction === 'lhs' ? pL + pW * 0.2 : pL + pW * 0.8;
-  const fromY = pT + pH / 2;
-  const toX = direction === 'lhs' ? cL + cW : cL;
-  const toY = cT + cH / 2;
-  const seed = (toX * 7 + toY * 13) % 97;
+function sketchPath(from: Pt, to: Pt, seed: number): string {
   const wobble = (k: number, amp: number) => Math.sin(seed + k * 2.1) * amp;
-  const midX = (fromX + toX) / 2 + wobble(1, 14);
-  const midY = (fromY + toY) / 2 + wobble(2, 10);
+  const midX = (from.x + to.x) / 2 + wobble(1, 14);
+  const midY = (from.y + to.y) / 2 + wobble(2, 10);
   // Q to a wobbled midpoint, then T mirrors the control point — one smooth
   // continuous wave, like a single confident marker sweep.
-  return `M ${fromX} ${fromY} Q ${fromX + wobble(0, 9)} ${(fromY + midY) / 2} ${midX} ${midY} T ${toX} ${toY}`;
+  return `M ${from.x} ${from.y} Q ${from.x + wobble(0, 9)} ${(from.y + midY) / 2} ${midX} ${midY} T ${to.x} ${to.y}`;
+}
+
+type Slot = 'right' | 'left' | 'top' | 'bottom';
+const SLOT_ORDER: Slot[] = ['right', 'left', 'top', 'bottom'];
+
+/** Theme card: title + one row per word (doodle/emoji, word, speak button,
+ *  inline definition). */
+function ThemeCard({
+  branch,
+  color,
+  defsOpen,
+  doodles,
+  onWordClick,
+  onSpeak,
+  speakingWord,
+  innerRef,
+}: {
+  branch: MindMapNode;
+  color: string;
+  defsOpen: boolean;
+  doodles: Record<string, string>;
+  onWordClick: (word: string) => void;
+  onSpeak: (word: MindMapNode) => void;
+  speakingWord: string | null;
+  innerRef: (el: HTMLDivElement | null) => void;
+}) {
+  return (
+    <div ref={innerRef} className="mm-node" style={{ borderColor: color }}>
+      <div className="mm-card-title" style={{ color }}>
+        {branch.emoji ? `${branch.emoji} ` : ''}
+        {branch.topic}
+      </div>
+      {branch.children.map((w) => {
+        const doodle = doodles[doodleKey(w.topic)];
+        const isSpeaking = speakingWord === w.topic;
+        return (
+          <div key={w.id} className="mm-row">
+            {doodle ? (
+              <img className="mm-doodle" src={doodle} alt="" />
+            ) : (
+              <span className="mm-emoji">{w.emoji ?? '✏️'}</span>
+            )}
+            <span className="mm-row-text">
+              <span className="mm-word" title={`Open “${w.topic}”`} onClick={() => onWordClick(w.topic)}>
+                {w.topic}
+              </span>
+              <button
+                className={`mm-speak ${isSpeaking ? 'mm-speak-on' : ''}`}
+                title={isSpeaking ? 'Stop' : `Speak “${w.topic}”`}
+                onClick={() => onSpeak(w)}
+              >
+                <Icon icon={isSpeaking ? 'lucide:square' : 'lucide:volume-2'} />
+              </button>
+              {defsOpen && w.definition && <span className="mm-def">— {w.definition}</span>}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /**
- * Convert the AI tree into mind-elixir data. Like the classic vocabulary
- * poster, each theme is ONE card node listing all its words (doodle + word +
- * inline definition when `defsOpen`) — far more compact than a node per word.
- * Word rows carry data-word; a container click listener navigates on tap.
- * `doodles` maps doodleKey(word) → thumbnail data URI; a word with a doodle
- * shows it, otherwise its emoji stands in.
+ * Poster-style radial map: the root title in the center, theme cards
+ * distributed around it on all four sides (cycling right/left/top/bottom),
+ * connected by thick sketchy strokes. Layout is a plain flex "ring" (columns
+ * left/right, bands above/below the root) so variable-height cards can never
+ * overlap; the connector SVG is measured off the real DOM after each render.
  */
-function toMindElixirData(
-  tree: MindMapNode,
-  defsOpen: boolean,
-  doodles: Record<string, string>,
-): { data: MindElixirData } {
-  const branches: NodeObj[] = tree.children.map((branch, i) => {
-    const hex = PALETTE[i % PALETTE.length];
-    const rows = branch.children
-      .map((w) => {
-        const doodle = doodles[doodleKey(w.topic)];
-        const visual = doodle
-          ? `<img class="mm-doodle" src="${doodle}" alt="" />`
-          : `<span class="mm-emoji">${esc(w.emoji ?? '✏️')}</span>`;
-        const def = defsOpen && w.definition ? `<span class="mm-def">— ${esc(w.definition)}</span>` : '';
-        return `<div class="mm-row">${visual}<span class="mm-row-text"><span class="mm-word" data-word="${esc(w.topic)}" title="Open “${esc(w.topic)}”">${esc(w.topic)}</span>${def}</span></div>`;
-      })
-      .join('');
-    return {
-      id: branch.id,
-      topic: branch.topic,
-      dangerouslySetInnerHTML: `<div class="mm-card"><div class="mm-card-title" style="color:${hex}">${branch.emoji ? `${esc(branch.emoji)} ` : ''}${esc(branch.topic)}</div>${rows}</div>`,
-      branchColor: hex,
-      style: { border: `2px solid ${hex}`, background: '#ffffff' },
-      expanded: true,
-      children: [],
-    };
-  });
+function RadialMap({
+  tree,
+  defsOpen,
+  doodles,
+  tick,
+  onWordClick,
+}: {
+  tree: MindMapNode;
+  defsOpen: boolean;
+  doodles: Record<string, string>;
+  tick: number;
+  onWordClick: (word: string) => void;
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef(new Map<string, HTMLDivElement>());
 
-  return {
-    data: {
-      nodeData: {
-        id: 'root',
-        topic: ROOT_TOPIC,
-        dangerouslySetInnerHTML: `<span class="mm-root">${tree.emoji ? `${esc(tree.emoji)} ` : ''}${esc(ROOT_TOPIC)}</span>`,
-        children: branches,
-      },
-    },
+  const [view, setView] = useState({ x: 0, y: 0, s: 1 });
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const [lines, setLines] = useState<{ d: string; color: string }[]>([]);
+  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
+  const [speakingWord, setSpeakingWord] = useState<string | null>(null);
+  const centeredForRef = useRef<MindMapNode | null>(null);
+  const dragRef = useRef<{ px: number; py: number; vx: number; vy: number } | null>(null);
+  const dragMovedRef = useRef(false);
+
+  // Stop any in-flight speech when the map unmounts.
+  useEffect(() => () => stopSpeaking(), []);
+
+  const speak = (w: MindMapNode) => {
+    if (dragMovedRef.current) return; // pan release, not a click
+    if (speakingWord === w.topic && isTtsPlaying()) {
+      stopSpeaking();
+      setSpeakingWord(null);
+      return;
+    }
+    stopSpeaking();
+    setSpeakingWord(w.topic);
+    const text = w.definition ? `${w.topic}. ${w.definition}` : w.topic;
+    void speakText(text, { onEnd: () => setSpeakingWord((cur) => (cur === w.topic ? null : cur)) });
   };
+
+  // Which side of the root each theme lands on.
+  const slots = useMemo(
+    () => tree.children.map((_, i) => SLOT_ORDER[i % SLOT_ORDER.length]),
+    [tree],
+  );
+  const bySlot = (slot: Slot) =>
+    tree.children
+      .map((b, i) => ({ b, i }))
+      .filter(({ i }) => slots[i] === slot);
+
+  const centerView = useCallback(() => {
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!viewport || !canvas) return;
+    const s0 = viewRef.current.s;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width / s0;
+    const h = rect.height / s0;
+    const s = Math.max(Math.min(viewport.clientWidth / w, viewport.clientHeight / h, 1), 0.3);
+    setView({ x: (viewport.clientWidth - w * s) / 2, y: (viewport.clientHeight - h * s) / 2, s });
+  }, []);
+
+  // Measure the DOM and (re)draw connector strokes; recenter on a new tree.
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    const rootEl = rootRef.current;
+    if (!canvas || !rootEl) return;
+    const s = viewRef.current.s;
+    const cRect = canvas.getBoundingClientRect();
+    setCanvasSize({ w: cRect.width / s, h: cRect.height / s });
+
+    const rel = (r: DOMRect) => ({
+      x: (r.left - cRect.left) / s + r.width / s / 2,
+      y: (r.top - cRect.top) / s + r.height / s / 2,
+      w: r.width / s,
+      h: r.height / s,
+    });
+    const root = rel(rootEl.getBoundingClientRect());
+
+    const next: { d: string; color: string }[] = [];
+    tree.children.forEach((b, i) => {
+      const el = cardRefs.current.get(b.id);
+      if (!el) return;
+      const card = rel(el.getBoundingClientRect());
+      const dx = card.x - root.x;
+      const dy = card.y - root.y;
+      // Attach to facing edges: horizontally for side cards, vertically for
+      // cards above/below the root.
+      const horizontal = Math.abs(dx) * root.h > Math.abs(dy) * root.w;
+      const from: Pt = horizontal
+        ? { x: root.x + Math.sign(dx) * root.w * 0.46, y: root.y }
+        : { x: root.x, y: root.y + Math.sign(dy) * root.h * 0.46 };
+      const to: Pt = horizontal
+        ? { x: card.x - Math.sign(dx) * card.w * 0.5, y: card.y }
+        : { x: card.x, y: card.y - Math.sign(dy) * card.h * 0.5 };
+      next.push({ d: sketchPath(from, to, i * 3.7 + 1), color: PALETTE[i % PALETTE.length] });
+    });
+    setLines(next);
+
+    if (centeredForRef.current !== tree) {
+      centeredForRef.current = tree;
+      centerView();
+    }
+  }, [tree, defsOpen, tick, centerView]);
+
+  // Wheel zoom around the cursor. Native listener — React's onWheel is
+  // passive, so preventDefault (needed to stop page scroll) wouldn't work.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      setView((v) => {
+        const s = Math.min(2.5, Math.max(0.2, v.s * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
+        const k = s / v.s;
+        return { s, x: mx - (mx - v.x) * k, y: my - (my - v.y) * k };
+      });
+    };
+    viewport.addEventListener('wheel', onWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', onWheel);
+  }, []);
+
+  const zoomBy = (factor: number) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const mx = viewport.clientWidth / 2;
+    const my = viewport.clientHeight / 2;
+    setView((v) => {
+      const s = Math.min(2.5, Math.max(0.2, v.s * factor));
+      const k = s / v.s;
+      return { s, x: mx - (mx - v.x) * k, y: my - (my - v.y) * k };
+    });
+  };
+
+  const cardRef = (id: string) => (el: HTMLDivElement | null) => {
+    if (el) cardRefs.current.set(id, el);
+    else cardRefs.current.delete(id);
+  };
+
+  const renderCards = (slot: Slot) =>
+    bySlot(slot).map(({ b, i }) => (
+      <ThemeCard
+        key={b.id}
+        branch={b}
+        color={PALETTE[i % PALETTE.length]}
+        defsOpen={defsOpen}
+        doodles={doodles}
+        onWordClick={(w) => {
+          if (dragMovedRef.current) return; // pan release, not a click
+          onWordClick(w);
+        }}
+        onSpeak={speak}
+        speakingWord={speakingWord}
+        innerRef={cardRef(b.id)}
+      />
+    ));
+
+  return (
+    <div
+      ref={viewportRef}
+      className="word-mindmap relative h-[calc(100vh-11rem)] min-h-[30rem] rounded-2xl border-2 border-border overflow-hidden animate-fade-in cursor-grab select-none touch-none"
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        // Words and speak buttons keep normal click behavior — starting a
+        // pan (and especially pointer capture) on them would retarget the
+        // click to this container and swallow it.
+        if ((e.target as HTMLElement).closest?.('.mm-word, .mm-speak')) {
+          dragMovedRef.current = false; // clear any previous pan so the click guard passes
+          return;
+        }
+        dragRef.current = { px: e.clientX, py: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y };
+        dragMovedRef.current = false;
+      }}
+      onPointerMove={(e) => {
+        const d = dragRef.current;
+        if (!d) return;
+        const dx = e.clientX - d.px;
+        const dy = e.clientY - d.py;
+        // Capture only once it's clearly a drag — capturing on pointer-down
+        // would hijack the click events of everything inside the map.
+        if (!dragMovedRef.current && Math.abs(dx) + Math.abs(dy) > 4) {
+          dragMovedRef.current = true;
+          (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+        }
+        if (dragMovedRef.current) setView((v) => ({ ...v, x: d.vx + dx, y: d.vy + dy }));
+      }}
+      onPointerUp={() => { dragRef.current = null; }}
+      onPointerCancel={() => { dragRef.current = null; }}
+    >
+      <div
+        ref={canvasRef}
+        className="mm-canvas"
+        style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}
+      >
+        <svg className="mm-lines" width={canvasSize.w} height={canvasSize.h} aria-hidden>
+          {lines.map((l, i) => (
+            <path key={i} d={l.d} stroke={l.color} />
+          ))}
+        </svg>
+        <div className="mm-ring">
+          <div className="mm-col">{renderCards('left')}</div>
+          <div className="mm-center">
+            <div className="mm-band">{renderCards('top')}</div>
+            <div ref={rootRef} className="mm-root-node">
+              {tree.emoji ? `${tree.emoji} ` : ''}
+              {ROOT_TOPIC}
+            </div>
+            <div className="mm-band">{renderCards('bottom')}</div>
+          </div>
+          <div className="mm-col">{renderCards('right')}</div>
+        </div>
+      </div>
+
+      {/* Zoom controls */}
+      <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
+        {([['lucide:plus', () => zoomBy(1.25), 'Zoom in'],
+           ['lucide:minus', () => zoomBy(1 / 1.25), 'Zoom out'],
+           ['lucide:maximize', centerView, 'Fit to screen']] as const).map(([icon, fn, label]) => (
+          <button
+            key={icon}
+            onClick={fn}
+            title={label}
+            className="w-8 h-8 rounded-lg bg-white/90 border border-[#b7c9ef] text-[#262357] flex items-center justify-center hover:bg-white transition-all shadow-sm"
+          >
+            <Icon icon={icon} className="text-sm" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => void }) {
@@ -266,8 +513,6 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   // Definitions render inline in the theme cards (poster style) — on by default.
   const [defsOpen, setDefsOpen] = useState(true);
 
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mindRef = useRef<MindElixirInstance | null>(null);
   const loadedKeyRef = useRef<string | null>(null);
 
   // Doodles live in a ref (mutated by background workers); bumping the tick
@@ -325,77 +570,6 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   useEffect(() => {
     void load(false);
   }, [load]);
-
-  // (Re)mount the mind-elixir instance whenever we have a tree to draw.
-  // `chosen` is a dep so returning to the picker (which unmounts the map div)
-  // destroys the instance, and confirming the same word set remounts it.
-  useEffect(() => {
-    const el = mapRef.current;
-    if (!tree || !el || !chosen) return;
-
-    const { data } = toMindElixirData(tree, defsOpen, doodlesRef.current);
-
-    const mind = new MindElixir({
-      el,
-      direction: MindElixir.SIDE, // root in the center, branches both ways
-      editable: false,
-      contextMenu: false,
-      keypress: false,
-      toolBar: true, // zoom / re-center buttons, bottom right
-      theme: {
-        name: 'Sketch',
-        palette: PALETTE,
-        generateMainBranch: sketchMainBranch,
-        // Fixed ink-on-white-paper colors — the map stays white in both app
-        // themes (blue/dark canvases made the sketch hard to read).
-        cssVar: {
-          '--main-color': INK,
-          '--main-bgcolor': '#ffffff',
-          '--color': INK,
-          '--bgcolor': 'transparent',
-          '--selected': '#0bb5d6',
-          '--root-color': INK,
-          '--root-bgcolor': '#ffffff',
-          '--root-border-color': '#8ea6e6',
-          // Asymmetric radii = the wobbly hand-drawn outline
-          '--root-radius': '235px 25px 215px 25px / 25px 215px 25px 235px',
-          '--main-radius': '255px 15px 225px 15px / 15px 225px 15px 255px',
-          '--topic-padding': '3px 10px',
-          // Tight gaps — theme cards are dense, so the default airy spacing
-          // just wastes canvas.
-          '--main-gap-x': '16px',
-          '--main-gap-y': '8px',
-          '--node-gap-x': '12px',
-          '--node-gap-y': '6px',
-          '--panel-color': INK,
-          '--panel-bgcolor': '#ffffff',
-          '--panel-border-color': '#b7c9ef',
-        },
-      },
-    });
-    mind.init(data);
-    mindRef.current = mind;
-
-    // Click a word row → open its word page. Word spans carry data-word and
-    // re-enabled pointer-events (mind-elixir disables them inside me-tpc).
-    const onClick = (e: MouseEvent) => {
-      const t = (e.target as HTMLElement).closest?.('.mm-word') as HTMLElement | null;
-      const word = t?.dataset.word;
-      if (!word) return;
-      e.stopPropagation();
-      navigate(`/?word=${encodeURIComponent(word)}`);
-    };
-    el.addEventListener('click', onClick, true);
-
-    return () => {
-      el.removeEventListener('click', onClick, true);
-      mind.destroy();
-      mindRef.current = null;
-    };
-    // defsOpen is applied via refresh() in toggleDefs — remounting on its
-    // change would wipe the user's pan/zoom.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tree, chosen, navigate]);
 
   // Load doodles for the current tree — FREE sources only. localStorage and
   // migrated legacy thumbs paint immediately, then the shared server cache
@@ -571,23 +745,9 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
     })();
   };
 
-  // Redraw the map when new doodles arrive.
-  useEffect(() => {
-    if (doodleTick === 0 || !tree || !mindRef.current) return;
-    const { data } = toMindElixirData(tree, defsOpen, doodlesRef.current);
-    mindRef.current.refresh(data);
-    // defsOpen is read but must not trigger this effect — toggleDefs already
-    // refreshes; reacting to it here would refresh twice.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doodleTick, tree]);
-
-  const toggleDefs = () => {
-    if (!tree || !mindRef.current) return;
-    const next = !defsOpen;
-    setDefsOpen(next);
-    const { data } = toMindElixirData(tree, next, doodlesRef.current);
-    mindRef.current.refresh(data);
-  };
+  // (Doodle arrivals bump `doodleTick`, which re-renders RadialMap — no
+  // imperative refresh needed with the React renderer.)
+  const toggleDefs = () => setDefsOpen((v) => !v);
 
   const redraw = () => {
     void load(true);
@@ -776,9 +936,12 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           </button>
         </div>
       ) : tree ? (
-        <div
-          ref={mapRef}
-          className="word-mindmap h-[calc(100vh-11rem)] min-h-[30rem] rounded-2xl border-2 border-border overflow-hidden animate-fade-in"
+        <RadialMap
+          tree={tree}
+          defsOpen={defsOpen}
+          doodles={doodlesRef.current}
+          tick={doodleTick}
+          onWordClick={(word) => navigate(`/?word=${encodeURIComponent(word)}`)}
         />
       ) : null}
     </div>
