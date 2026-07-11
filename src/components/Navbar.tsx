@@ -49,12 +49,12 @@ export function Navbar() {
     requestSearch(word);    // FlashCard picks this up and loads the word
   };
 
-  // Mobile keeps just the primary tabs; desktop shows Collections + Buddy too.
+  // Mobile keeps the primary tabs (as icons); desktop shows Buddy too.
   // Everything else lives in the sidebar.
   const navLinks: { to: string; label: string; icon: string; desktopOnly?: boolean }[] = [
     { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
     { to: '/bookmarks', label: 'History', icon: 'lucide:history' },
-    { to: '/collections', label: 'Collections', icon: 'lucide:library', desktopOnly: true },
+    { to: '/collections', label: 'Collections', icon: 'lucide:library' },
     { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print', desktopOnly: true },
   ];
 

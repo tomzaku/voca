@@ -206,16 +206,17 @@ export function CollectionsPage() {
 
   // ── List vs Explore (walk your buddy around the map) ──
   const [view, setView] = useState<'list' | 'world'>(() => {
-    try {
-      const saved = localStorage.getItem(VIEW_KEY);
-      if (saved === 'world' || saved === 'list') return saved;
-    } catch { /* ignore */ }
-    // No saved choice yet: desktop starts in Explore, small screens in List.
-    return isMobile() ? 'list' : 'world';
+    // try {
+    //   const saved = localStorage.getItem(VIEW_KEY);
+    //   if (saved === 'world' || saved === 'list') return saved;
+    // } catch { /* ignore */ }
+    // // No saved choice yet: desktop starts in Explore, small screens in List.
+    // return isMobile() ? 'list' : 'world';
+    return 'list'
   });
   const switchView = (v: 'list' | 'world') => {
     setView(v);
-    try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ }
+    // try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ }
   };
 
   // Every collection as a station on the Explore map: mine → joined → levels.

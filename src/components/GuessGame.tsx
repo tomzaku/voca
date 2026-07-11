@@ -3,17 +3,18 @@ import { Icon } from '@iconify/react';
 import { getActiveWordList } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect } from '../lib/sfx';
-import { GUESS_GAMES, REAL_GUESS_GAMES, type GuessGameMode, type RealGuessGameMode } from '../hooks/useGuessGame';
+import { GUESS_GAMES, REAL_GUESS_GAMES, recentAccuracy, smartPick, type GuessGameMode, type RealGuessGameMode } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { stageIndex } from '../lib/companion';
 import { AnimalAvatar } from './AnimalAvatar';
+import { Selector } from './Selector';
 import type { VocabularyWord } from '../types';
 
-// Modes shown by default on all sizes; DESKTOP_EXTRA_MODES also show on desktop.
-// Everything else lives behind the "More" toggle.
-const PRIMARY_MODES: GuessGameMode[] = ['random', 'letters', 'choice'];
+// Desktop pill row: these modes show up front, the rest live behind "More".
+// (On mobile the pills are replaced by a compact <select>.)
+const PRIMARY_MODES: GuessGameMode[] = ['smart', 'random', 'letters', 'choice'];
 const DESKTOP_EXTRA_MODES: GuessGameMode[] = ['listen'];
 
 interface Props {
@@ -83,13 +84,20 @@ function ModePill({ g, active, onGameChange }: {
   return (
     <button
       onClick={() => { playSelect(); onGameChange(g.id); }}
-      title={g.description}
-      className={`btn-3d flex items-center gap-1 px-3 py-1.5 text-xs ${
+      className={`group relative btn-3d flex items-center gap-1 px-3 py-1.5 text-xs ${
         active ? 'bg-accent-purple text-bg-primary' : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
       }`}
     >
       <Icon icon={g.icon} className="text-base" />
       <span>{g.label}</span>
+      {/* Hover/focus tooltip: what this mode does. Sits below the pill so the
+          card's overflow-hidden top edge can't clip it. */}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-0 top-full mt-1.5 z-30 w-max max-w-[220px] px-2.5 py-1.5 rounded-lg border border-border bg-bg-card text-left text-[11px] font-bold normal-case text-text-secondary shadow-xl opacity-0 translate-y-0.5 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-y-0"
+      >
+        {g.description}
+      </span>
     </button>
   );
 }
@@ -101,19 +109,26 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
   const [moreModes, setMoreModes] = useState(false);
   const { points, streak, win, lastGain, winId } = useGameScore();
 
-  // "Random" resolves to a real game per word. The component is keyed by word
-  // in FlashCard, so this initializer re-rolls on every new word.
+  // "Random" and "Smart" resolve to a real game per word. The component is
+  // keyed by word in FlashCard, so these initializers re-run per word.
   const [randomPick] = useState<RealGuessGameMode>(
     () => REAL_GUESS_GAMES[Math.floor(Math.random() * REAL_GUESS_GAMES.length)].id,
   );
-  const activeGame: RealGuessGameMode = game === 'random' ? randomPick : game;
+  const [smartPicked] = useState<RealGuessGameMode>(() => {
+    const all = useVocabularyStore.getState().progress;
+    return smartPick(all[wordData.word], recentAccuracy(all));
+  });
+  const activeGame: RealGuessGameMode =
+    game === 'random' ? randomPick : game === 'smart' ? smartPicked : game;
 
-  // Pill visibility: mobile shows the two primary modes; desktop also shows the
-  // desktop-extra ones; the rest live behind "More". The active game is always
-  // visible. `contents` keeps the button in the parent flex (no wrapper box).
+  // Pill visibility (desktop only — mobile uses the compact selector instead):
+  // primary + desktop-extra modes show up front, the rest live behind "More".
+  // The active game is always visible. `contents` keeps the button in the
+  // parent flex (no wrapper box).
   const pillWrapClass = (id: GuessGameMode): string => {
-    if (PRIMARY_MODES.includes(id) || moreModes || id === game) return 'contents';
-    if (DESKTOP_EXTRA_MODES.includes(id)) return 'hidden sm:contents';
+    if (PRIMARY_MODES.includes(id) || DESKTOP_EXTRA_MODES.includes(id) || moreModes || id === game) {
+      return 'contents';
+    }
     return 'hidden';
   };
 
@@ -177,7 +192,26 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
       <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
         {/* ── HUD: game picker (left) + score/streak (right) ── */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5 min-w-0">
+          {/* Mobile: one compact selector instead of a row of pills. */}
+          <div className="flex sm:hidden items-center gap-1.5 min-w-0">
+            <Selector
+              value={game}
+              options={GUESS_GAMES.map((g) => ({
+                value: g.id, label: g.label, icon: g.icon, description: g.description,
+              }))}
+              onChange={(g) => { playSelect(); onGameChange(g); }}
+              ariaLabel="Game mode"
+            />
+            {(game === 'smart' || game === 'random') && (
+              <span className="flex items-center gap-1 text-[11px] font-bold text-text-muted shrink-0">
+                <Icon icon="lucide:arrow-right" />
+                {REAL_GUESS_GAMES.find((g) => g.id === activeGame)?.label}
+              </span>
+            )}
+          </div>
+
+          {/* Desktop: the pill row. */}
+          <div className="hidden sm:flex flex-wrap gap-1.5 min-w-0">
             {GUESS_GAMES.map((g) => (
               <span key={g.id} className={pillWrapClass(g.id)}>
                 <ModePill g={g} active={game === g.id} onGameChange={onGameChange} />
@@ -190,6 +224,15 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
               <Icon icon={moreModes ? 'lucide:chevron-up' : 'lucide:ellipsis'} className="text-base" />
               <span>{moreModes ? 'Less' : 'More'}</span>
             </button>
+            {game === 'smart' && (
+              <span
+                className="self-center flex items-center gap-1 text-[11px] font-bold text-text-muted"
+                title="Smart mode picked this game from your history with this word"
+              >
+                <Icon icon="lucide:arrow-right" />
+                {REAL_GUESS_GAMES.find((g) => g.id === activeGame)?.label}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">

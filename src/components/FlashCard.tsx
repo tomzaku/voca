@@ -756,7 +756,7 @@ export function FlashCard() {
           )}
 
           {/* Two-column layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1.618fr_1fr] gap-4 sm:gap-5 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-4 sm:gap-5 items-start">
 
             {/* ── Left column ── */}
             <div className="flex flex-col gap-3 sm:gap-4">
