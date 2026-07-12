@@ -311,6 +311,23 @@ function AnswerTally({ progress }: { progress: WordProgress | undefined }) {
   );
 }
 
+const FULL_DEF_KEY = 'voca-flashcard-full-def';
+
+/** Small "Short/Full" definition-length toggle, shown only when a short
+ *  definition exists (without one there is nothing to switch between). */
+function DefLengthToggle({ show, fullDef, onToggle }: { show: boolean; fullDef: boolean; onToggle: () => void }) {
+  if (!show) return null;
+  return (
+    <button
+      onClick={onToggle}
+      title={fullDef ? 'Show the short definition' : 'Show the full definition'}
+      className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-border text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
+    >
+      {fullDef ? 'Short' : 'Full'}
+    </button>
+  );
+}
+
 export function FlashCard() {
   const { user, loading: authLoading } = useAuth();
   const store = useVocabularyStore();
@@ -318,6 +335,19 @@ export function FlashCard() {
 
   const [phase, setPhase] = useState<CardPhase>('loading');
   const [wordData, setWordData] = useState<VocabularyWord | null>(null);
+  // Definitions default to the short one-liner (when cached); the toggle to
+  // the full definition is remembered across sessions.
+  const [fullDef, setFullDef] = useState(() => {
+    try { return localStorage.getItem(FULL_DEF_KEY) === '1'; } catch { return false; }
+  });
+  const toggleFullDef = () => setFullDef((v) => {
+    const next = !v;
+    try { localStorage.setItem(FULL_DEF_KEY, next ? '1' : '0'); } catch { /* private mode */ }
+    return next;
+  });
+  // The short one-liner when preferred and available, else the full definition.
+  const definitionText = (wd: VocabularyWord) =>
+    !fullDef && wd.shortDefinition ? wd.shortDefinition : wd.definition;
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingExample, setSpeakingExample] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -744,11 +774,12 @@ export function FlashCard() {
                 <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${levelColor[wordData.level]}`}>
                   {wordData.level}
                 </span>
+                <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={toggleFullDef} />
               </div>
               {/* Mask the answer out of the definition and syn/ant chips —
                   AI text sometimes restates the word while it's being guessed */}
               <p className="text-text-primary leading-relaxed text-base sm:text-lg">
-                {maskAnswer(wordData.definition, wordData.headword || wordData.word, familyForms(wordData.wordFamily))}
+                {maskAnswer(definitionText(wordData), wordData.headword || wordData.word, familyForms(wordData.wordFamily))}
               </p>
               <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
               <SynAnt wordData={wordData} maskWord={wordData.headword || wordData.word} />
@@ -867,8 +898,9 @@ export function FlashCard() {
                     <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${levelColor[wordData.level]}`}>
                       {wordData.level}
                     </span>
+                    <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={toggleFullDef} />
                   </div>
-                  <p className="text-text-primary leading-relaxed">{wordData.definition}</p>
+                  <p className="text-text-primary leading-relaxed">{definitionText(wordData)}</p>
                   {wordData.translation && (
                     <div className="mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-accent-cyan/10 border border-accent-cyan/25">
                       <Icon icon="lucide:languages" className="text-accent-cyan text-xl shrink-0" />

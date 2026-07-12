@@ -478,7 +478,10 @@ Keep it short and practical.`,
 
   // Pro-only: interactive mind map of the user's saved words. Returns a
   // jsMind-style "node_tree" JSON document that the WordMindMap component
-  // renders (collapsible branches, per-word definitions, emoji per node).
+  // renders. The AI only groups words into themes and picks emoji — per-word
+  // definitions are NOT generated here; syncMindmapDefinitions injects them
+  // from word_cache.short_definition after the call (populated by the word
+  // function and the backfill script), which keeps this generation small.
   mindmap(p) {
     if (!Array.isArray(p.words)) throw new BadRequest('"words" must be an array.');
     const words = p.words
@@ -511,19 +514,20 @@ Return ONLY this JSON (jsMind node_tree format), no markdown, no extra text:
             "id": "word-<the word>",
             "topic": "<the word exactly as given>",
             "emoji": "one emoji hinting at the word's meaning",
-            "definition": "very short plain-English definition (max 12 words), phrased like a quick handwritten note next to the word on a study mind map — punchy and memorable, e.g. 'too willing to believe things; easily fooled'",
             "children": []
           }
         ]
       }
     ]
   }
-}`;
+}
+
+Do NOT include definitions — they are added separately.`;
 
     return {
       system: 'You design vocabulary mind maps for language learners. Return ONLY valid JSON matching the requested schema — no markdown fences, no commentary.',
       messages: [{ role: 'user', content: prompt }],
-      maxTokens: Math.min(600 + words.length * 60, 4000),
+      maxTokens: Math.min(500 + words.length * 35, 2500),
     };
   },
 
@@ -697,11 +701,13 @@ Deno.serve(async (req) => {
 });
 
 /**
- * Two-way sync between a freshly generated mind map and word_cache's
- * `short_definition` column: definitions the AI just wrote are saved to the
- * cache (rows that exist and differ), and any word the AI left WITHOUT a
- * definition is filled from the cache. Best-effort — on any parse/DB hiccup
- * the original text goes back unchanged.
+ * Inject per-word definitions into a freshly generated mind map from
+ * word_cache's `short_definition` column — the mindmap prompt deliberately
+ * does NOT ask the AI for definitions (the cache is the source of truth;
+ * populated by the word function and scripts/backfill-short-definitions.mjs).
+ * If the model volunteers a definition anyway, it's kept and synced back to
+ * rows that exist. Best-effort — on any parse/DB hiccup the original text
+ * goes back unchanged.
  */
 async function syncMindmapDefinitions(text: string): Promise<string> {
   const svc = serviceClient();
@@ -732,6 +738,7 @@ async function syncMindmapDefinitions(text: string): Promise<string> {
     );
 
     let filled = 0;
+    const bare: string[] = [];
     const updates = new Map<string, string>();
     for (const leaf of leaves) {
       const key = String(leaf.topic ?? '').trim().toLowerCase();
@@ -743,6 +750,8 @@ async function syncMindmapDefinitions(text: string): Promise<string> {
       } else if (cached.get(key)) {
         leaf.definition = cached.get(key);
         filled += 1;
+      } else {
+        bare.push(key); // no definition anywhere — renders as word + emoji only
       }
     }
     await Promise.all(
@@ -750,7 +759,7 @@ async function syncMindmapDefinitions(text: string): Promise<string> {
         svc.from('word_cache').update({ short_definition: def }).eq('word', word),
       ),
     );
-    console.log(`[mindmap] short_definitions: cached=${updates.size} filledFromCache=${filled} words=${keys.length}`);
+    console.log(`[mindmap] short_definitions: filledFromCache=${filled} syncedToCache=${updates.size} words=${keys.length}${bare.length ? ` MISSING=[${bare.join(', ')}] — run scripts/backfill-short-definitions.mjs` : ''}`);
     return filled > 0 ? JSON.stringify(parsed) : text;
   } catch (err) {
     console.warn(`[mindmap] short_definition sync skipped: ${(err as Error).message}`);
