@@ -30,6 +30,7 @@ import {
   requireUser,
   sanitizeHistory,
   serviceClient,
+  stripFences,
   underRateLimit,
 } from '../_shared/ai.ts';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
@@ -510,7 +511,7 @@ Return ONLY this JSON (jsMind node_tree format), no markdown, no extra text:
             "id": "word-<the word>",
             "topic": "<the word exactly as given>",
             "emoji": "one emoji hinting at the word's meaning",
-            "definition": "very short plain-English definition (max 12 words)",
+            "definition": "very short plain-English definition (max 12 words), phrased like a quick handwritten note next to the word on a study mind map — punchy and memorable, e.g. 'too willing to believe things; easily fooled'",
             "children": []
           }
         ]
@@ -687,9 +688,72 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const text = await callProvider(built.system, built.messages, built.maxTokens);
+    let text = await callProvider(built.system, built.messages, built.maxTokens);
+    if (action === 'mindmap') text = await syncMindmapDefinitions(text);
     return jsonResponse(200, { text });
   } catch (err) {
     return jsonResponse(502, { error: (err as Error).message || 'AI provider error.' });
   }
 });
+
+/**
+ * Two-way sync between a freshly generated mind map and word_cache's
+ * `short_definition` column: definitions the AI just wrote are saved to the
+ * cache (rows that exist and differ), and any word the AI left WITHOUT a
+ * definition is filled from the cache. Best-effort — on any parse/DB hiccup
+ * the original text goes back unchanged.
+ */
+async function syncMindmapDefinitions(text: string): Promise<string> {
+  const svc = serviceClient();
+  if (!svc) return text;
+  try {
+    const parsed = JSON.parse(stripFences(text)) as Record<string, unknown>;
+    const root = (parsed?.data ?? parsed) as { children?: unknown } | null;
+    const branches = Array.isArray(root?.children) ? root.children : [];
+    const leaves: { topic?: unknown; definition?: unknown }[] = branches.flatMap((b) =>
+      Array.isArray((b as { children?: unknown })?.children) ? (b as { children: [] }).children : [],
+    );
+    if (leaves.length === 0) return text;
+
+    const keys = [...new Set(
+      leaves.map((l) => String(l.topic ?? '').trim().toLowerCase()).filter(Boolean),
+    )];
+    const { data: rows, error: readErr } = await svc
+      .from('word_cache')
+      .select('word, short_definition')
+      .in('word', keys);
+    if (readErr) {
+      console.warn(`[mindmap] short_definition read error: ${readErr.message}`);
+      return text;
+    }
+    const cached = new Map(
+      ((rows ?? []) as { word: string; short_definition: string | null }[])
+        .map((r) => [r.word, r.short_definition]),
+    );
+
+    let filled = 0;
+    const updates = new Map<string, string>();
+    for (const leaf of leaves) {
+      const key = String(leaf.topic ?? '').trim().toLowerCase();
+      if (!key) continue;
+      const fresh = typeof leaf.definition === 'string' ? leaf.definition.trim().slice(0, 200) : '';
+      if (fresh) {
+        // Only rows that exist get the update (same policy as doodles).
+        if (cached.has(key) && cached.get(key) !== fresh) updates.set(key, fresh);
+      } else if (cached.get(key)) {
+        leaf.definition = cached.get(key);
+        filled += 1;
+      }
+    }
+    await Promise.all(
+      [...updates].map(([word, def]) =>
+        svc.from('word_cache').update({ short_definition: def }).eq('word', word),
+      ),
+    );
+    console.log(`[mindmap] short_definitions: cached=${updates.size} filledFromCache=${filled} words=${keys.length}`);
+    return filled > 0 ? JSON.stringify(parsed) : text;
+  } catch (err) {
+    console.warn(`[mindmap] short_definition sync skipped: ${(err as Error).message}`);
+    return text;
+  }
+}

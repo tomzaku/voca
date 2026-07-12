@@ -4,6 +4,7 @@ export interface VocabularyWord {
   phonetics?: Record<string, string>; // IPA keyed by locale, e.g. { "en-US": "…", "en-GB": "…" }
   partOfSpeech?: string;
   definition: string;
+  shortDefinition?: string; // one-liner in simple English (also used by the Pro mind map)
   examples: string[];
   synonyms?: string[];
   antonyms?: string[];

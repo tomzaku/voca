@@ -41,6 +41,7 @@ interface WordData {
   phonetics?: Record<string, string>; // keyed by locale, e.g. { "en-US": "…", "en-GB": "…" }
   partOfSpeech?: string;
   definition?: string;
+  shortDefinition?: string; // one-liner in simple English — shared with the Pro mind map
   translation?: string;
   examples?: string[];
   synonyms?: string[];
@@ -163,6 +164,7 @@ Return this exact JSON structure (no markdown, no extra text):
   "phonetics": { "en-US": "US IPA like /wɜːrd/", "en-GB": "UK IPA like /wɜːd/" },
   "partOfSpeech": "noun | verb | adjective | adverb | etc",
   "definition": "Clear, concise definition in 1-2 sentences${isEnglish ? '' : `, written in ${learnLang}`}",
+  "shortDefinition": "very short plain-English definition (max 12 words), phrased like a quick handwritten note next to the word on a study mind map — punchy and memorable, e.g. 'too willing to believe things; easily fooled'",
   "translation": "the word's meaning translated into ${motherLang} (the most natural equivalent)",
   "examples": [
     "Natural example sentence showing the word in context.",
@@ -177,9 +179,9 @@ Return this exact JSON structure (no markdown, no extra text):
   "imageKeywords": ["concrete visual noun 1", "concept 2"]
 }
 
-Provide 5 to 15 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). Give more for very common words with many natural pairings (e.g. "go", "make"), fewer for rare or specialized words. For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}.${
-    isEnglish ? '' : ` The "word", "definition", "examples", "synonyms", "antonyms", "collocations", and "wordFamily" MUST all be written in ${learnLang}.`
-  } For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
+Provide 5 to 15 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). Give more for very common words with many natural pairings (e.g. "go", "make"), fewer for rare or specialized words. For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}. The "shortDefinition" MUST always be in simple English${
+    isEnglish ? '' : `, even though the "word", "definition", "examples", "synonyms", "antonyms", "collocations", and "wordFamily" MUST all be written in ${learnLang}`
+  }. For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
 
   const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
   let lastError: unknown;
@@ -227,6 +229,7 @@ function wordDataFromRow(row: Record<string, unknown>, translation?: string): Wo
     phonetics,
     partOfSpeech: (row.part_of_speech as string) ?? undefined,
     definition: row.definition as string,
+    shortDefinition: (row.short_definition as string) ?? undefined,
     translation: translation || undefined,
     examples: asArray(row.examples),
     synonyms: asArray(row.synonyms),
@@ -249,6 +252,9 @@ function storeWord(svc: Svc, wordKey: string, motherKey: string, d: WordData): v
     phonetics: d.phonetics ?? {},
     part_of_speech: d.partOfSpeech ?? null,
     definition: d.definition,
+    short_definition: typeof d.shortDefinition === 'string' && d.shortDefinition
+      ? d.shortDefinition.slice(0, 200)
+      : null,
     examples: asArray(d.examples),
     synonyms: asArray(d.synonyms),
     antonyms: asArray(d.antonyms),
