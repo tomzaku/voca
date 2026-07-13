@@ -10,6 +10,7 @@ export interface VocabularyWord {
   antonyms?: string[];
   collocations?: string[]; // common natural word pairings (e.g. "make a decision")
   wordFamily?: { word: string; pos: string }[]; // related forms (decide → decision/noun)
+  idioms?: { idiom: string; meaning: string; example?: string }[]; // popular idioms containing the word
   translation?: string; // the word rendered in the user's mother language
   level: 'beginner' | 'intermediate' | 'advanced';
   hints?: string[]; // legacy — no longer shown in UI

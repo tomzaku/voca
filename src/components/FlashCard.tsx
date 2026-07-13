@@ -197,6 +197,50 @@ function ExampleList({ wordData, phase, speakingExample, onSpeak }: {
   );
 }
 
+/**
+ * Popular idioms containing the word (revealed only). The server returns them
+ * ranked by how often they're heard in everyday speech, so the top 2 are shown
+ * and the rest sit behind a toggle. Rendered with key={word} so the toggle
+ * resets on every new card.
+ */
+function IdiomsCard({ idioms }: { idioms: NonNullable<VocabularyWord['idioms']> }) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? idioms : idioms.slice(0, 2);
+  const hidden = idioms.length - 2;
+  return (
+    <div className="card-game p-4 sm:p-5">
+      <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
+        Idioms
+      </h3>
+      <div className="space-y-3">
+        {visible.map((i) => (
+          <div key={i.idiom}>
+            <button
+              onClick={() => useWordSearch.getState().requestSearch(i.idiom)}
+              title={`Look up “${i.idiom}”`}
+              className="text-sm font-bold text-accent-pink hover:underline text-left cursor-pointer"
+            >
+              {i.idiom}
+            </button>
+            <p className="text-xs text-text-secondary">{i.meaning}</p>
+            {i.example && (
+              <p className="text-xs text-text-muted italic mt-0.5">“{i.example}”</p>
+            )}
+          </div>
+        ))}
+      </div>
+      {hidden > 0 && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="mt-3 text-xs font-bold text-text-muted hover:text-accent-pink transition-colors cursor-pointer"
+        >
+          {showAll ? 'Show less' : `Show ${hidden} more`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** "just now / 5m ago / 3h ago / 2d ago", or the date for older answers. */
 function timeAgo(iso: string, now: number): string {
   const ms = now - new Date(iso).getTime();
@@ -1037,6 +1081,11 @@ export function FlashCard() {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Idioms — popular fixed expressions containing the word (revealed only) */}
+              {phase === 'revealed' && (wordData.idioms?.length ?? 0) > 0 && (
+                <IdiomsCard key={wordData.word} idioms={wordData.idioms!} />
               )}
 
               <BuddyBadge />

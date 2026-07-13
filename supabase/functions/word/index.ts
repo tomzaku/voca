@@ -5,7 +5,8 @@
 //   POST { word, level, learnLang, motherLang }
 //   → 200 { word, phonetics:{ "en-US":…, "en-GB":… }, partOfSpeech, definition,
 //           translation, examples, synonyms, antonyms, collocations,
-//           wordFamily:[{word,pos}], level, imageKeywords }
+//           wordFamily:[{word,pos}], idioms:[{idiom,meaning,example}],
+//           level, imageKeywords }
 //
 // Cache model (word_cache): one row per word holds the language-neutral content;
 // translations are a per-mother-tongue map. A new mother tongue triggers a cheap
@@ -36,6 +37,12 @@ interface FamilyEntry {
   pos: string;
 }
 
+interface IdiomEntry {
+  idiom: string;
+  meaning: string; // short plain-English meaning
+  example?: string;
+}
+
 interface WordData {
   word?: string;
   phonetics?: Record<string, string>; // keyed by locale, e.g. { "en-US": "…", "en-GB": "…" }
@@ -48,6 +55,7 @@ interface WordData {
   antonyms?: string[];
   collocations?: string[];
   wordFamily?: FamilyEntry[]; // related forms across parts of speech
+  idioms?: IdiomEntry[]; // popular idioms containing the word (English generation only)
   level?: string;
   imageKeywords?: string[];
 }
@@ -60,6 +68,18 @@ const asFamily = (v: unknown): FamilyEntry[] =>
     .filter((e): e is FamilyEntry => !!e && typeof e.word === 'string' && typeof e.pos === 'string')
     .map((e) => ({ word: e.word.slice(0, 60), pos: e.pos.slice(0, 30) }))
     .slice(0, 8);
+
+/** Sanitize an idioms array: keep well-formed { idiom, meaning, example? } entries only. */
+const asIdioms = (v: unknown): IdiomEntry[] =>
+  (Array.isArray(v) ? v : [])
+    .filter((e): e is IdiomEntry => !!e && typeof e.idiom === 'string' && typeof e.meaning === 'string')
+    .map((e) => ({
+      idiom: e.idiom.toLowerCase().replace(/\s+/g, ' ').trim().replace(/[.!]+$/, '').slice(0, 80),
+      meaning: e.meaning.trim().slice(0, 200),
+      example: typeof e.example === 'string' && e.example.trim() ? e.example.trim().slice(0, 300) : undefined,
+    }))
+    .filter((e) => e.idiom && e.meaning)
+    .slice(0, 6);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -110,9 +130,12 @@ Deno.serve(async (req) => {
           console.warn(`[word] translate-only failed for "${wordKey}":`, (err as Error).message);
         }
       }
-      const wordFamily = await fetchFamily(svc, wordKey, String(row.headword ?? wordKey));
-      console.log(`[word] cache HIT "${wordKey}" (${Date.now() - t0}ms, family=${wordFamily.length})`);
-      return jsonResponse(200, { ...wordDataFromRow(row, translation), wordFamily });
+      const [wordFamily, idioms] = await Promise.all([
+        fetchFamily(svc, wordKey, String(row.headword ?? wordKey)),
+        fetchIdioms(svc, wordKey),
+      ]);
+      console.log(`[word] cache HIT "${wordKey}" (${Date.now() - t0}ms, family=${wordFamily.length}, idioms=${idioms.length})`);
+      return jsonResponse(200, { ...wordDataFromRow(row, translation), wordFamily, idioms });
     }
   }
 
@@ -134,6 +157,7 @@ Deno.serve(async (req) => {
   if (svc) {
     storeWord(svc, wordKey, motherKey, data);
     storeFamily(svc, wordKey, data);
+    storeIdioms(svc, wordKey, data);
   }
   console.log(`[word] generated "${wordKey}" (${Date.now() - t0}ms, family=${data.wordFamily?.length ?? 0})`);
   return jsonResponse(200, data);
@@ -153,6 +177,12 @@ async function generateWordData(
   const headwordSpec = isEnglish
     ? `"word": "${word}",`
     : `"word": "the single ${learnLang} word that best translates the English word \\"${word}\\"",`;
+
+  // Idioms are English-only: the shared `idioms` table (unique on idiom text)
+  // must not be polluted with learn-language phrases.
+  const idiomsSpec = isEnglish
+    ? `\n  "idioms": [{ "idiom": "popular idiom containing the word", "meaning": "short plain-English meaning", "example": "one natural example sentence" }],`
+    : '';
 
   const prompt = `Generate vocabulary data for ${
     isEnglish ? `the English word "${word}"` : `the ${learnLang} equivalent of the English word "${word}"`
@@ -174,12 +204,16 @@ Return this exact JSON structure (no markdown, no extra text):
   "synonyms": ["synonym1", "synonym2", "synonym3"],
   "antonyms": ["antonym1", "antonym2"],
   "collocations": ["natural phrase 1", "natural phrase 2", "phrase 3", "phrase 4", "phrase 5"],
-  "wordFamily": [{ "word": "related form", "pos": "noun | verb | adjective | adverb" }],
+  "wordFamily": [{ "word": "related form", "pos": "noun | verb | adjective | adverb" }],${idiomsSpec}
   "level": "${level}",
   "imageKeywords": ["concrete visual noun 1", "concept 2"]
 }
 
-Provide 5 to 15 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). Give more for very common words with many natural pairings (e.g. "go", "make"), fewer for rare or specialized words. For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}. The "shortDefinition" MUST always be in simple English${
+Provide 5 to 15 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). Give more for very common words with many natural pairings (e.g. "go", "make"), fewer for rare or specialized words. ${
+    isEnglish
+      ? 'Provide 3-6 "idioms": well-known English idioms or fixed expressions that contain the word or an inflected form of it, ordered by how often they are actually heard in everyday modern speech — most common FIRST (e.g. for "dog": "work like a dog" before rarer ones like "a dog\'s life") — ONLY genuinely established, widely used idioms, never invented ones; use an empty array if the word has no well-known idioms. '
+      : ''
+  }For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}. The "shortDefinition" MUST always be in simple English${
     isEnglish ? '' : `, even though the "word", "definition", "examples", "synonyms", "antonyms", "collocations", and "wordFamily" MUST all be written in ${learnLang}`
   }. For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
 
@@ -187,9 +221,10 @@ Provide 5 to 15 "collocations": short, natural word pairings that commonly go wi
   let lastError: unknown;
   for (let attempt = 1; attempt <= GENERATE_ATTEMPTS; attempt++) {
     try {
-      // Generous budget: the word JSON (examples, collocations, family, two
-      // phonetics) can exceed 700 tokens and truncate into invalid JSON.
-      const raw = await callProvider(system, messages, 2000);
+      // Generous budget: the word JSON (examples, collocations, family, idioms
+      // with examples, two phonetics) can exceed 1000 tokens and truncate into
+      // invalid JSON.
+      const raw = await callProvider(system, messages, 2600);
       const data = JSON.parse(stripFences(raw)) as WordData;
       if (typeof data.definition === 'string' && data.definition) return data;
       throw new Error('Model returned incomplete word data.');
@@ -314,6 +349,63 @@ function storeFamily(svc: Svc, seedKey: string, d: WordData): void {
       .upsert(rows, { onConflict: 'word', ignoreDuplicates: true });
     if (mapErr) throw mapErr;
   })().catch((err: unknown) => console.warn('[word] family write failed:', err));
+
+  const rt = (globalThis as unknown as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(write);
+}
+
+/**
+ * Look up a word's idioms via the normalized link table. Idiom text lives once
+ * in `idioms` (unique on the text) with words mapped through `word_idioms`, so
+ * "work like a dog" is shared by "work" and "dog". Populated by English
+ * generation (storeIdioms) and the backfill script.
+ */
+async function fetchIdioms(svc: Svc, wordKey: string): Promise<IdiomEntry[]> {
+  const { data } = await svc
+    .from('word_idioms')
+    .select('rank, idioms(idiom, meaning, example)')
+    .eq('word', wordKey)
+    .order('rank', { ascending: true });
+  return asIdioms(((data ?? []) as { idioms: unknown }[]).map((r) => r.idioms));
+}
+
+/**
+ * Store freshly generated idioms and mark the word checked so the backfill
+ * skips it. Marked ONLY when the model actually answered the idioms request
+ * (an array, possibly empty) — non-English generations don't ask for idioms
+ * and stay unchecked, so the English backfill can still cover those words.
+ */
+function storeIdioms(svc: Svc, seedKey: string, d: WordData): void {
+  if (!Array.isArray(d.idioms)) return;
+  const idioms = asIdioms(d.idioms);
+
+  const write = (async () => {
+    if (idioms.length) {
+      const unique = [...new Map(idioms.map((e) => [e.idiom, e])).values()];
+      const { data: rows, error } = await svc
+        .from('idioms')
+        .upsert(
+          unique.map((e) => ({ idiom: e.idiom, meaning: e.meaning, example: e.example ?? null })),
+          { onConflict: 'idiom' },
+        )
+        .select('id, idiom');
+      if (error || !rows) throw error ?? new Error('no idiom ids');
+      // The model returns idioms most-common-in-speech first; the position is
+      // the rank. Merge (not ignore) on conflict so regeneration re-ranks.
+      const rankByIdiom = new Map(unique.map((e, i) => [e.idiom, i + 1]));
+      const links = (rows as { id: string; idiom: string }[])
+        .map((r) => ({ word: seedKey, idiom_id: r.id, rank: rankByIdiom.get(r.idiom) ?? 100 }));
+      const { error: linkErr } = await svc
+        .from('word_idioms')
+        .upsert(links, { onConflict: 'word,idiom_id' });
+      if (linkErr) throw linkErr;
+    }
+    const { error: markErr } = await svc
+      .from('word_cache')
+      .update({ idioms_checked_at: new Date().toISOString() })
+      .eq('word', seedKey);
+    if (markErr) throw markErr;
+  })().catch((err: unknown) => console.warn('[word] idioms write failed:', err));
 
   const rt = (globalThis as unknown as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
   if (rt?.waitUntil) rt.waitUntil(write);
