@@ -190,10 +190,8 @@ export function BookmarkList() {
     if (wordCache[word]) return;
 
     setLoadingWord(word);
-    const wordEntry = WORD_LIST.find((w) => w.word === word);
-    const level = wordEntry?.level ?? 'intermediate';
     try {
-      const data = await generateWordData(word, level);
+      const data = await generateWordData(word);
       setWordCache((c) => ({ ...c, [word]: data }));
     } catch (err) {
       const msg = (err as Error).message || '';

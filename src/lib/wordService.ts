@@ -1,5 +1,5 @@
 import { callAiAction } from './aiProviders';
-import { fetchWordData } from './wordApi';
+import { fetchWordData, isUnknownWord } from './wordApi';
 import { getLearnLanguage, getMotherLanguage } from './languages';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useCollections } from '../hooks/useCollections';
@@ -170,22 +170,83 @@ function cacheWord(word: VocabularyWord) {
   } catch { /* ignore */ }
 }
 
+// ─── Misspelling cache ──────────────────────────────────────────────
+// The local half of the negative cache (the shared half is the `word_rejects`
+// table). The server already answers a known typo without an AI call; this saves
+// the round trip too, so re-searching one is instant.
+//
+// No mother language in the key: a verdict is about the word itself, and the
+// suggestions are words, not translations.
+
+function rejectKey(word: string): string {
+  // Bump v1 whenever REJECT_VERSION moves in the `word` edge function, or these
+  // clients will keep serving verdicts the server has already thrown out.
+  return `voca-reject-v1-${getLearnLanguage()}-${word}`;
+}
+
+/** The stored suggestions for a known typo, or null if we've no verdict on it. */
+function getCachedReject(word: string): string[] | null {
+  try {
+    const raw = localStorage.getItem(rejectKey(word));
+    if (raw) return JSON.parse(raw) as string[];
+  } catch { /* ignore */ }
+  return null;
+}
+
+function cacheReject(word: string, suggestions: string[]) {
+  try {
+    localStorage.setItem(rejectKey(word), JSON.stringify(suggestions));
+  } catch { /* ignore */ }
+}
+
+/**
+ * Thrown when a lookup isn't a real word. Carries what it was probably meant to
+ * be, so the caller can offer them instead of just failing.
+ */
+export class UnknownWordError extends Error {
+  readonly word: string;
+  readonly suggestions: string[];
+
+  constructor(word: string, suggestions: string[]) {
+    super(`"${word}" doesn't look like a real word.`);
+    this.name = 'UnknownWordError';
+    this.word = word;
+    this.suggestions = suggestions;
+  }
+}
+
 // ─── AI generation ──────────────────────────────────────────────────
 
+/**
+ * Load a word's data — from cache where possible, generating it if not. Throws
+ * `UnknownWordError` (carrying suggestions) when the word isn't real.
+ *
+ * The word's level is decided server-side and comes back on the data; there's no
+ * level to pass in.
+ */
 export async function generateWordData(
   word: string,
-  level: VocabularyWord['level'],
   signal?: AbortSignal,
 ): Promise<VocabularyWord> {
+  // Order mirrors the server: a word we hold data for is real, whatever an older
+  // verdict says.
   const cached = getCachedWord(word);
   if (cached) return cached;
+
+  const knownBad = getCachedReject(word);
+  if (knownBad) throw new UnknownWordError(word, knownBad);
 
   const learnLang = getLearnLanguage();
   const motherLang = getMotherLanguage();
 
   // The `word` edge function is cache-first and returns a ready object (it does
   // the generate/validate/retry server-side), so there's nothing to parse here.
-  const data = await fetchWordData({ word, level, learnLang, motherLang }, signal);
+  const result = await fetchWordData({ word, learnLang, motherLang }, signal);
+  if (isUnknownWord(result)) {
+    cacheReject(word, result.suggestions);
+    throw new UnknownWordError(word, result.suggestions);
+  }
+  const data = result;
   // Keep the seed as the stable identity (progress/selection/cache keys); the
   // returned word — a learn-language translation or a normalized/spell-corrected
   // English form — becomes the headword shown and guessed. Without this, review

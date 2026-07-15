@@ -2,84 +2,48 @@
 // with NO AI call, which is why it lives apart from the always-generative `ai`
 // function. Returns the word object directly (not a `{ text }` wrapper).
 //
-//   POST { word, level, learnLang, motherLang }
+//   POST { word, learnLang, motherLang }
 //   → 200 { word, phonetics:{ "en-US":…, "en-GB":… }, partOfSpeech, definition,
 //           translation, examples, synonyms, antonyms, collocations,
 //           wordFamily:[{word,pos}], idioms:[{idiom,meaning,example}],
 //           level, imageKeywords }
+//   → 200 { status: 'unknown', word, suggestions } when the word isn't real —
+//           a typo or nonsense. The client shows a "did you mean" page.
 //
-// Cache model (word_cache): one row per word holds the language-neutral content;
-// translations are a per-mother-tongue map. A new mother tongue triggers a cheap
-// translate-only call rather than regenerating the whole word. Only the service
-// role writes the cache, so it can't be poisoned by clients.
+// The flow, in order — each step exists to avoid the next one's cost:
+//
+//   word_cache?    → hit: return it (no AI call)
+//   word_rejects?  → hit: return suggestions (no AI call)
+//   generate       → one AI call, which either produces the word or judges it
+//                    unreal; the result is stored in whichever table it belongs
+//                    to, so nobody pays for this word again.
+//
+// `level` is decided here, not by the client: word_cache holds ONE level per
+// word for everyone, so a per-request level could only ever apply to whoever
+// happened to search it first.
+//
+// Storage lives in cache.ts / rejects.ts / family.ts / idioms.ts; prompts and
+// provider calls in generate.ts; shapes in types.ts, with sanitize.ts turning
+// untrusted model output into them.
 //
 // Deploy: `supabase functions deploy word`
 
 import {
   BadRequest,
-  callProvider,
   corsHeaders,
   jsonResponse,
-  oneOf,
   reqStr,
   requireUser,
   serviceClient,
-  stripFences,
   underRateLimit,
-  type ChatMessage,
 } from '../_shared/ai.ts';
-
-const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
-const GENERATE_ATTEMPTS = 4;
-
-interface FamilyEntry {
-  word: string;
-  pos: string;
-}
-
-interface IdiomEntry {
-  idiom: string;
-  meaning: string; // short plain-English meaning
-  example?: string;
-}
-
-interface WordData {
-  word?: string;
-  phonetics?: Record<string, string>; // keyed by locale, e.g. { "en-US": "…", "en-GB": "…" }
-  partOfSpeech?: string;
-  definition?: string;
-  shortDefinition?: string; // one-liner in simple English — shared with the Pro mind map
-  translation?: string;
-  examples?: string[];
-  synonyms?: string[];
-  antonyms?: string[];
-  collocations?: string[];
-  wordFamily?: FamilyEntry[]; // related forms across parts of speech
-  idioms?: IdiomEntry[]; // popular idioms containing the word (English generation only)
-  level?: string;
-  imageKeywords?: string[];
-}
-
-const asArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
-
-/** Sanitize a word-family array: keep well-formed { word, pos } entries only. */
-const asFamily = (v: unknown): FamilyEntry[] =>
-  (Array.isArray(v) ? v : [])
-    .filter((e): e is FamilyEntry => !!e && typeof e.word === 'string' && typeof e.pos === 'string')
-    .map((e) => ({ word: e.word.slice(0, 60), pos: e.pos.slice(0, 30) }))
-    .slice(0, 8);
-
-/** Sanitize an idioms array: keep well-formed { idiom, meaning, example? } entries only. */
-const asIdioms = (v: unknown): IdiomEntry[] =>
-  (Array.isArray(v) ? v : [])
-    .filter((e): e is IdiomEntry => !!e && typeof e.idiom === 'string' && typeof e.meaning === 'string')
-    .map((e) => ({
-      idiom: e.idiom.toLowerCase().replace(/\s+/g, ' ').trim().replace(/[.!]+$/, '').slice(0, 80),
-      meaning: e.meaning.trim().slice(0, 200),
-      example: typeof e.example === 'string' && e.example.trim() ? e.example.trim().slice(0, 300) : undefined,
-    }))
-    .filter((e) => e.idiom && e.meaning)
-    .slice(0, 6);
+import { readWord, storeWord, translationFor } from './cache.ts';
+import { readReject, storeReject } from './rejects.ts';
+import { fetchFamily, storeFamily } from './family.ts';
+import { fetchIdioms, storeIdioms } from './idioms.ts';
+import { generateWordData } from './generate.ts';
+import { isVerdict } from './sanitize.ts';
+import type { Generated } from './types.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -95,10 +59,9 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: 'Invalid JSON body.' });
   }
 
-  let word: string, level: string, learnLang: string, motherLang: string;
+  let word: string, learnLang: string, motherLang: string;
   try {
     word = reqStr(params, 'word', 100);
-    level = oneOf(params, 'level', LEVELS, 'intermediate');
     learnLang = reqStr(params, 'learnLang', 40);
     motherLang = reqStr(params, 'motherLang', 40);
   } catch (err) {
@@ -107,321 +70,54 @@ Deno.serve(async (req) => {
   }
 
   const wordKey = word.toLowerCase();
-  const motherKey = motherLang.toLowerCase();
+  const learnKey = learnLang.toLowerCase();
   const svc = serviceClient();
   const t0 = Date.now();
-  console.log(`[word] request word="${wordKey}" learn=${learnLang} mother=${motherKey} user=${auth.user.id}`);
+  console.log(`[word] request word="${wordKey}" learn=${learnKey} mother=${motherLang} user=${auth.user.id}`);
 
-  // ── Cache hit ──
-  if (svc) {
-    const { data: row } = await svc.from('word_cache').select('*').eq('word', wordKey).maybeSingle();
-    if (row) {
-      const translations = (row.translations ?? {}) as Record<string, string>;
-      let translation = translations[motherKey];
-      // Cached, but not in this user's language — top it up cheaply instead of
-      // regenerating (skipped if the user is over their rate limit). Collocations
-      // are handled by the one-off backfill script, so no top-up needed here.
-      if (!translation && await underRateLimit(auth.supabase)) {
-        try {
-          console.log(`[word] AI call: translate-only "${wordKey}" -> ${motherKey}`);
-          translation = await translateWord(String(row.headword ?? wordKey), String(row.definition), motherLang);
-          mergeTranslation(wordKey, translations, motherKey, translation);
-        } catch (err) {
-          console.warn(`[word] translate-only failed for "${wordKey}":`, (err as Error).message);
-        }
-      }
-      const [wordFamily, idioms] = await Promise.all([
-        fetchFamily(svc, wordKey, String(row.headword ?? wordKey)),
-        fetchIdioms(svc, wordKey),
-      ]);
-      console.log(`[word] cache HIT "${wordKey}" (${Date.now() - t0}ms, family=${wordFamily.length}, idioms=${idioms.length})`);
-      return jsonResponse(200, { ...wordDataFromRow(row, translation), wordFamily, idioms });
-    }
+  // ── 1. Known word? ──
+  const cached = await readWord(svc, wordKey);
+  if (cached) {
+    const [translation, wordFamily, idioms] = await Promise.all([
+      translationFor(svc, auth.supabase, wordKey, cached, motherLang),
+      fetchFamily(svc, wordKey, cached.headword),
+      fetchIdioms(svc, wordKey),
+    ]);
+    console.log(`[word] cache HIT "${wordKey}" (${Date.now() - t0}ms, family=${wordFamily.length}, idioms=${idioms.length})`);
+    return jsonResponse(200, { ...cached.data, translation, wordFamily, idioms });
   }
 
-  // ── Cache miss → generate ──
+  // ── 2. Known typo? ──
+  const suggestions = await readReject(svc, wordKey, learnKey);
+  if (suggestions) {
+    console.log(`[word] reject HIT "${wordKey}" (${Date.now() - t0}ms, no AI call)`);
+    return jsonResponse(200, { status: 'unknown', word: wordKey, suggestions });
+  }
+
+  // ── 3. Neither — ask the AI, and remember whatever it says ──
   if (!await underRateLimit(auth.supabase)) {
     console.warn(`[word] rate-limited user=${auth.user.id} word="${wordKey}"`);
     return jsonResponse(429, { error: 'Too many requests — please slow down and try again shortly.' });
   }
 
   console.log(`[word] cache MISS "${wordKey}" — AI call: full generation`);
-  let data: WordData;
+  let result: Generated;
   try {
-    data = await generateWordData(word, level, learnLang, motherLang);
+    result = await generateWordData(word, learnLang, motherLang);
   } catch (err) {
     console.error(`[word] generation FAILED "${wordKey}" (${Date.now() - t0}ms):`, (err as Error).message);
     return jsonResponse(502, { error: (err as Error).message || 'Failed to generate word data.' });
   }
 
-  if (svc) {
-    storeWord(svc, wordKey, motherKey, data);
-    storeFamily(svc, wordKey, data);
-    storeIdioms(svc, wordKey, data);
+  if (isVerdict(result)) {
+    storeReject(svc, wordKey, learnKey, result.suggestions);
+    console.log(`[word] REJECTED "${wordKey}" (${Date.now() - t0}ms, suggestions=${result.suggestions.length})`);
+    return jsonResponse(200, { status: 'unknown', word: wordKey, suggestions: result.suggestions });
   }
-  console.log(`[word] generated "${wordKey}" (${Date.now() - t0}ms, family=${data.wordFamily?.length ?? 0})`);
-  return jsonResponse(200, data);
+
+  storeWord(svc, wordKey, motherLang, result);
+  storeFamily(svc, wordKey, result);
+  storeIdioms(svc, wordKey, result);
+  console.log(`[word] generated "${wordKey}" (${Date.now() - t0}ms, family=${result.wordFamily?.length ?? 0})`);
+  return jsonResponse(200, result);
 });
-
-// ─── AI generation ──────────────────────────────────────────────────
-
-async function generateWordData(
-  word: string,
-  level: string,
-  learnLang: string,
-  motherLang: string,
-): Promise<WordData> {
-  const isEnglish = learnLang.toLowerCase() === 'english';
-  const system = 'You are a vocabulary tutor. Return ONLY valid JSON, no markdown, no explanation.';
-
-  const headwordSpec = isEnglish
-    ? `"word": "${word}",`
-    : `"word": "the single ${learnLang} word that best translates the English word \\"${word}\\"",`;
-
-  // Idioms are English-only: the shared `idioms` table (unique on idiom text)
-  // must not be polluted with learn-language phrases.
-  const idiomsSpec = isEnglish
-    ? `\n  "idioms": [{ "idiom": "popular idiom containing the word", "meaning": "short plain-English meaning", "example": "one natural example sentence" }],`
-    : '';
-
-  const prompt = `Generate vocabulary data for ${
-    isEnglish ? `the English word "${word}"` : `the ${learnLang} equivalent of the English word "${word}"`
-  } (level: ${level}).
-
-Return this exact JSON structure (no markdown, no extra text):
-{
-  ${headwordSpec}
-  "phonetics": { "en-US": "US IPA like /wɜːrd/", "en-GB": "UK IPA like /wɜːd/" },
-  "partOfSpeech": "noun | verb | adjective | adverb | etc",
-  "definition": "Clear, concise definition in 1-2 sentences${isEnglish ? '' : `, written in ${learnLang}`}",
-  "shortDefinition": "very short plain-English definition (max 12 words), phrased like a quick handwritten note next to the word on a study mind map — punchy and memorable, e.g. 'too willing to believe things; easily fooled'",
-  "translation": "the word's meaning translated into ${motherLang} (the most natural equivalent)",
-  "examples": [
-    "Natural example sentence showing the word in context.",
-    "Another example with different usage.",
-    "A third example if the word has notable nuance."
-  ],
-  "synonyms": ["synonym1", "synonym2", "synonym3"],
-  "antonyms": ["antonym1", "antonym2"],
-  "collocations": ["natural phrase 1", "natural phrase 2", "phrase 3", "phrase 4", "phrase 5"],
-  "wordFamily": [{ "word": "related form", "pos": "noun | verb | adjective | adverb" }],${idiomsSpec}
-  "level": "${level}",
-  "imageKeywords": ["concrete visual noun 1", "concept 2"]
-}
-
-Provide 5 to 15 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). Give more for very common words with many natural pairings (e.g. "go", "make"), fewer for rare or specialized words. ${
-    isEnglish
-      ? 'Provide 3-6 "idioms": well-known English idioms or fixed expressions that contain the word or an inflected form of it, ordered by how often they are actually heard in everyday modern speech — most common FIRST (e.g. for "dog": "work like a dog" before rarer ones like "a dog\'s life") — ONLY genuinely established, widely used idioms, never invented ones; use an empty array if the word has no well-known idioms. '
-      : ''
-  }For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}. The "shortDefinition" MUST always be in simple English${
-    isEnglish ? '' : `, even though the "word", "definition", "examples", "synonyms", "antonyms", "collocations", and "wordFamily" MUST all be written in ${learnLang}`
-  }. For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
-
-  const messages: ChatMessage[] = [{ role: 'user', content: prompt }];
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= GENERATE_ATTEMPTS; attempt++) {
-    try {
-      // Generous budget: the word JSON (examples, collocations, family, idioms
-      // with examples, two phonetics) can exceed 1000 tokens and truncate into
-      // invalid JSON.
-      const raw = await callProvider(system, messages, 2600);
-      const data = JSON.parse(stripFences(raw)) as WordData;
-      if (typeof data.definition === 'string' && data.definition) return data;
-      throw new Error('Model returned incomplete word data.');
-    } catch (err) {
-      lastError = err;
-      const msg = (err as Error).message ?? '';
-      console.warn(`[word] generate attempt ${attempt}/${GENERATE_ATTEMPTS} failed for "${word}":`, msg);
-      if (attempt < GENERATE_ATTEMPTS) {
-        // Back off before retrying — hammering a rate-limited provider (429)
-        // just burns the remaining attempts. Longer waits for 429s.
-        const base = msg.includes('429') ? 2500 : 700;
-        await new Promise((r) => setTimeout(r, base * attempt));
-      }
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error('Failed to generate word data.');
-}
-
-/** Cheap translate-only call: reuse cached English content, fetch just the mother-tongue word. */
-async function translateWord(word: string, definition: string, motherLang: string): Promise<string> {
-  const system = 'You are a translator. Return ONLY the translation — no quotes, no notes, no extra text.';
-  const messages: ChatMessage[] = [{
-    role: 'user',
-    content: `Translate the English word "${word}" (meaning: ${definition}) into ${motherLang}. Give the single most natural ${motherLang} equivalent (one word or short phrase). Return only the translation.`,
-  }];
-  const text = await callProvider(system, messages, 40);
-  return text.trim().replace(/^["']|["']$/g, '').slice(0, 200);
-}
-
-// ─── Cache read / write ─────────────────────────────────────────────
-
-/** Rebuild the object the client expects from a cached row + this user's translation. */
-function wordDataFromRow(row: Record<string, unknown>, translation?: string): WordData {
-  const phonetics = (row.phonetics ?? {}) as Record<string, string>;
-  return {
-    word: (row.headword as string) ?? (row.word as string),
-    phonetics,
-    partOfSpeech: (row.part_of_speech as string) ?? undefined,
-    definition: row.definition as string,
-    shortDefinition: (row.short_definition as string) ?? undefined,
-    translation: translation || undefined,
-    examples: asArray(row.examples),
-    synonyms: asArray(row.synonyms),
-    antonyms: asArray(row.antonyms),
-    collocations: asArray(row.collocations),
-    level: (row.level as string) ?? undefined,
-    imageKeywords: asArray(row.image_keywords),
-  };
-}
-
-// deno-lint-ignore no-explicit-any
-type Svc = any;
-
-/** Store a freshly generated word (non-blocking). */
-function storeWord(svc: Svc, wordKey: string, motherKey: string, d: WordData): void {
-  const hasTranslation = typeof d.translation === 'string' && d.translation.length > 0;
-  const row = {
-    word: wordKey,
-    headword: typeof d.word === 'string' ? d.word : wordKey,
-    phonetics: d.phonetics ?? {},
-    part_of_speech: d.partOfSpeech ?? null,
-    definition: d.definition,
-    short_definition: typeof d.shortDefinition === 'string' && d.shortDefinition
-      ? d.shortDefinition.slice(0, 200)
-      : null,
-    examples: asArray(d.examples),
-    synonyms: asArray(d.synonyms),
-    antonyms: asArray(d.antonyms),
-    collocations: asArray(d.collocations).slice(0, 15),
-    image_keywords: asArray(d.imageKeywords),
-    level: d.level ?? null,
-    translations: hasTranslation ? { [motherKey]: d.translation } : {},
-  };
-  fireAndForget(svc.from('word_cache').upsert(row));
-}
-
-/**
- * Look up a word's family in the normalized tables. Families are stored once
- * per family (word_families) with every member mapped to it — so we exclude the
- * word being viewed from what we return.
- */
-async function fetchFamily(svc: Svc, wordKey: string, headword: string): Promise<FamilyEntry[]> {
-  const { data } = await svc
-    .from('word_family_members')
-    .select('word_families(members)')
-    .eq('word', wordKey)
-    .maybeSingle();
-  const members = asFamily((data?.word_families as { members?: unknown } | null)?.members);
-  const exclude = new Set([wordKey.toLowerCase(), headword.toLowerCase()]);
-  return members.filter((m) => !exclude.has(m.word.toLowerCase()));
-}
-
-/**
- * Store a freshly generated family ONCE and map every member (plus the English
- * seed) to it, so any member viewed later finds it without a new AI call.
- * Members that already belong to a family keep their existing mapping.
- */
-function storeFamily(svc: Svc, seedKey: string, d: WordData): void {
-  const family = asFamily(d.wordFamily);
-  if (family.length === 0) return;
-
-  const headword = typeof d.word === 'string' ? d.word : seedKey;
-  const seen = new Set<string>();
-  const members: FamilyEntry[] = [];
-  for (const m of [{ word: headword, pos: d.partOfSpeech ?? '' }, ...family]) {
-    const key = m.word.toLowerCase();
-    if (!seen.has(key)) { seen.add(key); members.push(m); }
-  }
-
-  const write = (async () => {
-    const { data: fam, error } = await svc
-      .from('word_families')
-      .insert({ members })
-      .select('id')
-      .single();
-    if (error || !fam) throw error ?? new Error('no family id');
-    const keys = new Set(members.map((m) => m.word.toLowerCase()));
-    keys.add(seedKey.toLowerCase()); // English seed always resolves, any learn language
-    const rows = [...keys].map((word) => ({ word, family_id: fam.id }));
-    const { error: mapErr } = await svc
-      .from('word_family_members')
-      .upsert(rows, { onConflict: 'word', ignoreDuplicates: true });
-    if (mapErr) throw mapErr;
-  })().catch((err: unknown) => console.warn('[word] family write failed:', err));
-
-  const rt = (globalThis as unknown as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
-  if (rt?.waitUntil) rt.waitUntil(write);
-}
-
-/**
- * Look up a word's idioms via the normalized link table. Idiom text lives once
- * in `idioms` (unique on the text) with words mapped through `word_idioms`, so
- * "work like a dog" is shared by "work" and "dog". Populated by English
- * generation (storeIdioms) and the backfill script.
- */
-async function fetchIdioms(svc: Svc, wordKey: string): Promise<IdiomEntry[]> {
-  const { data } = await svc
-    .from('word_idioms')
-    .select('rank, idioms(idiom, meaning, example)')
-    .eq('word', wordKey)
-    .order('rank', { ascending: true });
-  return asIdioms(((data ?? []) as { idioms: unknown }[]).map((r) => r.idioms));
-}
-
-/**
- * Store freshly generated idioms and mark the word checked so the backfill
- * skips it. Marked ONLY when the model actually answered the idioms request
- * (an array, possibly empty) — non-English generations don't ask for idioms
- * and stay unchecked, so the English backfill can still cover those words.
- */
-function storeIdioms(svc: Svc, seedKey: string, d: WordData): void {
-  if (!Array.isArray(d.idioms)) return;
-  const idioms = asIdioms(d.idioms);
-
-  const write = (async () => {
-    if (idioms.length) {
-      const unique = [...new Map(idioms.map((e) => [e.idiom, e])).values()];
-      const { data: rows, error } = await svc
-        .from('idioms')
-        .upsert(
-          unique.map((e) => ({ idiom: e.idiom, meaning: e.meaning, example: e.example ?? null })),
-          { onConflict: 'idiom' },
-        )
-        .select('id, idiom');
-      if (error || !rows) throw error ?? new Error('no idiom ids');
-      // The model returns idioms most-common-in-speech first; the position is
-      // the rank. Merge (not ignore) on conflict so regeneration re-ranks.
-      const rankByIdiom = new Map(unique.map((e, i) => [e.idiom, i + 1]));
-      const links = (rows as { id: string; idiom: string }[])
-        .map((r) => ({ word: seedKey, idiom_id: r.id, rank: rankByIdiom.get(r.idiom) ?? 100 }));
-      const { error: linkErr } = await svc
-        .from('word_idioms')
-        .upsert(links, { onConflict: 'word,idiom_id' });
-      if (linkErr) throw linkErr;
-    }
-    const { error: markErr } = await svc
-      .from('word_cache')
-      .update({ idioms_checked_at: new Date().toISOString() })
-      .eq('word', seedKey);
-    if (markErr) throw markErr;
-  })().catch((err: unknown) => console.warn('[word] idioms write failed:', err));
-
-  const rt = (globalThis as unknown as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
-  if (rt?.waitUntil) rt.waitUntil(write);
-}
-
-/** Merge one mother-tongue translation into an existing row's map (non-blocking). */
-function mergeTranslation(wordKey: string, existing: Record<string, string>, motherKey: string, translation: string): void {
-  const svc = serviceClient();
-  if (!svc) return;
-  fireAndForget(svc.from('word_cache').update({ translations: { ...existing, [motherKey]: translation } }).eq('word', wordKey));
-}
-
-function fireAndForget(query: PromiseLike<{ error: unknown }>): void {
-  const p = Promise.resolve(query).then((res) => {
-    if (res.error) console.warn('[word] cache write failed:', res.error);
-  });
-  const rt = (globalThis as unknown as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
-  if (rt?.waitUntil) rt.waitUntil(p);
-}

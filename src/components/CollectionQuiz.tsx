@@ -160,7 +160,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
 
     const dataMap: Record<string, VocabularyWord> = {};
     await Promise.all(sampled.map(async (word) => {
-      try { dataMap[word] = await generateWordData(word, 'intermediate'); } catch { /* skip */ }
+      try { dataMap[word] = await generateWordData(word); } catch { /* skip */ }
     }));
     const loaded = sampled.filter((w) => dataMap[w]);
     if (loaded.length === 0) { setPhase('settings'); return; }

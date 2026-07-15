@@ -6,7 +6,7 @@ import { getMotherLanguage } from '../lib/languages';
 import { useCollections } from '../hooks/useCollections';
 import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
-import { generateWordData, pickNextWords } from '../lib/wordService';
+import { generateWordData, pickNextWords, UnknownWordError } from '../lib/wordService';
 import { reviewsUntilMastered } from '../lib/srs';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { WordTest } from './WordTest';
@@ -21,27 +21,29 @@ import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../hooks/useTtsSetting
 import { encodeWord, decodeWord } from '../lib/wordCode';
 import { answerRegex, familyForms, maskAnswer } from '../lib/answerMask';
 import { SynAnt } from './SynAnt';
+import { SimilarWords } from './SimilarWords';
 import type { AnswerVia, VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
 
-type CardPhase = 'loading' | 'introduce' | 'revealed';
+// 'unknown' = the search wasn't a real word; the card is replaced by suggestions.
+type CardPhase = 'loading' | 'introduce' | 'revealed' | 'unknown';
 
 // Retry transient generation failures (network / rate-limit) a few times with
-// a short backoff. Aborts and missing-key errors won't succeed on retry, so
-// bail on those immediately.
+// a short backoff. Aborts, missing-key errors, and words the server says aren't
+// real won't succeed on retry, so bail on those immediately.
 async function generateWithRetry(
   word: string,
-  level: VocabularyWord['level'],
   signal: AbortSignal,
   retries = 3,
 ): Promise<VocabularyWord> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      return await generateWordData(word, level, signal);
+      return await generateWordData(word, signal);
     } catch (err) {
       lastErr = err;
       if ((err as Error).name === 'AbortError') throw err;
+      if (err instanceof UnknownWordError) throw err;
       if ((err as Error).message?.includes('API key')) throw err;
       if (attempt < retries) await new Promise((r) => setTimeout(r, 600 * attempt));
     }
@@ -379,6 +381,8 @@ export function FlashCard() {
 
   const [phase, setPhase] = useState<CardPhase>('loading');
   const [wordData, setWordData] = useState<VocabularyWord | null>(null);
+  // The rejected search behind the 'unknown' phase, with what it likely meant.
+  const [unknown, setUnknown] = useState<{ word: string; suggestions: string[] } | null>(null);
   // Definitions default to the short one-liner (when cached); the toggle to
   // the full definition is remembered across sessions.
   const [fullDef, setFullDef] = useState(() => {
@@ -441,6 +445,7 @@ export function FlashCard() {
     setSolved(false);
     roundMistakesRef.current = 0;
     setWordData(null);
+    setUnknown(null);
     setImageUrls([]);
     setImagesLoading(false);
 
@@ -467,10 +472,10 @@ export function FlashCard() {
       toast.error('No words to study in this collection.');
       return;
     }
-    const { word, level } = next;
+    const { word } = next;
 
     try {
-      const data = await generateWithRetry(word, level, ctrl.signal);
+      const data = await generateWithRetry(word, ctrl.signal);
       if (ctrl.signal.aborted) return; // superseded by a newer load
       pushWord(data);
       setWordData(data);
@@ -479,6 +484,14 @@ export function FlashCard() {
       fillPrefetchQueue(known, skipped, word);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
+      // A word from the list shouldn't be rejected, but if the model gets one
+      // wrong, show the suggestions page rather than stranding on the spinner.
+      if (err instanceof UnknownWordError) {
+        if (ctrl.signal.aborted) return;
+        setUnknown({ word: err.word, suggestions: err.suggestions });
+        setPhase('unknown');
+        return;
+      }
       const msg = (err as Error).message || 'Failed to load word.';
       toast.error(msg.includes('API key') ? msg : 'Failed to generate word data.');
       setPhase('loading');
@@ -498,11 +511,12 @@ export function FlashCard() {
     setSolved(false);
     roundMistakesRef.current = 0;
     setWordData(null);
+    setUnknown(null);
     setImageUrls([]);
     setImagesLoading(false);
     setIsGenerating(true);
     try {
-      const data = await generateWordData(word, 'intermediate', ctrl.signal);
+      const data = await generateWordData(word, ctrl.signal);
       // A newer load superseded this one while we awaited (e.g. the StrictMode
       // dev remount) — its result is already on screen, don't push a duplicate.
       if (ctrl.signal.aborted) return;
@@ -512,6 +526,15 @@ export function FlashCard() {
       store.recordView(word, user?.id);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
+      // Not a real word — offer what they probably meant instead of a dead end.
+      // A locally-cached verdict throws without ever hitting the network, so
+      // there's no AbortError to catch above: check for a superseding load here.
+      if (err instanceof UnknownWordError) {
+        if (ctrl.signal.aborted) return;
+        setUnknown({ word: err.word, suggestions: err.suggestions });
+        setPhase('unknown');
+        return;
+      }
       const msg = (err as Error).message || '';
       toast.error(msg.includes('API key') ? msg : `Could not find "${word}"`);
       setPhase('loading');
@@ -798,6 +821,12 @@ export function FlashCard() {
             <p className="text-sm text-text-muted animate-fade-in">Generating word data...</p>
           )}
         </div>
+      ) : phase === 'unknown' && unknown ? (
+        <SimilarWords
+          word={unknown.word}
+          suggestions={unknown.suggestions}
+          onPick={(w) => loadSpecificWord(w)}
+        />
       ) : wordData ? (
         <>
 

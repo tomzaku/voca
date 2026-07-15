@@ -7,7 +7,6 @@ const QUEUE_SIZE = 3;
 
 interface Queued {
   word: string;
-  level: VocabularyWord['level'];
   data: VocabularyWord;
 }
 
@@ -61,13 +60,13 @@ export function fillPrefetchQueue(
       if (currentWord) exclude.add(currentWord);
       const picks = await pickNextWords(exclude, need);
 
-      for (const { word, level } of picks) {
+      for (const { word } of picks) {
         if (exclude.has(word)) continue; // near-exhausted list may repeat
         inFlight.add(word);
         try {
-          const data = await generateWordData(word, level);
+          const data = await generateWordData(word);
           if (!queue.find((q) => q.word === word)) {
-            queue.push({ word, level, data });
+            queue.push({ word, data });
           }
         } catch {
           inFlight.delete(word);

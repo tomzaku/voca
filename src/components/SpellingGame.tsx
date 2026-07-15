@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { generateWordData, WORD_LIST } from '../lib/wordService';
+import { generateWordData } from '../lib/wordService';
 import type { VocabularyWord } from '../types';
 
 type GamePhase = 'loading' | 'playing' | 'finished';
@@ -46,10 +46,8 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
       const results: QuestionData[] = [];
       await Promise.all(
         bookmarks.map(async (word) => {
-          const entry = WORD_LIST.find((w) => w.word === word);
-          const level = entry?.level ?? 'intermediate';
           try {
-            const data = await generateWordData(word, level);
+            const data = await generateWordData(word);
             results.push({ word, data });
           } catch { /* skip */ }
         }),

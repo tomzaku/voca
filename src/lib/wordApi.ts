@@ -11,12 +11,24 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export interface WordDataParams {
   word: string;
-  level: VocabularyWord['level'];
   learnLang: string;
   motherLang: string;
 }
 
-export async function fetchWordData(params: WordDataParams, signal?: AbortSignal): Promise<VocabularyWord> {
+/** The server's verdict that a lookup isn't a real word, with what it likely was. */
+export interface UnknownWordResult {
+  status: 'unknown';
+  word: string;
+  suggestions: string[];
+}
+
+export type WordDataResult = VocabularyWord | UnknownWordResult;
+
+export function isUnknownWord(result: WordDataResult): result is UnknownWordResult {
+  return (result as UnknownWordResult).status === 'unknown';
+}
+
+export async function fetchWordData(params: WordDataParams, signal?: AbortSignal): Promise<WordDataResult> {
   if (!supabase) throw new Error('Supabase is not configured.');
 
   const { data: { session } } = await supabase.auth.getSession();
@@ -38,5 +50,5 @@ export async function fetchWordData(params: WordDataParams, signal?: AbortSignal
     throw new Error(errData?.error || `Word request failed (${response.status}).`);
   }
 
-  return await response.json() as VocabularyWord;
+  return await response.json() as WordDataResult;
 }

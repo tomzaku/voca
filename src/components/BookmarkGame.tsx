@@ -43,10 +43,8 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
 
       await Promise.all(
         bookmarks.map(async (word) => {
-          const entry = WORD_LIST.find((w) => w.word === word);
-          const level = entry?.level ?? 'intermediate';
           try {
-            const data = await generateWordData(word, level);
+            const data = await generateWordData(word);
             dataMap[word] = data;
           } catch { /* skip */ }
         }),
