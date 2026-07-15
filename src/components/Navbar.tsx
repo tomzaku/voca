@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useWordSearch } from '../hooks/useWordSearch';
+import { useHotkey } from '../hooks/useHotkey';
+import { isApple } from '../lib/device';
 import { Sidebar } from './Sidebar';
 
 // The History tab cycles through what lives on that page.
@@ -36,6 +38,17 @@ export function Navbar() {
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
   }, [searchOpen]);
+
+  // ⌘K / Ctrl+K from anywhere, and "/" when not already typing. Both land the
+  // cursor in the box even if the bar is already open — the focus effect above
+  // only runs on the transition, so pressing it twice would otherwise do nothing.
+  const openSearch = useCallback(() => {
+    setSearchOpen(true);
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  }, []);
+  useHotkey('mod+k', openSearch);
+  useHotkey('/', openSearch);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -103,7 +116,7 @@ export function Navbar() {
             className={`btn-3d w-9 h-9 rounded-full flex items-center justify-center ${
               searchOpen ? 'bg-accent-cyan text-bg-primary' : 'bg-bg-card text-text-secondary'
             }`}
-            title="Search a word"
+            title={`Search a word (${isApple() ? '⌘K' : 'Ctrl+K'})`}
           >
             <Icon icon={searchOpen ? 'lucide:x' : 'lucide:search'} className="text-lg" />
           </button>
