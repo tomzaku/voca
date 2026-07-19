@@ -1,20 +1,80 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Icon } from '@iconify/react';
+import toast from 'react-hot-toast';
 import { generateWordData, WORD_LIST } from '../lib/wordService';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
 import type { VocabularyWord } from '../types';
 
-type GamePhase = 'loading' | 'playing' | 'finished';
+type GamePhase = 'select' | 'loading' | 'playing' | 'finished';
+
+const MIN_WORDS = 2;
+
+/** The kinds of question the quiz can ask. Every type has a *word* as its
+ *  answer, so they all share the same options grid and letter-hint boxes. */
+type QType = 'definition' | 'sentence' | 'synonym';
+
+const Q_TYPES: QType[] = ['definition', 'sentence', 'synonym'];
+
+const Q_TYPE_META: Record<QType, { label: string; hint: string; ask: string }> = {
+  definition: { label: 'Definition', hint: 'Match a meaning to its word', ask: 'Which word matches this definition?' },
+  sentence: { label: 'Sentence', hint: 'Fill the blank in a sentence', ask: 'Which word completes this sentence?' },
+  synonym: { label: 'Synonym', hint: 'Pick the word from a synonym', ask: 'Which word means the same as this?' },
+};
 
 interface Question {
-  word: string;
-  definition: string;
-  options: string[];
-  synonyms?: string[];
+  type: QType;
+  word: string;         // the correct answer
+  prompt: string;       // the definition / blanked sentence / synonym clue
+  options: string[];    // four word choices
+  synonyms?: string[];  // hints — only surfaced on 'definition' questions
   antonyms?: string[];
 }
 
 function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Replace the first whole-word occurrence of `word` in `sentence` with a
+ *  blank. Returns null when the word doesn't appear verbatim (e.g. an inflected
+ *  form), so the caller can fall back to another question type. */
+function blankSentence(sentence: string, word: string): string | null {
+  const re = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'i');
+  if (!re.test(sentence)) return null;
+  return sentence.replace(re, '_____');
+}
+
+/** Build one question of the given type for `word`, or null if the word lacks
+ *  the data that type needs (no usable example, no synonyms). `wrong` supplies
+ *  three distractor words. */
+function buildQuestion(
+  type: QType,
+  word: string,
+  data: VocabularyWord,
+  wrong: string[],
+): Question | null {
+  const base = {
+    word,
+    options: shuffle([word, ...wrong]),
+    synonyms: data.synonyms,
+    antonyms: data.antonyms,
+  };
+  if (type === 'sentence') {
+    for (const ex of data.examples ?? []) {
+      const blanked = blankSentence(ex, word);
+      if (blanked) return { ...base, type, prompt: blanked };
+    }
+    return null;
+  }
+  if (type === 'synonym') {
+    const syn = (data.synonyms ?? []).find((s) => s.toLowerCase() !== word.toLowerCase());
+    if (!syn) return null;
+    return { ...base, type, prompt: syn };
+  }
+  return { ...base, type, prompt: data.definition };
 }
 
 interface Props {
@@ -23,58 +83,88 @@ interface Props {
 }
 
 export function BookmarkGame({ bookmarks, onBack }: Props) {
-  const [phase, setPhase] = useState<GamePhase>('loading');
+  const [phase, setPhase] = useState<GamePhase>('select');
+  // Which words to quiz — all selected by default; tap to trim the set.
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(bookmarks));
+  // Which question types are in play — all on by default (a random mix).
+  const [qTypes, setQTypes] = useState<Set<QType>>(() => new Set(Q_TYPES));
   const [questions, setQuestions] = useState<Question[]>([]);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
-  const [restartKey, setRestartKey] = useState(0);
   const [revealedIndices, setRevealedIndices] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
+  const toggle = (word: string) => {
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (next.has(word)) next.delete(word);
+      else { next.add(word); playSelect(); }
+      return next;
+    });
+  };
+
+  const toggleType = (t: QType) => {
+    setQTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) { if (next.size > 1) next.delete(t); } // keep at least one on
+      else { next.add(t); playSelect(); }
+      return next;
+    });
+  };
+
+  // Build a quiz from the given words and start playing. Word data is
+  // cache-first (see wordService), so already-seen words load without AI.
+  const runQuiz = async (words: string[]) => {
     setPhase('loading');
     setCurrent(0);
     setScore(0);
     setSelected(null);
     setQuestions([]);
+    setRevealedIndices(new Set());
 
-    async function build() {
-      const dataMap: Record<string, VocabularyWord> = {};
+    const dataMap: Record<string, VocabularyWord> = {};
+    await Promise.all(
+      words.map(async (word) => {
+        try {
+          dataMap[word] = await generateWordData(word);
+        } catch { /* skip */ }
+      }),
+    );
 
-      await Promise.all(
-        bookmarks.map(async (word) => {
-          try {
-            const data = await generateWordData(word);
-            dataMap[word] = data;
-          } catch { /* skip */ }
-        }),
-      );
-
-      const loaded = Object.keys(dataMap);
-      if (loaded.length === 0) { onBack(); return; }
-
-      const wrongPool = shuffle(WORD_LIST.map((w) => w.word).filter((w) => !loaded.includes(w)));
-
-      const qs: Question[] = shuffle(loaded).map((word) => {
-        const wrong = shuffle([
-          ...loaded.filter((w) => w !== word),
-          ...wrongPool,
-        ]).slice(0, 3);
-        return {
-          word,
-          definition: dataMap[word].definition,
-          options: shuffle([word, ...wrong]),
-          synonyms: dataMap[word].synonyms,
-          antonyms: dataMap[word].antonyms,
-        };
-      });
-
-      setQuestions(qs);
-      setPhase('playing');
+    const loaded = Object.keys(dataMap);
+    if (loaded.length === 0) {
+      toast.error('Could not load those words. Try again.');
+      setPhase('select');
+      return;
     }
 
-    build();
-  }, [bookmarks, onBack, restartKey]);
+    const wrongPool = shuffle(WORD_LIST.map((w) => w.word).filter((w) => !loaded.includes(w)));
+    const enabled = Q_TYPES.filter((t) => qTypes.has(t));
+
+    const qs: Question[] = shuffle(loaded).map((word) => {
+      const data = dataMap[word];
+      const wrong = shuffle([
+        ...loaded.filter((w) => w !== word),
+        ...wrongPool,
+      ]).slice(0, 3);
+      // Try the enabled types in random order; use the first this word supports.
+      // 'definition' always works, so a question is guaranteed as long as it's on.
+      for (const t of shuffle(enabled)) {
+        const q = buildQuestion(t, word, data, wrong);
+        if (q) return q;
+      }
+      // Every enabled type needed data this word lacks — fall back to definition.
+      return buildQuestion('definition', word, data, wrong)!;
+    });
+
+    setQuestions(qs);
+    setPhase('playing');
+  };
+
+  const start = () => {
+    if (chosen.size < MIN_WORDS) return;
+    runQuiz([...chosen]);
+  };
 
   const handleSelect = (option: string) => {
     if (selected !== null) return;
@@ -104,6 +194,119 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
     playSelect();
     setRevealedIndices((prev) => new Set([...prev, i]));
   };
+
+  // ── Select ───────────────────────────────────────────────────────────
+  if (phase === 'select') {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8 animate-fade-in">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={onBack}
+            className="w-10 h-10 rounded-xl bg-bg-card border border-border text-text-secondary flex items-center justify-center shrink-0 hover:text-text-primary transition-colors"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="font-display font-extrabold text-2xl text-accent-cyan leading-none">Quiz</h1>
+            <p className="text-xs text-text-muted font-bold mt-1">Choose your words and question types</p>
+          </div>
+        </div>
+
+        {/* ── Question types ── all on = a random mix ── */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider">Question types</h2>
+            <span className="text-[11px] font-bold text-text-muted">
+              {qTypes.size === Q_TYPES.length ? 'Random mix' : `${qTypes.size} selected`}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {Q_TYPES.map((t) => {
+              const on = qTypes.has(t);
+              return (
+                <button
+                  key={t}
+                  onClick={() => toggleType(t)}
+                  className={`text-left px-3.5 py-2.5 rounded-xl border-2 transition-all ${
+                    on
+                      ? 'bg-accent-cyan/10 border-accent-cyan text-text-primary'
+                      : 'bg-bg-card border-border text-text-muted hover:border-border-light'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-display font-extrabold text-sm">
+                    <Icon
+                      icon={on ? 'solar:check-circle-bold' : 'lucide:circle'}
+                      className={on ? 'text-accent-cyan' : 'text-text-muted'}
+                    />
+                    {Q_TYPE_META[t].label}
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-0.5 leading-tight">{Q_TYPE_META[t].hint}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Words ── */}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-bold text-text-secondary">
+            <span className="text-accent-cyan">{chosen.size}</span> of {bookmarks.length} words
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setChosen(new Set(bookmarks))}
+              className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors"
+            >
+              All
+            </button>
+            <span className="text-border">·</span>
+            <button
+              onClick={() => setChosen(new Set())}
+              className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors"
+            >
+              None
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-6">
+          {bookmarks.map((word) => {
+            const on = chosen.has(word);
+            return (
+              <button
+                key={word}
+                onClick={() => toggle(word)}
+                className={`px-3.5 py-2 rounded-full text-sm font-display font-extrabold border-2 transition-all hover:-translate-y-0.5 ${
+                  on
+                    ? 'bg-accent-cyan text-bg-primary border-accent-cyan'
+                    : 'bg-bg-card text-text-secondary border-border hover:border-border-light'
+                }`}
+              >
+                {on && <Icon icon="solar:check-circle-bold" className="inline mr-1 -mt-0.5" />}
+                {word}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={start}
+          disabled={chosen.size < MIN_WORDS}
+          className="w-full py-3.5 rounded-xl bg-accent-cyan text-bg-primary text-lg font-display font-extrabold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          Start quiz ({chosen.size})
+        </button>
+        {chosen.size < MIN_WORDS && (
+          <p className="text-center text-xs text-text-muted mt-3">Pick at least {MIN_WORDS} words.</p>
+        )}
+      </div>
+    );
+  }
 
   // ── Loading ──────────────────────────────────────────────────────────
   if (phase === 'loading') {
@@ -149,7 +352,13 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
             Back to list
           </button>
           <button
-            onClick={() => setRestartKey((k) => k + 1)}
+            onClick={() => setPhase('select')}
+            className="px-5 py-2.5 rounded-xl border border-border text-text-muted text-sm hover:border-border-light hover:text-text-primary transition-all"
+          >
+            Pick words
+          </button>
+          <button
+            onClick={() => runQuiz([...chosen])}
             className="px-5 py-2.5 rounded-xl bg-accent-cyan text-bg-primary text-sm font-medium hover:opacity-90 transition-opacity"
           >
             Play again
@@ -192,16 +401,21 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
         />
       </div>
 
-      {/* Definition card */}
+      {/* Question card — prompt varies by question type */}
       <div className="bg-bg-card border border-border rounded-2xl p-6 mb-6">
         <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-4">
-          Which word matches this definition?
+          {Q_TYPE_META[q.type].ask}
         </p>
-        <p className="text-text-primary leading-relaxed text-base">{q.definition}</p>
+        {q.type === 'synonym' ? (
+          <p className="text-center font-display font-extrabold text-2xl text-accent-cyan">“{q.prompt}”</p>
+        ) : (
+          <p className="text-text-primary leading-relaxed text-base">{q.prompt}</p>
+        )}
       </div>
 
-      {/* Hints: synonyms + antonyms */}
-      {((q.synonyms?.length ?? 0) > 0 || (q.antonyms?.length ?? 0) > 0) && (
+      {/* Hints: synonyms + antonyms — only on definition questions, where they
+          help rather than give the answer away. */}
+      {q.type === 'definition' && ((q.synonyms?.length ?? 0) > 0 || (q.antonyms?.length ?? 0) > 0) && (
         <div className="bg-bg-card border border-border rounded-2xl px-5 py-4 mb-5 space-y-2.5">
           <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">Hints</p>
           {q.synonyms && q.synonyms.length > 0 && (

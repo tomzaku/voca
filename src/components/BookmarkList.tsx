@@ -12,7 +12,6 @@ import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
 import { BookmarkGame } from './BookmarkGame';
-import { SpellingGame } from './SpellingGame';
 import { ParagraphGame } from './ParagraphGame';
 import { ReviewPanel } from './ReviewPanel';
 import { WordMindMap } from './WordMindMap';
@@ -182,9 +181,9 @@ function recentBadge(item: WordProgress): { label: string; icon: string; cls: st
   return { label: 'seen', icon: '👁', cls: 'text-text-muted bg-bg-tertiary' };
 }
 
-/** Cap on how many words a game pulls from the current tab — keeps quiz/spelling
- *  builds bounded (each loads word data) and a session quick, even on the big
- *  Recent list. Games shuffle, so the newest slice still gives good variety. */
+/** Cap on how many words a game pulls from the current tab — keeps the quiz
+ *  build bounded (it loads word data for each) and a session quick, even on the
+ *  big Recent list. The quiz shuffles, so the newest slice still gives variety. */
 const GAME_LIMIT = 30;
 
 export function BookmarkList() {
@@ -209,7 +208,7 @@ export function BookmarkList() {
     : dismissed;
   // Words fed to the games — the current tab's list, newest slice, capped.
   const gameWords = list.slice(0, GAME_LIMIT).map((w) => w.word);
-  const [mode, setMode] = useState<'list' | 'quiz' | 'spelling' | 'paragraph' | 'mindmap'>('list');
+  const [mode, setMode] = useState<'list' | 'quiz' | 'paragraph' | 'mindmap'>('list');
   const { isPro } = useIsPro();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [wordCache, setWordCache] = useState<Record<string, VocabularyWord>>({});
@@ -265,10 +264,6 @@ export function BookmarkList() {
 
   if (mode === 'quiz') {
     return <BookmarkGame bookmarks={gameWords} onBack={() => setMode('list')} />;
-  }
-
-  if (mode === 'spelling') {
-    return <SpellingGame bookmarks={gameWords} onBack={() => setMode('list')} />;
   }
 
   if (mode === 'paragraph') {
@@ -343,25 +338,29 @@ export function BookmarkList() {
                 </svg>
                 Quiz
               </button>
+              {/* Pro: Story Gaps writes a fresh AI story every round (always a
+                  generative call), so it's gated like the interactive Mind Map.
+                  The button stays visible as a teaser; the server re-checks Pro. */}
               <button
-                onClick={() => setMode('spelling')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-xs font-medium hover:bg-accent-purple/20 transition-all"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
-                Spelling
-              </button>
-              <button
-                onClick={() => setMode('paragraph')}
+                onClick={() => {
+                  if (!isPro) {
+                    toast('Story Gaps is a Pro feature.', { icon: '👑' });
+                    return;
+                  }
+                  setMode('paragraph');
+                }}
+                title={
+                  isPro
+                    ? 'Fill these words into an AI-written short story'
+                    : 'Pro feature — an AI-written story that uses your words'
+                }
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-green/10 border border-accent-green/20 text-accent-green text-xs font-medium hover:bg-accent-green/20 transition-all"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" />
-                  <path d="M9 20h6" /><path d="M12 4v16" />
-                </svg>
+                <Icon icon={isPro ? 'lucide:book-open' : 'lucide:lock'} className="text-sm" />
                 Story Gaps
+                <span className="text-[9px] px-1 py-px rounded bg-accent-green/20 font-extrabold uppercase tracking-wider">
+                  Pro
+                </span>
               </button>
               {/* Opens ChatGPT pre-filled with a prompt to draw a handwritten
                   mind-map image of every saved word. */}

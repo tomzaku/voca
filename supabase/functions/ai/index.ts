@@ -157,7 +157,10 @@ ${LEARNINGS_BLOCK_INSTRUCTION}`;
 
 // Actions in this set additionally require a row in `pro_users` (granted
 // manually — see the pro_users migration). Checked in the request handler.
-const PRO_ACTIONS = new Set(['mindmap', 'mindmap_doodle_sheet']);
+// `cloze` (Story Gaps) writes a fresh AI story on every round, so it's Pro-only
+// just like the mind-map actions — the client UI also gates it, but this is the
+// real enforcement.
+const PRO_ACTIONS = new Set(['mindmap', 'mindmap_doodle_sheet', 'cloze']);
 
 // ─── Doodle image generation (pro mind map) ─────────────────────────
 // Unlike every other action, `mindmap_doodle` returns an image, not text, so
