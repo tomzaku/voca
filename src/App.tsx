@@ -13,6 +13,9 @@ import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 import { CompanionPage } from './components/CompanionPage';
 import { CollectionsPage } from './components/CollectionsPage';
 import { LevelTestPage } from './components/LevelTestPage';
+import { TakeQuiz } from './components/TakeQuiz';
+import { QuizResults } from './components/QuizResults';
+import { MyQuizzes } from './components/MyQuizzes';
 import { OnboardingModal } from './components/OnboardingModal';
 import { LoginGate } from './components/LoginGate';
 
@@ -30,6 +33,9 @@ export default function App() {
               <Route path="/companion" element={<CompanionPage />} />
               <Route path="/collections" element={<CollectionsPage />} />
               <Route path="/level-test" element={<LevelTestPage />} />
+              <Route path="/quizzes" element={<MyQuizzes />} />
+              <Route path="/quiz/:id" element={<TakeQuiz />} />
+              <Route path="/quiz/:id/results" element={<QuizResults />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/profile" element={<ProfilePage />} />
