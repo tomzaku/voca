@@ -157,25 +157,57 @@ function DailyWords() {
   );
 }
 
-type Tab = 'saved' | 'known' | 'unknown' | 'skipped';
+type Tab = 'recent' | 'saved' | 'known' | 'unknown' | 'skipped';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'recent', label: 'Recent' },
   { id: 'saved', label: 'Saved' },
   { id: 'known', label: 'Known' },
   { id: 'unknown', label: "Don't know" },
   { id: 'skipped', label: 'Skipped' },
 ];
 
+/** Newest-seen first. */
+const byRecent = (a: WordProgress, b: WordProgress) => b.seenAt.localeCompare(a.seenAt);
+
+/** The status pill shown on the Recent timeline so you can tell, at a glance,
+ *  what each word's outcome was. A word with no learning outcome falls back to
+ *  "saved" (if bookmarked) or "seen". */
+function recentBadge(item: WordProgress): { label: string; icon: string; cls: string } {
+  if (item.status === 'known') return { label: 'known', icon: '✓', cls: 'text-accent-green bg-accent-green/10' };
+  if (item.status === 'skipped') return { label: "don't know", icon: '✗', cls: 'text-accent-red bg-accent-red/10' };
+  if (item.status === 'dismissed') return { label: 'skipped', icon: '🙈', cls: 'text-text-muted bg-bg-tertiary' };
+  if (item.bookmarked) return { label: 'saved', icon: '★', cls: 'text-accent-cyan bg-accent-cyan/10' };
+  return { label: 'seen', icon: '👁', cls: 'text-text-muted bg-bg-tertiary' };
+}
+
+/** Cap on how many words a game pulls from the current tab — keeps quiz/spelling
+ *  builds bounded (each loads word data) and a session quick, even on the big
+ *  Recent list. Games shuffle, so the newest slice still gives good variety. */
+const GAME_LIMIT = 30;
+
 export function BookmarkList() {
   const { user } = useAuth();
   const store = useVocabularyStore();
-  const [tab, setTab] = useState<Tab>('saved');
+  const [tab, setTab] = useState<Tab>('recent');
   const bookmarks = store.bookmarkedWords();
   const known = store.wordsByStatus('known');
   const unknown = store.wordsByStatus('skipped');
   const dismissed = store.wordsByStatus('dismissed');
+  // Recent = everything you've touched (any status, saved, or just viewed),
+  // newest-first — one unified timeline across all the buckets below.
+  const recent = useMemo(
+    () => Object.values(store.progress).sort(byRecent),
+    [store.progress],
+  );
   const list =
-    tab === 'saved' ? bookmarks : tab === 'known' ? known : tab === 'unknown' ? unknown : dismissed;
+    tab === 'recent' ? recent
+    : tab === 'saved' ? bookmarks
+    : tab === 'known' ? known
+    : tab === 'unknown' ? unknown
+    : dismissed;
+  // Words fed to the games — the current tab's list, newest slice, capped.
+  const gameWords = list.slice(0, GAME_LIMIT).map((w) => w.word);
   const [mode, setMode] = useState<'list' | 'quiz' | 'spelling' | 'paragraph' | 'mindmap'>('list');
   const { isPro } = useIsPro();
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -222,49 +254,32 @@ export function BookmarkList() {
     // On the Saved tab, "remove" only un-saves — it keeps any learning status.
     // On the Known / Don't-know tabs it clears that word from the history.
     // On the Skipped tab it restores the word into the learning rotation.
+    // On Recent it wipes the word from every list (it's the whole-history view).
     if (tab === 'saved') store.setBookmarked(word, false, user?.id);
+    else if (tab === 'recent') store.removeWord(word, user?.id);
     else store.clearStatus(word, user?.id);
     if (expanded === word) setExpanded(null);
     toast.success(tab === 'skipped' ? `"${word}" will show up again` : `Removed "${word}"`);
   };
 
   if (mode === 'quiz') {
-    return (
-      <BookmarkGame
-        bookmarks={bookmarks.map((b) => b.word)}
-        onBack={() => setMode('list')}
-      />
-    );
+    return <BookmarkGame bookmarks={gameWords} onBack={() => setMode('list')} />;
   }
 
   if (mode === 'spelling') {
-    return (
-      <SpellingGame
-        bookmarks={bookmarks.map((b) => b.word)}
-        onBack={() => setMode('list')}
-      />
-    );
+    return <SpellingGame bookmarks={gameWords} onBack={() => setMode('list')} />;
   }
 
   if (mode === 'paragraph') {
-    return (
-      <ParagraphGame
-        bookmarks={bookmarks.map((b) => b.word)}
-        onBack={() => setMode('list')}
-      />
-    );
+    return <ParagraphGame bookmarks={gameWords} onBack={() => setMode('list')} />;
   }
 
   if (mode === 'mindmap') {
-    return (
-      <WordMindMap
-        words={bookmarks.map((b) => b.word)}
-        onBack={() => setMode('list')}
-      />
-    );
+    return <WordMindMap words={gameWords} onBack={() => setMode('list')} />;
   }
 
   const emptyCopy: Record<Tab, { icon: string; title: string; hint: string }> = {
+    recent: { icon: '🕑', title: 'Nothing here yet', hint: 'Words you learn, save, or look up show up here newest-first — your whole history in one place.' },
     saved: { icon: '★', title: 'No saved words yet', hint: 'Bookmark words while learning to build your personal vocabulary list.' },
     known: { icon: '✓', title: 'No known words yet', hint: 'Words you mark as “Know it” while learning show up here.' },
     unknown: { icon: '↷', title: 'Nothing here yet', hint: 'Words you couldn’t guess show up here — they keep coming back until you learn them.' },
@@ -281,7 +296,8 @@ export function BookmarkList() {
       <div className="flex items-stretch gap-1 mb-6 border-b-2 border-border">
         {TABS.map((t) => {
           const count =
-            t.id === 'saved' ? bookmarks.length
+            t.id === 'recent' ? recent.length
+            : t.id === 'saved' ? bookmarks.length
             : t.id === 'known' ? known.length
             : t.id === 'unknown' ? unknown.length
             : dismissed.length;
@@ -313,9 +329,10 @@ export function BookmarkList() {
         </div>
       ) : (
         <>
-          {/* Quiz / spelling only apply to saved words */}
-          {tab === 'saved' && bookmarks.length >= 2 && (
-            <div className="flex items-center gap-2 mb-4">
+          {/* Practice tools — available on every list, playing the words in
+              the current tab (Recent, Saved, Known, Don't-know, Skipped). */}
+          {gameWords.length >= 2 && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               <button
                 onClick={() => setMode('quiz')}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium hover:bg-accent-cyan/20 transition-all"
@@ -348,10 +365,10 @@ export function BookmarkList() {
               {/* Opens ChatGPT pre-filled with a prompt to draw a handwritten
                   mind-map image of every saved word. */}
               <a
-                href={chatGptMindmapUrl(bookmarks.map((b) => b.word))}
+                href={chatGptMindmapUrl(gameWords)}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Ask ChatGPT to draw a handwritten mind-map image of all your saved words"
+                title="Ask ChatGPT to draw a handwritten mind-map image of these words"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-orange/10 border border-accent-orange/20 text-accent-orange text-xs font-medium hover:bg-accent-orange/20 transition-all"
               >
                 <Icon icon="lucide:git-fork" className="text-sm" />
@@ -370,8 +387,8 @@ export function BookmarkList() {
                 }}
                 title={
                   isPro
-                    ? 'Open an interactive mind map of all your saved words'
-                    : 'Pro feature — interactive mind map of your saved words'
+                    ? 'Open an interactive mind map of these words'
+                    : 'Pro feature — interactive mind map of these words'
                 }
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-accent-yellow text-xs font-medium hover:bg-accent-yellow/20 transition-all"
               >
@@ -431,13 +448,24 @@ export function BookmarkList() {
                   )}
                 </div>
 
+                {/* Recent timeline: show the word's outcome at a glance. */}
+                {tab === 'recent' && (() => {
+                  const b = recentBadge(item);
+                  return (
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${b.cls}`}>
+                      <span aria-hidden>{b.icon}</span>
+                      <span className="hidden sm:inline">{b.label}</span>
+                    </span>
+                  );
+                })()}
+
                 {views > 0 && (
                   <span className="flex items-center gap-1 text-[11px] text-text-muted whitespace-nowrap" title={`Seen ${views} time${views === 1 ? '' : 's'}`}>
                     {views}
                     <Icon icon="lucide:eye" className="text-sm" />
                   </span>
                 )}
-                <span className={`text-xs font-medium ${LEVEL_COLOR[level]}`}>{level}</span>
+                <span className={`hidden sm:inline text-xs font-medium ${LEVEL_COLOR[level]}`}>{level}</span>
 
                 {/* Speak button */}
                 <button

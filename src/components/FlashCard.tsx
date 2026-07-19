@@ -359,18 +359,37 @@ function AnswerTally({ progress }: { progress: WordProgress | undefined }) {
 
 const FULL_DEF_KEY = 'voca-flashcard-full-def';
 
-/** Small "Short/Full" definition-length toggle, shown only when a short
- *  definition exists (without one there is nothing to switch between). */
+/** Definition-length switch — a two-segment control with Short on the left
+ *  (the default) and Full on the right, so it reads as a switch rather than a
+ *  button. Shown only when a short definition exists (without one there is
+ *  nothing to switch between). */
 function DefLengthToggle({ show, fullDef, onToggle }: { show: boolean; fullDef: boolean; onToggle: () => void }) {
   if (!show) return null;
+  const setFull = (want: boolean) => {
+    if (want !== fullDef) onToggle();
+  };
   return (
-    <button
-      onClick={onToggle}
-      title={fullDef ? 'Show the short definition' : 'Show the full definition'}
-      className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-border text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
+    <div
+      role="switch"
+      aria-checked={fullDef}
+      title={fullDef ? 'Showing the full definition' : 'Showing the short definition'}
+      className="inline-flex items-center gap-0.5 rounded-full border border-border bg-bg-tertiary p-0.5 text-[10px] font-bold select-none"
     >
-      {fullDef ? 'Short' : 'Full'}
-    </button>
+      <button
+        type="button"
+        onClick={() => setFull(false)}
+        className={`px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'text-text-muted hover:text-text-secondary' : 'bg-accent-cyan/20 text-accent-cyan'}`}
+      >
+        Short
+      </button>
+      <button
+        type="button"
+        onClick={() => setFull(true)}
+        className={`px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'}`}
+      >
+        Full
+      </button>
+    </div>
   );
 }
 
