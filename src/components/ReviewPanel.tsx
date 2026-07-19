@@ -3,8 +3,19 @@ import { Link } from 'react-router-dom';
 import type { WordProgress } from '../types';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { isDue } from '../lib/srs';
+import { whyLine } from '../lib/progress';
 
 const DAY = 86_400_000;
+
+/** Which count/bar a popup is showing — drives its plain-language explainer. */
+type PopupKind = 'due' | 'learning' | 'mastered';
+
+/** One-line "why are these here" for each kind of list. */
+const EXPLAIN: Record<PopupKind, string> = {
+  due: 'You learned these earlier and their review gap has now passed, so they’re back. Reviewing them again — right as you’re about to forget — is what makes them stick.',
+  learning: 'Words on your review schedule. Answer one correctly and it comes back after a longer gap each time (days → weeks), until it graduates to Mastered.',
+  mastered: 'You answered these correctly until their gap passed ~21 days, so they’ve graduated and won’t come back on their own.',
+};
 
 /** Relative "when is this due" label for a word in the popup. */
 function dueLabel(p: WordProgress): string {
@@ -28,7 +39,7 @@ function dueLabel(p: WordProgress): string {
 export function ReviewPanel() {
   const progress = useVocabularyStore((s) => s.progress);
   // What the popup is currently showing (null = closed).
-  const [popup, setPopup] = useState<{ title: string; words: WordProgress[] } | null>(null);
+  const [popup, setPopup] = useState<{ title: string; kind: PopupKind; words: WordProgress[] } | null>(null);
 
   // Dismissed words (skipped for good) are out of rotation — not part of the schedule.
   const entries = Object.values(progress).filter((p) => p.status !== 'dismissed');
@@ -61,7 +72,7 @@ export function ReviewPanel() {
 
   const openBucket = (i: number) => {
     if (buckets[i].length === 0) return;
-    setPopup({ title: `Due ${i === 0 ? 'today' : weekdayLabel(i)}`, words: buckets[i] });
+    setPopup({ title: `Due ${i === 0 ? 'today' : weekdayLabel(i)}`, kind: 'due', words: buckets[i] });
   };
 
   return (
@@ -87,7 +98,7 @@ export function ReviewPanel() {
             {/* Plain-language lead — the one line that says what to do now. */}
             <p className="text-sm text-text-secondary leading-snug mb-4">
               {dueToday > 0 ? (
-                <button onClick={() => openBucket(0)} className="hover:underline">
+                <button onClick={() => setPopup({ title: 'Due today', kind: 'due', words: buckets[0] })} className="hover:underline">
                   <span className="font-display font-extrabold text-accent-orange">{dueToday}</span>{' '}
                   {dueToday === 1 ? 'word' : 'words'} due today
                 </button>
@@ -106,11 +117,11 @@ export function ReviewPanel() {
 
             <div className="grid grid-cols-3 gap-2 mb-4">
               <Stat value={dueWords.length} label="Due now" color="text-accent-orange" title="Words scheduled and ready to review right now — tap to see them."
-                onClick={dueWords.length ? () => setPopup({ title: 'Due now', words: dueWords }) : undefined} />
+                onClick={dueWords.length ? () => setPopup({ title: 'Due now', kind: 'due', words: dueWords }) : undefined} />
               <Stat value={learning.length} label="Learning" color="text-accent-cyan" title="Words on the review schedule, not yet mastered — tap to see them."
-                onClick={learning.length ? () => setPopup({ title: 'Learning', words: [...learning].sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? '')) }) : undefined} />
+                onClick={learning.length ? () => setPopup({ title: 'Learning', kind: 'learning', words: [...learning].sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? '')) }) : undefined} />
               <Stat value={masteredWords.length} label="Mastered" color="text-accent-green" title="Words you got right until their gap passed ~21 days — they graduate and stop coming back. Tap to see them."
-                onClick={masteredWords.length ? () => setPopup({ title: 'Mastered', words: masteredWords }) : undefined} />
+                onClick={masteredWords.length ? () => setPopup({ title: 'Mastered', kind: 'mastered', words: masteredWords }) : undefined} />
             </div>
 
             {/* 7-day forecast — click a bar to see that day's words. */}
@@ -156,30 +167,39 @@ export function ReviewPanel() {
         )}
       </div>
 
-      {popup && <WordPopup title={popup.title} words={popup.words} onClose={() => setPopup(null)} />}
+      {popup && <WordPopup title={popup.title} kind={popup.kind} words={popup.words} onClose={() => setPopup(null)} />}
     </section>
   );
 }
 
-/** Modal listing the words behind a count/bar — each links to open that word. */
-function WordPopup({ title, words, onClose }: { title: string; words: WordProgress[]; onClose: () => void }) {
+/** Modal listing the words behind a count/bar. Leads with a plain-language
+ *  explanation of *why* these words are here, then each row shows the word, its
+ *  personal review history (the reason it resurfaced), and its next-due timing —
+ *  and links to open the word. */
+function WordPopup({ title, kind, words, onClose }: {
+  title: string; kind: PopupKind; words: WordProgress[]; onClose: () => void;
+}) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm max-h-[70vh] flex flex-col rounded-2xl border border-border bg-bg-card shadow-xl"
+        className="w-full max-w-sm max-h-[75vh] flex flex-col rounded-2xl border border-border bg-bg-card shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h3 className="text-sm font-display font-extrabold text-text-primary">
-            {title}
-            <span className="ml-2 text-[11px] font-bold text-text-muted">{words.length}</span>
-          </h3>
+        <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-border">
+          <div className="min-w-0">
+            <h3 className="text-sm font-display font-extrabold text-text-primary">
+              {title}
+              <span className="ml-2 text-[11px] font-bold text-text-muted">{words.length}</span>
+            </h3>
+            {/* Why are these words here? */}
+            <p className="mt-1 text-[11px] text-text-muted leading-relaxed">{EXPLAIN[kind]}</p>
+          </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
             aria-label="Close"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -197,8 +217,14 @@ function WordPopup({ title, words, onClose }: { title: string; words: WordProgre
               onClick={onClose}
               className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-bg-tertiary transition-colors"
             >
-              <span className="font-display font-bold text-text-primary truncate hover:text-accent-cyan">{p.word}</span>
-              <span className="text-[11px] text-text-muted whitespace-nowrap">{dueLabel(p)}</span>
+              <div className="min-w-0">
+                <div className="font-display font-bold text-text-primary truncate hover:text-accent-cyan">{p.word}</div>
+                {/* The personal "why": how often / how recently it was reviewed. */}
+                <div className="text-[10px] text-text-muted">{whyLine(p)}</div>
+              </div>
+              <span className="shrink-0 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                {kind === 'mastered' ? 'mastered' : dueLabel(p)}
+              </span>
             </Link>
           ))}
         </div>

@@ -7,6 +7,7 @@ import { useIsPro } from '../hooks/useProStatus';
 import { generateWordData } from '../lib/wordService';
 import { getRecentDailyWords } from '../lib/dailyWord';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
+import { whyLine } from '../lib/progress';
 import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
@@ -446,6 +447,8 @@ export function BookmarkList() {
                       {data.partOfSpeech}
                     </span>
                   )}
+                  {/* Why this word is where it is: its review history at a glance. */}
+                  <div className="text-[10px] text-text-muted mt-0.5">{whyLine(item)}</div>
                 </div>
 
                 {/* Recent timeline: show the word's outcome at a glance. */}
