@@ -69,7 +69,6 @@ export function GameWorld({
   onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
 }: Props) {
   const animalId = useCompanion((s) => s.animalId);
-  const avatar = useCompanion((s) => s.avatar);
   const buddyName = useCompanion((s) => s.name);
   const known = useVocabularyStore(
     (s) => Object.values(s.progress).filter((e) => e.status === 'known').length,
@@ -148,15 +147,13 @@ export function GameWorld({
     // otherwise the browser upscales the canvas on retina screens and both
     // text and sprites come out blurry.
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const look: BuddyLook = avatar
-      ? { kind: 'avatar', config: avatar }
-      : { kind: 'animal', id: animal.id };
+    const look: BuddyLook = { kind: 'animal', id: animal.id };
     const data: WorldSceneData = {
       stations: live.current.stations,
       features: live.current.features,
       look,
       stage,
-      buddyName: buddyName || (avatar ? 'Hero' : animal.name),
+      buddyName: buddyName || animal.name,
       dpr,
     };
     const game = new Phaser.Game({
@@ -191,7 +188,7 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.area, onArea);
       game.destroy(true);
     };
-  }, [animal.id, animal.name, stage, buddyName, avatar]);
+  }, [animal.id, animal.name, stage, buddyName]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
 

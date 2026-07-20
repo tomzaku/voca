@@ -1,11 +1,9 @@
 import { create } from 'zustand';
 import { type AnimalId, isAnimalId } from '../lib/companion';
-import { isAvatarConfig, type AvatarConfig } from '../lib/avatar';
 import { supabase } from '../lib/supabase';
 
 const ANIMAL_KEY = 'voca-companion-animal';
 const NAME_KEY = 'voca-companion-name';
-const AVATAR_KEY = 'voca-avatar';
 
 function loadAnimal(): AnimalId | null {
   try {
@@ -19,22 +17,10 @@ function loadName(): string {
   try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; }
 }
 
-function loadAvatar(): AvatarConfig | null {
-  try {
-    const v = JSON.parse(localStorage.getItem(AVATAR_KEY) ?? 'null');
-    if (isAvatarConfig(v)) return v;
-  } catch { /* ignore */ }
-  return null;
-}
-
 interface CompanionState {
   animalId: AnimalId | null;
   name: string;
-  /** Main-character look for the world map (gender/cloth/hair/hat); null =
-   *  walk as the animal buddy. Device-local — it changes the sprite, nothing else. */
-  avatar: AvatarConfig | null;
   choose: (id: AnimalId) => void;
-  chooseAvatar: (cfg: AvatarConfig | null) => void;
   rename: (name: string) => void;
   /** Pull the buddy from Supabase on login (remote wins; pushes local up if remote is empty). */
   loadFromRemote: (userId: string) => Promise<void>;
@@ -43,20 +29,11 @@ interface CompanionState {
 export const useCompanion = create<CompanionState>((set, get) => ({
   animalId: loadAnimal(),
   name: loadName(),
-  avatar: loadAvatar(),
 
   choose: (id) => {
     try { localStorage.setItem(ANIMAL_KEY, id); } catch { /* ignore */ }
     set({ animalId: id });
     syncCompanion(id, get().name);
-  },
-
-  chooseAvatar: (cfg) => {
-    try {
-      if (cfg) localStorage.setItem(AVATAR_KEY, JSON.stringify(cfg));
-      else localStorage.removeItem(AVATAR_KEY);
-    } catch { /* ignore */ }
-    set({ avatar: cfg });
   },
 
   rename: (name) => {

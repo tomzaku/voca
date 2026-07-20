@@ -9,11 +9,12 @@
 // bounding box shared by all of them (stable, so the walk cycle doesn't jitter)
 // and pack idle + walk into one horizontal strip:
 //
-//   frames  0–15  idle  — 4 per direction, in DIRS order
-//   frames 16–31  walk  — 4 per direction, in DIRS order
+//   frames  0–15  idle — 4 per direction, in DIR order
+//   frames 16–31  walk — 4 per direction, in DIR order
 //
 // Row order in the source sheets is down, left, up, right (rows 1 and 3 are
-// mirror images — verified against the art).
+// mirror images — verified against the art). Every direction is real art, so
+// nothing is mirrored or synthesized at runtime.
 //
 // Art: EPIC RPG World — basic tileset and assets, standard v3.0.
 

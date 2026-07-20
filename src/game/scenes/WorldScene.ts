@@ -708,8 +708,6 @@ export class WorldScene extends Phaser.Scene {
   private applyAnim(moving: boolean) {
     const key = `${this.spec.key}-${moving ? 'run' : 'idle'}-${this.facing}`;
     this.sprite.play(key, true);
-    // Single-facing art (the pack's one creature) fakes left/right by mirroring.
-    this.sprite.setFlipX(this.spec.flipX?.(this.facing) ?? false);
   }
 
   // ── Movement ──
