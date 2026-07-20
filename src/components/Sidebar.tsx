@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { useGameMode } from '../hooks/useGameMode';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
@@ -14,12 +15,21 @@ const NAV_ITEMS = [
   { to: '/settings', label: 'Settings', icon: 'lucide:settings' },
 ];
 
+// The World game tab appears only when it's turned on in Settings.
+const WORLD_ITEM = { to: '/world', label: 'World', icon: 'lucide:gamepad-2' };
+
 /** Slide-in drawer holding the secondary navigation and account controls, so the
  *  top bar can stay down to Learn / History / Search. */
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const gameEnabled = useGameMode((s) => s.enabled);
+
+  // Insert World after Collections when the game is enabled.
+  const navItems = gameEnabled
+    ? NAV_ITEMS.flatMap((item) => (item.to === '/collections' ? [item, WORLD_ITEM] : [item]))
+    : NAV_ITEMS;
 
   // Close on Escape.
   useEffect(() => {
@@ -83,7 +93,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = location.pathname === item.to;
             return (
               <Link

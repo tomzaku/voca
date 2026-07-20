@@ -176,6 +176,39 @@ place(walls, 'rock_a', 26, 8);
 place(walls, 'rock_b', 33, 51);
 place(walls, 'rock_a', 18, 51);
 
+// ── Feature plaza ── the app's pages, bound to buildings you walk up to. They
+// sit on open forest ground (no house tile → nothing to collide with); the
+// buddy strolls right up to the signpost. Emitted before decor so tufts steer
+// clear of them (nearSlot below reads slotTiles), and kept ≥4 tiles from every
+// other station so their proximity cards never fight.
+const featureAnchors = [[15, 6], [28, 6], [41, 6], [15, 20], [28, 20], [41, 20]];
+const isFree = (x, y) =>
+  x > 1 && x < W - 2 && y > 1 && y < RIVER.from - 1 &&
+  !walls[at(x, y)] && !decor[at(x, y)] && !road.has(at(x, y));
+const farFromSlots = (x, y) => slotTiles.every(([sx, sy]) => Math.hypot(sx - x, sy - y) >= 4);
+const snap = (ax, ay) => {
+  for (let r = 0; r <= 4; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = ax + dx, y = ay + dy;
+        if (isFree(x, y) && farFromSlots(x, y)) return [x, y];
+      }
+    }
+  }
+  return null;
+};
+featureAnchors.forEach((a, i) => {
+  const spot = snap(a[0], a[1]);
+  if (!spot) throw new Error(`no free tile for feature slot ${i} near ${a}`);
+  const [x, y] = spot;
+  objects.push(point('station', (x + 0.5) * T, (y + 0.5) * T, [
+    prop('region', 'string', 'feature'),
+    prop('slot', 'int', i),
+  ]));
+  slotTiles.push([x, y]);
+});
+
 // ── Decor ── sparse, clear of walls, roads, stations, river and bridge.
 const nearSlot = (x, y) =>
   slotTiles.some(([sx, sy]) => Math.abs(sx - x) <= 1 && Math.abs(sy - y) <= 1);

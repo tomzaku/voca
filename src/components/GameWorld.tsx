@@ -3,18 +3,25 @@ import Phaser from 'phaser';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { MemberAvatars } from './MemberAvatars';
-import { CharacterPicker } from './CharacterPicker';
 import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, type WorldSceneData } from '../game/scenes/WorldScene';
 import type { BuddyLook } from '../game/textures';
 import { CREATE_STATION_ID, WORLD_EVENTS, type WorldStation } from '../game/types';
+import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../game/features';
 
 export type { WorldStation } from '../game/types';
 
 interface Props {
   stations: WorldStation[];
+  /** App pages placed as buildings; walking up opens a card that opens the
+   *  page in-game (the parent renders it over the world). */
+  features: WorldFeature[];
+  onOpenFeature: (f: WorldFeature) => void;
+  /** True while an in-game panel covers the world: freeze the buddy's controls
+   *  so the panel's own keyboard (typing, space, arrows) isn't swallowed. */
+  paused?: boolean;
   onStudy: (s: WorldStation) => void;
   onPreview: (s: WorldStation) => void;
   onQuiz: (s: WorldStation) => void;
@@ -35,13 +42,15 @@ const KIND_META: Record<WorldStation['kind'], { label: string; icon: string; col
 };
 
 /**
- * Explore mode for the Collections page. The world itself (movement, camera,
- * stations, scenery) is a Phaser scene — see src/game/ — while this component
- * owns the canvas lifecycle and renders the DOM UI on top: HUD chips and the
- * station card that opens when the buddy walks up to a collection.
+ * The standalone world game. The world itself (movement, camera, stations,
+ * feature buildings, scenery) is a Phaser scene — see src/game/ — while this
+ * component owns the canvas lifecycle and renders the DOM UI on top: HUD chips,
+ * the fast-travel drawer, and the card that opens when the buddy walks up to a
+ * collection or an app-page building.
  */
-export function CollectionWorld({
-  stations, onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
+export function GameWorld({
+  stations, features, onOpenFeature, paused = false,
+  onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
 }: Props) {
   const animalId = useCompanion((s) => s.animalId);
   const avatar = useCompanion((s) => s.avatar);
@@ -56,7 +65,13 @@ export function CollectionWorld({
   const gameRef = useRef<Phaser.Game | null>(null);
 
   const [nearestId, setNearestId] = useState<string | null>(null);
-  const nearest = nearestId ? stations.find((s) => s.id === nearestId) ?? null : null;
+  const isFeature = nearestId?.startsWith(FEATURE_ID_PREFIX) ?? false;
+  const nearestFeature = isFeature
+    ? features.find((f) => featureNodeId(f) === nearestId) ?? null
+    : null;
+  const nearest = (!isFeature && nearestId && nearestId !== CREATE_STATION_ID)
+    ? stations.find((s) => s.id === nearestId) ?? null
+    : null;
   const atBuildSpot = nearestId === CREATE_STATION_ID;
 
   // ── Fast-travel drawer (top right) ──
@@ -66,19 +81,24 @@ export function CollectionWorld({
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [nearestId]);
 
-  // ── Character picker (body / hat / cloth) ──
-  const [pickerOpen, setPickerOpen] = useState(false);
   const travelTo = (id: string) => {
     (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.travelTo(id);
     setDrawerOpen(false);
   };
 
   // Latest props for stable event/keyboard handlers.
-  const live = useRef({ stations, onStudy, nearestId });
-  live.current = { stations, onStudy, nearestId };
+  const live = useRef({ stations, onStudy, features, onOpenFeature, nearestId, paused });
+  live.current = { stations, onStudy, features, onOpenFeature, nearestId, paused };
 
-  // Explore is the whole page: the frame stretches from wherever it starts
-  // down to the bottom of the window (12px page padding), never below MIN_H.
+  // Freeze the world's own keyboard while a panel covers it, so Phaser doesn't
+  // preventDefault space/arrows the panel's inputs need.
+  useEffect(() => {
+    const kb = gameRef.current?.input.keyboard;
+    if (kb) kb.enabled = !paused;
+  }, [paused]);
+
+  // The world fills the page: the frame stretches from wherever it starts down
+  // to the bottom of the window (12px page padding), never below MIN_H.
   const [vpH, setVpH] = useState(MIN_H);
   useEffect(() => {
     const measure = () => {
@@ -104,6 +124,7 @@ export function CollectionWorld({
       : { kind: 'animal', id: animal.id };
     const data: WorldSceneData = {
       stations: live.current.stations,
+      features: live.current.features,
       look,
       stage,
       buddyName: buddyName || (avatar ? 'Hero' : animal.name),
@@ -148,18 +169,22 @@ export function CollectionWorld({
     return () => observer.disconnect();
   }, []);
 
-  // Enter/Space studies the station the buddy is standing at.
+  // Enter/Space acts on whatever the buddy is standing at: a feature opens, a
+  // collection studies.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON')) return;
-      const { stations: all, onStudy: study, nearestId: id } = live.current;
-      const s = id ? all.find((x) => x.id === id) : undefined;
-      if (s) {
-        e.preventDefault();
-        study(s);
+      const { stations: all, onStudy: study, features: feats, onOpenFeature: open, nearestId: id, paused: frozen } = live.current;
+      if (frozen || !id) return;
+      if (id.startsWith(FEATURE_ID_PREFIX)) {
+        const f = feats.find((x) => featureNodeId(x) === id);
+        if (f) { e.preventDefault(); open(f); }
+        return;
       }
+      const s = all.find((x) => x.id === id);
+      if (s) { e.preventDefault(); study(s); }
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
@@ -190,16 +215,8 @@ export function CollectionWorld({
           </Link>
         )}
         <button
-          onClick={() => setPickerOpen(true)}
-          title="Choose your character"
-          className="flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-1.5 border bg-bg-card/85 text-text-primary border-border hover:border-accent-purple/60 transition-all"
-        >
-          <Icon icon="lucide:shirt" className="text-sm" />
-          <span className="hidden sm:inline">Character</span>
-        </button>
-        <button
           onClick={() => setDrawerOpen((o) => !o)}
-          title="Fast travel to a collection"
+          title="Fast travel"
           className={`flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-1.5 border transition-all ${
             drawerOpen
               ? 'bg-accent-cyan text-bg-primary border-accent-cyan'
@@ -210,8 +227,6 @@ export function CollectionWorld({
           <span className="hidden sm:inline">Travel</span>
         </button>
       </div>
-
-      {pickerOpen && <CharacterPicker onClose={() => setPickerOpen(false)} />}
 
       {/* ── Fast-travel drawer ── */}
       {drawerOpen && (
@@ -228,6 +243,22 @@ export function CollectionWorld({
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+              {/* App pages first, then collections by kind. */}
+              {features.length > 0 && (
+                <div>
+                  <p className="px-1.5 pt-2 pb-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">Places</p>
+                  {features.map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => travelTo(featureNodeId(f))}
+                      className="w-full flex items-center gap-2 px-1.5 py-1.5 rounded-lg text-left hover:bg-bg-tertiary transition-colors"
+                    >
+                      <Icon icon={f.icon} className="shrink-0 text-sm" style={{ color: 'var(--color-accent-yellow)' }} />
+                      <span className="flex-1 min-w-0 text-xs font-bold text-text-primary truncate">{f.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {(['mine', 'joined', 'level'] as const).map((kind) => {
                 const group = stations.filter((s) => s.kind === kind);
                 if (group.length === 0) return null;
@@ -263,6 +294,28 @@ export function CollectionWorld({
         </>
       )}
 
+      {/* ── Feature building card (the buddy reached an app page) ── */}
+      {nearestFeature && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 border-accent-yellow bg-bg-card shadow-2xl p-3 animate-fade-in">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-accent-yellow/15 text-accent-yellow">
+              <Icon icon={nearestFeature.icon} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="font-display font-bold text-text-primary text-sm">{nearestFeature.name}</p>
+              <p className="text-[10px] font-bold text-text-muted">{nearestFeature.blurb}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => onOpenFeature(nearestFeature)}
+            className="btn-3d w-full py-2 text-xs font-bold text-bg-primary bg-accent-yellow"
+          >
+            Enter
+            <span className="hidden sm:inline opacity-70"> · Enter ↵</span>
+          </button>
+        </div>
+      )}
+
       {/* ── Build card (the buddy reached the empty plot) ── */}
       {atBuildSpot && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 border-accent-cyan bg-bg-card shadow-2xl p-3 animate-fade-in">
@@ -287,7 +340,7 @@ export function CollectionWorld({
         </div>
       )}
 
-      {/* ── Station card (opens when the buddy is close) ── */}
+      {/* ── Station card (opens when the buddy is close to a collection) ── */}
       {nearest && (
         <div
           className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 bg-bg-card shadow-2xl p-3 animate-fade-in"

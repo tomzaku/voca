@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '@iconify/react';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { isSfxEnabled, setSfxEnabled, playCorrect } from '../lib/sfx';
@@ -11,6 +12,8 @@ import {
   setMotherLanguage,
 } from '../lib/languages';
 import { GUESS_GAMES, useGuessGame } from '../hooks/useGuessGame';
+import { useGameMode } from '../hooks/useGameMode';
+import { CharacterPicker } from './CharacterPicker';
 import { useCollections } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
 import { clearPrefetchQueue } from '../lib/prefetchService';
@@ -47,6 +50,10 @@ export function SettingsPage() {
   const store = useVocabularyStore();
 
   const { game: guessGame, setGame: setGuessGame } = useGuessGame();
+
+  const gameEnabled = useGameMode((s) => s.enabled);
+  const setGameEnabled = useGameMode((s) => s.setEnabled);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const [previewState, setPreviewState] = useState<{ id: string; phase: 'loading' | 'playing' } | null>(null);
   const activeCollection = useCollections((s) => s.activeId);
@@ -203,6 +210,46 @@ export function SettingsPage() {
           })}
         </div>
       </section>
+
+      {/* World Game */}
+      <section className="mb-8">
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">World Game</h2>
+        <p className="text-xs text-text-muted mb-3">
+          Explore the app as a little village — walk your buddy to a building to open Learn, Speak,
+          Quizzes and more, or up to a collection to study it.
+        </p>
+        <button
+          onClick={() => {
+            const next = !gameEnabled;
+            setGameEnabled(next);
+            toast.success(next ? 'World game on' : 'World game off');
+          }}
+          className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all cursor-pointer"
+        >
+          <div className="flex-1 text-left">
+            <span className="text-sm font-medium text-text-primary block">Enable world game</span>
+            <span className="text-xs text-text-muted mt-0.5 block">Adds a “World” tab to explore everything as a game.</span>
+          </div>
+          <ToggleSwitch checked={gameEnabled} />
+        </button>
+        {gameEnabled && (
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="mt-2 w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-accent-purple/40 transition-all cursor-pointer"
+          >
+            <span className="w-9 h-9 shrink-0 rounded-full bg-accent-purple/15 text-accent-purple flex items-center justify-center">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" /></svg>
+            </span>
+            <div className="flex-1 text-left">
+              <span className="text-sm font-medium text-text-primary block">Choose your character</span>
+              <span className="text-xs text-text-muted mt-0.5 block">Pick the hero look that walks the world.</span>
+            </div>
+            <Icon icon="lucide:chevron-right" className="text-text-muted" />
+          </button>
+        )}
+      </section>
+
+      {pickerOpen && <CharacterPicker onClose={() => setPickerOpen(false)} />}
 
       {/* Guess Game */}
       <section className="mb-8">

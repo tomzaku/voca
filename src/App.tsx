@@ -12,6 +12,7 @@ import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 import { CompanionPage } from './components/CompanionPage';
 import { CollectionsPage } from './components/CollectionsPage';
+import { WorldGame } from './components/WorldGame';
 import { LevelTestPage } from './components/LevelTestPage';
 import { TakeQuiz } from './components/TakeQuiz';
 import { QuizResults } from './components/QuizResults';
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="/bookmarks" element={<Navigate to="/history" replace />} />
               <Route path="/companion" element={<CompanionPage />} />
               <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/world" element={<WorldGame />} />
               <Route path="/level-test" element={<LevelTestPage />} />
               <Route path="/quizzes" element={<MyQuizzes />} />
               <Route path="/quiz/:id" element={<TakeQuiz />} />

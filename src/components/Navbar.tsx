@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useWordSearch } from '../hooks/useWordSearch';
+import { useGameMode } from '../hooks/useGameMode';
 import { useHotkey } from '../hooks/useHotkey';
 import { isApple } from '../lib/device';
 import { Sidebar } from './Sidebar';
@@ -10,6 +11,7 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const requestSearch = useWordSearch((s) => s.requestSearch);
+  const gameEnabled = useGameMode((s) => s.enabled);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -50,6 +52,7 @@ export function Navbar() {
     { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
     { to: '/history', label: 'History', icon: 'lucide:history' },
     { to: '/collections', label: 'Collections', icon: 'lucide:library' },
+    ...(gameEnabled ? [{ to: '/world', label: 'World', icon: 'lucide:gamepad-2' }] : []),
     { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print', desktopOnly: true },
   ];
 

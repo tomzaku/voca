@@ -41,6 +41,8 @@ export interface WorldPalette {
   textCss: string;
   mutedCss: string;
   kind: Record<StationKind, KindColor>;
+  /** Accent for feature buildings (app pages), distinct from the station kinds. */
+  poi: KindColor;
 }
 
 export function worldPalette(): WorldPalette {
@@ -50,6 +52,7 @@ export function worldPalette(): WorldPalette {
   const purple = cssVar('--color-accent-purple', '#b98bff');
   const green = cssVar('--color-accent-green', '#34e39b');
   const orange = cssVar('--color-accent-orange', '#ff9f43');
+  const yellow = cssVar('--color-accent-yellow', '#ffd23f');
 
   return {
     light,
@@ -85,6 +88,7 @@ export function worldPalette(): WorldPalette {
       joined: { color: hex(purple), css: purple },
       level: { color: hex(green), css: green },
     },
+    poi: { color: hex(yellow), css: yellow },
   };
 }
 

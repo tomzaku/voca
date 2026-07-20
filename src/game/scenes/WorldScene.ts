@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CREATE_STATION_ID, WORLD_EVENTS, type ThemeId, type WorldStation } from '../types';
+import { featureNodeId, type WorldFeature } from '../features';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
@@ -10,6 +11,8 @@ import {
 
 export interface WorldSceneData {
   stations: WorldStation[];
+  /** App pages placed as buildings you walk up to. Static for the game's life. */
+  features: WorldFeature[];
   /** The sprite that walks the map: companion animal or hero look. */
   look: BuddyLook;
   stage: number;
@@ -42,7 +45,7 @@ interface MapMeta {
   spawn: { x: number; y: number };
   doors: { x: number; y: number }[];
   labels: { x: number; y: number; text: string; theme: ThemeId }[];
-  slots: Record<'public' | 'system', { x: number; y: number; slot: number }[]>;
+  slots: Record<'public' | 'system' | 'feature', { x: number; y: number; slot: number }[]>;
 }
 
 /**
@@ -265,6 +268,12 @@ export class WorldScene extends Phaser.Scene {
     bind(pub, this.meta.slots.public);
     bind(sys, this.meta.slots.system);
 
+    // App pages: fixed buildings bound to the template's feature slots.
+    this.args.features.forEach((f, i) => {
+      const slot = this.meta.slots.feature[i];
+      if (slot) this.addFeature(layer, f, slot.x, slot.y);
+    });
+
     // The next empty house up north is a build plot: walk up (or fast travel)
     // to start a new collection there.
     const free = this.meta.slots.public[pub.length];
@@ -286,7 +295,7 @@ export class WorldScene extends Phaser.Scene {
       spawn: { x: this.worldW / 2, y: this.worldH / 2 },
       doors: [],
       labels: [],
-      slots: { public: [], system: [] },
+      slots: { public: [], system: [], feature: [] },
     };
     type TiledProp = { name: string; value: unknown };
     const objects = map.getObjectLayer('meta')?.objects ?? [];
@@ -310,7 +319,8 @@ export class WorldScene extends Phaser.Scene {
           });
           break;
         case 'station': {
-          const region = get('region') === 'system' ? 'system' : 'public';
+          const raw = get('region');
+          const region = raw === 'system' ? 'system' : raw === 'feature' ? 'feature' : 'public';
           meta.slots[region].push({ x, y, slot: Number(get('slot') ?? 0) });
           break;
         }
@@ -318,6 +328,7 @@ export class WorldScene extends Phaser.Scene {
     }
     meta.slots.public.sort((a, b) => a.slot - b.slot);
     meta.slots.system.sort((a, b) => a.slot - b.slot);
+    meta.slots.feature.sort((a, b) => a.slot - b.slot);
     return meta;
   }
 
@@ -470,6 +481,66 @@ export class WorldScene extends Phaser.Scene {
       words: [], pct: 0, active: false, x, y,
     };
     root.setSize(84, 80);
+    root.setInteractive({ useHandCursor: true });
+    root.on(
+      'pointerdown',
+      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.routeTo(x, y + 50);
+      },
+    );
+
+    layer.add(root);
+    this.nodes.push({ station, root, ring });
+  }
+
+  /** An app page as a little building: walk up and React opens its card, whose
+   *  "Enter" navigates to the page's route. Behaves like a station for
+   *  proximity, but carries no words/progress. */
+  private addFeature(layer: Phaser.GameObjects.Container, f: WorldFeature, x: number, y: number) {
+    const poi = this.pal.poi;
+    const root = this.add.container(x, y);
+
+    const ring = this.add
+      .circle(0, -14, 32)
+      .setStrokeStyle(2.5, poi.color, 0.9)
+      .setFillStyle(poi.color, 0.10)
+      .setVisible(false);
+    root.add(ring);
+
+    // Shadow + a little house whose sign is the feature emoji.
+    root.add(this.add.ellipse(0, 2, 36, 9, 0x000000, 0.25));
+    const body = this.add.graphics();
+    body.fillStyle(this.pal.card, 1);
+    body.lineStyle(2.5, poi.color, 1);
+    body.fillRoundedRect(-22, -40, 44, 42, 8);
+    body.strokeRoundedRect(-22, -40, 44, 42, 8);
+    root.add(body);
+    root.add(
+      this.add
+        .text(0, -19, f.emoji, { fontFamily: FONT, fontSize: '22px', resolution: this.args.dpr })
+        .setOrigin(0.5),
+    );
+
+    root.add(
+      this.add
+        .text(0, 10, f.name, {
+          fontFamily: FONT,
+          fontSize: '10px',
+          fontStyle: 'bold',
+          color: this.pal.textCss,
+          backgroundColor: this.pal.cardCss,
+          padding: { x: 7, y: 3 },
+          resolution: this.args.dpr,
+        })
+        .setOrigin(0.5, 0),
+    );
+
+    const station: PlacedStation = {
+      id: featureNodeId(f), name: f.name, kind: 'mine',
+      words: [], pct: 0, active: false, x, y,
+    };
+    root.setSize(84, 84);
     root.setInteractive({ useHandCursor: true });
     root.on(
       'pointerdown',
