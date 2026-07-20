@@ -11,7 +11,7 @@ import { whyLine } from '../lib/progress';
 import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
-import { BookmarkGame } from './BookmarkGame';
+import { QuizSetup } from './QuizSetup';
 import { ParagraphGame } from './ParagraphGame';
 import { ReviewPanel } from './ReviewPanel';
 import { WordMindMap } from './WordMindMap';
@@ -186,7 +186,7 @@ function recentBadge(item: WordProgress): { label: string; icon: string; cls: st
  *  big Recent list. The quiz shuffles, so the newest slice still gives variety. */
 const GAME_LIMIT = 30;
 
-export function BookmarkList() {
+export function HistoryPage() {
   const { user } = useAuth();
   const store = useVocabularyStore();
   const [tab, setTab] = useState<Tab>('recent');
@@ -263,7 +263,7 @@ export function BookmarkList() {
   };
 
   if (mode === 'quiz') {
-    return <BookmarkGame words={gameWords} onBack={() => setMode('list')} />;
+    return <QuizSetup words={gameWords} onBack={() => setMode('list')} />;
   }
 
   if (mode === 'paragraph') {

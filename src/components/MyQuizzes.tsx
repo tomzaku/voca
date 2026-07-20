@@ -64,7 +64,7 @@ export function MyQuizzes() {
           <div className="text-4xl mb-3">🧩</div>
           <p className="text-sm text-text-muted mb-1">You haven't shared any quizzes yet.</p>
           <p className="text-xs text-text-muted">
-            Go to <Link to="/bookmarks" className="text-accent-cyan hover:underline font-medium">History → Quiz</Link>, set it up, and hit <span className="font-bold">Share</span>.
+            Go to <Link to="/history" className="text-accent-cyan hover:underline font-medium">History → Quiz</Link>, set it up, and hit <span className="font-bold">Share</span>.
           </p>
         </div>
       ) : (

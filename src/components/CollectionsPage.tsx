@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
-import { BookmarkGame } from './BookmarkGame';
+import { QuizSetup } from './QuizSetup';
 import { CollectionStats } from './CollectionStats';
 import type { WorldStation } from '../game/types';
 import { MemberAvatars } from './MemberAvatars';
@@ -413,7 +413,7 @@ export function CollectionsPage() {
   if (quiz) {
     // Same shareable quiz engine as the History page — with progress recording
     // on, so collection completion still tracks quiz answers.
-    return <BookmarkGame words={quiz.words} recordProgress onBack={() => setQuiz(null)} />;
+    return <QuizSetup words={quiz.words} recordProgress onBack={() => setQuiz(null)} />;
   }
 
   return (

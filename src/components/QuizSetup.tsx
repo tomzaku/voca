@@ -25,7 +25,7 @@ interface Props {
   recordProgress?: boolean;
 }
 
-export function BookmarkGame({ words, onBack, recordProgress = false }: Props) {
+export function QuizSetup({ words, onBack, recordProgress = false }: Props) {
   const { user } = useAuth();
 
   // ── Config (the settings) ──

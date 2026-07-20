@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
 import { Navbar } from './components/Navbar';
 import { FlashCard } from './components/FlashCard';
-import { BookmarkList } from './components/BookmarkList';
+import { HistoryPage } from './components/HistoryPage';
 import { SettingsPage } from './components/SettingsPage';
 import { LoginPage } from './components/LoginPage';
 import { ProfilePage } from './components/ProfilePage';
@@ -29,7 +29,9 @@ export default function App() {
             <Routes>
               <Route path="/" element={<FlashCard />} />
               <Route path="/speaking" element={<EnglishSpeakingPage />} />
-              <Route path="/bookmarks" element={<BookmarkList />} />
+              <Route path="/history" element={<HistoryPage />} />
+              {/* Old path — keep existing links working. */}
+              <Route path="/bookmarks" element={<Navigate to="/history" replace />} />
               <Route path="/companion" element={<CompanionPage />} />
               <Route path="/collections" element={<CollectionsPage />} />
               <Route path="/level-test" element={<LevelTestPage />} />
