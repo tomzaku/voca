@@ -26,8 +26,8 @@ export interface WorldSceneData {
 }
 
 const SPEED = 360;      // buddy speed, px/s
-const REACH = 95;       // distance at which a station "opens"
-const SCALE = 2;        // map render scale: 16px tiles drawn at 32px
+const REACH = 110;      // distance at which a building "opens"
+const SCALE = 1;        // 32px tiles drawn 1:1 — pixel-perfect at any DPI
 const NIGHT_TINT = 0x8d92c4; // dims the day-lit tile art in dark mode
 
 const KIND_EMOJI = { mine: '👤', joined: '👥', level: '🎓' } as const;
@@ -78,6 +78,8 @@ export class WorldScene extends Phaser.Scene {
   private meta!: MapMeta;
   private worldW = 0;
   private worldH = 0;
+  /** On-screen size of one map tile — read from the template, not assumed. */
+  private tilePx = 32;
 
   private buddy!: Phaser.GameObjects.Container;
   private sprite!: Phaser.GameObjects.Sprite;
@@ -266,7 +268,7 @@ export class WorldScene extends Phaser.Scene {
     cam.off(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE);
     cam.resetFX();
     cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      const lead = 16 * SCALE * 3; // land clear of the crossing, not on it
+      const lead = this.tilePx * 3; // land clear of the crossing, not on it
       const spot = this.clampToWalkable(door.x, south ? door.y + lead : door.y - lead)
         ?? { x: door.x, y: south ? door.y + lead : door.y - lead };
       this.buddy.setPosition(spot.x, spot.y);
@@ -318,6 +320,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.worldW = map.widthInPixels * SCALE;
     this.worldH = map.heightInPixels * SCALE;
+    this.tilePx = map.tileWidth * SCALE;
 
     // Collision straight from the walls layer.
     const walls = map.getLayer('walls')!;
@@ -712,7 +715,7 @@ export class WorldScene extends Phaser.Scene {
   // ── Movement ──
 
   private canStand(x: number, y: number): boolean {
-    const tile = 16 * SCALE;
+    const tile = this.tilePx;
     const tx = Math.floor(x / tile);
     const ty = Math.floor(y / tile);
     const row = this.blocked[ty];
@@ -723,7 +726,7 @@ export class WorldScene extends Phaser.Scene {
   /** Nearest standable point to (x, y), searching outward tile by tile. */
   private clampToWalkable(x: number, y: number): { x: number; y: number } | null {
     if (this.canStand(x, y)) return { x, y };
-    const tile = 16 * SCALE;
+    const tile = this.tilePx;
     const tx = Math.floor(x / tile);
     const ty = Math.floor(y / tile);
     for (let r = 1; r <= 6; r++) {
@@ -753,7 +756,7 @@ export class WorldScene extends Phaser.Scene {
       .filter((d) => (this.buddy.y < d.y) !== (target.y < d.y))
       .sort((a, b) => (southbound ? a.y - b.y : b.y - a.y));
     for (const d of crossed) {
-      const lead = 16 * SCALE * 2.5; // far enough to land on the banks, not mid-crossing
+      const lead = this.tilePx * 2.5; // far enough to land on the banks, not mid-crossing
       route.push(...(southbound
         ? [[d.x, d.y - lead], [d.x, d.y + lead]]
         : [[d.x, d.y + lead], [d.x, d.y - lead]]));

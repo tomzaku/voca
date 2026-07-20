@@ -22,9 +22,9 @@ export interface WorldMapSource {
 export function defaultMap(): WorldMapSource {
   const base = import.meta.env.BASE_URL;
   return {
-    key: 'village',
+    key: 'world',
     tmjUrl: `${base}game/maps/village.tmj`,
-    tilesetUrl: `${base}game/maps/tileset-village.png`,
-    tilesetName: 'village',
+    tilesetUrl: `${base}game/maps/tileset-world.png`,
+    tilesetName: 'world',
   };
 }

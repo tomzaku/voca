@@ -100,8 +100,9 @@ export function buddySpec(look: BuddyLook): BuddySpec {
     key: PLAYER_KEY,
     anims,
     rates: { idle: 5, run: 10 },
-    // The player is 54px tall next to 32px tiles — scale it to about 1.5 tiles.
-    baseScale: 0.7,
+    // The scene multiplies this by (1.3 + stage/10), so 1/1.3 renders the art
+    // pixel-perfect at stage 0 — 54px tall against 32px tiles, as drawn.
+    baseScale: 1 / 1.3,
     load: (scene) => {
       if (scene.textures.exists(PLAYER_KEY)) return;
       scene.load.spritesheet(PLAYER_KEY, `${import.meta.env.BASE_URL}game/buddy/player.png`, {
