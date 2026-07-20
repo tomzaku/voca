@@ -6,6 +6,8 @@ import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
 import { QUESTION_TYPE_META, type QuestionType, type QuizConfig } from '../lib/quizConfig';
 import type { MiniWordData } from '../lib/quizShare';
+import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useAuth } from '../hooks/useAuth';
 import { MatchBoard, type MatchPair } from './MatchBoard';
 
 /** Single-word question types (everything except the multi-word 'match'). */
@@ -50,6 +52,11 @@ function escapeRegExp(s: string): string {
 
 function fmtTime(sec: number): string {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+}
+
+/** Map a question type to the answer-log label the progress store understands. */
+function viaFor(type: McqType): 'choice' | 'gap' | 'listen' {
+  return type === 'sentence' ? 'gap' : type === 'listen' ? 'listen' : 'choice';
 }
 
 function blankSentence(sentence: string, word: string): string | null {
@@ -111,17 +118,23 @@ function buildQuiz(config: QuizConfig, loaded: string[], dataMap: Record<string,
  * shared tests. Reports the result once via `onFinish`; navigation on the score
  * screen is driven by the callbacks the parent supplies.
  */
-export function QuizRunner({ config, preloadedData, onExit, onReplay, onPickWords, onFinish, finishLabel = 'Done' }: {
+export function QuizRunner({ config, preloadedData, recordProgress = false, onExit, onReplay, onPickWords, onFinish, finishLabel = 'Done' }: {
   config: QuizConfig;
   /** Word data snapshot (shared quizzes). When given, no word-service calls are
    *  made — so anonymous students can take the quiz. Omit for live practice. */
   preloadedData?: Record<string, MiniWordData>;
+  /** Feed answers into the learner's own SRS/progress (bookmark & collection
+   *  practice). Off for shared tests — a student's attempt shouldn't rewrite
+   *  their personal progress. */
+  recordProgress?: boolean;
   onExit: () => void;
   onReplay?: () => void;
   onPickWords?: () => void;
   onFinish?: (r: QuizResult) => void;
   finishLabel?: string;
 }) {
+  const markWord = useVocabularyStore((s) => s.markWord);
+  const { user } = useAuth();
   const [phase, setPhase] = useState<'loading' | 'playing' | 'finished'>('loading');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [current, setCurrent] = useState(0);
@@ -225,6 +238,7 @@ export function QuizRunner({ config, preloadedData, onExit, onReplay, onPickWord
     const correct = option === q.word;
     if (correct) setScore((s) => s + 1);
     setAnswers((a) => [...a, { kind: 'mcq', question: q, picked: option, correct }]);
+    if (recordProgress) markWord(q.word, correct ? 'known' : 'skipped', user?.id, 0, viaFor(q.type));
     if (revealFeedback) {
       correct ? playCorrect() : playWrong();
       setTimeout(goNext, 1400);
@@ -240,6 +254,9 @@ export function QuizRunner({ config, preloadedData, onExit, onReplay, onPickWord
     const correct = mistakes === 0;
     if (correct) setScore((s) => s + 1);
     setAnswers((a) => [...a, { kind: 'match', question: q, links, correct }]);
+    if (recordProgress) {
+      q.pairs.forEach((p) => markWord(p.word, links[p.word] === p.word ? 'known' : 'skipped', user?.id));
+    }
     goNext();
   };
 

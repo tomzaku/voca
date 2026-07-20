@@ -18,19 +18,22 @@ function fmtTime(sec: number): string {
 }
 
 interface Props {
-  bookmarks: string[];
+  /** The word pool this quiz draws from (bookmarks, a collection, …). */
+  words: string[];
   onBack: () => void;
+  /** Feed live practice answers into the learner's SRS (collection practice). */
+  recordProgress?: boolean;
 }
 
-export function BookmarkGame({ bookmarks, onBack }: Props) {
+export function BookmarkGame({ words, onBack, recordProgress = false }: Props) {
   const { user } = useAuth();
 
   // ── Config (the settings) ──
-  const [chosen, setChosen] = useState<Set<string>>(() => new Set(bookmarks));
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(words));
   const [qTypes, setQTypes] = useState<Set<QuestionType>>(() => new Set(QUESTION_TYPES));
   const [reveal, setReveal] = useState<RevealMode>('end');
   const [autoTime, setAutoTime] = useState(true);
-  const [durationSec, setDurationSec] = useState(() => bookmarks.length * SECONDS_PER_WORD);
+  const [durationSec, setDurationSec] = useState(() => words.length * SECONDS_PER_WORD);
 
   // ── Run state ──
   const [runConfig, setRunConfig] = useState<QuizConfig | null>(null);
@@ -75,6 +78,7 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
       <QuizRunner
         key={runKey}
         config={runConfig}
+        recordProgress={recordProgress}
         onExit={onBack}
         onPickWords={() => setRunConfig(null)}
         onReplay={() => setRunKey((k) => k + 1)}
@@ -197,17 +201,17 @@ export function BookmarkGame({ bookmarks, onBack }: Props) {
       {/* ── Words ── */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider">
-          Words <span className="text-accent-cyan">{chosen.size}</span><span className="text-text-muted">/{bookmarks.length}</span>
+          Words <span className="text-accent-cyan">{chosen.size}</span><span className="text-text-muted">/{words.length}</span>
         </h2>
         <div className="flex gap-2">
-          <button onClick={() => setChosen(new Set(bookmarks))} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors">All</button>
+          <button onClick={() => setChosen(new Set(words))} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors">All</button>
           <span className="text-border">·</span>
           <button onClick={() => setChosen(new Set())} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors">None</button>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-6">
-        {bookmarks.map((word) => {
+        {words.map((word) => {
           const on = chosen.has(word);
           return (
             <button

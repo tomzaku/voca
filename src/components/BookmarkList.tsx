@@ -263,7 +263,7 @@ export function BookmarkList() {
   };
 
   if (mode === 'quiz') {
-    return <BookmarkGame bookmarks={gameWords} onBack={() => setMode('list')} />;
+    return <BookmarkGame words={gameWords} onBack={() => setMode('list')} />;
   }
 
   if (mode === 'paragraph') {
