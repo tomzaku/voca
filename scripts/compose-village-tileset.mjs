@@ -86,6 +86,18 @@ const PICKS = {
   sprout2: ['TilesetDesert.png', 14, 11, 1, 1, false],
   pot1: ['TilesetDesert.png', 6, 11, 1, 1, false],
   pot2: ['TilesetDesert.png', 7, 11, 1, 1, false],
+
+  // ── snow highlands / the learning district (TilesetFloor snow block,
+  //    TilesetNature's white trees, TilesetTowers' little study towers) ──
+  snow1: ['TilesetFloor.png', 0, 19, 1, 1, false],
+  snow2: ['TilesetFloor.png', 1, 19, 1, 1, false],
+  snow3: ['TilesetFloor.png', 2, 19, 1, 1, false],
+  snow4: ['TilesetFloor.png', 3, 19, 1, 1, false],
+  snow_path: ['TilesetFloor.png', 1, 15, 1, 1, false], // packed snow, the road
+  snow_tree: ['TilesetNature.png', 10, 0, 2, 2, true],
+  snow_tree_big: ['TilesetNature.png', 8, 2, 4, 3, true],
+  tower_a: ['TilesetTowers.png', 12, 4, 2, 2, true],
+  tower_b: ['TilesetTowers.png', 14, 4, 2, 2, true],
 };
 
 // Tile animations (standard Tiled format; Phaser plays them natively).

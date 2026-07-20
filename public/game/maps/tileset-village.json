@@ -1,6 +1,6 @@
 {
   "columns": 16,
-  "tilecount": 256,
+  "tilecount": 304,
   "tileSize": 16,
   "tiles": {
     "grass1": {
@@ -373,6 +373,69 @@
       "w": 1,
       "h": 1,
       "collides": false
+    },
+    "snow1": {
+      "x": 7,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "snow2": {
+      "x": 8,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "snow3": {
+      "x": 9,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "snow4": {
+      "x": 10,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "snow_path": {
+      "x": 11,
+      "y": 14,
+      "w": 1,
+      "h": 1,
+      "collides": false
+    },
+    "snow_tree": {
+      "x": 12,
+      "y": 14,
+      "w": 2,
+      "h": 2,
+      "collides": true
+    },
+    "snow_tree_big": {
+      "x": 0,
+      "y": 16,
+      "w": 4,
+      "h": 3,
+      "collides": true
+    },
+    "tower_a": {
+      "x": 4,
+      "y": 16,
+      "w": 2,
+      "h": 2,
+      "collides": true
+    },
+    "tower_b": {
+      "x": 6,
+      "y": 16,
+      "w": 2,
+      "h": 2,
+      "collides": true
     }
   },
   "animations": {

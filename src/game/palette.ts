@@ -76,6 +76,15 @@ export function worldPalette(): WorldPalette {
             base: 0x4a3b26, wall: 0x2c2114, patch: 0xffd98a, patchAlpha: 0.05,
             dotRgba: 'rgba(255, 215, 150, 0.10)', labelCss: orange,
           },
+      snow: light
+        ? {
+            base: 0xeceaf2, wall: 0xbcb8cc, patch: 0xffffff, patchAlpha: 0.35,
+            dotRgba: 'rgba(120, 130, 170, 0.16)', labelCss: cyan,
+          }
+        : {
+            base: 0x2c3050, wall: 0x1a1d33, patch: 0xdfe6ff, patchAlpha: 0.06,
+            dotRgba: 'rgba(210, 225, 255, 0.12)', labelCss: cyan,
+          },
     },
     card: hex(card),
     cardCss: card,

@@ -311,13 +311,15 @@ export class WorldScene extends Phaser.Scene {
         case 'door':
           meta.doors.push({ x, y });
           break;
-        case 'label':
+        case 'label': {
+          const t = get('theme');
           meta.labels.push({
             x, y,
             text: String(get('text') ?? ''),
-            theme: get('theme') === 'desert' ? 'desert' : 'forest',
+            theme: t === 'desert' ? 'desert' : t === 'snow' ? 'snow' : 'forest',
           });
           break;
+        }
         case 'station': {
           const raw = get('region');
           const region = raw === 'system' ? 'system' : raw === 'feature' ? 'feature' : 'public';
@@ -508,18 +510,16 @@ export class WorldScene extends Phaser.Scene {
       .setVisible(false);
     root.add(ring);
 
-    // Shadow + a little house whose sign is the feature emoji.
-    root.add(this.add.ellipse(0, 2, 36, 9, 0x000000, 0.25));
-    const body = this.add.graphics();
-    body.fillStyle(this.pal.card, 1);
-    body.lineStyle(2.5, poi.color, 1);
-    body.fillRoundedRect(-22, -40, 44, 42, 8);
-    body.strokeRoundedRect(-22, -40, 44, 42, 8);
-    root.add(body);
+    // The map paints the study tower itself — this is just the sign at its door.
+    root.add(this.add.ellipse(0, 2, 30, 8, 0x000000, 0.25));
+    const disc = this.add
+      .circle(0, -16, 15, poi.color, 0.18)
+      .setStrokeStyle(2.5, poi.color, 0.95);
+    root.add(disc);
     root.add(
       this.add
-        .text(0, -19, f.emoji, { fontFamily: FONT, fontSize: '22px', resolution: this.args.dpr })
-        .setOrigin(0.5),
+        .text(0, -16, f.emoji, { fontFamily: FONT, fontSize: '15px', resolution: this.args.dpr })
+        .setOrigin(0.5, 0.55),
     );
 
     root.add(
@@ -640,16 +640,19 @@ export class WorldScene extends Phaser.Scene {
     const target = this.clampToWalkable(x, y);
     if (!target) return;
     const route: number[][] = [];
-    // If a door's horizontal wall line separates buddy and target, pass
-    // through it: approach above/below the door point, then continue.
-    for (const d of this.meta.doors) {
-      if ((this.buddy.y < d.y) !== (target.y < d.y)) {
-        const lead = 16 * SCALE * 2.5; // far enough to land on the banks, not mid-crossing
-        const near: number[][] = this.buddy.y < d.y
-          ? [[d.x, d.y - lead], [d.x, d.y + lead]]
-          : [[d.x, d.y + lead], [d.x, d.y - lead]];
-        route.push(...near);
-      }
+    // Every door whose horizontal wall line separates buddy and target has to
+    // be crossed. Walk them in travel order — with three areas a trip can span
+    // two rivers, and heading for the far door first would run into the near
+    // one's wall.
+    const southbound = target.y > this.buddy.y;
+    const crossed = this.meta.doors
+      .filter((d) => (this.buddy.y < d.y) !== (target.y < d.y))
+      .sort((a, b) => (southbound ? a.y - b.y : b.y - a.y));
+    for (const d of crossed) {
+      const lead = 16 * SCALE * 2.5; // far enough to land on the banks, not mid-crossing
+      route.push(...(southbound
+        ? [[d.x, d.y - lead], [d.x, d.y + lead]]
+        : [[d.x, d.y + lead], [d.x, d.y - lead]]));
     }
     route.push([target.x, target.y]);
     this.route = route;
