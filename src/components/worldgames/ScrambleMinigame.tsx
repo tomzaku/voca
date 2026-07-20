@@ -84,7 +84,7 @@ export function ScrambleMinigame({ words }: { words: string[] }) {
   const skip = () => { setStreak(0); setRound((r) => r + 1); };
 
   return (
-    <div className="rounded-2xl border-2 border-border bg-bg-card shadow-2xl p-5">
+    <div>
       <div className="flex items-center justify-between gap-2 mb-1">
         <h2 className="font-display font-bold text-text-primary flex items-center gap-2">
           <Icon icon="lucide:shuffle" className="text-accent-cyan" />

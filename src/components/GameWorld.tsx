@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Phaser from 'phaser';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
@@ -22,6 +22,9 @@ interface Props {
   /** True while an in-game panel covers the world: freeze the buddy's controls
    *  so the panel's own keyboard (typing, space, arrows) isn't swallowed. */
   paused?: boolean;
+  /** The building you stepped into, shown as a popup *inside* the world frame —
+   *  the map stays visible behind it, so you never leave the game. */
+  panel?: { feature: WorldFeature; content: ReactNode; onClose: () => void } | null;
   onStudy: (s: WorldStation) => void;
   onPreview: (s: WorldStation) => void;
   onQuiz: (s: WorldStation) => void;
@@ -49,7 +52,7 @@ const KIND_META: Record<WorldStation['kind'], { label: string; icon: string; col
  * collection or an app-page building.
  */
 export function GameWorld({
-  stations, features, onOpenFeature, paused = false,
+  stations, features, onOpenFeature, paused = false, panel = null,
   onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
 }: Props) {
   const animalId = useCompanion((s) => s.animalId);
@@ -295,7 +298,7 @@ export function GameWorld({
       )}
 
       {/* ── Feature building card (the buddy reached an app page) ── */}
-      {nearestFeature && (
+      {!panel && nearestFeature && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 border-accent-yellow bg-bg-card shadow-2xl p-3 animate-fade-in">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-accent-yellow/15 text-accent-yellow">
@@ -317,7 +320,7 @@ export function GameWorld({
       )}
 
       {/* ── Build card (the buddy reached the empty plot) ── */}
-      {atBuildSpot && (
+      {!panel && atBuildSpot && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 border-accent-cyan bg-bg-card shadow-2xl p-3 animate-fade-in">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-accent-cyan/15 text-accent-cyan">
@@ -341,7 +344,7 @@ export function GameWorld({
       )}
 
       {/* ── Station card (opens when the buddy is close to a collection) ── */}
-      {nearest && (
+      {!panel && nearest && (
         <div
           className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 bg-bg-card shadow-2xl p-3 animate-fade-in"
           style={{ borderColor: KIND_META[nearest.kind].color }}
@@ -438,6 +441,29 @@ export function GameWorld({
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Inside a building: its game plays in a popup over the map, in the
+             same card style as the world's other cards. ── */}
+      {panel && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center p-3 bg-bg-primary/70 backdrop-blur-[2px] animate-fade-in">
+          <div className="w-full max-w-sm max-h-full flex flex-col rounded-2xl border-2 border-accent-yellow bg-bg-card shadow-2xl overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 border-b-2 border-border shrink-0">
+              <span className="text-lg leading-none">{panel.feature.emoji}</span>
+              <span className="flex-1 min-w-0 truncate font-display font-bold text-sm text-text-primary">
+                {panel.feature.name}
+              </span>
+              <button
+                onClick={panel.onClose}
+                title="Leave the building"
+                className="w-7 h-7 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary transition-colors"
+              >
+                <Icon icon="lucide:x" className="text-sm" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">{panel.content}</div>
           </div>
         </div>
       )}

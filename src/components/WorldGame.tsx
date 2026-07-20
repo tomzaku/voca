@@ -20,9 +20,8 @@ const GameWorld = lazy(() => import('./GameWorld').then((m) => ({ default: m.Gam
 /** Placeholder for buildings whose in-game activity isn't built yet. */
 function ComingSoon({ feature }: { feature: WorldFeature }) {
   return (
-    <div className="rounded-2xl border-2 border-dashed border-border bg-bg-card p-8 text-center">
+    <div className="py-6 text-center">
       <div className="text-4xl mb-3">{feature.emoji}</div>
-      <h2 className="font-display font-bold text-text-primary mb-1">{feature.name}</h2>
       <p className="text-sm text-text-muted">This building's game is still under construction.</p>
     </div>
   );
@@ -122,6 +121,13 @@ export function WorldGame() {
           features={WORLD_FEATURES}
           onOpenFeature={setFeature}
           paused={feature !== null}
+          panel={feature && {
+            feature,
+            onClose: () => setFeature(null),
+            content: feature.id === 'learn' ? <ScrambleMinigame words={wordPool} />
+              : feature.id === 'quizzes' ? <QuizArena words={wordPool} />
+              : <ComingSoon feature={feature} />,
+          }}
           onStudy={study}
           onPreview={(s) => setPreview({ name: s.name, all: s.words, sample: sampleWords(s.words) })}
           onQuiz={(s) => setQuiz({ name: s.name, words: s.words })}
@@ -132,35 +138,6 @@ export function WorldGame() {
           onDelete={remove}
         />
       </Suspense>
-
-      {/* Feature building opened: its page fills the screen over the world, with
-          a way back. We stay on /world the whole time — it's one game. */}
-      {feature && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-bg-primary animate-fade-in">
-          <div className="flex items-center gap-2 px-4 h-14 shrink-0 border-b-2 border-border bg-bg-secondary">
-            <span className="text-xl leading-none">{feature.emoji}</span>
-            <span className="font-display font-bold text-text-primary">{feature.name}</span>
-            <button
-              onClick={() => setFeature(null)}
-              className="ml-auto btn-3d flex items-center gap-1.5 px-3 py-1.5 bg-bg-card text-text-secondary text-sm font-bold"
-            >
-              <Icon icon="lucide:arrow-left" className="text-sm" />
-              Back to world
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto flex items-start sm:items-center justify-center p-4">
-            <div className="w-full max-w-md">
-              {feature.id === 'learn' ? (
-                <ScrambleMinigame words={wordPool} />
-              ) : feature.id === 'quizzes' ? (
-                <QuizArena words={wordPool} />
-              ) : (
-                <ComingSoon feature={feature} />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Create / edit collection — a modal over the map. */}
       {form && (
