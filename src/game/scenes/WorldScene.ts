@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
-import { CREATE_STATION_ID, WORLD_EVENTS, type ThemeId, type WorldStation } from '../types';
-import { featureNodeId, type WorldFeature } from '../features';
+import {
+  CREATE_STATION_ID, WORLD_EVENTS,
+  type ThemeId, type WorldArea, type WorldSnapshot, type WorldStation,
+} from '../types';
+import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../features';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
@@ -86,6 +89,13 @@ export class WorldScene extends Phaser.Scene {
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
+
+  /** The map's areas (split by the doors) and which one the buddy is in. */
+  private areas: WorldArea[] = [];
+  private areaIndex = 0;
+  /** True while a gate fade is running, so we don't retrigger mid-transition. */
+  private crossing = false;
+  private lastMoveEmit = 0;
 
   constructor() {
     super(WorldScene.KEY);
@@ -192,11 +202,99 @@ export class WorldScene extends Phaser.Scene {
     cam.resetFX();
     cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.buddy.setPosition(spot.x, spot.y);
+      // Fast travel can land in another area — move the camera's room with it.
+      this.enterArea(this.areaIndexFor(spot.y));
       // Re-follow to snap the camera instead of lerping across the map.
       cam.startFollow(this.buddy, true, 0.12, 0.12);
       cam.fadeIn(200, r, g, b);
     });
     cam.fadeOut(150, r, g, b);
+  }
+
+  // ── Areas & gates ──
+
+  /** Split the map into the strips between doors, named by the label inside. */
+  private computeAreas(): WorldArea[] {
+    const cuts = this.meta.doors.map((d) => d.y).sort((a, b) => a - b);
+    const edges = [0, ...cuts, this.worldH];
+    const areas: WorldArea[] = [];
+    for (let i = 0; i < edges.length - 1; i++) {
+      const top = edges[i];
+      const bottom = edges[i + 1];
+      const label = this.meta.labels.find((l) => l.y >= top && l.y < bottom);
+      areas.push({ name: label?.text ?? `Area ${i + 1}`, theme: label?.theme ?? 'forest', top, bottom });
+    }
+    return areas;
+  }
+
+  private areaIndexFor(y: number): number {
+    const i = this.areas.findIndex((a) => y >= a.top && y < a.bottom);
+    if (i !== -1) return i;
+    return y < 0 ? 0 : Math.max(0, this.areas.length - 1);
+  }
+
+  private applyCameraBounds() {
+    const a = this.areas[this.areaIndex];
+    if (a) this.cameras.main.setBounds(0, a.top, this.worldW, a.bottom - a.top);
+    else this.cameras.main.setBounds(0, 0, this.worldW, this.worldH);
+  }
+
+  private enterArea(index: number) {
+    const changed = index !== this.areaIndex;
+    this.areaIndex = index;
+    this.applyCameraBounds();
+    const area = this.areas[index];
+    // Only announce a genuinely new area — fast travel inside one shouldn't.
+    if (area && changed) this.game.events.emit(WORLD_EVENTS.area, { index, area });
+  }
+
+  /** Step through the gate between two areas: fade, place the buddy just inside
+   *  the new one, fade back in. */
+  private crossGate(next: number) {
+    const south = next > this.areaIndex;
+    const boundary = south ? this.areas[this.areaIndex].bottom : this.areas[this.areaIndex].top;
+    const door = this.meta.doors.reduce<{ x: number; y: number } | null>(
+      (best, d) => (!best || Math.abs(d.y - boundary) < Math.abs(best.y - boundary) ? d : best),
+      null,
+    );
+    if (!door) { this.enterArea(next); return; }
+
+    this.crossing = true;
+    this.route = [];
+    const cam = this.cameras.main;
+    const [r, g, b] = this.pal.light ? [255, 255, 255] : [0, 0, 0];
+    cam.off(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE);
+    cam.resetFX();
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      const lead = 16 * SCALE * 3; // land clear of the crossing, not on it
+      const spot = this.clampToWalkable(door.x, south ? door.y + lead : door.y - lead)
+        ?? { x: door.x, y: south ? door.y + lead : door.y - lead };
+      this.buddy.setPosition(spot.x, spot.y);
+      this.enterArea(next);
+      cam.startFollow(this.buddy, true, 0.12, 0.12);
+      cam.fadeIn(220, r, g, b);
+      this.crossing = false;
+    });
+    cam.fadeOut(180, r, g, b);
+  }
+
+  /** Everything the React minimap needs. Positions are world pixels. */
+  snapshot(): WorldSnapshot {
+    return {
+      worldW: this.worldW,
+      worldH: this.worldH,
+      areas: this.areas,
+      nodes: this.nodes.map((n) => ({
+        id: n.station.id,
+        x: n.station.x,
+        y: n.station.y,
+        kind: n.station.id === CREATE_STATION_ID
+          ? 'create'
+          : n.station.id.startsWith(FEATURE_ID_PREFIX)
+            ? 'feature'
+            : n.station.kind,
+      })),
+    };
   }
 
   // ── World construction ──
@@ -279,7 +377,11 @@ export class WorldScene extends Phaser.Scene {
     const free = this.meta.slots.public[pub.length];
     if (free) this.addCreateSpot(layer, free.x, free.y);
 
-    this.cameras.main.setBounds(0, 0, this.worldW, this.worldH);
+    // Each area is its own "room": the camera is locked to the strip the buddy
+    // is standing in, so crossing a gate reads as arriving somewhere new.
+    this.areas = this.computeAreas();
+    this.areaIndex = this.areaIndexFor(this.buddy ? this.buddy.y : this.meta.spawn.y);
+    this.applyCameraBounds();
     this.cameras.main.setBackgroundColor(this.pal.void);
 
     // A rebuild can move walls under the buddy — reel it back in if so.
@@ -603,6 +705,8 @@ export class WorldScene extends Phaser.Scene {
   private applyAnim(moving: boolean) {
     const key = `${this.spec.key}-${moving ? 'run' : 'idle'}-${this.facing}`;
     this.sprite.play(key, true);
+    // Single-facing art (the pack's one creature) fakes left/right by mirroring.
+    this.sprite.setFlipX(this.spec.flipX?.(this.facing) ?? false);
   }
 
   // ── Movement ──
@@ -658,7 +762,7 @@ export class WorldScene extends Phaser.Scene {
     this.route = route;
   }
 
-  update(_time: number, dtMs: number) {
+  update(time: number, dtMs: number) {
     if (!this.ready) return;
     const dt = Math.min(dtMs / 1000, 0.05);
 
@@ -701,6 +805,20 @@ export class WorldScene extends Phaser.Scene {
         : (vy > 0 ? 'down' : 'up');
     }
     this.applyAnim(moving);
+
+    // ── Gates ── stepping over a door's line carries you into the next area.
+    if (!this.crossing && this.areas.length > 1) {
+      const idx = this.areaIndexFor(this.buddy.y);
+      if (idx !== this.areaIndex) this.crossGate(idx);
+    }
+
+    // Feed the minimap (throttled — it only needs a rough position).
+    if (time - this.lastMoveEmit > 100) {
+      this.lastMoveEmit = time;
+      this.game.events.emit(WORLD_EVENTS.moved, {
+        x: this.buddy.x, y: this.buddy.y, areaIndex: this.areaIndex,
+      });
+    }
 
     const hasRoute = this.route.length > 0;
     this.targetMark.setVisible(hasRoute);

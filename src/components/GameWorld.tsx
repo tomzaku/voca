@@ -8,7 +8,10 @@ import { useVocabularyStore } from '../hooks/useVocabulary';
 import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, type WorldSceneData } from '../game/scenes/WorldScene';
 import type { BuddyLook } from '../game/textures';
-import { CREATE_STATION_ID, WORLD_EVENTS, type WorldStation } from '../game/types';
+import {
+  CREATE_STATION_ID, WORLD_EVENTS,
+  type WorldArea, type WorldSnapshot, type WorldStation,
+} from '../game/types';
 import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../game/features';
 
 export type { WorldStation } from '../game/types';
@@ -37,6 +40,16 @@ interface Props {
 }
 
 const MIN_H = 440; // viewport height floor
+const MINIMAP_W = 96; // px
+
+/** Minimap dot colour per node kind. */
+const DOT: Record<string, string> = {
+  mine: 'var(--color-accent-cyan)',
+  joined: 'var(--color-accent-purple)',
+  level: 'var(--color-accent-green)',
+  feature: 'var(--color-accent-yellow)',
+  create: 'var(--color-text-muted)',
+};
 
 const KIND_META: Record<WorldStation['kind'], { label: string; icon: string; color: string }> = {
   mine:   { label: 'My collection', icon: 'lucide:user',           color: 'var(--color-accent-cyan)' },
@@ -83,6 +96,19 @@ export function GameWorld({
   // ── Owner ⋯ menu on the station card ──
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [nearestId]);
+
+  // ── Minimap + gate arrival card ──
+  const [snap, setSnap] = useState<WorldSnapshot | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number; areaIndex: number } | null>(null);
+  const [arrival, setArrival] = useState<{ name: string; key: number } | null>(null);
+  const arrivalKey = useRef(0);
+
+  // The arrival card announces the area, then fades.
+  useEffect(() => {
+    if (!arrival) return;
+    const t = setTimeout(() => setArrival(null), 1700);
+    return () => clearTimeout(t);
+  }, [arrival]);
 
   const travelTo = (id: string) => {
     (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.travelTo(id);
@@ -144,7 +170,14 @@ export function GameWorld({
     });
     game.scene.add(WorldScene.KEY, WorldScene, true, data);
     const onNear = (id: string | null) => setNearestId(id);
+    const onMoved = (p: { x: number; y: number; areaIndex: number }) => setPos(p);
+    const onArea = ({ area }: { index: number; area: WorldArea }) => {
+      arrivalKey.current += 1;
+      setArrival({ name: area.name, key: arrivalKey.current });
+    };
     game.events.on(WORLD_EVENTS.near, onNear);
+    game.events.on(WORLD_EVENTS.moved, onMoved);
+    game.events.on(WORLD_EVENTS.area, onArea);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
     });
@@ -154,16 +187,26 @@ export function GameWorld({
       gameRef.current = null;
       ro.disconnect();
       game.events.off(WORLD_EVENTS.near, onNear);
+      game.events.off(WORLD_EVENTS.moved, onMoved);
+      game.events.off(WORLD_EVENTS.area, onArea);
       game.destroy(true);
     };
   }, [animal.id, animal.name, stage, buddyName, avatar]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
 
-  // Push station-data changes into the running scene.
+  // Push station-data changes into the running scene, then re-read the minimap.
   useEffect(() => {
-    scene()?.setStations(stations);
+    const s = scene();
+    s?.setStations(stations);
+    if (s) setSnap(s.snapshot());
   }, [stations]);
+
+  // The first position report means the scene is live — grab the layout then.
+  useEffect(() => {
+    if (!pos || snap) return;
+    setSnap(scene()?.snapshot() ?? null);
+  }, [pos, snap]);
 
   // Follow theme switches (the scene resolves colors from CSS variables).
   useEffect(() => {
@@ -295,6 +338,46 @@ export function GameWorld({
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Minimap ── the area you're in, its buildings, and you ── */}
+      {!panel && snap && pos && (() => {
+        const area = snap.areas[pos.areaIndex];
+        if (!area) return null;
+        const h = area.bottom - area.top;
+        const height = Math.max(28, Math.round((MINIMAP_W * h) / snap.worldW));
+        const here = snap.nodes.filter((n) => n.y >= area.top && n.y < area.bottom);
+        return (
+          <div className="absolute top-12 left-3 z-20 rounded-xl border-2 border-border bg-bg-card/85 backdrop-blur-sm p-1.5 shadow-lg pointer-events-none">
+            <svg
+              width={MINIMAP_W}
+              height={height}
+              viewBox={`0 ${area.top} ${snap.worldW} ${h}`}
+              preserveAspectRatio="none"
+              className="block rounded"
+              style={{ background: 'var(--color-bg-tertiary)' }}
+            >
+              {here.map((n) => (
+                <circle key={n.id} cx={n.x} cy={n.y} r={38} fill={DOT[n.kind] ?? DOT.create} />
+              ))}
+              <circle cx={pos.x} cy={pos.y} r={52} fill="var(--color-accent-pink)" stroke="white" strokeWidth={16} />
+            </svg>
+            <p className="mt-1 text-center text-[9px] font-bold uppercase tracking-wider text-text-muted leading-none">
+              {area.name}
+            </p>
+          </div>
+        );
+      })()}
+
+      {/* ── Gate arrival card ── */}
+      {arrival && (
+        <div key={arrival.key} className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
+          <div className="px-6 py-3 rounded-2xl border-2 border-accent-yellow bg-bg-card/90 backdrop-blur-sm shadow-2xl animate-pop-in">
+            <p className="font-display font-bold text-lg text-text-primary tracking-wide text-center">
+              {arrival.name}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* ── Feature building card (the buddy reached an app page) ── */}

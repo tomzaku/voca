@@ -12,22 +12,22 @@ import {
   avatarKey, avatarLayerNames, avatarLayerUrl, composeAvatar, type AvatarConfig,
 } from '../lib/avatar';
 
-export const BUDDY_FRAME = 32;
 export type BuddyDir = 'down' | 'up' | 'left' | 'right';
+
+// ── The world buddy ── The epic rpg pack's four-directional player, cropped and
+// packed into one strip by scripts/compose-buddy.mjs: frames 0–15 are the idles
+// (4 per direction) and 16–31 the walks, both in PLAYER_DIR_ROW order.
+const PLAYER_KEY = 'buddy-player';
+const PLAYER_FRAME = { w: 42, h: 54 };
+const PLAYER_PER_DIR = 4;
+const PLAYER_WALK_OFFSET = 16;
+const PLAYER_DIR_ROW: Record<BuddyDir, number> = { down: 0, left: 1, up: 2, right: 3 };
 
 /** What walks the map: the companion animal, or the customizable main
  *  character (base body + cloth/hair recolor + hat, see src/lib/avatar.ts). */
 export type BuddyLook =
   | { kind: 'animal'; id: AnimalId }
   | { kind: 'avatar'; config: AvatarConfig };
-
-/** [first, last] frame index per animation, from the pack's Aseprite tags. */
-export const BUDDY_ANIMS: Record<BuddyDir, { idle: [number, number]; run: [number, number] }> = {
-  down:  { idle: [0, 3],   run: [20, 27] },
-  right: { idle: [4, 7],   run: [36, 43] },
-  left:  { idle: [8, 11],  run: [28, 35] },
-  up:    { idle: [12, 15], run: [44, 51] },
-};
 
 /** Everything the scene needs to load and animate a buddy look. */
 export interface BuddySpec {
@@ -37,13 +37,12 @@ export interface BuddySpec {
   rates: { idle: number; run: number };
   /** Multiplier that puts this sheet at the animals' on-screen size. */
   baseScale: number;
+  /** Mirror the sprite for a facing (single-facing art fakes left/right). */
+  flipX?: (dir: BuddyDir) => boolean;
   load: (scene: Phaser.Scene) => void;
   /** Post-load step (create()): builds textures that need the loaded images. */
   prepare?: (scene: Phaser.Scene) => void;
 }
-
-const range = (from: number, to: number) =>
-  Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
 export function buddySpec(look: BuddyLook): BuddySpec {
   if (look.kind === 'avatar') {
@@ -89,21 +88,25 @@ export function buddySpec(look: BuddyLook): BuddySpec {
     };
   }
 
-  const key = `buddy-${look.id}`;
+  // The pack ships one character, so every companion animal walks as the player.
+  // It has real per-direction art, so no mirroring is needed.
   const anims = {} as BuddySpec['anims'];
-  for (const [dir, r] of Object.entries(BUDDY_ANIMS) as [BuddyDir, (typeof BUDDY_ANIMS)['down']][]) {
-    anims[dir] = { idle: range(...r.idle), run: range(...r.run) };
+  for (const [dir, row] of Object.entries(PLAYER_DIR_ROW) as [BuddyDir, number][]) {
+    const first = row * PLAYER_PER_DIR;
+    const frames = Array.from({ length: PLAYER_PER_DIR }, (_, i) => first + i);
+    anims[dir] = { idle: frames, run: frames.map((f) => f + PLAYER_WALK_OFFSET) };
   }
   return {
-    key,
+    key: PLAYER_KEY,
     anims,
-    rates: { idle: 5, run: 14 },
-    baseScale: 1,
+    rates: { idle: 5, run: 10 },
+    // The player is 54px tall next to 32px tiles — scale it to about 1.5 tiles.
+    baseScale: 0.7,
     load: (scene) => {
-      if (scene.textures.exists(key)) return;
-      scene.load.spritesheet(key, `${import.meta.env.BASE_URL}game/animals/${look.id}.png`, {
-        frameWidth: BUDDY_FRAME,
-        frameHeight: BUDDY_FRAME,
+      if (scene.textures.exists(PLAYER_KEY)) return;
+      scene.load.spritesheet(PLAYER_KEY, `${import.meta.env.BASE_URL}game/buddy/player.png`, {
+        frameWidth: PLAYER_FRAME.w,
+        frameHeight: PLAYER_FRAME.h,
       });
     },
   };
