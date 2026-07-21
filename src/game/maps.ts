@@ -24,7 +24,7 @@ export function defaultMap(): WorldMapSource {
   return {
     key: 'world',
     tmjUrl: `${base}game/maps/village.tmj`,
-    tilesetUrl: `${base}game/maps/tileset-world.png`,
+    tilesetUrl: `${base}game/maps/tileset-village.png`,
     tilesetName: 'world',
   };
 }
