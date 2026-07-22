@@ -4,7 +4,7 @@
 // still gets the words the user is actually incorrect on / has never checked.
 //
 //   POST { words: string[], exclude?: string[], count?: number, mode?: 'learn' | 'quiz',
-//          sources?: { random?: boolean, unseen?: boolean, mistakes?: boolean } }
+//          sources?: { random?: boolean, unseen?: boolean, mistakes?: boolean, smart?: boolean } }
 //   → 200 { words: string[] }   (ordered picks, drawn from the submitted list)
 //
 // 'learn' mirrors the client's pickNextWord: a 50/50 mix of difficult words
@@ -12,7 +12,9 @@
 // words; correctly-answered words only return when their FSRS review is due.
 // 'quiz' mirrors sampleQuizWords: an even round-robin over the pools the user
 // checked — 'mistakes' (>30% wrong), 'unseen' (never answered) and 'random'
-// (anything) — each defaulting to on when omitted.
+// (anything) — each defaulting to on when omitted. sources.smart overrides the
+// pools and runs the learn algorithm instead (Smart word selection on the quiz
+// settings screen).
 // Dismissed (skipped-for-good) words are never picked in either mode.
 //
 // The client falls back to the same algorithm over local state when offline.
@@ -115,6 +117,7 @@ interface QuizSources {
   random: boolean;
   unseen: boolean;
   mistakes: boolean;
+  smart: boolean; // exclusive: learn-style picking instead of the pools above
 }
 
 /** Quiz-mode sample — mirrors the client's sampleQuizWords. */
@@ -180,16 +183,18 @@ Deno.serve(async (req) => {
   const exclude = new Set(asWords(params.exclude, MAX_EXCLUDE).map((w) => w.toLowerCase()));
   const count = Math.min(MAX_COUNT, Math.max(1, Number(params.count) || 1));
   const mode = params.mode === 'quiz' ? 'quiz' : 'learn';
-  // Quiz pools — each defaults to on when omitted (old clients send none).
+  // Quiz pools — each defaults to on when omitted (old clients send none);
+  // 'smart' defaults to off and overrides the pools when set.
   const src = (params.sources ?? {}) as Record<string, unknown>;
   let sources: QuizSources = {
     random: src.random !== false,
     unseen: src.unseen !== false,
     mistakes: src.mistakes !== false,
+    smart: src.smart === true,
   };
   // Nothing checked would pick nothing — treat it as "everything".
-  if (!sources.random && !sources.unseen && !sources.mistakes) {
-    sources = { random: true, unseen: true, mistakes: true };
+  if (!sources.random && !sources.unseen && !sources.mistakes && !sources.smart) {
+    sources = { random: true, unseen: true, mistakes: true, smart: false };
   }
 
   // The user's own progress rows (RLS-scoped client). Keyed lowercase so
@@ -214,7 +219,7 @@ Deno.serve(async (req) => {
 
   const now = Date.now();
   let picks: string[];
-  if (mode === 'quiz') {
+  if (mode === 'quiz' && !sources.smart) {
     picks = sampleQuizWords(words.filter((w) => !exclude.has(w.toLowerCase())), prog, count, sources);
   } else {
     picks = [];

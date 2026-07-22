@@ -14,6 +14,9 @@ export interface QuizSources {
   random: boolean;   // any word in the collection
   unseen: boolean;   // never answered
   mistakes: boolean; // >30% of answers wrong
+  /** Exclusive: pick like the Learn page (difficult/new mix + due reviews)
+   *  instead of drawing from the pools above. Omitted = off. */
+  smart?: boolean;
 }
 
 export interface PickParams {

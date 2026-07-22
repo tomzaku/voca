@@ -84,7 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return;
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.href },
+      options: {
+        redirectTo: window.location.href,
+        // Always show Google's account picker instead of silently reusing
+        // the last-used account, so users can sign in with a different email.
+        queryParams: { prompt: 'select_account' },
+      },
     });
   }, []);
 

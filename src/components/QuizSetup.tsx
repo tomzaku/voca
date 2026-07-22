@@ -8,10 +8,23 @@ import {
   type QuestionType, type QuizConfig, type RevealMode,
 } from '../lib/quizConfig';
 import { createSharedQuiz, quizLink } from '../lib/quizShare';
+import { progressLookup } from '../lib/progress';
+import { sampleSmartWords } from '../lib/smartSample';
+import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { QuizRunner } from './QuizRunner';
 
 const MIN_WORDS = 2;
+
+// Word chips shown before the list collapses behind a "Show more" button —
+// a 900-word collection should not render a 900-chip wall.
+const WORDS_SHOWN_STEP = 60;
+
+// Default for the Smart batch-size input: 30% of the pool, but never below
+// MIN_WORDS. The user can type any size from MIN_WORDS up to the whole pool.
+function smartCount(poolSize: number): number {
+  return Math.max(MIN_WORDS, Math.ceil(poolSize * 0.3));
+}
 
 function fmtTime(sec: number): string {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
@@ -29,7 +42,11 @@ export function QuizSetup({ words, onBack, recordProgress = false }: Props) {
   const { user } = useAuth();
 
   // ── Config (the settings) ──
-  const [chosen, setChosen] = useState<Set<string>>(() => new Set(words));
+  // Start with a smart batch selected (not the whole pool — a 900-word
+  // collection should not default to a 900-question quiz).
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(
+    sampleSmartWords(words, smartCount(words.length), progressLookup(useVocabularyStore.getState().progress)),
+  ));
   const [qTypes, setQTypes] = useState<Set<QuestionType>>(() => new Set(QUESTION_TYPES));
   const [reveal, setReveal] = useState<RevealMode>('end');
   const [autoTime, setAutoTime] = useState(true);
@@ -50,6 +67,27 @@ export function QuizSetup({ words, onBack, recordProgress = false }: Props) {
       return next;
     });
   };
+
+  // Smart select — a batch picked with the Learn rotation: a 50/50 mix of
+  // difficult and never-answered words, then due reviews. The input beside
+  // the button sets the batch size and applies as you type (no submit needed
+  // on mobile); the Smart button reshuffles.
+  const [smartN, setSmartN] = useState(() => smartCount(words.length));
+  const applySmart = (nRaw: number) => {
+    const n = Math.max(MIN_WORDS, Math.min(words.length, nRaw || smartCount(words.length)));
+    if (n !== smartN) setSmartN(n); // reflect the clamp back into the input
+    const prog = progressLookup(useVocabularyStore.getState().progress);
+    const picked = sampleSmartWords(words, n, prog);
+    setChosen(new Set(picked));
+    playSelect();
+    if (picked.length < MIN_WORDS) {
+      toast('You’re all caught up — no words need practice right now.');
+    }
+  };
+  const smartSelect = () => applySmart(smartN);
+
+  // How many word chips are rendered — grows via "Show more" / "Show all".
+  const [shown, setShown] = useState(WORDS_SHOWN_STEP);
 
   const toggleType = (t: QuestionType) => {
     setQTypes((prev) => {
@@ -203,15 +241,45 @@ export function QuizSetup({ words, onBack, recordProgress = false }: Props) {
         <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider">
           Words <span className="text-accent-cyan">{chosen.size}</span><span className="text-text-muted">/{words.length}</span>
         </h2>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={smartSelect}
+            className="text-xs font-bold text-accent-cyan hover:opacity-80 transition-opacity flex items-center gap-1"
+            title="Pick words like the Learn page: difficult and new first, then due reviews. Click again to reshuffle."
+          >
+            <Icon icon="lucide:brain" className="text-sm" /> Smart
+          </button>
+          <input
+            type="number"
+            min={MIN_WORDS}
+            max={words.length}
+            value={smartN || ''}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setSmartN(v);
+              // Apply as you type once the value is usable; out-of-range
+              // values wait for blur/Enter so clamping doesn't fight typing.
+              if (v >= MIN_WORDS && v <= words.length) applySmart(v);
+            }}
+            onBlur={() => {
+              // In-range values already applied on change; only rescue
+              // out-of-range ones here (clamp + apply).
+              if (smartN < MIN_WORDS || smartN > words.length) applySmart(smartN);
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') smartSelect(); }}
+            className="w-12 px-1.5 py-0.5 rounded-md bg-bg-card border border-border text-xs font-bold text-text-primary text-center focus:outline-none focus:border-accent-cyan/50 transition-colors"
+            title="How many words Smart picks"
+            aria-label="Smart batch size"
+          />
+          <span className="text-border">·</span>
           <button onClick={() => setChosen(new Set(words))} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors">All</button>
           <span className="text-border">·</span>
           <button onClick={() => setChosen(new Set())} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors">None</button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6">
-        {words.map((word) => {
+      <div className="flex flex-wrap gap-2 mb-3">
+        {words.slice(0, shown).map((word) => {
           const on = chosen.has(word);
           return (
             <button
@@ -227,6 +295,34 @@ export function QuizSetup({ words, onBack, recordProgress = false }: Props) {
           );
         })}
       </div>
+
+      {words.length > shown && (
+        <div className="flex flex-col items-center gap-1.5 mb-6">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShown((n) => n + WORDS_SHOWN_STEP)}
+              className="px-4 py-2 rounded-full text-xs font-bold bg-bg-card border border-border text-text-secondary hover:text-text-primary hover:border-border-light transition-colors"
+            >
+              Show {Math.min(WORDS_SHOWN_STEP, words.length - shown)} more · {words.length - shown} hidden
+            </button>
+            <button
+              onClick={() => setShown(words.length)}
+              className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors"
+            >
+              Show all
+            </button>
+          </div>
+          {(() => {
+            const hiddenChosen = words.slice(shown).filter((w) => chosen.has(w)).length;
+            return hiddenChosen > 0 && (
+              <span className="text-[11px] font-bold text-text-muted">
+                {hiddenChosen} selected word{hiddenChosen === 1 ? '' : 's'} in the hidden part
+              </span>
+            );
+          })()}
+        </div>
+      )}
+      {words.length <= shown && <div className="mb-3" />}
 
       <div className="flex gap-2">
         <button

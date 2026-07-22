@@ -9,6 +9,7 @@ import { familyForms, maskAnswer } from '../lib/answerMask';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { progressLookup } from '../lib/progress';
+import { sampleSmartWords } from '../lib/smartSample';
 import { fetchPickedWords, type QuizSources } from '../lib/pickApi';
 import { SynAnt } from './SynAnt';
 import type { VocabularyWord } from '../types';
@@ -28,7 +29,10 @@ const COUNTS = [5, 10, 15, 20];
 const DEFAULT_COUNT = 10;
 
 // Word-selection pools (checkboxes on the settings screen, at least one on).
+// 'smart' is exclusive: it picks like the Learn page (difficult/new mix + due
+// reviews), so combining it with the pools would be redundant.
 const SOURCES: { id: keyof QuizSources; label: string; icon: string; description: string }[] = [
+  { id: 'smart',    label: 'Smart',         icon: 'lucide:brain',   description: 'Like the Learn page: difficult and new words first, then due reviews' },
   { id: 'random',   label: 'Random',        icon: 'lucide:shuffle', description: 'Any word from the collection' },
   { id: 'unseen',   label: 'Unknown words', icon: 'lucide:eye-off', description: 'Words you have never answered' },
   { id: 'mistakes', label: 'Often missed',  icon: 'lucide:target',  description: 'Words with more than 30% wrong answers' },
@@ -78,6 +82,7 @@ function shuffle<T>(arr: T[]): T[] {
  */
 function sampleQuizWords(words: string[], count: number, sources: QuizSources): string[] {
   const prog = progressLookup(useVocabularyStore.getState().progress);
+  if (sources.smart) return sampleSmartWords(words, count, prog);
 
   const available = words.filter((w) => prog(w)?.status !== 'dismissed');
   const pools: string[][] = [];
@@ -130,11 +135,16 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
   const [phase, setPhase] = useState<'settings' | 'loading' | 'playing' | 'finished'>('settings');
   const [mode, setMode] = useState<QuizMode>('random');
   const [count, setCount] = useState(DEFAULT_COUNT);
-  const [sources, setSources] = useState<QuizSources>({ random: true, unseen: true, mistakes: true });
+  const [sources, setSources] = useState<QuizSources>({ random: true, unseen: true, mistakes: true, smart: false });
 
   const toggleSource = (key: keyof QuizSources) =>
     setSources((s) => {
-      const next = { ...s, [key]: !s[key] };
+      // Smart replaces the pools (it already blends difficult/new/due words),
+      // so checking it unchecks them — and vice versa.
+      if (key === 'smart') {
+        return s.smart ? s : { random: false, unseen: false, mistakes: false, smart: true };
+      }
+      const next = { ...s, [key]: !s[key], smart: false };
       // At least one pool must stay checked, or there is nothing to quiz.
       return next.random || next.unseen || next.mistakes ? next : s;
     });
