@@ -182,7 +182,7 @@ export function CollectionsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-page px-4 py-8">
       <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Collections</h1>
       <p className="text-sm text-text-muted mb-6">
         Pick the set of words you want to study. Your choice syncs across devices.
@@ -254,7 +254,7 @@ export function CollectionsPage() {
             No collections yet — create one from your own word list and share it with friends.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-2 lg:grid-cols-2">
             {mine.map((c) => {
               const active = c.id === activeId;
               return (
@@ -337,7 +337,7 @@ export function CollectionsPage() {
       {joined.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Joined</h2>
-          <div className="space-y-2">
+          <div className="grid gap-2 lg:grid-cols-2">
             {joined.map((c) => {
               const active = c.id === activeId;
               return (
@@ -405,7 +405,7 @@ export function CollectionsPage() {
             Find my level
           </button>
         </div>
-        <div className="space-y-2">
+        <div className="grid gap-2 lg:grid-cols-2">
           {systemCollections.map((c) => {
             const active = c.id === activeId;
             return (
@@ -443,7 +443,7 @@ export function CollectionsPage() {
 
       <button
         onClick={() => navigate('/')}
-        className="btn-3d w-full mt-6 py-3 bg-accent-cyan text-bg-primary font-bold"
+        className="btn-3d block w-full sm:w-auto sm:min-w-72 mx-auto mt-6 px-10 py-3 bg-accent-cyan text-bg-primary font-bold"
       >
         Start learning
       </button>

@@ -768,12 +768,12 @@ export function FlashCard() {
   };
 
   return (
-    <div className="max-w-[74rem] mx-auto px-3 sm:px-4 py-4 sm:py-8">
+    <div className="max-w-page mx-auto px-3 sm:px-4 py-4 sm:py-8">
 
 
       {/* ── History navigation ── */}
       {wordHistory.length > 0 && (
-        <div className="max-w-[74rem] mx-auto mb-5 flex items-center gap-2">
+        <div className="max-w-page mx-auto mb-5 flex items-center gap-2">
           {/* Active collection — tap to switch on the Collections page */}
           <Link
             to="/collections"

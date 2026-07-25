@@ -73,7 +73,7 @@ export function QuizResults() {
     : 0;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-page mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <Link to="/quizzes" className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors flex items-center gap-1 mb-1">

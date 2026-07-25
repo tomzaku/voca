@@ -55,7 +55,7 @@ export function MyQuizzes() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-page mx-auto px-4 py-8">
       <h1 className="text-2xl font-display font-extrabold text-text-primary mb-1">My quizzes</h1>
       <p className="text-sm text-text-muted mb-6">Quizzes you've shared. Open one to track who took it.</p>
 
@@ -68,7 +68,7 @@ export function MyQuizzes() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 lg:grid-cols-2">
           {quizzes.map((q) => (
             <div key={q.id} className="rounded-xl border border-border bg-bg-card p-4 flex items-center gap-3">
               <div className="flex-1 min-w-0">

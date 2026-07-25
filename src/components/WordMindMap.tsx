@@ -161,6 +161,101 @@ function toNode(raw: unknown, depth: number, fallbackId: string): MindMapNode | 
   };
 }
 
+/**
+ * Best-effort repair of a JSON document truncated mid-stream (the model hit
+ * its token cap, or the stream was cut). Walks the text tracking string state
+ * and the open-bracket stack, rewinds to the last point where a full value had
+ * just landed — so a half-written key/value is dropped, not kept — then closes
+ * the still-open brackets. Returns null when nothing salvageable precedes the
+ * cut. `toNode` drops any leaf that survives only partially.
+ */
+function repairTruncatedJson(text: string): string | null {
+  const stack: ('{' | '[')[] = [];
+  let inString = false;
+  let escape = false;
+  let afterColon = false; // inside an object, we've seen `key:` and expect a value
+  let safe = -1; // index just past the last point safe to truncate + close
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === '\\') escape = true;
+      else if (ch === '"') {
+        inString = false;
+        const inObj = stack[stack.length - 1] === '{';
+        // A closed string is a safe cut point only when it's a completed
+        // value (array element, or object value after a colon) — never a
+        // dangling object key, which would need a value to be valid.
+        if (!inObj || afterColon) {
+          afterColon = false;
+          safe = i + 1;
+        }
+      }
+      continue;
+    }
+    switch (ch) {
+      case '"':
+        inString = true;
+        break;
+      case '{':
+      case '[':
+        stack.push(ch);
+        afterColon = false;
+        break;
+      case '}':
+      case ']':
+        stack.pop();
+        afterColon = false;
+        safe = i + 1; // a container just closed → safe to cut here
+        break;
+      case ':':
+        afterColon = true;
+        break;
+      case ',':
+        afterColon = false;
+        break;
+      default: {
+        // Bare literal (number/true/false/null) as an object value or array
+        // element: consume the whole token; its end is safe only if a
+        // delimiter follows (otherwise the token itself may be truncated).
+        const inValueSlot = afterColon || stack[stack.length - 1] === '[';
+        if (inValueSlot && /[-\d.eE+tfnalsru]/.test(ch)) {
+          let j = i;
+          while (j < text.length && /[-\d.eE+tfnalsru]/.test(text[j])) j++;
+          if (j < text.length) {
+            safe = j;
+            afterColon = false;
+          }
+          i = j - 1;
+        }
+        break;
+      }
+    }
+  }
+
+  if (safe <= 0) return null;
+  const head = text.slice(0, safe).replace(/,\s*$/, '');
+  // Rebuild the open-bracket stack for `head` to know what to close.
+  const closers: string[] = [];
+  let s2 = false;
+  let e2 = false;
+  for (let i = 0; i < head.length; i++) {
+    const ch = head[i];
+    if (s2) {
+      if (e2) e2 = false;
+      else if (ch === '\\') e2 = true;
+      else if (ch === '"') s2 = false;
+      continue;
+    }
+    if (ch === '"') s2 = true;
+    else if (ch === '{') closers.push('}');
+    else if (ch === '[') closers.push(']');
+    else if (ch === '}' || ch === ']') closers.pop();
+  }
+  return head + closers.reverse().join('');
+}
+
 /** Parse the AI response — accepts the jsMind envelope or a bare root node. */
 function parseMindMap(text: string): MindMapNode {
   const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -168,7 +263,17 @@ function parseMindMap(text: string): MindMapNode {
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error('The AI returned an unreadable mind map — try redrawing.');
+    // The stream was likely cut off mid-node — salvage the complete prefix
+    // rather than failing the whole map.
+    const repaired = repairTruncatedJson(cleaned);
+    if (repaired) {
+      try {
+        parsed = JSON.parse(repaired);
+      } catch { /* fall through to the error below */ }
+    }
+    if (parsed === undefined) {
+      throw new Error('The AI returned an unreadable mind map — try redrawing.');
+    }
   }
   const rootRaw = (parsed as Record<string, unknown>)?.data ?? parsed;
   const root = toNode(rootRaw, 0, 'root');

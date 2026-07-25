@@ -26,7 +26,7 @@ const COLUMNS = 16; // the merged sheet keeps the base sheet's width
 const MAPS = new URL('../public/game/maps/', import.meta.url);
 
 const BASE = 'tileset-world.png';
-const EXTRAS = ['tiles-summer.png']; // pasted in order, each starting on a fresh row
+const EXTRAS = ['tiles-summer.png', 'assets-summer.png', 'water-summer.png']; // pasted in order, each starting on a fresh row
 const OUT_IMAGE = 'tileset-village.png';
 const MAP = 'village.tmj';
 

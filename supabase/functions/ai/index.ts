@@ -530,7 +530,10 @@ Do NOT include definitions — they are added separately.`;
     return {
       system: 'You design vocabulary mind maps for language learners. Return ONLY valid JSON matching the requested schema — no markdown fences, no commentary.',
       messages: [{ role: 'user', content: prompt }],
-      maxTokens: Math.min(500 + words.length * 35, 2500),
+      // Each leaf is a pretty-printed node with a verbose id ("word-self-conscious")
+      // and an emoji that can cost 2-3 tokens, so ~60 tokens/word with headroom —
+      // 35 clipped larger sets mid-stream.
+      maxTokens: Math.min(600 + words.length * 60, 3500),
     };
   },
 

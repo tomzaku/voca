@@ -104,7 +104,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-page mx-auto px-4 py-8">
       <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Settings</h1>
       <p className="text-sm text-text-muted mb-8">Configure your learning preferences.</p>
 

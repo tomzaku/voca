@@ -21,6 +21,9 @@
   --color-accent-yellow: #ffd23f;
   --color-accent-pink: #ff6ec7;
 
+  /* Shared page container width — keep every page aligned (`max-w-page`). */
+  --container-page: 74rem;
+
   --font-display: "Baloo 2", "Nunito", sans-serif;
   --font-body: "Nunito", sans-serif;
   --font-code: "Nunito", sans-serif;

@@ -157,9 +157,9 @@ function DailyWords() {
   );
 }
 
-type Tab = 'recent' | 'saved' | 'known' | 'unknown' | 'skipped';
+type Bucket = 'recent' | 'saved' | 'known' | 'unknown' | 'skipped';
 
-const TABS: { id: Tab; label: string }[] = [
+const FILTERS: { id: Bucket; label: string }[] = [
   { id: 'recent', label: 'Recent' },
   { id: 'saved', label: 'Saved' },
   { id: 'known', label: 'Known' },
@@ -181,15 +181,18 @@ function recentBadge(item: WordProgress): { label: string; icon: string; cls: st
   return { label: 'seen', icon: '👁', cls: 'text-text-muted bg-bg-tertiary' };
 }
 
-/** Cap on how many words a game pulls from the current tab — keeps the quiz
- *  build bounded (it loads word data for each) and a session quick, even on the
- *  big Recent list. The quiz shuffles, so the newest slice still gives variety. */
+/** Cap on how many words Story Gaps / Mind Map pull from the filtered list —
+ *  they consume every word passed at once, so big lists must stay bounded.
+ *  The quiz has no such cap: QuizSetup paginates its word picker and defaults
+ *  to a smart batch, so it gets the full filtered list. */
 const GAME_LIMIT = 30;
 
 export function HistoryPage() {
   const { user } = useAuth();
   const store = useVocabularyStore();
-  const [tab, setTab] = useState<Tab>('recent');
+  // Multi-select filters: the list (and the games) show the union of every
+  // checked bucket. "Recent" is the superset — everything you've touched.
+  const [checked, setChecked] = useState<Set<Bucket>>(new Set(['recent']));
   const bookmarks = store.bookmarkedWords();
   const known = store.wordsByStatus('known');
   const unknown = store.wordsByStatus('skipped');
@@ -200,14 +203,32 @@ export function HistoryPage() {
     () => Object.values(store.progress).sort(byRecent),
     [store.progress],
   );
-  const list =
-    tab === 'recent' ? recent
-    : tab === 'saved' ? bookmarks
-    : tab === 'known' ? known
-    : tab === 'unknown' ? unknown
-    : dismissed;
-  // Words fed to the games — the current tab's list, newest slice, capped.
-  const gameWords = list.slice(0, GAME_LIMIT).map((w) => w.word);
+  const buckets: Record<Bucket, WordProgress[]> = {
+    recent,
+    saved: bookmarks,
+    known,
+    unknown,
+    skipped: dismissed,
+  };
+  // Union of the checked buckets, deduped by word, newest-first.
+  const list = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: WordProgress[] = [];
+    for (const f of FILTERS) {
+      if (!checked.has(f.id)) continue;
+      for (const item of buckets[f.id]) {
+        if (seen.has(item.word)) continue;
+        seen.add(item.word);
+        merged.push(item);
+      }
+    }
+    return merged.sort(byRecent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checked, store.progress]);
+  // Every word in the filtered view — the quiz picker offers all of them.
+  const quizWords = list.map((w) => w.word);
+  // Story Gaps / Mind Map get the newest slice, capped (see GAME_LIMIT).
+  const gameWords = quizWords.slice(0, GAME_LIMIT);
   const [mode, setMode] = useState<'list' | 'quiz' | 'paragraph' | 'mindmap'>('list');
   const { isPro } = useIsPro();
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -249,21 +270,25 @@ export function HistoryPage() {
     await speakText(text, { onEnd: () => setSpeakingWord(null) });
   };
 
-  const handleRemove = (e: React.MouseEvent, word: string) => {
+  const handleRemove = (e: React.MouseEvent, word: string, item: WordProgress) => {
     e.stopPropagation();
-    // On the Saved tab, "remove" only un-saves — it keeps any learning status.
-    // On the Known / Don't-know tabs it clears that word from the history.
-    // On the Skipped tab it restores the word into the learning rotation.
-    // On Recent it wipes the word from every list (it's the whole-history view).
-    if (tab === 'saved') store.setBookmarked(word, false, user?.id);
-    else if (tab === 'recent') store.removeWord(word, user?.id);
+    // What "remove" means depends on why the word is in the current view:
+    // — With Recent checked the list is the whole-history view, so remove
+    //   wipes the word from every list (same as the old Recent tab).
+    // — Saved-only view: just un-save, keep any learning status.
+    // — Otherwise clear the learning status (Skipped words re-enter rotation).
+    const savedOnly = checked.size === 1 && checked.has('saved');
+    if (checked.has('recent')) store.removeWord(word, user?.id);
+    else if (savedOnly && item.bookmarked) store.setBookmarked(word, false, user?.id);
     else store.clearStatus(word, user?.id);
     if (expanded === word) setExpanded(null);
-    toast.success(tab === 'skipped' ? `"${word}" will show up again` : `Removed "${word}"`);
+    toast.success(item.status === 'dismissed' && !checked.has('recent')
+      ? `"${word}" will show up again`
+      : `Removed "${word}"`);
   };
 
   if (mode === 'quiz') {
-    return <QuizSetup words={gameWords} onBack={() => setMode('list')} />;
+    return <QuizSetup words={quizWords} onBack={() => setMode('list')} />;
   }
 
   if (mode === 'paragraph') {
@@ -274,42 +299,55 @@ export function HistoryPage() {
     return <WordMindMap words={gameWords} onBack={() => setMode('list')} />;
   }
 
-  const emptyCopy: Record<Tab, { icon: string; title: string; hint: string }> = {
+  const emptyCopyByBucket: Record<Bucket, { icon: string; title: string; hint: string }> = {
     recent: { icon: '🕑', title: 'Nothing here yet', hint: 'Words you learn, save, or look up show up here newest-first — your whole history in one place.' },
     saved: { icon: '★', title: 'No saved words yet', hint: 'Bookmark words while learning to build your personal vocabulary list.' },
     known: { icon: '✓', title: 'No known words yet', hint: 'Words you mark as “Know it” while learning show up here.' },
     unknown: { icon: '↷', title: 'Nothing here yet', hint: 'Words you couldn’t guess show up here — they keep coming back until you learn them.' },
     skipped: { icon: '🙈', title: 'Nothing skipped yet', hint: 'Words you skip while learning land here and stop appearing. Remove one to bring it back.' },
   };
+  // Empty-state copy: bucket-specific when exactly one filter is checked,
+  // otherwise a generic message (or a nudge to check something).
+  const only = checked.size === 1 ? [...checked][0] : null;
+  const emptyCopy =
+    checked.size === 0
+      ? { icon: '☝️', title: 'No lists selected', hint: 'Check one or more lists above to see their words.' }
+      : only
+      ? emptyCopyByBucket[only]
+      : { icon: '🕑', title: 'Nothing here yet', hint: 'The lists you checked don’t have any words yet.' };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-page mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_19rem] gap-6 items-start">
         {/* ── Left: word lists ── */}
         <div className="min-w-0">
 
-      {/* ── Tabs ── */}
-      <div className="flex items-stretch gap-1 mb-6 border-b-2 border-border">
-        {TABS.map((t) => {
-          const count =
-            t.id === 'recent' ? recent.length
-            : t.id === 'saved' ? bookmarks.length
-            : t.id === 'known' ? known.length
-            : t.id === 'unknown' ? unknown.length
-            : dismissed.length;
-          const active = tab === t.id;
+      {/* ── Filters — check any mix of lists; the words (and games) follow ── */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        {FILTERS.map((f) => {
+          const count = buckets[f.id].length;
+          const on = checked.has(f.id);
           return (
             <button
-              key={t.id}
-              onClick={() => { setTab(t.id); setExpanded(null); }}
-              className={`flex items-center gap-1.5 px-4 py-2.5 -mb-0.5 border-b-[3px] text-sm font-extrabold transition-all ${
-                active
-                  ? 'border-accent-cyan text-accent-cyan'
-                  : 'border-transparent text-text-muted hover:text-text-primary'
+              key={f.id}
+              onClick={() => {
+                setChecked((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(f.id)) next.delete(f.id);
+                  else next.add(f.id);
+                  return next;
+                });
+                setExpanded(null);
+              }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-extrabold transition-all ${
+                on
+                  ? 'bg-accent-cyan/10 border-accent-cyan text-accent-cyan'
+                  : 'bg-bg-card border-border text-text-muted hover:border-border-light hover:text-text-primary'
               }`}
             >
-              {t.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-accent-cyan/20 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
+              <Icon icon={on ? 'solar:check-circle-bold' : 'lucide:circle'} className={on ? 'text-accent-cyan' : 'text-text-muted'} />
+              {f.label}
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${on ? 'bg-accent-cyan/20 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
                 {count}
               </span>
             </button>
@@ -319,14 +357,14 @@ export function HistoryPage() {
 
       {list.length === 0 ? (
         <div className="py-16 text-center">
-          <div className="text-4xl mb-4">{emptyCopy[tab].icon}</div>
-          <h2 className="text-xl font-display font-bold text-text-primary mb-2">{emptyCopy[tab].title}</h2>
-          <p className="text-sm text-text-muted">{emptyCopy[tab].hint}</p>
+          <div className="text-4xl mb-4">{emptyCopy.icon}</div>
+          <h2 className="text-xl font-display font-bold text-text-primary mb-2">{emptyCopy.title}</h2>
+          <p className="text-sm text-text-muted">{emptyCopy.hint}</p>
         </div>
       ) : (
         <>
-          {/* Practice tools — available on every list, playing the words in
-              the current tab (Recent, Saved, Known, Don't-know, Skipped). */}
+          {/* Practice tools — playing the words in whatever mix of lists is
+              checked above (Recent, Saved, Known, Don't-know, Skipped). */}
           {gameWords.length >= 2 && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <button
@@ -450,8 +488,9 @@ export function HistoryPage() {
                   <div className="text-[10px] text-text-muted mt-0.5">{whyLine(item)}</div>
                 </div>
 
-                {/* Recent timeline: show the word's outcome at a glance. */}
-                {tab === 'recent' && (() => {
+                {/* Show each word's outcome at a glance — with mixed filters
+                    checked you can't tell otherwise which list a word is from. */}
+                {(() => {
                   const b = recentBadge(item);
                   return (
                     <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${b.cls}`}>
@@ -493,11 +532,11 @@ export function HistoryPage() {
 
                 {/* Remove button */}
                 <button
-                  onClick={(e) => handleRemove(e, word)}
+                  onClick={(e) => handleRemove(e, word, item)}
                   className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/30 transition-all"
                   title={
-                    tab === 'saved' ? 'Remove from saved'
-                    : tab === 'skipped' ? 'Show this word again'
+                    checked.size === 1 && checked.has('saved') ? 'Remove from saved'
+                    : item.status === 'dismissed' && !checked.has('recent') ? 'Show this word again'
                     : 'Remove from history'
                   }
                 >

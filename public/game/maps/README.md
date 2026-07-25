@@ -21,6 +21,8 @@ sheets by listing them in that script's `EXTRAS`.
 | --- | --- | --- |
 | `tileset-world.png` (base) | 0–16 | 1 |
 | `tiles-summer.png` | 17–28 | 273 |
+| `assets-summer.png` | 29–55 | 465 |
+| `water-summer.png` | 56–59 | 897 |
 
 The composers need the `epic rpg/` folder at the repo root (not committed —
 download it from the link below).
@@ -42,6 +44,11 @@ edge behind bushes instead.
 
 World tiles + player: **EPIC RPG World Pack — basic tileset and assets**
 (https://szadiart.itch.io/rpg-worlds-basic-set).
+
+Summer tiles, assets and water animation (`tiles-summer.png`,
+`assets-summer.png`, `water-summer.png`): **Summer Plains 32x32 — by
+Schwarnhild**
+(https://schwarnhild.itch.io/summer-plains-tileset-and-asset-pack-32x32-pixels).
 
 The station monsters (public/game/stations) still come from the **Ninja
 Adventure Asset Pack — by Pixel-boy & AAA**

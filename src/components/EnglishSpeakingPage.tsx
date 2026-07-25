@@ -821,7 +821,7 @@ export function EnglishSpeakingPage() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 relative" ref={contentRef}>
+    <div className="max-w-page mx-auto px-4 py-8 relative" ref={contentRef}>
       <SelectionSpeaker containerRef={contentRef} />
 
       <h1 className="text-2xl font-display font-bold text-text-primary mb-1">
