@@ -40,7 +40,12 @@ const gid = (c, r) => r * COLS + c + 1;           // (col,row) -> gid
 const OCEAN = (x, y) => gid(11 + (x & 3), 18 + (y & 3));   // seamless 4x4 deep water
 const SHALLOW = () => gid(30, 7);                          // solid cyan shallow water (animated)
 const SHALLOW_FOAM = () => gid(30, 6);                     // cyan + white foam lip (animated)
-const SAND = () => (rand() < 0.82 ? gid(5, 1) : gid(7, 1));
+// Grass plateau drops to a striped brown dirt cliff on its south (front) edge,
+// so land reads as a raised surface (dirt-wall autotile, cols 10–12 rows 3–4).
+const CLIFF_TOP = gid(11, 3);   // lip just under the grass
+const CLIFF_FACE = gid(11, 4);  // striped face body
+const CLIFF_TL = gid(10, 3), CLIFF_TR = gid(12, 3);   // top corners
+const CLIFF_L = gid(10, 4), CLIFF_R = gid(12, 4);     // side faces
 const GRASS = () => {
   const r = rand();               // clean centres only ((3,4) has a right-edge rim)
   return r < 0.42 ? gid(1, 3) : r < 0.74 ? gid(3, 3) : r < 0.9 ? gid(1, 4)
@@ -153,25 +158,28 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   distToLand[at(x, y)] = best;
 }
 
-// ── Paint sea / shallow / sand / grass ──
+// ── Paint sea / shallow / grass plateau / cliff ──
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   sea[at(x, y)] = OCEAN(x, y);                            // deep water everywhere first
+  if (isLand(x, y)) continue;
   const d = distToLand[at(x, y)];
-  if (!isLand(x, y)) {
-    // Two-tile shallow ring of solid cyan; the tile touching the beach gets a
-    // white foam lip so the sea→sand edge reads cleanly (no green transition).
-    if (d === 1) ground[at(x, y)] = SHALLOW_FOAM();
-    else if (d === 2) ground[at(x, y)] = SHALLOW();
-  } else {
-    ground[at(x, y)] = SAND();                            // beach base under grass
-  }
+  if (d === 1) ground[at(x, y)] = SHALLOW_FOAM();         // cyan shallows ring the coast
+  else if (d === 2) ground[at(x, y)] = SHALLOW();
 }
 
-// Grass = land eroded by one, so a 1-tile sand beach always rings the grass.
+// The grass interior is the island eroded by one tile; the outer ring left over
+// becomes a brown dirt bank, so the land reads as a raised surface with a soil
+// edge dropping to the sea (no sand). Prop placement also uses this inset.
 const isGrass = (x, y) =>
   isLand(x, y) && isLand(x - 1, y) && isLand(x + 1, y) && isLand(x, y - 1) && isLand(x, y + 1);
+
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-  if (!isGrass(x, y)) continue;
+  if (!isLand(x, y)) continue;
+  if (!isGrass(x, y)) {
+    // The coast ring: a striped brown dirt bank tile, always attached to land.
+    land[at(x, y)] = CLIFF_FACE;
+    continue;
+  }
   const N = isGrass(x, y - 1), S = isGrass(x, y + 1), E = isGrass(x + 1, y), Wl = isGrass(x - 1, y);
   let t = GRASS();
   if (!N && !Wl && S && E) t = GRASS_CORNER;             // top-left
@@ -446,7 +454,6 @@ bridgeCol(STRAIT2);
 // falling water uses the pack's animated shallow-water tiles (30,6/7/8), whose
 // 4-frame animations are re-declared on the tileset below so they shimmer.
 const WF_FOAM = gid(30, 6), WF_FALL = gid(30, 7), WF_POOL = gid(30, 8);
-const CLIFF = gid(11, 4), CLIFF_TOP = gid(11, 3);
 const wfx = LAKE.cx - 1;                          // 2-wide channel, centred under the lake
 const wfy = LAKE.cy + LAKE.ry - 1;               // starts at the lake's south lip
 const solid = (x, y) => { if (inb(x, y)) walls[at(x, y)] = gid(11, 18); };
@@ -461,7 +468,7 @@ for (let dy = 0; dy < 6; dy++) {
   }
   for (const x of [wfx - 1, wfx + 2]) {           // brown cliff walls flanking it
     if (!inb(x, y)) continue;
-    land[at(x, y)] = dy === 0 ? CLIFF_TOP : dy >= 5 ? WF_POOL : CLIFF;
+    land[at(x, y)] = dy === 0 ? CLIFF_TOP : dy >= 5 ? WF_POOL : CLIFF_FACE;
     decor[at(x, y)] = 0; build[at(x, y)] = 0;
     solid(x, y);
   }

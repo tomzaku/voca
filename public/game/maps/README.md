@@ -37,9 +37,12 @@ glints twinkling on the open sea — a Tiled tile animation Phaser plays nativel
 layer carries the spawn/door/label/station points WorldScene binds to (unchanged
 contract).
 
-Terrain is autotiled: grass is a plateau brush whose four outer corners are one
-tile flipped four ways (Tiled/Phaser flip flags), ringed by a one-tile sand
-beach then a shallow-water band, all over deep ocean. Buildings are **wide gable
+Terrain is autotiled: grass covers each island's whole silhouette with a rounded
+green lip on its four outer corners (one tile flipped four ways via Tiled/Phaser
+flip flags). The land sits proud of the sea — its **south-facing coasts drop as a
+two-tile brown dirt cliff** (dirt-wall autotile, cols 10–12 rows 3–4) so the
+islands read as raised plateaus; other coasts meet a cyan shallow-water band
+(with a white foam lip) over deep ocean. No sand. Buildings are **wide gable
 cottages** (5×6) assembled from the modular building tileset in five roof colours
 (blue/green/orange/red/purple), one per station slot — see `houseTemplate` in
 the generator. Trees are whole single pines/shrubs clumped into woods; rocks are
