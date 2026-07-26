@@ -17,11 +17,11 @@ The generator reads the source sheet from the extracted asset pack at
 
 ## The map
 
-One organic island in the ocean, 64×150 tiles at **16px** (WorldScene draws it
-at 2× so on-screen tiles are 32px and the movement/reach constants are unchanged
-from the old 32px map). The island is pinched into three district "rooms" by two
-straits, each spanned by a land bridge — the door crossings the game routes
-through:
+Three organic islands in the ocean, 64×150 tiles at **16px** (WorldScene draws
+it at 2× so on-screen tiles are 32px and the movement/reach constants are
+unchanged from the old 32px map). The districts are separated by open water and
+joined by **wooden bridges** — the door crossings the game routes through (the
+bridge deck is walkable; the surrounding water is collision):
 
 | District | Region | Holds |
 | --- | --- | --- |
@@ -39,9 +39,20 @@ contract).
 
 Terrain is autotiled: grass is a plateau brush whose four outer corners are one
 tile flipped four ways (Tiled/Phaser flip flags), ringed by a one-tile sand
-beach then a shallow-water band, all over deep ocean. Buildings are the pack's
-self-contained "tower" cottages in five roof colours (blue/green/orange/red/
-purple), one per station slot.
+beach then a shallow-water band, all over deep ocean. Buildings are **wide gable
+cottages** (5×6) assembled from the modular building tileset in five roof colours
+(blue/green/orange/red/purple), one per station slot — see `houseTemplate` in
+the generator. Trees are whole single pines/shrubs clumped into woods; rocks are
+self-contained boulders.
+
+Animated bits, all drawn by WorldScene from object points / its own sprites (not
+baked into the tilemap): water twinkles via dense `seafx` sparkle tile-animations;
+**windmills** turn (one per district, `windmill` points →
+`public/game/props/windmill.png`); **animals** graze and wander their patch
+(`animal` points carrying a `kind` → `public/game/props/{chicken,cow,sheep,pig,
+duck}.png`); and **pixel clouds** drift east with soft ground shadows
+(`public/game/props/cloud-*.png`, composed from the pack's cloud tiles — the left
+half is mirrored to the right so both sides match).
 
 ## Art credit
 

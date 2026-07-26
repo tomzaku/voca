@@ -49,13 +49,25 @@ const GRASS_CORNER = gid(8, 3);   // grass fills SE, open N+W (flip for other 3 
 const DIRT = () => (rand() < 0.5 ? gid(20, 7) : gid(21, 7));   // path fill
 
 // ── Props (sheet rectangles: col,row = top-left, w,h in tiles) ──
-// Self-contained cottage "towers" in five roof colours (col 29, 3×7 each).
+// Wide gable cottages assembled from the modular building tileset. Each colour
+// block sits 8 rows below the previous, with the same piece layout inside it:
+// tan roof ridge → blue/coloured roof → brown eave → wall with a door → base
+// with corner posts. 5×6 tiles.
+const HOUSE_W = 5, HOUSE_H = 6;
+const houseTemplate = (R) => ({
+  w: HOUSE_W, h: HOUSE_H,
+  tmpl: [
+    [[20, R],     [21, R],     [21, R],     [21, R],     [20, R]],     // roof ridge cap
+    [[21, R + 2], [21, R + 2], [21, R + 2], [21, R + 2], [21, R + 2]], // roof
+    [[21, R + 2], [21, R + 2], [21, R + 2], [21, R + 2], [21, R + 2]], // roof
+    [[23, R + 3], [23, R + 3], [23, R + 3], [23, R + 3], [23, R + 3]], // eave
+    [[24, R + 4], [24, R + 4], [21, R + 4], [24, R + 4], [24, R + 4]], // wall + door
+    [[29, R + 6], [30, R + 6], [30, R + 6], [30, R + 6], [31, R + 6]], // base + posts
+  ],
+});
 const HOUSES = {
-  blue:   { c: 29, r: 9,  w: 3, h: 7 },
-  green:  { c: 29, r: 17, w: 3, h: 7 },
-  orange: { c: 29, r: 25, w: 3, h: 7 },
-  red:    { c: 29, r: 33, w: 3, h: 7 },
-  purple: { c: 29, r: 41, w: 3, h: 7 },
+  blue: houseTemplate(9), green: houseTemplate(17), orange: houseTemplate(25),
+  red: houseTemplate(33), purple: houseTemplate(41),
 };
 const TOWERS = HOUSES;
 const BUSH = { c: 49, r: 1, w: 2, h: 2 };
@@ -70,7 +82,6 @@ const ROCKS = [
   { c: 53, r: 21, w: 2, h: 2 },
 ];
 const PEBBLE = { c: 55, r: 29, w: 1, h: 2 };
-const GROVE = { c: 53, r: 1, w: 7, h: 6 };    // the pack's dense-forest block, whole
 const PINE = { c: 51, r: 6, w: 2, h: 3 };     // single pine, whole
 const SHRUB = { c: 49, r: 1, w: 2, h: 2 };    // round leafy tree
 const WELL = { c: 37, r: 19, w: 4, h: 3 };
@@ -110,10 +121,7 @@ const isLandRaw = (x, y) => {
   if (!inb(x, y)) return false;
   if (inEllipse(x, y, LAKE)) return false;                 // the lake is water
   if (districts.some((d) => inEllipse(x, y, d))) return true;
-  // land bridges across both straits
-  const nearStrait = Math.abs(y - STRAIT1) <= 9 || Math.abs(y - STRAIT2) <= 9;
-  if (nearStrait && CROSS_X.includes(x)) return true;
-  return false;
+  return false;                                            // straits stay water — bridges span them
 };
 
 // Bake land into a grid, then smooth once to kill single-tile spurs.
@@ -202,10 +210,17 @@ const point = (type, x, y, properties = []) => ({
 });
 const prop = (name, type, value) => ({ name, type, value });
 
+/** Stamp a house template (2D array of [col,row]) onto a layer. */
+const stampHouse = (layer, house, mx, my) => {
+  house.tmpl.forEach((row, dy) => row.forEach(([c, r], dx) => {
+    if (inb(mx + dx, my + dy)) layer[at(mx + dx, my + dy)] = gid(c, r);
+  }));
+};
+
 /** Place a building + emit its station slot at the door (one tile below). */
 const placeBuilding = (spr, mx, my, region, slot) => {
-  stamp(build, spr, mx, my);
-  block(mx, my + spr.h - 3, spr.w, 3);            // solid lower 3 rows
+  stampHouse(build, spr, mx, my);
+  block(mx, my + spr.h - 4, spr.w, 4);            // solid lower 4 rows (eave→base)
   const doorX = mx + (spr.w >> 1);
   const doorY = my + spr.h;                        // stand just below the house
   objects.push(point('station', doorX * T + T / 2, doorY * T, [
@@ -235,8 +250,8 @@ const placeDistrictHouses = (d, region, count, sprs) => {
   return placed;
 };
 
-placeDistrictHouses(districts[0], 'public', 12, HOUSE_LIST);
-placeDistrictHouses(districts[1], 'system', 10, HOUSE_LIST);
+placeDistrictHouses(districts[0], 'public', 10, HOUSE_LIST);
+placeDistrictHouses(districts[1], 'system', 8, HOUSE_LIST);
 placeDistrictHouses(districts[2], 'feature', 6, Object.values(TOWERS));
 
 // ── Roads ── a wandering main street the length of the island (over both
@@ -272,6 +287,20 @@ for (const [dx, dy] of slotTiles) {
     carve(x, y);
     if (Math.abs(tgt[0] - x) > Math.abs(tgt[1] - y)) x += Math.sign(tgt[0] - x);
     else y += Math.sign(tgt[1] - y);
+  }
+}
+
+// ── Windmills ── one animated landmark per district, placed while there's
+// still room (WorldScene draws the sprite; here we emit the point + reserve a
+// small collision base so paths and props route around it).
+for (const d of districts) {
+  for (let tries = 0; tries < 500; tries++) {
+    const mx = 8 + ((rand() * (W - 16)) | 0);
+    const my = (d.cy - d.ry + 6 + rand() * (d.ry * 2 - 14)) | 0;
+    if (!areaFree(mx, my, 4, 4, 1)) continue;
+    block(mx, my + 2, 4, 2);                          // solid base
+    objects.push(point('windmill', (mx + 2) * T, (my + 4) * T));
+    break;
   }
 }
 
@@ -313,9 +342,30 @@ const nearCoast = (x, y) => {
   }
   return false;
 };
-scatter(GROVE, build, 12, null, 4);       // dense forest groves
-scatter(PINE, build, 40, nearCoast, 1);
-scatter(SHRUB, build, 40, null, 1);
+// Woods: clumps of whole trees (pines + leafy shrubs), so forests read as real
+// trees rather than a sliced-up block.
+const woods = (n, cx, cy, spread) => {
+  let placed = 0, tries = 0;
+  while (placed < n && tries < n * 40) {
+    tries++;
+    const mx = cx + ((rand() * spread * 2 - spread) | 0);
+    const my = cy + ((rand() * spread * 2 - spread) | 0);
+    const spr = rand() < 0.6 ? PINE : SHRUB;
+    if (!areaFree(mx, my, spr.w, spr.h, 0)) continue;
+    stamp(build, spr, mx, my);
+    block(mx, my + spr.h - 1, spr.w, 1);
+    placed++;
+  }
+};
+for (const d of districts) {
+  for (let k = 0; k < 2; k++) {
+    const cx = 5 + ((rand() * (W - 10)) | 0);
+    const cy = (d.cy - d.ry + 4 + rand() * (d.ry * 2 - 8)) | 0;
+    woods(9, cx, cy, 5);
+  }
+}
+scatter(PINE, build, 30, nearCoast, 1);
+scatter(SHRUB, build, 42, null, 1);
 for (const rk of ROCKS) scatter(rk, build, 8, null, 1);
 scatter(PEBBLE, build, 14, null, 1);
 // Bushes & berry bushes as soft decor (no collision).
@@ -341,15 +391,14 @@ for (let tries = 0; tries < 200; tries++) {
   if (areaFree(mx, my, WELL.w, WELL.h, 2)) { stamp(build, WELL, mx, my); block(mx, my + 1, WELL.w, 2); break; }
 }
 
-// ── Water shimmer ── sparkle glints twinkle on the open sea. Three phase-
-// shifted variants (same 4 art frames, different pause) so they don't blink in
-// unison. The animation frames are defined on the tileset below.
-const SPARKLE_BASES = [gid(11, 22), gid(12, 22), gid(13, 22)]; // one per variant
+// ── Water shimmer ── sparkle glints twinkle densely across the open sea. Four
+// variants animate at different rates so the shimmer doesn't pulse in unison.
+// The animation frames are defined on the tileset below.
+const SPARKLE_BASES = [gid(11, 22), gid(12, 22), gid(13, 22), gid(14, 22)];
 const seafx = new Array(W * H).fill(0);
-for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
-  // deep water only: a water cell whose neighbours are all water
-  if (isLand(x, y) || distToLand[at(x, y)] <= 2) continue;
-  if (rand() < 0.018) seafx[at(x, y)] = SPARKLE_BASES[(rand() * SPARKLE_BASES.length) | 0];
+for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+  if (isLand(x, y) || distToLand[at(x, y)] <= 1) continue;   // shallow + deep water
+  if (rand() < 0.06) seafx[at(x, y)] = SPARKLE_BASES[(rand() * SPARKLE_BASES.length) | 0];
 }
 
 // ── Meta objects: spawn, doors, labels ──
@@ -366,6 +415,45 @@ for (const d of districts) {
 // ── Water is collision too (can't walk into the sea/lake/shallows) ──
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   if (!isLand(x, y)) walls[at(x, y)] = gid(11, 18);
+}
+
+// ── Bridges ── wooden planks span each strait, connecting the districts. The
+// deck (cols 31–32) is walkable (walls cleared); posts flank it as pilings.
+const DECK = gid(40, 6), POST = gid(38, 6);
+const bridgeCol = (S) => {
+  // find how far the land reaches toward the strait from each side at x=32
+  for (let y = S - 10; y <= S + 10; y++) {
+    for (const x of [31, 32]) {
+      if (!inb(x, y)) continue;
+      build[at(x, y)] = DECK;
+      walls[at(x, y)] = 0;                 // walkable deck
+      road.delete(at(x, y));
+    }
+    if (y % 2 === 0) {                      // alternating pilings on both edges
+      if (inb(30, y) && !isLand(30, y)) build[at(30, y)] = POST;
+      if (inb(33, y) && !isLand(33, y)) build[at(33, y)] = POST;
+    }
+  }
+};
+bridgeCol(STRAIT1);
+bridgeCol(STRAIT2);
+
+// ── Animals ── grazing livestock scattered on open grass (WorldScene animates
+// and wanders them). A `kind` picks the sprite; they roam around their point.
+const ANIMAL_KINDS = ['chicken', 'chicken', 'sheep', 'sheep', 'cow', 'pig'];
+const walkable = (x, y) => isLand(x, y) && !walls[at(x, y)] && !build[at(x, y)] && !road.has(at(x, y));
+for (const d of districts) {
+  let placed = 0, tries = 0;
+  while (placed < 6 && tries < 500) {
+    tries++;
+    const x = 4 + ((rand() * (W - 8)) | 0);
+    const y = (d.cy - d.ry + 4 + rand() * (d.ry * 2 - 8)) | 0;
+    if (!walkable(x, y) || !walkable(x + 1, y) || !walkable(x, y + 1)) continue;
+    objects.push(point('animal', (x + 0.5) * T, (y + 1) * T, [
+      prop('kind', 'string', ANIMAL_KINDS[(rand() * ANIMAL_KINDS.length) | 0]),
+    ]));
+    placed++;
+  }
 }
 
 // ── Assemble the Tiled document ──
@@ -391,13 +479,14 @@ const blank = localId(40, 60);   // empty cell in the unused bottom of the sheet
 const sparkleAnim = (base, holdMs) => {
   const off = glint.indexOf(base);
   const seq = [...glint.slice(off), ...glint.slice(0, off)];  // start at this variant's phase
-  const frames = seq.map((tileid, i) => ({ tileid, duration: 120 + i * 15 }));
-  frames.push({ tileid: blank, duration: holdMs });           // twinkle then rest
+  const frames = seq.map((tileid, i) => ({ tileid, duration: 150 + i * 20 }));
+  frames.push({ tileid: blank, duration: holdMs });           // twinkle then a short rest
   return frames;
 };
+const HOLDS = [360, 560, 780, 1020];    // different loop lengths → variants drift out of sync
 SPARKLE_BASES.forEach((g, i) => {
   const id = (g & 0x1fffffff) - 1;
-  tileEntries.set(id, { id, animation: sparkleAnim(id, 1400 + i * 700) });
+  tileEntries.set(id, { id, animation: sparkleAnim(id, HOLDS[i % HOLDS.length]) });
 });
 
 const map = {

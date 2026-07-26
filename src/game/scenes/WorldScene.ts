@@ -48,8 +48,30 @@ interface MapMeta {
   spawn: { x: number; y: number };
   doors: { x: number; y: number }[];
   labels: { x: number; y: number; text: string; theme: ThemeId }[];
+  windmills: { x: number; y: number }[];
+  animals: { x: number; y: number; kind: string }[];
   slots: Record<'public' | 'system' | 'feature', { x: number; y: number; slot: number }[]>;
 }
+
+/** Animated scenery sprites the map places by object point: filename in
+ *  public/game/props, square frame size, frame count and play rate. */
+const WINDMILL = { key: 'windmill', url: 'game/props/windmill.png', frame: 112, frames: 9, rate: 12 };
+
+/** Pixel-art clouds (Sunnyside cloud tiles) + their ground shadows. */
+const CLOUDS = [
+  { key: 'cloud-a', shadow: 'cloud-a-shadow' },
+  { key: 'cloud-b', shadow: 'cloud-b-shadow' },
+];
+
+/** Grazing animals: strip frame size, frame count, idle rate, draw scale, and
+ *  wander speed (px/s) + roam radius (px) around their spawn point. */
+const ANIMALS: Record<string, { frame: number; frames: number; rate: number; scale: number; speed: number; range: number }> = {
+  chicken: { frame: 32, frames: 4, rate: 6, scale: 1.1, speed: 24, range: 100 },
+  sheep:   { frame: 32, frames: 4, rate: 4, scale: 1.35, speed: 15, range: 80 },
+  cow:     { frame: 32, frames: 4, rate: 4, scale: 1.6, speed: 13, range: 70 },
+  pig:     { frame: 32, frames: 4, rate: 5, scale: 1.35, speed: 18, range: 80 },
+  duck:    { frame: 16, frames: 4, rate: 6, scale: 1.3, speed: 22, range: 70 },
+};
 
 /**
  * The explorable world, driven entirely by a Tiled map template (see
@@ -92,6 +114,15 @@ export class WorldScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
 
+  /** Fluffy clouds drifting above the island, each with a ground shadow. */
+  private clouds: { sprite: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Image; speed: number }[] = [];
+
+  /** Grazing animals ambling around their spawn points. */
+  private animals: {
+    sprite: Phaser.GameObjects.Sprite; cfg: (typeof ANIMALS)[string];
+    hx: number; hy: number; tx: number; ty: number; pause: number;
+  }[] = [];
+
   /** The map's areas (split by the doors) and which one the buddy is in. */
   private areas: WorldArea[] = [];
   private areaIndex = 0;
@@ -112,6 +143,18 @@ export class WorldScene extends Phaser.Scene {
     const src = defaultMap();
     this.load.image(`tiles-${src.key}`, src.tilesetUrl);
     this.load.tilemapTiledJSON(`map-${src.key}`, src.tmjUrl);
+    this.load.spritesheet(WINDMILL.key, `${import.meta.env.BASE_URL}${WINDMILL.url}`, {
+      frameWidth: WINDMILL.frame, frameHeight: WINDMILL.frame,
+    });
+    for (const c of CLOUDS) {
+      this.load.image(c.key, `${import.meta.env.BASE_URL}game/props/${c.key}.png`);
+      this.load.image(c.shadow, `${import.meta.env.BASE_URL}game/props/${c.shadow}.png`);
+    }
+    for (const [kind, cfg] of Object.entries(ANIMALS)) {
+      this.load.spritesheet(`animal-${kind}`, `${import.meta.env.BASE_URL}game/props/${kind}.png`, {
+        frameWidth: cfg.frame, frameHeight: cfg.frame,
+      });
+    }
     this.spec.load(this);
     loadMonsterTextures(this);
   }
@@ -126,6 +169,30 @@ export class WorldScene extends Phaser.Scene {
     const src = defaultMap();
     this.textures.get(`tiles-${src.key}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get(this.spec.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.textures.get(WINDMILL.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    for (const c of CLOUDS) {
+      this.textures.get(c.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      this.textures.get(c.shadow).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    for (const [kind, cfg] of Object.entries(ANIMALS)) {
+      this.textures.get(`animal-${kind}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      if (!this.anims.exists(`animal-${kind}-idle`)) {
+        this.anims.create({
+          key: `animal-${kind}-idle`,
+          frames: this.anims.generateFrameNumbers(`animal-${kind}`, { start: 0, end: cfg.frames - 1 }),
+          frameRate: cfg.rate,
+          repeat: -1,
+        });
+      }
+    }
+    if (!this.anims.exists('windmill-spin')) {
+      this.anims.create({
+        key: 'windmill-spin',
+        frames: this.anims.generateFrameNumbers(WINDMILL.key, { start: 0, end: WINDMILL.frames - 1 }),
+        frameRate: WINDMILL.rate,
+        repeat: -1,
+      });
+    }
     for (const m of [...CUTE_MONSTERS, ...SCARY_MONSTERS]) {
       this.textures.get(monsterTextureKey(m)).setFilter(Phaser.Textures.FilterMode.NEAREST);
       // Facing-down walk cycle doubles as the monster's idle bounce.
@@ -170,8 +237,29 @@ export class WorldScene extends Phaser.Scene {
       repeat: -1,
     });
 
+    this.makeClouds();
+
     this.cameras.main.startFollow(this.buddy, true, 0.12, 0.12);
     this.ready = true;
+  }
+
+  /** Pixel-art clouds drifting east above the island, each casting a soft
+   *  ground shadow (offset, drawn below the buddy). */
+  private makeClouds() {
+    for (const c of this.clouds) { c.sprite.destroy(); c.shadow.destroy(); }
+    this.clouds = [];
+    const count = Math.max(10, Math.round((this.worldW * this.worldH) / 480000));
+    for (let i = 0; i < count; i++) {
+      const def = CLOUDS[i % CLOUDS.length];
+      const x = Math.random() * this.worldW, y = Math.random() * this.worldH;
+      const scale = SCALE * (0.8 + Math.random() * 0.8);
+      const shadow = this.add.image(x + 30, y + 46, def.shadow)
+        .setOrigin(0.5).setScale(scale).setDepth(2).setAlpha(0.14);
+      const sprite = this.add.image(x, y, def.key)
+        .setOrigin(0.5).setScale(scale).setDepth(20).setAlpha(0.95);
+      if (!this.pal.light) sprite.setTint(NIGHT_TINT);
+      this.clouds.push({ sprite, shadow, speed: 6 + Math.random() * 10 });
+    }
   }
 
   // ── React-facing API ──
@@ -334,6 +422,33 @@ export class WorldScene extends Phaser.Scene {
     const layer = this.add.container(0, 0).setDepth(1);
     this.worldLayer = layer;
 
+    // Animated scenery: windmills turn where the map placed them (feet at the
+    // point, drawn 2× to match the tiles' on-screen size, tinted at night).
+    for (const w of this.meta.windmills) {
+      const mill = this.add
+        .sprite(w.x, w.y, WINDMILL.key, 0)
+        .setOrigin(0.5, 1)
+        .setScale(SCALE);
+      if (!this.pal.light) mill.setTint(NIGHT_TINT);
+      mill.play('windmill-spin');
+      layer.add(mill);
+    }
+
+    // Grazing animals wandering their patch of grass.
+    this.animals = [];
+    for (const a of this.meta.animals) {
+      const cfg = ANIMALS[a.kind] ?? ANIMALS.chicken;
+      const sprite = this.add
+        .sprite(a.x, a.y, `animal-${a.kind}`, 0)
+        .setOrigin(0.5, 1)
+        .setScale(cfg.scale)
+        .setDepth(3);
+      if (!this.pal.light) sprite.setTint(NIGHT_TINT);
+      sprite.play(`animal-${a.kind}-idle`, true);
+      layer.add(sprite);
+      this.animals.push({ sprite, cfg, hx: a.x, hy: a.y, tx: a.x, ty: a.y, pause: Math.random() * 2000 });
+    }
+
     for (const l of this.meta.labels) {
       layer.add(
         this.add
@@ -403,6 +518,8 @@ export class WorldScene extends Phaser.Scene {
       spawn: { x: this.worldW / 2, y: this.worldH / 2 },
       doors: [],
       labels: [],
+      windmills: [],
+      animals: [],
       slots: { public: [], system: [], feature: [] },
     };
     type TiledProp = { name: string; value: unknown };
@@ -418,6 +535,12 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'door':
           meta.doors.push({ x, y });
+          break;
+        case 'windmill':
+          meta.windmills.push({ x, y });
+          break;
+        case 'animal':
+          meta.animals.push({ x, y, kind: String(get('kind') ?? 'chicken') });
           break;
         case 'label': {
           const t = get('theme');
@@ -769,6 +892,40 @@ export class WorldScene extends Phaser.Scene {
   update(time: number, dtMs: number) {
     if (!this.ready) return;
     const dt = Math.min(dtMs / 1000, 0.05);
+
+    // Drift clouds (and their shadows) east, wrapping around the west edge.
+    for (const c of this.clouds) {
+      c.sprite.x += c.speed * dt;
+      c.shadow.x += c.speed * dt;
+      if (c.sprite.x > this.worldW + 160) {
+        c.sprite.x = -160;
+        c.shadow.x = c.sprite.x + 30;
+      }
+    }
+
+    // Animals amble toward a target, pause, then pick a new one near home.
+    for (const a of this.animals) {
+      if (a.pause > 0) { a.pause -= dtMs; continue; }
+      const dx = a.tx - a.sprite.x, dy = a.ty - a.sprite.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 4) {
+        a.pause = 1000 + Math.random() * 3000;         // graze a while
+        for (let t = 0; t < 12; t++) {
+          const nx = a.hx + (Math.random() - 0.5) * a.cfg.range;
+          const ny = a.hy + (Math.random() - 0.5) * a.cfg.range;
+          if (this.canStand(nx, ny)) { a.tx = nx; a.ty = ny; break; }
+        }
+      } else {
+        const nx = a.sprite.x + (dx / dist) * a.cfg.speed * dt;
+        const ny = a.sprite.y + (dy / dist) * a.cfg.speed * dt;
+        if (this.canStand(nx, ny)) {
+          a.sprite.setPosition(nx, ny);
+          a.sprite.setFlipX(dx < 0);
+        } else {
+          a.pause = 400; a.tx = a.sprite.x; a.ty = a.sprite.y;   // blocked — repick next tick
+        }
+      }
+    }
 
     let vx = 0, vy = 0;
     const left = this.cursors.left.isDown || this.wasd.A.isDown;
