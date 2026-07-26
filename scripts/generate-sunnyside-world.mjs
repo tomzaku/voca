@@ -63,10 +63,15 @@ const BUSH_BERRY = { c: 49, r: 3, w: 2, h: 2 };
 const FLOWER = { c: 31, r: 3, w: 1, h: 1 };       // white daisy
 const CROPS = [gid(51, 12), gid(52, 12), gid(53, 12)]; // leafy sprouts
 const PUMPKIN = gid(53, 10);
-const ROCK = { c: 49, r: 21, w: 3, h: 2 };    // big grey boulder
-const ROCK_SM = { c: 53, r: 21, w: 2, h: 2 }; // small boulder
+// Clean, whole boulders (each self-contained on the sheet).
+const ROCKS = [
+  { c: 49, r: 29, w: 2, h: 2 },
+  { c: 51, r: 29, w: 2, h: 2 },
+  { c: 53, r: 21, w: 2, h: 2 },
+];
+const PEBBLE = { c: 55, r: 29, w: 1, h: 2 };
 const GROVE = { c: 53, r: 1, w: 7, h: 6 };    // the pack's dense-forest block, whole
-const PINE = { c: 52, r: 4, w: 1, h: 3 };     // single pine
+const PINE = { c: 51, r: 6, w: 2, h: 3 };     // single pine, whole
 const SHRUB = { c: 49, r: 1, w: 2, h: 2 };    // round leafy tree
 const WELL = { c: 37, r: 19, w: 4, h: 3 };
 
@@ -309,10 +314,10 @@ const nearCoast = (x, y) => {
   return false;
 };
 scatter(GROVE, build, 12, null, 4);       // dense forest groves
-scatter(PINE, build, 44, nearCoast, 1);
+scatter(PINE, build, 40, nearCoast, 1);
 scatter(SHRUB, build, 40, null, 1);
-scatter(ROCK, build, 12, null, 1);
-scatter(ROCK_SM, build, 16, null, 1);
+for (const rk of ROCKS) scatter(rk, build, 8, null, 1);
+scatter(PEBBLE, build, 14, null, 1);
 // Bushes & berry bushes as soft decor (no collision).
 const scatterDecor = (spr, n) => {
   let placed = 0, tries = 0;
@@ -334,6 +339,17 @@ for (let tries = 0; tries < 200; tries++) {
   const mx = districts[0].cx - 2 + ((rand() * 5 - 2) | 0);
   const my = districts[0].cy - 1 + ((rand() * 5 - 2) | 0);
   if (areaFree(mx, my, WELL.w, WELL.h, 2)) { stamp(build, WELL, mx, my); block(mx, my + 1, WELL.w, 2); break; }
+}
+
+// ── Water shimmer ── sparkle glints twinkle on the open sea. Three phase-
+// shifted variants (same 4 art frames, different pause) so they don't blink in
+// unison. The animation frames are defined on the tileset below.
+const SPARKLE_BASES = [gid(11, 22), gid(12, 22), gid(13, 22)]; // one per variant
+const seafx = new Array(W * H).fill(0);
+for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+  // deep water only: a water cell whose neighbours are all water
+  if (isLand(x, y) || distToLand[at(x, y)] <= 2) continue;
+  if (rand() < 0.018) seafx[at(x, y)] = SPARKLE_BASES[(rand() * SPARKLE_BASES.length) | 0];
 }
 
 // ── Meta objects: spawn, doors, labels ──
@@ -359,19 +375,39 @@ const tileLayer = (id, name, data) => ({
   id, name, type: 'tilelayer', width: W, height: H, x: 0, y: 0, opacity: 1, visible: true, data,
 });
 
-// Per-tile collides flag for every gid used on the walls layer + water anim.
+// Per-tile collides flag for every gid used on the walls layer.
 const wallIds = new Set();
 for (const v of walls) if (v) wallIds.add((v & 0x1fffffff) - 1);
 const tileEntries = new Map();
 for (const id of wallIds) tileEntries.set(id, { id, properties: [prop('collides', 'bool', true)] });
 
+// Water-sparkle animations (standard Tiled format; Phaser plays them natively).
+// Frames: the four glint tiles (11..14, 22) — big → small → gone — then a long
+// blank hold so each sparkle twinkles occasionally, not constantly. `blank` is
+// an empty cell far down the (unused) bottom of the sheet.
+const localId = (c, r) => r * COLS + c;
+const glint = [localId(11, 22), localId(12, 22), localId(13, 22), localId(14, 22)];
+const blank = localId(40, 60);   // empty cell in the unused bottom of the sheet
+const sparkleAnim = (base, holdMs) => {
+  const off = glint.indexOf(base);
+  const seq = [...glint.slice(off), ...glint.slice(0, off)];  // start at this variant's phase
+  const frames = seq.map((tileid, i) => ({ tileid, duration: 120 + i * 15 }));
+  frames.push({ tileid: blank, duration: holdMs });           // twinkle then rest
+  return frames;
+};
+SPARKLE_BASES.forEach((g, i) => {
+  const id = (g & 0x1fffffff) - 1;
+  tileEntries.set(id, { id, animation: sparkleAnim(id, 1400 + i * 700) });
+});
+
 const map = {
   type: 'map', version: '1.10', tiledversion: '1.10.2',
   orientation: 'orthogonal', renderorder: 'right-down', infinite: false,
   width: W, height: H, tilewidth: T, tileheight: T,
-  nextlayerid: 8, nextobjectid: objectId,
+  nextlayerid: 9, nextobjectid: objectId,
   layers: [
     tileLayer(1, 'sea', sea),
+    tileLayer(8, 'seafx', seafx),
     tileLayer(2, 'ground', ground),
     tileLayer(3, 'land', land),
     tileLayer(4, 'decor', decor),

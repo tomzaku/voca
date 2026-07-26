@@ -29,11 +29,13 @@ through:
 | LAKESIDE | `system` | the level collections |
 | HIGHLAND | `feature` | one building per app feature |
 
-Layers (bottom → top): `sea` (seamless deep water) · `ground` (sand beach +
-shallow ring) · `land` (autotiled grass + dirt roads) · `decor` (flowers, crops,
-bushes) · `build` (cottages, trees, rocks) · `walls` (collision only — hidden,
-mirrors every solid + all water). The `meta` object layer carries the
-spawn/door/label/station points WorldScene binds to (unchanged contract).
+Layers (bottom → top): `sea` (seamless deep water) · `seafx` (animated sparkle
+glints twinkling on the open sea — a Tiled tile animation Phaser plays natively)
+· `ground` (sand beach + shallow ring) · `land` (autotiled grass + dirt roads) ·
+`decor` (flowers, crops, bushes) · `build` (cottages, trees, rocks) · `walls`
+(collision only — hidden, mirrors every solid + all water). The `meta` object
+layer carries the spawn/door/label/station points WorldScene binds to (unchanged
+contract).
 
 Terrain is autotiled: grass is a plateau brush whose four outer corners are one
 tile flipped four ways (Tiled/Phaser flip flags), ringed by a one-tile sand

@@ -312,7 +312,7 @@ export class WorldScene extends Phaser.Scene {
     const tiles = map.addTilesetImage(src.tilesetName, `tiles-${src.key}`)!;
     // Painted layers, sea → land → props (the `walls` layer is collision-only,
     // hidden in the template, and read below without being drawn).
-    for (const name of ['sea', 'ground', 'land', 'decor', 'build'] as const) {
+    for (const name of ['sea', 'seafx', 'ground', 'land', 'decor', 'build'] as const) {
       const layer = map.createLayer(name, tiles);
       if (!layer) continue;
       layer.setScale(SCALE).setDepth(0);
