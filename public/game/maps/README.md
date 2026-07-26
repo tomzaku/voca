@@ -45,6 +45,10 @@ cottages** (5×6) assembled from the modular building tileset in five roof colou
 the generator. Trees are whole single pines/shrubs clumped into woods; rocks are
 self-contained boulders.
 
+A **waterfall** spills from the lake's south lip over a short brown cliff into a
+splash pool — its falling water is the pack's animated shallow-water tiles
+(30,6/7/8), whose 4-frame loops are re-declared on the tileset so it shimmers.
+
 Animated bits, all drawn by WorldScene from object points / its own sprites (not
 baked into the tilemap): water twinkles via dense `seafx` sparkle tile-animations;
 **windmills** turn (one per district, `windmill` points →

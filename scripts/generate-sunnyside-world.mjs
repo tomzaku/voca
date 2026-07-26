@@ -38,7 +38,8 @@ const gid = (c, r) => r * COLS + c + 1;           // (col,row) -> gid
 
 // ── Terrain tiles ──
 const OCEAN = (x, y) => gid(11 + (x & 3), 18 + (y & 3));   // seamless 4x4 deep water
-const SHALLOW = () => gid(22, 8);                          // cyan shallow water
+const SHALLOW = () => gid(30, 7);                          // solid cyan shallow water (animated)
+const SHALLOW_FOAM = () => gid(30, 6);                     // cyan + white foam lip (animated)
 const SAND = () => (rand() < 0.82 ? gid(5, 1) : gid(7, 1));
 const GRASS = () => {
   const r = rand();               // clean centres only ((3,4) has a right-edge rim)
@@ -157,7 +158,10 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   sea[at(x, y)] = OCEAN(x, y);                            // deep water everywhere first
   const d = distToLand[at(x, y)];
   if (!isLand(x, y)) {
-    if (d === 1 || d === 2) ground[at(x, y)] = SHALLOW(); // shallow ring
+    // Two-tile shallow ring of solid cyan; the tile touching the beach gets a
+    // white foam lip so the sea→sand edge reads cleanly (no green transition).
+    if (d === 1) ground[at(x, y)] = SHALLOW_FOAM();
+    else if (d === 2) ground[at(x, y)] = SHALLOW();
   } else {
     ground[at(x, y)] = SAND();                            // beach base under grass
   }
@@ -438,6 +442,31 @@ const bridgeCol = (S) => {
 bridgeCol(STRAIT1);
 bridgeCol(STRAIT2);
 
+// ── Waterfall ── the lake spills over a short cliff into a splash pool. The
+// falling water uses the pack's animated shallow-water tiles (30,6/7/8), whose
+// 4-frame animations are re-declared on the tileset below so they shimmer.
+const WF_FOAM = gid(30, 6), WF_FALL = gid(30, 7), WF_POOL = gid(30, 8);
+const CLIFF = gid(11, 4), CLIFF_TOP = gid(11, 3);
+const wfx = LAKE.cx - 1;                          // 2-wide channel, centred under the lake
+const wfy = LAKE.cy + LAKE.ry - 1;               // starts at the lake's south lip
+const solid = (x, y) => { if (inb(x, y)) walls[at(x, y)] = gid(11, 18); };
+for (let dy = 0; dy < 6; dy++) {
+  const y = wfy + dy;
+  for (let dx = 0; dx < 2; dx++) {               // the falling water
+    const x = wfx + dx;
+    if (!inb(x, y)) continue;
+    land[at(x, y)] = dy === 0 ? WF_FOAM : dy >= 5 ? WF_POOL : WF_FALL;
+    decor[at(x, y)] = 0; build[at(x, y)] = 0;
+    solid(x, y);
+  }
+  for (const x of [wfx - 1, wfx + 2]) {           // brown cliff walls flanking it
+    if (!inb(x, y)) continue;
+    land[at(x, y)] = dy === 0 ? CLIFF_TOP : dy >= 5 ? WF_POOL : CLIFF;
+    decor[at(x, y)] = 0; build[at(x, y)] = 0;
+    solid(x, y);
+  }
+}
+
 // ── Animals ── grazing livestock scattered on open grass (WorldScene animates
 // and wanders them). A `kind` picks the sprite; they roam around their point.
 const ANIMAL_KINDS = ['chicken', 'chicken', 'sheep', 'sheep', 'cow', 'pig'];
@@ -488,6 +517,15 @@ SPARKLE_BASES.forEach((g, i) => {
   const id = (g & 0x1fffffff) - 1;
   tileEntries.set(id, { id, animation: sparkleAnim(id, HOLDS[i % HOLDS.length]) });
 });
+
+// Waterfall / shallow-water shimmer: the pack animates each of these tiles
+// across its row (cols 30→33). Re-declare those 4-frame loops here.
+for (const r of [6, 7, 8]) {
+  const id = localId(30, r);
+  tileEntries.set(id, {
+    id, animation: [30, 31, 32, 33].map((c) => ({ tileid: localId(c, r), duration: 180 })),
+  });
+}
 
 const map = {
   type: 'map', version: '1.10', tiledversion: '1.10.2',
