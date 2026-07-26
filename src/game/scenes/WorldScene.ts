@@ -27,7 +27,7 @@ export interface WorldSceneData {
 
 const SPEED = 360;      // buddy speed, px/s
 const REACH = 110;      // distance at which a building "opens"
-const SCALE = 1;        // 32px tiles drawn 1:1 — pixel-perfect at any DPI
+const SCALE = 2;        // 16px Sunnyside art drawn 2× → 32px on-screen tiles
 const NIGHT_TINT = 0x8d92c4; // dims the day-lit tile art in dark mode
 
 const KIND_EMOJI = { mine: '👤', joined: '👥', level: '🎓' } as const;
@@ -310,8 +310,11 @@ export class WorldScene extends Phaser.Scene {
     const map = this.make.tilemap({ key: `map-${src.key}` });
     this.map = map;
     const tiles = map.addTilesetImage(src.tilesetName, `tiles-${src.key}`)!;
-    for (const name of ['ground', 'decor', 'walls'] as const) {
-      const layer = map.createLayer(name, tiles)!;
+    // Painted layers, sea → land → props (the `walls` layer is collision-only,
+    // hidden in the template, and read below without being drawn).
+    for (const name of ['sea', 'ground', 'land', 'decor', 'build'] as const) {
+      const layer = map.createLayer(name, tiles);
+      if (!layer) continue;
       layer.setScale(SCALE).setDepth(0);
       // Night falls on the same (day-lit) art. GPU tilemap layers have no tint.
       if (!this.pal.light && layer instanceof Phaser.Tilemaps.TilemapLayer) {
