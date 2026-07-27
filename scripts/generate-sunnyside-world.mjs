@@ -42,10 +42,11 @@ const SHALLOW = () => gid(30, 7);                          // solid cyan shallow
 const SHALLOW_FOAM = () => gid(30, 6);                     // cyan + white foam lip (animated)
 // Grass plateau drops to a striped brown dirt cliff on its south (front) edge,
 // so land reads as a raised surface (dirt-wall autotile, cols 10–12 rows 3–4).
-const CLIFF_TOP = gid(11, 3);   // lip just under the grass
-const CLIFF_FACE = gid(11, 4);  // striped face body
-const CLIFF_TL = gid(10, 3), CLIFF_TR = gid(12, 3);   // top corners
-const CLIFF_L = gid(10, 4), CLIFF_R = gid(12, 4);     // side faces
+// (11,3)/(11,4) are the straight top/face; (10,·)/(12,·) slope the left/right
+// ends of a cliff run down to the water (their upper diagonal is transparent).
+const CLIFF_TOP = gid(11, 3), CLIFF_FACE = gid(11, 4);
+const CLIFF_TL = gid(10, 3), CLIFF_TR = gid(12, 3);   // sloped run-ends, top row
+const CLIFF_BL = gid(10, 4), CLIFF_BR = gid(12, 4);   // sloped run-ends, face row
 const GRASS = () => {
   const r = rand();               // clean centres only ((3,4) has a right-edge rim)
   return r < 0.42 ? gid(1, 3) : r < 0.74 ? gid(3, 3) : r < 0.9 ? gid(1, 4)
@@ -118,7 +119,7 @@ const districts = [
 ];
 const LAKE = { cx: 41, cy: 78, rx: 8, ry: 6 };
 
-const wob = (x, y) => 0.12 * Math.sin(x * 0.7 + y * 0.2) + 0.12 * Math.cos(y * 0.6 - x * 0.15);
+const wob = (x, y) => 0.08 * Math.sin(x * 0.55 + y * 0.2) + 0.08 * Math.cos(y * 0.5 - x * 0.15);
 const inEllipse = (x, y, e) => {
   const dx = (x - e.cx) / e.rx, dy = (y - e.cy) / e.ry;
   return dx * dx + dy * dy < 1 + wob(x, y);
@@ -145,6 +146,7 @@ const smooth = () => {
   L = n;
 };
 smooth();
+smooth();   // twice → smoother coast so cliffs form clean runs, not a staircase
 const isLand = (x, y) => inb(x, y) && L[at(x, y)];
 
 // Distance (in tiles, up to 3) from each water cell to the nearest land.
@@ -167,26 +169,33 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   else if (d === 2) ground[at(x, y)] = SHALLOW();
 }
 
-// The grass interior is the island eroded by one tile; the outer ring left over
-// becomes a brown dirt bank, so the land reads as a raised surface with a soil
-// edge dropping to the sea (no sand). Prop placement also uses this inset.
+// Grass covers the whole island silhouette, with a rounded green lip on its
+// four outer corners. Prop placement stays inset from the coast (isGrass).
 const isGrass = (x, y) =>
   isLand(x, y) && isLand(x - 1, y) && isLand(x + 1, y) && isLand(x, y - 1) && isLand(x, y + 1);
 
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   if (!isLand(x, y)) continue;
-  if (!isGrass(x, y)) {
-    // The coast ring: a striped brown dirt bank tile, always attached to land.
-    land[at(x, y)] = CLIFF_FACE;
-    continue;
-  }
-  const N = isGrass(x, y - 1), S = isGrass(x, y + 1), E = isGrass(x + 1, y), Wl = isGrass(x - 1, y);
+  const N = isLand(x, y - 1), S = isLand(x, y + 1), E = isLand(x + 1, y), Wl = isLand(x - 1, y);
   let t = GRASS();
   if (!N && !Wl && S && E) t = GRASS_CORNER;             // top-left
   else if (!N && !E && S && Wl) t = GRASS_CORNER | FH;   // top-right
   else if (!S && !Wl && N && E) t = GRASS_CORNER | FV;   // bottom-left
   else if (!S && !E && N && Wl) t = GRASS_CORNER | FH | FV; // bottom-right
   land[at(x, y)] = t;
+}
+
+// South-facing coasts drop as a two-tile brown cliff (grass above → striped
+// face → water). A cliff hangs on any water tile with land directly north; the
+// run's left/right ends slope down with the diagonal corner tiles.
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  if (isLand(x, y) || !isLand(x, y - 1)) continue;       // water tile just south of land
+  const contLeft = isLand(x - 1, y - 1) && !isLand(x - 1, y);   // cliff continues left
+  const contRight = isLand(x + 1, y - 1) && !isLand(x + 1, y);  // …and right
+  const topTile = !contLeft ? CLIFF_TL : !contRight ? CLIFF_TR : CLIFF_TOP;
+  const faceTile = !contLeft ? CLIFF_BL : !contRight ? CLIFF_BR : CLIFF_FACE;
+  ground[at(x, y)] = topTile;
+  if (y + 1 < H && !isLand(x, y + 1)) ground[at(x, y + 1)] = faceTile;
 }
 
 // ── Prop stamping ──
