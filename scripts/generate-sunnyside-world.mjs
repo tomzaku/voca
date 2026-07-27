@@ -40,13 +40,13 @@ const gid = (c, r) => r * COLS + c + 1;           // (col,row) -> gid
 const OCEAN = (x, y) => gid(11 + (x & 3), 18 + (y & 3));   // seamless 4x4 deep water
 const SHALLOW = () => gid(30, 7);                          // solid cyan shallow water (animated)
 const SHALLOW_FOAM = () => gid(30, 6);                     // cyan + white foam lip (animated)
-// Grass plateau drops to a striped brown dirt cliff on its south (front) edge,
-// so land reads as a raised surface (dirt-wall autotile, cols 10–12 rows 3–4).
-// (11,3)/(11,4) are the straight top/face; (10,·)/(12,·) slope the left/right
-// ends of a cliff run down to the water (their upper diagonal is transparent).
+// Coast cliff: a 3-tile-tall wall hanging below each south grass edge into the
+// water, so land reads as a raised plateau (autotile at cols 1–3, rows 30–32).
+// Row 30 = grass-lipped top, 31 = striped face, 32 = base; column 2 is straight,
+// column 1 slopes where the coast descends to the right, column 3 to the left.
+const COAST = (dcol, level) => gid(dcol, 30 + level);   // dcol∈{1,2,3}, level 0..2
+// (used by the waterfall too)
 const CLIFF_TOP = gid(11, 3), CLIFF_FACE = gid(11, 4);
-const CLIFF_TL = gid(10, 3), CLIFF_TR = gid(12, 3);   // sloped run-ends, top row
-const CLIFF_BL = gid(10, 4), CLIFF_BR = gid(12, 4);   // sloped run-ends, face row
 const GRASS = () => {
   const r = rand();               // clean centres only ((3,4) has a right-edge rim)
   return r < 0.42 ? gid(1, 3) : r < 0.74 ? gid(3, 3) : r < 0.9 ? gid(1, 4)
@@ -185,17 +185,19 @@ for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
   land[at(x, y)] = t;
 }
 
-// South-facing coasts drop as a two-tile brown cliff (grass above → striped
-// face → water). A cliff hangs on any water tile with land directly north; the
-// run's left/right ends slope down with the diagonal corner tiles.
+// South-facing coasts drop as a three-tile cliff hanging below the grass edge
+// into the water. For each south edge (land tile with water directly below) we
+// stack top/face/base on the three water tiles beneath it; the column variant
+// slopes the run where the coast steps left or right.
 for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-  if (isLand(x, y) || !isLand(x, y - 1)) continue;       // water tile just south of land
-  const contLeft = isLand(x - 1, y - 1) && !isLand(x - 1, y);   // cliff continues left
-  const contRight = isLand(x + 1, y - 1) && !isLand(x + 1, y);  // …and right
-  const topTile = !contLeft ? CLIFF_TL : !contRight ? CLIFF_TR : CLIFF_TOP;
-  const faceTile = !contLeft ? CLIFF_BL : !contRight ? CLIFF_BR : CLIFF_FACE;
-  ground[at(x, y)] = topTile;
-  if (y + 1 < H && !isLand(x, y + 1)) ground[at(x, y + 1)] = faceTile;
+  if (!isLand(x, y) || isLand(x, y + 1)) continue;       // south edge (water below)
+  const leftLand = isLand(x - 1, y), rightLand = isLand(x + 1, y);
+  const dcol = (rightLand && !leftLand) ? 1 : (leftLand && !rightLand) ? 3 : 2;
+  for (let level = 0; level < 3; level++) {
+    const yy = y + 1 + level;
+    if (yy >= H || isLand(x, yy)) break;
+    ground[at(x, yy)] = COAST(dcol, level);
+  }
 }
 
 // ── Prop stamping ──

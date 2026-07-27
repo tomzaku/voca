@@ -40,8 +40,10 @@ contract).
 Terrain is autotiled: grass covers each island's whole silhouette with a rounded
 green lip on its four outer corners (one tile flipped four ways via Tiled/Phaser
 flip flags). The land sits proud of the sea — its **south-facing coasts drop as a
-two-tile brown dirt cliff** (dirt-wall autotile, cols 10–12 rows 3–4) so the
-islands read as raised plateaus; other coasts meet a cyan shallow-water band
+three-tile brown cliff** hanging below the grass edge into the water (coast-cliff
+autotile at cols 1–3, rows 30–32: row 30 grass-lipped top / 31 striped face / 32
+base; column 2 straight, column 1/3 sloping where the coast steps right/left) so
+the islands read as raised plateaus; other coasts meet a cyan shallow-water band
 (with a white foam lip) over deep ocean. No sand. Buildings are **wide gable
 cottages** (5×6) assembled from the modular building tileset in five roof colours
 (blue/green/orange/red/purple), one per station slot — see `houseTemplate` in
