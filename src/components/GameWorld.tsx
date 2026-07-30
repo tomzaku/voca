@@ -146,7 +146,9 @@ export function GameWorld({
     // Render at native device resolution (the camera zooms to compensate),
     // otherwise the browser upscales the canvas on retina screens and both
     // text and sprites come out blurry.
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    // Capped at 2: the art is 16px pixel art drawn 2×, so a 3× canvas costs
+    // 2.25× the fill rate of a 2× one and buys nothing you can see.
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const look: BuddyLook = { kind: 'animal', id: animal.id };
     const data: WorldSceneData = {
       stations: live.current.stations,

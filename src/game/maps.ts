@@ -17,14 +17,19 @@ export interface WorldMapSource {
   tilesetUrl: string;
   /** The tileset's `name` inside the map document. */
   tilesetName: string;
+  /** Atlas of the loose scenery sprites the map's `props` layer places. */
+  propsAtlasUrl: string;
+  propsAtlasJsonUrl: string;
 }
 
 export function defaultMap(): WorldMapSource {
   const base = import.meta.env.BASE_URL;
   return {
     key: 'world',
-    tmjUrl: `${base}game/maps/village.tmj`,
-    tilesetUrl: `${base}game/maps/tileset-sunnyside.png`,
+    tmjUrl: `${base}game/maps/sunnyside-world.tmj`,
+    tilesetUrl: `${base}game/maps/tileset-sunnyside-world.png`,
     tilesetName: 'sunnyside',
+    propsAtlasUrl: `${base}game/maps/props.png`,
+    propsAtlasJsonUrl: `${base}game/maps/props.json`,
   };
 }

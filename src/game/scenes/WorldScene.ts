@@ -30,6 +30,29 @@ const REACH = 110;      // distance at which a building "opens"
 const SCALE = 2;        // 16px Sunnyside art drawn 2× → 32px on-screen tiles
 const NIGHT_TINT = 0x8d92c4; // dims the day-lit tile art in dark mode
 
+/**
+ * The map's painted layers in draw order, bottom first, with the two prop
+ * layers sitting exactly where the source room had them — `Assets_2` behind the
+ * forest, `Assets_1` in front of the buildings. Anything missing from the
+ * template is skipped, so older templates still load.
+ */
+const WORLD_LAYERS = [
+  'sea', 'clouds_02', 'land', 'paths', 'shadows', 'decoration_01',
+  'Assets_2', 'forest', 'building', 'fences', 'decoration_02', 'decoration_03',
+  'Assets_1', 'cloud_shadow', 'clouds_01',
+] as const;
+const PROP_LAYERS = new Set<string>(['Assets_1', 'Assets_2']);
+const PROPS_KEY = 'world-props';
+
+// Depths. Everything the template paints lives below NIGHT, so one veil dims
+// the whole world; the buddy and the station markers sit above it.
+const DEPTH_STEP = 10;
+const DEPTH_SCENERY = WORLD_LAYERS.length * DEPTH_STEP;   // legacy meta windmills/animals
+const DEPTH_NIGHT = DEPTH_SCENERY + 5;
+const DEPTH_STATIONS = DEPTH_NIGHT + 10;
+const DEPTH_MARK = DEPTH_STATIONS + 5;
+const DEPTH_BUDDY = DEPTH_STATIONS + 10;
+
 const KIND_EMOJI = { mine: '👤', joined: '👥', level: '🎓' } as const;
 
 interface PlacedStation extends WorldStation {
@@ -53,15 +76,25 @@ interface MapMeta {
   slots: Record<'public' | 'system' | 'feature', { x: number; y: number; slot: number }[]>;
 }
 
+/** One loose scenery sprite the map's `props` object layer places. */
+interface PropDef {
+  /** Atlas frame prefix — frames are `${name}_0`, `${name}_1`, … */
+  name: string;
+  x: number;
+  y: number;
+  frames: number;
+  fps: number;
+  /** Origin as a fraction of the frame, carried over from GameMaker. */
+  originX: number;
+  originY: number;
+  scaleX: number;
+  scaleY: number;
+  layer: string;
+}
+
 /** Animated scenery sprites the map places by object point: filename in
  *  public/game/props, square frame size, frame count and play rate. */
 const WINDMILL = { key: 'windmill', url: 'game/props/windmill.png', frame: 112, frames: 9, rate: 12 };
-
-/** Pixel-art clouds (Sunnyside cloud tiles) + their ground shadows. */
-const CLOUDS = [
-  { key: 'cloud-a', shadow: 'cloud-a-shadow' },
-  { key: 'cloud-b', shadow: 'cloud-b-shadow' },
-];
 
 /** Grazing animals: strip frame size, frame count, idle rate, draw scale, and
  *  wander speed (px/s) + roam radius (px) around their spawn point. */
@@ -92,8 +125,16 @@ export class WorldScene extends Phaser.Scene {
   private pal!: WorldPalette;
   private ready = false;
 
-  private map?: Phaser.Tilemaps.Tilemap;
-  private worldLayer?: Phaser.GameObjects.Container;
+  /** Rebuilt whenever collections change: stations, features, the build plot.
+   *  Everything else the world draws is built once and left alone. */
+  private stationLayer?: Phaser.GameObjects.Container;
+  /** Dims the day-lit tile art in dark mode, in place of a per-layer tint
+   *  (GPU tilemap layers have none) — a multiply veil over the map bounds. */
+  private nightVeil?: Phaser.GameObjects.Rectangle;
+  /** Scenery that takes the night tint individually (it sits above the veil). */
+  private tinted: Phaser.GameObjects.Sprite[] = [];
+  /** Area labels, kept so a theme switch can recolor them in place. */
+  private labels: { text: Phaser.GameObjects.Text; theme: ThemeId }[] = [];
   private nodes: StationNode[] = [];
   /** Collision grid from the map's `walls` layer, indexed [tileY][tileX]. */
   private blocked: boolean[][] = [];
@@ -113,9 +154,6 @@ export class WorldScene extends Phaser.Scene {
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
-
-  /** Fluffy clouds drifting above the island, each with a ground shadow. */
-  private clouds: { sprite: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Image; speed: number }[] = [];
 
   /** Grazing animals ambling around their spawn points. */
   private animals: {
@@ -143,13 +181,11 @@ export class WorldScene extends Phaser.Scene {
     const src = defaultMap();
     this.load.image(`tiles-${src.key}`, src.tilesetUrl);
     this.load.tilemapTiledJSON(`map-${src.key}`, src.tmjUrl);
+    // 112 scenery sprites (547 frames) in one atlas — one texture, one bind.
+    this.load.atlas(PROPS_KEY, src.propsAtlasUrl, src.propsAtlasJsonUrl);
     this.load.spritesheet(WINDMILL.key, `${import.meta.env.BASE_URL}${WINDMILL.url}`, {
       frameWidth: WINDMILL.frame, frameHeight: WINDMILL.frame,
     });
-    for (const c of CLOUDS) {
-      this.load.image(c.key, `${import.meta.env.BASE_URL}game/props/${c.key}.png`);
-      this.load.image(c.shadow, `${import.meta.env.BASE_URL}game/props/${c.shadow}.png`);
-    }
     for (const [kind, cfg] of Object.entries(ANIMALS)) {
       this.load.spritesheet(`animal-${kind}`, `${import.meta.env.BASE_URL}game/props/${kind}.png`, {
         frameWidth: cfg.frame, frameHeight: cfg.frame,
@@ -168,12 +204,9 @@ export class WorldScene extends Phaser.Scene {
     // runtime-loaded sheets, and linear filtering blurs 16px art badly.
     const src = defaultMap();
     this.textures.get(`tiles-${src.key}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.textures.get(PROPS_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get(this.spec.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get(WINDMILL.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    for (const c of CLOUDS) {
-      this.textures.get(c.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-      this.textures.get(c.shadow).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    }
     for (const [kind, cfg] of Object.entries(ANIMALS)) {
       this.textures.get(`animal-${kind}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
       if (!this.anims.exists(`animal-${kind}-idle`)) {
@@ -222,12 +255,13 @@ export class WorldScene extends Phaser.Scene {
       },
     );
 
-    this.buildWorld();
+    this.buildTerrain();
+    this.buildStations();
     this.createBuddy();
     this.targetMark = this.add
       .circle(0, 0, 8)
       .setStrokeStyle(2.5, 0xffd23f)
-      .setDepth(5)
+      .setDepth(DEPTH_MARK)
       .setVisible(false);
     this.tweens.add({
       targets: this.targetMark,
@@ -237,44 +271,39 @@ export class WorldScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    this.makeClouds();
-
     this.cameras.main.startFollow(this.buddy, true, 0.12, 0.12);
     this.ready = true;
   }
 
-  /** Pixel-art clouds drifting east above the island, each casting a soft
-   *  ground shadow (offset, drawn below the buddy). */
-  private makeClouds() {
-    for (const c of this.clouds) { c.sprite.destroy(); c.shadow.destroy(); }
-    this.clouds = [];
-    const count = Math.max(10, Math.round((this.worldW * this.worldH) / 480000));
-    for (let i = 0; i < count; i++) {
-      const def = CLOUDS[i % CLOUDS.length];
-      const x = Math.random() * this.worldW, y = Math.random() * this.worldH;
-      const scale = SCALE * (0.8 + Math.random() * 0.8);
-      const shadow = this.add.image(x + 30, y + 46, def.shadow)
-        .setOrigin(0.5).setScale(scale).setDepth(2).setAlpha(0.14);
-      const sprite = this.add.image(x, y, def.key)
-        .setOrigin(0.5).setScale(scale).setDepth(20).setAlpha(0.95);
-      if (!this.pal.light) sprite.setTint(NIGHT_TINT);
-      this.clouds.push({ sprite, shadow, speed: 6 + Math.random() * 10 });
-    }
-  }
-
   // ── React-facing API ──
 
-  /** Swap the station data (progress ticked, collection created…) in place. */
+  /** Swap the station data (progress ticked, collection created…) in place.
+   *  Only the station markers are rebuilt — the terrain is untouched. */
   setStations(stations: WorldStation[]) {
     this.args.stations = stations;
-    if (this.ready) this.buildWorld();
+    if (this.ready) this.buildStations();
   }
 
-  /** Re-resolve colors from CSS variables after a theme switch. */
+  /** Re-resolve colors from CSS variables after a theme switch. Terrain stays;
+   *  only the night veil, scenery tints and the colored text are refreshed. */
   applyTheme() {
     if (!this.ready) return;
     this.pal = worldPalette();
-    this.buildWorld();
+    this.applyNight();
+    for (const l of this.labels) {
+      l.text.setColor(this.pal.zones[l.theme].labelCss).setBackgroundColor(this.pal.cardCss);
+    }
+    this.cameras.main.setBackgroundColor(this.pal.void);
+    this.buildStations();
+  }
+
+  /** Point the day/night dressing at the current palette. */
+  private applyNight() {
+    const night = !this.pal.light;
+    this.nightVeil?.setVisible(night);
+    for (const s of this.tinted) {
+      if (night) s.setTint(NIGHT_TINT); else s.clearTint();
+    }
   }
 
   /** Fast travel: fade out, drop the buddy at the station's door, fade in. */
@@ -389,26 +418,38 @@ export class WorldScene extends Phaser.Scene {
 
   // ── World construction ──
 
-  private buildWorld() {
+  /**
+   * The parts of the world that never change: the tilemap itself, the collision
+   * grid, the object-layer metadata and the animated scenery. Parsing the
+   * template allocates a Tile object per cell per layer (~67k for the village),
+   * so this runs exactly once per scene — station data changes go through
+   * {@link buildStations} instead.
+   */
+  private buildTerrain() {
     const src = defaultMap();
-    this.map?.destroy();
-    this.worldLayer?.destroy();
-    this.nodes = [];
 
     const map = this.make.tilemap({ key: `map-${src.key}` });
-    this.map = map;
     const tiles = map.addTilesetImage(src.tilesetName, `tiles-${src.key}`)!;
     // Painted layers, sea → land → props (the `walls` layer is collision-only,
     // hidden in the template, and read below without being drawn).
-    for (const name of ['sea', 'seafx', 'ground', 'land', 'decor', 'build'] as const) {
-      const layer = map.createLayer(name, tiles);
-      if (!layer) continue;
-      layer.setScale(SCALE).setDepth(0);
-      // Night falls on the same (day-lit) art. GPU tilemap layers have no tint.
-      if (!this.pal.light && layer instanceof Phaser.Tilemaps.TilemapLayer) {
-        layer.setTint(NIGHT_TINT);
+    //
+    // These go on the GPU path: one quad and one draw call per layer, with the
+    // tile grid uploaded as a data texture, instead of the CPU walking visible
+    // tiles every frame. The template fits its restrictions — a single
+    // orthographic tileset, well under 4096² tiles — and it still animates the
+    // sea. The one thing it gives up is tinting, so night falls via `nightVeil`.
+    const gpu = this.game.renderer.type === Phaser.WEBGL;
+    const props = this.readProps(map);
+    WORLD_LAYERS.forEach((name, i) => {
+      const depth = i * DEPTH_STEP;
+      if (PROP_LAYERS.has(name)) {
+        this.addProps(props.filter((p) => p.layer === name), depth);
+        return;
       }
-    }
+      const layer = map.createLayer(name, tiles, undefined, undefined, gpu);
+      if (!layer) return;   // template doesn't paint this one
+      layer.setScale(SCALE).setDepth(depth);
+    });
     this.worldW = map.widthInPixels * SCALE;
     this.worldH = map.heightInPixels * SCALE;
     this.tilePx = map.tileWidth * SCALE;
@@ -419,8 +460,17 @@ export class WorldScene extends Phaser.Scene {
 
     this.meta = this.readMeta(map);
 
-    const layer = this.add.container(0, 0).setDepth(1);
-    this.worldLayer = layer;
+    // Night falls on the same (day-lit) art: a multiply veil across the map,
+    // under everything the scene draws on top of the tiles.
+    this.nightVeil = this.add
+      .rectangle(0, 0, this.worldW, this.worldH, NIGHT_TINT)
+      .setOrigin(0, 0)
+      .setDepth(DEPTH_NIGHT)
+      .setBlendMode(Phaser.BlendModes.MULTIPLY)
+      .setVisible(false);
+
+    const layer = this.add.container(0, 0).setDepth(DEPTH_SCENERY);
+    this.tinted = [];
 
     // Animated scenery: windmills turn where the map placed them (feet at the
     // point, drawn 2× to match the tiles' on-screen size, tinted at night).
@@ -429,9 +479,9 @@ export class WorldScene extends Phaser.Scene {
         .sprite(w.x, w.y, WINDMILL.key, 0)
         .setOrigin(0.5, 1)
         .setScale(SCALE);
-      if (!this.pal.light) mill.setTint(NIGHT_TINT);
       mill.play('windmill-spin');
       layer.add(mill);
+      this.tinted.push(mill);
     }
 
     // Grazing animals wandering their patch of grass.
@@ -442,28 +492,46 @@ export class WorldScene extends Phaser.Scene {
         .sprite(a.x, a.y, `animal-${a.kind}`, 0)
         .setOrigin(0.5, 1)
         .setScale(cfg.scale)
-        .setDepth(3);
-      if (!this.pal.light) sprite.setTint(NIGHT_TINT);
+        .setDepth(DEPTH_SCENERY);
       sprite.play(`animal-${a.kind}-idle`, true);
       layer.add(sprite);
+      this.tinted.push(sprite);
       this.animals.push({ sprite, cfg, hx: a.x, hy: a.y, tx: a.x, ty: a.y, pause: Math.random() * 2000 });
     }
 
+    this.labels = [];
     for (const l of this.meta.labels) {
-      layer.add(
-        this.add
-          .text(l.x, l.y, l.text, {
-            fontFamily: FONT,
-            fontSize: '12px',
-            fontStyle: 'bold',
-            color: this.pal.zones[l.theme].labelCss,
-            backgroundColor: this.pal.cardCss,
-            padding: { x: 10, y: 4 },
-            resolution: this.args.dpr,
-          })
-          .setOrigin(0, 0.5),
-      );
+      const text = this.add
+        .text(l.x, l.y, l.text, {
+          fontFamily: FONT,
+          fontSize: '12px',
+          fontStyle: 'bold',
+          color: this.pal.zones[l.theme].labelCss,
+          backgroundColor: this.pal.cardCss,
+          padding: { x: 10, y: 4 },
+          resolution: this.args.dpr,
+        })
+        .setOrigin(0, 0.5);
+      layer.add(text);
+      this.labels.push({ text, theme: l.theme });
     }
+
+    // Each area is its own "room": the camera is locked to the strip the buddy
+    // is standing in, so crossing a gate reads as arriving somewhere new.
+    this.areas = this.computeAreas();
+    this.areaIndex = this.areaIndexFor(this.meta.spawn.y);
+    this.applyCameraBounds();
+    this.cameras.main.setBackgroundColor(this.pal.void);
+    this.applyNight();
+  }
+
+  /** The data-driven markers: collections, feature buildings and the build
+   *  plot. Cheap enough to throw away and redo whenever collections change. */
+  private buildStations() {
+    this.stationLayer?.destroy();
+    this.nodes = [];
+    const layer = this.add.container(0, 0).setDepth(DEPTH_STATIONS);
+    this.stationLayer = layer;
 
     // Bind collections to the template's station slots: public collections
     // fill the public slots in order, levels fill the system slots.
@@ -498,18 +566,72 @@ export class WorldScene extends Phaser.Scene {
     const free = this.meta.slots.public[pub.length];
     if (free) this.addCreateSpot(layer, free.x, free.y);
 
-    // Each area is its own "room": the camera is locked to the strip the buddy
-    // is standing in, so crossing a gate reads as arriving somewhere new.
-    this.areas = this.computeAreas();
-    this.areaIndex = this.areaIndexFor(this.buddy ? this.buddy.y : this.meta.spawn.y);
-    this.applyCameraBounds();
-    this.cameras.main.setBackgroundColor(this.pal.void);
-
-    // A rebuild can move walls under the buddy — reel it back in if so.
-    if (this.buddy && !this.canStand(this.buddy.x, this.buddy.y)) {
-      this.buddy.setPosition(this.meta.spawn.x, this.meta.spawn.y);
+    // Carry the open station card across the rebuild: re-light the node the
+    // buddy is standing at, or tell React it's gone if the collection was.
+    const still = this.nodes.find((n) => n.station.id === this.nearestId);
+    if (still) {
+      still.ring.setVisible(true);
+      still.root.setScale(1.12);
+    } else if (this.nearestId !== null) {
+      this.nearestId = null;
+      this.game.events.emit(WORLD_EVENTS.near, null);
     }
-    this.route = [];
+  }
+
+  /** Pull the loose scenery sprites out of the map's `props` object layer. */
+  private readProps(map: Phaser.Tilemaps.Tilemap): PropDef[] {
+    type TiledProp = { name: string; value: unknown };
+    const out: PropDef[] = [];
+    for (const obj of map.getObjectLayer('props')?.objects ?? []) {
+      const props = (obj.properties ?? []) as TiledProp[];
+      const num = (name: string, fallback: number) => {
+        const v = props.find((p) => p.name === name)?.value;
+        return typeof v === 'number' ? v : fallback;
+      };
+      out.push({
+        name: obj.name,
+        x: (obj.x ?? 0) * SCALE,
+        y: (obj.y ?? 0) * SCALE,
+        frames: num('frames', 1),
+        fps: num('fps', 0),
+        originX: num('originX', 0),
+        originY: num('originY', 0),
+        scaleX: num('scaleX', 1),
+        scaleY: num('scaleY', 1),
+        layer: String(props.find((p) => p.name === 'layer')?.value ?? ''),
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Place one prop layer. Sprites share a single atlas texture, and each
+   * distinct animated sprite gets one looping clip that every instance of it
+   * plays — staggered, so a row of identical trees doesn't sway in lockstep.
+   */
+  private addProps(defs: PropDef[], depth: number) {
+    for (const p of defs) {
+      const frame = `${p.name}_0`;
+      if (!this.textures.getFrame(PROPS_KEY, frame)) continue;   // atlas is stale
+      const sprite = this.add
+        .sprite(p.x, p.y, PROPS_KEY, frame)
+        .setOrigin(p.originX, p.originY)
+        .setScale(SCALE * p.scaleX, SCALE * p.scaleY)
+        .setDepth(depth);
+
+      if (p.frames > 1 && p.fps > 0) {
+        const key = `prop-${p.name}`;
+        if (!this.anims.exists(key)) {
+          this.anims.create({
+            key,
+            frames: Array.from({ length: p.frames }, (_, i) => ({ key: PROPS_KEY, frame: `${p.name}_${i}` })),
+            frameRate: p.fps,
+            repeat: -1,
+          });
+        }
+        sprite.play({ key, delay: (p.x * 13 + p.y * 7) % 900 });
+      }
+    }
   }
 
   /** Pull spawn/doors/labels/station slots out of the map's object layer. */
@@ -806,7 +928,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     // Container origin = the buddy's feet.
-    this.buddy = this.add.container(spawn.x, spawn.y).setDepth(10);
+    this.buddy = this.add.container(spawn.x, spawn.y).setDepth(DEPTH_BUDDY);
     this.buddy.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.28));
     // Pixel-art frame, scaled up; the buddy grows a little per stage.
     this.sprite = this.add
@@ -892,16 +1014,6 @@ export class WorldScene extends Phaser.Scene {
   update(time: number, dtMs: number) {
     if (!this.ready) return;
     const dt = Math.min(dtMs / 1000, 0.05);
-
-    // Drift clouds (and their shadows) east, wrapping around the west edge.
-    for (const c of this.clouds) {
-      c.sprite.x += c.speed * dt;
-      c.shadow.x += c.speed * dt;
-      if (c.sprite.x > this.worldW + 160) {
-        c.sprite.x = -160;
-        c.shadow.x = c.sprite.x + 30;
-      }
-    }
 
     // Animals amble toward a target, pause, then pick a new one near home.
     for (const a of this.animals) {
