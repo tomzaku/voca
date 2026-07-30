@@ -231,27 +231,50 @@ for (const l of ordered) {
 
 // ── Props ──
 // The room's two asset layers place 570 loose sprites (trees, animals, props,
-// characters). They aren't tiles, so they're packed into a single atlas — 112
-// sprites, 547 frames — and emitted as point objects carrying everything the
-// scene needs to place and animate them.
+// characters). They aren't tiles, so they're packed into a single atlas and
+// emitted as point objects carrying everything the scene needs to place and
+// animate them.
 const PROP_PAD = 1;
 
-/** Every distinct sprite the room places, with its frames and GameMaker origin. */
-const spriteDefs = new Map();
+// Decorative villagers are dropped. In the game a character standing about is a
+// signal — it marks a collection or a feature you can walk up to — so scattering
+// 68 idle ones with no function reads as noise. Their drop shadows go with them.
+const CHARACTER = /^spr_(idle|doing|carry|swimming|attack|jump|roll|run|walk|dig|axe|mining|hurt|death|casting|caught|reeling|waiting|watering|hammering)/i;
+const CHARACTER_SHADOW = 'spr_deco_charactershadow';
+
+const placements = [];
 for (const l of ordered) {
   if (l.resourceType !== 'GMRAssetLayer') continue;
   for (const a of l.assets) {
-    if (a.resourceType !== 'GMRSpriteGraphic' || spriteDefs.has(a.spriteId.name)) continue;
-    const name = a.spriteId.name;
-    const yy = readYY(new URL(`sprites/${name}/${name}.yy`, PACK));
-    spriteDefs.set(name, {
-      name,
-      w: yy.width, h: yy.height,
-      ox: yy.sequence?.xorigin ?? 0, oy: yy.sequence?.yorigin ?? 0,
-      fps: yy.sequence?.playbackSpeed || 0,
-      files: yy.frames.map((f) => new URL(`sprites/${name}/${f.name}.png`, PACK)),
-    });
+    if (a.resourceType === 'GMRSpriteGraphic') placements.push({ a, layer: l.name });
   }
+}
+const dropped = placements.filter((p) => CHARACTER.test(p.a.spriteId.name));
+const kept = placements.filter((p) => {
+  const name = p.a.spriteId.name;
+  if (CHARACTER.test(name)) return false;
+  // A character shadow only makes sense under a character.
+  if (name === CHARACTER_SHADOW) {
+    return !dropped.some((d) => Math.abs(d.a.x - p.a.x) <= 12 && Math.abs(d.a.y - p.a.y) <= 12);
+  }
+  return true;
+});
+console.log(`props: dropped ${dropped.length} decorative characters and ` +
+  `${placements.length - dropped.length - kept.length} of their shadows, kept ${kept.length}`);
+
+/** Every distinct sprite still placed, with its frames and GameMaker origin. */
+const spriteDefs = new Map();
+for (const { a } of kept) {
+  const name = a.spriteId.name;
+  if (spriteDefs.has(name)) continue;
+  const yy = readYY(new URL(`sprites/${name}/${name}.yy`, PACK));
+  spriteDefs.set(name, {
+    name,
+    w: yy.width, h: yy.height,
+    ox: yy.sequence?.xorigin ?? 0, oy: yy.sequence?.yorigin ?? 0,
+    fps: yy.sequence?.playbackSpeed || 0,
+    files: yy.frames.map((f) => new URL(`sprites/${name}/${f.name}.png`, PACK)),
+  });
 }
 
 // Shelf-pack the frames, tallest first, into the smallest square that fits.
@@ -310,10 +333,8 @@ console.log(`wrote ${propsPng} + props.json (${ATLAS}x${ATLAS}, ${packed.size} f
 
 const props = [];
 let objId = 1;
-for (const l of ordered) {
-  if (l.resourceType !== 'GMRAssetLayer') continue;
-  for (const a of l.assets) {
-    if (a.resourceType !== 'GMRSpriteGraphic') continue;
+{
+  for (const { a, layer: layerName } of kept) {
     const s = spriteDefs.get(a.spriteId.name);
     props.push({
       id: objId++, name: a.spriteId.name, type: 'prop',
@@ -321,7 +342,7 @@ for (const l of ordered) {
       // and let the scene set it — x/y stay the room's own coordinates.
       x: a.x, y: a.y, width: 0, height: 0, point: true, visible: true, rotation: a.rotation || 0,
       properties: [
-        { name: 'layer', type: 'string', value: l.name },
+        { name: 'layer', type: 'string', value: layerName },
         { name: 'frames', type: 'int', value: s.files.length },
         { name: 'fps', type: 'float', value: s.fps },
         { name: 'originX', type: 'float', value: s.w ? s.ox / s.w : 0 },

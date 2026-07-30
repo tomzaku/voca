@@ -8,8 +8,8 @@ import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
   buddySpec, type BuddyLook, type BuddySpec,
-  CUTE_MONSTERS, SCARY_MONSTERS, monsterTextureKey, loadMonsterTextures,
-  type BuddyDir, type MonsterId,
+  VILLAGERS_KEY, loadVillagers, villagerAnim, villagerLookFor,
+  type BuddyDir, type VillagerLook,
 } from '../textures';
 
 export interface WorldSceneData {
@@ -192,12 +192,11 @@ export class WorldScene extends Phaser.Scene {
       });
     }
     this.spec.load(this);
-    loadMonsterTextures(this);
+    loadVillagers(this);
   }
 
   create() {
     this.pal = worldPalette();
-    this.spec.prepare?.(this); // e.g. compose the avatar sheet from its layers
     this.cameras.main.setZoom(this.args.dpr);
     this.cameras.main.setRoundPixels(true);
     // Belt and braces: the pixelArt config flag doesn't reliably reach
@@ -205,7 +204,7 @@ export class WorldScene extends Phaser.Scene {
     const src = defaultMap();
     this.textures.get(`tiles-${src.key}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get(PROPS_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get(this.spec.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.textures.get(VILLAGERS_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get(WINDMILL.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     for (const [kind, cfg] of Object.entries(ANIMALS)) {
       this.textures.get(`animal-${kind}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
@@ -226,20 +225,6 @@ export class WorldScene extends Phaser.Scene {
         repeat: -1,
       });
     }
-    for (const m of [...CUTE_MONSTERS, ...SCARY_MONSTERS]) {
-      this.textures.get(monsterTextureKey(m)).setFilter(Phaser.Textures.FilterMode.NEAREST);
-      // Facing-down walk cycle doubles as the monster's idle bounce.
-      const anim = `${monsterTextureKey(m)}-bob`;
-      if (!this.anims.exists(anim)) {
-        this.anims.create({
-          key: anim,
-          frames: this.anims.generateFrameNumbers(monsterTextureKey(m), { frames: [0, 4, 8, 12] }),
-          frameRate: 5,
-          repeat: -1,
-        });
-      }
-    }
-
     const kb = this.input.keyboard!;
     this.cursors = kb.createCursorKeys();
     this.wasd = kb.addKeys('W,A,S,D') as WorldScene['wasd'];
@@ -537,7 +522,10 @@ export class WorldScene extends Phaser.Scene {
     // fill the public slots in order, levels fill the system slots.
     const pub = this.args.stations.filter((s) => s.kind !== 'level');
     const sys = this.args.stations.filter((s) => s.kind === 'level');
-    let cute = 0, scary = 0;
+    // Villager looks are handed out by running order, so the same collection
+    // keeps the same face across rebuilds; levels start further along the list
+    // so they don't all share a face with the collections next door.
+    let villager = 0;
     const bind = (list: WorldStation[], slots: MapMeta['slots']['public']) => {
       list.forEach((s, i) => {
         const slot = slots[i];
@@ -546,10 +534,7 @@ export class WorldScene extends Phaser.Scene {
           return;
         }
         const placed: PlacedStation = { ...s, x: slot.x, y: slot.y };
-        const monster: MonsterId = s.kind === 'level'
-          ? SCARY_MONSTERS[Math.min(scary++, SCARY_MONSTERS.length - 1)]
-          : CUTE_MONSTERS[cute++ % CUTE_MONSTERS.length];
-        this.addStation(layer, placed, monster);
+        this.addStation(layer, placed, villagerLookFor(villager++));
       });
     };
     bind(pub, this.meta.slots.public);
@@ -558,7 +543,7 @@ export class WorldScene extends Phaser.Scene {
     // App pages: fixed buildings bound to the template's feature slots.
     this.args.features.forEach((f, i) => {
       const slot = this.meta.slots.feature[i];
-      if (slot) this.addFeature(layer, f, slot.x, slot.y);
+      if (slot) this.addFeature(layer, f, slot.x, slot.y, villagerLookFor(villager++));
     });
 
     // The next empty house up north is a build plot: walk up (or fast travel)
@@ -687,7 +672,7 @@ export class WorldScene extends Phaser.Scene {
     return meta;
   }
 
-  private addStation(layer: Phaser.GameObjects.Container, p: PlacedStation, monster: MonsterId) {
+  private addStation(layer: Phaser.GameObjects.Container, p: PlacedStation, look: VillagerLook) {
     const kind = this.pal.kind[p.kind];
     const root = this.add.container(p.x, p.y);
 
@@ -699,16 +684,16 @@ export class WorldScene extends Phaser.Scene {
       .setVisible(p.active);
     root.add(ring);
 
-    // The monster itself, idling with its walk-down bounce.
-    root.add(this.add.ellipse(0, 2, 30, 8, 0x000000, 0.25));
+    // The villager who minds this collection, idling on the spot.
+    root.add(this.add.ellipse(0, 2, 26, 7, 0x000000, 0.25));
     const sprite = this.add
-      .sprite(0, 2, monsterTextureKey(monster), 0)
+      .sprite(0, 2, VILLAGERS_KEY, `${look}-idle-0`)
       .setOrigin(0.5, 1)
-      .setScale(2.4);
-    sprite.play({ key: `${monsterTextureKey(monster)}-bob`, delay: (p.x * 7 + p.y) % 400 });
+      .setScale(SCALE);
+    sprite.play({ key: villagerAnim(this, look, 'idle'), delay: (p.x * 7 + p.y) % 700 });
     root.add(sprite);
 
-    // Name pill under the monster, kind emoji inline.
+    // Name pill under the villager, kind emoji inline.
     root.add(
       this.add
         .text(0, 12, `${KIND_EMOJI[p.kind]} ${p.name}`, {
@@ -852,7 +837,7 @@ export class WorldScene extends Phaser.Scene {
   /** An app page as a little building: walk up and React opens its card, whose
    *  "Enter" navigates to the page's route. Behaves like a station for
    *  proximity, but carries no words/progress. */
-  private addFeature(layer: Phaser.GameObjects.Container, f: WorldFeature, x: number, y: number) {
+  private addFeature(layer: Phaser.GameObjects.Container, f: WorldFeature, x: number, y: number, look: VillagerLook) {
     const poi = this.pal.poi;
     const root = this.add.container(x, y);
 
@@ -863,15 +848,24 @@ export class WorldScene extends Phaser.Scene {
       .setVisible(false);
     root.add(ring);
 
-    // The map paints the study tower itself — this is just the sign at its door.
-    root.add(this.add.ellipse(0, 2, 30, 8, 0x000000, 0.25));
-    const disc = this.add
-      .circle(0, -16, 15, poi.color, 0.18)
-      .setStrokeStyle(2.5, poi.color, 0.95);
-    root.add(disc);
+    // The map paints the building itself — this is the villager at its door,
+    // with the page's emoji on a badge above so you can tell the buildings
+    // apart at a glance.
+    root.add(this.add.ellipse(0, 2, 26, 7, 0x000000, 0.25));
+    const sprite = this.add
+      .sprite(0, 2, VILLAGERS_KEY, `${look}-idle-0`)
+      .setOrigin(0.5, 1)
+      .setScale(SCALE);
+    sprite.play({ key: villagerAnim(this, look, 'idle'), delay: (x * 7 + y) % 700 });
+    root.add(sprite);
+
+    const badge = this.add
+      .circle(0, -46, 11, poi.color, 0.18)
+      .setStrokeStyle(2, poi.color, 0.95);
+    root.add(badge);
     root.add(
       this.add
-        .text(0, -16, f.emoji, { fontFamily: FONT, fontSize: '15px', resolution: this.args.dpr })
+        .text(0, -46, f.emoji, { fontFamily: FONT, fontSize: '12px', resolution: this.args.dpr })
         .setOrigin(0.5, 0.55),
     );
 
@@ -911,28 +905,16 @@ export class WorldScene extends Phaser.Scene {
 
   private createBuddy() {
     const { spawn } = this.meta;
-    // Directional idle and run clips, from the look's spec (animals: animated
-    // 4-frame idles and 8-frame runs; the avatar: static idle, 4-frame walk).
-    const { key: texKey, anims, rates } = this.spec;
-    for (const [dir, clips] of Object.entries(anims)) {
-      for (const [anim, frames] of Object.entries(clips)) {
-        const key = `${texKey}-${anim}-${dir}`;
-        if (this.anims.exists(key)) continue;
-        this.anims.create({
-          key,
-          frames: this.anims.generateFrameNumbers(texKey, { frames }),
-          frameRate: rates[anim as 'idle' | 'run'],
-          repeat: -1,
-        });
-      }
-    }
+    const { look } = this.spec;
+    villagerAnim(this, look, 'idle');
+    villagerAnim(this, look, 'walk');
 
     // Container origin = the buddy's feet.
     this.buddy = this.add.container(spawn.x, spawn.y).setDepth(DEPTH_BUDDY);
     this.buddy.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.28));
     // Pixel-art frame, scaled up; the buddy grows a little per stage.
     this.sprite = this.add
-      .sprite(0, 2, texKey, 0)
+      .sprite(0, 2, VILLAGERS_KEY, `${look}-idle-0`)
       .setOrigin(0.5, 1)
       .setScale(this.spec.baseScale * (1.3 + this.args.stage * 0.1));
     this.buddy.add(this.sprite);
@@ -951,11 +933,14 @@ export class WorldScene extends Phaser.Scene {
     );
   }
 
-  /** Play the right clip for the current motion: directional run while moving,
-   *  animated directional idle when standing. */
+  /**
+   * Walk clip while moving, idle when standing. The Sunnyside character is
+   * drawn front-on only, so facing is approximated: mirror for left, and let up
+   * and down reuse the front view. There is no back-facing art to use.
+   */
   private applyAnim(moving: boolean) {
-    const key = `${this.spec.key}-${moving ? 'run' : 'idle'}-${this.facing}`;
-    this.sprite.play(key, true);
+    this.sprite.play(villagerAnim(this, this.spec.look, moving ? 'walk' : 'idle'), true);
+    this.sprite.setFlipX(this.facing === 'left');
   }
 
   // ── Movement ──
