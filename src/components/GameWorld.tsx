@@ -6,7 +6,7 @@ import { MemberAvatars } from './MemberAvatars';
 import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { getAnimal, stageIndex } from '../lib/companion';
-import { WorldScene, type WorldSceneData } from '../game/scenes/WorldScene';
+import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
 import type { BuddyLook } from '../game/textures';
 import {
   CREATE_STATION_ID, WORLD_EVENTS,
@@ -114,6 +114,13 @@ export function GameWorld({
     setDrawerOpen(false);
   };
 
+  // ── Zoom ── the scene owns the value; this mirrors it for the buttons.
+  const [zoom, setZoom] = useState<number>(1);
+  const zoomBy = (step: number) =>
+    (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.zoomBy(step);
+  const resetZoom = () =>
+    (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.resetZoom();
+
   // Latest props for stable event/keyboard handlers.
   const live = useRef({ stations, onStudy, features, onOpenFeature, nearestId, paused });
   live.current = { stations, onStudy, features, onOpenFeature, nearestId, paused };
@@ -174,9 +181,13 @@ export function GameWorld({
       arrivalKey.current += 1;
       setArrival({ name: area.name, key: arrivalKey.current });
     };
+    // A fresh scene starts at the default zoom, so the mirror must too.
+    setZoom(1);
+    const onZoom = (z: number) => setZoom(z);
     game.events.on(WORLD_EVENTS.near, onNear);
     game.events.on(WORLD_EVENTS.moved, onMoved);
     game.events.on(WORLD_EVENTS.area, onArea);
+    game.events.on(WORLD_EVENTS.zoom, onZoom);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
     });
@@ -188,6 +199,7 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.near, onNear);
       game.events.off(WORLD_EVENTS.moved, onMoved);
       game.events.off(WORLD_EVENTS.area, onArea);
+      game.events.off(WORLD_EVENTS.zoom, onZoom);
       game.destroy(true);
     };
   }, [animal.id, animal.name, stage, buddyName]);
@@ -215,12 +227,19 @@ export function GameWorld({
   }, []);
 
   // Enter/Space acts on whatever the buddy is standing at: a feature opens, a
-  // collection studies.
+  // collection studies. +/- zoom, 0 resets.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' && e.key !== ' ') return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON')) return;
+      const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON');
+      if (!typing && !live.current.paused) {
+        const scene = gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
+        if (e.key === '+' || e.key === '=') { e.preventDefault(); scene?.zoomBy(1); return; }
+        if (e.key === '-' || e.key === '_') { e.preventDefault(); scene?.zoomBy(-1); return; }
+        if (e.key === '0') { e.preventDefault(); scene?.resetZoom(); return; }
+      }
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (typing) return;
       const { stations: all, onStudy: study, features: feats, onOpenFeature: open, nearestId: id, paused: frozen } = live.current;
       if (frozen || !id) return;
       if (id.startsWith(FEATURE_ID_PREFIX)) {
@@ -270,6 +289,34 @@ export function GameWorld({
         >
           <Icon icon="lucide:compass" className="text-sm" />
           <span className="hidden sm:inline">Travel</span>
+        </button>
+      </div>
+
+      {/* ── Zoom ── wheel/pinch work on the canvas; these are the discoverable
+          version of the same thing, and show where you are in the range. */}
+      <div className="absolute bottom-3 right-3 z-20 flex flex-col items-center rounded-xl border-2 border-border bg-bg-card/85 backdrop-blur-sm shadow-lg overflow-hidden">
+        <button
+          onClick={() => zoomBy(1)}
+          disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+          title="Zoom in (+)"
+          className="w-8 h-8 flex items-center justify-center text-text-primary hover:bg-bg-tertiary disabled:opacity-35 disabled:hover:bg-transparent"
+        >
+          <Icon icon="lucide:plus" className="text-sm" />
+        </button>
+        <button
+          onClick={resetZoom}
+          title="Reset zoom (0)"
+          className="w-8 py-0.5 text-[10px] font-bold text-text-muted hover:text-text-primary hover:bg-bg-tertiary border-y border-border"
+        >
+          {zoom}×
+        </button>
+        <button
+          onClick={() => zoomBy(-1)}
+          disabled={zoom <= ZOOM_STEPS[0]}
+          title="Zoom out (−)"
+          className="w-8 h-8 flex items-center justify-center text-text-primary hover:bg-bg-tertiary disabled:opacity-35 disabled:hover:bg-transparent"
+        >
+          <Icon icon="lucide:minus" className="text-sm" />
         </button>
       </div>
 

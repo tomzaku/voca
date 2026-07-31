@@ -45,6 +45,8 @@ export const WORLD_EVENTS = {
   moved: 'world:moved',
   /** Buddy crossed a gate into another area (payload: { index, area }). */
   area: 'world:area',
+  /** Camera zoom changed (payload: the new user zoom factor). */
+  zoom: 'world:zoom',
 } as const;
 
 /** Pseudo-station id for the "build a new collection" spot on the map.

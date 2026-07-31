@@ -53,6 +53,15 @@ const DEPTH_STATIONS = DEPTH_NIGHT + 10;
 const DEPTH_MARK = DEPTH_STATIONS + 5;
 const DEPTH_BUDDY = DEPTH_STATIONS + 10;
 
+/**
+ * User zoom steps. All are multiples of 0.5 on purpose: the art is 16px drawn
+ * at SCALE 2, so half-steps keep every source pixel a whole number of screen
+ * pixels and the pixel art stays crisp. 0.5 shows the island; 3 is nose-to-nose
+ * with a villager.
+ */
+export const ZOOM_STEPS = [0.5, 1, 1.5, 2, 2.5, 3] as const;
+const DEFAULT_ZOOM_INDEX = 1;   // 1×
+
 const KIND_EMOJI = { mine: '👤', joined: '👥', level: '🎓' } as const;
 
 interface PlacedStation extends WorldStation {
@@ -168,6 +177,12 @@ export class WorldScene extends Phaser.Scene {
   private crossing = false;
   private lastMoveEmit = 0;
 
+  /** Index into ZOOM_STEPS. The camera's real zoom is this × the dpr. */
+  private zoomIndex = DEFAULT_ZOOM_INDEX;
+  /** Finger distance when a two-finger pinch began, or 0 when not pinching. */
+  private pinchStart = 0;
+  private pinchZoom = 1;
+
   constructor() {
     super(WorldScene.KEY);
   }
@@ -197,7 +212,7 @@ export class WorldScene extends Phaser.Scene {
 
   create() {
     this.pal = worldPalette();
-    this.cameras.main.setZoom(this.args.dpr);
+    this.cameras.main.setZoom(this.args.dpr * this.zoom);
     this.cameras.main.setRoundPixels(true);
     // Belt and braces: the pixelArt config flag doesn't reliably reach
     // runtime-loaded sheets, and linear filtering blurs 16px art badly.
@@ -236,9 +251,46 @@ export class WorldScene extends Phaser.Scene {
       'pointerdown',
       (pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
         if (over.length > 0) return; // a station handled it
+        // Two fingers down is a pinch starting, not a tap to walk. Checked on
+        // the pointers themselves because pinchStart isn't set until the first
+        // move, which is after this second pointerdown fires.
+        if (this.input.pointer1.isDown && this.input.pointer2.isDown) return;
         this.routeTo(pointer.worldX, pointer.worldY);
       },
     );
+
+    // Wheel / trackpad scroll zooms. Accumulated so a trackpad's many small
+    // deltas still add up to one step rather than flying through the range.
+    let wheelAccum = 0;
+    this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+      wheelAccum += dy;
+      if (Math.abs(wheelAccum) < 40) return;
+      this.zoomBy(wheelAccum < 0 ? 1 : -1);
+      wheelAccum = 0;
+    });
+
+    // Two-finger pinch on touch.
+    this.input.addPointer(1);
+    this.input.on('pointermove', () => {
+      const [a, b] = [this.input.pointer1, this.input.pointer2];
+      if (!a.isDown || !b.isDown) { this.pinchStart = 0; return; }
+      const dist = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
+      if (this.pinchStart === 0) {
+        this.pinchStart = dist;
+        this.pinchZoom = this.zoom;
+        return;
+      }
+      const target = this.pinchZoom * (dist / this.pinchStart);
+      // Snap to the nearest step so the art stays on whole pixels.
+      let best = 0;
+      for (let i = 1; i < ZOOM_STEPS.length; i++) {
+        if (Math.abs(ZOOM_STEPS[i] - target) < Math.abs(ZOOM_STEPS[best] - target)) best = i;
+      }
+      this.setZoomIndex(best);
+    });
+    this.input.on('pointerup', () => {
+      if (!this.input.pointer1.isDown || !this.input.pointer2.isDown) this.pinchStart = 0;
+    });
 
     this.buildTerrain();
     this.buildStations();
@@ -267,6 +319,39 @@ export class WorldScene extends Phaser.Scene {
   setStations(stations: WorldStation[]) {
     this.args.stations = stations;
     if (this.ready) this.buildStations();
+  }
+
+  // ── Zoom ──
+
+  /** The current user zoom factor (1 = the map's natural 2× tile scale). */
+  get zoom(): number {
+    return ZOOM_STEPS[this.zoomIndex];
+  }
+
+  /** Step the zoom in (+1) or out (−1). */
+  zoomBy(step: number) {
+    this.setZoomIndex(this.zoomIndex + step);
+  }
+
+  resetZoom() {
+    this.setZoomIndex(DEFAULT_ZOOM_INDEX);
+  }
+
+  private setZoomIndex(i: number) {
+    const next = Phaser.Math.Clamp(Math.round(i), 0, ZOOM_STEPS.length - 1);
+    if (next === this.zoomIndex) return;
+    this.zoomIndex = next;
+    this.applyZoom();
+    this.game.events.emit(WORLD_EVENTS.zoom, this.zoom);
+  }
+
+  /** The camera zoom is the device pixel ratio (which keeps the canvas sharp)
+   *  multiplied by whatever the player has chosen. */
+  private applyZoom() {
+    this.cameras.main.setZoom(this.args.dpr * this.zoom);
+    // A wider view can now exceed the area bounds — re-clamp so the camera
+    // doesn't sit half off the map.
+    this.applyCameraBounds();
   }
 
   /** Re-resolve colors from CSS variables after a theme switch. Terrain stays;
