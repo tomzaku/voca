@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AnswerVia, WordProgress, WordStatus } from '../types';
 import { supabase } from '../lib/supabase';
 import { gradeReview } from '../lib/srs';
+import { useStreak } from './useStreak';
 
 interface VocabularyState {
   progress: Record<string, WordProgress>;
@@ -41,6 +42,10 @@ export const useVocabularyStore = create<VocabularyState>()(
       progress: {},
 
       markWord: (word, status, userId, mistakes = 0, via) => {
+        // A graded answer is what "studied today" means. `recordView` is
+        // deliberately excluded — merely looking at a card shouldn't keep a
+        // streak alive, or the streak stops meaning anything.
+        if (userId) void useStreak.getState().record();
         const prev = get().progress[word];
         const now = new Date();
         // FSRS grade: a clean solve is 'good', a solve that needed wrong
@@ -112,6 +117,7 @@ export const useVocabularyStore = create<VocabularyState>()(
       },
 
       triageWord: (word, known, userId) => {
+        if (userId) void useStreak.getState().record();
         // Match existing progress case-insensitively (collections keep the
         // user's casing) and keep its key, so one word never splits in two.
         const prev = get().progress[word]

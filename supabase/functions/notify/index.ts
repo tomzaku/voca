@@ -1,6 +1,8 @@
-// Daily review reminders. Unlike `ai` and `word`, this function is NOT called
-// by the client — pg_cron invokes it once an hour and it fans out Web Push to
-// every device whose owner's local clock has just reached their reminder hour.
+// Daily learning reminders. Unlike `ai` and `word`, this function is NOT called
+// by the client — pg_cron invokes it every 30 minutes and it fans out Web Push
+// to every device whose owner's local clock has reached one of their reminder
+// times. Which message they get (review nudge vs streak warning) is decided per
+// row by `chooseAction`.
 //
 // SECURITY: there is no signed-in user here, so `requireUser` doesn't apply.
 // The function runs with service-role privileges (it must read across users to
@@ -16,7 +18,7 @@
 //   APP_BASE             optional — base path the app is served from (default /voca)
 //
 // Two modes, both behind the same secret:
-//   POST (no body)                      scheduled run — all users due this hour
+//   POST (no body)                      scheduled run — all users due this slot
 //   POST {"test":true,"email":"..."}    send to one user now, ignoring the
 //                                       hour/weekday/dedupe gates
 //
@@ -31,8 +33,22 @@ interface ReminderRow {
   p256dh: string;
   auth: string;
   due_count: number;
-  /** The word to name in the copy — null only on a test send with nothing due. */
+  /** The word to name in the copy — null when nothing is due. */
   word: string | null;
+  streak: number;
+  streak_at_risk: boolean;
+  review_due: boolean;
+}
+
+/**
+ * Which message this row should get. A streak about to break outranks a review
+ * nudge: the review queue will still be there tomorrow, the streak won't.
+ */
+function chooseAction(row: ReminderRow): ActionId {
+  // Both booleans already account for the user's per-type switches, so this
+  // only has to decide precedence.
+  if (row.streak_at_risk) return 'streak_at_risk';
+  return row.review_due ? 'review_word' : 'test_ping';
 }
 
 // Base path the app is served from. Trailing slashes are normalised away so
@@ -69,6 +85,7 @@ const DEAD_SUBSCRIPTION = new Set([404, 410]);
 interface ActionContext {
   word: string | null;
   dueCount: number;
+  streak: number;
 }
 
 interface ActionDefinition {
@@ -116,6 +133,37 @@ const ACTIONS = {
     // `?w=` (encoded) rather than the legacy plaintext `?word=`, matching what
     // the app itself generates everywhere.
     url: ({ word }) => `${APP_BASE}/?w=${encodeWord(word!)}`,
+  },
+
+  /**
+   * Last call before a streak breaks.
+   *
+   * Loss aversion does the work here, so the copy names what's about to be
+   * lost and how little it costs to keep — never a scolding. Only sent at the
+   * user's final slot of the day, when the urgency is real.
+   */
+  streak_at_risk: {
+    templates: [
+      ({ streak }) => ({
+        title: `Your ${streak}-day streak ends at midnight`,
+        body: 'One word is enough to keep it alive.',
+      }),
+      ({ streak }) => ({
+        title: `${streak} days — don't stop now`,
+        body: "You haven't studied today. A minute saves the run.",
+      }),
+      ({ streak }) => ({
+        title: `Keep the ${streak}-day run going?`,
+        body: 'One answer before bed and it carries into tomorrow.',
+      }),
+      ({ streak }) => ({
+        title: `${streak} days of work on the line`,
+        body: 'It only takes one word to hold onto it.',
+      }),
+    ],
+    // Deep link to a due word when there is one, so the tap lands on something
+    // answerable rather than a home screen they still have to navigate.
+    url: ({ word }) => (word ? `${APP_BASE}/?w=${encodeWord(word)}` : `${APP_BASE}/`),
   },
 
   /** Delivery check with an empty queue — says what it is instead of inventing a word. */
@@ -229,9 +277,10 @@ Deno.serve(async (req: Request) => {
     // With nothing due there's no word to name, so fall back to a plain ping —
     // a test still has to reach the device to prove delivery works.
     const { delivered: testDelivered, dead: testDead } = await sendAll(testRows, (r) =>
-      buildPayload(r.word ? 'review_word' : 'test_ping', {
+      buildPayload(chooseAction(r), {
         word: r.word,
         dueCount: r.due_count,
+        streak: r.streak,
       }),
     );
 
@@ -246,6 +295,7 @@ Deno.serve(async (req: Request) => {
       pruned: testDead.length,
       due_count: testRows[0]?.due_count ?? 0,
       word: testRows[0]?.word ?? null,
+      action: testRows[0] ? chooseAction(testRows[0]) : null,
     });
   }
 
@@ -257,10 +307,12 @@ Deno.serve(async (req: Request) => {
   const rows = (data ?? []) as ReminderRow[];
   if (rows.length === 0) return jsonResponse(200, { sent: 0, pruned: 0 });
 
-  // `word` is non-null here: the scheduled query's cross join only yields rows
-  // that have at least one due word.
   const { delivered, dead } = await sendAll(rows, (r) =>
-    buildPayload('review_word', { word: r.word, dueCount: r.due_count }),
+    buildPayload(chooseAction(r), {
+      word: r.word,
+      dueCount: r.due_count,
+      streak: r.streak,
+    }),
   );
 
   // Stamping only the ones that actually went out means a transient failure is

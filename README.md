@@ -127,8 +127,13 @@ its destination URL:
 
 | Action | Sent when | Opens |
 | --- | --- | --- |
-| `review_word` | daily reminder, words due | `/?w=<encoded word>` |
-| `test_ping` | test send with nothing due | `/` |
+| `streak_at_risk` | last slot of the day, streak alive, nothing studied yet | a due word, else `/` |
+| `review_word` | any slot, words due | `/?w=<encoded word>` |
+| `test_ping` | test send with nothing due and no streak at risk | `/` |
+
+A streak warning outranks a review nudge — the review queue is still there
+tomorrow, the streak isn't — and it fires even when nothing is due, since one
+answer on a new word is enough to keep a streak alive.
 
 The action name travels in the push payload, so the service worker groups
 notifications per action (`tag: voca-<action>`) — a new review reminder replaces
@@ -250,6 +255,19 @@ Both modes are also reachable with plain `curl` if you'd rather — POST to
   the prompt is behind an explicit "Enable reminders" button rather than fired
   on load, and why turning the toggle off unsubscribes the device but keeps the
   permission.
+
+## Learning streak
+
+Consecutive calendar days with at least one **graded** answer (`markWord` /
+`triageWord` — merely viewing a card doesn't count, or the streak stops meaning
+anything). Shown as a flame in the navbar, lit once today is counted and dimmed
+while it's still at risk.
+
+Days are counted in the learner's own timezone: the client passes its local date
+to `record_learning_day()`, which advances the streak atomically under a row
+lock. Counting in UTC would break a Saigon user's streak seven hours before
+their day actually ended, and two devices answering at once would otherwise both
+read the old count and both add one.
 
 ## Database
 

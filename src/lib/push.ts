@@ -47,7 +47,11 @@ const WEEKDAYS = [1, 2, 3, 4, 5];
 const WEEKEND = [0, 6];
 
 export interface ReminderPrefs {
+  /** Master switch. Off unsubscribes the device; the per-type flags below are
+   *  preferences that survive it. */
   enabled: boolean;
+  notifyStreak: boolean;
+  notifyReview: boolean;
   /** Minutes since midnight, e.g. 450 for 7:30 AM. */
   times: number[];
   days: number[];
@@ -255,6 +259,8 @@ export async function unsubscribeDevice(userId: string): Promise<void> {
 export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs> {
   const fallback: ReminderPrefs = {
     enabled: false,
+    notifyStreak: true,
+    notifyReview: true,
     times: DEFAULT_REMINDER_TIMES,
     days: ALL_DAYS,
     timezone: localTimezone(),
@@ -263,7 +269,7 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
 
   const { data, error } = await supabase
     .from('user_settings')
-    .select('reminder_enabled, reminder_times, reminder_days, reminder_timezone')
+    .select('reminder_enabled, notify_streak, notify_review, reminder_times, reminder_days, reminder_timezone')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -272,6 +278,9 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
   const times = data.reminder_times as number[] | null;
   return {
     enabled: Boolean(data.reminder_enabled),
+    // Default true when absent: an opted-in user wanted everything.
+    notifyStreak: (data.notify_streak as boolean | null) ?? true,
+    notifyReview: (data.notify_review as boolean | null) ?? true,
     times: times && times.length > 0 ? times : DEFAULT_REMINDER_TIMES,
     days: days && days.length > 0 ? days : ALL_DAYS,
     timezone: (data.reminder_timezone as string | null) || fallback.timezone,
@@ -284,12 +293,14 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
  */
 export async function saveReminderPrefs(
   userId: string,
-  prefs: Pick<ReminderPrefs, 'enabled' | 'times' | 'days'>,
+  prefs: Pick<ReminderPrefs, 'enabled' | 'notifyStreak' | 'notifyReview' | 'times' | 'days'>,
 ): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.from('user_settings').upsert({
     user_id: userId,
     reminder_enabled: prefs.enabled,
+    notify_streak: prefs.notifyStreak,
+    notify_review: prefs.notifyReview,
     // Sorted + deduped: the DB caps the length, and a stored duplicate would
     // read back as a repeated row in the UI.
     reminder_times: [...new Set(prefs.times)].sort((a, b) => a - b),

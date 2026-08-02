@@ -5,6 +5,7 @@ import { useVocabularyStore } from './useVocabulary';
 import { useCompanion } from './useCompanion';
 import { useCollections } from './useCollections';
 import { useGuessGame } from './useGuessGame';
+import { useStreak } from './useStreak';
 
 interface AuthContextType {
   user: User | null;
@@ -56,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         useCompanion.getState().loadFromRemote(session.user.id);
         useCollections.getState().loadFromRemote(session.user.id);
         useGuessGame.getState().loadFromRemote(session.user.id);
+        useStreak.getState().loadFromRemote(session.user.id);
       }
       setLoading(false);
     });
@@ -72,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           useCompanion.getState().loadFromRemote(session.user.id);
           useCollections.getState().loadFromRemote(session.user.id);
           useGuessGame.getState().loadFromRemote(session.user.id);
+          useStreak.getState().loadFromRemote(session.user.id);
         }
         setLoading(false);
       }, 0);
@@ -95,6 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (!supabase) return;
+    // The streak lives only in memory, so without this it would still be on
+    // screen for whoever signs in next.
+    useStreak.getState().reset();
     await supabase.auth.signOut();
   }, []);
 

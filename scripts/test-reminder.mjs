@@ -90,6 +90,7 @@ if (SCHEDULED) {
 }
 
 console.log(`✓ Sent to ${payload.sent}/${payload.devices} device(s)`);
+console.log(`  Action: ${payload.action ?? 'unknown'}`);
 console.log(
   payload.word
     ? `  Featured “${payload.word}” — ${payload.due_count} word(s) due`

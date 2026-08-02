@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { useGameMode } from '../hooks/useGameMode';
+import { useStreak, localDateString } from '../hooks/useStreak';
 import { useHotkey } from '../hooks/useHotkey';
 import { isApple } from '../lib/device';
 import { Sidebar } from './Sidebar';
@@ -12,6 +13,10 @@ export function Navbar() {
   const navigate = useNavigate();
   const requestSearch = useWordSearch((s) => s.requestSearch);
   const gameEnabled = useGameMode((s) => s.enabled);
+  const streak = useStreak((s) => s.count);
+  // Subscribe to lastActiveDay rather than calling countedToday(), so the badge
+  // re-renders the moment today's first answer lands.
+  const countedToday = useStreak((s) => s.lastActiveDay) === localDateString();
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -92,6 +97,30 @@ export function Navbar() {
 
         {/* Right controls */}
         <div className="flex items-center gap-2">
+          {/* Streak. Hidden at zero — "0 day streak" advertises failure, and
+              there's nothing yet to protect. */}
+          {streak > 0 && (
+            <Link
+              to="/profile"
+              title={
+                countedToday
+                  ? `${streak}-day streak — today is counted`
+                  : `${streak}-day streak — answer one word today to keep it`
+              }
+              aria-label={`${streak} day learning streak`}
+              className={`flex items-center gap-1 px-2 h-9 rounded-full border-2 transition-colors ${
+                countedToday
+                  ? 'bg-accent-orange/15 border-accent-orange/30 text-accent-orange'
+                  // Dimmed until today counts: the gap between "safe" and "about
+                  // to lose it" is the whole point of showing this.
+                  : 'bg-bg-card border-border text-text-muted'
+              }`}
+            >
+              <Icon icon={countedToday ? 'lucide:flame' : 'lucide:flame-kindling'} className="text-base" />
+              <span className="text-sm font-bold tabular-nums">{streak}</span>
+            </Link>
+          )}
+
           <button
             onClick={() => setSearchOpen((o) => !o)}
             className={`btn-3d w-9 h-9 rounded-full flex items-center justify-center ${

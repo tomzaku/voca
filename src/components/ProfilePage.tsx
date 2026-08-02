@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { useStreak } from '../hooks/useStreak';
 import {
   DAY_INITIALS,
   DAY_NAMES,
@@ -19,6 +20,8 @@ export function ProfilePage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const push = usePushNotifications(user?.id);
+  const streak = useStreak((s) => s.count);
+  const longest = useStreak((s) => s.longest);
 
   const handleSignOut = async () => {
     await signOut();
@@ -63,6 +66,19 @@ export function ProfilePage() {
           <p className="font-medium text-text-primary">{name}</p>
           {email && <p className="text-sm text-text-muted">{email}</p>}
         </div>
+
+        {streak > 0 && (
+          <div className="flex items-center gap-4 mt-1">
+            <div className="flex items-center gap-1.5 text-accent-orange">
+              <Icon icon="lucide:flame" className="text-lg" />
+              <span className="text-sm font-bold tabular-nums">{streak}</span>
+              <span className="text-sm text-text-muted">day streak</span>
+            </div>
+            {longest > streak && (
+              <span className="text-xs text-text-muted/70">best {longest}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Menu */}
@@ -91,11 +107,11 @@ export function ProfilePage() {
                 <Icon icon="lucide:bell" className="text-base" />
               </span>
               <div>
-                <p className="text-sm text-text-primary">Daily reminder</p>
+                <p className="text-sm text-text-primary">Notifications</p>
                 <p className="text-xs text-text-muted">
                   {push.status === 'granted' && push.enabled
-                    ? formatSchedule(push.times, push.days)
-                    : 'A nudge when words are due for review'}
+                    ? 'Streak and review reminders'
+                    : 'Nudges to keep your learning going'}
                 </p>
               </div>
             </div>
@@ -114,6 +130,59 @@ export function ProfilePage() {
           </div>
 
           {push.status === 'granted' && push.enabled && (
+            <>
+              {/* Streak reminders */}
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-border">
+                <div className="flex items-center gap-2.5">
+                  <Icon icon="lucide:flame" className="text-base text-accent-orange shrink-0" />
+                  <div>
+                    <p className="text-xs text-text-primary">Streak reminders</p>
+                    <p className="text-[11px] text-text-muted">
+                      {push.notifyStreak
+                        ? `Only if your streak is at risk, at ${formatTime(Math.max(...push.times))}`
+                        : 'Muted'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => void push.toggleType('streak')}
+                  aria-label="Toggle streak reminders"
+                  aria-pressed={push.notifyStreak}
+                  className="inline-flex items-center shrink-0 cursor-pointer"
+                >
+                  <ToggleSwitch checked={push.notifyStreak} color="bg-accent-orange" />
+                </button>
+              </div>
+
+              {/* Word review */}
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-border">
+                <div className="flex items-center gap-2.5">
+                  <Icon icon="lucide:repeat" className="text-base text-accent-cyan shrink-0" />
+                  <div>
+                    <p className="text-xs text-text-primary">Word review</p>
+                    <p className="text-[11px] text-text-muted">
+                      {push.notifyReview
+                        ? formatSchedule(push.times, push.days)
+                        : 'Muted'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => void push.toggleType('review')}
+                  aria-label="Toggle word review reminders"
+                  aria-pressed={push.notifyReview}
+                  className="inline-flex items-center shrink-0 cursor-pointer"
+                >
+                  <ToggleSwitch checked={push.notifyReview} />
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* The schedule belongs to word review, so it hides when review is
+              muted. The streak warning borrows the last of these slots, which
+              is why its own row spells that time out. */}
+          {push.status === 'granted' && push.enabled && push.notifyReview && (
             <>
               <div className="flex flex-col gap-2 pt-1">
                 <div className="flex items-center justify-between gap-3">
