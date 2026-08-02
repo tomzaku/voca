@@ -60,6 +60,9 @@ export function SettingsPage() {
   const [learnLang, setLearnLangState] = useState(getLearnLanguage);
   const [motherLang, setMotherLangState] = useState(getMotherLanguage);
   const [sfxOn, setSfxOn] = useState(isSfxEnabled);
+  const [autoSpeakOn, setAutoSpeakOn] = useState(
+    () => localStorage.getItem('voca-auto-speak') === 'true',
+  );
 
   const handleLearnLangChange = (lang: string) => {
     setLearnLanguage(lang);
@@ -408,10 +411,10 @@ export function SettingsPage() {
         <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Auto-Speak</h2>
         <button
           onClick={() => {
-            const key = 'voca-auto-speak';
-            const current = localStorage.getItem(key) === 'true';
-            localStorage.setItem(key, String(!current));
-            toast.success(!current ? 'Auto-speak enabled' : 'Auto-speak disabled');
+            const next = !autoSpeakOn;
+            localStorage.setItem('voca-auto-speak', String(next));
+            setAutoSpeakOn(next);
+            toast.success(next ? 'Auto-speak enabled' : 'Auto-speak disabled');
           }}
           className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all cursor-pointer"
         >
@@ -419,7 +422,7 @@ export function SettingsPage() {
             <span className="text-sm font-medium text-text-primary block">Speak word automatically</span>
             <span className="text-xs text-text-muted mt-0.5 block">Pronounce the word aloud when a new card appears.</span>
           </div>
-          <ToggleSwitch checked={localStorage.getItem('voca-auto-speak') === 'true'} />
+          <ToggleSwitch checked={autoSpeakOn} />
         </button>
       </section>
 
