@@ -51,29 +51,33 @@ export function Navbar() {
     requestSearch(word);    // FlashCard picks this up and loads the word
   };
 
-  // Mobile keeps the primary tabs (as icons); desktop shows Buddy too.
-  // Everything else lives in the sidebar.
-  const navLinks: { to: string; label: string; icon: string; desktopOnly?: boolean }[] = [
-    { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
-    { to: '/history', label: 'History', icon: 'lucide:history' },
-    { to: '/collections', label: 'Collections', icon: 'lucide:library' },
-    ...(gameEnabled ? [{ to: '/world', label: 'World', icon: 'lucide:gamepad-2' }] : []),
-    { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print', desktopOnly: true },
+  // Desktop-only tabs — on mobile the whole row is hidden and navigation happens
+  // through the sidebar, which already lists every one of these.
+  const navLinks: { to: string; label: string }[] = [
+    { to: '/', label: 'Learn' },
+    { to: '/history', label: 'History' },
+    { to: '/collections', label: 'Collections' },
+    ...(gameEnabled ? [{ to: '/world', label: 'World' }] : []),
+    { to: '/companion', label: 'Buddy' },
   ];
 
   return (
     <header className="sticky top-0 z-10 bg-bg-secondary/85 backdrop-blur border-b-[3px] border-border pt-[env(safe-area-inset-top)]">
-      <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link to="/" className="group flex items-center gap-0.5 hover-wiggle">
-          <span className="font-title text-2xl text-accent-cyan drop-shadow-[0_2px_0_var(--btn-lip)] tracking-tight leading-none">
-            voca
-          </span>
-          <span className="w-2.5 h-2.5 rounded-full bg-accent-pink mt-2.5 animate-bob" />
-        </Link>
+      <div className="max-w-page mx-auto px-3 sm:px-4 h-16 flex items-center justify-between">
+        {/* Logo. The side groups share `flex-1 basis-0` so they stay equal width
+            and the tabs sit on the real centre of the page, not between two
+            differently sized blocks. */}
+        <div className="flex-1 basis-0 flex items-center">
+          <Link to="/" className="group flex items-center gap-0.5 hover-wiggle">
+            <span className="font-title text-2xl text-accent-cyan drop-shadow-[0_2px_0_var(--btn-lip)] tracking-tight leading-none">
+              voca
+            </span>
+            <span className="w-2.5 h-2.5 rounded-full bg-accent-pink mt-2.5 animate-bob" />
+          </Link>
+        </div>
 
         {/* Nav links */}
-        <nav className="flex items-center gap-1.5">
+        <nav className="hidden sm:flex items-center gap-1.5">
           {navLinks.map((link) => {
             const active = location.pathname === link.to;
             return (
@@ -81,22 +85,19 @@ export function Navbar() {
                 key={link.to}
                 to={link.to}
                 className={`btn-3d px-3.5 py-1.5 text-sm font-extrabold transition-all ${
-                  link.desktopOnly ? 'hidden sm:inline-block' : ''
-                } ${
                   active
                     ? 'bg-accent-cyan text-bg-primary'
                     : 'bg-bg-card text-text-secondary hover:text-text-primary'
                 }`}
               >
-                <span className="hidden sm:inline">{link.label}</span>
-                <Icon icon={link.icon} className="sm:hidden text-lg" />
+                {link.label}
               </Link>
             );
           })}
         </nav>
 
         {/* Right controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex-1 basis-0 flex items-center justify-end gap-2">
           {/* Streak. Hidden at zero — "0 day streak" advertises failure, and
               there's nothing yet to protect. */}
           {streak > 0 && (
@@ -144,10 +145,10 @@ export function Navbar() {
       {/* Collapsible search bar */}
       {searchOpen && (
         <div className="border-t-2 border-border bg-bg-secondary/95 backdrop-blur animate-fade-in">
-          <form onSubmit={handleSearch} className="max-w-2xl mx-auto px-4 py-3 relative">
+          <form onSubmit={handleSearch} className="max-w-page mx-auto px-3 sm:px-4 py-3 relative">
             <Icon
               icon="lucide:search"
-              className="absolute left-7 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none"
+              className="absolute left-6 sm:left-7 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none"
             />
             <input
               ref={searchInputRef}
@@ -162,7 +163,7 @@ export function Navbar() {
               spellCheck={false}
             />
             {query.trim() && (
-              <div className="absolute right-6 top-1/2 -translate-y-1/2">
+              <div className="absolute right-5 sm:right-6 top-1/2 -translate-y-1/2">
                 <button
                   type="submit"
                   className="btn-3d px-4 py-1 bg-accent-cyan text-bg-primary text-sm"

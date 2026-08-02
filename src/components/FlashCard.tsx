@@ -79,6 +79,43 @@ function isNoun(wordData: VocabularyWord): boolean {
   return /noun/i.test(wordData.partOfSpeech ?? '');
 }
 
+// Dictionary abbreviations for the part-of-speech chip. The full word is fine on
+// desktop, but on a phone "adjective" alone eats the header row.
+const POS_ABBR: [RegExp, string][] = [
+  [/^phrasal verb/i, 'phr.v.'],
+  [/^noun/i, 'n.'],
+  [/^verb/i, 'v.'],
+  [/^adjective/i, 'adj.'],
+  [/^adverb/i, 'adv.'],
+  [/^pronoun/i, 'pron.'],
+  [/^preposition/i, 'prep.'],
+  [/^conjunction/i, 'conj.'],
+  [/^interjection/i, 'interj.'],
+  [/^determiner/i, 'det.'],
+  [/^article/i, 'art.'],
+  [/^idiom/i, 'idiom'],
+];
+
+function abbreviatePos(pos: string): string {
+  const hit = POS_ABBR.find(([re]) => re.test(pos.trim()));
+  // Unknown labels fall back to the first four letters ("particle" → "part…"),
+  // which still beats wrapping the row.
+  return hit ? hit[1] : pos.trim().length > 5 ? `${pos.trim().slice(0, 4)}.` : pos.trim();
+}
+
+/** Part-of-speech chip: abbreviated on mobile, spelled out from `sm` up. */
+function PosChip({ pos, className = '' }: { pos: string; className?: string }) {
+  return (
+    <span
+      title={pos}
+      className={`shrink-0 font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded whitespace-nowrap ${className}`}
+    >
+      <span className="sm:hidden">{abbreviatePos(pos)}</span>
+      <span className="hidden sm:inline">{pos}</span>
+    </span>
+  );
+}
+
 async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
   const keyword = wordData.imageKeywords?.[0] || wordData.word;
   try {
@@ -372,19 +409,19 @@ function DefLengthToggle({ show, fullDef, onToggle }: { show: boolean; fullDef: 
       role="switch"
       aria-checked={fullDef}
       title={fullDef ? 'Showing the full definition' : 'Showing the short definition'}
-      className="inline-flex items-center gap-0.5 rounded-full border border-border bg-bg-tertiary p-0.5 text-[10px] font-bold select-none"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border bg-bg-tertiary p-0.5 text-[10px] font-bold select-none"
     >
       <button
         type="button"
         onClick={() => setFull(false)}
-        className={`px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'text-text-muted hover:text-text-secondary' : 'bg-accent-cyan/20 text-accent-cyan'}`}
+        className={`px-1.5 sm:px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'text-text-muted hover:text-text-secondary' : 'bg-accent-cyan/20 text-accent-cyan'}`}
       >
         Short
       </button>
       <button
         type="button"
         onClick={() => setFull(true)}
-        className={`px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'}`}
+        className={`px-1.5 sm:px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'}`}
       >
         Full
       </button>
@@ -852,16 +889,14 @@ export function FlashCard() {
               hint sits above the game (key for mobile flow) */}
           {phase === 'introduce' && (
             <div className="mb-4 sm:mb-5 card-game border-accent-cyan p-4 sm:p-5 animate-bounce-in">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xl leading-none animate-bob">💡</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
+                <span className="text-lg sm:text-xl leading-none animate-bob">💡</span>
+                {/* Just "Guess" on mobile — the long title was pushing the
+                    Short/Full switch off the card. */}
                 <h3 className="text-sm font-display font-extrabold text-accent-cyan uppercase tracking-wide whitespace-nowrap">
-                  Guess the word
+                  Guess<span className="hidden sm:inline"> the word</span>
                 </h3>
-                {wordData.partOfSpeech && (
-                  <span className="text-[10px] font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
-                    {wordData.partOfSpeech}
-                  </span>
-                )}
+                {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[10px]" />}
                 <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${levelColor[wordData.level]}`}>
                   {wordData.level}
                 </span>
@@ -935,11 +970,7 @@ export function FlashCard() {
                         <h1 className="text-2xl sm:text-4xl font-title text-accent-purple tracking-tight drop-shadow-[0_2px_0_var(--btn-lip)] break-words">
                           {wordData.headword || wordData.word}
                         </h1>
-                        {wordData.partOfSpeech && (
-                          <span className="text-xs font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded">
-                            {wordData.partOfSpeech}
-                          </span>
-                        )}
+                        {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-xs" />}
                       </div>
                       <PhoneticList wordData={wordData} />
                     </div>
