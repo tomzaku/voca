@@ -14,7 +14,8 @@ import toast from 'react-hot-toast';
 import { isIos, isStandalone } from '../lib/device';
 import {
   ALL_DAYS,
-  DEFAULT_REMINDER_HOUR,
+  DEFAULT_REMINDER_HOURS,
+  MAX_REMINDER_TIMES,
   fetchReminderPrefs,
   pushConfigError,
   saveReminderPrefs,
@@ -53,7 +54,7 @@ function detectStatus(): PushStatus {
 export function usePushNotifications(userId: string | undefined) {
   const [status, setStatus] = useState<PushStatus>('loading');
   const [enabled, setEnabled] = useState(false);
-  const [hour, setHourState] = useState(DEFAULT_REMINDER_HOUR);
+  const [hours, setHoursState] = useState<number[]>(DEFAULT_REMINDER_HOURS);
   const [days, setDaysState] = useState<number[]>(ALL_DAYS);
   const [busy, setBusy] = useState(false);
 
@@ -66,7 +67,7 @@ export function usePushNotifications(userId: string | undefined) {
     void fetchReminderPrefs(userId).then((prefs) => {
       if (cancelled) return;
       setEnabled(prefs.enabled);
-      setHourState(prefs.hour);
+      setHoursState(prefs.hours);
       setDaysState(prefs.days);
 
       // `enabled` is a per-user preference but subscriptions are per-device, so
@@ -95,7 +96,7 @@ export function usePushNotifications(userId: string | undefined) {
         toast.error("Couldn't set up reminders on this device.");
         return;
       }
-      await saveReminderPrefs(userId, { enabled: true, hour, days });
+      await saveReminderPrefs(userId, { enabled: true, hours, days });
       setEnabled(true);
     } catch (err) {
       // Never let a rejection escape: an unhandled one leaves the control
@@ -105,7 +106,7 @@ export function usePushNotifications(userId: string | undefined) {
     } finally {
       setBusy(false);
     }
-  }, [userId, hour, days, busy]);
+  }, [userId, hours, days, busy]);
 
   /**
    * Turn reminders on/off. Off unsubscribes this device but deliberately keeps
@@ -126,7 +127,7 @@ export function usePushNotifications(userId: string | undefined) {
       } else {
         await unsubscribeDevice(userId);
       }
-      await saveReminderPrefs(userId, { enabled: next, hour, days });
+      await saveReminderPrefs(userId, { enabled: next, hours, days });
       setEnabled(next);
     } catch (err) {
       console.warn('[voca] toggling reminders failed:', err);
@@ -134,15 +135,31 @@ export function usePushNotifications(userId: string | undefined) {
     } finally {
       setBusy(false);
     }
-  }, [userId, enabled, hour, days, busy]);
+  }, [userId, enabled, hours, days, busy]);
 
-  const setHour = useCallback(
-    async (next: number) => {
-      if (!userId) return;
-      setHourState(next);
-      await saveReminderPrefs(userId, { enabled, hour: next, days });
+  /** Add a reminder time. No-op past the cap, or if that hour is already set. */
+  const addHour = useCallback(
+    async (hour: number) => {
+      if (!userId || hours.includes(hour) || hours.length >= MAX_REMINDER_TIMES) return;
+      const next = [...hours, hour].sort((a, b) => a - b);
+      setHoursState(next);
+      await saveReminderPrefs(userId, { enabled, hours: next, days });
     },
-    [userId, enabled, days],
+    [userId, enabled, hours, days],
+  );
+
+  /**
+   * Remove a reminder time. Refuses the last one for the same reason `toggleDay`
+   * does: an empty schedule is indistinguishable from a broken one.
+   */
+  const removeHour = useCallback(
+    async (hour: number) => {
+      if (!userId || hours.length <= 1) return;
+      const next = hours.filter((h) => h !== hour);
+      setHoursState(next);
+      await saveReminderPrefs(userId, { enabled, hours: next, days });
+    },
+    [userId, enabled, hours, days],
   );
 
   /**
@@ -156,10 +173,22 @@ export function usePushNotifications(userId: string | undefined) {
       const next = days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
       if (next.length === 0) return;
       setDaysState(next);
-      await saveReminderPrefs(userId, { enabled, hour, days: next });
+      await saveReminderPrefs(userId, { enabled, hours, days: next });
     },
-    [userId, enabled, hour, days],
+    [userId, enabled, hours, days],
   );
 
-  return { status, enabled, hour, days, busy, enable, toggle, setHour, toggleDay };
+  return {
+    status,
+    enabled,
+    hours,
+    days,
+    busy,
+    atCapacity: hours.length >= MAX_REMINDER_TIMES,
+    enable,
+    toggle,
+    addHour,
+    removeHour,
+    toggleDay,
+  };
 }

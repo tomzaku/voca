@@ -2,7 +2,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { DAY_INITIALS, DAY_NAMES, formatHour, formatSchedule } from '../lib/push';
+import {
+  DAY_INITIALS,
+  DAY_NAMES,
+  MAX_REMINDER_TIMES,
+  formatHour,
+  formatSchedule,
+} from '../lib/push';
 import { Selector, type SelectorOption } from './Selector';
 import { ToggleSwitch } from './ToggleSwitch';
 
@@ -91,7 +97,7 @@ export function ProfilePage() {
                 <p className="text-sm text-text-primary">Daily reminder</p>
                 <p className="text-xs text-text-muted">
                   {push.status === 'granted' && push.enabled
-                    ? formatSchedule(push.hour, push.days)
+                    ? formatSchedule(push.hours, push.days)
                     : 'A nudge when words are due for review'}
                 </p>
               </div>
@@ -112,14 +118,49 @@ export function ProfilePage() {
 
           {push.status === 'granted' && push.enabled && (
             <>
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <span className="text-xs text-text-muted">Remind me at</span>
-                <Selector
-                  value={String(push.hour)}
-                  options={HOUR_OPTIONS}
-                  onChange={(v) => void push.setHour(Number(v))}
-                  ariaLabel="Reminder time"
-                />
+              <div className="flex flex-col gap-2 pt-1">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-text-muted">Remind me at</span>
+                  <span className="text-xs text-text-muted/60">
+                    {push.hours.length}/{MAX_REMINDER_TIMES}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {push.hours.map((h) => (
+                    <span
+                      key={h}
+                      className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs border border-accent-cyan/25"
+                    >
+                      {formatHour(h)}
+                      {/* The last time can't be removed — an empty schedule
+                          looks identical to a broken one. */}
+                      {push.hours.length > 1 && (
+                        <button
+                          onClick={() => void push.removeHour(h)}
+                          aria-label={`Remove ${formatHour(h)} reminder`}
+                          className="w-4 h-4 rounded-full inline-flex items-center justify-center hover:bg-accent-cyan/20 cursor-pointer"
+                        >
+                          <Icon icon="lucide:x" className="text-[10px]" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+
+                  {!push.atCapacity && (
+                    <Selector
+                      value=""
+                      options={[
+                        { value: '', label: '+ Add time' },
+                        // Only hours not already scheduled — picking a duplicate
+                        // would silently do nothing.
+                        ...HOUR_OPTIONS.filter((o) => !push.hours.includes(Number(o.value))),
+                      ]}
+                      onChange={(v) => v && void push.addHour(Number(v))}
+                      ariaLabel="Add a reminder time"
+                    />
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">

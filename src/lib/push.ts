@@ -7,8 +7,15 @@
 
 import { supabase } from './supabase';
 
-/** Default reminder time for a new user: 7am, their local clock, every day. */
-export const DEFAULT_REMINDER_HOUR = 7;
+/** Default schedule for a new user: 7am, their local clock, every day. */
+export const DEFAULT_REMINDER_HOURS = [7];
+
+/**
+ * Ceiling on reminders per day. Past a handful, a reminder app stops being a
+ * nudge and becomes noise you mute — which costs you every reminder, not just
+ * the excess ones.
+ */
+export const MAX_REMINDER_TIMES = 5;
 
 /** 0 = Sunday … 6 = Saturday — matches both Date#getDay() and Postgres `dow`. */
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -33,7 +40,7 @@ const WEEKEND = [0, 6];
 
 export interface ReminderPrefs {
   enabled: boolean;
-  hour: number;
+  hours: number[];
   days: number[];
   timezone: string;
 }
@@ -42,12 +49,12 @@ const sameDays = (a: number[], b: number[]) =>
   a.length === b.length && [...a].sort().every((d, i) => d === [...b].sort()[i]);
 
 /**
- * "Every day at 7:00 AM" / "Weekdays at 7:00 AM" / "Mon, Wed at 7:00 AM".
- * Naming the common patterns beats reading seven highlighted letters back.
+ * "Every day at 7:00 AM" / "Weekdays at 7:00 AM, 8:00 PM" / "Mon, Wed at 7:00 AM".
+ * Naming the common day patterns beats reading seven highlighted letters back.
  */
-export function formatSchedule(hour: number, days: number[]): string {
-  const at = `at ${formatHour(hour)}`;
-  if (days.length === 0) return 'No days selected';
+export function formatSchedule(hours: number[], days: number[]): string {
+  if (days.length === 0 || hours.length === 0) return 'No schedule set';
+  const at = `at ${[...hours].sort((a, b) => a - b).map(formatHour).join(', ')}`;
   if (sameDays(days, ALL_DAYS)) return `Every day ${at}`;
   if (sameDays(days, WEEKDAYS)) return `Weekdays ${at}`;
   if (sameDays(days, WEEKEND)) return `Weekends ${at}`;
@@ -205,7 +212,7 @@ export async function unsubscribeDevice(userId: string): Promise<void> {
 export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs> {
   const fallback: ReminderPrefs = {
     enabled: false,
-    hour: DEFAULT_REMINDER_HOUR,
+    hours: DEFAULT_REMINDER_HOURS,
     days: ALL_DAYS,
     timezone: localTimezone(),
   };
@@ -213,15 +220,16 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
 
   const { data, error } = await supabase
     .from('user_settings')
-    .select('reminder_enabled, reminder_hour, reminder_days, reminder_timezone')
+    .select('reminder_enabled, reminder_hours, reminder_days, reminder_timezone')
     .eq('user_id', userId)
     .maybeSingle();
 
   if (error || !data) return fallback;
   const days = data.reminder_days as number[] | null;
+  const hours = data.reminder_hours as number[] | null;
   return {
     enabled: Boolean(data.reminder_enabled),
-    hour: (data.reminder_hour as number | null) ?? DEFAULT_REMINDER_HOUR,
+    hours: hours && hours.length > 0 ? hours : DEFAULT_REMINDER_HOURS,
     days: days && days.length > 0 ? days : ALL_DAYS,
     timezone: (data.reminder_timezone as string | null) || fallback.timezone,
   };
@@ -233,13 +241,15 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
  */
 export async function saveReminderPrefs(
   userId: string,
-  prefs: Pick<ReminderPrefs, 'enabled' | 'hour' | 'days'>,
+  prefs: Pick<ReminderPrefs, 'enabled' | 'hours' | 'days'>,
 ): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.from('user_settings').upsert({
     user_id: userId,
     reminder_enabled: prefs.enabled,
-    reminder_hour: prefs.hour,
+    // Sorted + deduped: the DB caps the length, and a stored duplicate would
+    // read back as a repeated row in the UI.
+    reminder_hours: [...new Set(prefs.hours)].sort((a, b) => a - b),
     reminder_days: [...prefs.days].sort(),
     reminder_timezone: localTimezone(),
     updated_at: new Date().toISOString(),

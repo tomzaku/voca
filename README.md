@@ -96,16 +96,18 @@ locally served function.
 ## Daily reminders (Web Push)
 
 Users can opt into a nudge when words come due for review, configured from the
-Profile page: on/off, what time, and which days of the week (default **7:00 AM,
-every day**, in their own timezone). The app is a static site, so nothing of
-ours is awake at 7am — delivery runs:
+Profile page: on/off, **up to 5 times a day**, and which days of the week
+(default **7:00 AM, every day**, in their own timezone). The app is a static
+site, so nothing of ours is awake at 7am — delivery runs:
 
 ```
 pg_cron (hourly)  →  pg_net POST  →  `notify` function  →  push service  →  service worker
 ```
 
 One hourly UTC job serves every timezone: each user is matched against their own
-local clock and chosen weekdays. Nobody is sent a reminder with zero words due.
+local clock, chosen hours, and chosen weekdays. Nobody is sent a reminder with
+zero words due, and a 50-minute dedupe absorbs cron retries without blocking a
+genuine second reminder later the same day.
 
 The copy names **one real word** rather than counting a backlog — "Still
 remember *ubiquitous*?" asks a question; "12 words ready for review" describes a
