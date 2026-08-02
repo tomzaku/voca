@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { progressLookup, wordBucket, type WordBucket } from '../lib/progress';
-import { isDue, dueTime } from '../lib/srs';
+import { isDue, dueTime } from '../lib/spacedRepetition';
 import { encodeWord } from '../lib/wordCode';
 import type { WordProgress } from '../types';
 

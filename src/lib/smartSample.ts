@@ -4,7 +4,7 @@
 // fallback for the server's `pick` function with sources.smart.
 
 import { progressLookup, wordBucket } from './progress';
-import { isDue, dueTime } from './srs';
+import { isDue, dueTime } from './spacedRepetition';
 
 /**
  * Pick up to `count` words the way the Learn page does: each slot is a 50/50

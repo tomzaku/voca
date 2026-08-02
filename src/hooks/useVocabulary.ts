@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AnswerVia, WordProgress, WordStatus } from '../types';
 import { supabase } from '../lib/supabase';
-import { gradeReview } from '../lib/srs';
+import { gradeReview } from '../lib/spacedRepetition';
 import { useStreak } from './useStreak';
 
 interface VocabularyState {

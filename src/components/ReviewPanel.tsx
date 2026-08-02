@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { WordProgress } from '../types';
 import { useVocabularyStore } from '../hooks/useVocabulary';
-import { isDue } from '../lib/srs';
+import { isDue } from '../lib/spacedRepetition';
 import { whyLine } from '../lib/progress';
 
 const DAY = 86_400_000;

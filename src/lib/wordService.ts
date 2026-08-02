@@ -3,7 +3,7 @@ import { fetchWordData, isUnknownWord } from './wordApi';
 import { getLearnLanguage, getMotherLanguage } from './languages';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useCollections } from '../hooks/useCollections';
-import { isDue, dueTime } from './srs';
+import { isDue, dueTime } from './spacedRepetition';
 import { progressLookup, wordBucket } from './progress';
 import { fetchPickedWords } from './pickApi';
 import type { VocabularyWord } from '../types';

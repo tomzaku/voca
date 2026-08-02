@@ -1,4 +1,4 @@
-// Spaced repetition — FSRS-5, the algorithm behind modern Anki, reduced to
+// Spaced Repetition System — FSRS-5, the algorithm behind modern Anki, reduced to
 // this app's three outcomes: 'good' (solved cleanly), 'hard' (solved with
 // mistakes), 'again' (gave up / failed).
 //
