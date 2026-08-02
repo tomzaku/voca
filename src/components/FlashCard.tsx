@@ -7,7 +7,6 @@ import { useCollections } from '../hooks/useCollections';
 import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
 import { generateWordData, pickNextWords, UnknownWordError } from '../lib/wordService';
-import { reviewsUntilMastered } from '../lib/srs';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { WordTest } from './WordTest';
 import { WordNotes } from './WordNotes';
@@ -981,12 +980,9 @@ export function FlashCard() {
                     <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
                       Definition
                     </h3>
-                    {(() => {
-                      const p = store.progress[wordData.word];
-                      if (p?.mastered) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-medium">Mastered ✨</span>;
-                      if ((p?.reps ?? 0) > 0) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-medium">Seen {p!.reps}× · {reviewsUntilMastered(p)} to master</span>;
-                      return null;
-                    })()}
+                    {store.progress[wordData.word]?.mastered && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-medium">Mastered ✨</span>
+                    )}
                     <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${levelColor[wordData.level]}`}>
                       {wordData.level}
                     </span>
