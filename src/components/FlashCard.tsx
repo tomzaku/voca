@@ -885,6 +885,12 @@ export function FlashCard() {
                 </button>
               );
             })}
+            {/* Trailing room, 3x a chip's own padding. Without it the last word
+                — normally the current one — sits flush against the Next button
+                and a long one is hard to read. A spacer rather than padding on
+                the scroller: trailing padding is unreliably honoured in an
+                overflow container, a flex child always is. */}
+            <span aria-hidden className="shrink-0 w-9" />
           </div>
 
           <button
