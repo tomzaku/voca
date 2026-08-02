@@ -16,6 +16,13 @@ export default defineConfig(({ command }) => ({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // `injectManifest` (not the default `generateSW`) because push
+      // notifications need a `push` listener inside the worker — see src/sw.ts,
+      // which also reproduces the precache/navigation behaviour generateSW
+      // used to provide.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Voca — Daily Vocabulary',
@@ -38,7 +45,7 @@ export default defineConfig(({ command }) => ({
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
-      workbox: {
+      injectManifest: {
         // Precache only the app shell. The heavy TTS/model chunks (Kokoro,
         // Transformers, ONNX Runtime, Piper) load on demand, so keep them out
         // of the precache to keep install small and preserve lazy loading.

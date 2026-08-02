@@ -1,9 +1,21 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import { useAuth } from '../hooks/useAuth';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import { formatHour } from '../lib/push';
+import { Selector, type SelectorOption } from './Selector';
+import { ToggleSwitch } from './ToggleSwitch';
+
+/** Every hour of the day, labelled in the user's locale ("8:00 AM"). */
+const HOUR_OPTIONS: SelectorOption[] = Array.from({ length: 24 }, (_, h) => ({
+  value: String(h),
+  label: formatHour(h),
+}));
 
 export function ProfilePage() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const push = usePushNotifications(user?.id);
 
   const handleSignOut = async () => {
     await signOut();
@@ -65,6 +77,78 @@ export function ProfilePage() {
           </svg>
         </Link>
       </div>
+
+      {/* Daily reminder. Hidden entirely where push can't work, rather than
+          showing a control that would do nothing. */}
+      {push.status !== 'loading' && push.status !== 'unsupported' && (
+        <div className="rounded-xl border border-border bg-bg-card p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="w-7 h-7 rounded-lg bg-bg-tertiary flex items-center justify-center text-text-muted shrink-0">
+                <Icon icon="lucide:bell" className="text-base" />
+              </span>
+              <div>
+                <p className="text-sm text-text-primary">Daily reminder</p>
+                <p className="text-xs text-text-muted">
+                  {push.status === 'granted' && push.enabled
+                    ? `Every day at ${formatHour(push.hour)}`
+                    : 'A nudge when words are due for review'}
+                </p>
+              </div>
+            </div>
+
+            {push.status === 'granted' && (
+              <button
+                onClick={() => void push.toggle()}
+                disabled={push.busy}
+                aria-label="Toggle daily reminder"
+                aria-pressed={push.enabled}
+                className="cursor-pointer disabled:opacity-50"
+              >
+                <ToggleSwitch checked={push.enabled} />
+              </button>
+            )}
+          </div>
+
+          {push.status === 'granted' && push.enabled && (
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <span className="text-xs text-text-muted">Remind me at</span>
+              <Selector
+                value={String(push.hour)}
+                options={HOUR_OPTIONS}
+                onChange={(v) => void push.setHour(Number(v))}
+                ariaLabel="Reminder time"
+              />
+            </div>
+          )}
+
+          {push.status === 'default' && (
+            <button
+              onClick={() => void push.enable()}
+              disabled={push.busy}
+              className="btn-3d w-full py-2 text-xs bg-accent-cyan/10 text-accent-cyan disabled:opacity-50"
+            >
+              Enable reminders
+            </button>
+          )}
+
+          {/* Dead end: the browser will never prompt again, so point at the
+              only route back rather than offering a button that can't work. */}
+          {push.status === 'denied' && (
+            <p className="text-xs text-text-muted/70 leading-relaxed">
+              Notifications are blocked for Voca. To turn them on, open your browser's site
+              settings for this page and allow notifications.
+            </p>
+          )}
+
+          {push.status === 'ios-needs-install' && (
+            <p className="text-xs text-text-muted/70 leading-relaxed">
+              On iPhone and iPad, reminders work once Voca is on your Home Screen — tap Share,
+              then "Add to Home Screen", and open it from there.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Sign out */}
       <button

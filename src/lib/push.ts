@@ -1,0 +1,183 @@
+// Web Push plumbing: turning browser permission into a subscription row the
+// `notify` edge function can deliver to, plus the per-user reminder schedule.
+//
+// The app is a static site, so nothing of ours is running at 8am to send
+// anything — delivery is Postgres (pg_cron) -> the `notify` function -> the
+// push service -> the service worker in src/sw.ts.
+
+import { supabase } from './supabase';
+
+/** Default reminder time for a new user: 8am, their local clock. */
+export const DEFAULT_REMINDER_HOUR = 8;
+
+export interface ReminderPrefs {
+  enabled: boolean;
+  hour: number;
+  timezone: string;
+}
+
+/** The browser's current IANA zone, e.g. "Asia/Ho_Chi_Minh". */
+export function localTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
+/** "8:00 AM" — labels the hour picker in the user's own locale conventions. */
+export function formatHour(hour: number): string {
+  const d = new Date();
+  d.setHours(hour, 0, 0, 0);
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * VAPID keys travel as base64url text but `subscribe()` wants raw bytes.
+ * Undoing the URL-safe alphabet and re-padding is the whole job.
+ */
+function urlBase64ToUint8Array(base64: string): Uint8Array {
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  const raw = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+/** A subscription's keys arrive as ArrayBuffers; the DB stores base64url text. */
+function encodeKey(sub: PushSubscription, name: 'p256dh' | 'auth'): string {
+  const raw = sub.getKey(name);
+  if (!raw) return '';
+  return btoa(String.fromCharCode(...new Uint8Array(raw)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+const vapidPublicKey = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) ?? '';
+
+/**
+ * Why push is unavailable, or null when it's good to go.
+ *
+ * This is deliberately distinct from "the browser can't do push". A missing key
+ * is a *setup* problem with a fix, and the reminder UI hides itself either way
+ * — so without this the only symptom is a Profile page that silently lacks a
+ * section, which tells nobody anything.
+ */
+export function pushConfigError(): string | null {
+  if (!supabase) {
+    return 'Supabase is not configured (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).';
+  }
+  if (!vapidPublicKey) {
+    return (
+      'VITE_VAPID_PUBLIC_KEY is not set, so daily reminders are hidden. ' +
+      'Generate a pair with `npx web-push generate-vapid-keys`, put the public ' +
+      'half in .env, and restart the dev server (Vite only reads .env at startup). ' +
+      'For the deployed site, add it as a GitHub Actions secret.'
+    );
+  }
+  return null;
+}
+
+/** Push can't work without a configured VAPID key, however capable the browser. */
+export function pushConfigured(): boolean {
+  return pushConfigError() === null;
+}
+
+/**
+ * Subscribe this device and persist the endpoint. Returns false if the browser
+ * refused — the caller has already checked permission, but a push service can
+ * still fail (offline, or a service worker that never activated).
+ */
+export async function subscribeDevice(userId: string): Promise<boolean> {
+  if (!supabase || !vapidPublicKey) return false;
+
+  const registration = await navigator.serviceWorker.ready;
+
+  // Reuse an existing subscription when there is one: re-subscribing with the
+  // same key returns the same endpoint, but calling it needlessly can fail if
+  // the key ever changed.
+  const existing = await registration.pushManager.getSubscription();
+  const sub =
+    existing ??
+    (await registration.pushManager.subscribe({
+      // Required by Chrome: every push must result in a visible notification.
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+    }));
+
+  const { error } = await supabase.from('push_subscriptions').upsert(
+    {
+      user_id: userId,
+      endpoint: sub.endpoint,
+      p256dh: encodeKey(sub, 'p256dh'),
+      auth: encodeKey(sub, 'auth'),
+    },
+    { onConflict: 'user_id,endpoint' },
+  );
+
+  if (error) {
+    console.warn('[voca] failed to save push subscription:', error.message);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Drop this device's subscription. Note this does NOT surrender notification
+ * permission — the user can re-enable later without a prompt, which matters
+ * because a denied prompt can never be shown again.
+ */
+export async function unsubscribeDevice(userId: string): Promise<void> {
+  if (!supabase) return;
+
+  const registration = await navigator.serviceWorker.ready;
+  const sub = await registration.pushManager.getSubscription();
+  if (!sub) return;
+
+  await sub.unsubscribe().catch(() => undefined);
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .delete()
+    .eq('user_id', userId)
+    .eq('endpoint', sub.endpoint);
+  if (error) console.warn('[voca] failed to remove push subscription:', error.message);
+}
+
+/** Load the user's reminder schedule, falling back to 8am local. */
+export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs> {
+  const fallback: ReminderPrefs = {
+    enabled: false,
+    hour: DEFAULT_REMINDER_HOUR,
+    timezone: localTimezone(),
+  };
+  if (!supabase) return fallback;
+
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('reminder_enabled, reminder_hour, reminder_timezone')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error || !data) return fallback;
+  return {
+    enabled: Boolean(data.reminder_enabled),
+    hour: (data.reminder_hour as number | null) ?? DEFAULT_REMINDER_HOUR,
+    timezone: (data.reminder_timezone as string | null) || fallback.timezone,
+  };
+}
+
+/**
+ * Persist the schedule. Always writes the *current* device timezone, so the
+ * reminder follows a user who moves rather than firing on their old clock.
+ */
+export async function saveReminderPrefs(
+  userId: string,
+  prefs: Pick<ReminderPrefs, 'enabled' | 'hour'>,
+): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.from('user_settings').upsert({
+    user_id: userId,
+    reminder_enabled: prefs.enabled,
+    reminder_hour: prefs.hour,
+    reminder_timezone: localTimezone(),
+    updated_at: new Date().toISOString(),
+  });
+  if (error) console.warn('[voca] failed to save reminder prefs:', error.message);
+}

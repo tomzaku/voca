@@ -30,6 +30,9 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Public half of the VAPID pair — baked into the bundle at build time.
+          # Without it the daily-reminder section hides itself entirely.
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
 
       # Copy index.html as 404.html for SPA client-side routing
       - run: cp dist/index.html dist/404.html

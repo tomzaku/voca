@@ -93,6 +93,91 @@ supabase functions serve ai --env-file supabase/functions/.env
 Point `VITE_SUPABASE_URL` at your local stack (`http://127.0.0.1:54321`) so the client calls the
 locally served function.
 
+## Daily reminders (Web Push)
+
+Users can opt into a once-a-day nudge when words come due for review, configured
+from the Profile page (default 8:00 AM, their own timezone). The app is a static
+site, so nothing of ours is awake at 8am — delivery runs:
+
+```
+pg_cron (hourly)  →  pg_net POST  →  `notify` function  →  push service  →  service worker
+```
+
+One hourly UTC job serves every timezone: each user is matched against their own
+local clock. Nobody is sent a reminder with zero words due.
+
+### 1. Generate a VAPID key pair
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+The **public** key goes in `.env` as `VITE_VAPID_PUBLIC_KEY` (it ships in the
+bundle, which is fine). The **private** key is a server secret.
+
+### 2. Set the server secrets
+
+```bash
+supabase secrets set \
+  VAPID_PUBLIC_KEY=BM... \
+  VAPID_PRIVATE_KEY=... \
+  VAPID_SUBJECT=mailto:you@example.com \
+  CRON_SECRET="$(openssl rand -hex 32)"
+```
+
+| Secret | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `CRON_SECRET` | yes | — | shared secret the cron job sends as `x-cron-secret` |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | yes | — | from step 1 |
+| `VAPID_SUBJECT` | no | `mailto:noreply@voca.app` | contact required by the push spec |
+| `APP_PATH` | no | `/voca/history` | where tapping the notification lands |
+
+### 3. Deploy the function
+
+```bash
+supabase functions deploy notify --no-verify-jwt
+```
+
+`--no-verify-jwt` is required because cron has no user JWT. The `CRON_SECRET`
+check is what protects the endpoint instead — the function runs with
+service-role privileges, so it must not be deployed without one.
+
+### 4. Schedule it
+
+Run once in the SQL editor — **not** as a migration, since it contains the
+secret:
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.schedule('voca-review-reminders', '0 * * * *', $$
+  select net.http_post(
+    url := 'https://<project>.supabase.co/functions/v1/notify',
+    headers := '{"Content-Type":"application/json","x-cron-secret":"<CRON_SECRET>"}'::jsonb
+  );
+$$);
+```
+
+Test it by hand first:
+
+```bash
+curl -X POST https://<project>.supabase.co/functions/v1/notify \
+  -H "x-cron-secret: <CRON_SECRET>"
+# => {"sent":0,"pruned":0}
+```
+
+### Platform notes
+
+- **iOS/iPadOS** only exposes the Push API to apps installed on the Home Screen,
+  and offers no programmatic install prompt — Profile detects this and shows
+  Add-to-Home-Screen instructions instead of a toggle.
+- **A denied permission is permanent.** `requestPermission()` resolves `denied`
+  instantly forever after; only browser site settings can undo it. That's why
+  the prompt is behind an explicit "Enable reminders" button rather than fired
+  on load, and why turning the toggle off unsubscribes the device but keeps the
+  permission.
+
 ## Database
 
 Migrations live in `supabase/migrations`. Apply them with:
