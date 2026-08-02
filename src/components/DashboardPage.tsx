@@ -1,5 +1,5 @@
-// Streak dashboard: how long the run is, and a month-by-month calendar of what
-// was actually answered each day.
+// Learning dashboard: how long the streak is, and a month-by-month calendar of
+// what was actually answered each day.
 //
 // Everything here is derived from `history` (the per-word answer log) already in
 // the vocabulary store — no extra queries. That log keeps the last 50 answers
@@ -61,7 +61,7 @@ function useWordsPerCell(): number {
   return count;
 }
 
-export function StreakPage() {
+export function DashboardPage() {
   const progress = useVocabularyStore((s) => s.progress);
   const streak = useStreak((s) => s.count);
   const longest = useStreak((s) => s.longest);

@@ -11,7 +11,7 @@ import { FabMenu } from './components/FabMenu';
 import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 import { CompanionPage } from './components/CompanionPage';
-import { StreakPage } from './components/StreakPage';
+import { DashboardPage } from './components/DashboardPage';
 import { CollectionsPage } from './components/CollectionsPage';
 import { WorldGame } from './components/WorldGame';
 import { LevelTestPage } from './components/LevelTestPage';
@@ -35,7 +35,9 @@ export default function App() {
               {/* Old path — keep existing links working. */}
               <Route path="/bookmarks" element={<Navigate to="/history" replace />} />
               <Route path="/companion" element={<CompanionPage />} />
-              <Route path="/streak" element={<StreakPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              {/* Old path — keep existing links working. */}
+              <Route path="/streak" element={<Navigate to="/dashboard" replace />} />
               <Route path="/collections" element={<CollectionsPage />} />
               <Route path="/world" element={<WorldGame />} />
               <Route path="/level-test" element={<LevelTestPage />} />
