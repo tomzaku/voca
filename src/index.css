@@ -216,6 +216,20 @@ body {
 }
 .animate-float-up { animation: floatUp 1.2s ease-out forwards; }
 
+/* Day drawer on the Dashboard. Two directions because the drawer opens on the
+   side opposite the day you clicked, so it never covers it. */
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.animate-slide-in-right { animation: slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+.animate-slide-in-left { animation: slideInLeft 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+
 /* Idle glow on the active game card */
 @keyframes glowPulse {
   0%, 100% { box-shadow: 0 6px 0 0 var(--shadow-game), 0 0 0 0 rgba(34, 211, 238, 0); }
