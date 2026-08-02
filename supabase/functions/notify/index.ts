@@ -13,7 +13,7 @@
 //   VAPID_PUBLIC_KEY     required — same key the client subscribes with
 //   VAPID_PRIVATE_KEY    required — never leaves the server
 //   VAPID_SUBJECT        optional — mailto: or https: contact (default mailto)
-//   APP_PATH             optional — path the notification opens (default /voca/history)
+//   APP_BASE             optional — base path the app is served from (default /voca)
 //
 // Two modes, both behind the same secret:
 //   POST (no body)                      scheduled run — all users due this hour
@@ -35,60 +35,109 @@ interface ReminderRow {
   word: string | null;
 }
 
-const APP_PATH = Deno.env.get('APP_PATH') ?? '/voca/history';
+// Base path the app is served from. Trailing slashes are normalised away so
+// the URLs below can append their own.
+const APP_BASE = (Deno.env.get('APP_BASE') ?? '/voca').replace(/\/+$/, '');
+
+/**
+ * URL-safe base64, mirroring `encodeWord` in src/lib/wordCode.ts — the two must
+ * stay in step, since the client decodes what we produce here. Edge functions
+ * bundle only from supabase/, so it can't be imported.
+ */
+function encodeWord(word: string): string {
+  const bytes = new TextEncoder().encode(word);
+  let binary = '';
+  bytes.forEach((b) => (binary += String.fromCharCode(b)));
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
 /** Push services return these when a subscription is permanently gone. */
 const DEAD_SUBSCRIPTION = new Set([404, 410]);
 
-/**
- * Reminder copy, warm and specific rather than administrative.
- *
- * A count ("12 words ready") describes a backlog, and a backlog is easy to
- * swipe away. Naming one word asks a question, and a question is much harder
- * not to answer — so the word goes in the title, where a lock screen shows it.
- *
- * Several variants because the same sentence every morning stops registering
- * within a week; one is picked at random per send.
- */
-const TEMPLATES: Array<(word: string) => { title: string; body: string }> = [
-  (word) => ({
-    title: `Still remember “${word}”?`,
-    body: 'Ten seconds to prove it — before it slips away.',
-  }),
-  (word) => ({
-    title: `Hey — “${word}” is fading`,
-    body: 'One quick look now and it sticks for weeks.',
-  }),
-  (word) => ({
-    title: `“${word}” wants another shot`,
-    body: 'You almost had this one last time. Try again?',
-  }),
-  (word) => ({
-    title: `Psst… “${word}”`,
-    body: "Your brain's about to file it away. Rescue it?",
-  }),
-  (word) => ({
-    title: `Got a minute for “${word}”?`,
-    body: "That's all it takes to make it yours for good.",
-  }),
-];
+// ─── Notification actions ────────────────────────────────────────────
+//
+// Every notification this app can send is one named ACTION, and each action
+// owns both its copy and its destination. This mirrors the `{action, params}`
+// shape of the `ai` function, and it exists so that adding a second kind of
+// notification (a lost streak, a shared collection, a quiz invite) is a new
+// entry in this table rather than another branch threaded through the sender.
+//
+// The action name also travels in the payload, so the service worker can key
+// off it — grouping, icons, routing — without re-deriving intent from copy.
 
-function buildPayload(word: string): string {
-  const pick = TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)];
-  return JSON.stringify({ ...pick(word), url: APP_PATH });
+/** Everything an action's copy or URL may depend on. */
+interface ActionContext {
+  word: string | null;
+  dueCount: number;
 }
 
-/**
- * A test send with nothing due has no word to name, so it says what it is
- * rather than inventing one.
- */
-function buildTestPayload(word: string | null): string {
-  if (word) return buildPayload(word);
-  return JSON.stringify({
-    title: 'Test reminder',
-    body: 'Push is working. You have no words due right now.',
-    url: APP_PATH,
-  });
+interface ActionDefinition {
+  /**
+   * Copy variants. One is picked at random per send: the same sentence every
+   * morning stops registering within a week.
+   */
+  templates: Array<(ctx: ActionContext) => { title: string; body: string }>;
+  /** Where tapping it lands. */
+  url: (ctx: ActionContext) => string;
+}
+
+const ACTIONS = {
+  /**
+   * The daily spaced-repetition nudge.
+   *
+   * A count ("12 words ready") describes a backlog, and a backlog is easy to
+   * swipe away. Naming one word asks a question, and a question is hard not to
+   * answer — so the word goes in the title, where a lock screen shows it, and
+   * the tap opens exactly that card rather than a list.
+   */
+  review_word: {
+    templates: [
+      ({ word }) => ({
+        title: `Still remember “${word}”?`,
+        body: 'Ten seconds to prove it — before it slips away.',
+      }),
+      ({ word }) => ({
+        title: `Hey — “${word}” is fading`,
+        body: 'One quick look now and it sticks for weeks.',
+      }),
+      ({ word }) => ({
+        title: `“${word}” wants another shot`,
+        body: 'You almost had this one last time. Try again?',
+      }),
+      ({ word }) => ({
+        title: `Psst… “${word}”`,
+        body: "Your brain's about to file it away. Rescue it?",
+      }),
+      ({ word }) => ({
+        title: `Got a minute for “${word}”?`,
+        body: "That's all it takes to make it yours for good.",
+      }),
+    ],
+    // `?w=` (encoded) rather than the legacy plaintext `?word=`, matching what
+    // the app itself generates everywhere.
+    url: ({ word }) => `${APP_BASE}/?w=${encodeWord(word!)}`,
+  },
+
+  /** Delivery check with an empty queue — says what it is instead of inventing a word. */
+  test_ping: {
+    templates: [
+      () => ({
+        title: 'Test reminder',
+        body: 'Push is working. You have no words due right now.',
+      }),
+    ],
+    url: () => `${APP_BASE}/`,
+  },
+} satisfies Record<string, ActionDefinition>;
+
+type ActionId = keyof typeof ACTIONS;
+
+/** Render one action into the JSON the service worker receives. */
+function buildPayload(action: ActionId, ctx: ActionContext): string {
+  const { templates, url } = ACTIONS[action];
+  const pick = templates[Math.floor(Math.random() * templates.length)];
+  // `action` rides along so the worker can group/route without parsing copy.
+  return JSON.stringify({ action, ...pick(ctx), url: url(ctx) });
 }
 
 interface SendResult {
@@ -177,8 +226,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // With nothing due there's no word to name, so fall back to a plain ping —
+    // a test still has to reach the device to prove delivery works.
     const { delivered: testDelivered, dead: testDead } = await sendAll(testRows, (r) =>
-      buildTestPayload(r.word),
+      buildPayload(r.word ? 'review_word' : 'test_ping', {
+        word: r.word,
+        dueCount: r.due_count,
+      }),
     );
 
     if (testDead.length > 0) {
@@ -205,7 +259,9 @@ Deno.serve(async (req: Request) => {
 
   // `word` is non-null here: the scheduled query's cross join only yields rows
   // that have at least one due word.
-  const { delivered, dead } = await sendAll(rows, (r) => buildPayload(r.word!));
+  const { delivered, dead } = await sendAll(rows, (r) =>
+    buildPayload('review_word', { word: r.word, dueCount: r.due_count }),
+  );
 
   // Stamping only the ones that actually went out means a transient failure is
   // retried next hour instead of being silently skipped for a day.

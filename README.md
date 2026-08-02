@@ -112,7 +112,28 @@ remember *ubiquitous*?" asks a question; "12 words ready for review" describes a
 chore. The word chosen is whichever due word the user has struggled with most
 (`lapses + wrong_count`), ties broken randomly so the same word doesn't nag
 every day, and the sentence is picked from several variants so it keeps
-registering.
+registering. Tapping the notification opens **that word's card** —
+`/?w=<encoded>`, the same deep link the app uses internally.
+
+### Notification actions
+
+Every notification is one named **action**, defined in the `ACTIONS` table in
+`supabase/functions/notify/index.ts`. An action owns both its copy variants and
+its destination URL:
+
+| Action | Sent when | Opens |
+| --- | --- | --- |
+| `review_word` | daily reminder, words due | `/?w=<encoded word>` |
+| `test_ping` | test send with nothing due | `/` |
+
+The action name travels in the push payload, so the service worker groups
+notifications per action (`tag: voca-<action>`) — a new review reminder replaces
+the previous one instead of stacking, without swallowing an unrelated
+notification of a different kind.
+
+Adding a kind of notification (lost streak, shared collection, quiz invite) is a
+new entry in that table plus whatever query selects its recipients — no changes
+to the sender or the service worker.
 
 ### 1. Generate a VAPID key pair
 
@@ -138,7 +159,7 @@ supabase secrets set \
 | `CRON_SECRET` | yes | — | shared secret the cron job sends as `x-cron-secret` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | yes | — | from step 1 |
 | `VAPID_SUBJECT` | no | `mailto:noreply@voca.app` | contact required by the push spec |
-| `APP_PATH` | no | `/voca/history` | where tapping the notification lands |
+| `APP_BASE` | no | `/voca` | base path the app is served from |
 
 ### 3. Deploy the function
 

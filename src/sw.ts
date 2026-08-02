@@ -43,8 +43,16 @@ self.addEventListener('activate', (event) => {
 
 // ─── Push notifications ──────────────────────────────────────────────
 
-/** Payload shape sent by the `notify` edge function. */
+/**
+ * Payload shape sent by the `notify` edge function.
+ *
+ * `action` names which kind of notification this is (see the ACTIONS table in
+ * supabase/functions/notify/index.ts). It's carried so the worker can group and
+ * route by intent rather than inferring it from the copy — and so a future
+ * action type needs no change here.
+ */
 interface PushPayload {
+  action: string;
   title: string;
   body: string;
   url: string;
@@ -54,9 +62,12 @@ interface PushPayload {
 // normally names an actual word. Kept in the same warm register so a rare
 // fallback doesn't read like a different app.
 const FALLBACK: PushPayload = {
+  action: 'review_word',
   title: 'A word is waiting for you',
   body: 'Got a minute to make it stick?',
-  url: '/voca/history',
+  // The server normally sends a deep link to a specific card; with no payload
+  // to read, home is the only honest destination.
+  url: '/voca/',
 };
 
 self.addEventListener('push', (event) => {
@@ -74,10 +85,11 @@ self.addEventListener('push', (event) => {
       body: payload.body,
       icon: 'icon-192.png',
       badge: 'icon-192.png',
-      // One reminder at a time: a later push replaces the earlier one instead
-      // of stacking a week of unread nags in the shade.
-      tag: 'voca-review',
-      data: { url: payload.url },
+      // Group per action, not globally: a later review reminder should replace
+      // an earlier one rather than stacking a week of unread nags — but it must
+      // not silently swallow an unrelated notification of a different kind.
+      tag: `voca-${payload.action}`,
+      data: { url: payload.url, action: payload.action },
     }),
   );
 });
