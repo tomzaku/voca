@@ -5,8 +5,13 @@ interface ToggleSwitchProps {
 
 export function ToggleSwitch({ checked, color = 'bg-accent-cyan' }: ToggleSwitchProps) {
   return (
+    // `inline-block` is load-bearing: as a plain inline span, width/height are
+    // ignored and the absolutely-positioned knob escapes its parent. It only
+    // ever looked right because every call site happened to be a flex
+    // container, which blockifies its children. Flex parents are unaffected —
+    // they blockify this to `block` regardless.
     <span
-      className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${
+      className={`inline-block w-10 h-6 rounded-full transition-colors relative shrink-0 ${
         checked ? color : 'bg-bg-tertiary'
       }`}
     >

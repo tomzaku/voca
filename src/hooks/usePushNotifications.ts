@@ -10,8 +10,10 @@
 //                         and offers no programmatic install prompt.
 
 import { useCallback, useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { isIos, isStandalone } from '../lib/device';
 import {
+  ALL_DAYS,
   DEFAULT_REMINDER_HOUR,
   fetchReminderPrefs,
   pushConfigError,
@@ -52,6 +54,7 @@ export function usePushNotifications(userId: string | undefined) {
   const [status, setStatus] = useState<PushStatus>('loading');
   const [enabled, setEnabled] = useState(false);
   const [hour, setHourState] = useState(DEFAULT_REMINDER_HOUR);
+  const [days, setDaysState] = useState<number[]>(ALL_DAYS);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -64,6 +67,7 @@ export function usePushNotifications(userId: string | undefined) {
       if (cancelled) return;
       setEnabled(prefs.enabled);
       setHourState(prefs.hour);
+      setDaysState(prefs.days);
 
       // `enabled` is a per-user preference but subscriptions are per-device, so
       // a second device arrives with the toggle already on and no endpoint of
@@ -87,13 +91,21 @@ export function usePushNotifications(userId: string | undefined) {
       if (permission !== 'granted') return;
 
       const ok = await subscribeDevice(userId);
-      if (!ok) return;
-      await saveReminderPrefs(userId, { enabled: true, hour });
+      if (!ok) {
+        toast.error("Couldn't set up reminders on this device.");
+        return;
+      }
+      await saveReminderPrefs(userId, { enabled: true, hour, days });
       setEnabled(true);
+    } catch (err) {
+      // Never let a rejection escape: an unhandled one leaves the control
+      // looking simply broken, with the reason buried in the console.
+      console.warn('[voca] enabling reminders failed:', err);
+      toast.error((err as Error).message || "Couldn't enable reminders.");
     } finally {
       setBusy(false);
     }
-  }, [userId, hour, busy]);
+  }, [userId, hour, days, busy]);
 
   /**
    * Turn reminders on/off. Off unsubscribes this device but deliberately keeps
@@ -107,25 +119,47 @@ export function usePushNotifications(userId: string | undefined) {
     try {
       if (next) {
         const ok = await subscribeDevice(userId);
-        if (!ok) return;
+        if (!ok) {
+          toast.error("Couldn't set up reminders on this device.");
+          return;
+        }
       } else {
         await unsubscribeDevice(userId);
       }
-      await saveReminderPrefs(userId, { enabled: next, hour });
+      await saveReminderPrefs(userId, { enabled: next, hour, days });
       setEnabled(next);
+    } catch (err) {
+      console.warn('[voca] toggling reminders failed:', err);
+      toast.error((err as Error).message || "Couldn't update reminders.");
     } finally {
       setBusy(false);
     }
-  }, [userId, enabled, hour, busy]);
+  }, [userId, enabled, hour, days, busy]);
 
   const setHour = useCallback(
     async (next: number) => {
       if (!userId) return;
       setHourState(next);
-      await saveReminderPrefs(userId, { enabled, hour: next });
+      await saveReminderPrefs(userId, { enabled, hour: next, days });
     },
-    [userId, enabled],
+    [userId, enabled, days],
   );
 
-  return { status, enabled, hour, busy, enable, toggle, setHour };
+  /**
+   * Add/remove a weekday. Removing the last one is refused rather than allowed:
+   * an empty set silently means "never", which looks identical to enabled-but-
+   * broken. Turning the whole thing off is what the toggle is for.
+   */
+  const toggleDay = useCallback(
+    async (day: number) => {
+      if (!userId) return;
+      const next = days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
+      if (next.length === 0) return;
+      setDaysState(next);
+      await saveReminderPrefs(userId, { enabled, hour, days: next });
+    },
+    [userId, enabled, hour, days],
+  );
+
+  return { status, enabled, hour, days, busy, enable, toggle, setHour, toggleDay };
 }

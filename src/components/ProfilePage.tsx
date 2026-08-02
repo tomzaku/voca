@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { formatHour } from '../lib/push';
+import { DAY_INITIALS, DAY_NAMES, formatHour, formatSchedule } from '../lib/push';
 import { Selector, type SelectorOption } from './Selector';
 import { ToggleSwitch } from './ToggleSwitch';
 
@@ -91,7 +91,7 @@ export function ProfilePage() {
                 <p className="text-sm text-text-primary">Daily reminder</p>
                 <p className="text-xs text-text-muted">
                   {push.status === 'granted' && push.enabled
-                    ? `Every day at ${formatHour(push.hour)}`
+                    ? formatSchedule(push.hour, push.days)
                     : 'A nudge when words are due for review'}
                 </p>
               </div>
@@ -103,7 +103,7 @@ export function ProfilePage() {
                 disabled={push.busy}
                 aria-label="Toggle daily reminder"
                 aria-pressed={push.enabled}
-                className="cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center shrink-0 cursor-pointer disabled:opacity-50"
               >
                 <ToggleSwitch checked={push.enabled} />
               </button>
@@ -111,15 +111,41 @@ export function ProfilePage() {
           </div>
 
           {push.status === 'granted' && push.enabled && (
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <span className="text-xs text-text-muted">Remind me at</span>
-              <Selector
-                value={String(push.hour)}
-                options={HOUR_OPTIONS}
-                onChange={(v) => void push.setHour(Number(v))}
-                ariaLabel="Reminder time"
-              />
-            </div>
+            <>
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <span className="text-xs text-text-muted">Remind me at</span>
+                <Selector
+                  value={String(push.hour)}
+                  options={HOUR_OPTIONS}
+                  onChange={(v) => void push.setHour(Number(v))}
+                  ariaLabel="Reminder time"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <span className="text-xs text-text-muted">Repeat on</span>
+                <div className="flex items-center justify-between gap-1">
+                  {DAY_INITIALS.map((initial, day) => {
+                    const on = push.days.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        onClick={() => void push.toggleDay(day)}
+                        aria-label={`${DAY_NAMES[day]} reminders`}
+                        aria-pressed={on}
+                        className={`w-8 h-8 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                          on
+                            ? 'bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/30'
+                            : 'bg-bg-tertiary text-text-muted border border-transparent hover:bg-bg-hover'
+                        }`}
+                      >
+                        {initial}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
           )}
 
           {push.status === 'default' && (

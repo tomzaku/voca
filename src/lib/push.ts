@@ -7,13 +7,52 @@
 
 import { supabase } from './supabase';
 
-/** Default reminder time for a new user: 8am, their local clock. */
-export const DEFAULT_REMINDER_HOUR = 8;
+/** Default reminder time for a new user: 7am, their local clock, every day. */
+export const DEFAULT_REMINDER_HOUR = 7;
+
+/** 0 = Sunday … 6 = Saturday — matches both Date#getDay() and Postgres `dow`. */
+export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/** Single-letter chip labels, indexed by day number. */
+export const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/** Full names — the initials repeat (S/S, T/T), so screen readers need these. */
+export const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS = [1, 2, 3, 4, 5];
+const WEEKEND = [0, 6];
 
 export interface ReminderPrefs {
   enabled: boolean;
   hour: number;
+  days: number[];
   timezone: string;
+}
+
+const sameDays = (a: number[], b: number[]) =>
+  a.length === b.length && [...a].sort().every((d, i) => d === [...b].sort()[i]);
+
+/**
+ * "Every day at 7:00 AM" / "Weekdays at 7:00 AM" / "Mon, Wed at 7:00 AM".
+ * Naming the common patterns beats reading seven highlighted letters back.
+ */
+export function formatSchedule(hour: number, days: number[]): string {
+  const at = `at ${formatHour(hour)}`;
+  if (days.length === 0) return 'No days selected';
+  if (sameDays(days, ALL_DAYS)) return `Every day ${at}`;
+  if (sameDays(days, WEEKDAYS)) return `Weekdays ${at}`;
+  if (sameDays(days, WEEKEND)) return `Weekends ${at}`;
+  const named = [...days].sort().map((d) => DAY_SHORT[d]).join(', ');
+  return `${named} ${at}`;
 }
 
 /** The browser's current IANA zone, e.g. "Asia/Ho_Chi_Minh". */
@@ -81,6 +120,28 @@ export function pushConfigured(): boolean {
 }
 
 /**
+ * `navigator.serviceWorker.ready` never rejects — by spec it waits forever for
+ * an active worker. If registration failed (or the dev server isn't serving
+ * one), awaiting it deadlocks whatever called us, and any `busy` flag guarding
+ * the UI stays stuck on. Racing a timeout turns that silent hang into an error
+ * we can actually show someone.
+ */
+async function readyRegistration(timeoutMs = 10_000): Promise<ServiceWorkerRegistration> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('No active service worker — push cannot be set up.')),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([navigator.serviceWorker.ready, timeout]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+/**
  * Subscribe this device and persist the endpoint. Returns false if the browser
  * refused — the caller has already checked permission, but a push service can
  * still fail (offline, or a service worker that never activated).
@@ -88,7 +149,7 @@ export function pushConfigured(): boolean {
 export async function subscribeDevice(userId: string): Promise<boolean> {
   if (!supabase || !vapidPublicKey) return false;
 
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await readyRegistration();
 
   // Reuse an existing subscription when there is one: re-subscribing with the
   // same key returns the same endpoint, but calling it needlessly can fail if
@@ -127,7 +188,7 @@ export async function subscribeDevice(userId: string): Promise<boolean> {
 export async function unsubscribeDevice(userId: string): Promise<void> {
   if (!supabase) return;
 
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await readyRegistration();
   const sub = await registration.pushManager.getSubscription();
   if (!sub) return;
 
@@ -145,20 +206,23 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
   const fallback: ReminderPrefs = {
     enabled: false,
     hour: DEFAULT_REMINDER_HOUR,
+    days: ALL_DAYS,
     timezone: localTimezone(),
   };
   if (!supabase) return fallback;
 
   const { data, error } = await supabase
     .from('user_settings')
-    .select('reminder_enabled, reminder_hour, reminder_timezone')
+    .select('reminder_enabled, reminder_hour, reminder_days, reminder_timezone')
     .eq('user_id', userId)
     .maybeSingle();
 
   if (error || !data) return fallback;
+  const days = data.reminder_days as number[] | null;
   return {
     enabled: Boolean(data.reminder_enabled),
     hour: (data.reminder_hour as number | null) ?? DEFAULT_REMINDER_HOUR,
+    days: days && days.length > 0 ? days : ALL_DAYS,
     timezone: (data.reminder_timezone as string | null) || fallback.timezone,
   };
 }
@@ -169,13 +233,14 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
  */
 export async function saveReminderPrefs(
   userId: string,
-  prefs: Pick<ReminderPrefs, 'enabled' | 'hour'>,
+  prefs: Pick<ReminderPrefs, 'enabled' | 'hour' | 'days'>,
 ): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.from('user_settings').upsert({
     user_id: userId,
     reminder_enabled: prefs.enabled,
     reminder_hour: prefs.hour,
+    reminder_days: [...prefs.days].sort(),
     reminder_timezone: localTimezone(),
     updated_at: new Date().toISOString(),
   });

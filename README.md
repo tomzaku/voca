@@ -95,16 +95,17 @@ locally served function.
 
 ## Daily reminders (Web Push)
 
-Users can opt into a once-a-day nudge when words come due for review, configured
-from the Profile page (default 8:00 AM, their own timezone). The app is a static
-site, so nothing of ours is awake at 8am — delivery runs:
+Users can opt into a nudge when words come due for review, configured from the
+Profile page: on/off, what time, and which days of the week (default **7:00 AM,
+every day**, in their own timezone). The app is a static site, so nothing of
+ours is awake at 7am — delivery runs:
 
 ```
 pg_cron (hourly)  →  pg_net POST  →  `notify` function  →  push service  →  service worker
 ```
 
 One hourly UTC job serves every timezone: each user is matched against their own
-local clock. Nobody is sent a reminder with zero words due.
+local clock and chosen weekdays. Nobody is sent a reminder with zero words due.
 
 ### 1. Generate a VAPID key pair
 

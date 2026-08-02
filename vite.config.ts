@@ -45,6 +45,15 @@ export default defineConfig(({ command }) => ({
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
+      // Without this there is no service worker at all under `npm run dev`, so
+      // anything that awaits `navigator.serviceWorker.ready` — i.e. push —
+      // hangs forever instead of failing. Reminders are untestable locally
+      // otherwise.
+      devOptions: {
+        enabled: true,
+        // src/sw.ts is an ES module and dev serves it unbundled.
+        type: 'module',
+      },
       injectManifest: {
         // Precache only the app shell. The heavy TTS/model chunks (Kokoro,
         // Transformers, ONNX Runtime, Piper) load on demand, so keep them out
