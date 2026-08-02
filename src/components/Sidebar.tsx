@@ -9,6 +9,8 @@ import { useGameMode } from '../hooks/useGameMode';
 const NAV_ITEMS = [
   { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
   { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
+  // Sits next to History: both look backwards at what you've studied.
+  { to: '/dashboard', label: 'Dashboard', icon: 'lucide:calendar-days' },
   { to: '/history', label: 'History', icon: 'lucide:history' },
   { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print' },
   { to: '/collections', label: 'Collections', icon: 'lucide:library' },
