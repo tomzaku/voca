@@ -102,7 +102,7 @@ export function Navbar() {
               there's nothing yet to protect. */}
           {streak > 0 && (
             <Link
-              to="/profile"
+              to="/streak"
               title={
                 countedToday
                   ? `${streak}-day streak — today is counted`

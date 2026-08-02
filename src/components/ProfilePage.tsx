@@ -68,7 +68,7 @@ export function ProfilePage() {
         </div>
 
         {streak > 0 && (
-          <div className="flex items-center gap-4 mt-1">
+          <Link to="/streak" className="flex items-center gap-4 mt-1 hover:opacity-80 transition-opacity">
             <div className="flex items-center gap-1.5 text-accent-orange">
               <Icon icon="lucide:flame" className="text-lg" />
               <span className="text-sm font-bold tabular-nums">{streak}</span>
@@ -77,7 +77,7 @@ export function ProfilePage() {
             {longest > streak && (
               <span className="text-xs text-text-muted/70">best {longest}</span>
             )}
-          </div>
+          </Link>
         )}
       </div>
 
