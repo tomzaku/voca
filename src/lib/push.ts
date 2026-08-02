@@ -7,8 +7,16 @@
 
 import { supabase } from './supabase';
 
-/** Default schedule for a new user: 7am, their local clock, every day. */
-export const DEFAULT_REMINDER_HOURS = [7];
+/**
+ * Reminder times are stored as MINUTES SINCE MIDNIGHT (7:30 AM = 450), in
+ * half-hour steps. One integer per time, no separate minute field to keep in
+ * step, and it sorts naturally.
+ */
+export const SLOT_MINUTES = 30;
+const MINUTES_PER_DAY = 24 * 60;
+
+/** Default schedule for a new user: 7:00 AM, their local clock, every day. */
+export const DEFAULT_REMINDER_TIMES = [7 * 60];
 
 /**
  * Ceiling on reminders per day. Past a handful, a reminder app stops being a
@@ -40,7 +48,8 @@ const WEEKEND = [0, 6];
 
 export interface ReminderPrefs {
   enabled: boolean;
-  hours: number[];
+  /** Minutes since midnight, e.g. 450 for 7:30 AM. */
+  times: number[];
   days: number[];
   timezone: string;
 }
@@ -52,9 +61,9 @@ const sameDays = (a: number[], b: number[]) =>
  * "Every day at 7:00 AM" / "Weekdays at 7:00 AM, 8:00 PM" / "Mon, Wed at 7:00 AM".
  * Naming the common day patterns beats reading seven highlighted letters back.
  */
-export function formatSchedule(hours: number[], days: number[]): string {
-  if (days.length === 0 || hours.length === 0) return 'No schedule set';
-  const at = `at ${[...hours].sort((a, b) => a - b).map(formatHour).join(', ')}`;
+export function formatSchedule(times: number[], days: number[]): string {
+  if (days.length === 0 || times.length === 0) return 'No schedule set';
+  const at = `at ${[...times].sort((a, b) => a - b).map(formatTime).join(', ')}`;
   if (sameDays(days, ALL_DAYS)) return `Every day ${at}`;
   if (sameDays(days, WEEKDAYS)) return `Weekdays ${at}`;
   if (sameDays(days, WEEKEND)) return `Weekends ${at}`;
@@ -67,11 +76,45 @@ export function localTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 
-/** "8:00 AM" — labels the hour picker in the user's own locale conventions. */
-export function formatHour(hour: number): string {
+/** "7:30 AM" — display form, in the user's own locale conventions. */
+export function formatTime(minutes: number): string {
   const d = new Date();
-  d.setHours(hour, 0, 0, 0);
+  d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * "07:30" — the value format `<input type="time">` requires. Always 24-hour
+ * regardless of what the browser *displays*, which is locale-dependent.
+ */
+export function toTimeInputValue(minutes: number): string {
+  const h = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const m = String(minutes % 60).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+/**
+ * Parse an `<input type="time">` value back to minutes, snapped to the nearest
+ * half hour. `step` should prevent off-slot values, but not every browser
+ * enforces it on typed input — and an unsnapped time would simply never match
+ * the sender's slot, i.e. silently never fire.
+ */
+export function fromTimeInputValue(value: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})/.exec(value);
+  if (!match) return null;
+  const raw = Number(match[1]) * 60 + Number(match[2]);
+  if (!Number.isFinite(raw) || raw < 0 || raw >= MINUTES_PER_DAY) return null;
+  return (Math.round(raw / SLOT_MINUTES) * SLOT_MINUTES) % MINUTES_PER_DAY;
+}
+
+/** First free slot for a new entry — an hour after the latest, wrapping round. */
+export function nextFreeSlot(times: number[]): number {
+  const start = times.length > 0 ? Math.max(...times) + 60 : 7 * 60;
+  for (let i = 0; i < MINUTES_PER_DAY / SLOT_MINUTES; i++) {
+    const candidate = (start + i * SLOT_MINUTES) % MINUTES_PER_DAY;
+    if (!times.includes(candidate)) return candidate;
+  }
+  return start % MINUTES_PER_DAY;
 }
 
 /**
@@ -212,7 +255,7 @@ export async function unsubscribeDevice(userId: string): Promise<void> {
 export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs> {
   const fallback: ReminderPrefs = {
     enabled: false,
-    hours: DEFAULT_REMINDER_HOURS,
+    times: DEFAULT_REMINDER_TIMES,
     days: ALL_DAYS,
     timezone: localTimezone(),
   };
@@ -220,16 +263,16 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
 
   const { data, error } = await supabase
     .from('user_settings')
-    .select('reminder_enabled, reminder_hours, reminder_days, reminder_timezone')
+    .select('reminder_enabled, reminder_times, reminder_days, reminder_timezone')
     .eq('user_id', userId)
     .maybeSingle();
 
   if (error || !data) return fallback;
   const days = data.reminder_days as number[] | null;
-  const hours = data.reminder_hours as number[] | null;
+  const times = data.reminder_times as number[] | null;
   return {
     enabled: Boolean(data.reminder_enabled),
-    hours: hours && hours.length > 0 ? hours : DEFAULT_REMINDER_HOURS,
+    times: times && times.length > 0 ? times : DEFAULT_REMINDER_TIMES,
     days: days && days.length > 0 ? days : ALL_DAYS,
     timezone: (data.reminder_timezone as string | null) || fallback.timezone,
   };
@@ -241,7 +284,7 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
  */
 export async function saveReminderPrefs(
   userId: string,
-  prefs: Pick<ReminderPrefs, 'enabled' | 'hours' | 'days'>,
+  prefs: Pick<ReminderPrefs, 'enabled' | 'times' | 'days'>,
 ): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.from('user_settings').upsert({
@@ -249,7 +292,7 @@ export async function saveReminderPrefs(
     reminder_enabled: prefs.enabled,
     // Sorted + deduped: the DB caps the length, and a stored duplicate would
     // read back as a repeated row in the UI.
-    reminder_hours: [...new Set(prefs.hours)].sort((a, b) => a - b),
+    reminder_times: [...new Set(prefs.times)].sort((a, b) => a - b),
     reminder_days: [...prefs.days].sort(),
     reminder_timezone: localTimezone(),
     updated_at: new Date().toISOString(),

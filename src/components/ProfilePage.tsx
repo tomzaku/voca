@@ -6,17 +6,14 @@ import {
   DAY_INITIALS,
   DAY_NAMES,
   MAX_REMINDER_TIMES,
-  formatHour,
+  SLOT_MINUTES,
   formatSchedule,
+  formatTime,
+  fromTimeInputValue,
+  nextFreeSlot,
+  toTimeInputValue,
 } from '../lib/push';
-import { Selector, type SelectorOption } from './Selector';
 import { ToggleSwitch } from './ToggleSwitch';
-
-/** Every hour of the day, labelled in the user's locale ("8:00 AM"). */
-const HOUR_OPTIONS: SelectorOption[] = Array.from({ length: 24 }, (_, h) => ({
-  value: String(h),
-  label: formatHour(h),
-}));
 
 export function ProfilePage() {
   const { user, signOut } = useAuth();
@@ -97,7 +94,7 @@ export function ProfilePage() {
                 <p className="text-sm text-text-primary">Daily reminder</p>
                 <p className="text-xs text-text-muted">
                   {push.status === 'granted' && push.enabled
-                    ? formatSchedule(push.hours, push.days)
+                    ? formatSchedule(push.times, push.days)
                     : 'A nudge when words are due for review'}
                 </p>
               </div>
@@ -122,23 +119,39 @@ export function ProfilePage() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-text-muted">Remind me at</span>
                   <span className="text-xs text-text-muted/60">
-                    {push.hours.length}/{MAX_REMINDER_TIMES}
+                    {push.times.length}/{MAX_REMINDER_TIMES}
                   </span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {push.hours.map((h) => (
+                  {push.times.map((t) => (
                     <span
-                      key={h}
-                      className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs border border-accent-cyan/25"
+                      key={t}
+                      className="inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-full bg-accent-cyan/10 text-accent-cyan text-xs border border-accent-cyan/25"
                     >
-                      {formatHour(h)}
+                      {/* Native <input type="time"> so each platform gives its
+                          own picker — the iOS wheel, the Android clock dialog —
+                          instead of a custom dropdown that matches neither.
+                          step=1800 (30 min) is what makes it offer half hours. */}
+                      <input
+                        type="time"
+                        step={SLOT_MINUTES * 60}
+                        value={toTimeInputValue(t)}
+                        onChange={(e) => {
+                          const next = fromTimeInputValue(e.target.value);
+                          // Clearing the field yields '' — keep the old time
+                          // rather than dropping a reminder by accident.
+                          if (next !== null) void push.updateTime(t, next);
+                        }}
+                        aria-label={`Reminder time, currently ${formatTime(t)}`}
+                        className="bg-transparent text-accent-cyan text-xs outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
+                      />
                       {/* The last time can't be removed — an empty schedule
                           looks identical to a broken one. */}
-                      {push.hours.length > 1 && (
+                      {push.times.length > 1 && (
                         <button
-                          onClick={() => void push.removeHour(h)}
-                          aria-label={`Remove ${formatHour(h)} reminder`}
+                          onClick={() => void push.removeTime(t)}
+                          aria-label={`Remove ${formatTime(t)} reminder`}
                           className="w-4 h-4 rounded-full inline-flex items-center justify-center hover:bg-accent-cyan/20 cursor-pointer"
                         >
                           <Icon icon="lucide:x" className="text-[10px]" />
@@ -148,17 +161,13 @@ export function ProfilePage() {
                   ))}
 
                   {!push.atCapacity && (
-                    <Selector
-                      value=""
-                      options={[
-                        { value: '', label: '+ Add time' },
-                        // Only hours not already scheduled — picking a duplicate
-                        // would silently do nothing.
-                        ...HOUR_OPTIONS.filter((o) => !push.hours.includes(Number(o.value))),
-                      ]}
-                      onChange={(v) => v && void push.addHour(Number(v))}
-                      ariaLabel="Add a reminder time"
-                    />
+                    <button
+                      onClick={() => void push.addTime(nextFreeSlot(push.times))}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border text-text-muted text-xs hover:border-accent-cyan/40 hover:text-accent-cyan transition-colors cursor-pointer"
+                    >
+                      <Icon icon="lucide:plus" className="text-[10px]" />
+                      Add time
+                    </button>
                   )}
                 </div>
               </div>

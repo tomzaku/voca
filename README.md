@@ -96,18 +96,20 @@ locally served function.
 ## Daily reminders (Web Push)
 
 Users can opt into a nudge when words come due for review, configured from the
-Profile page: on/off, **up to 5 times a day**, and which days of the week
-(default **7:00 AM, every day**, in their own timezone). The app is a static
+Profile page: on/off, **up to 5 times a day** at half-hour granularity, and
+which days of the week (default **7:00 AM, every day**, in their own timezone).
+Times use the platform's native `<input type="time">` picker — the iOS wheel,
+the Android clock dialog — rather than a custom dropdown. The app is a static
 site, so nothing of ours is awake at 7am — delivery runs:
 
 ```
-pg_cron (hourly)  →  pg_net POST  →  `notify` function  →  push service  →  service worker
+pg_cron (every 30m)  →  pg_net POST  →  `notify` function  →  push service  →  service worker
 ```
 
-One hourly UTC job serves every timezone: each user is matched against their own
-local clock, chosen hours, and chosen weekdays. Nobody is sent a reminder with
-zero words due, and a 50-minute dedupe absorbs cron retries without blocking a
-genuine second reminder later the same day.
+One half-hourly UTC job serves every timezone: each user is matched against
+their own local clock, chosen times, and chosen weekdays. Nobody is sent a
+reminder with zero words due, and a 25-minute dedupe absorbs retries without
+blocking a genuine next reminder, which may be only 30 minutes away.
 
 The copy names **one real word** rather than counting a backlog — "Still
 remember *ubiquitous*?" asks a question; "12 words ready for review" describes a
@@ -182,12 +184,21 @@ secret:
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
-select cron.schedule('voca-review-reminders', '0 * * * *', $$
+-- Every 30 minutes, NOT hourly: reminder times have half-hour granularity, so
+-- an hourly job would silently never fire anything set to :30.
+select cron.schedule('voca-review-reminders', '0,30 * * * *', $$
   select net.http_post(
     url := 'https://<project>.supabase.co/functions/v1/notify',
     headers := '{"Content-Type":"application/json","x-cron-secret":"<CRON_SECRET>"}'::jsonb
   );
 $$);
+```
+
+If you already scheduled this on the old hourly cadence, replace it:
+
+```sql
+select cron.unschedule('voca-review-reminders');
+-- ...then run the cron.schedule above.
 ```
 
 ### Testing a real device
