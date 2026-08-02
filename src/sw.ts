@@ -50,9 +50,12 @@ interface PushPayload {
   url: string;
 }
 
+// Only shown if a push arrives with a missing or unparseable body — the server
+// normally names an actual word. Kept in the same warm register so a rare
+// fallback doesn't read like a different app.
 const FALLBACK: PushPayload = {
-  title: 'Time to review',
-  body: 'You have words waiting.',
+  title: 'A word is waiting for you',
+  body: 'Got a minute to make it stick?',
   url: '/voca/history',
 };
 

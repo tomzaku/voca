@@ -107,6 +107,13 @@ pg_cron (hourly)  →  pg_net POST  →  `notify` function  →  push service  �
 One hourly UTC job serves every timezone: each user is matched against their own
 local clock and chosen weekdays. Nobody is sent a reminder with zero words due.
 
+The copy names **one real word** rather than counting a backlog — "Still
+remember *ubiquitous*?" asks a question; "12 words ready for review" describes a
+chore. The word chosen is whichever due word the user has struggled with most
+(`lapses + wrong_count`), ties broken randomly so the same word doesn't nag
+every day, and the sentence is picked from several variants so it keeps
+registering.
+
 ### 1. Generate a VAPID key pair
 
 ```bash
@@ -160,13 +167,44 @@ select cron.schedule('voca-review-reminders', '0 * * * *', $$
 $$);
 ```
 
-Test it by hand first:
+### Testing a real device
+
+Don't wait for the hour to come round. A **test send** targets one user and
+skips the hour/weekday/dedupe gates, while still going through the real VAPID
+encryption and push transport:
 
 ```bash
-curl -X POST https://<project>.supabase.co/functions/v1/notify \
-  -H "x-cron-secret: <CRON_SECRET>"
-# => {"sent":0,"pruned":0}
+npm run notify:test -- you@example.com
 ```
+
+```
+→ Test send to you@example.com
+  https://<ref>.supabase.co/functions/v1/notify
+
+✓ Sent to 2/2 device(s)
+  12 word(s) currently due
+```
+
+The script reads `VITE_SUPABASE_URL` and `CRON_SECRET` from `.env`, so there's
+nothing to paste. Set `TEST_REMINDER_EMAIL` in `.env` and you can drop the
+argument entirely.
+
+It fires on every device that email has enabled reminders on, and it does
+**not** stamp `last_sent_at` — so testing never consumes that day's real
+reminder. With nothing currently due it sends "Push is working" rather than
+inventing a word count.
+
+To exercise the scheduled path exactly as cron will:
+
+```bash
+npm run notify:test -- --scheduled
+# ✓ Sent 0, pruned 0
+#   0 is expected unless someone is genuinely due this hour.
+```
+
+Both modes are also reachable with plain `curl` if you'd rather — POST to
+`/functions/v1/notify` with an `x-cron-secret` header, and either no body
+(scheduled) or `{"test":true,"email":"..."}`.
 
 ### Platform notes
 

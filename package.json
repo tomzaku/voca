@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "db:push": "supabase db push",
     "db:migrate": "psql \"$DATABASE_URL\" -f supabase/migration.sql",
-    "db:new": "supabase migration new"
+    "db:new": "supabase migration new",
+    "notify:test": "node scripts/test-reminder.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",

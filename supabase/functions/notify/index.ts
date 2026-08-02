@@ -15,6 +15,11 @@
 //   VAPID_SUBJECT        optional — mailto: or https: contact (default mailto)
 //   APP_PATH             optional — path the notification opens (default /voca/history)
 //
+// Two modes, both behind the same secret:
+//   POST (no body)                      scheduled run — all users due this hour
+//   POST {"test":true,"email":"..."}    send to one user now, ignoring the
+//                                       hour/weekday/dedupe gates
+//
 // Deploy: `supabase functions deploy notify --no-verify-jwt`
 
 import webpush from 'npm:web-push@3.6.7';
@@ -26,6 +31,8 @@ interface ReminderRow {
   p256dh: string;
   auth: string;
   due_count: number;
+  /** The word to name in the copy — null only on a test send with nothing due. */
+  word: string | null;
 }
 
 const APP_PATH = Deno.env.get('APP_PATH') ?? '/voca/history';
@@ -33,15 +40,96 @@ const APP_PATH = Deno.env.get('APP_PATH') ?? '/voca/history';
 /** Push services return these when a subscription is permanently gone. */
 const DEAD_SUBSCRIPTION = new Set([404, 410]);
 
-function buildPayload(due: number): string {
-  const word = due === 1 ? 'word' : 'words';
+/**
+ * Reminder copy, warm and specific rather than administrative.
+ *
+ * A count ("12 words ready") describes a backlog, and a backlog is easy to
+ * swipe away. Naming one word asks a question, and a question is much harder
+ * not to answer — so the word goes in the title, where a lock screen shows it.
+ *
+ * Several variants because the same sentence every morning stops registering
+ * within a week; one is picked at random per send.
+ */
+const TEMPLATES: Array<(word: string) => { title: string; body: string }> = [
+  (word) => ({
+    title: `Still remember “${word}”?`,
+    body: 'Ten seconds to prove it — before it slips away.',
+  }),
+  (word) => ({
+    title: `Hey — “${word}” is fading`,
+    body: 'One quick look now and it sticks for weeks.',
+  }),
+  (word) => ({
+    title: `“${word}” wants another shot`,
+    body: 'You almost had this one last time. Try again?',
+  }),
+  (word) => ({
+    title: `Psst… “${word}”`,
+    body: "Your brain's about to file it away. Rescue it?",
+  }),
+  (word) => ({
+    title: `Got a minute for “${word}”?`,
+    body: "That's all it takes to make it yours for good.",
+  }),
+];
+
+function buildPayload(word: string): string {
+  const pick = TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)];
+  return JSON.stringify({ ...pick(word), url: APP_PATH });
+}
+
+/**
+ * A test send with nothing due has no word to name, so it says what it is
+ * rather than inventing one.
+ */
+function buildTestPayload(word: string | null): string {
+  if (word) return buildPayload(word);
   return JSON.stringify({
-    title: `${due} ${word} ready for review`,
-    // Reviewing right as recall starts to fade is the whole point of the
-    // schedule — say why it's worth opening, not just that it exists.
-    body: "You're about to forget these. A minute now makes them stick.",
+    title: 'Test reminder',
+    body: 'Push is working. You have no words due right now.',
     url: APP_PATH,
   });
+}
+
+interface SendResult {
+  delivered: string[];
+  dead: string[];
+}
+
+/**
+ * Deliver to every row. Shared by the scheduled and test paths so a test
+ * exercises the real encryption/VAPID/transport code, not a parallel version
+ * of it that could drift.
+ */
+async function sendAll(
+  rows: ReminderRow[],
+  payloadFor: (row: ReminderRow) => string,
+): Promise<SendResult> {
+  const delivered: string[] = [];
+  const dead: string[] = [];
+
+  // Sequential rather than parallel: a push service will rate-limit a burst,
+  // and an hourly job has no deadline worth risking that for.
+  for (const row of rows) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+        payloadFor(row),
+      );
+      delivered.push(row.endpoint);
+    } catch (err) {
+      const status = (err as { statusCode?: number }).statusCode;
+      if (status && DEAD_SUBSCRIPTION.has(status)) {
+        // Uninstalled app or cleared browser data. Without pruning, these
+        // accumulate forever and every run retries them.
+        dead.push(row.endpoint);
+      } else {
+        console.error('[notify] push failed', status, (err as Error).message);
+      }
+    }
+  }
+
+  return { delivered, dead };
 }
 
 Deno.serve(async (req: Request) => {
@@ -67,35 +155,57 @@ Deno.serve(async (req: Request) => {
   const supabase = serviceClient();
   if (!supabase) return jsonResponse(500, { error: 'service role key not configured' });
 
+  // Cron sends no body at all, so a parse failure just means "scheduled run".
+  const body = (await req.json().catch(() => ({}))) as { test?: boolean; email?: string };
+
+  // ─── Test send ─────────────────────────────────────────────────────
+  // Targets one user, ignores every schedule gate, and deliberately does NOT
+  // stamp last_sent_at — testing must not consume that user's real reminder
+  // for the day.
+  if (body.test) {
+    if (!body.email) return jsonResponse(400, { error: 'test sends require an email' });
+
+    const { data: testData, error: testError } = await supabase.rpc('test_reminder_targets', {
+      p_email: body.email,
+    });
+    if (testError) return jsonResponse(500, { error: testError.message });
+
+    const testRows = (testData ?? []) as ReminderRow[];
+    if (testRows.length === 0) {
+      return jsonResponse(404, {
+        error: 'no push subscriptions for that email — enable reminders on a device first',
+      });
+    }
+
+    const { delivered: testDelivered, dead: testDead } = await sendAll(testRows, (r) =>
+      buildTestPayload(r.word),
+    );
+
+    if (testDead.length > 0) {
+      await supabase.from('push_subscriptions').delete().in('endpoint', testDead);
+    }
+
+    return jsonResponse(200, {
+      test: true,
+      devices: testRows.length,
+      sent: testDelivered.length,
+      pruned: testDead.length,
+      due_count: testRows[0]?.due_count ?? 0,
+      word: testRows[0]?.word ?? null,
+    });
+  }
+
+  // ─── Scheduled run ─────────────────────────────────────────────────
+
   const { data, error } = await supabase.rpc('pending_review_reminders');
   if (error) return jsonResponse(500, { error: error.message });
 
   const rows = (data ?? []) as ReminderRow[];
   if (rows.length === 0) return jsonResponse(200, { sent: 0, pruned: 0 });
 
-  const delivered: string[] = [];
-  const dead: string[] = [];
-
-  // Sequential rather than parallel: a push service will rate-limit a burst,
-  // and an hourly job has no deadline worth risking that for.
-  for (const row of rows) {
-    try {
-      await webpush.sendNotification(
-        { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
-        buildPayload(row.due_count),
-      );
-      delivered.push(row.endpoint);
-    } catch (err) {
-      const status = (err as { statusCode?: number }).statusCode;
-      if (status && DEAD_SUBSCRIPTION.has(status)) {
-        // Uninstalled app or cleared browser data. Without pruning, these
-        // accumulate forever and every run retries them.
-        dead.push(row.endpoint);
-      } else {
-        console.error('[notify] push failed', status, (err as Error).message);
-      }
-    }
-  }
+  // `word` is non-null here: the scheduled query's cross join only yields rows
+  // that have at least one due word.
+  const { delivered, dead } = await sendAll(rows, (r) => buildPayload(r.word!));
 
   // Stamping only the ones that actually went out means a transient failure is
   // retried next hour instead of being silently skipped for a day.
