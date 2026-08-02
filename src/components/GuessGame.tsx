@@ -10,12 +10,14 @@ import { useVocabularyStore } from '../hooks/useVocabulary';
 import { stageIndex } from '../lib/companion';
 import { AnimalAvatar } from './AnimalAvatar';
 import { Selector } from './Selector';
+import { SpeakGame } from './SpeakGame';
+import { familyForms } from '../lib/answerMask';
 import type { VocabularyWord } from '../types';
 
 // Desktop pill row: these modes show up front, the rest live behind "More".
 // (On mobile the pills are replaced by a compact <select>.)
 const PRIMARY_MODES: GuessGameMode[] = ['smart', 'random', 'letters', 'choice'];
-const DESKTOP_EXTRA_MODES: GuessGameMode[] = ['listen'];
+const DESKTOP_EXTRA_MODES: GuessGameMode[] = ['listen', 'speak'];
 
 interface Props {
   wordData: VocabularyWord;
@@ -272,6 +274,19 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
         )}
         {activeGame === 'vowels' && (
           <VowelsGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
+        )}
+        {activeGame === 'speak' && (
+          <SpeakGame
+            key={word}
+            word={word}
+            // Inflections count: asked for "run", saying "running" is still
+            // producing the word.
+            family={familyForms(wordData.wordFamily)}
+            disabled={result === 'correct'}
+            onSolve={solve}
+            onWrong={miss}
+            onGaveUp={() => { onMistake?.(); onGaveUp(activeGame); }}
+          />
         )}
       </div>
     </div>

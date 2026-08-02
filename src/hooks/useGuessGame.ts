@@ -4,7 +4,7 @@ import type { ReviewEvent, WordProgress } from '../types';
 
 // 'random' picks a different real game for every word; 'smart' picks by the
 // word's answer history (see smartPick below).
-export type GuessGameMode = 'smart' | 'random' | 'letters' | 'scramble' | 'choice' | 'hangman' | 'listen' | 'vowels';
+export type GuessGameMode = 'smart' | 'random' | 'letters' | 'scramble' | 'choice' | 'hangman' | 'listen' | 'vowels' | 'speak';
 export type RealGuessGameMode = Exclude<GuessGameMode, 'random' | 'smart'>;
 
 export interface GuessGameInfo {
@@ -24,6 +24,7 @@ export const GUESS_GAMES: GuessGameInfo[] = [
   { id: 'hangman',  label: 'Hangman',    icon: 'lucide:skull',         description: 'Guess letters before your lives run out' },
   { id: 'listen',   label: 'Listen',     icon: 'lucide:headphones',    description: 'Hear the word and spell it' },
   { id: 'vowels',   label: 'No Vowels',  icon: 'lucide:circle-dashed', description: 'Fill in the missing vowels' },
+  { id: 'speak',    label: 'Speak',      icon: 'lucide:mic',           description: 'Say the word out loud' },
 ];
 
 export const REAL_GUESS_GAMES = GUESS_GAMES.filter(
@@ -31,8 +32,10 @@ export const REAL_GUESS_GAMES = GUESS_GAMES.filter(
 ) as (GuessGameInfo & { id: RealGuessGameMode })[];
 
 // ── Smart mode ── the games ordered by how much recall they demand: from
-// recognizing the word among options up to spelling it from audio alone.
-export const GAME_LADDER: RealGuessGameMode[] = ['choice', 'letters', 'listen'];
+// recognizing the word among options up to producing it from memory out loud.
+// 'speak' sits at the top because saying a word unprompted is a strictly harder
+// recall than spelling one you've just heard.
+export const GAME_LADDER: RealGuessGameMode[] = ['choice', 'letters', 'listen', 'speak'];
 
 /** Mean correctness of the player's last 20 recorded answers, across all
  *  words — a rough "how is the session going" signal. Null = no data yet. */

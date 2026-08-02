@@ -311,6 +311,7 @@ const VIA_META: Record<AnswerVia, { label: string; icon: string }> = {
   scramble:  { label: 'Unscramble', icon: 'lucide:shuffle' },
   hangman:   { label: 'Hangman',    icon: 'lucide:skull' },
   vowels:    { label: 'No Vowels',  icon: 'lucide:circle-dashed' },
+  speak:     { label: 'Speak',      icon: 'lucide:mic' },
   flashcard: { label: 'Flash card', icon: 'lucide:layers' },
 };
 

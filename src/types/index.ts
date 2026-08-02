@@ -32,7 +32,7 @@ export type WordStatus = 'known' | 'skipped' | 'dismissed';
 export type AnswerVia =
   | 'choice' | 'letters' | 'listen' | 'gap'
   | 'scramble' | 'hangman' | 'vowels'
-  | 'flashcard';
+  | 'speak' | 'flashcard';
 
 /** One recorded answer: when it happened and whether it was correct. */
 export interface ReviewEvent {
