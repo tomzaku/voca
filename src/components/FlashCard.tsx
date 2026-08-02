@@ -6,7 +6,12 @@ import { getMotherLanguage } from '../lib/languages';
 import { useCollections } from '../hooks/useCollections';
 import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
-import { generateWordData, pickNextWords, UnknownWordError } from '../lib/wordService';
+import {
+  generateWordData,
+  pickNextWords,
+  recentCachedWords,
+  UnknownWordError,
+} from '../lib/wordService';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { WordTest } from './WordTest';
 import { WordNotes } from './WordNotes';
@@ -23,6 +28,9 @@ import { SynAnt } from './SynAnt';
 import { SimilarWords } from './SimilarWords';
 import type { AnswerVia, VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
+
+/** How many previously-seen words the history strip is restored with. */
+const HISTORY_RESTORE_LIMIT = 12;
 
 // 'unknown' = the search wasn't a real word; the card is replaced by suggestions.
 type CardPhase = 'loading' | 'introduce' | 'revealed' | 'unknown';
@@ -44,6 +52,9 @@ async function generateWithRetry(
       if ((err as Error).name === 'AbortError') throw err;
       if (err instanceof UnknownWordError) throw err;
       if ((err as Error).message?.includes('API key')) throw err;
+      // Offline won't recover inside a 1.8s backoff — fail now and let the
+      // caller say so, rather than spinning through three doomed attempts.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) throw err;
       if (attempt < retries) await new Promise((r) => setTimeout(r, 600 * attempt));
     }
   }
@@ -471,16 +482,23 @@ export function FlashCard() {
   // mistakes are tallied here and recorded when the word is revealed.
   const roundMistakesRef = useRef(0);
 
-  // History
-  const wordHistoryRef = useRef<VocabularyWord[]>([]);
-  const historyIndexRef = useRef(-1);
-  const [wordHistory, setWordHistory] = useState<VocabularyWord[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
+  // History. Seeded from the words you've actually seen most recently rather
+  // than starting empty every reload — the strip used to lose everything on
+  // refresh, which made it look like it wasn't persisting anything.
+  // `useState(fn)` so the lookup runs once, before the first word is pushed.
+  const [restoredHistory] = useState(() => recentCachedWords(HISTORY_RESTORE_LIMIT));
+  const wordHistoryRef = useRef<VocabularyWord[]>(restoredHistory);
+  const historyIndexRef = useRef(restoredHistory.length - 1);
+  const [wordHistory, setWordHistory] = useState<VocabularyWord[]>(restoredHistory);
+  const [historyIndex, setHistoryIndex] = useState(restoredHistory.length - 1);
   const historyScrollRef = useRef<HTMLDivElement>(null);
 
   const pushWord = useCallback((data: VocabularyWord) => {
     // Drop any forward entries when a new word is pushed mid-history
     const base = wordHistoryRef.current.slice(0, historyIndexRef.current + 1);
+    // Restored history typically ends on the word that's about to load, and an
+    // adjacent duplicate is never useful in a back/forward strip.
+    if (base[base.length - 1]?.word === data.word) base.pop();
     const newHistory = [...base, data];
     const newIndex = newHistory.length - 1;
     wordHistoryRef.current = newHistory;
@@ -548,7 +566,14 @@ export function FlashCard() {
         return;
       }
       const msg = (err as Error).message || 'Failed to load word.';
-      toast.error(msg.includes('API key') ? msg : 'Failed to generate word data.');
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      toast.error(
+        msg.includes('API key')
+          ? msg
+          : offline
+            ? "You're offline — only words you've already opened are available."
+            : 'Failed to generate word data.',
+      );
       setPhase('loading');
     } finally {
       setIsGenerating(false);
@@ -591,7 +616,14 @@ export function FlashCard() {
         return;
       }
       const msg = (err as Error).message || '';
-      toast.error(msg.includes('API key') ? msg : `Could not find "${word}"`);
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      toast.error(
+        msg.includes('API key')
+          ? msg
+          : offline
+            ? `You're offline — "${word}" hasn't been downloaded yet.`
+            : `Could not find "${word}"`,
+      );
       setPhase('loading');
     } finally {
       setIsGenerating(false);

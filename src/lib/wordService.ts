@@ -150,10 +150,19 @@ export const WORD_LIST: { word: string; level: VocabularyWord['level'] }[] = [
 
 // Cache key includes the mother language so switching it regenerates entries
 // (each carries a translation into that language).
-function cacheKey(word: string): string {
+function cachePrefix(): string {
   // Bump the version when the cached word shape changes (v6: wordFamily) so
   // stale entries are re-fetched instead of shown missing fields.
-  return `voca-word-v6-${getLearnLanguage()}-${getMotherLanguage()}-${word}`;
+  return `voca-word-v6-${getLearnLanguage()}-${getMotherLanguage()}-`;
+}
+
+function cacheKey(word: string): string {
+  return cachePrefix() + word;
+}
+
+/** Stamp used for eviction ordering. Absent on entries cached before this existed. */
+interface CachedWord extends VocabularyWord {
+  _cachedAt?: number;
 }
 
 function getCachedWord(word: string): VocabularyWord | null {
@@ -164,10 +173,91 @@ function getCachedWord(word: string): VocabularyWord | null {
   return null;
 }
 
-function cacheWord(word: VocabularyWord) {
+/**
+ * Full data for the most recently seen words still cached on this device,
+ * oldest-first (the order the Learn page's history strip renders in).
+ *
+ * Restores that strip across reloads. Words without cached data are skipped
+ * rather than fetched, so this is synchronous, free, and works offline — the
+ * strip is navigation, not a reason to hit the network.
+ */
+export function recentCachedWords(limit = 12): VocabularyWord[] {
+  const progress = useVocabularyStore.getState().progress;
+  const recent = Object.values(progress).sort((a, b) => b.seenAt.localeCompare(a.seenAt));
+  const out: VocabularyWord[] = [];
+  for (const p of recent) {
+    if (out.length >= limit) break;
+    const data = getCachedWord(p.word);
+    if (data) out.push(data);
+  }
+  return out.reverse();
+}
+
+/**
+ * Words whose data is already on this device, lowercased.
+ *
+ * This is the set the app can serve with no network at all — selection consults
+ * it when offline so it doesn't hand back a word it then can't render.
+ */
+export function cachedWordSet(): Set<string> {
+  const prefix = cachePrefix();
+  const out = new Set<string>();
   try {
-    localStorage.setItem(cacheKey(word.word), JSON.stringify(word));
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix)) out.add(key.slice(prefix.length).toLowerCase());
+    }
   } catch { /* ignore */ }
+  return out;
+}
+
+/**
+ * Drop the `count` oldest cached words. Returns how many were removed.
+ *
+ * Entries predating `_cachedAt` sort oldest, which is what we want — they're
+ * the ones most likely to be on a superseded shape anyway.
+ */
+function evictOldestWords(count: number): number {
+  const prefix = cachePrefix();
+  const entries: { key: string; at: number }[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(prefix)) continue;
+      let at = 0;
+      try {
+        at = (JSON.parse(localStorage.getItem(key) ?? '{}') as CachedWord)._cachedAt ?? 0;
+      } catch { /* treat unparseable as oldest */ }
+      entries.push({ key, at });
+    }
+  } catch {
+    return 0;
+  }
+  entries.sort((a, b) => a.at - b.at);
+  let removed = 0;
+  for (const e of entries.slice(0, count)) {
+    try {
+      localStorage.removeItem(e.key);
+      removed++;
+    } catch { /* ignore */ }
+  }
+  return removed;
+}
+
+function cacheWord(word: VocabularyWord) {
+  const payload = JSON.stringify({ ...word, _cachedAt: Date.now() } satisfies CachedWord);
+  try {
+    localStorage.setItem(cacheKey(word.word), payload);
+  } catch {
+    // Almost certainly the storage quota. Swallowing this silently means the
+    // cache stops accepting anything once full — and offline support decays
+    // without a single error. Make room and try once more.
+    if (evictOldestWords(25) > 0) {
+      try {
+        localStorage.setItem(cacheKey(word.word), payload);
+      } catch { /* still no room — give up rather than loop */ }
+    }
+  }
 }
 
 // ─── Misspelling cache ──────────────────────────────────────────────
@@ -358,12 +448,31 @@ export async function pickNextWords(
   const list = getActiveWordList();
   if (list.length === 0) return [];
 
-  const remote = await fetchPickedWords({
-    words: list.map((w) => w.word),
-    exclude: [...exclude],
-    count,
-    mode: 'learn',
-  });
+  // Offline, a word whose data isn't on the device can't be rendered — picking
+  // one hands the user a spinner that never resolves. Narrow selection to what
+  // the cache can actually serve instead. If nothing is cached we fall through
+  // unchanged, so the failure is the honest one rather than an empty screen.
+  let effectiveExclude = exclude;
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  if (offline) {
+    const cached = cachedWordSet();
+    if (list.some((w) => cached.has(w.word.toLowerCase()))) {
+      effectiveExclude = new Set(exclude);
+      for (const w of list) {
+        if (!cached.has(w.word.toLowerCase())) effectiveExclude.add(w.word);
+      }
+    }
+  }
+
+  // Skip the doomed round trip when we already know there's no network.
+  const remote = offline
+    ? null
+    : await fetchPickedWords({
+        words: list.map((w) => w.word),
+        exclude: [...exclude],
+        count,
+        mode: 'learn',
+      });
   if (remote) {
     // Map back onto the collection entries (restores the level metadata).
     const byLower = new Map(list.map((w) => [w.word.toLowerCase(), w]));
@@ -374,7 +483,7 @@ export async function pickNextWords(
   }
 
   const picks: { word: string; level: VocabularyWord['level'] }[] = [];
-  const taken = new Set(exclude);
+  const taken = new Set(effectiveExclude);
   for (let i = 0; i < count; i++) {
     const p = pickNextWord(new Set(), new Set(), taken);
     if (!p || taken.has(p.word)) break; // list exhausted
@@ -387,6 +496,17 @@ export async function pickNextWords(
 // Local selection — the fallback path and the reference implementation the
 // server mirrors. (The known/skipped sets are no longer needed — progress in
 // the store drives everything — but the signature is kept for call sites.)
+/**
+ * The soonest-due item, but sampled from the few most overdue rather than a
+ * strict argmin. Always returning the single earliest means one word wins every
+ * pick until it's finally answered well — which is how a hard word ends up
+ * dominating the rotation instead of merely being prioritised in it.
+ */
+function pickSoonest<T>(items: T[], dueOf: (item: T) => number, spread = 5): T {
+  const sorted = [...items].sort((a, b) => dueOf(a) - dueOf(b));
+  return sorted[Math.floor(Math.random() * Math.min(spread, sorted.length))];
+}
+
 export function pickNextWord(
   _knownWords: Set<string>,
   _skippedWords: Set<string>,
@@ -420,8 +540,7 @@ export function pickNextWord(
       // Lapsed words come back promptly: due ones first, soonest first.
       const dueDifficult = pool.filter((w) => isDue(prog(w.word), now));
       if (dueDifficult.length) {
-        dueDifficult.sort((a, b) => dueTime(prog(a.word)) - dueTime(prog(b.word)));
-        return dueDifficult[0];
+        return pickSoonest(dueDifficult, (w) => dueTime(prog(w.word)));
       }
     }
     return pick(pool);
@@ -431,8 +550,7 @@ export function pickNextWord(
   // 1) due reviews of known words, soonest first.
   const due = inRotation.filter((w) => isDue(prog(w.word), now));
   if (due.length) {
-    due.sort((a, b) => dueTime(prog(a.word)) - dueTime(prog(b.word)));
-    return due[0];
+    return pickSoonest(due, (w) => dueTime(prog(w.word)));
   }
 
   // 2) soonest upcoming non-mastered review.
@@ -441,8 +559,7 @@ export function pickNextWord(
     return !!p?.dueAt && !p.mastered;
   });
   if (upcoming.length) {
-    upcoming.sort((a, b) => dueTime(prog(a.word)) - dueTime(prog(b.word)));
-    return upcoming[0];
+    return pickSoonest(upcoming, (w) => dueTime(prog(w.word)));
   }
 
   // Everything mastered / dismissed / excluded — pick anything still in

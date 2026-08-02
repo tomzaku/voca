@@ -68,6 +68,19 @@ const asWords = (v: unknown, cap: number): string[] =>
     .map((w) => w.trim().slice(0, 100))
     .slice(0, cap);
 
+/**
+ * The soonest-due item, but sampled from the few most overdue rather than a
+ * strict argmin. Always returning the single earliest means one word wins every
+ * pick until it's finally answered well — which is how a hard word ends up
+ * dominating the rotation instead of merely being prioritised in it.
+ *
+ * Mirrors pickSoonest in src/lib/wordService.ts — the two must stay in step.
+ */
+function pickSoonest<T>(items: T[], dueOf: (item: T) => number, spread = 5): T {
+  const sorted = [...items].sort((a, b) => dueOf(a) - dueOf(b));
+  return sorted[Math.floor(Math.random() * Math.min(spread, sorted.length))];
+}
+
 /** One learn-mode pick — mirrors the client's pickNextWord. */
 function pickLearnWord(
   words: string[],
@@ -89,8 +102,7 @@ function pickLearnWord(
     if (pool === difficult) {
       const dueDifficult = pool.filter((w) => isDue(prog(w), now));
       if (dueDifficult.length) {
-        dueDifficult.sort((a, b) => dueTime(prog(a)) - dueTime(prog(b)));
-        return dueDifficult[0];
+        return pickSoonest(dueDifficult, (w) => dueTime(prog(w)));
       }
     }
     return pickRandom(pool);
@@ -99,16 +111,14 @@ function pickLearnWord(
   // Fall back to the review schedule: due first (soonest), then upcoming.
   const due = inRotation.filter((w) => isDue(prog(w), now));
   if (due.length) {
-    due.sort((a, b) => dueTime(prog(a)) - dueTime(prog(b)));
-    return due[0];
+    return pickSoonest(due, (w) => dueTime(prog(w)));
   }
   const upcoming = inRotation.filter((w) => {
     const p = prog(w);
     return p?.dueAt != null && !p.mastered;
   });
   if (upcoming.length) {
-    upcoming.sort((a, b) => dueTime(prog(a)) - dueTime(prog(b)));
-    return upcoming[0];
+    return pickSoonest(upcoming, (w) => dueTime(prog(w)));
   }
   return inRotation.length ? pickRandom(inRotation) : null;
 }
