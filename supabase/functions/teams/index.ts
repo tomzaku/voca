@@ -4,10 +4,13 @@
 //
 //   POST { action, params }
 //
-//   list           → 200 { teams: Team[] }        teams you can see, with your membership
-//   board  { team } → 200 { team, rows, myRank }  one team's standings
-//   join   { team } → 200 { team }                share your progress with it
-//   leave  { team } → 200 { team }                stop sharing; the row is deleted
+//   list                → 200 { teams }            teams you can see, with your membership
+//   board  { team }     → 200 { team, rows, … }    one team's standings
+//   join   { team }     → 200 { team }             share your progress with it
+//   leave  { team }     → 200 { team }             stop sharing; the row is deleted
+//   create { name, … }  → 200 { team }             Pro only; you own it and are in it
+//   rotateInvite {team} → 200 { team }             owner only; revokes shared links
+//   joinByCode { code } → 200 { team }             the way into a private team
 //
 // `team` is a team id, or omitted for the built-in Global team.
 //
@@ -19,10 +22,66 @@
 //
 // Deploy: `supabase functions deploy teams`
 
-import { BadRequest, corsHeaders, jsonResponse, oneOf, requireUser, serviceClient } from '../_shared/ai.ts';
+import {
+  BadRequest,
+  corsHeaders,
+  jsonResponse,
+  oneOf,
+  reqStr,
+  requireUser,
+  serviceClient,
+} from '../_shared/ai.ts';
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /** How many places a board returns before it cuts to the caller's own row. */
 const BOARD_LIMIT = 20;
+
+/** Guardrails on what one Pro account can create. Generous, but not unbounded. */
+const MAX_TEAMS_PER_OWNER = 20;
+const MAX_TEAM_MEMBERS = 200;
+
+const MAX_NAME = 60;
+const MAX_DESCRIPTION = 200;
+
+// Invite codes are read off a screen and typed in, so the alphabet drops the
+// characters that get confused for each other (0/O, 1/I/L). 8 characters over
+// this alphabet is ~10^12 combinations — not guessable at any useful rate.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CODE_LENGTH = 8;
+
+function newInviteCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH));
+  return [...bytes].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+}
+
+/** A url-safe slug from the team name, with a suffix so two "Class 5A"s can coexist. */
+function slugFor(name: string): string {
+  const base = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+  return `${base || 'team'}-${newInviteCode().toLowerCase().slice(0, 6)}`;
+}
+
+/**
+ * Creating a team is Pro-only. Checked against `pro_users` through the caller's
+ * OWN client: RLS lets a user read only their own row, so a row coming back is
+ * proof it's theirs. Same check the `ai` function runs for its pro actions.
+ */
+async function requirePro(client: SupabaseClient, userId: string): Promise<string | null> {
+  const { data, error } = await client
+    .from('pro_users')
+    .select('expires_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) return 'Could not verify Pro status.';
+  if (!data) return 'Creating a team requires a Pro account.';
+  if (data.expires_at && new Date(data.expires_at as string) <= new Date()) {
+    return 'Your Pro access has expired.';
+  }
+  return null;
+}
 
 // ─── Scoring ────────────────────────────────────────────────────────
 // The board ranks on a ROLLING score, not a lifetime total. A cumulative count
@@ -79,7 +138,7 @@ function correctWordDays(rows: { review_log: unknown }[], since: number): number
   return total;
 }
 
-const ACTIONS = ['list', 'board', 'join', 'leave'] as const;
+const ACTIONS = ['list', 'board', 'join', 'leave', 'create', 'rotateInvite', 'joinByCode'] as const;
 
 interface TeamRow {
   id: string;
@@ -89,6 +148,7 @@ interface TeamRow {
   owner_id: string | null;
   is_public: boolean;
   member_count: number;
+  invite_code: string | null;
 }
 
 interface MemberRow {
@@ -103,15 +163,19 @@ interface MemberRow {
 
 /** A team as the client sees it: the row plus this caller's relationship to it. */
 function toTeam(t: TeamRow, userId: string, joined: boolean) {
+  const isOwner = t.owner_id === userId;
   return {
     id: t.id,
     slug: t.slug,
     name: t.name,
     description: t.description,
     isPublic: t.is_public,
-    isOwner: t.owner_id === userId,
+    isOwner,
     joined,
     memberCount: t.member_count,
+    // Owners only. A member holding the code could invite people the owner
+    // never meant to let in, so it never leaves the server for anyone else.
+    inviteCode: isOwner ? t.invite_code : null,
   };
 }
 
@@ -260,8 +324,106 @@ Deno.serve(async (req) => {
       return jsonResponse(200, { teams });
     }
 
+    if (action === 'create') {
+      const denial = await requirePro(auth.supabase, userId);
+      if (denial) return jsonResponse(403, { error: denial });
+
+      const name = reqStr(params, 'name', MAX_NAME);
+      const description = typeof params.description === 'string'
+        ? params.description.trim().slice(0, MAX_DESCRIPTION) || null
+        : null;
+      // Teams are invite-only unless asked otherwise: a team someone made for
+      // their class shouldn't appear on strangers' team lists by default.
+      const isPublic = params.isPublic === true;
+
+      const { count: owned } = await db
+        .from('teams')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', userId);
+      if ((owned ?? 0) >= MAX_TEAMS_PER_OWNER) {
+        return jsonResponse(403, { error: `You can own up to ${MAX_TEAMS_PER_OWNER} teams.` });
+      }
+
+      const { data: created, error: createErr } = await db
+        .from('teams')
+        .insert({
+          slug: slugFor(name),
+          name,
+          description,
+          owner_id: userId,
+          is_public: isPublic,
+          invite_code: newInviteCode(),
+          member_count: 1,
+        })
+        .select('*')
+        .single();
+      if (createErr || !created) {
+        console.error('[teams] create', createErr);
+        return jsonResponse(500, { error: "Couldn't create the team." });
+      }
+
+      // The owner is a member from the start — a board you can't see yourself
+      // on reads as broken, and there's nobody to compare against otherwise.
+      const meta = auth.user.user_metadata ?? {};
+      await db.from('team_members').insert({
+        team_id: (created as TeamRow).id,
+        user_id: userId,
+        display_name: (meta.full_name as string | undefined) ??
+          auth.user.email?.split('@')[0] ?? null,
+        avatar_url: (meta.avatar_url as string | undefined) ?? null,
+        ...(await myStats()),
+      });
+
+      return jsonResponse(200, { team: toTeam(created as TeamRow, userId, true) });
+    }
+
+    if (action === 'joinByCode') {
+      // Uppercased so a code typed in lowercase off a printout still works.
+      const code = reqStr(params, 'code', 32).toUpperCase().replace(/\s+/g, '');
+      const { data: found } = await db
+        .from('teams')
+        .select('*')
+        .eq('invite_code', code)
+        .maybeSingle();
+      if (!found) return jsonResponse(404, { error: "That invite code doesn't work." });
+
+      const target = found as TeamRow;
+      if (target.member_count >= MAX_TEAM_MEMBERS) {
+        return jsonResponse(403, { error: 'This team is full.' });
+      }
+
+      // Holding the code IS the invitation — this is the one path into a
+      // private team, which is why it doesn't consult is_public.
+      const meta = auth.user.user_metadata ?? {};
+      await db.from('team_members').upsert(
+        {
+          team_id: target.id,
+          user_id: userId,
+          display_name: (meta.full_name as string | undefined) ??
+            auth.user.email?.split('@')[0] ?? null,
+          avatar_url: (meta.avatar_url as string | undefined) ?? null,
+          ...(await myStats()),
+        },
+        { onConflict: 'team_id,user_id' },
+      );
+      target.member_count = await syncMemberCount(target.id);
+      return jsonResponse(200, { team: toTeam(target, userId, true) });
+    }
+
     const team = await loadTeam(teamParam(params));
     if (!team) return jsonResponse(404, { error: 'That team no longer exists.' });
+
+    if (action === 'rotateInvite') {
+      if (team.owner_id !== userId) {
+        return jsonResponse(403, { error: 'Only the team owner can change the invite code.' });
+      }
+      const code = newInviteCode();
+      await db.from('teams').update({ invite_code: code }).eq('id', team.id);
+      // Every link handed out before this moment stops working — which is the
+      // point of rotating one.
+      team.invite_code = code;
+      return jsonResponse(200, { team: toTeam(team, userId, await isMember(team.id)) });
+    }
 
     if (action === 'join') {
       if (!team.is_public && team.owner_id !== userId) {

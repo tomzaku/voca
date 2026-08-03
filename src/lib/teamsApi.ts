@@ -21,6 +21,8 @@ export interface Team {
   /** Whether the signed-in user shares their progress with this team. */
   joined: boolean;
   memberCount: number;
+  /** Owners only — the server withholds it from everyone else. */
+  inviteCode: string | null;
 }
 
 export interface BoardRow {
@@ -61,7 +63,7 @@ export interface Board {
   scoring: Scoring;
 }
 
-type Action = 'list' | 'board' | 'join' | 'leave';
+type Action = 'list' | 'board' | 'join' | 'leave' | 'create' | 'rotateInvite' | 'joinByCode';
 
 /** Thrown with the server's message so the UI can show why something failed. */
 export class TeamsError extends Error {}
@@ -113,4 +115,39 @@ export async function joinTeam(teamId?: string | null): Promise<Team> {
 export async function leaveTeam(teamId?: string | null): Promise<Team> {
   const { team } = await call<{ team: Team }>('leave', { team: teamId ?? null });
   return team;
+}
+
+/**
+ * Create a team you own and are the first member of. Pro only — the server
+ * decides that, so a non-Pro caller gets a 403 with the reason whatever the UI
+ * happens to be showing. Invite-only unless `isPublic`.
+ */
+export async function createTeam(input: {
+  name: string;
+  description?: string;
+  isPublic?: boolean;
+}): Promise<Team> {
+  const { team } = await call<{ team: Team }>('create', { ...input });
+  return team;
+}
+
+/** New invite code for a team you own. Every link handed out before stops working. */
+export async function rotateInvite(teamId: string): Promise<Team> {
+  const { team } = await call<{ team: Team }>('rotateInvite', { team: teamId });
+  return team;
+}
+
+/** Join with an invite code — the only way into a private team. */
+export async function joinByCode(code: string): Promise<Team> {
+  const { team } = await call<{ team: Team }>('joinByCode', { code });
+  return team;
+}
+
+/**
+ * The link an owner shares. Matches the router basename, as collectionShareUrl
+ * does, and lands on the dashboard where the board lives.
+ */
+export function teamInviteUrl(code: string): string {
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+  return `${window.location.origin}${base}/dashboard?team=${code}`;
 }

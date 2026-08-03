@@ -11,10 +11,13 @@
 
 import { create } from 'zustand';
 import {
+  createTeam,
   fetchBoard,
   fetchTeams,
+  joinByCode,
   joinTeam,
   leaveTeam,
+  rotateInvite,
   TeamsError,
   type Board,
   type BoardRow,
@@ -43,6 +46,12 @@ interface TeamsState {
   refreshBoard: (teamId?: string | null) => Promise<void>;
   /** Join (true) or leave (false) a team. */
   setJoined: (teamId: string, value: boolean) => Promise<void>;
+  /** Create a team (Pro only, enforced server-side) and switch to its board. */
+  create: (input: { name: string; description?: string; isPublic?: boolean }) => Promise<boolean>;
+  /** Join with an invite code and switch to that team's board. */
+  joinWithCode: (code: string) => Promise<boolean>;
+  /** New invite code for a team you own; the old links stop working. */
+  rotateCode: (teamId: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -113,6 +122,57 @@ export const useTeams = create<TeamsState>()((set, get) => ({
       // Joining puts the user on the board (and leaving takes them off), so the
       // list on screen is stale the moment this succeeds.
       if (get().activeTeamId === teamId) await get().refreshBoard(teamId);
+    } catch (e) {
+      set({ saving: false, error: message(e) });
+    }
+  },
+
+  /**
+   * Both of these end with the new team on screen: creating or joining one and
+   * then having to find it in a list would be a strange place to stop.
+   * Returns whether it worked, so the form knows whether to close.
+   */
+  create: async (input) => {
+    if (get().saving) return false;
+    set({ saving: true, error: null });
+    try {
+      const team = await createTeam(input);
+      set({ saving: false, teams: [...get().teams, team] });
+      await get().selectTeam(team.id);
+      return true;
+    } catch (e) {
+      set({ saving: false, error: message(e) });
+      return false;
+    }
+  },
+
+  joinWithCode: async (code) => {
+    if (get().saving) return false;
+    set({ saving: true, error: null });
+    try {
+      const team = await joinByCode(code);
+      const known = get().teams.some((t) => t.id === team.id);
+      set({
+        saving: false,
+        teams: known ? get().teams.map((t) => (t.id === team.id ? team : t)) : [...get().teams, team],
+      });
+      // Re-joining the team already on screen: selectTeam would no-op, so the
+      // board has to be refreshed directly to show the new member.
+      if (get().activeTeamId === team.id) await get().refreshBoard(team.id);
+      else await get().selectTeam(team.id);
+      return true;
+    } catch (e) {
+      set({ saving: false, error: message(e) });
+      return false;
+    }
+  },
+
+  rotateCode: async (teamId) => {
+    if (get().saving) return;
+    set({ saving: true, error: null });
+    try {
+      const team = await rotateInvite(teamId);
+      set({ saving: false, teams: get().teams.map((t) => (t.id === team.id ? team : t)) });
     } catch (e) {
       set({ saving: false, error: message(e) });
     }

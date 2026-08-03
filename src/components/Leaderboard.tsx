@@ -10,9 +10,12 @@
 
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useIsPro } from '../hooks/useProStatus';
 import { useTeams, type BoardRow, type Scoring } from '../hooks/useTeams';
+import { TeamForm } from './TeamForm';
+import { InvitePanel, JoinByCode } from './TeamInvite';
 
 /** Medal colours for the podium; everyone else gets a plain number. */
 const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
@@ -120,11 +123,19 @@ export function Leaderboard() {
   const load = useTeams((s) => s.load);
   const selectTeam = useTeams((s) => s.selectTeam);
   const setJoined = useTeams((s) => s.setJoined);
+  const { isPro } = useIsPro();
   const [showHelp, setShowHelp] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  // An invite link lands here as ?team=<code>. The code is dropped into the
+  // join box rather than joining on sight: arriving at a page that has already
+  // signed you up to share your progress is not something to do silently.
+  const [searchParams] = useSearchParams();
+  const invitedCode = searchParams.get('team') ?? '';
 
   const team = teams.find((t) => t.id === activeTeamId) ?? null;
 
@@ -186,7 +197,9 @@ export function Leaderboard() {
 
       {showHelp && scoring && <ScoreHelp scoring={scoring} />}
 
-      {teams.length > 1 && (
+      {/* The strip earns its place as soon as there's a second team, or a Pro
+          account that could make one. */}
+      {(teams.length > 1 || isPro) && (
         <div role="tablist" aria-label="Leaderboard teams" className="flex flex-wrap gap-1.5">
           {teams.map((t) => (
             <button
@@ -200,12 +213,24 @@ export function Leaderboard() {
                   : 'bg-bg-tertiary text-text-secondary'
               }`}
             >
+              {!t.isPublic && <Icon icon="lucide:lock" className="inline mr-1 -mt-0.5" />}
               {t.name}
               <span className="ml-1.5 opacity-70 tabular-nums">{t.memberCount}</span>
             </button>
           ))}
+          {isPro && (
+            <button
+              onClick={() => setCreating(true)}
+              className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
+            >
+              <Icon icon="lucide:plus" className="inline -mt-0.5" /> New team
+            </button>
+          )}
         </div>
       )}
+
+      {/* Owner tools for the team on screen. */}
+      {team?.isOwner && <InvitePanel team={team} />}
 
       {team && !team.joined && (
         <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
@@ -248,10 +273,23 @@ export function Leaderboard() {
         </ol>
       )}
 
+      {/* Someone handed a code needs somewhere to put it, whichever team is on
+          screen — so this sits below the board rather than inside a team. */}
+      <div className="border-t border-border pt-4 flex flex-col gap-2">
+        {invitedCode && (
+          <p className="text-[11px] text-text-secondary">
+            You've been invited to a team. Join to start sharing your progress with it.
+          </p>
+        )}
+        <JoinByCode key={invitedCode} initialCode={invitedCode} />
+      </div>
+
       <p className="text-[11px] text-text-muted/70">
         Ranked by score over the last {scoring?.windowDays ?? 30} days. Only learners who joined are
         counted.
       </p>
+
+      {creating && <TeamForm onClose={() => setCreating(false)} />}
     </section>
   );
 }
