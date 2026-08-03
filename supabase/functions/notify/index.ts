@@ -130,9 +130,10 @@ const ACTIONS = {
         body: "That's all it takes to make it yours for good.",
       }),
     ],
-    // `?w=` (encoded) rather than the legacy plaintext `?word=`, matching what
-    // the app itself generates everywhere.
-    url: ({ word }) => `${APP_BASE}/?w=${encodeWord(word!)}`,
+    // Lands on the quick-review check, not the full card: the notification has
+    // already given the word away, so asking them to guess it is a non-question
+    // — whether they recall its *meaning* is the part still worth testing.
+    url: ({ word }) => `${APP_BASE}/quick?w=${encodeWord(word!)}`,
   },
 
   /**
@@ -163,7 +164,7 @@ const ACTIONS = {
     ],
     // Deep link to a due word when there is one, so the tap lands on something
     // answerable rather than a home screen they still have to navigate.
-    url: ({ word }) => (word ? `${APP_BASE}/?w=${encodeWord(word)}` : `${APP_BASE}/`),
+    url: ({ word }) => (word ? `${APP_BASE}/quick?w=${encodeWord(word)}` : `${APP_BASE}/`),
   },
 
   /** Delivery check with an empty queue — says what it is instead of inventing a word. */

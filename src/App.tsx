@@ -12,6 +12,7 @@ import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 import { CompanionPage } from './components/CompanionPage';
 import { DashboardPage } from './components/DashboardPage';
+import { QuickReview } from './components/QuickReview';
 import { CollectionsPage } from './components/CollectionsPage';
 import { WorldGame } from './components/WorldGame';
 import { LevelTestPage } from './components/LevelTestPage';
@@ -36,6 +37,8 @@ export default function App() {
               <Route path="/bookmarks" element={<Navigate to="/history" replace />} />
               <Route path="/companion" element={<CompanionPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
+              {/* Where a reminder notification lands. */}
+              <Route path="/quick" element={<QuickReview />} />
               {/* Old path — keep existing links working. */}
               <Route path="/streak" element={<Navigate to="/dashboard" replace />} />
               <Route path="/collections" element={<CollectionsPage />} />

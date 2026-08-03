@@ -502,7 +502,7 @@ export async function pickNextWords(
  * pick until it's finally answered well — which is how a hard word ends up
  * dominating the rotation instead of merely being prioritised in it.
  */
-function pickSoonest<T>(items: T[], dueOf: (item: T) => number, spread = 5): T {
+export function pickSoonest<T>(items: T[], dueOf: (item: T) => number, spread = 5): T {
   const sorted = [...items].sort((a, b) => dueOf(a) - dueOf(b));
   return sorted[Math.floor(Math.random() * Math.min(spread, sorted.length))];
 }
