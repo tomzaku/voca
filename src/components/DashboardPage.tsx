@@ -11,6 +11,7 @@ import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { MasteryBar } from './MasteryBar';
+import { Leaderboard } from './Leaderboard';
 import { useStreak, localDateString } from '../hooks/useStreak';
 import type { ReviewEvent } from '../types';
 
@@ -315,6 +316,9 @@ export function DashboardPage() {
       {/* Where the vocabulary stands — state, as opposed to the activity
           everything else on this page measures. */}
       <MasteryBar />
+
+      {/* Everyone else's state, for anyone who opted into sharing theirs. */}
+      <Leaderboard />
 
       {/* Calendar */}
       <div className="relative rounded-2xl border-[3px] border-border bg-bg-card overflow-hidden">

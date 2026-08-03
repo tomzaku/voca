@@ -6,6 +6,7 @@ import { useCompanion } from './useCompanion';
 import { useCollections } from './useCollections';
 import { useGuessGame } from './useGuessGame';
 import { useStreak } from './useStreak';
+import { useTeams } from './useTeams';
 
 interface AuthContextType {
   user: User | null;
@@ -101,6 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // The streak lives only in memory, so without this it would still be on
     // screen for whoever signs in next.
     useStreak.getState().reset();
+    // Same reason: the board (and whether *this* user shares to it) would
+    // otherwise carry over to the next person signing in on this device.
+    useTeams.getState().reset();
     await supabase.auth.signOut();
   }, []);
 
