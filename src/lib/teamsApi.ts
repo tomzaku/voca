@@ -27,11 +27,30 @@ export interface BoardRow {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
-  /** Words known or mastered — the ranking metric. */
+  /** The ranking metric: a rolling-window score (see `Scoring`). */
+  score: number;
+  /** Lifetime words known or mastered. Shown, not ranked on. */
   learned: number;
   streak: number;
   longest: number;
   rank: number;
+}
+
+/**
+ * How the score is worked out, as used by the server on this very response.
+ * The UI explains the score from these numbers rather than hardcoding its own,
+ * so the explanation can't drift from the formula.
+ */
+export interface Scoring {
+  windowDays: number;
+  points: {
+    /** Per word answered correctly, once per word per day. */
+    correctDay: number;
+    /** Per word that reached Mastered inside the window. */
+    mastered: number;
+    /** Per day of the current streak. */
+    streakDay: number;
+  };
 }
 
 export interface Board {
@@ -39,6 +58,7 @@ export interface Board {
   rows: BoardRow[];
   /** The caller's place, even when it falls below the returned rows. */
   myRank: number | null;
+  scoring: Scoring;
 }
 
 type Action = 'list' | 'board' | 'join' | 'leave';

@@ -24,6 +24,61 @@ import { BadRequest, corsHeaders, jsonResponse, oneOf, requireUser, serviceClien
 /** How many places a board returns before it cuts to the caller's own row. */
 const BOARD_LIMIT = 20;
 
+// ─── Scoring ────────────────────────────────────────────────────────
+// The board ranks on a ROLLING score, not a lifetime total. A cumulative count
+// only ever goes up, so the standings would freeze in favour of whoever started
+// first and reward nobody for still turning up; a window that decays means a
+// place has to be held. The three terms are effort, outcome and consistency:
+//
+//   1 point   per word answered correctly, counted once per word per day
+//   2 points  per word that reached Mastered in the window
+//   1 point   per day of the current streak
+//
+// These numbers are sent to the client with every board (see `SCORING`), so the
+// "how is this worked out?" tooltip can never drift from what's computed here.
+
+const WINDOW_DAYS = 30;
+
+const POINTS = {
+  /** One correct answer of one word on one day. Repeat drills the same day don't stack. */
+  correctDay: 1,
+  /** Reaching Mastered — the FSRS interval passing ~3 weeks. */
+  mastered: 2,
+  /** Each day of the current streak. */
+  streakDay: 1,
+} as const;
+
+const SCORING = { windowDays: WINDOW_DAYS, points: POINTS };
+
+interface ReviewEvent {
+  at: string;
+  ok: boolean;
+}
+
+/**
+ * Distinct (word, day) pairs answered correctly inside the window.
+ *
+ * Deduping per word per day matches uniqueByWord() on the dashboard calendar,
+ * so a day that shows "6 words" there is worth 6 points here. Days are UTC,
+ * where the calendar's are local — the only case that differs is the same word
+ * drilled either side of local midnight, which is worth a point either way.
+ */
+function correctWordDays(rows: { review_log: unknown }[], since: number): number {
+  let total = 0;
+  for (const row of rows) {
+    const log = Array.isArray(row.review_log) ? (row.review_log as ReviewEvent[]) : [];
+    const days = new Set<string>();
+    for (const ev of log) {
+      if (!ev?.ok || typeof ev.at !== 'string') continue;
+      const t = Date.parse(ev.at);
+      if (!Number.isFinite(t) || t < since) continue;
+      days.add(new Date(t).toISOString().slice(0, 10));
+    }
+    total += days.size;
+  }
+  return total;
+}
+
 const ACTIONS = ['list', 'board', 'join', 'leave'] as const;
 
 interface TeamRow {
@@ -40,6 +95,7 @@ interface MemberRow {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  score: number;
   learned: number;
   streak: number;
   longest: number;
@@ -96,21 +152,51 @@ Deno.serve(async (req) => {
     // Read from their progress, never from anyone else's, and only ever written
     // to their own membership rows.
     const myStats = async () => {
-      const [{ count }, { data: settings }] = await Promise.all([
-        db
-          .from('user_word_progress')
-          .select('word', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .or('mastered.eq.true,status.eq.known'),
-        db
-          .from('user_settings')
-          .select('streak_count, longest_streak')
-          .eq('user_id', userId)
-          .maybeSingle(),
-      ]);
+      const since = Date.now() - WINDOW_DAYS * 86_400_000;
+      const sinceIso = new Date(since).toISOString();
+
+      const [{ count: learned }, { data: settings }, { data: active }, { count: mastered }] =
+        await Promise.all([
+          db
+            .from('user_word_progress')
+            .select('word', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .or('mastered.eq.true,status.eq.known'),
+          db
+            .from('user_settings')
+            .select('streak_count, longest_streak')
+            .eq('user_id', userId)
+            .maybeSingle(),
+          // Only words touched inside the window can hold answers inside it, so
+          // this filter keeps the logs pulled into memory small.
+          db
+            .from('user_word_progress')
+            .select('review_log')
+            .eq('user_id', userId)
+            .gte('last_reviewed_at', sinceIso)
+            .limit(1000),
+          // No mastered_at column exists, but a mastered word leaves the review
+          // rotation entirely — so its last review IS the moment it graduated.
+          // Words mastered through the "Know it" shortcut never set
+          // last_reviewed_at and so aren't counted here; their answers still
+          // score through the term above.
+          db
+            .from('user_word_progress')
+            .select('word', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('mastered', true)
+            .gte('last_reviewed_at', sinceIso),
+        ]);
+
+      const streak = (settings?.streak_count as number | null) ?? 0;
+      const score = correctWordDays(active ?? [], since) * POINTS.correctDay +
+        (mastered ?? 0) * POINTS.mastered +
+        streak * POINTS.streakDay;
+
       return {
-        learned: count ?? 0,
-        streak: (settings?.streak_count as number | null) ?? 0,
+        score,
+        learned: learned ?? 0,
+        streak,
         longest: (settings?.longest_streak as number | null) ?? 0,
         stats_at: new Date().toISOString(),
       };
@@ -226,11 +312,11 @@ Deno.serve(async (req) => {
 
     const { data: top } = await db
       .from('team_members')
-      .select('user_id, display_name, avatar_url, learned, streak, longest')
+      .select('user_id, display_name, avatar_url, score, learned, streak, longest')
       .eq('team_id', team.id)
+      .order('score', { ascending: false })
       .order('learned', { ascending: false })
       .order('longest', { ascending: false })
-      .order('streak', { ascending: false })
       .limit(BOARD_LIMIT);
 
     const rows = (top ?? []) as MemberRow[];
@@ -242,7 +328,7 @@ Deno.serve(async (req) => {
     if (joined && meIndex < 0) {
       const { data: me } = await db
         .from('team_members')
-        .select('learned')
+        .select('score')
         .eq('team_id', team.id)
         .eq('user_id', userId)
         .maybeSingle();
@@ -250,7 +336,7 @@ Deno.serve(async (req) => {
         .from('team_members')
         .select('user_id', { count: 'exact', head: true })
         .eq('team_id', team.id)
-        .gt('learned', (me?.learned as number | null) ?? 0);
+        .gt('score', (me?.score as number | null) ?? 0);
       myRank = (ahead ?? 0) + 1;
     }
 
@@ -258,6 +344,9 @@ Deno.serve(async (req) => {
       team: toTeam(team, userId, joined),
       rows: rows.map((r, i) => ({ ...r, rank: i + 1 })),
       myRank,
+      // Sent with every board so the client's explanation of the score is the
+      // formula actually used, not a copy that can fall behind it.
+      scoring: SCORING,
     });
   } catch (e) {
     if (e instanceof BadRequest) return jsonResponse(400, { error: e.message });

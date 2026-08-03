@@ -18,10 +18,11 @@ import {
   TeamsError,
   type Board,
   type BoardRow,
+  type Scoring,
   type Team,
 } from '../lib/teamsApi';
 
-export type { BoardRow, Team };
+export type { BoardRow, Scoring, Team };
 
 interface TeamsState {
   teams: Team[];
@@ -30,6 +31,8 @@ interface TeamsState {
   rows: BoardRow[];
   /** The caller's place, even when it falls below the rows shown. */
   myRank: number | null;
+  /** How the score is worked out — the server's own numbers, for the tooltip. */
+  scoring: Scoring | null;
   loading: boolean;
   /** Set while join/leave is in flight, so the button can't be double-fired. */
   saving: boolean;
@@ -52,6 +55,7 @@ export const useTeams = create<TeamsState>()((set, get) => ({
   activeTeamId: null,
   rows: [],
   myRank: null,
+  scoring: null,
   loading: false,
   saving: false,
   error: null,
@@ -85,6 +89,7 @@ export const useTeams = create<TeamsState>()((set, get) => ({
       set({
         rows: board.rows,
         myRank: board.myRank,
+        scoring: board.scoring,
         // The board carries the team back with a fresh member count and
         // membership state, so the list can't drift from what's on screen.
         teams: get().teams.map((t) => (t.id === board.team.id ? board.team : t)),
@@ -119,6 +124,7 @@ export const useTeams = create<TeamsState>()((set, get) => ({
       activeTeamId: null,
       rows: [],
       myRank: null,
+      scoring: null,
       loading: false,
       saving: false,
       error: null,

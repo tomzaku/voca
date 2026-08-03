@@ -8,14 +8,48 @@
 // The team picker only appears once there's more than one team to pick — today
 // Global is the only one, and a lone tab is just noise.
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useTeams, type BoardRow } from '../hooks/useTeams';
+import { useTeams, type BoardRow, type Scoring } from '../hooks/useTeams';
 
 /** Medal colours for the podium; everyone else gets a plain number. */
 const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
+
+/**
+ * What the score means, written from the server's own weights (they ride along
+ * with every board) so this can never describe a formula that isn't the one
+ * being used. A rank with no explanation is the first thing anyone asks about.
+ */
+function ScoreHelp({ scoring }: { scoring: Scoring }) {
+  const { windowDays, points } = scoring;
+  const plural = (n: number) => `${n} point${n === 1 ? '' : 's'}`;
+
+  return (
+    <div className="rounded-xl bg-bg-tertiary/50 p-4 text-[11px] text-text-secondary leading-relaxed">
+      <p className="font-bold text-text-primary mb-2">
+        Your score covers the last {windowDays} days
+      </p>
+      <ul className="flex flex-col gap-1">
+        <li>
+          <b>{plural(points.correctDay)}</b> for each word you answer correctly — once per word per
+          day, so drilling one word all afternoon counts once.
+        </li>
+        <li>
+          <b>{plural(points.mastered)}</b> for each word that reaches Mastered.
+        </li>
+        <li>
+          <b>{plural(points.streakDay)}</b> for every day of your current streak.
+        </li>
+      </ul>
+      <p className="mt-2 text-text-muted">
+        Older activity drops out of the window, so a place on the board has to be held — it isn't a
+        lifetime total. Your numbers update when you open this page.
+      </p>
+    </div>
+  );
+}
 
 function Avatar({ row }: { row: BoardRow }) {
   const name = row.display_name || 'Learner';
@@ -59,11 +93,15 @@ function Row({ row, isMe }: { row: BoardRow; isMe: boolean }) {
           <span>day streak · best {row.longest}</span>
         </span>
       </span>
+      {/* The score is what the order is built on, so it's the number that gets
+          the weight; the lifetime word count sits under it as context. */}
       <span className="shrink-0 text-right">
         <span className="block font-display font-extrabold tabular-nums text-accent-green">
-          {row.learned}
+          {row.score}
         </span>
-        <span className="block text-[10px] text-text-muted">words</span>
+        <span className="block text-[10px] text-text-muted tabular-nums">
+          {row.learned} word{row.learned === 1 ? '' : 's'}
+        </span>
       </span>
     </li>
   );
@@ -78,9 +116,11 @@ export function Leaderboard() {
   const saving = useTeams((s) => s.saving);
   const error = useTeams((s) => s.error);
   const myRank = useTeams((s) => s.myRank);
+  const scoring = useTeams((s) => s.scoring);
   const load = useTeams((s) => s.load);
   const selectTeam = useTeams((s) => s.selectTeam);
   const setJoined = useTeams((s) => s.setJoined);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (user) load();
@@ -93,6 +133,16 @@ export function Leaderboard() {
       <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
         <Icon icon="lucide:globe" className="text-accent-cyan" />
         {teams.length > 1 ? 'Leaderboards' : `${team?.name ?? 'Global'} leaderboard`}
+        {scoring && (
+          <button
+            onClick={() => setShowHelp((v) => !v)}
+            aria-expanded={showHelp}
+            aria-label="How the score is worked out"
+            className="w-5 h-5 shrink-0 rounded-full bg-bg-tertiary text-text-muted text-[11px] font-bold flex items-center justify-center hover:text-text-primary cursor-pointer"
+          >
+            ?
+          </button>
+        )}
       </h2>
       {team?.joined && user && (
         <button
@@ -133,6 +183,8 @@ export function Leaderboard() {
   return (
     <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4">
       {header}
+
+      {showHelp && scoring && <ScoreHelp scoring={scoring} />}
 
       {teams.length > 1 && (
         <div role="tablist" aria-label="Leaderboard teams" className="flex flex-wrap gap-1.5">
@@ -197,7 +249,8 @@ export function Leaderboard() {
       )}
 
       <p className="text-[11px] text-text-muted/70">
-        Ranked by words learned. Only learners who joined are counted.
+        Ranked by score over the last {scoring?.windowDays ?? 30} days. Only learners who joined are
+        counted.
       </p>
     </section>
   );
