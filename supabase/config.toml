@@ -53,6 +53,14 @@ policy = "per_worker"
 inspector_port = 8083
 deno_version = 2
 
+# `notify` is called by pg_cron, not by a signed-in client, so there is no JWT to
+# send. Leaving verification on makes the gateway reject cron with
+# UNAUTHORIZED_NO_AUTH_HEADER before the function ever runs. Its own
+# `x-cron-secret` check (functions/notify/index.ts) is the auth here — do not
+# turn this back on without giving cron another way in.
+[functions.notify]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
