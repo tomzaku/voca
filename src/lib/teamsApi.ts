@@ -63,7 +63,25 @@ export interface Board {
   scoring: Scoring;
 }
 
-type Action = 'list' | 'board' | 'join' | 'leave' | 'create' | 'rotateInvite' | 'joinByCode';
+type Action =
+  | 'list'
+  | 'board'
+  | 'join'
+  | 'leave'
+  | 'create'
+  | 'rotateInvite'
+  | 'previewCode'
+  | 'joinByCode';
+
+/** What an invite code opens, shown before anyone agrees to share with it. */
+export interface TeamPreview {
+  name: string;
+  description: string | null;
+  memberCount: number;
+  /** Already a member — the dialog says so instead of offering to join again. */
+  joined: boolean;
+  full: boolean;
+}
 
 /** Thrown with the server's message so the UI can show why something failed. */
 export class TeamsError extends Error {}
@@ -135,6 +153,12 @@ export async function createTeam(input: {
 export async function rotateInvite(teamId: string): Promise<Team> {
   const { team } = await call<{ team: Team }>('rotateInvite', { team: teamId });
   return team;
+}
+
+/** Which team a code belongs to, without joining it. */
+export async function previewCode(code: string): Promise<TeamPreview> {
+  const { preview } = await call<{ preview: TeamPreview }>('previewCode', { code });
+  return preview;
 }
 
 /** Join with an invite code — the only way into a private team. */

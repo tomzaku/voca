@@ -138,7 +138,16 @@ function correctWordDays(rows: { review_log: unknown }[], since: number): number
   return total;
 }
 
-const ACTIONS = ['list', 'board', 'join', 'leave', 'create', 'rotateInvite', 'joinByCode'] as const;
+const ACTIONS = [
+  'list',
+  'board',
+  'join',
+  'leave',
+  'create',
+  'rotateInvite',
+  'previewCode',
+  'joinByCode',
+] as const;
 
 interface TeamRow {
   id: string;
@@ -377,17 +386,34 @@ Deno.serve(async (req) => {
       return jsonResponse(200, { team: toTeam(created as TeamRow, userId, true) });
     }
 
-    if (action === 'joinByCode') {
-      // Uppercased so a code typed in lowercase off a printout still works.
-      const code = reqStr(params, 'code', 32).toUpperCase().replace(/\s+/g, '');
-      const { data: found } = await db
-        .from('teams')
-        .select('*')
-        .eq('invite_code', code)
-        .maybeSingle();
-      if (!found) return jsonResponse(404, { error: "That invite code doesn't work." });
+    // Uppercased so a code typed in lowercase off a printout still works.
+    const codeParam = () => reqStr(params, 'code', 32).toUpperCase().replace(/\s+/g, '');
 
-      const target = found as TeamRow;
+    const byCode = async (code: string): Promise<TeamRow | null> => {
+      const { data } = await db.from('teams').select('*').eq('invite_code', code).maybeSingle();
+      return (data as TeamRow | null) ?? null;
+    };
+
+    if (action === 'previewCode') {
+      // What a code opens, without opening it: an invite link should be able to
+      // say which team it's for before anyone agrees to share anything with it.
+      const target = await byCode(codeParam());
+      if (!target) return jsonResponse(404, { error: "That invite code doesn't work." });
+      return jsonResponse(200, {
+        preview: {
+          name: target.name,
+          description: target.description,
+          memberCount: target.member_count,
+          joined: await isMember(target.id),
+          full: target.member_count >= MAX_TEAM_MEMBERS,
+        },
+      });
+    }
+
+    if (action === 'joinByCode') {
+      const target = await byCode(codeParam());
+      if (!target) return jsonResponse(404, { error: "That invite code doesn't work." });
+
       if (target.member_count >= MAX_TEAM_MEMBERS) {
         return jsonResponse(403, { error: 'This team is full.' });
       }

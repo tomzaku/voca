@@ -15,7 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { useTeams, type BoardRow, type Scoring } from '../hooks/useTeams';
 import { TeamForm } from './TeamForm';
-import { InvitePanel, JoinByCode } from './TeamInvite';
+import { InvitePanel, TeamJoinDialog } from './TeamInvite';
 
 /** Medal colours for the podium; everyone else gets a plain number. */
 const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
@@ -131,11 +131,28 @@ export function Leaderboard() {
     if (user) load();
   }, [user, load]);
 
-  // An invite link lands here as ?team=<code>. The code is dropped into the
-  // join box rather than joining on sight: arriving at a page that has already
-  // signed you up to share your progress is not something to do silently.
-  const [searchParams] = useSearchParams();
+  // An invite link lands here as ?team=<code>. The board sits well below the
+  // fold, so the invite opens as a dialog rather than waiting to be scrolled
+  // to — but it still only offers to join, never joins on sight: arriving at a
+  // page that has already signed you up to share your progress is not
+  // something to do silently.
+  const [searchParams, setSearchParams] = useSearchParams();
   const invitedCode = searchParams.get('team') ?? '';
+  const [manualOpen, setManualOpen] = useState(false);
+  // Derived rather than mirrored into state: the URL is what says an invite is
+  // open, so closing means taking the code out of it.
+  const joining = manualOpen ? '' : invitedCode || null;
+
+  const closeJoin = () => {
+    setManualOpen(false);
+    // Drop the code so a refresh (or a back-navigation) doesn't reopen an
+    // invite the user just dismissed or accepted.
+    if (invitedCode) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('team');
+      setSearchParams(next, { replace: true });
+    }
+  };
 
   const team = teams.find((t) => t.id === activeTeamId) ?? null;
 
@@ -192,15 +209,22 @@ export function Leaderboard() {
   const rankBelow = !inTop && myRank !== null ? myRank : null;
 
   return (
-    <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4">
+    // The id is a scroll target: joining from an invite dialog offers to bring
+    // the user down to the board they just joined.
+    <section
+      id="leaderboard"
+      className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4"
+    >
       {header}
 
       {showHelp && scoring && <ScoreHelp scoring={scoring} />}
 
-      {/* The strip earns its place as soon as there's a second team, or a Pro
-          account that could make one. */}
-      {(teams.length > 1 || isPro) && (
-        <div role="tablist" aria-label="Leaderboard teams" className="flex flex-wrap gap-1.5">
+      {/* The strip is where teams are browsed and picked, so the two ways of
+          getting a new one — an invite code, or creating your own — live at the
+          end of it rather than somewhere else on the panel. It always renders:
+          the invite button is most needed by someone who has only Global. */}
+      <div className="flex flex-wrap gap-1.5">
+        <div role="tablist" aria-label="Leaderboard teams" className="contents">
           {teams.map((t) => (
             <button
               key={t.id}
@@ -218,16 +242,30 @@ export function Leaderboard() {
               <span className="ml-1.5 opacity-70 tabular-nums">{t.memberCount}</span>
             </button>
           ))}
-          {isPro && (
-            <button
-              onClick={() => setCreating(true)}
-              className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
-            >
-              <Icon icon="lucide:plus" className="inline -mt-0.5" /> New team
-            </button>
-          )}
         </div>
-      )}
+
+        {/* Separated from the tabs by a hairline: these add a team rather than
+            switch to one, and a tablist shouldn't contain things that aren't
+            tabs. */}
+        <span className="w-px self-stretch bg-border mx-0.5" />
+
+        <button
+          onClick={() => setManualOpen(true)}
+          className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
+        >
+          <Icon icon="lucide:ticket" className="inline -mt-0.5 mr-1" />
+          Invite code
+        </button>
+
+        {isPro && (
+          <button
+            onClick={() => setCreating(true)}
+            className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
+          >
+            <Icon icon="lucide:plus" className="inline -mt-0.5" /> New team
+          </button>
+        )}
+      </div>
 
       {/* Owner tools for the team on screen. */}
       {team?.isOwner && <InvitePanel team={team} />}
@@ -273,23 +311,15 @@ export function Leaderboard() {
         </ol>
       )}
 
-      {/* Someone handed a code needs somewhere to put it, whichever team is on
-          screen — so this sits below the board rather than inside a team. */}
-      <div className="border-t border-border pt-4 flex flex-col gap-2">
-        {invitedCode && (
-          <p className="text-[11px] text-text-secondary">
-            You've been invited to a team. Join to start sharing your progress with it.
-          </p>
-        )}
-        <JoinByCode key={invitedCode} initialCode={invitedCode} />
-      </div>
-
       <p className="text-[11px] text-text-muted/70">
         Ranked by score over the last {scoring?.windowDays ?? 30} days. Only learners who joined are
         counted.
       </p>
 
       {creating && <TeamForm onClose={() => setCreating(false)} />}
+      {joining !== null && (
+        <TeamJoinDialog key={joining} initialCode={joining} onClose={closeJoin} />
+      )}
     </section>
   );
 }

@@ -226,6 +226,11 @@ export function DashboardPage() {
 
   return (
     <div className="max-w-page mx-auto px-4 py-8 flex flex-col gap-6">
+      {/* First on the page: where you stand against everyone else is the thing
+          people come back for, and it's also the only section that changes
+          because of what someone ELSE did since you last looked. */}
+      <Leaderboard />
+
       {/* Headline: the three numbers worth knowing, plus what the last two
           weeks actually looked like. Bars, not a line — daily counts are
           discrete events, and a line would imply a continuous quantity. */}
@@ -316,9 +321,6 @@ export function DashboardPage() {
       {/* Where the vocabulary stands — state, as opposed to the activity
           everything else on this page measures. */}
       <MasteryBar />
-
-      {/* Everyone else's state, for anyone who opted into sharing theirs. */}
-      <Leaderboard />
 
       {/* Calendar */}
       <div className="relative rounded-2xl border-[3px] border-border bg-bg-card overflow-hidden">
