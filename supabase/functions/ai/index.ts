@@ -266,8 +266,26 @@ async function generateImageInner(model: string, apiKey: string, prompt: string)
 const DOODLE_CONTEXT =
   `Context: we are building a hand-drawn vocabulary MIND MAP for English learners. Each word on the map gets a tiny doodle next to it as a memory hook — a quick visual that makes the word's meaning click and stick. The doodles are displayed very small (about 1cm), so each one must be a single bold, instantly recognizable idea; fine detail would be lost.`;
 
+// "Sketchnote" is dropped from the style on purpose: sketchnotes are a
+// lettering-heavy form, and naming it invites the model to write on the page.
 const DOODLE_STYLE =
-  'Style: quick felt-tip pen sketchnote doodle, 2-3 flat accent colors, plain white background, thick clean lines, like a margin doodle in a study notebook. The drawing floats free on the white page — never inside a frame, border, circle, or colored panel. Absolutely no text, letters, or numbers in the image — the word itself is already printed on the map next to the doodle.';
+  'Style: quick felt-tip pen doodle, 2-3 flat accent colors, plain white background, thick clean lines, like a margin doodle in a study notebook. The drawing floats free on the white page — never inside a frame, border, circle, or colored panel.';
+
+// Incidental writing in a doodle is harmless — a "Zzz" over a sleeper, a sign
+// on a shop — but the ONE word it must never show is the word it illustrates.
+// The flash card shows the doodle while the learner is still guessing, so the
+// word written anywhere in the picture hands them the answer.
+//
+// Models reach for the label first when drawing an abstract idea, so this is
+// spelled out by example and repeated last, where it carries the most weight.
+const NO_ANSWER_TEXT_RULE =
+  `NEVER write the word a doodle illustrates. The learner sees this picture while trying to GUESS that word, so writing it anywhere gives the answer away. That covers every way the word could appear:
+- the word itself, at any size, anywhere in the cell
+- any form of it: plural, past tense, -ing, comparative, or the root it comes from
+- a translation of it into any language
+- its initial used as a monogram, or the word spelled out on a sign, label, book cover, badge, or banner
+- the word inside a speech bubble or thought bubble
+Other writing is fine where it belongs in the scene — an unrelated shop sign, numbers on a clock face, a "Zzz" over a sleeper. Only the illustrated word is off limits.`;
 
 // ─── Doodle sheets ──────────────────────────────────────────────────
 // Every generated image costs the same regardless of content, so we pack a
@@ -312,9 +330,11 @@ Draw ONE doodle for the word "${it.word}"${it.definition ? ` (meaning: ${it.defi
 
 STRICT rules:
 - NO grid, frame, border, box, circle, panel, or background shape of any kind — just the drawing, floating on plain white paper
-- NO captions, labels, or any written words anywhere — pictures only
+- ${NO_ANSWER_TEXT_RULE}
 
-${DOODLE_STYLE}`);
+${DOODLE_STYLE}
+
+Last and most important: ${NO_ANSWER_TEXT_RULE}`);
   }
 
   const { cols, rows } = sheetGrid(items.length);
@@ -338,13 +358,15 @@ STRICT rules for every cell:
 - NO tables, frames, boxes, or smaller grids inside a cell
 - NO border, outline, frame, circle, badge, or panel drawn AROUND the doodle — each doodle sits directly on the white page with nothing enclosing it. The only lines in the whole image are the thin gray grid and the doodles themselves.
 - NO shading, backdrop, or filled background behind a doodle — the paper stays plain white right up to the doodle's own strokes
-- NO captions, labels, or any written words anywhere — pictures only
+- ${NO_ANSWER_TEXT_RULE}
 
 Cell assignments (rows numbered top to bottom, columns left to right):
 ${list}
 ${items.length < rows * cols ? `Leave the remaining ${rows * cols - items.length} cell(s) completely empty white.` : ''}
 
-${DOODLE_STYLE}`
+${DOODLE_STYLE}
+
+Last and most important, applied to every cell separately — each cell must not contain ITS OWN word, and must not contain any of the other words listed above either: ${NO_ANSWER_TEXT_RULE}`
   console.log('[sheet] prompt: ', prompt)
   return generateImage(prompt);
 }
