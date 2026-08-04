@@ -637,7 +637,17 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: `Unknown action "${action}".` });
   }
 
-  if (PRO_ACTIONS.has(action)) {
+  // Reading the shared doodle cache is free for everyone: the image has
+  // already been drawn and paid for, and the cost of handing it over is one
+  // indexed select. Only DRAWING is Pro. Gating the lookup too would mean a
+  // word with a doodle sitting in the table showing no picture at all.
+  // Safe because the handler reads `cachedOnly` from this same field and
+  // returns before any generation — there is no path where a caller waved
+  // through here can reach the paid branch.
+  const freeDoodleLookup = action === 'mindmap_doodle_sheet' &&
+    payload.params?.cachedOnly === true;
+
+  if (PRO_ACTIONS.has(action) && !freeDoodleLookup) {
     // The user-scoped client can only see the caller's own pro_users row
     // (RLS), so a returned row is proof this user has Pro. A NULL expires_at
     // is a lifetime grant; otherwise Pro lasts until that moment.

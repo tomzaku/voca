@@ -38,9 +38,9 @@ let generating = false;
 /**
  * The doodle for `wordData`, or null while there isn't one (yet or at all).
  *
- * `isPro` gates every network tier, not just generation: the whole
- * `mindmap_doodle_sheet` action is Pro-only server-side, so for anyone else a
- * request could only come back 403. Locally cached doodles still show.
+ * `isPro` gates DRAWING only. Looking a word up in the shared cache is free for
+ * everyone — the picture is already drawn and paid for, so withholding it from
+ * a non-Pro learner costs them the illustration and saves nothing.
  */
 export function useWordDoodle(
   wordData: VocabularyWord | null,
@@ -58,7 +58,7 @@ export function useWordDoodle(
     // Tier 1, synchronous: no flash of empty space for a word already drawn.
     const local = readLocalDoodle(key);
     setDoodle(local);
-    if (local || !isPro || missed.has(key)) return;
+    if (local || missed.has(key)) return;
 
     // The current word plus whatever is already loaded and waiting — all with
     // real definitions, and free to work out (no extra request). Words we hold
@@ -92,6 +92,13 @@ export function useWordDoodle(
         // draws the first DOODLE_SHEET_SIZE that don't, so the sheet comes out
         // full instead of nearly empty. Working the candidates out costs a
         // `pick` call, which is why it happens here and not on the free path.
+        //
+        // Pro-only, and the server enforces it too — this check just avoids a
+        // request that could only come back 403.
+        if (!isPro) {
+          missed.add(key);
+          return;
+        }
         if (!generating) {
           generating = true;
           try {
