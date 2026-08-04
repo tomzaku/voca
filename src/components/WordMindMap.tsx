@@ -25,6 +25,14 @@ import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import './wordMindMap.css';
 import { callAiAction, callAiDoodleSheet } from '../lib/aiProviders';
+import {
+  DOODLE_SHEET_SIZE as SHEET_SIZE,
+  doodleKey,
+  readLegacyDoodle,
+  readLocalDoodle,
+  shrinkDataUri,
+  writeLocalDoodle,
+} from '../lib/doodles';
 import { isTtsPlaying, speakText, stopSpeaking } from '../lib/tts';
 
 interface MindMapNode {
@@ -49,96 +57,14 @@ const PALETTE = ['#0bb5d6', '#8b5cf6', '#f97316', '#10b862', '#ec4899', '#3b6cff
 // server-side — so a word costs ~$0.001 instead of ~$0.02. Flip this off to
 // hide the "Sketch doodles" button (cached doodles keep loading for free).
 const DOODLE_GENERATION_ENABLED = true;
-const SHEET_SIZE = 16; // words per generated sheet — keep in sync with SHEET_MAX server-side
 
 const CACHE_PREFIX = 'voca-mindmap-v1:';
-// v7: v3-v6 held sheet crops from failed layout attempts (invisible grids,
-// non-square grids, mini-tables inside cells, and an uncapped 38-word 7x7
-// sheet), so all are deliberately abandoned (NOT in the legacy list). v1/v2
-// were known-good single doodles; they still migrate locally (no AI call).
-const DOODLE_PREFIX = 'voca-doodle-v7:';
-const DOODLE_PREFIXES_LEGACY = ['voca-doodle-v2:', 'voca-doodle-v1:'];
-const DOODLE_SIZE = 192; // thumbnail px — sized for the 126px display box on retina screens
 const MAX_DEPTH = 4;
 const MAX_WORDS = 40; // the server's `mindmap` action caps words at 40
 
 /** Stable cache key for a word set — order-insensitive. */
 function cacheKey(words: string[]): string {
   return CACHE_PREFIX + [...words].sort().join('|').toLowerCase();
-}
-
-function doodleKey(word: string): string {
-  return word.trim().toLowerCase();
-}
-
-/**
- * Turn the doodle's flat background transparent. The background color is
- * sampled from the image's own border ring rather than assumed to be pure
- * white — Gemini's "plain white background" is really off-white/cream, and
- * lossy WebP re-encoding of cached thumbs shifts it further. Alpha only ever
- * decreases, so re-running this on an already-keyed thumbnail is safe.
- */
-function keyOutBackground(ctx: CanvasRenderingContext2D, size: number): void {
-  const imgData = ctx.getImageData(0, 0, size, size);
-  const px = imgData.data;
-
-  // Background estimate: average the border-ring pixels that are still
-  // opaque (skips already-transparent areas of re-processed thumbs) and
-  // light (skips ink strokes crossing the edge).
-  let r = 0, g = 0, b = 0, n = 0;
-  const sample = (x: number, y: number) => {
-    const i = (y * size + x) * 4;
-    if (px[i + 3] < 200) return;
-    if ((px[i] + px[i + 1] + px[i + 2]) / 3 < 128) return;
-    r += px[i];
-    g += px[i + 1];
-    b += px[i + 2];
-    n += 1;
-  };
-  for (let x = 0; x < size; x++) for (const y of [0, 1, size - 2, size - 1]) sample(x, y);
-  for (let y = 2; y < size - 2; y++) for (const x of [0, 1, size - 2, size - 1]) sample(x, y);
-  const bg = n > 0 ? [r / n, g / n, b / n] : [255, 255, 255];
-
-  for (let i = 0; i < px.length; i += 4) {
-    const dist = Math.max(
-      Math.abs(px[i] - bg[0]),
-      Math.abs(px[i + 1] - bg[1]),
-      Math.abs(px[i + 2] - bg[2]),
-    );
-    // Within ~20 of the background (compression noise, paper texture) →
-    // transparent; ramp up to fully opaque by 64 to avoid hard halos.
-    const alpha = dist <= 20 ? 0 : dist >= 64 ? 255 : Math.round(((dist - 20) / 44) * 255);
-    px[i + 3] = Math.min(px[i + 3], alpha);
-  }
-  ctx.putImageData(imgData, 0, 0);
-}
-
-/**
- * Downscale a (large) generated image to a small square thumbnail data URI
- * with its background keyed out, so the doodle floats on the map instead of
- * sitting in a pale box.
- */
-function shrinkDataUri(dataUri: string, size = DOODLE_SIZE): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(dataUri);
-        return;
-      }
-      ctx.drawImage(img, 0, 0, size, size);
-      keyOutBackground(ctx, size);
-      // toDataURL silently falls back to PNG where WebP isn't supported —
-      // both formats keep the alpha channel.
-      resolve(canvas.toDataURL('image/webp', 0.8));
-    };
-    img.onerror = () => reject(new Error('Could not decode doodle image.'));
-    img.src = dataUri;
-  });
 }
 
 /** Coerce one parsed JSON node into a MindMapNode, dropping anything malformed. */
@@ -758,22 +684,18 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
     for (const w of leaves) {
       const k = doodleKey(w.topic);
       if (doodlesRef.current[k]) continue;
-      try {
-        const cached = localStorage.getItem(DOODLE_PREFIX + k);
-        if (cached) {
-          doodlesRef.current[k] = cached;
-          continue;
-        }
-        // Older thumbnail (white or badly-keyed background): re-key it
-        // locally instead of paying to regenerate.
-        const legacy = DOODLE_PREFIXES_LEGACY
-          .map((p) => localStorage.getItem(p + k))
-          .find((v): v is string => Boolean(v));
-        if (legacy) {
-          migrate.push({ k, legacy });
-          continue;
-        }
-      } catch { /* storage unavailable — regenerate below */ }
+      const cached = readLocalDoodle(k);
+      if (cached) {
+        doodlesRef.current[k] = cached;
+        continue;
+      }
+      // Older thumbnail (white or badly-keyed background): re-key it
+      // locally instead of paying to regenerate.
+      const legacy = readLegacyDoodle(k);
+      if (legacy) {
+        migrate.push({ k, legacy });
+        continue;
+      }
       missing.push(w);
     }
     console.log(
@@ -788,10 +710,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           try {
             const thumb = await shrinkDataUri(legacy);
             doodlesRef.current[k] = thumb;
-            try {
-              localStorage.setItem(DOODLE_PREFIX + k, thumb);
-              for (const p of DOODLE_PREFIXES_LEGACY) localStorage.removeItem(p + k);
-            } catch { /* storage full — the in-memory copy still renders */ }
+            writeLocalDoodle(k, thumb);
           } catch { /* undecodable old thumb — it'll regenerate next visit */ }
         }
         if (!cancelled) setDoodleTick((t) => t + 1);
@@ -829,9 +748,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           const k = doodleKey(w.topic);
           doodlesRef.current[k] = thumb;
           pulled += 1;
-          try {
-            localStorage.setItem(DOODLE_PREFIX + k, thumb);
-          } catch { /* storage full — the in-memory copy still renders */ }
+          writeLocalDoodle(k, thumb);
         } catch {
           remaining.push(w); // undecodable image — offer it for sketching
         }
@@ -888,9 +805,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
               const k = doodleKey(w.topic);
               doodlesRef.current[k] = thumb;
               succeeded += 1;
-              try {
-                localStorage.setItem(DOODLE_PREFIX + k, thumb);
-              } catch { /* storage full — the in-memory copy still renders */ }
+              writeLocalDoodle(k, thumb);
             } catch {
               failed.push(w);
             }

@@ -138,6 +138,22 @@ body {
   box-shadow: 0 3px 0 0 var(--btn-lip);
 }
 
+/* ── Doodles ─────────────────────────────────────────────────────── */
+/* Doodles are generated as dark ink on white paper, and the background is
+   keyed out to transparent client-side so the sketch sits straight on the
+   card instead of in a white box. That leaves the ink itself: black outlines
+   are unreadable on the dark theme's card, so there the whole image is
+   inverted — `hue-rotate` then puts the colours back roughly where they
+   started, leaving light ink on dark, like chalk. The light theme needs
+   nothing: it's the paper the doodle was drawn on. */
+.doodle-ink {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+[data-theme="light"] .doodle-ink {
+  filter: none;
+}
+
 /* ── Animations ──────────────────────────────────────────────────── */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }

@@ -25,6 +25,13 @@ export function getPrefetchedWords(): Set<string> {
   return new Set([...queue.map((q) => q.word), ...inFlight]);
 }
 
+/** The queued words with their data, for callers that need more than the name
+ *  (doodle batching sends each word's definition so the sketch shows the right
+ *  sense). In-flight words have no data yet, so they aren't included. */
+export function getPrefetchedData(): VocabularyWord[] {
+  return queue.map((q) => q.data);
+}
+
 /** Drain and reset everything (e.g. on logout). */
 export function clearPrefetchQueue(): void {
   queue.length = 0;

@@ -34,6 +34,7 @@ import {
   underRateLimit,
 } from '../_shared/ai.ts';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
+import { cellRegions, describeCrop, fitCrop } from './doodleCrop.ts';
 
 /** What each action builder produces — everything the provider call needs. */
 interface BuiltRequest {
@@ -266,7 +267,7 @@ const DOODLE_CONTEXT =
   `Context: we are building a hand-drawn vocabulary MIND MAP for English learners. Each word on the map gets a tiny doodle next to it as a memory hook — a quick visual that makes the word's meaning click and stick. The doodles are displayed very small (about 1cm), so each one must be a single bold, instantly recognizable idea; fine detail would be lost.`;
 
 const DOODLE_STYLE =
-  'Style: quick felt-tip pen sketchnote doodle, 2-3 flat accent colors, plain white background, thick clean lines, like a margin doodle in a study notebook. Absolutely no text, letters, or numbers in the image — the word itself is already printed on the map next to the doodle.';
+  'Style: quick felt-tip pen sketchnote doodle, 2-3 flat accent colors, plain white background, thick clean lines, like a margin doodle in a study notebook. The drawing floats free on the white page — never inside a frame, border, circle, or colored panel. Absolutely no text, letters, or numbers in the image — the word itself is already printed on the map next to the doodle.';
 
 // ─── Doodle sheets ──────────────────────────────────────────────────
 // Every generated image costs the same regardless of content, so we pack a
@@ -277,18 +278,45 @@ const DOODLE_STYLE =
 // 16 = 4x4 grid → 256px cells, still above the 192px thumbnail size.
 
 const SHEET_MAX = 16;
+// How many candidate words a caller may send. Only SHEET_MAX of them are ever
+// drawn — the surplus exists so the words that already have doodles can be
+// filtered out and the sheet still comes out full.
+const BATCH_MAX = 40;
 
-// Always a SQUARE k×k grid, even when that leaves empty cells (2 words → 2×2
-// with 2 empty). A non-square grid (e.g. 1×2) on the square 1:1 canvas makes
-// "equal square cells" impossible, and the model then improvises a layout
-// that no longer matches the crop math — the empty cells are free, correct
-// crops are not.
+// The grid is ALWAYS 4x4 once there is more than one word, however few words
+// there are. Sizing the grid to the word count sounds tidier but produces bad
+// crops: on a roomy 2x2 the model draws big, loosely-placed doodles that spill
+// well outside the 256px-equivalent cell the crop expects, so the thumbnail
+// comes out clipped with a grid line running through it. A constant 4x4 is the
+// layout the sheet prompt was tuned against and the one the model reproduces
+// faithfully. Unused cells are left blank — they cost nothing, since the price
+// is per image, not per doodle. (It must also stay SQUARE: a non-square grid
+// on the square 1:1 canvas makes "equal square cells" impossible and the model
+// improvises a layout the crop maths no longer matches.)
+const SHEET_COLS = 4;
+
+// One word is the exception: it gets a plain single doodle with no grid at all
+// (see generateDoodleSheet), so there are no lines to crop away.
 function sheetGrid(n: number): { cols: number; rows: number } {
-  const k = Math.ceil(Math.sqrt(n));
-  return { cols: k, rows: k };
+  return n <= 1 ? { cols: 1, rows: 1 } : { cols: SHEET_COLS, rows: SHEET_COLS };
 }
 
 function generateDoodleSheet(items: { word: string; definition: string }[]): Promise<{ mime: string; b64: string }> {
+  // A single word needs no grid — and drawing one would just put a box around
+  // the doodle for the crop to trip over. The whole image IS the doodle.
+  if (items.length === 1) {
+    const it = items[0];
+    return generateImage(`${DOODLE_CONTEXT}
+
+Draw ONE doodle for the word "${it.word}"${it.definition ? ` (meaning: ${it.definition})` : ''}, centered on a plain white square with clear white margin all around it.
+
+STRICT rules:
+- NO grid, frame, border, box, circle, panel, or background shape of any kind — just the drawing, floating on plain white paper
+- NO captions, labels, or any written words anywhere — pictures only
+
+${DOODLE_STYLE}`);
+  }
+
   const { cols, rows } = sheetGrid(items.length);
   // Address every word to an explicit (row, column) — a bare numbered list
   // lets the model drift out of row-major order on bigger grids.
@@ -308,6 +336,8 @@ Draw a ${rows}x${cols} grid of equal-sized square cells covering the whole image
 STRICT rules for every cell:
 - ONE doodle per cell — never a group of separate small drawings
 - NO tables, frames, boxes, or smaller grids inside a cell
+- NO border, outline, frame, circle, badge, or panel drawn AROUND the doodle — each doodle sits directly on the white page with nothing enclosing it. The only lines in the whole image are the thin gray grid and the doodles themselves.
+- NO shading, backdrop, or filled background behind a doodle — the paper stays plain white right up to the doodle's own strokes
 - NO captions, labels, or any written words anywhere — pictures only
 
 Cell assignments (rows numbered top to bottom, columns left to right):
@@ -319,36 +349,51 @@ ${DOODLE_STYLE}`
   return generateImage(prompt);
 }
 
-/** Crop a generated sheet into per-word thumbnail data URIs (row-major). */
-async function cropDoodleSheet(b64: string, n: number): Promise<string[]> {
+/** PNG bytes → base64, chunked so a big image can't blow the argument limit. */
+function encodeBase64Png(png: Uint8Array): string {
+  let s = '';
+  const CHUNK = 0x8000;
+  for (let j = 0; j < png.length; j += CHUNK) {
+    s += String.fromCharCode(...png.subarray(j, j + CHUNK));
+  }
+  return btoa(s);
+}
+
+
+
+/**
+ * Crop a generated sheet into per-word thumbnail data URIs (row-major). Each
+ * cell is fitted to the drawing it contains rather than cut on fixed maths, so
+ * every doodle lands centered and the same apparent size in its thumbnail
+ * whether the model drew it small, large, or off to one side.
+ */
+async function cropDoodleSheet(b64: string, n: number, missingWords?: string[]): Promise<string[]> {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const img = await Image.decode(bytes);
+  const bitmap = img.bitmap;
+  // n === 1 is drawn without a grid (sheetGrid gives 1x1), so the whole image
+  // is the single cell — and fitting to the ink trims the wide white margin
+  // that prompt asks for, keeping it the same size as sheet-cropped doodles.
   const { cols, rows } = sheetGrid(n);
-  const cw = Math.floor(img.width / cols);
-  const ch = Math.floor(img.height / rows);
-  // Crop INSIDE the cell: an 8%-per-side inset drops the sheet's gray grid
-  // lines and any neighbor ink that bled slightly across the boundary. The
-  // prompt keeps doodles within ~70% of the cell, so the inset never clips
-  // a well-placed doodle. Square (min side) keeps it undistorted when
-  // rows != cols make cells non-square.
-  const inset = 0.08;
-  const side = Math.floor(Math.min(cw, ch) * (1 - inset * 2));
+  // Cells are located from the drawn rules, not assumed to be even quarters.
+  const regions = cellRegions(bitmap, img.width, img.height, cols, rows);
   const out: string[] = [];
+  const fitted: string[] = [];
+  const maxSide = Math.floor(Math.min(img.width / cols, img.height / rows));
   for (let i = 0; i < n; i++) {
-    const x = (i % cols) * cw + Math.floor((cw - side) / 2);
-    const y = Math.floor(i / cols) * ch + Math.floor((ch - side) / 2);
+    const region = regions[i];
+    const { x, y, side } = fitCrop(bitmap, img.width, region);
+    // Per-cell diagnostics: `edges` (darkest pixel on each side of the
+    // finished thumbnail) is the one to scan — four numbers near 255 mean the
+    // crop came out on clean paper, anything low means a rule got in.
+    fitted.push(`  #${i} ${missingWords?.[i] ?? ''} ${describeCrop(bitmap, img.width, region, { x, y, side })}`);
     const cell = img.clone().crop(x, y, side, side);
     cell.resize(DOODLE_THUMB, DOODLE_THUMB);
-    const png = await cell.encode();
-    let s = '';
-    const CHUNK = 0x8000;
-    for (let j = 0; j < png.length; j += CHUNK) {
-      s += String.fromCharCode(...png.subarray(j, j + CHUNK));
-    }
-    out.push(`data:image/png;base64,${btoa(s)}`);
+    out.push(`data:image/png;base64,${encodeBase64Png(await cell.encode())}`);
   }
+  console.log(`[sheet] crop report (${img.width}x${img.height}, ${cols}x${rows} grid, cell~${maxSide}px):\n${fitted.join('\n')}`);
   return out;
 }
 
@@ -588,8 +633,13 @@ Deno.serve(async (req) => {
 
   // Sheet action — one generated image, cropped into per-word doodles.
   // Returns { images: { "<word as sent>": dataUri } }. With cachedOnly=true
-  // it's a free batch lookup: up to 40 words, returns whatever the shared
-  // cache has, never generates — the client uses it once on map open.
+  // it's a free batch lookup: returns whatever the shared cache has, never
+  // generates — the client uses it once on map open.
+  //
+  // Callers may send up to BATCH_MAX words in BOTH modes. Generation still
+  // draws at most one SHEET_MAX grid, but the candidates are filtered against
+  // the cache FIRST, so a long list is what lets one image draw a full sheet of
+  // undrawn words instead of a near-empty one. Sending more never costs more.
   if (action === 'mindmap_doodle_sheet') {
     let items: { word: string; definition: string }[];
     let cachedOnly: boolean;
@@ -599,7 +649,7 @@ Deno.serve(async (req) => {
       const raw = p.words;
       if (!Array.isArray(raw)) throw new BadRequest('"words" must be an array.');
       items = raw
-        .slice(0, cachedOnly ? 40 : SHEET_MAX)
+        .slice(0, BATCH_MAX)
         .map((it) => ({
           word: typeof it?.word === 'string' ? it.word.trim().slice(0, 60) : '',
           definition: typeof it?.definition === 'string' ? it.definition.slice(0, 200) : '',
@@ -619,21 +669,33 @@ Deno.serve(async (req) => {
     let missing = items;
     if (svc) {
       const keys = items.map((it) => it.word.toLowerCase());
-      const { data: rows, error: readErr } = await svc
-        .from('word_cache')
-        .select('word, doodle')
-        .in('word', keys);
-      if (readErr) console.error(`[sheet] cache read error: ${readErr.message}`);
+      // Doodles live in their own table so one can be saved for a word whose
+      // definition nobody has generated yet — see the word_doodles migration.
+      const [doodleRes, defRes] = await Promise.all([
+        svc.from('word_doodles').select('word, doodle').in('word', keys),
+        svc.from('word_cache').select('word, short_definition').in('word', keys),
+      ]);
+      if (doodleRes.error) console.error(`[sheet] doodle read error: ${doodleRes.error.message}`);
+      if (defRes.error) console.error(`[sheet] definition read error: ${defRes.error.message}`);
       const cached = new Map<string, string>(
-        ((rows ?? []) as { word: string; doodle: string | null }[])
+        ((doodleRes.data ?? []) as { word: string; doodle: string }[])
           .filter((r) => r.doodle)
-          .map((r) => [r.word, r.doodle as string]),
+          .map((r) => [r.word, r.doodle]),
+      );
+      // A doodle drawn without the meaning picks the wrong sense of an
+      // ambiguous word. Callers batching words they haven't loaded yet (the
+      // flash card sends the ones coming up next) send the word alone, so fill
+      // the definition in from the word cache where there is one.
+      const defs = new Map<string, string>(
+        ((defRes.data ?? []) as { word: string; short_definition: string | null }[])
+          .filter((r) => r.short_definition)
+          .map((r) => [r.word, r.short_definition as string]),
       );
       missing = [];
       for (const it of items) {
         const hit = cached.get(it.word.toLowerCase());
         if (hit) images[it.word] = hit;
-        else missing.push(it);
+        else missing.push(it.definition ? it : { ...it, definition: defs.get(it.word.toLowerCase()) ?? '' });
       }
       console.log(`[sheet] cache hits=${items.length - missing.length} missing=${missing.length}${missing.length ? ` [${missing.map((it) => it.word).join(', ')}]` : ''}`);
     }
@@ -642,10 +704,10 @@ Deno.serve(async (req) => {
     // response. WITHOUT this return, the map-open lookup (all words, up to
     // 40, cachedOnly=true) falls through to PAID generation and builds an
     // oversized grid the model can't lay out (seen live: a 7x7/38-word sheet).
-    // if (cachedOnly) {
-    //   console.log(`[sheet] cachedOnly — responding with ${Object.keys(images).length}/${items.length} images`);
-    //   return jsonResponse(200, { images });
-    // }
+    if (cachedOnly) {
+      console.log(`[sheet] cachedOnly — responding with ${Object.keys(images).length}/${items.length} images`);
+      return jsonResponse(200, { images });
+    }
 
     // Belt and braces: generation never exceeds one SHEET_MAX grid, even if a
     // future caller slips a bigger list past the input slice. Overflow words
@@ -659,21 +721,18 @@ Deno.serve(async (req) => {
       try {
         const { b64 } = await generateDoodleSheet(missing);
         const t0 = Date.now();
-        const cells = await cropDoodleSheet(b64, missing.length);
+        const cells = await cropDoodleSheet(b64, missing.length, missing.map((it) => it.word));
         console.log(`[sheet] cropped ${cells.length} cells ms=${Date.now() - t0} thumbChars=${cells.map((c) => c.length).join(',')}`);
         for (let i = 0; i < missing.length; i++) {
           images[missing[i].word] = cells[i];
           if (svc) {
             const wordKey = missing[i].word.toLowerCase();
-            const { data: updated, error: writeErr } = await svc
-              .from('word_cache')
-              .update({ doodle: cells[i] })
-              .eq('word', wordKey)
-              .select('word');
-            if (writeErr) console.error(`[sheet] cache write error word="${wordKey}": ${writeErr.message}`);
-            else if (!updated || updated.length === 0) {
-              console.warn(`[sheet] cache write matched NO row word="${wordKey}" — no word_cache entry, doodle not persisted`);
-            }
+            // Upsert, not update: the word may have no cache row of its own
+            // yet, and an image we've paid for has to persist regardless.
+            const { error: writeErr } = await svc
+              .from('word_doodles')
+              .upsert({ word: wordKey, doodle: cells[i] }, { onConflict: 'word' });
+            if (writeErr) console.error(`[sheet] doodle write error word="${wordKey}": ${writeErr.message}`);
           }
         }
       } catch (err) {

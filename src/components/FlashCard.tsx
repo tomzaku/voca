@@ -20,6 +20,8 @@ import { BuddyBadge } from './BuddyBadge';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useWordSearch } from '../hooks/useWordSearch';
+import { useWordDoodle } from '../hooks/useWordDoodle';
+import { useIsPro } from '../hooks/useProStatus';
 import { speakText, stopSpeaking, isTtsPlaying, isKokoroSupported } from '../lib/tts';
 import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../hooks/useTtsSettings';
 import { encodeWord, decodeWord } from '../lib/wordCode';
@@ -80,16 +82,6 @@ function highlightAnswer(example: string, answer: string): ReactNode {
   return parts;
 }
 
-// Fetch a few relevant thumbnails from Openverse (Creative-Commons image
-// search, no API key). Several small results give better context for a word's
-// meaning than one large, often-unrelated guess. Returns [] on failure so the
-// UI can simply hide the image area rather than show a random placeholder.
-// Images only help for concrete things — i.e. nouns. For verbs/adjectives/etc.
-// the search returns misleading pictures, so we skip images entirely.
-function isNoun(wordData: VocabularyWord): boolean {
-  return /noun/i.test(wordData.partOfSpeech ?? '');
-}
-
 // Dictionary abbreviations for the part-of-speech chip. The full word is fine on
 // desktop, but on a phone "adjective" alone eats the header row.
 const POS_ABBR: [RegExp, string][] = [
@@ -114,6 +106,20 @@ function abbreviatePos(pos: string): string {
   return hit ? hit[1] : pos.trim().length > 5 ? `${pos.trim().slice(0, 4)}.` : pos.trim();
 }
 
+/** The word's doodle, sitting straight on the card — its white paper is keyed
+ *  out to transparent, and `doodle-ink` flips the ink light on the dark theme
+ *  so it stays legible without a box around it. Sized by the caller: inline in
+ *  the word card once revealed, standalone as a hint while guessing. */
+function WordDoodle({ src, word, className = '' }: { src: string; word: string; className?: string }) {
+  return (
+    <img
+      src={src}
+      alt={`Doodle showing the meaning of ${word}`}
+      className={`shrink-0 object-contain doodle-ink animate-fade-in ${className}`}
+    />
+  );
+}
+
 /** Part-of-speech chip: abbreviated on mobile, spelled out from `sm` up. */
 function PosChip({ pos, className = '' }: { pos: string; className?: string }) {
   return (
@@ -125,24 +131,6 @@ function PosChip({ pos, className = '' }: { pos: string; className?: string }) {
       <span className="hidden sm:inline">{pos}</span>
     </span>
   );
-}
-
-async function fetchImageUrls(wordData: VocabularyWord): Promise<string[]> {
-  const keyword = wordData.imageKeywords?.[0] || wordData.word;
-  try {
-    const res = await fetch(
-      `https://api.openverse.org/v1/images/?q=${encodeURIComponent(keyword)}&page_size=6&mature=false`,
-    );
-    if (res.ok) {
-      const data = await res.json() as { results?: { thumbnail?: string; url?: string }[] };
-      const urls = (data.results ?? [])
-        .map((r) => r.thumbnail || r.url)
-        .filter((u): u is string => Boolean(u))
-        .slice(0, 4);
-      if (urls.length) return urls;
-    }
-  } catch { /* fall through */ }
-  return [];
 }
 
 // Voices cycled through when the pronunciation button is clicked repeatedly
@@ -467,9 +455,10 @@ export function FlashCard() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingExample, setSpeakingExample] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [imagesLoading, setImagesLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const { isPro } = useIsPro();
+  // Drawn in the background — the card never waits for it (see useWordDoodle).
+  const doodle = useWordDoodle(wordData, isPro);
 
   const { game, setGame } = useGuessGame();
   const breakStreak = useGameScore((s) => s.breakStreak);
@@ -521,8 +510,6 @@ export function FlashCard() {
     roundMistakesRef.current = 0;
     setWordData(null);
     setUnknown(null);
-    setImageUrls([]);
-    setImagesLoading(false);
 
     const known = store.knownWords();
     const skipped = store.skippedWords();
@@ -594,8 +581,6 @@ export function FlashCard() {
     roundMistakesRef.current = 0;
     setWordData(null);
     setUnknown(null);
-    setImageUrls([]);
-    setImagesLoading(false);
     setIsGenerating(true);
     try {
       const data = await generateWordData(word, ctrl.signal);
@@ -681,20 +666,6 @@ export function FlashCard() {
     if (!wordData) return;
     speakClicksRef.current = 0; // new word — voice cycle starts over
     setSearchParams({ w: encodeWord(wordData.word) }, { replace: true });
-    setImageUrls([]);
-    // Skip images for non-nouns — the search would return misleading pictures.
-    if (!isNoun(wordData)) {
-      setImagesLoading(false);
-      return;
-    }
-    setImagesLoading(true);
-    let cancelled = false;
-    fetchImageUrls(wordData).then((urls) => {
-      if (cancelled) return;
-      setImageUrls(urls);
-      setImagesLoading(false);
-    });
-    return () => { cancelled = true; };
   }, [wordData, setSearchParams]);
 
   // `via` is the guess game that ended in giving up; the Reveal button (no
@@ -957,30 +928,15 @@ export function FlashCard() {
 
             {/* ── Left column ── */}
             <div className="flex flex-col gap-3 sm:gap-4">
-              {/* Images — a few small visual hints; drops below the game while
-                  guessing so the definition → game flow stays tight on mobile */}
-              {(imagesLoading || imageUrls.length > 0) && (
-                <div className={phase === 'introduce' ? 'order-last lg:order-none' : ''}>
-                  {imagesLoading ? (
-                    <div className="h-24 flex items-center justify-center bg-bg-tertiary rounded-2xl">
-                      <div className="w-8 h-8 rounded-full border-2 border-border border-t-accent-cyan/40 animate-spin" />
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-4 gap-2">
-                      {imageUrls.map((url, i) => (
-                        <div key={`${url}-${i}`} className="relative aspect-square bg-bg-tertiary rounded-xl overflow-hidden">
-                          <img
-                            src={url}
-                            alt={`${wordData.word} visual ${i + 1}`}
-                            loading="lazy"
-                            className="w-full h-full object-cover"
-                            // Drop thumbnails that fail to load so no broken tiles show
-                            onError={() => setImageUrls((prev) => prev.filter((u) => u !== url))}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              {/* While guessing, the doodle is a clue in its own right, so it
+                  stands alone — but below the game on mobile, keeping the
+                  definition → game flow tight. Once the word is revealed it
+                  moves inside the word card instead (see below): one small
+                  sketch doesn't warrant a band of its own. It fades in
+                  whenever it's drawn, with nothing holding space until then. */}
+              {doodle && phase === 'introduce' && (
+                <div className="order-last lg:order-none flex justify-center">
+                  <WordDoodle src={doodle} word={wordData.word} className="w-24 h-24 sm:w-28 sm:h-28" />
                 </div>
               )}
 
@@ -1005,14 +961,26 @@ export function FlashCard() {
                 /* Revealed word card */
                 <div className="card-game border-accent-purple p-6 animate-bounce-in">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
-                        <h1 className="text-2xl sm:text-4xl font-title text-accent-purple tracking-tight drop-shadow-[0_2px_0_var(--btn-lip)] break-words">
-                          {wordData.headword || wordData.word}
-                        </h1>
-                        {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-xs" />}
+                    {/* The doodle sits beside the word, filling space this card
+                        already had spare — rather than pushing the word down
+                        the page from a band of its own. */}
+                    <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+                      {doodle && (
+                        <WordDoodle
+                          src={doodle}
+                          word={wordData.word}
+                          className="w-16 h-16 sm:w-24 sm:h-24"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
+                          <h1 className="text-2xl sm:text-4xl font-title text-accent-purple tracking-tight drop-shadow-[0_2px_0_var(--btn-lip)] break-words">
+                            {wordData.headword || wordData.word}
+                          </h1>
+                          {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-xs" />}
+                        </div>
+                        <PhoneticList wordData={wordData} />
                       </div>
-                      <PhoneticList wordData={wordData} />
                     </div>
                     <button
                       onClick={handleSpeak}
