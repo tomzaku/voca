@@ -31,7 +31,19 @@ Other scripts:
 npm run build      # type-check + production build
 npm run preview    # preview the production build
 npm run lint       # eslint
+npm test           # vitest
 ```
+
+Enable the repo's git hooks once per clone — this bumps the patch version in
+`package.json` on every commit, so each commit is a distinct build (the version
+reaches the app as `__APP_VERSION__`):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Skip the bump for one commit with `SKIP_VERSION_BUMP=1 git commit ...`. Merges,
+rebases, cherry-picks and reverts are skipped automatically.
 
 ## AI setup (server-side key)
 

@@ -1,0 +1,42 @@
+#!/bin/sh
+# Bump the patch version on every commit, so each commit is a distinct build.
+# The version reaches the app through vite's __APP_VERSION__ (see vite.config.ts).
+#
+# Enable in a fresh clone with:   git config core.hooksPath .githooks
+# Skip it for one commit with:    SKIP_VERSION_BUMP=1 git commit ...
+#
+# Deliberately never blocks a commit: if node is missing or the bump fails, the
+# commit goes through unbumped rather than leaving you unable to commit.
+
+set -e
+
+if [ -n "$SKIP_VERSION_BUMP" ]; then
+  exit 0
+fi
+
+# Merges, rebases, cherry-picks and reverts replay or combine existing work —
+# bumping there rewrites the version on commits that already have one, and in a
+# rebase it would fire once per replayed commit.
+git_dir=$(git rev-parse --git-dir)
+if [ -f "$git_dir/MERGE_HEAD" ] || [ -f "$git_dir/CHERRY_PICK_HEAD" ] || [ -f "$git_dir/REVERT_HEAD" ] ||
+   [ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ]; then
+  exit 0
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: node not found — committing without a version bump." >&2
+  exit 0
+fi
+
+version=$(node scripts/bump-version.mjs) || {
+  echo "pre-commit: version bump failed — committing anyway." >&2
+  exit 0
+}
+
+# Only stage what the bump touched. `git add` on an unchanged file is a no-op,
+# so this is safe even if the script decided to skip.
+git add package.json package-lock.json
+
+if [ -n "$version" ]; then
+  echo "pre-commit: version → $version"
+fi
