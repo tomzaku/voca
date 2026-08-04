@@ -153,45 +153,114 @@ export function cellRegions(
   return out;
 }
 
-/**
- * Shrink a cell inward past any ruled lines on its edges. Walks in from each
- * side while the edge reads as a line, so it copes with thick rules, rules a
- * few pixels off the expected boundary, and an outer frame around the whole
- * sheet. Capped at 15% per side: past that we are eating the drawing, and a
- * doodle that solid to its own edge is not one a wider crop would save.
- */
-export function stripRules(
+
+/** Ink pixels per column (or per row) across a region. One pass, and both the
+ *  rule test and the "which side has the drawing" test read off it. */
+function inkProfile(
   bitmap: Uint8ClampedArray,
   imgWidth: number,
   region: Region,
-): Region {
-  const { x, y, w, h } = region;
-  // How long a run of line-like rows/columns is still a rule. Past this it is
-  // the drawing itself — a doodle filling its cell presents an edge that looks
-  // exactly like a rule to a per-cell scan, and trimming it would eat the very
-  // thing we are trying to keep. Rules are thin; drawings are not.
-  const maxRule = Math.max(4, Math.floor(Math.min(region.w, region.h) * 0.08));
-
-  /** Length of the line-like run starting at one edge, or 0 if it is too long
-   *  to be a rule (i.e. it is the doodle). */
-  const runFrom = (start: number, step: number, horizontal: boolean): number => {
-    let run = 0;
-    while (run <= maxRule) {
-      const fixed = start + step * run;
-      const isLine = horizontal
-        ? isRuleLine(bitmap, imgWidth, x, x + w, fixed, true)
-        : isRuleLine(bitmap, imgWidth, y, y + h, fixed, false);
-      if (!isLine) return run;
-      run++;
+  horizontal: boolean,
+): number[] {
+  const lines = horizontal ? region.h : region.w;
+  const span = horizontal ? region.w : region.h;
+  const profile = new Array<number>(lines).fill(0);
+  for (let l = 0; l < lines; l++) {
+    const fixed = (horizontal ? region.y : region.x) + l;
+    let ink = 0;
+    for (let s = 0; s < span; s++) {
+      const v = (horizontal ? region.x : region.y) + s;
+      const px = horizontal ? v : fixed;
+      const py = horizontal ? fixed : v;
+      const i = (py * imgWidth + px) * 4;
+      if (bitmap[i + 3] < 128) continue;
+      if (bitmap[i] >= PAPER_MIN_CHANNEL && bitmap[i + 1] >= PAPER_MIN_CHANNEL && bitmap[i + 2] >= PAPER_MIN_CHANNEL) continue;
+      ink++;
     }
-    return 0; // ran past what a rule can be — leave the edge alone
-  };
+    profile[l] = ink;
+  }
+  return profile;
+}
 
-  const left = runFrom(x, 1, false);
-  const right = runFrom(x + w - 1, -1, false);
-  const top = runFrom(y, 1, true);
-  const bottom = runFrom(y + h - 1, -1, true);
-  return { x: x + left, y: y + top, w: w - left - right, h: h - top - bottom };
+/** Runs of rule lines, thin enough to be a rule rather than the drawing.
+ *  Thinness has to be judged on the WHOLE run, not the first row met — a
+ *  doodle 80 rows deep is not a rule no matter what its first row looks like. */
+function thinBands(isRule: boolean[], maxRule: number): { start: number; end: number }[] {
+  const bands: { start: number; end: number }[] = [];
+  let start = -1;
+  for (let i = 0; i <= isRule.length; i++) {
+    if (i < isRule.length && isRule[i]) {
+      if (start < 0) start = i;
+    } else if (start >= 0) {
+      if (i - start <= maxRule) bands.push({ start, end: i - 1 });
+      start = -1;
+    }
+  }
+  return bands;
+}
+
+/** The stretch between rules holding the most ink — the drawing this cell is
+ *  actually for, as opposed to a neighbour's bleeding in past a line. */
+function bestSegment(profile: number[], bands: { start: number; end: number }[]): { from: number; to: number } {
+  const segments: { from: number; to: number }[] = [];
+  let pos = 0;
+  for (const b of bands) {
+    if (b.start > pos) segments.push({ from: pos, to: b.start - 1 });
+    pos = b.end + 1;
+  }
+  if (pos < profile.length) segments.push({ from: pos, to: profile.length - 1 });
+  if (segments.length === 0) return { from: 0, to: profile.length - 1 };
+  let best = segments[0];
+  let bestInk = -1;
+  for (const s of segments) {
+    let ink = 0;
+    for (let i = s.from; i <= s.to; i++) ink += profile[i];
+    if (ink > bestInk) { bestInk = ink; best = s; }
+  }
+  return best;
+}
+
+/**
+ * Narrow a region to the stretch of clear space that holds its drawing: no
+ * rule line may lie inside it, and no neighbour's ink beyond one.
+ *
+ * This is the backstop for the whole pipeline. Locating the grid can fail —
+ * the model insets its table from the canvas, merges two cells, or omits a
+ * line — and the region then falls back to an even quarter that straddles a
+ * real boundary. The thumbnail comes out with a border and a slice of the next
+ * doodle beyond it. Whatever went wrong upstream, a rule crossing the region
+ * proves the region is too big, so the region is split on its rules and the
+ * busiest piece kept.
+ */
+export function clearRegion(
+  bitmap: Uint8ClampedArray,
+  imgWidth: number,
+  imgHeight: number,
+  region: Region,
+): Region {
+  const maxRule = Math.max(4, Math.floor(Math.min(region.w, region.h) * 0.08));
+  // Rules are judged across the WHOLE sheet, not just this cell. That is what
+  // separates a rule from a doodle that happens to be wide and thin — a long
+  // stroke for a rope or a horizon fills its own cell edge to edge, but stops
+  // there, while a rule carries on across every cell in the row.
+  const isRuleCol: boolean[] = [];
+  for (let i = 0; i < region.w; i++) {
+    isRuleCol.push(isRuleLine(bitmap, imgWidth, 0, imgHeight, region.x + i, false));
+  }
+  const isRuleRow: boolean[] = [];
+  for (let i = 0; i < region.h; i++) {
+    isRuleRow.push(isRuleLine(bitmap, imgWidth, 0, imgWidth, region.y + i, true));
+  }
+  const cols = inkProfile(bitmap, imgWidth, region, false);
+  const rows = inkProfile(bitmap, imgWidth, region, true);
+  const xs = bestSegment(cols, thinBands(isRuleCol, maxRule));
+  const ys = bestSegment(rows, thinBands(isRuleRow, maxRule));
+  return {
+    x: region.x + xs.from,
+    y: region.y + ys.from,
+    w: xs.to - xs.from + 1,
+    h: ys.to - ys.from + 1,
+  };
 }
 
 /**
@@ -246,6 +315,7 @@ export function describeCrop(
 export function fitCrop(
   bitmap: Uint8ClampedArray,
   imgWidth: number,
+  imgHeight: number,
   region: Region,
 ): { x: number; y: number; side: number } {
   // Strip the drawn rules by FINDING them rather than assuming where they are.
@@ -253,14 +323,20 @@ export function fitCrop(
   // quarter boundaries; when they sit a few pixels off, or it frames the whole
   // sheet, a line survives inside the band, gets measured as ink, and the crop
   // maxes out with a border around a too-small doodle.
-  const inner = stripRules(bitmap, imgWidth, region);
-  const maxSide = Math.min(inner.w, inner.h);
+  // Cut to the clear stretch holding this cell's drawing: no rules inside, and
+  // nothing from beyond one. This subsumes trimming rules off the edges.
+  const inner = clearRegion(bitmap, imgWidth, imgHeight, region);
   const box = inkBounds(bitmap, imgWidth, inner.x, inner.y, inner.w, inner.h);
   if (!box) {
     // Blank cell (or a doodle too faint to measure) — fall back to the middle.
-    const side = Math.floor(maxSide * 0.9);
-    return { x: inner.x + Math.floor((inner.w - side) / 2), y: inner.y + Math.floor((inner.h - side) / 2), side };
+    const side = Math.floor(Math.min(inner.w, inner.h) * 0.9);
+    return {
+      x: inner.x + Math.floor((inner.w - side) / 2),
+      y: inner.y + Math.floor((inner.h - side) / 2),
+      side,
+    };
   }
+  const maxSide = Math.min(inner.w, inner.h);
   // Square it around the drawing's centre, with a little air so strokes don't
   // touch the thumbnail's edge.
   const boxW = box.maxX - box.minX + 1;

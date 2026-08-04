@@ -384,7 +384,7 @@ async function cropDoodleSheet(b64: string, n: number, missingWords?: string[]):
   const maxSide = Math.floor(Math.min(img.width / cols, img.height / rows));
   for (let i = 0; i < n; i++) {
     const region = regions[i];
-    const { x, y, side } = fitCrop(bitmap, img.width, region);
+    const { x, y, side } = fitCrop(bitmap, img.width, img.height, region);
     // Per-cell diagnostics: `edges` (darkest pixel on each side of the
     // finished thumbnail) is the one to scan — four numbers near 255 mean the
     // crop came out on clean paper, anything low means a rule got in.

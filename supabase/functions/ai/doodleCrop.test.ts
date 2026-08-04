@@ -7,7 +7,7 @@
 // these tests are how we know it does.
 
 import { describe, expect, it } from 'vitest';
-import { cellRegions, fitCrop, inkBounds, stripRules, type Region } from './doodleCrop.ts';
+import { cellRegions, clearRegion, fitCrop, inkBounds, type Region } from './doodleCrop.ts';
 
 const W = 1024, H = 1024, COLS = 4, ROWS = 4, CW = W / COLS, CH = H / ROWS;
 
@@ -131,7 +131,7 @@ const fillRatio = (crop: { side: number }, doodle: Rect) =>
 /** The real pipeline for one cell: locate the grid, then fit the crop. */
 function cropCell(b: Uint8ClampedArray, i: number, cols = COLS, rows = ROWS) {
   const region = cellRegions(b, W, H, cols, rows)[i];
-  return { crop: fitCrop(b, W, region), region };
+  return { crop: fitCrop(b, W, H, region), region };
 }
 
 describe('inkBounds', () => {
@@ -158,11 +158,11 @@ describe('inkBounds', () => {
   });
 });
 
-describe('stripRules', () => {
+describe('clearRegion', () => {
   it('trims thin rules off every edge', () => {
     const b = blankSheet();
     drawRules(b, { thickness: 2 });
-    const inner = stripRules(b, W, cellRegion(5));
+    const inner = clearRegion(b, W, H, cellRegion(5));
     expect(inner.x).toBeGreaterThan(cellRegion(5).x);
     expect(inner.w).toBeLessThan(CW);
   });
@@ -171,26 +171,42 @@ describe('stripRules', () => {
     const b = blankSheet();
     const rules = drawRules(b, { thickness: 12 });
     const region = cellRegion(5);
-    const inner = stripRules(b, W, region);
+    const inner = clearRegion(b, W, H, region);
     const innerRect = { x: inner.x, y: inner.y, w: inner.w, h: inner.h };
     for (const rule of rules) expect(overlaps(innerRect, rule)).toBe(false);
   });
 
   it('trims a leftover sliver of rule at the region edge', () => {
-    // Locating the grid leaves at most a pixel or two of rule when the line
-    // fades out; the stripper is the second line of defence for that.
+    // Locating the grid can leave a pixel or two behind where a line fades;
+    // this is the second line of defence. The sliver runs the height of the
+    // SHEET, as a real rule does — that is what marks it as a rule rather than
+    // part of a drawing.
     const b = blankSheet();
     const region = cellRegion(5);
-    const sliver = { x: region.x, y: region.y, w: 3, h: region.h };
+    const sliver = { x: region.x, y: 0, w: 3, h: H };
     fill(b, sliver, RULE_DARK);
-    const inner = stripRules(b, W, region);
+    fill(b, doodleIn(5, 0.6), INK);
+    const inner = clearRegion(b, W, H, region);
     expect(overlaps({ x: inner.x, y: inner.y, w: inner.w, h: inner.h }, sliver)).toBe(false);
+  });
+
+  it('keeps a long thin doodle stroke that only spans its own cell', () => {
+    // A rope, a horizon, a cable: wide and thin enough to look exactly like a
+    // rule inside one cell. It stops at the cell edge; a rule never does.
+    const b = blankSheet();
+    drawRules(b);
+    const region = cellRegions(b, W, H, COLS, ROWS)[5];
+    const stroke = { x: region.x + 12, y: region.y + 120, w: region.w - 24, h: 12 };
+    fill(b, stroke, INK);
+    const inner = clearRegion(b, W, H, region);
+    expect(inner.y).toBeLessThanOrEqual(stroke.y);
+    expect(inner.y + inner.h).toBeGreaterThanOrEqual(stroke.y + stroke.h);
   });
 
   it('leaves a clean cell alone', () => {
     const b = blankSheet();
     const region = cellRegion(5);
-    const inner = stripRules(b, W, region);
+    const inner = clearRegion(b, W, H, region);
     expect(inner).toEqual(region);
   });
 
@@ -200,7 +216,7 @@ describe('stripRules', () => {
     // A "cable"-ish doodle: one long stroke spanning most of the cell.
     const stroke = { x: cellRegion(5).x + 20, y: cellRegion(5).y + 120, w: CW - 40, h: 14 };
     fill(b, stroke, INK);
-    const inner = stripRules(b, W, cellRegion(5));
+    const inner = clearRegion(b, W, H, cellRegion(5));
     expect(inner.y).toBeLessThan(stroke.y);
     expect(inner.y + inner.h).toBeGreaterThan(stroke.y + stroke.h);
   });
@@ -343,7 +359,7 @@ describe('fitCrop', () => {
     // Cell 0 is the one with the frame on two of its edges.
     const doodle = doodleIn(0, 0.6);
     fill(b, doodle, INK);
-    expectGoodCrop(fitCrop(b, W, cellRegion(0)), cellRegion(0), [...rules, ...frame], doodle);
+    expectGoodCrop(fitCrop(b, W, H, cellRegion(0)), cellRegion(0), [...rules, ...frame], doodle);
   });
 
   it('works in every cell of the grid, including the corners', () => {
@@ -380,6 +396,57 @@ describe('fitCrop', () => {
     expectGoodCrop(crop, region, rules, doodle);
   });
 
+  it('cuts at the rule when the region straddles two cells', () => {
+    // What a failed grid detection looks like: the region is an even quarter
+    // but the real cells sit elsewhere, so the region contains a rule with a
+    // neighbouring doodle beyond it. Seen live as a bordered thumbnail with a
+    // slice of the next drawing showing at one edge.
+    const b = blankSheet();
+    const rules = drawSoftRules(b);
+    const mine = { x: 300, y: 300, w: 140, h: 140 };
+    const neighbour = { x: 530, y: 300, w: 140, h: 140 };
+    fill(b, mine, INK);
+    fill(b, neighbour, ORANGE);
+    // Deliberately wrong region: spans the rule at x=512 into the next cell.
+    const straddling: Region = { x: 290, y: 290, w: 380, h: 240 };
+    const crop = fitCrop(b, W, H, straddling);
+    const cropBox = { x: crop.x, y: crop.y, w: crop.side, h: crop.side };
+    for (const rule of rules) expect(overlaps(cropBox, rule)).toBe(false);
+    expect(overlaps(cropBox, neighbour)).toBe(false);
+    // And it kept the drawing it was actually for.
+    expect(crop.x).toBeLessThanOrEqual(mine.x);
+    expect(crop.x + crop.side).toBeGreaterThanOrEqual(mine.x + mine.w);
+  });
+
+  it('never lets a rule into the thumbnail, whatever the grid did', () => {
+    // A sheet whose table is inset from the canvas, so even division is wrong
+    // for every cell — the crop still has to come out clean.
+    const b = blankSheet();
+    const margin = 40;
+    const inner = W - margin * 2;
+    const step = inner / COLS;
+    const rules: Rect[] = [];
+    for (let i = 0; i <= COLS; i++) {
+      rules.push({ x: Math.round(margin + i * step), y: margin, w: 3, h: inner });
+      rules.push({ x: margin, y: Math.round(margin + i * step), w: inner, h: 3 });
+    }
+    for (const r of rules) fill(b, r, RULE_DARK);
+    for (let i = 0; i < COLS * ROWS; i++) {
+      const c = i % COLS, r = Math.floor(i / COLS);
+      const s = Math.round(step * 0.55);
+      fill(b, {
+        x: Math.round(margin + c * step + (step - s) / 2),
+        y: Math.round(margin + r * step + (step - s) / 2),
+        w: s, h: s,
+      }, INK);
+    }
+    for (let i = 0; i < COLS * ROWS; i++) {
+      const { crop } = cropCell(b, i);
+      const cropBox = { x: crop.x, y: crop.y, w: crop.side, h: crop.side };
+      for (const rule of rules) expect(overlaps(cropBox, rule)).toBe(false);
+    }
+  });
+
   it('falls back inside the cell when it is blank', () => {
     const b = blankSheet();
     const rules = drawRules(b);
@@ -394,7 +461,7 @@ describe('fitCrop', () => {
     const doodle = { x: 380, y: 400, w: 260, h: 240 };
     fill(b, doodle, INK);
     const whole: Region = { x: 0, y: 0, w: W, h: H };
-    const crop = fitCrop(b, W, whole);
+    const crop = fitCrop(b, W, H, whole);
     expectGoodCrop(crop, whole, [], doodle);
     expect(fillRatio(crop, doodle)).toBeGreaterThan(0.8);
   });
