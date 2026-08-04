@@ -156,6 +156,18 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
     setTimeout(() => onSolved(activeGame), 1150);
   };
 
+  // A wrong answer that ends the round (multiple choice, letters) or a give-up.
+  // The word is read aloud here too — hearing it right after getting it wrong is
+  // when the correction sticks — then the parent reveals the card.
+  const fail = () => {
+    onMistake?.();
+    playWrong();
+    setResult('wrong');
+    stopSpeaking();
+    setTimeout(() => speakText(word), 250);
+    setTimeout(() => onGaveUp(activeGame), 1150);
+  };
+
   return (
     <div className="relative overflow-hidden card-game border-accent-cyan animate-glow-pulse">
       {/* Top accent strip */}
@@ -258,13 +270,13 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
         </div>
 
         {activeGame === 'letters' && (
-          <LettersGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
+          <LettersGame key={word} word={word} disabled={result !== null} onSolve={solve} onGaveUp={fail} />
         )}
         {activeGame === 'scramble' && (
           <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
         )}
         {activeGame === 'choice' && (
-          <ChoiceGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onGaveUp={() => { onMistake?.(); onGaveUp(activeGame); }} />
+          <ChoiceGame key={word} word={word} disabled={result !== null} onSolve={solve} onGaveUp={fail} />
         )}
         {activeGame === 'hangman' && (
           <HangmanGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
@@ -285,7 +297,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
             disabled={result === 'correct'}
             onSolve={solve}
             onWrong={miss}
-            onGaveUp={() => { onMistake?.(); onGaveUp(activeGame); }}
+            onGaveUp={fail}
           />
         )}
       </div>
@@ -310,36 +322,44 @@ interface GameProps {
 }
 
 // ─── Game 1 · Letters ───────────────────────────────────────────────
-function LettersGame({ word, disabled, onSolve, onWrong }: GameProps) {
+function LettersGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
   const [guess, setGuess] = useState('');
   const [wrong, setWrong] = useState(false);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   const check = () => {
-    if (!guess.trim() || disabled) return;
+    if (!guess.trim() || disabled || wrong) return;
     if (guess.trim().toLowerCase() === word.toLowerCase()) {
       onSolve();
     } else {
+      // One wrong guess ends the round — retrying a typed word until it happens
+      // to fit teaches nothing. The full spelling fills in below (and is read
+      // aloud) while the parent reveals the card.
       setWrong(true);
-      onWrong?.();
-      setTimeout(() => {
-        setWrong(false);
-        setGuess('');
-        inputRef.current?.focus();
-      }, 700);
+      onGaveUp?.();
     }
   };
 
   return (
     <>
-      {/* Letter boxes — first and last shown, click to reveal more */}
+      {/* Letter boxes — first and last shown, click to reveal more. A wrong
+          guess fills in the whole word so the answer is seen straight away. */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {word.split('').map((char, i) => {
-          const shown = i === 0 || i === word.length - 1 || revealed.has(i);
+          const known = i === 0 || i === word.length - 1 || revealed.has(i);
+          const shown = known || wrong;
           const canReveal = !shown && !disabled;
           return shown ? (
-            <span key={i} style={{ animationDelay: `${i * 45}ms` }} className={`${boxBase} border-accent-cyan bg-accent-cyan/10 text-accent-cyan`}>
+            <span
+              key={i}
+              style={{ animationDelay: `${i * 45}ms` }}
+              className={`${boxBase} ${
+                wrong && !known
+                  ? 'border-accent-red bg-accent-red/10 text-accent-red'
+                  : 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan'
+              }`}
+            >
               {char}
             </span>
           ) : (
@@ -361,10 +381,11 @@ function LettersGame({ word, disabled, onSolve, onWrong }: GameProps) {
         inputRef={inputRef}
         value={guess}
         wrong={wrong}
-        disabled={disabled}
+        disabled={disabled || wrong}
         onChange={setGuess}
         onSubmit={check}
       />
+      <p className="text-xs text-text-muted -mt-2">You get one guess — type the whole word.</p>
     </>
   );
 }
@@ -491,11 +512,11 @@ function ChoiceGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
       onSolve();
     } else {
       // One wrong pick ends the round — no reselecting. Show the mistake and the
-      // correct answer briefly, then reveal (counts as a miss).
-      playWrong();
+      // correct answer; the parent plays the miss, reads the word aloud and
+      // reveals the card (counts as a miss).
       setWrongPick(opt);
       setLocked(true);
-      setTimeout(() => onGaveUp?.(), 850);
+      onGaveUp?.();
     }
   };
 
