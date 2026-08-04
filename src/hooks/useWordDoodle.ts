@@ -3,7 +3,7 @@
 //
 // Three tiers, cheapest first:
 //   1. localStorage — instant, no network, no cost.
-//   2. One batched server lookup (`cachedOnly`) — free, never generates.
+//   2. One batched lookup against the shared cache — free, never generates.
 //   3. Generation — draws every uncached word in the batch as ONE sheet.
 //
 // Tier 3 always carries the words coming up next, so it fires roughly once
@@ -76,8 +76,9 @@ export function useWordDoodle(
     let cancelled = false;
     void (async () => {
       try {
-        // Tier 2: free, so it's worth asking about the queued words too.
-        const cached = await fetchDoodles(loaded, { cachedOnly: true });
+        // Tier 2: a plain lookup, free, so it's worth asking about the queued
+        // words too.
+        const cached = await fetchDoodles(loaded);
         if (cancelled) return;
         if (cached[key]) {
           setDoodle(cached[key]);
@@ -108,7 +109,7 @@ export function useWordDoodle(
             const drawn = await fetchDoodles([
               ...loaded,
               ...upcoming.filter((p) => undrawn(p.word)).map((p) => ({ word: p.word })),
-            ]);
+            ], { generate: true });
             if (!drawn[key]) missed.add(key);
             // A late arrival is dropped on purpose — the user has moved on, and
             // it's cached now, so it's there next time the word comes up.

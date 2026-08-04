@@ -1,14 +1,18 @@
-// Shared doodle cache. A doodle is a small hand-drawn sketch of a word's
-// meaning, generated 16-to-a-SHEET server-side (`mindmap_doodle_sheet`) and
-// cropped apart — one generated image costs the same whatever it contains, so
-// batching is what makes doodles affordable (~$0.0025/word instead of ~$0.04).
+// Doodles: the small hand-drawn sketch of a word's meaning shown on flash
+// cards and the Pro mind map. Fetched from the `doodles` edge function, which
+// serves the shared cache and — only when asked — draws what is missing,
+// 16 words to a SHEET. One generated image costs the same whatever it holds,
+// so batching is what makes doodles affordable (~$0.0025/word, not ~$0.04).
 //
 // Doodles are cached per WORD, not per feature, in localStorage AND in the
 // server's shared `word_doodles` table. So a word sketched on the mind map
 // shows up instantly on its flash card, and vice versa — for every user, not
 // just the one who paid for it. Nothing is ever drawn twice.
 
-import { callAiDoodleSheet } from './aiProviders';
+import { supabase } from './supabase';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const DOODLE_SIZE = 192; // thumbnail px — crisp at the ~126px display box on retina
 export const DOODLE_SHEET_SIZE = 16; // words per generated sheet — keep in sync with SHEET_MAX server-side
@@ -152,19 +156,50 @@ export function writeLocalDoodle(key: string, thumb: string): void {
 }
 
 /**
- * Fetch doodles for a batch of words and cache them locally. Returns
- * `doodleKey(word)` → thumbnail data URI; words with no doodle are absent.
+ * Ask the `doodles` function for a batch of words. Returns the raw images it
+ * had (or drew), keyed by the word AS SENT.
  *
- * `cachedOnly` is the free path: the server only reads its shared cache and
- * never generates. Without it the server draws the missing words as ONE sheet,
- * which is why callers should always pass the words coming up next, not just
- * the one on screen — the rest of the sheet is free either way.
+ * Looking up is free and is the default. `generate` is the paid path — it
+ * draws the words with no doodle yet, up to one sheet, and needs Pro. Callers
+ * should send everything they might want soon rather than just the word on
+ * screen: the rest of the sheet costs nothing either way.
+ */
+export async function callDoodles(
+  words: { word: string; definition?: string }[],
+  opts: { generate?: boolean; signal?: AbortSignal } = {},
+): Promise<Record<string, string>> {
+  if (!supabase) throw new Error('Supabase is not configured.');
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Please sign in to see doodles.');
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/doodles`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ words, generate: opts.generate === true }),
+    signal: opts.signal,
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(data?.error || `Doodle request failed (${response.status}).`);
+  }
+  return (data?.images as Record<string, string> | undefined) ?? {};
+}
+
+/**
+ * Doodles for a batch of words, shrunk to thumbnails and cached locally.
+ * Returns `doodleKey(word)` → data URI; words with no doodle are absent.
  */
 export async function fetchDoodles(
   items: { word: string; definition?: string }[],
-  opts: { cachedOnly?: boolean; signal?: AbortSignal } = {},
+  opts: { generate?: boolean; signal?: AbortSignal } = {},
 ): Promise<Record<string, string>> {
-  const images = await callAiDoodleSheet(items, opts);
+  const images = await callDoodles(items, opts);
   const out: Record<string, string> = {};
   for (const [word, dataUri] of Object.entries(images)) {
     const key = doodleKey(word);

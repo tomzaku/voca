@@ -13,7 +13,7 @@
 // "Redraw" forces a fresh map.
 //
 // Each word also gets a small hand-drawn doodle image hinting at its meaning
-// (the `mindmap_doodle_sheet` action → Gemini image model → base64 data URI,
+// (the `doodles` edge function → Gemini image model → base64 data URI,
 // 16 words per generated image). Doodles are downscaled to thumbnails in a
 // canvas and cached in localStorage PER WORD (independent of the map), so a
 // doodle is only ever generated once — redrawing the map reuses them. The
@@ -24,9 +24,10 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import './wordMindMap.css';
-import { callAiAction, callAiDoodleSheet } from '../lib/aiProviders';
+import { callAiAction } from '../lib/aiProviders';
 import {
   DOODLE_SHEET_SIZE as SHEET_SIZE,
+  callDoodles,
   doodleKey,
   readLegacyDoodle,
   readLocalDoodle,
@@ -720,17 +721,16 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
     if (missing.length === 0) return;
 
     // Pull server-cached doodles in ONE batched request (a free lookup —
-    // cachedOnly never generates). Misses become the sketchable set.
+    // a plain lookup never generates). Misses become the sketchable set.
     void (async () => {
       let images: Record<string, string> = {};
       try {
-        images = await callAiDoodleSheet(
+        images = await callDoodles(
           missing.map((w) => ({ word: w.topic, definition: w.definition })),
-          { cachedOnly: true },
         );
       } catch (err) {
         // Lookup failed (e.g. offline) — everything stays sketchable.
-        console.warn(`[mindmap] cachedOnly batch lookup failed: ${(err as Error).message}`);
+        console.warn(`[mindmap] doodle lookup failed: ${(err as Error).message}`);
       }
       if (cancelled) return;
 
@@ -789,8 +789,9 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
         if (!aliveRef.current) return;
         try {
           console.log(`[mindmap] sketching sheet of ${sheet.length}: [${sheet.map((w) => w.topic).join(', ')}]`);
-          const images = await callAiDoodleSheet(
+          const images = await callDoodles(
             sheet.map((w) => ({ word: w.topic, definition: w.definition })),
+            { generate: true }, // the Sketch button — the one path that spends money
           );
           console.log(`[mindmap] sheet returned ${Object.keys(images).length}/${sheet.length} images`);
           for (const w of sheet) {

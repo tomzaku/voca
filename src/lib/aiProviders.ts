@@ -59,20 +59,3 @@ export async function callAiAction(
   const data = await postAi(action, params, opts.signal);
   return (data.text as string) || 'No response received.';
 }
-
-/** Pro mind map: doodles for several words drawn as ONE generated image and
- *  cropped server-side — ~16x cheaper per word than one image each. Returns
- *  word (as sent) → data URI; words without a doodle are absent. With
- *  `cachedOnly` the server only reads its shared cache (up to 40 words, one
- *  free batch lookup, never generates). */
-export async function callAiDoodleSheet(
-  items: { word: string; definition?: string }[],
-  opts: { signal?: AbortSignal; cachedOnly?: boolean } = {},
-): Promise<Record<string, string>> {
-  const data = await postAi(
-    'mindmap_doodle_sheet',
-    { words: items, cachedOnly: opts.cachedOnly === true },
-    opts.signal,
-  );
-  return (data.images as Record<string, string> | undefined) ?? {};
-}
