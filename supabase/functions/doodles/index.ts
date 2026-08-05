@@ -40,7 +40,7 @@ import {
   underRateLimit,
 } from '../_shared/ai.ts';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
-import { cellRegions, describeCrop, fitCrop } from './doodleCrop.ts';
+import { cellRegions, cropFault, describeCrop, fitCrop } from './doodleCrop.ts';
 import { cellSubject } from './prompt.ts';
 
 type Auth = NonNullable<Awaited<ReturnType<typeof requireUser>>>;
@@ -255,9 +255,13 @@ function encodeBase64Png(png: Uint8Array): string {
  * every doodle lands centered and the same apparent size in its thumbnail
  * whether the model drew it small, large, or off to one side.
  *
- * Always SHEET_MAX cells, in the order the words were sent.
+ * Always SHEET_MAX cells, in the order the words were sent. A cell whose crop
+ * can't be trusted comes back null rather than as a picture: it isn't sent to
+ * the caller and isn't saved, and the word gets drawn again on a later sheet.
+ * Null for the whole sheet means the model didn't draw the grid it was asked
+ * for, so no cell on it can be located — see `cellRegions`.
  */
-async function cropDoodleSheet(b64: string, words: string[]): Promise<string[]> {
+async function cropDoodleSheet(b64: string, words: string[]): Promise<(string | null)[] | null> {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -266,17 +270,39 @@ async function cropDoodleSheet(b64: string, words: string[]): Promise<string[]> 
   const cols = SHEET_COLS;
   const rows = SHEET_COLS;
   // Cells are located from the drawn rules, not assumed to be even quarters.
-  const regions = cellRegions(bitmap, img.width, img.height, cols, rows);
-  const out: string[] = [];
-  const fitted: string[] = [];
+  const { regions, grid } = cellRegions(bitmap, img.width, img.height, cols, rows);
   const maxSide = Math.floor(Math.min(img.width / cols, img.height / rows));
+  if (grid === 'mismatch') {
+    // The model drew a grid, just not this one. Every cell would be cut on a
+    // boundary that isn't there — the "20 magnified pixels" thumbnails.
+    console.error(
+      `[sheet] the ${img.width}x${img.height} sheet does not hold the ${cols}x${rows} grid it was asked for — discarding it rather than cutting ${words.length} cells on boundaries that aren't there`,
+    );
+    return null;
+  }
+  if (grid === 'ungridded') {
+    // No rules at all: even division is a fair guess, because there are no
+    // lines between the doodles for a crop to cut into. Worth knowing about
+    // though — it means the prompt's grid instruction was ignored.
+    console.warn(`[sheet] no rules found — falling back to even ${cols}x${rows} division`);
+  }
+  const out: (string | null)[] = [];
+  const fitted: string[] = [];
   for (let i = 0; i < words.length; i++) {
     const region = regions[i];
     const { x, y, side } = fitCrop(bitmap, img.width, img.height, region);
+    const fault = cropFault(region, { x, y, side });
     // Per-cell diagnostics: `edges` (darkest pixel on each side of the
     // finished thumbnail) is the one to scan — four numbers near 255 mean the
     // crop came out on clean paper, anything low means a rule got in.
-    fitted.push(`  #${i} ${words[i]} ${describeCrop(bitmap, img.width, region, { x, y, side })}`);
+    fitted.push(
+      `  #${i} ${words[i]} ${describeCrop(bitmap, img.width, region, { x, y, side })}` +
+      (fault ? ` REJECTED (${fault})` : ''),
+    );
+    if (fault) {
+      out.push(null);
+      continue;
+    }
     const cell = img.clone().crop(x, y, side, side);
     cell.resize(DOODLE_THUMB, DOODLE_THUMB);
     out.push(`data:image/png;base64,${encodeBase64Png(await cell.encode())}`);
@@ -453,20 +479,31 @@ Deno.serve(async (req) => {
       const { b64 } = await generateDoodleSheet(sheet);
       const t0 = Date.now();
       const cells = await cropDoodleSheet(b64, sheet.map((it) => it.word));
-      console.log(`[sheet] cropped ${cells.length} cells ms=${Date.now() - t0} thumbChars=${cells.map((c) => c.length).join(',')}`);
-      for (let i = 0; i < sheet.length; i++) {
-        // Only the words that were asked for go back — a filler's thumbnail is
-        // tens of KB the caller has no use for. It's saved below all the same,
-        // which is the whole point of drawing it.
-        if (i < missing.length) images[sheet[i].word] = cells[i];
-        if (svc) {
-          const wordKey = sheet[i].word.toLowerCase();
-          // Upsert, not update: the word may have no cache row of its own
-          // yet, and an image we've paid for has to persist regardless.
-          const { error: writeErr } = await svc
-            .from('word_doodles')
-            .upsert({ word: wordKey, doodle: cells[i] }, { onConflict: 'word' });
-          if (writeErr) console.error(`[sheet] doodle write error word="${wordKey}": ${writeErr.message}`);
+      // A sheet the crop can't read is dropped whole. Saving it would put a
+      // mis-cut thumbnail in front of every learner who meets those words from
+      // now on, and the stored cell can't be re-cut later — only the sheet
+      // could be, and we don't keep it. A word with no picture costs nothing.
+      if (!cells) {
+        console.warn(`[sheet] discarded — ${sheet.length} words go back undrawn`);
+      } else {
+        const kept = cells.filter(Boolean).length;
+        console.log(`[sheet] cropped ${kept}/${cells.length} cells ms=${Date.now() - t0} thumbChars=${cells.map((c) => c?.length ?? 0).join(',')}`);
+        for (let i = 0; i < sheet.length; i++) {
+          const cell = cells[i];
+          if (!cell) continue; // rejected crop — not shown, not stored
+          // Only the words that were asked for go back — a filler's thumbnail is
+          // tens of KB the caller has no use for. It's saved below all the same,
+          // which is the whole point of drawing it.
+          if (i < missing.length) images[sheet[i].word] = cell;
+          if (svc) {
+            const wordKey = sheet[i].word.toLowerCase();
+            // Upsert, not update: the word may have no cache row of its own
+            // yet, and an image we've paid for has to persist regardless.
+            const { error: writeErr } = await svc
+              .from('word_doodles')
+              .upsert({ word: wordKey, doodle: cell }, { onConflict: 'word' });
+            if (writeErr) console.error(`[sheet] doodle write error word="${wordKey}": ${writeErr.message}`);
+          }
         }
       }
     } catch (err) {

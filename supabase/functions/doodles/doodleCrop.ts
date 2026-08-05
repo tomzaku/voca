@@ -127,8 +127,23 @@ function spansBetween(
  * cells came out slightly uneven, even division cuts across the rules — which
  * is how a thumbnail ends up with a border down one side and its neighbour's
  * ink in the corner. So the rules are located first and the cells read off the
- * gaps between them. If that doesn't yield the expected grid (no rules drawn,
- * or a doodle confusing the scan), it falls back to even division.
+ * gaps between them.
+ *
+ * `grid` says how much to trust the result, which the caller needs because a
+ * thumbnail is stored forever and the sheet it was cut from is not:
+ *
+ *   'detected'  — the sheet holds the cols x rows grid it was asked for and the
+ *                 regions were read off the drawn rules.
+ *   'ungridded' — no rules anywhere. The regions are even division: still a
+ *                 sound guess, since with nothing drawn between the doodles
+ *                 there is no line for a crop to cut into.
+ *   'mismatch'  — rules were found, but not that grid (3 columns where 4 were
+ *                 asked for, a merged pair of cells, an omitted line). Even
+ *                 division is then wrong for EVERY cell: each quarter straddles
+ *                 a real boundary, `clearRegion` keeps whichever fragment holds
+ *                 the most ink, and the thumbnail comes out as a piece of one
+ *                 stroke magnified. Nothing cut from such a sheet is worth
+ *                 keeping.
  */
 export function cellRegions(
   bitmap: Uint8ClampedArray,
@@ -136,21 +151,48 @@ export function cellRegions(
   imgHeight: number,
   cols: number,
   rows: number,
-): Region[] {
+): { regions: Region[]; grid: 'detected' | 'ungridded' | 'mismatch' } {
   const xs = spansBetween(ruleBands(bitmap, imgWidth, imgHeight, false), imgWidth, cols);
   const ys = spansBetween(ruleBands(bitmap, imgWidth, imgHeight, true), imgHeight, rows);
   const cw = Math.floor(imgWidth / cols);
   const ch = Math.floor(imgHeight / rows);
   const detected = xs.length === cols && ys.length === rows;
-  const out: Region[] = [];
+  // One span each way is a blank sheet as far as rules go: the scan found
+  // nothing to divide on, not a grid of the wrong shape.
+  const grid = detected ? 'detected' : xs.length <= 1 && ys.length <= 1 ? 'ungridded' : 'mismatch';
+  const regions: Region[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      out.push(detected
+      regions.push(detected
         ? { x: xs[c].from, y: ys[r].from, w: xs[c].to - xs[c].from + 1, h: ys[r].to - ys[r].from + 1 }
         : { x: c * cw, y: r * ch, w: cw, h: ch });
     }
   }
-  return out;
+  return { regions, grid };
+}
+
+// A crop this much smaller than its cell is not a doodle drawn small — it's a
+// fragment. The model is asked for ~70% of the cell and the crop is fitted to
+// the ink with 12% air, so anything under a third of the cell means the region
+// collapsed onto a piece of one stroke. It's also the quality floor: a 192px
+// thumbnail from a 70px crop is already a 2.7x upscale, and the visible result
+// is a handful of enormous pixels.
+const MIN_CROP_FRACTION = 0.3;
+
+/**
+ * Why this crop can't be used, or null if it's fine. The reason is for the
+ * function logs — a rejected cell is simply not saved, and the word gets drawn
+ * again on a later sheet.
+ */
+export function cropFault(
+  region: Region,
+  crop: { x: number; y: number; side: number },
+): string | null {
+  const cell = Math.min(region.w, region.h);
+  if (crop.side < cell * MIN_CROP_FRACTION) {
+    return `crop ${crop.side}px is under ${Math.round(MIN_CROP_FRACTION * 100)}% of the ${cell}px cell`;
+  }
+  return null;
 }
 
 

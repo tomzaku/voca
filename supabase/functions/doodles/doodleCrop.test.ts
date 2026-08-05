@@ -7,7 +7,7 @@
 // these tests are how we know it does.
 
 import { describe, expect, it } from 'vitest';
-import { cellRegions, clearRegion, fitCrop, inkBounds, type Region } from './doodleCrop.ts';
+import { cellRegions, clearRegion, cropFault, fitCrop, inkBounds, type Region } from './doodleCrop.ts';
 
 const W = 1024, H = 1024, COLS = 4, ROWS = 4, CW = W / COLS, CH = H / ROWS;
 
@@ -130,7 +130,7 @@ const fillRatio = (crop: { side: number }, doodle: Rect) =>
 
 /** The real pipeline for one cell: locate the grid, then fit the crop. */
 function cropCell(b: Uint8ClampedArray, i: number, cols = COLS, rows = ROWS) {
-  const region = cellRegions(b, W, H, cols, rows)[i];
+  const region = cellRegions(b, W, H, cols, rows).regions[i];
   return { crop: fitCrop(b, W, H, region), region };
 }
 
@@ -195,7 +195,7 @@ describe('clearRegion', () => {
     // rule inside one cell. It stops at the cell edge; a rule never does.
     const b = blankSheet();
     drawRules(b);
-    const region = cellRegions(b, W, H, COLS, ROWS)[5];
+    const region = cellRegions(b, W, H, COLS, ROWS).regions[5];
     const stroke = { x: region.x + 12, y: region.y + 120, w: region.w - 24, h: 12 };
     fill(b, stroke, INK);
     const inner = clearRegion(b, W, H, region);
@@ -226,7 +226,7 @@ describe('cellRegions', () => {
   it('reads the cells off the drawn rules', () => {
     const b = blankSheet();
     drawRules(b, { thickness: 2 });
-    const regions = cellRegions(b, W, H, COLS, ROWS);
+    const { regions } = cellRegions(b, W, H, COLS, ROWS);
     expect(regions).toHaveLength(16);
     // Each region sits between rules, so it starts just after one.
     expect(regions[0].x).toBeGreaterThanOrEqual(2);
@@ -236,7 +236,7 @@ describe('cellRegions', () => {
   it('follows a grid the model drew off the exact boundary', () => {
     const b = blankSheet();
     const rules = drawRules(b, { thickness: 3, offset: 14 });
-    const regions = cellRegions(b, W, H, COLS, ROWS);
+    const { regions } = cellRegions(b, W, H, COLS, ROWS);
     for (const region of regions) {
       const rect = { x: region.x, y: region.y, w: region.w, h: region.h };
       for (const rule of rules) expect(overlaps(rect, rule)).toBe(false);
@@ -251,7 +251,7 @@ describe('cellRegions', () => {
     for (const x of xs) rules.push({ x, y: 0, w: 4, h: H });
     for (let r = 0; r <= ROWS; r++) rules.push({ x: 0, y: Math.min(H - 4, r * CH), w: W, h: 4 });
     for (const r of rules) fill(b, r, RULE_DARK);
-    const regions = cellRegions(b, W, H, COLS, ROWS);
+    const { regions } = cellRegions(b, W, H, COLS, ROWS);
     expect(regions[0].w).toBeCloseTo(196, -1);
     expect(regions[1].w).toBeCloseTo(296, -1);
     for (const region of regions) {
@@ -260,16 +260,63 @@ describe('cellRegions', () => {
     }
   });
 
-  it('falls back to even division when no grid was drawn', () => {
-    const regions = cellRegions(blankSheet(), W, H, COLS, ROWS);
+  it('falls back to even division when no grid was drawn, and says so', () => {
+    const { regions, grid } = cellRegions(blankSheet(), W, H, COLS, ROWS);
     expect(regions[0]).toEqual({ x: 0, y: 0, w: CW, h: CH });
     expect(regions[5]).toEqual({ x: CW, y: CH, w: CW, h: CH });
+    // Usable: with no rules drawn there is no line for a crop to cut into.
+    expect(grid).toBe('ungridded');
+  });
+
+  it('reports a grid that is not the one we asked for', () => {
+    // Live failure: asked for 4x4, the model drew 3x3. Every even quarter then
+    // straddles a real rule, clearRegion keeps whichever fragment holds most
+    // ink, and the thumbnail is a piece of one stroke blown up to 192px. This
+    // is the sheet that has to be thrown away, so it must not read the same as
+    // a sheet with no rules at all.
+    const b = blankSheet();
+    for (let i = 0; i <= 3; i++) {
+      fill(b, { x: Math.min(W - 3, Math.round(i * (W / 3))), y: 0, w: 3, h: H }, RULE_DARK);
+      fill(b, { x: 0, y: Math.min(H - 3, Math.round(i * (H / 3))), w: W, h: 3 }, RULE_DARK);
+    }
+    expect(cellRegions(b, W, H, COLS, ROWS).grid).toBe('mismatch');
+  });
+
+  it('reports a mismatch when one line of the grid is missing', () => {
+    // The commoner near-miss: a 4x4 with one internal rule left out, so two
+    // cells read as one wide one.
+    const b = blankSheet();
+    for (let i = 0; i <= COLS; i++) {
+      if (i !== 2) fill(b, { x: Math.min(W - 3, i * CW), y: 0, w: 3, h: H }, RULE_DARK);
+      fill(b, { x: 0, y: Math.min(H - 3, i * CH), w: W, h: 3 }, RULE_DARK);
+    }
+    expect(cellRegions(b, W, H, COLS, ROWS).grid).toBe('mismatch');
+  });
+
+  it('confirms the grid when the model drew what it was asked for', () => {
+    const b = blankSheet();
+    drawRules(b, { thickness: 2 });
+    expect(cellRegions(b, W, H, COLS, ROWS).grid).toBe('detected');
+  });
+
+  it('confirms the grid through every layout the real pipeline survives', () => {
+    // These sheets already crop correctly, so the new gate must not start
+    // throwing them away: off-boundary rules, thick rules, and the fading
+    // antialiased ones.
+    for (const opts of [{ offset: 14, thickness: 3 }, { thickness: 10, offset: 12 }]) {
+      const b = blankSheet();
+      drawRules(b, opts);
+      expect(cellRegions(b, W, H, COLS, ROWS).grid).toBe('detected');
+    }
+    const soft = blankSheet();
+    drawSoftRules(soft);
+    expect(cellRegions(soft, W, H, COLS, ROWS).grid).toBe('detected');
   });
 
   it('treats an ungridded single doodle as one whole cell', () => {
     const b = blankSheet();
     fill(b, { x: 380, y: 400, w: 260, h: 240 }, INK);
-    expect(cellRegions(b, W, H, 1, 1)).toEqual([{ x: 0, y: 0, w: W, h: H }]);
+    expect(cellRegions(b, W, H, 1, 1).regions).toEqual([{ x: 0, y: 0, w: W, h: H }]);
   });
 
   it('is not fooled by a doodle stroke spanning its whole cell', () => {
@@ -278,7 +325,7 @@ describe('cellRegions', () => {
     // A full-width stroke inside cell 5 reads as a rule; the sliver cells it
     // would carve out are too thin to be real and must be discarded.
     fill(b, { x: CW + 4, y: CH + 130, w: CW - 8, h: 10 }, INK);
-    const regions = cellRegions(b, W, H, COLS, ROWS);
+    const { regions } = cellRegions(b, W, H, COLS, ROWS);
     expect(regions).toHaveLength(16);
     expect(regions[5].h).toBeGreaterThan(CH * 0.7);
   });
@@ -431,6 +478,9 @@ describe('fitCrop', () => {
       rules.push({ x: margin, y: Math.round(margin + i * step), w: inner, h: 3 });
     }
     for (const r of rules) fill(b, r, RULE_DARK);
+    // An inset table is still the 4x4 we asked for: the outer margins are too
+    // narrow to count as cells, so the gate must not discard this sheet.
+    expect(cellRegions(b, W, H, COLS, ROWS).grid).toBe('detected');
     for (let i = 0; i < COLS * ROWS; i++) {
       const c = i % COLS, r = Math.floor(i / COLS);
       const s = Math.round(step * 0.55);
@@ -464,5 +514,42 @@ describe('fitCrop', () => {
     const crop = fitCrop(b, W, H, whole);
     expectGoodCrop(crop, whole, [], doodle);
     expect(fillRatio(crop, doodle)).toBeGreaterThan(0.8);
+  });
+});
+
+describe('cropFault', () => {
+  // The "badge" thumbnail: a ~20px sliver of one stroke, resized to 192px, so
+  // the card showed about twenty enormous pixels. Whatever confused the region,
+  // a crop this small is never a doodle and must not be saved.
+  it('rejects a fragment of a stroke', () => {
+    expect(cropFault(cellRegion(5), { x: 300, y: 300, side: 20 }))
+      .toMatch(/under 30% of the 256px cell/);
+  });
+
+  it('rejects a crop just under a third of the cell', () => {
+    expect(cropFault(cellRegion(5), { x: 300, y: 300, side: Math.floor(CW * 0.29) })).not.toBeNull();
+  });
+
+  it('accepts a doodle the model drew small but whole', () => {
+    // 40% of the cell is a legitimately small drawing — 100px into a 192px
+    // thumbnail is a mild upscale, not a magnified fragment.
+    expect(cropFault(cellRegion(5), { x: 300, y: 300, side: Math.round(CW * 0.4) })).toBeNull();
+  });
+
+  it('accepts the sizes the real pipeline produces', () => {
+    for (const frac of [0.5, 0.7, 0.9]) {
+      const b = blankSheet();
+      drawRules(b);
+      fill(b, doodleIn(5, frac), INK);
+      const { crop, region } = cropCell(b, 5);
+      expect(cropFault(region, crop)).toBeNull();
+    }
+  });
+
+  it('accepts the blank-cell fallback, which is 90% of the cell', () => {
+    const b = blankSheet();
+    drawRules(b);
+    const { crop, region } = cropCell(b, 5);
+    expect(cropFault(region, crop)).toBeNull();
   });
 });
