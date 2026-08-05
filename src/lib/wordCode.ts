@@ -1,8 +1,9 @@
-// The current word is reflected in the URL so a card can be shared / reloaded.
-// Storing it as plaintext (?word=impecunious) gives the answer away straight
-// from the address bar while you're still guessing. We encode it as URL-safe
-// base64 instead — light obfuscation to stop casual spoiling, not real secrecy
-// (base64 is trivially reversible by anyone who bothers).
+// The current word is reflected in the URL so a card can be shared / reloaded,
+// and the param says which mode it opens in: `?word=impecunious` shows the word
+// outright, `?w=<base64>` keeps it hidden for the guess game. Plaintext would
+// give the answer away straight from the address bar while you're still
+// guessing, so guess links use URL-safe base64 — light obfuscation to stop
+// casual spoiling, not real secrecy (trivially reversible by anyone who bothers).
 
 /** URL-safe base64 (base64url) of a UTF-8 string, without `=` padding. */
 export function encodeWord(word: string): string {

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { generateWordData } from '../lib/wordService';
-import { encodeWord } from '../lib/wordCode';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
 import { familyForms, maskAnswer } from '../lib/answerMask';
@@ -381,7 +380,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
               {missed.map((w) => (
                 <Link
                   key={w}
-                  to={`/?w=${encodeWord(w)}`}
+                  to={`/?word=${encodeURIComponent(w)}`}
                   title={`Open “${w}”`}
                   className="flex items-center gap-1 text-sm font-bold px-3 py-1.5 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 hover:border-accent-red/40 transition-all"
                 >

@@ -108,8 +108,9 @@ function abbreviatePos(pos: string): string {
 
 /** The word's doodle, sitting straight on the card — its white paper is keyed
  *  out to transparent, and `doodle-ink` flips the ink light on the dark theme
- *  so it stays legible without a box around it. Sized by the caller: inline in
- *  the word card once revealed, standalone as a hint while guessing. */
+ *  so it stays legible without a box around it. Sized by the caller: beside the
+ *  definition in the clue card while guessing, inline in the word card once
+ *  revealed. */
 function WordDoodle({ src, word, className = '' }: { src: string; word: string; className?: string }) {
   return (
     <img
@@ -569,7 +570,9 @@ export function FlashCard() {
     }
   }, [store, pushWord, user?.id]);
 
-  const loadSpecificWord = useCallback(async (word: string) => {
+  // `reveal: false` opens the word in guess mode (the `?w=` encoded link);
+  // everything else — a header search, a `?word=` link — shows it outright.
+  const loadSpecificWord = useCallback(async (word: string, reveal = true) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -589,7 +592,7 @@ export function FlashCard() {
       if (ctrl.signal.aborted) return;
       pushWord(data);
       setWordData(data);
-      setPhase('revealed');
+      setPhase(reveal ? 'revealed' : 'introduce');
       store.recordView(word, user?.id);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
@@ -624,9 +627,12 @@ export function FlashCard() {
   useEffect(() => {
     if (authLoading || didInit.current) return;
     didInit.current = true;
-    // Prefer the encoded `w` param; fall back to legacy plaintext `?word=` links.
+    // Two link shapes, two modes: `?w=<base64>` hides the answer and opens the
+    // guess game, `?word=<plaintext>` names the word so it opens revealed.
     const encoded = searchParams.get('w');
-    const wordParam = encoded ? decodeWord(encoded) : searchParams.get('word');
+    const plain = searchParams.get('word');
+    const wordParam = encoded ? decodeWord(encoded) : plain;
+    const reveal = !encoded;
     const known = store.knownWords();
     const skipped = store.skippedWords();
     fillPrefetchQueue(known, skipped);
@@ -634,7 +640,7 @@ export function FlashCard() {
     // page) — the search effect below will load it, so don't load a default.
     if (useWordSearch.getState().pending) return;
     if (wordParam) {
-      loadSpecificWord(wordParam);
+      loadSpecificWord(wordParam, reveal);
     } else {
       loadNextWord();
     }
@@ -665,8 +671,19 @@ export function FlashCard() {
   useEffect(() => {
     if (!wordData) return;
     speakClicksRef.current = 0; // new word — voice cycle starts over
-    setSearchParams({ w: encodeWord(wordData.word) }, { replace: true });
-  }, [wordData, setSearchParams]);
+  }, [wordData]);
+
+  // Keep the URL in step with the mode: while the word is still hidden it's
+  // `?w=<base64>` (sharing the link doesn't spoil the guess); once it's on
+  // screen the link becomes `?word=<the word>`, which reopens it revealed.
+  useEffect(() => {
+    if (!wordData) return;
+    if (phase === 'introduce') {
+      setSearchParams({ w: encodeWord(wordData.word) }, { replace: true });
+    } else if (phase === 'revealed') {
+      setSearchParams({ word: wordData.word }, { replace: true });
+    }
+  }, [wordData, phase, setSearchParams]);
 
   // `via` is the guess game that ended in giving up; the Reveal button (no
   // game finished) falls back to the generic flash-card tag.
@@ -913,8 +930,11 @@ export function FlashCard() {
                 </span>
                 <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={toggleFullDef} />
               </div>
-              {/* Mask the answer out of the definition and syn/ant chips —
-                  AI text sometimes restates the word while it's being guessed */}
+              {/* No doodle here: a sketch of the meaning gives the answer away
+                  far faster than the text does, so it's held back until the
+                  word is revealed. Mask the answer out of the definition and
+                  syn/ant chips too — AI text sometimes restates the word while
+                  it's being guessed. */}
               <p className="text-text-primary leading-relaxed text-base sm:text-lg">
                 {maskAnswer(definitionText(wordData), wordData.headword || wordData.word, familyForms(wordData.wordFamily))}
               </p>
@@ -928,18 +948,6 @@ export function FlashCard() {
 
             {/* ── Left column ── */}
             <div className="flex flex-col gap-3 sm:gap-4">
-              {/* While guessing, the doodle is a clue in its own right, so it
-                  stands alone — but below the game on mobile, keeping the
-                  definition → game flow tight. Once the word is revealed it
-                  moves inside the word card instead (see below): one small
-                  sketch doesn't warrant a band of its own. It fades in
-                  whenever it's drawn, with nothing holding space until then. */}
-              {doodle && phase === 'introduce' && (
-                <div className="order-last lg:order-none flex justify-center">
-                  <WordDoodle src={doodle} word={wordData.word} className="w-24 h-24 sm:w-28 sm:h-28" />
-                </div>
-              )}
-
               {phase === 'introduce' ? (
                 <GuessGame
                   key={wordData.word}

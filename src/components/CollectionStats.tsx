@@ -5,7 +5,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { progressLookup, wordBucket, type WordBucket } from '../lib/progress';
 import { isDue, dueTime } from '../lib/spacedRepetition';
-import { encodeWord } from '../lib/wordCode';
 import type { WordProgress } from '../types';
 
 // Bucket display order + styling. Every legend/row carries an icon and a text
@@ -194,7 +193,7 @@ export function CollectionStats({ name, words, onClose }: Props) {
                   <Icon icon={meta.icon} className={`${meta.text} text-sm`} />
                 </span>
                 <Link
-                  to={`/?w=${encodeWord(word)}`}
+                  to={`/?word=${encodeURIComponent(word)}`}
                   className="flex-1 min-w-0 truncate font-bold text-text-primary hover:text-accent-cyan hover:underline"
                   title={`Open “${word}”`}
                 >

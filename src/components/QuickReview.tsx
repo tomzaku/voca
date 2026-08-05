@@ -212,7 +212,7 @@ export function QuickReview() {
               Keep learning
             </button>
             <Link
-              to={`/?w=${encoded ?? ''}`}
+              to={`/?word=${encodeURIComponent(target)}`}
               className="text-center text-xs text-text-muted hover:text-text-primary underline"
             >
               See the full card for this word
