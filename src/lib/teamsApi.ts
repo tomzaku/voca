@@ -55,12 +55,44 @@ export interface Scoring {
   };
 }
 
+/**
+ * The caller's own line on the board, sent whether or not they made the cut.
+ * Optional because a deployment of the function from before it existed simply
+ * omits it — read it through `boardMe()`, which falls back to the rows.
+ */
+export interface BoardMe {
+  score: number;
+  learned: number;
+  streak: number;
+  longest: number;
+  rank: number | null;
+}
+
 export interface Board {
   team: Team;
   rows: BoardRow[];
   /** The caller's place, even when it falls below the returned rows. */
   myRank: number | null;
+  /** Null when the caller hasn't joined this team. */
+  me?: BoardMe | null;
   scoring: Scoring;
+}
+
+/**
+ * The caller's own standing, from the board's `me` when the server sent one and
+ * otherwise from their row among the top places.
+ */
+export function boardMe(board: Board, userId: string): BoardMe | null {
+  if (board.me) return board.me;
+  const row = board.rows.find((r) => r.user_id === userId);
+  if (!row) return null;
+  return {
+    score: row.score,
+    learned: row.learned,
+    streak: row.streak,
+    longest: row.longest,
+    rank: row.rank,
+  };
 }
 
 type Action =

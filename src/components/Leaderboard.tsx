@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { useTeams, type BoardRow, type Scoring } from '../hooks/useTeams';
@@ -119,6 +119,7 @@ export function Leaderboard() {
   const saving = useTeams((s) => s.saving);
   const error = useTeams((s) => s.error);
   const myRank = useTeams((s) => s.myRank);
+  const me = useTeams((s) => s.me);
   const scoring = useTeams((s) => s.scoring);
   const load = useTeams((s) => s.load);
   const selectTeam = useTeams((s) => s.selectTeam);
@@ -130,6 +131,19 @@ export function Leaderboard() {
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  // `/dashboard#leaderboard` — how the badge on the Learn page links here. A
+  // client-side navigation doesn't act on a hash, and the board sits well below
+  // the fold, so arriving at the top of the dashboard would look like the link
+  // went nowhere. The frame's delay is for the page above it laying out first.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash !== '#leaderboard') return;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById('leaderboard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [hash]);
 
   // An invite link lands here as ?team=<code>. The board sits well below the
   // fold, so the invite opens as a dialog rather than waiting to be scrolled
@@ -303,8 +317,13 @@ export function Leaderboard() {
           {rankBelow !== null && (
             <>
               <li className="text-center text-text-muted/60 leading-none py-1">···</li>
-              <li className="px-3 py-2 rounded-xl bg-accent-cyan/10 ring-1 ring-accent-cyan/40 text-xs font-bold text-text-primary">
-                You're #{rankBelow}
+              <li className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-accent-cyan/10 ring-1 ring-accent-cyan/40 text-xs font-bold text-text-primary">
+                <span>You're #{rankBelow}</span>
+                {me && (
+                  <span className="font-display font-extrabold tabular-nums text-accent-green">
+                    {me.score}
+                  </span>
+                )}
               </li>
             </>
           )}

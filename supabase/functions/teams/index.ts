@@ -490,10 +490,15 @@ Deno.serve(async (req) => {
     const joined = await isMember(team.id);
     // Opening the board is the moment to bring your own numbers up to date —
     // your rank should reflect the words you learned since you last looked.
+    // Kept in hand as well as written: the caller's own numbers are returned
+    // outright, so a client showing "your score" doesn't have to find itself
+    // among the rows (and can still show it when it ranks below the cut).
+    let mine: Awaited<ReturnType<typeof myStats>> | null = null;
     if (joined) {
+      mine = await myStats();
       await db
         .from('team_members')
-        .update(await myStats())
+        .update(mine)
         .eq('team_id', team.id)
         .eq('user_id', userId);
     }
@@ -532,6 +537,15 @@ Deno.serve(async (req) => {
       team: toTeam(team, userId, joined),
       rows: rows.map((r, i) => ({ ...r, rank: i + 1 })),
       myRank,
+      me: mine
+        ? {
+          score: mine.score,
+          learned: mine.learned,
+          streak: mine.streak,
+          longest: mine.longest,
+          rank: myRank,
+        }
+        : null,
       // Sent with every board so the client's explanation of the score is the
       // formula actually used, not a copy that can fall behind it.
       scoring: SCORING,

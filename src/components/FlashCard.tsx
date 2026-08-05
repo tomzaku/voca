@@ -19,6 +19,7 @@ import { GuessGame } from './GuessGame';
 import { BuddyBadge } from './BuddyBadge';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
+import { useTeams } from '../hooks/useTeams';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { useWordDoodle } from '../hooks/useWordDoodle';
 import { useIsPro } from '../hooks/useProStatus';
@@ -768,6 +769,7 @@ export function FlashCard() {
   const handleKnow = () => {
     if (!wordData) return;
     store.markWord(wordData.word, 'known', user?.id, 0, 'flashcard');
+    if (user) void useTeams.getState().recordAnswer();
     toast.success('Great! Moving on.');
     loadNextWord(wordData.word);
   };
@@ -960,6 +962,10 @@ export function FlashCard() {
                     // Solving the guess counts as a successful review (schedules the
                     // word); wrong attempts made along the way are recorded with it.
                     store.markWord(wordData.word, 'known', user?.id, roundMistakesRef.current, playedGame);
+                    // The badge that shows the learner's place is on the revealed
+                    // card they're about to land on, so the score behind it is
+                    // brought up to date now rather than on their next visit.
+                    if (user) void useTeams.getState().recordAnswer();
                     setPhase('revealed');
                   }}
                   onGaveUp={handleReveal}

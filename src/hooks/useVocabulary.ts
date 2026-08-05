@@ -246,9 +246,22 @@ export const useVocabularyStore = create<VocabularyState>()(
   ),
 );
 
+/**
+ * The most recent write to the server, so anything that reads progress back
+ * (the leaderboard recomputes the caller's score server-side) can wait for the
+ * answer it was triggered by to have landed. Never rejects — a failed sync is
+ * warned about below and shouldn't take a caller's `await` down with it.
+ */
+let lastRemoteWrite: Promise<void> = Promise.resolve();
+
+/** Resolves once the latest progress write has reached the server. */
+export function progressSynced(): Promise<void> {
+  return lastRemoteWrite;
+}
+
 function syncWordToRemote(userId: string, entry: WordProgress) {
   if (!supabase) return;
-  supabase
+  lastRemoteWrite = supabase
     .from('user_word_progress')
     .upsert({
       user_id: userId,
@@ -272,7 +285,8 @@ function syncWordToRemote(userId: string, entry: WordProgress) {
     })
     .then(({ error }) => {
       if (error) console.warn('[voca] sync error:', error.message);
-    });
+    })
+    .catch((e) => console.warn('[voca] sync error:', e));
 }
 
 function removeWordFromRemote(userId: string, word: string) {

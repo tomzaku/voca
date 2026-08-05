@@ -10,7 +10,10 @@
 // shows the server's message when it says no.
 
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
+import { progressSynced } from './useVocabulary';
 import {
+  boardMe,
   createTeam,
   fetchBoard,
   fetchTeams,
@@ -20,12 +23,13 @@ import {
   rotateInvite,
   TeamsError,
   type Board,
+  type BoardMe,
   type BoardRow,
   type Scoring,
   type Team,
 } from '../lib/teamsApi';
 
-export type { BoardRow, Scoring, Team };
+export type { BoardMe, BoardRow, Scoring, Team };
 
 interface TeamsState {
   teams: Team[];
@@ -34,6 +38,12 @@ interface TeamsState {
   rows: BoardRow[];
   /** The caller's place, even when it falls below the rows shown. */
   myRank: number | null;
+  /** The caller's own standing, or null until a board loads / if not joined. */
+  me: BoardMe | null;
+  /** Points the last refresh added to the caller's score; 0 if it didn't move. */
+  scoreGain: number;
+  /** Bumped on every gain, so the UI can re-trigger the animation. */
+  gainId: number;
   /** How the score is worked out — the server's own numbers, for the tooltip. */
   scoring: Scoring | null;
   loading: boolean;
@@ -42,8 +52,15 @@ interface TeamsState {
   error: string | null;
   /** Load the team list and the active team's board. */
   load: () => Promise<void>;
+  /** Load once — for views that want a board but shouldn't re-fetch on mount. */
+  ensureLoaded: () => Promise<void>;
   selectTeam: (teamId: string) => Promise<void>;
   refreshBoard: (teamId?: string | null) => Promise<void>;
+  /**
+   * Re-read the board after the learner answers a word correctly, so the score
+   * (and the place it earns) catches up with what they just did.
+   */
+  recordAnswer: () => Promise<void>;
   /** Join (true) or leave (false) a team. */
   setJoined: (teamId: string, value: boolean) => Promise<void>;
   /** Create a team (Pro only, enforced server-side) and switch to its board. */
@@ -59,11 +76,25 @@ function message(e: unknown): string {
   return e instanceof TeamsError ? e.message : 'Something went wrong.';
 }
 
+/**
+ * Who's asking — needed only to pick the caller's own row out of a board sent
+ * by a server old enough not to name it (see `boardMe`). Read from the cached
+ * session, the same one every teams call already goes through.
+ */
+async function currentUserId(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user.id ?? null;
+}
+
 export const useTeams = create<TeamsState>()((set, get) => ({
   teams: [],
   activeTeamId: null,
   rows: [],
   myRank: null,
+  me: null,
+  scoreGain: 0,
+  gainId: 0,
   scoring: null,
   loading: false,
   saving: false,
@@ -83,11 +114,19 @@ export const useTeams = create<TeamsState>()((set, get) => ({
     }
   },
 
+  ensureLoaded: async () => {
+    // A board already on screen is fresh enough to show; the moments that make
+    // it stale (answering a word, joining, switching team) each refresh it.
+    if (get().activeTeamId || get().loading) return;
+    await get().load();
+  },
+
   selectTeam: async (teamId) => {
     if (get().activeTeamId === teamId) return;
     // Clear the rows first: leaving the old team's board up under the new
-    // team's name would misread as that team's standings.
-    set({ activeTeamId: teamId, rows: [], myRank: null });
+    // team's name would misread as that team's standings. `me` goes too — a
+    // score carried over from the last team would read as a gain on this one.
+    set({ activeTeamId: teamId, rows: [], myRank: null, me: null, scoreGain: 0 });
     await get().refreshBoard(teamId);
   },
 
@@ -95,9 +134,19 @@ export const useTeams = create<TeamsState>()((set, get) => ({
     set({ loading: true, error: null });
     try {
       const board: Board = await fetchBoard(teamId ?? get().activeTeamId);
+      const uid = await currentUserId();
+      const me = uid ? boardMe(board, uid) : null;
+      // A rise in the caller's own score is the one change worth announcing —
+      // measured against what was last on screen, so the very first board
+      // (nothing to compare with) never animates.
+      const before = get().me?.score ?? null;
+      const gained = before !== null && me !== null && me.score > before ? me.score - before : 0;
       set({
         rows: board.rows,
         myRank: board.myRank,
+        me,
+        scoreGain: gained,
+        gainId: gained > 0 ? get().gainId + 1 : get().gainId,
         scoring: board.scoring,
         // The board carries the team back with a fresh member count and
         // membership state, so the list can't drift from what's on screen.
@@ -108,6 +157,17 @@ export const useTeams = create<TeamsState>()((set, get) => ({
     } catch (e) {
       set({ loading: false, error: message(e) });
     }
+  },
+
+  recordAnswer: async () => {
+    // Nothing loaded yet means nothing on screen to update; whatever loads the
+    // board next will read the new score anyway.
+    if (!get().activeTeamId) return;
+    // The score is worked out on the server from the caller's own progress, so
+    // the answer has to have landed there first — otherwise the refresh reports
+    // the score from before it.
+    await progressSynced();
+    await get().refreshBoard();
   },
 
   setJoined: async (teamId, value) => {
@@ -184,6 +244,8 @@ export const useTeams = create<TeamsState>()((set, get) => ({
       activeTeamId: null,
       rows: [],
       myRank: null,
+      me: null,
+      scoreGain: 0,
       scoring: null,
       loading: false,
       saving: false,
