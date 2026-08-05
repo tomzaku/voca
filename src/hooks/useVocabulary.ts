@@ -261,7 +261,10 @@ export function progressSynced(): Promise<void> {
 
 function syncWordToRemote(userId: string, entry: WordProgress) {
   if (!supabase) return;
-  lastRemoteWrite = supabase
+  // Promise.resolve, because a query builder is only a PromiseLike — it has no
+  // `catch` of its own, and this one has to be a real Promise that never
+  // rejects (see `lastRemoteWrite`).
+  lastRemoteWrite = Promise.resolve(supabase
     .from('user_word_progress')
     .upsert({
       user_id: userId,
@@ -285,8 +288,8 @@ function syncWordToRemote(userId: string, entry: WordProgress) {
     })
     .then(({ error }) => {
       if (error) console.warn('[voca] sync error:', error.message);
-    })
-    .catch((e) => console.warn('[voca] sync error:', e));
+    }))
+    .catch((e: unknown) => console.warn('[voca] sync error:', e));
 }
 
 function removeWordFromRemote(userId: string, word: string) {
