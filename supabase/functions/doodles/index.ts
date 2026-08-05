@@ -406,7 +406,7 @@ Deno.serve(async (req) => {
     // its name sent.
     const defs = new Map<string, string>();
     for (const r of (defRes.data ?? []) as DefRow[]) {
-      const meaning = (r.short_definition || r.definition || '').trim().slice(0, 200);
+      const meaning = (r.definition || r.short_definition || '').trim().slice(0, 200);
       if (meaning) defs.set(r.word, meaning);
     }
     missing = [];
