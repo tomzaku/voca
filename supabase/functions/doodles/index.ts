@@ -167,28 +167,8 @@ async function generateImageInner(model: string, apiKey: string, prompt: string)
 const DOODLE_CONTEXT =
   `Context: we are building a hand-drawn vocabulary MIND MAP for English learners. Each word on the map gets a tiny doodle next to it as a memory hook — a quick visual that makes the word's meaning click and stick. The doodles are displayed very small (about 1cm), so each one must be a single bold, instantly recognizable idea; fine detail would be lost.`;
 
-// "Sketchnote" is dropped from the style on purpose: sketchnotes are a
-// lettering-heavy form, and naming it invites the model to write on the page.
 const DOODLE_STYLE =
   'Style: quick felt-tip pen doodle, 2-3 flat accent colors, plain white background, thick clean lines, like a margin doodle in a study notebook. The drawing floats free on the white page — never inside a frame, border, circle, or colored panel.';
-
-// Only ONE thing may never appear: the word the doodle illustrates. The flash
-// card shows the picture while the learner is still guessing, so that word
-// written anywhere hands them the answer. Everything else that reads as part
-// of the scene — numerals on a clock, a "Zzz" over a sleeper, a sign in the
-// background — is fine and often helps.
-//
-// Models reach for the label first when drawing an abstract idea, so the ban
-// is spelled out by example and repeated last, where it carries most weight.
-const NO_ANSWER_TEXT_RULE =
-  `NEVER write the word a doodle illustrates. The learner sees this picture while trying to GUESS that word, so writing it anywhere gives the answer away. That covers every way it could appear:
-- the word itself, at any size, anywhere in the cell
-- any form of it: plural, past tense, -ing, comparative, or the root it comes from
-- a translation of it into any language
-- its initial used as a monogram, or the word spelled out on a sign, label, book cover, badge, or banner
-- the word inside a speech bubble or thought bubble
-- a caption naming the drawing, however small
-Everything else is allowed and often helps the picture read: numbers and digits (a clock face, a calendar, dice), sound effects like "Zzz" or "POW", writing that belongs to the scene such as an unrelated shop sign, and wordless marks like arrows, a cross or tick, a heart, or motion lines. Only the illustrated word is off limits.`;
 
 // ─── Doodle sheets ──────────────────────────────────────────────────
 // Every generated image costs the same regardless of content, so we pack a
@@ -233,23 +213,15 @@ Draw ONE doodle illustrating ${cellSubject(it.word, it.definition)}, centered on
 
 STRICT rules:
 - NO grid, frame, border, box, circle, panel, or background shape of any kind — just the drawing, floating on plain white paper
-- ${NO_ANSWER_TEXT_RULE}
 
 ${DOODLE_STYLE}
 
-Last and most important: ${NO_ANSWER_TEXT_RULE}`);
+Last and most important: the drawing must sit fully inside the white square with clear margin on all four sides — nothing may run off the edge, because this image gets cropped to the drawing.`);
   }
 
   const { cols, rows } = sheetGrid(items.length);
   // Address every cell to an explicit (row, column) — a bare numbered list
   // lets the model drift out of row-major order on bigger grids.
-  //
-  // Each cell is described by its MEANING, never by the word itself. Handing
-  // the model a quoted word invites it to letter that word under the drawing,
-  // and no wording of a "do not write it" rule reliably beats that pull; a
-  // word it was never given is one it cannot caption with. The word is only
-  // sent when we have no definition to send instead, and then the rule below
-  // is the only thing standing in the way.
   const list = items
     .map((it, i) => {
       const r = Math.floor(i / cols) + 1;
@@ -268,7 +240,6 @@ STRICT rules for every cell:
 - NO tables, frames, boxes, or smaller grids inside a cell
 - NO border, outline, frame, circle, badge, or panel drawn AROUND the doodle — each doodle sits directly on the white page with nothing enclosing it. The only lines in the whole image are the thin gray grid and the doodles themselves.
 - NO shading, backdrop, or filled background behind a doodle — the paper stays plain white right up to the doodle's own strokes
-- ${NO_ANSWER_TEXT_RULE}
 
 Cell assignments (rows numbered top to bottom, columns left to right):
 ${list}
@@ -276,7 +247,7 @@ ${items.length < rows * cols ? `Leave the remaining ${rows * cols - items.length
 
 ${DOODLE_STYLE}
 
-Last and most important, applied to every cell separately — no cell may contain ITS OWN word, nor any of the other words listed above: ${NO_ANSWER_TEXT_RULE}`
+Last and most important, because every cell is cut out on its exact grid position: keep each doodle centered well inside its own cell, at most 70% of the cell's width and height, with clear white space between it and the gray lines. A doodle must never touch a gray line, cross into a neighboring cell, or be drawn in a cell other than the one it was assigned.`
   console.log('[sheet] prompt: ', prompt)
   return generateImage(prompt);
 }
@@ -392,11 +363,10 @@ Deno.serve(async (req) => {
         .filter((r) => r.doodle)
         .map((r) => [r.word, r.doodle]),
     );
-    // The meaning is what actually gets drawn — the word itself is never sent
-    // to the image model, since a model handed a word letters it under the
-    // picture and that is the answer the learner is guessing. Callers batching
-    // words they haven't loaded yet (the flash card sends the ones coming up
-    // next) send the word alone, so the meaning is filled in here.
+    // The meaning is what disambiguates what to draw ("bank" the riverside vs
+    // the building), so it is sent alongside the word. Callers batching words
+    // they haven't loaded yet (the flash card sends the ones coming up next)
+    // send the word alone, so the meaning is filled in here.
     //
     // `short_definition` is the one written for this — simple English, one
     // line — but it is NULLABLE and only backfilled for some words (see
