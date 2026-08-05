@@ -163,21 +163,23 @@ const DOODLE_CONTEXT =
 const DOODLE_STYLE =
   'Style: quick felt-tip pen doodle, 2-3 flat accent colors, plain white background, thick clean lines, like a margin doodle in a study notebook. The drawing floats free on the white page — never inside a frame, border, circle, or colored panel.';
 
-// Incidental writing in a doodle is harmless — a "Zzz" over a sleeper, a sign
-// on a shop — but the ONE word it must never show is the word it illustrates.
-// The flash card shows the doodle while the learner is still guessing, so the
-// word written anywhere in the picture hands them the answer.
+// Only ONE thing may never appear: the word the doodle illustrates. The flash
+// card shows the picture while the learner is still guessing, so that word
+// written anywhere hands them the answer. Everything else that reads as part
+// of the scene — numerals on a clock, a "Zzz" over a sleeper, a sign in the
+// background — is fine and often helps.
 //
-// Models reach for the label first when drawing an abstract idea, so this is
-// spelled out by example and repeated last, where it carries the most weight.
+// Models reach for the label first when drawing an abstract idea, so the ban
+// is spelled out by example and repeated last, where it carries most weight.
 const NO_ANSWER_TEXT_RULE =
-  `NEVER write the word a doodle illustrates. The learner sees this picture while trying to GUESS that word, so writing it anywhere gives the answer away. That covers every way the word could appear:
+  `NEVER write the word a doodle illustrates. The learner sees this picture while trying to GUESS that word, so writing it anywhere gives the answer away. That covers every way it could appear:
 - the word itself, at any size, anywhere in the cell
 - any form of it: plural, past tense, -ing, comparative, or the root it comes from
 - a translation of it into any language
 - its initial used as a monogram, or the word spelled out on a sign, label, book cover, badge, or banner
 - the word inside a speech bubble or thought bubble
-Other writing is fine where it belongs in the scene — an unrelated shop sign, numbers on a clock face, a "Zzz" over a sleeper. Only the illustrated word is off limits.`;
+- a caption naming the drawing, however small
+Everything else is allowed and often helps the picture read: numbers and digits (a clock face, a calendar, dice), sound effects like "Zzz" or "POW", writing that belongs to the scene such as an unrelated shop sign, and wordless marks like arrows, a cross or tick, a heart, or motion lines. Only the illustrated word is off limits.`;
 
 // ─── Doodle sheets ──────────────────────────────────────────────────
 // Every generated image costs the same regardless of content, so we pack a
@@ -258,7 +260,7 @@ ${items.length < rows * cols ? `Leave the remaining ${rows * cols - items.length
 
 ${DOODLE_STYLE}
 
-Last and most important, applied to every cell separately — each cell must not contain ITS OWN word, and must not contain any of the other words listed above either: ${NO_ANSWER_TEXT_RULE}`
+Last and most important, applied to every cell separately — no cell may contain ITS OWN word, nor any of the other words listed above: ${NO_ANSWER_TEXT_RULE}`
   console.log('[sheet] prompt: ', prompt)
   return generateImage(prompt);
 }
