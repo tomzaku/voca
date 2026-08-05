@@ -35,8 +35,17 @@ import {
 } from '../_shared/ai.ts';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 import { cellRegions, describeCrop, fitCrop } from './doodleCrop.ts';
+import { cellSubject } from './prompt.ts';
 
 type Auth = NonNullable<Awaited<ReturnType<typeof requireUser>>>;
+
+/** What the word cache can tell us about a word's meaning. `definition` is NOT
+ *  NULL in the schema; `short_definition` is the nicer one-liner when present. */
+interface DefRow {
+  word: string;
+  short_definition: string | null;
+  definition: string | null;
+}
 
 /** True when the caller has unexpired Pro, else the message to send back. The
  *  user-scoped client can only see this user's own `pro_users` row (RLS), so a
@@ -220,7 +229,7 @@ function generateDoodleSheet(items: { word: string; definition: string }[]): Pro
     const it = items[0];
     return generateImage(`${DOODLE_CONTEXT}
 
-Draw ONE doodle for the word "${it.word}"${it.definition ? ` (meaning: ${it.definition})` : ''}, centered on a plain white square with clear white margin all around it.
+Draw ONE doodle illustrating ${cellSubject(it.word, it.definition)}, centered on a plain white square with clear white margin all around it.
 
 STRICT rules:
 - NO grid, frame, border, box, circle, panel, or background shape of any kind — just the drawing, floating on plain white paper
@@ -232,13 +241,20 @@ Last and most important: ${NO_ANSWER_TEXT_RULE}`);
   }
 
   const { cols, rows } = sheetGrid(items.length);
-  // Address every word to an explicit (row, column) — a bare numbered list
+  // Address every cell to an explicit (row, column) — a bare numbered list
   // lets the model drift out of row-major order on bigger grids.
+  //
+  // Each cell is described by its MEANING, never by the word itself. Handing
+  // the model a quoted word invites it to letter that word under the drawing,
+  // and no wording of a "do not write it" rule reliably beats that pull; a
+  // word it was never given is one it cannot caption with. The word is only
+  // sent when we have no definition to send instead, and then the rule below
+  // is the only thing standing in the way.
   const list = items
     .map((it, i) => {
       const r = Math.floor(i / cols) + 1;
       const c = (i % cols) + 1;
-      return `Row ${r}, Column ${c}: "${it.word}"${it.definition ? ` (meaning: ${it.definition})` : ''}`;
+      return `Row ${r}, Column ${c}: ${cellSubject(it.word, it.definition)}`;
     })
     .join('\n');
   const prompt = `${DOODLE_CONTEXT}
@@ -367,7 +383,7 @@ Deno.serve(async (req) => {
     // definition nobody has generated yet — see the word_doodles migration.
     const [doodleRes, defRes] = await Promise.all([
       svc.from('word_doodles').select('word, doodle').in('word', keys),
-      svc.from('word_cache').select('word, short_definition').in('word', keys),
+      svc.from('word_cache').select('word, short_definition, definition').in('word', keys),
     ]);
     if (doodleRes.error) console.error(`[sheet] doodle read error: ${doodleRes.error.message}`);
     if (defRes.error) console.error(`[sheet] definition read error: ${defRes.error.message}`);
@@ -376,15 +392,23 @@ Deno.serve(async (req) => {
         .filter((r) => r.doodle)
         .map((r) => [r.word, r.doodle]),
     );
-    // A doodle drawn without the meaning picks the wrong sense of an
-    // ambiguous word. Callers batching words they haven't loaded yet (the
-    // flash card sends the ones coming up next) send the word alone, so fill
-    // the definition in from the word cache where there is one.
-    const defs = new Map<string, string>(
-      ((defRes.data ?? []) as { word: string; short_definition: string | null }[])
-        .filter((r) => r.short_definition)
-        .map((r) => [r.word, r.short_definition as string]),
-    );
+    // The meaning is what actually gets drawn — the word itself is never sent
+    // to the image model, since a model handed a word letters it under the
+    // picture and that is the answer the learner is guessing. Callers batching
+    // words they haven't loaded yet (the flash card sends the ones coming up
+    // next) send the word alone, so the meaning is filled in here.
+    //
+    // `short_definition` is the one written for this — simple English, one
+    // line — but it is NULLABLE and only backfilled for some words (see
+    // scripts/backfill-short-definitions.mjs). `definition` is NOT NULL, so
+    // falling back to it means any word with a cache row has SOMETHING to draw
+    // from, and only a word nobody has ever generated falls through to having
+    // its name sent.
+    const defs = new Map<string, string>();
+    for (const r of (defRes.data ?? []) as DefRow[]) {
+      const meaning = (r.short_definition || r.definition || '').trim().slice(0, 200);
+      if (meaning) defs.set(r.word, meaning);
+    }
     missing = [];
     for (const it of items) {
       const hit = cached.get(it.word.toLowerCase());
