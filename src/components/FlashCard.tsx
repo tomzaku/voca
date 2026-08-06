@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
@@ -27,8 +27,9 @@ import { useIsPro } from '../hooks/useProStatus';
 import { speakText, stopSpeaking, isTtsPlaying, isKokoroSupported } from '../lib/tts';
 import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../hooks/useTtsSettings';
 import { encodeWord, decodeWord } from '../lib/wordCode';
-import { answerRegex, familyForms, maskAnswer } from '../lib/answerMask';
+import { familyForms, maskAnswer } from '../lib/answerMask';
 import { SynAnt } from './SynAnt';
+import { PeekText } from './PeekText';
 import { SimilarWords } from './SimilarWords';
 import type { AnswerVia, VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
@@ -65,24 +66,8 @@ async function generateWithRetry(
   throw lastErr;
 }
 
-// Render an example with the answer word (and its inflections) bold + highlighted.
-function highlightAnswer(example: string, answer: string): ReactNode {
-  const re = answerRegex(answer);
-  if (!re) return example;
-  const parts: ReactNode[] = [];
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(example)) !== null) {
-    if (m.index > last) parts.push(example.slice(last, m.index));
-    parts.push(
-      <strong key={m.index} className="font-extrabold text-accent-purple">{m[0]}</strong>,
-    );
-    last = m.index + m[0].length;
-    if (m.index === re.lastIndex) re.lastIndex++; // guard against zero-length matches
-  }
-  if (last < example.length) parts.push(example.slice(last));
-  return parts;
-}
+// Examples now render through PeekText, which does the same answer-word
+// highlighting on its way to making every other word peekable.
 
 // Dictionary abbreviations for the part-of-speech chip. The full word is fine on
 // desktop, but on a phone "adjective" alone eats the header row.
@@ -227,7 +212,9 @@ function ExampleList({ wordData, phase, speakingExample, onSpeak }: {
                 </button>
               )}
               <span className={phase === 'introduce' ? 'italic' : ''}>
-                {phase === 'introduce' ? text : highlightAnswer(ex, answerWord)}
+                {phase === 'introduce'
+                  ? text
+                  : <PeekText text={ex} highlight={answerWord} boldHighlight />}
               </span>
             </li>
           );
@@ -1042,7 +1029,12 @@ export function FlashCard() {
                     </span>
                     <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={toggleFullDef} />
                   </div>
-                  <p className="text-text-primary leading-relaxed">{definitionText(wordData)}</p>
+                  <p className="text-text-primary leading-relaxed">
+                    <PeekText
+                      text={definitionText(wordData)}
+                      highlight={wordData.headword || wordData.word}
+                    />
+                  </p>
                   {wordData.translation && (
                     <div className="mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-accent-cyan/10 border border-accent-cyan/25">
                       <Icon icon="lucide:languages" className="text-accent-cyan text-xl shrink-0" />

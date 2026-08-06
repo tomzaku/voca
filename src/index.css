@@ -363,3 +363,71 @@ body {
 .companion-wiggle { animation: companionWiggle 0.8s ease-in-out; }
 .companion-pop    { animation: companionPop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .companion-float  { animation: companionFloat 1s ease-in-out; }
+
+/* ── Rest-to-peek ──────────────────────────────────────────────────────
+   Rest the pointer on a word in a revealed definition or example and its
+   meaning opens in the peek popup. Two things happen while it arms: the word
+   itself turns into sliding rainbow text — impossible to mistake for ordinary
+   prose, so you always know which word is about to open — and a rainbow bar
+   grows under it as the progress. The bar reaches the far edge exactly as the
+   popup opens, so a dwell that's nearly there looks different from one that
+   just started, and moving away visibly abandons it.
+
+   Both animations read their duration from `--peek-ms`, set inline from
+   HOVER_MS in PeekText.tsx — one source of truth for how long the dwell is,
+   including the shimmer, which stays quick enough to visibly move within it. */
+@keyframes peekRainbow {
+  from { background-position: 0% 50%; }
+  to   { background-position: 200% 50%; }
+}
+@keyframes peekProgress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.peek-word {
+  position: relative;
+  border-radius: 4px;
+  transition: color 0.2s ease;
+}
+/* Touch has no hover: there, resting IS pressing, so the selection magnifier
+   must not race the gesture. Desktop keeps its text selectable for copying. */
+@media (hover: none) {
+  .peek-word {
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+.peek-word.is-arming {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-accent-red), var(--color-accent-orange), var(--color-accent-yellow),
+    var(--color-accent-green), var(--color-accent-cyan), var(--color-accent-purple),
+    var(--color-accent-red)
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: peekRainbow calc(var(--peek-ms, 700ms) * 0.9) linear infinite;
+}
+.peek-word.is-arming::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  border-radius: 2px;
+  background-image: linear-gradient(
+    90deg,
+    var(--color-accent-red), var(--color-accent-orange), var(--color-accent-yellow),
+    var(--color-accent-green), var(--color-accent-cyan), var(--color-accent-purple)
+  );
+  transform-origin: left;
+  animation: peekProgress var(--peek-ms, 2s) linear forwards;
+}
+/* Reduced motion keeps the progress bar — it's information, not decoration —
+   and drops the shimmer, which is the part that moves for its own sake. */
+@media (prefers-reduced-motion: reduce) {
+  .peek-word.is-arming { animation: none; }
+}
