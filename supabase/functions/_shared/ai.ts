@@ -1,6 +1,7 @@
-// Shared infrastructure for the AI-backed edge functions (`ai`, `word`):
-// provider config + calls, auth, per-user rate limit, and input validation.
-// Prompts and per-function logic live in each function's own index.ts.
+// Shared infrastructure for the AI-backed edge functions (`ai`, `chat`,
+// `word`): provider config + calls, auth, Pro gating, per-user rate limit, and
+// input validation. Prompts and per-function logic live in each function's own
+// index.ts. Note the rate limit is one per-user budget shared by all of them.
 
 import { createClient, type SupabaseClient, type User } from 'jsr:@supabase/supabase-js@2';
 
@@ -53,6 +54,28 @@ export async function requireUser(req: Request): Promise<{ supabase: SupabaseCli
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
   return { supabase, user };
+}
+
+/**
+ * Gate an action on an active Pro grant. Returns the Response to send back, or
+ * null when the caller is Pro.
+ *
+ * The user-scoped client can only see the caller's own `pro_users` row (RLS),
+ * so a returned row is proof this user has Pro. A NULL `expires_at` is a
+ * lifetime grant; otherwise Pro lasts until that moment.
+ */
+export async function proGateError(supabase: SupabaseClient, userId: string): Promise<Response | null> {
+  const { data: proRow, error } = await supabase
+    .from('pro_users')
+    .select('expires_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) return jsonResponse(500, { error: 'Could not verify Pro status.' });
+  if (!proRow) return jsonResponse(403, { error: 'This feature requires a Pro account.' });
+  if (proRow.expires_at && new Date(proRow.expires_at) <= new Date()) {
+    return jsonResponse(403, { error: 'Your Pro access has expired.' });
+  }
+  return null;
 }
 
 /** Service-role client for cache tables (bypasses RLS so clients can't touch them). Null if unset. */
@@ -178,6 +201,14 @@ export function reqStr(params: Record<string, unknown>, key: string, maxLen: num
   const trimmed = v.trim();
   if (!trimmed) throw new BadRequest(`"${key}" must not be empty.`);
   return trimmed.slice(0, maxLen);
+}
+
+/** Optional single-line string param — whitespace collapsed, capped, else null. */
+export function optLine(params: Record<string, unknown>, key: string, maxLen: number): string | null {
+  const v = params[key];
+  if (typeof v !== 'string') return null;
+  const cleaned = v.replace(/\s+/g, ' ').trim();
+  return cleaned ? cleaned.slice(0, maxLen) : null;
 }
 
 export function oneOf<T extends string>(

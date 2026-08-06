@@ -6,6 +6,9 @@
 // params. It cannot supply the system prompt, the model, or a token budget —
 // those live in the edge function so the endpoint can't be used as a generic
 // LLM. See supabase/functions/ai/index.ts for the allowed actions.
+//
+// English Practice conversations go to the separate `chat` function instead —
+// see ./chatApi.ts.
 
 import { supabase } from './supabase';
 
@@ -18,9 +21,6 @@ export type AiAction =
   | 'translate_word'
   | 'tutor_start'
   | 'tutor_reply'
-  | 'chat_start'
-  | 'chat_reply'
-  | 'chat_summary'
   | 'mindmap';
 
 async function postAi(

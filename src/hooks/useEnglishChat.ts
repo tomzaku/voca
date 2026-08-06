@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { callAiAction } from '../lib/aiProviders';
+import { callChatAction } from '../lib/chatApi';
 import { extractLearnings } from './useLearnings';
 import type { Learning } from './useLearnings';
 
@@ -24,7 +24,25 @@ export const ENGLISH_TOPICS = [
   { id: 'random', label: 'Random', desc: 'Surprise me with anything!' },
 ] as const;
 
-export type TopicId = (typeof ENGLISH_TOPICS)[number]['id'];
+/**
+ * `speaking` is not in the picker above — it's the id for sessions launched
+ * from the /speaking page, whose subject travels in the TopicContext instead.
+ */
+export type TopicId = (typeof ENGLISH_TOPICS)[number]['id'] | 'speaking';
+
+/** Pins a session to a subject outside the fixed topic list. */
+export interface TopicContext {
+  /** Shown in the header and used as the topic in the prompt. */
+  label?: string;
+  /** A specific question the conversation should open with. */
+  focus?: string;
+}
+
+/** Header/history label for a session — the context label wins when set. */
+export function topicLabel(topicId: TopicId | null, context?: TopicContext | null): string {
+  if (context?.label) return context.label;
+  return ENGLISH_TOPICS.find((t) => t.id === topicId)?.label ?? 'Speaking Practice';
+}
 
 export function useEnglishChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -32,9 +50,11 @@ export function useEnglishChat() {
   const [error, setError] = useState<string | null>(null);
   const [currentTopic, setCurrentTopic] = useState<TopicId | null>(null);
   const [mode, setMode] = useState<PracticeMode | null>(null);
+  const [context, setContextState] = useState<TopicContext | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const topicRef = useRef<TopicId | null>(null);
   const modeRef = useRef<PracticeMode | null>(null);
+  const contextRef = useRef<TopicContext | null>(null);
   const onLearningsRef = useRef<((items: Omit<Learning, 'id' | 'createdAt'>[], conversationId?: string) => void) | null>(null);
 
   const setOnLearnings = useCallback((fn: ((items: Omit<Learning, 'id' | 'createdAt'>[], conversationId?: string) => void) | null) => {
@@ -49,20 +69,31 @@ export function useEnglishChat() {
     return displayText;
   }, []);
 
-  const startConversation = useCallback(async (topicId: TopicId, practiceMode: PracticeMode) => {
+  /** Keep the ref and the state in sync — sendMessage reads the ref. */
+  const setContext = useCallback((ctx: TopicContext | null) => {
+    contextRef.current = ctx;
+    setContextState(ctx);
+  }, []);
+
+  const startConversation = useCallback(async (
+    topicId: TopicId,
+    practiceMode: PracticeMode,
+    ctx: TopicContext | null = null,
+  ) => {
     setMessages([]);
     setIsLoading(true);
     setError(null);
     setCurrentTopic(topicId);
     setMode(practiceMode);
+    setContext(ctx);
     topicRef.current = topicId;
     modeRef.current = practiceMode;
     abortRef.current = new AbortController();
 
     try {
-      const rawText = await callAiAction(
-        'chat_start',
-        { topicId, mode: practiceMode },
+      const rawText = await callChatAction(
+        'start',
+        { topicId, mode: practiceMode, topicLabel: ctx?.label, focus: ctx?.focus },
         { signal: abortRef.current.signal },
       );
       const displayText = processResponse(rawText);
@@ -74,7 +105,7 @@ export function useEnglishChat() {
       setIsLoading(false);
       abortRef.current = null;
     }
-  }, [processResponse]);
+  }, [processResponse, setContext]);
 
   const sendMessage = useCallback(async (userMessage: string) => {
     const topic = topicRef.current;
@@ -88,9 +119,15 @@ export function useEnglishChat() {
     abortRef.current = new AbortController();
 
     try {
-      const rawText = await callAiAction(
-        'chat_reply',
-        { topicId: topic, mode: practiceMode, messages: newMessages },
+      const rawText = await callChatAction(
+        'reply',
+        {
+          topicId: topic,
+          mode: practiceMode,
+          messages: newMessages,
+          topicLabel: contextRef.current?.label,
+          focus: contextRef.current?.focus,
+        },
         { signal: abortRef.current.signal },
       );
       const displayText = processResponse(rawText);
@@ -114,8 +151,8 @@ export function useEnglishChat() {
         .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
         .join('\n\n');
 
-      const rawText = await callAiAction(
-        'chat_summary',
+      const rawText = await callChatAction(
+        'summary',
         { conversationText },
         { signal: abortRef.current.signal },
       );
@@ -138,9 +175,10 @@ export function useEnglishChat() {
     setError(null);
     setCurrentTopic(null);
     setMode(null);
+    setContext(null);
     topicRef.current = null;
     modeRef.current = null;
-  }, []);
+  }, [setContext]);
 
   return {
     messages,
@@ -148,6 +186,7 @@ export function useEnglishChat() {
     error,
     currentTopic,
     mode,
+    context,
     sendMessage,
     startConversation,
     summarizeMistakes,
@@ -155,6 +194,7 @@ export function useEnglishChat() {
     setMessages,
     setCurrentTopic,
     setMode,
+    setContext,
     setOnLearnings,
   };
 }

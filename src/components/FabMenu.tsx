@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useFabStore } from '../hooks/useFabStore';
+import { useIsPro } from '../hooks/useProStatus';
 
 export function FabMenu() {
   const { expanded, panel, expand, toggleExpanded, collapse, openPanel } = useFabStore();
+  const { isPro, loading: proLoading } = useIsPro();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,6 +36,12 @@ export function FabMenu() {
             <span className="text-sm font-medium text-text-primary group-hover:text-accent-green transition-colors whitespace-nowrap">
               Practice English
             </span>
+            {/* Teaser for non-Pro users — the drawer explains, the server enforces. */}
+            {!isPro && !proLoading && (
+              <span className="text-[9px] px-1 py-px rounded bg-accent-green/20 text-accent-green font-extrabold uppercase tracking-wider">
+                Pro
+              </span>
+            )}
             <span className="w-9 h-9 rounded-full bg-accent-green/15 text-accent-green flex items-center justify-center shrink-0">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />

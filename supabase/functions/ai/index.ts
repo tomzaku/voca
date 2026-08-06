@@ -1,5 +1,5 @@
-// Server-side AI proxy for the always-generative features (conversation, tutor,
-// dialogues, story-gaps, translation). Word data lives in its own cache-first
+// Server-side AI proxy for the always-generative features (tutor, dialogues,
+// story-gaps, mind maps, translation). Word data lives in its own cache-first
 // `word` function — see supabase/functions/word/index.ts.
 //
 // SECURITY: this is an ACTION API, not a raw prompt passthrough. The client may
@@ -15,7 +15,8 @@
 //   AI_RATE_LIMIT (default 60), AI_RATE_WINDOW_SECONDS (default 60)
 //
 // Doodle images live in their own `doodles` function — see
-// supabase/functions/doodles/index.ts.
+// supabase/functions/doodles/index.ts. English conversation practice lives in
+// the `chat` function — see supabase/functions/chat/index.ts.
 //
 // Deploy: `supabase functions deploy ai`
 
@@ -25,7 +26,7 @@ import {
   type ChatMessage,
   corsHeaders,
   jsonResponse,
-  oneOf,
+  proGateError,
   reqStr,
   requireUser,
   sanitizeHistory,
@@ -41,115 +42,6 @@ interface BuiltRequest {
   maxTokens: number;
 }
 
-// ─── English conversation prompts ───────────────────────────────────
-
-const ENGLISH_TOPIC_LABELS: Record<string, string> = {
-  'daily-life': 'Daily Life',
-  travel: 'Travel',
-  technology: 'Technology',
-  work: 'Work & Career',
-  food: 'Food & Cooking',
-  health: 'Health & Fitness',
-  entertainment: 'Entertainment',
-  culture: 'Culture & Society',
-  education: 'Education',
-  environment: 'Environment',
-  random: 'Random',
-};
-const TOPIC_IDS = Object.keys(ENGLISH_TOPIC_LABELS);
-const PRACTICE_MODES = ['smooth', 'feedback'] as const;
-
-const LEARNINGS_BLOCK_INSTRUCTION = `
-
-IMPORTANT — at the very end of EVERY response (after your conversational text), append a structured data block with any corrections or tips. Use this exact format:
-
-~~~learnings
-[
-  {"category": "grammar", "original": "what the user said", "corrected": "the corrected version", "explanation": "why"},
-  {"category": "vocabulary", "original": "word used", "corrected": "better alternative", "explanation": "why it's more natural"},
-  {"category": "rephrase", "original": "user's sentence", "corrected": "more native phrasing", "explanation": "why this sounds more natural"},
-  {"category": "tip", "original": "", "corrected": "the tip or idiom", "explanation": "when to use it"}
-]
-~~~
-
-Rules for the block:
-- Include ALL applicable categories — omit any that don't apply
-- If there are no corrections or tips, output an empty array: ~~~learnings\\n[]\\n~~~
-- The block is hidden from the user — they only see the conversational text above it
-- Always include the block, even if the array is empty
-
-IMPORTANT — this is SPEAKING practice, not writing practice:
-- Do NOT correct capitalization, punctuation, or formatting
-- Focus on grammar structure, word choice, natural phrasing
-- Corrections should reflect how native speakers actually talk in casual conversation
-- Contractions like "gonna", "wanna", "gotta" are natural in spoken English`;
-
-function chatSystemPrompt(topicId: string, mode: string): string {
-  const topicLabel = ENGLISH_TOPIC_LABELS[topicId] ?? topicId;
-
-  if (mode === 'smooth') {
-    return `You are a friendly English conversation partner helping someone practice their English speaking skills. The topic is: "${topicLabel}".
-
-Rules:
-- Ask one question at a time — keep it conversational and natural
-- ${topicId === 'random' ? 'Pick a random interesting topic for each question' : `Stay on the topic of "${topicLabel}" but explore different angles`}
-- After the user responds, briefly acknowledge their answer (1 sentence), then ask a follow-up or new question
-- Do NOT correct grammar in your conversational text — just keep it flowing naturally
-- Keep your responses concise — 2-4 sentences max
-- Be warm, patient, and encouraging
-- Do NOT use bullet points or lists — keep it conversational
-${LEARNINGS_BLOCK_INSTRUCTION}`;
-  }
-
-  return `You are a friendly English conversation partner helping someone practice their English speaking skills. The topic is: "${topicLabel}".
-
-Rules:
-- Ask one question at a time — keep it conversational and natural
-- ${topicId === 'random' ? 'Pick a random interesting topic for each question' : `Stay on the topic of "${topicLabel}" but explore different angles`}
-- After the user responds, briefly acknowledge their answer (1 sentence)
-- Then provide detailed feedback on their English. Use this EXACT format for each issue:
-
-  📝 **Grammar:** You said "_original_" → "_corrected_". (explanation)
-  📖 **Vocabulary:** "_word used_" → "_better alternative_". (why it's more natural)
-  🔄 **Rephrase:** A more native way to say "_original_" would be: "_rephrased_"
-  💡 **Tip:** (useful idiom, collocation, or pattern)
-
-- After the feedback, ask a follow-up question
-- Be warm and encouraging
-${LEARNINGS_BLOCK_INSTRUCTION}`;
-}
-
-function summarySystemPrompt(): string {
-  return `You are an English language coach. Analyze ALL of the user's messages and provide a detailed summary.
-
-Format your response like this:
-
-## Grammar Issues
-
-For each grammar mistake:
-- **What you said:** "the exact quote"
-- **Corrected:** "the corrected version"
-- **Rule:** brief explanation
-
-## Vocabulary & Phrasing
-
-For unnatural or non-native phrasing:
-- **What you said:** "the phrase"
-- **More natural:** "the native-sounding alternative"
-- **Why:** why it sounds more natural
-
-## Native Speaker Tips
-
-3-5 specific tips to sound more natural based on patterns you noticed.
-
-## What You Did Well
-
-Mention 2-3 things the user did well.
-
-Be thorough but encouraging.
-${LEARNINGS_BLOCK_INSTRUCTION}`;
-}
-
 // ─── Action registry ────────────────────────────────────────────────
 // Each builder validates its own params and returns the exact request. Adding a
 // capability means adding one entry here — never widening the client contract.
@@ -158,7 +50,7 @@ ${LEARNINGS_BLOCK_INSTRUCTION}`;
 // manually — see the pro_users migration). Checked in the request handler.
 // `cloze` (Story Gaps) writes a fresh AI story on every round, so it's Pro-only
 // just like the mind-map actions — the client UI also gates it, but this is the
-// real enforcement.
+// real enforcement. (The `chat` function is Pro-only in its entirety.)
 const PRO_ACTIONS = new Set(['mindmap', 'cloze']);
 
 const ACTIONS: Record<string, (p: Record<string, unknown>) => BuiltRequest> = {
@@ -266,28 +158,6 @@ Keep it short and practical.`,
     };
   },
 
-  chat_start(p) {
-    const topicId = oneOf(p, 'topicId', TOPIC_IDS);
-    const mode = oneOf(p, 'mode', PRACTICE_MODES);
-    return {
-      system: chatSystemPrompt(topicId, mode),
-      messages: [{ role: 'user', content: 'Start the conversation. Greet me and ask me the first question.' }],
-      maxTokens: mode === 'feedback' ? 1024 : 512,
-    };
-  },
-
-  chat_reply(p) {
-    const topicId = oneOf(p, 'topicId', TOPIC_IDS);
-    const mode = oneOf(p, 'mode', PRACTICE_MODES);
-    const messages = sanitizeHistory(p.messages, 60, 4000);
-    if (messages.length === 0) throw new BadRequest('"messages" must not be empty.');
-    return {
-      system: chatSystemPrompt(topicId, mode),
-      messages,
-      maxTokens: mode === 'feedback' ? 1024 : 512,
-    };
-  },
-
   // Pro-only: interactive mind map of the user's saved words. Returns a
   // jsMind-style "node_tree" JSON document that the WordMindMap component
   // renders. The AI only groups words into themes and picks emoji — per-word
@@ -345,15 +215,6 @@ Do NOT include definitions — they are added separately.`;
       maxTokens: Math.min(600 + words.length * 60, 3500),
     };
   },
-
-  chat_summary(p) {
-    const conversationText = reqStr(p, 'conversationText', 40000);
-    return {
-      system: summarySystemPrompt(),
-      messages: [{ role: 'user', content: `Here is my conversation:\n\n${conversationText}` }],
-      maxTokens: 2048,
-    };
-  },
 };
 
 Deno.serve(async (req) => {
@@ -380,21 +241,9 @@ Deno.serve(async (req) => {
   }
 
   if (PRO_ACTIONS.has(action)) {
-    // The user-scoped client can only see the caller's own pro_users row
-    // (RLS), so a returned row is proof this user has Pro. A NULL expires_at
-    // is a lifetime grant; otherwise Pro lasts until that moment.
-    const { data: proRow, error: proErr } = await auth.supabase
-      .from('pro_users')
-      .select('expires_at')
-      .eq('user_id', auth.user.id)
-      .maybeSingle();
-    if (proErr) return jsonResponse(500, { error: 'Could not verify Pro status.' });
-    if (!proRow) return jsonResponse(403, { error: 'This feature requires a Pro account.' });
-    if (proRow.expires_at && new Date(proRow.expires_at) <= new Date()) {
-      return jsonResponse(403, { error: 'Your Pro access has expired.' });
-    }
+    const denied = await proGateError(auth.supabase, auth.user.id);
+    if (denied) return denied;
   }
-
 
   let built: BuiltRequest;
   try {

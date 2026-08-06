@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ChatMessage, TopicId, PracticeMode } from './useEnglishChat';
+import type { ChatMessage, TopicId, PracticeMode, TopicContext } from './useEnglishChat';
 
 export interface EnglishConversation {
   id: string;
@@ -9,6 +9,8 @@ export interface EnglishConversation {
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
+  /** Set for sessions started from the /speaking page. Absent on older rows. */
+  context?: TopicContext;
 }
 
 const STORAGE_KEY = 'voca-english-conversations';
@@ -24,7 +26,13 @@ export function useEnglishConversations() {
   const [conversations, setConversations] = useState<EnglishConversation[]>(load);
 
   const saveConversation = useCallback(
-    (topicId: TopicId, mode: PracticeMode, messages: ChatMessage[], title?: string) => {
+    (
+      topicId: TopicId,
+      mode: PracticeMode,
+      messages: ChatMessage[],
+      title?: string,
+      context?: TopicContext | null,
+    ) => {
       const now = Date.now();
       const newConv: EnglishConversation = {
         id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
@@ -34,6 +42,7 @@ export function useEnglishConversations() {
         messages,
         createdAt: now,
         updatedAt: now,
+        ...(context ? { context } : {}),
       };
       setConversations((prev) => {
         const updated = [newConv, ...prev];

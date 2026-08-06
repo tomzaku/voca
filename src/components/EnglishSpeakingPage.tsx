@@ -3,6 +3,7 @@ import { speakingQuestions, speakingTopics } from '../data/englishSpeaking';
 import { podcasts, podcastTopics } from '../data/englishPodcasts';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { ReadAloud } from './ReadAloud';
+import { PracticeButton } from './PracticeButton';
 import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 
 type Tab = 'conversation' | 'podcast' | 'ielts';
@@ -174,21 +175,27 @@ function ConversationTab() {
         <span className="text-xs text-text-muted">
           {selectedTopic === 'all' ? `${speakingQuestions.length} questions` : `${filtered.length} questions · ${selectedTopic}`}
         </span>
-        <button
-          onClick={pickRandomTopic}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent-orange/20 bg-accent-orange/5 text-accent-orange hover:bg-accent-orange/10 transition-all cursor-pointer"
-        >
-          <svg
-            width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            className={spinning ? 'animate-spin' : ''}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={pickRandomTopic}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent-orange/20 bg-accent-orange/5 text-accent-orange hover:bg-accent-orange/10 transition-all cursor-pointer"
           >
-            <polyline points="16 3 21 3 21 8" />
-            <line x1="4" y1="20" x2="21" y2="3" />
-            <polyline points="21 16 21 21 16 21" />
-            <line x1="15" y1="15" x2="21" y2="21" />
-          </svg>
-          Random Topic
-        </button>
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              className={spinning ? 'animate-spin' : ''}
+            >
+              <polyline points="16 3 21 3 21 8" />
+              <line x1="4" y1="20" x2="21" y2="3" />
+              <polyline points="21 16 21 21 16 21" />
+              <line x1="15" y1="15" x2="21" y2="21" />
+            </svg>
+            Random Topic
+          </button>
+          <PracticeButton
+            topic={selectedTopic === 'all' ? 'Everyday Speaking' : selectedTopic}
+            label={selectedTopic === 'all' ? 'Practice' : 'Practice this topic'}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-6">
@@ -243,6 +250,10 @@ function ConversationTab() {
 
               {isExpanded && (
                 <div className="border-t border-border animate-fade-in">
+                  <div className="px-5 py-3 flex items-center justify-between gap-3 bg-bg-tertiary/50 border-b border-border">
+                    <span className="text-xs text-text-muted">Answer it yourself with an AI partner</span>
+                    <PracticeButton topic={q.topic} focus={q.question} label="Practice this question" size="sm" />
+                  </div>
                   <div className="px-5 py-4 space-y-4">
                     {q.sampleAnswers.map((sa, i) => (
                       <div key={i}>
@@ -313,6 +324,16 @@ function PodcastTab() {
 
   return (
     <>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-text-muted">
+          {selectedTopic === 'all' ? `${podcasts.length} episodes` : `${filtered.length} episodes · ${selectedTopic}`}
+        </span>
+        <PracticeButton
+          topic={selectedTopic === 'all' ? 'Podcast Topics' : selectedTopic}
+          label={selectedTopic === 'all' ? 'Practice' : 'Practice this topic'}
+        />
+      </div>
+
       <div className="flex flex-wrap gap-1.5 mb-6">
         <button
           onClick={() => setSelectedTopic('all')}
@@ -382,8 +403,15 @@ function PodcastTab() {
 
               {isExpanded && (
                 <div className="border-t border-border animate-fade-in">
-                  <div className="px-5 py-3 bg-bg-tertiary/50">
+                  <div className="px-5 py-3 bg-bg-tertiary/50 flex items-start justify-between gap-3">
                     <p className="text-xs text-text-secondary leading-relaxed">{p.description}</p>
+                    <PracticeButton
+                      topic={p.topic}
+                      focus={p.discussionQuestions?.[0]
+                        ?? `What are your thoughts on the podcast "${p.title}"?`}
+                      label="Discuss this episode"
+                      size="sm"
+                    />
                   </div>
                   <div className="px-5 py-3 flex items-center justify-between border-b border-border">
                     <span className="text-xs font-semibold text-accent-purple">Full Script</span>
@@ -584,6 +612,16 @@ function PlayAllExchanges({ conversation }: { conversation: IeltsConversation })
   );
 }
 
+/**
+ * What the AI partner should open an IELTS practice session with: the
+ * examiner's first question, or the card's title when that question is a long
+ * Part 2 cue card (the server only keeps the first 400 characters).
+ */
+function ieltsOpener(c: IeltsConversation): string {
+  const question = c.exchanges.find((ex) => ex.role === 'examiner')?.text ?? '';
+  return question && question.length <= 300 ? question : `${c.part}: ${c.title}`;
+}
+
 /* ─── Tab: IELTS Speaking ─────────────────────────────────────── */
 function IeltsTab() {
   const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
@@ -616,6 +654,19 @@ function IeltsTab() {
 
   return (
     <>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-text-muted">
+          {filtered.length} conversations
+          {selectedTopic !== 'all' ? ` · ${selectedTopic}` : ''}
+          {selectedPart !== 'all' ? ` · ${selectedPart}` : ''}
+        </span>
+        <PracticeButton
+          topic={selectedTopic === 'all' ? 'IELTS Speaking' : `IELTS Speaking — ${selectedTopic}`}
+          focus={selectedPart === 'all' ? undefined : `Run a mock IELTS Speaking ${selectedPart} on this topic.`}
+          label="Practice this topic"
+        />
+      </div>
+
       <div className="flex gap-1.5 mb-3">
         {['all', 'Part 1', 'Part 2', 'Part 3'].map((part) => (
           <button
@@ -708,7 +759,15 @@ function IeltsTab() {
                         </div>
                       </div>
                     </div>
-                    <PlayAllExchanges conversation={c} />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <PracticeButton
+                        topic={`IELTS ${c.part} — ${c.topic}`}
+                        focus={ieltsOpener(c)}
+                        label="Practice as candidate"
+                        size="sm"
+                      />
+                      <PlayAllExchanges conversation={c} />
+                    </div>
                   </div>
 
                   <div className="px-5 py-4 space-y-4">
@@ -828,7 +887,8 @@ export function EnglishSpeakingPage() {
         English Speaking Practice
       </h1>
       <p className="text-sm text-text-muted mb-5">
-        Practice speaking with conversations, podcasts, and IELTS exercises. Select any text to listen.
+        Practice speaking with conversations, podcasts, and IELTS exercises. Select any text to listen,
+        or hit Practice to talk it through with an AI partner.
       </p>
 
       <div className="flex gap-1 mb-6 p-1 rounded-lg bg-bg-tertiary/50 border border-border">

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useEnglishChat, ENGLISH_TOPICS, type TopicId, type PracticeMode } from '../hooks/useEnglishChat';
+import { useEnglishChat, ENGLISH_TOPICS, topicLabel, type TopicId, type PracticeMode } from '../hooks/useEnglishChat';
 import { useEnglishConversations, type EnglishConversation } from '../hooks/useEnglishConversations';
 import { useLearnings, type LearningCategory } from '../hooks/useLearnings';
 import { ReadAloud } from './ReadAloud';
@@ -7,6 +7,7 @@ import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 import { transcribeBlob } from '../lib/whisperStt';
 import { useFabStore } from '../hooks/useFabStore';
 import { useAuth } from '../hooks/useAuth';
+import { useIsPro } from '../hooks/useProStatus';
 
 // ─── Web Speech API helpers ──────────────────────────────────────────
 interface SpeechRecognitionInstance extends EventTarget {
@@ -68,8 +69,9 @@ type SetupStep = 'mode' | 'topic';
 type DrawerTab = 'chat' | 'learnings';
 
 export function EnglishPractice() {
-  const { panel, closePanel } = useFabStore();
+  const { panel, closePanel, practiceSeed, clearPracticeSeed } = useFabStore();
   const { user } = useAuth();
+  const { isPro, loading: proLoading } = useIsPro();
   const open = panel === 'englishPractice';
 
   const [input, setInput] = useState('');
@@ -101,9 +103,9 @@ export function EnglishPractice() {
   const autoReadQueueRef = useRef<string | null>(null);
 
   const {
-    messages, isLoading, error, currentTopic, mode,
+    messages, isLoading, error, currentTopic, mode, context,
     sendMessage, startConversation, summarizeMistakes, reset,
-    setMessages, setCurrentTopic, setMode, setOnLearnings,
+    setMessages, setCurrentTopic, setMode, setContext, setOnLearnings,
   } = useEnglishChat();
 
   const { conversations, saveConversation, updateConversation, deleteConversation } = useEnglishConversations();
@@ -127,17 +129,37 @@ export function EnglishPractice() {
       if (activeConvId) {
         updateConversation(activeConvId, messages);
       } else {
-        const topicLabel = ENGLISH_TOPICS.find((t) => t.id === currentTopic)?.label || currentTopic;
+        const label = topicLabel(currentTopic, context);
         const modeLabel = mode === 'smooth' ? 'Smooth' : 'Feedback';
         const conv = saveConversation(
           currentTopic, mode, messages,
-          `${topicLabel} (${modeLabel}) — ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          `${label} (${modeLabel}) — ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          context,
         );
         setActiveConvId(conv.id);
       }
     }
     prevMessageCountRef.current = messages.length;
-  }, [messages, isLoading, activeConvId, currentTopic, mode, saveConversation, updateConversation]);
+  }, [messages, isLoading, activeConvId, currentTopic, mode, context, saveConversation, updateConversation]);
+
+  // A session requested from the /speaking page — start it straight away.
+  // Without a signed-in user the setup screen takes over and prompts to sign in.
+  useEffect(() => {
+    if (!practiceSeed) return;
+    clearPracticeSeed();
+    if (!user) return;
+    stopSpeaking();
+    autoReadQueueRef.current = null;
+    lastReadIndexRef.current = -1;
+    prevMessageCountRef.current = 0;
+    setActiveConvId(null);
+    setSummaryText(null);
+    setInput('');
+    setShowHistory(false);
+    setSelectedMode(practiceSeed.mode);
+    setActiveTab('chat');
+    startConversation(practiceSeed.topicId, practiceSeed.mode, practiceSeed.context);
+  }, [practiceSeed, clearPracticeSeed, user, startConversation]);
 
   // Wire learnings extraction
   const activeConvIdRef = useRef<string | null>(null);
@@ -387,6 +409,7 @@ export function EnglishPractice() {
     setMessages(conv.messages);
     setCurrentTopic(conv.topicId);
     setMode(conv.mode || 'smooth');
+    setContext(conv.context ?? null);
     setSelectedMode(conv.mode || 'smooth');
     setActiveConvId(conv.id);
     setShowHistory(false);
@@ -395,14 +418,16 @@ export function EnglishPractice() {
     setActiveTab('chat');
     lastReadIndexRef.current = conv.messages.length;
     prevMessageCountRef.current = conv.messages.length;
-  }, [setMessages, setCurrentTopic, setMode]);
+  }, [setMessages, setCurrentTopic, setMode, setContext]);
 
   const handleDeleteConversation = useCallback((id: string) => {
     deleteConversation(id);
     if (activeConvId === id) { setActiveConvId(null); handleNewConversation(); }
   }, [deleteConversation, activeConvId, handleNewConversation]);
 
-  const hasApiKey = !!user;
+  // Every turn is a generative call, so practising needs Pro. The server
+  // re-checks on each action — this only decides what the setup screen offers.
+  const canPractice = !!user && isPro;
   const userMessageCount = messages.filter((m) => m.role === 'user').length;
   const inConversation = !!currentTopic;
 
@@ -423,15 +448,19 @@ export function EnglishPractice() {
         <div className="p-5">
           <p className="text-base text-text-secondary mb-1">How would you like to practice?</p>
           <p className="text-sm text-text-muted mb-5">Choose your conversation style.</p>
-          {!hasApiKey && (
+          {!user ? (
             <div className="mb-4 p-3 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-sm text-accent-yellow">
               Sign in to start practicing — conversations are powered by AI on our server.
             </div>
-          )}
+          ) : !isPro && !proLoading ? (
+            <div className="mb-4 p-3 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-sm text-accent-yellow">
+              👑 Conversation practice is a Pro feature — every reply is a live AI call.
+            </div>
+          ) : null}
           <div className="grid gap-3">
             <button
               onClick={() => handleSelectMode('smooth')}
-              disabled={!hasApiKey}
+              disabled={!canPractice}
               className="w-full text-left p-4 rounded-lg border border-border bg-bg-card hover:border-accent-green/40 hover:bg-accent-green/5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
             >
               <div className="flex items-center gap-2.5 mb-2">
@@ -450,7 +479,7 @@ export function EnglishPractice() {
             </button>
             <button
               onClick={() => handleSelectMode('feedback')}
-              disabled={!hasApiKey}
+              disabled={!canPractice}
               className="w-full text-left p-4 rounded-lg border border-border bg-bg-card hover:border-accent-purple/40 hover:bg-accent-purple/5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
             >
               <div className="flex items-center gap-2.5 mb-2">
@@ -496,7 +525,7 @@ export function EnglishPractice() {
             <button
               key={topic.id}
               onClick={() => handlePickTopic(topic.id)}
-              disabled={!hasApiKey}
+              disabled={!canPractice}
               className="w-full text-left px-4 py-3 rounded-lg border border-border bg-bg-card hover:border-accent-green/40 hover:bg-accent-green/5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
             >
               <span className="text-[15px] font-medium text-text-primary group-hover:text-accent-green transition-colors">
@@ -632,7 +661,7 @@ export function EnglishPractice() {
               <h2 className="text-base font-display font-bold text-text-primary">English Practice</h2>
               {currentTopic && (
                 <span className="text-xs text-text-muted">
-                  {ENGLISH_TOPICS.find((t) => t.id === currentTopic)?.label}
+                  {topicLabel(currentTopic, context)}
                   {' · '}{mode === 'smooth' ? 'Smooth' : 'Feedback'}
                   {activeConvId && ' · saved'}
                 </span>
@@ -744,6 +773,12 @@ export function EnglishPractice() {
         <div className="flex-1 overflow-y-auto">
           {activeTab === 'learnings' ? renderLearnings() : !inConversation ? renderSetup() : (
             <div className={`p-5 space-y-4 ${maximized ? 'max-w-3xl mx-auto' : ''}`}>
+              {context?.focus && (
+                <div className="rounded-lg border border-accent-cyan/20 bg-accent-cyan/5 px-4 py-2.5">
+                  <p className="text-[11px] font-semibold text-accent-cyan mb-0.5">Practising this prompt</p>
+                  <p className="text-sm text-text-secondary leading-relaxed">{context.focus}</p>
+                </div>
+              )}
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
