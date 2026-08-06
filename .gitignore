@@ -34,3 +34,6 @@ Sprout Lands - Sprites - Basic pack/
 
 # Sunnyside asset pack, re-extracted by scripts/convert-sunnyside-room.mjs (47 MB)
 tiled/extracted/
+
+# Generated doodle sheets kept by scripts/backfill-doodles.mjs for inspection
+doodle-sheets/
