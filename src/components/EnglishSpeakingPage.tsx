@@ -2,17 +2,24 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { speakingQuestions, speakingTopics } from '../data/englishSpeaking';
 import { podcasts, podcastTopics } from '../data/englishPodcasts';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
+import { dialogues, dialogueTopics } from '../data/englishDialogues';
 import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
-import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
+import { speakText, stopSpeaking, preloadTts, CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
 
-type Tab = 'conversation' | 'podcast' | 'ielts';
+type Tab = 'conversation' | 'dialogue' | 'podcast' | 'ielts';
 
 // Voice mapping for IELTS multi-speaker playback
 // Examiner: British female (Emma), Candidate: American male (Michael)
 const IELTS_VOICES = {
   examiner: 'bf_emma',
   candidate: 'am_michael',
+} as const;
+
+// Voice mapping for two-speaker dialogues: A is female (Sarah), B is male (Michael)
+const DIALOGUE_VOICES = {
+  a: CONV_VOICE_A,
+  b: CONV_VOICE_B,
 } as const;
 
 function hasSelection() {
@@ -464,8 +471,13 @@ function PodcastTab() {
   );
 }
 
-/* ─── IELTS: Role-specific read-aloud button ─────────────────── */
-function ReadAloudVoice({ text, role }: { text: string; role: 'examiner' | 'candidate' }) {
+/* ─── Speaker-specific read-aloud button (IELTS + dialogues) ─── */
+function ReadAloudVoice({ text, voice, tone, voiceLabel }: {
+  text: string;
+  voice: string;
+  tone: 'orange' | 'cyan';
+  voiceLabel: string;
+}) {
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle');
   const mountedRef = useRef(true);
 
@@ -483,7 +495,6 @@ function ReadAloudVoice({ text, role }: { text: string; role: 'examiner' | 'cand
       return;
     }
     setState('loading');
-    const voice = IELTS_VOICES[role];
     try {
       await speakText(text, {
         voice,
@@ -493,9 +504,9 @@ function ReadAloudVoice({ text, role }: { text: string; role: 'examiner' | 'cand
     } catch { /* ignore */ } finally {
       if (mountedRef.current) setState('idle');
     }
-  }, [text, state, role]);
+  }, [text, state, voice]);
 
-  const colorClass = role === 'examiner'
+  const colorClass = tone === 'orange'
     ? { active: 'bg-accent-orange/10 text-accent-orange border-accent-orange/20', loading: 'bg-accent-orange/5 text-accent-orange/60 border-accent-orange/10', idle: 'bg-bg-tertiary text-text-muted border-border hover:text-accent-orange hover:border-accent-orange/30' }
     : { active: 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20', loading: 'bg-accent-cyan/5 text-accent-cyan/60 border-accent-cyan/10', idle: 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30' };
 
@@ -505,7 +516,7 @@ function ReadAloudVoice({ text, role }: { text: string; role: 'examiner' | 'cand
       className={`w-7 h-7 rounded-md flex items-center justify-center border transition-all cursor-pointer ${
         state === 'playing' ? colorClass.active : state === 'loading' ? colorClass.loading : colorClass.idle
       }`}
-      title={`${state === 'playing' ? 'Stop' : 'Listen'} (${role === 'examiner' ? 'Emma — British' : 'Michael — American'})`}
+      title={`${state === 'playing' ? 'Stop' : 'Listen'} (${voiceLabel})`}
     >
       {state === 'loading' ? (
         <svg width="12" height="12" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -526,8 +537,11 @@ function ReadAloudVoice({ text, role }: { text: string; role: 'examiner' | 'cand
   );
 }
 
-/* ─── IELTS: Play all exchanges sequentially ─────────────────── */
-function PlayAllExchanges({ conversation }: { conversation: IeltsConversation }) {
+/* ─── Play a multi-voice conversation line by line ───────────── */
+function PlaySequence({ lines, tone = 'cyan' }: {
+  lines: { text: string; voice: string }[];
+  tone?: 'green' | 'cyan';
+}) {
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle');
   const [currentIndex, setCurrentIndex] = useState(-1);
   const mountedRef = useRef(true);
@@ -560,14 +574,13 @@ function PlayAllExchanges({ conversation }: { conversation: IeltsConversation })
     cancelledRef.current = false;
     setState('loading');
 
-    const exchanges = conversation.exchanges;
-    for (let i = 0; i < exchanges.length; i++) {
+    for (let i = 0; i < lines.length; i++) {
       if (cancelledRef.current || !mountedRef.current) break;
-      const ex = exchanges[i];
+      const line = lines[i];
       if (mountedRef.current) setCurrentIndex(i);
       await new Promise<void>((resolve) => {
-        speakText(ex.text, {
-          voice: IELTS_VOICES[ex.role],
+        speakText(line.text, {
+          voice: line.voice,
           onStart: () => { if (mountedRef.current && i === 0) setState('playing'); },
           onEnd: () => resolve(),
         }).catch(() => resolve());
@@ -575,21 +588,27 @@ function PlayAllExchanges({ conversation }: { conversation: IeltsConversation })
     }
 
     if (mountedRef.current) { setState('idle'); setCurrentIndex(-1); }
-  }, [state, conversation]);
+  }, [state, lines]);
 
   return (
     <div className="flex items-center gap-2">
       {state === 'playing' && currentIndex >= 0 && (
-        <span className="text-[10px] text-text-muted">{currentIndex + 1}/{conversation.exchanges.length}</span>
+        <span className="text-[10px] text-text-muted">{currentIndex + 1}/{lines.length}</span>
       )}
       <button
         onClick={playAll}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all cursor-pointer text-xs font-medium ${
-          state === 'playing'
-            ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20'
-            : state === 'loading'
-              ? 'bg-accent-cyan/5 text-accent-cyan/60 border-accent-cyan/10'
-              : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
+          tone === 'green'
+            ? state === 'playing'
+              ? 'bg-accent-green/10 text-accent-green border-accent-green/20'
+              : state === 'loading'
+                ? 'bg-accent-green/5 text-accent-green/60 border-accent-green/10'
+                : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-green hover:border-accent-green/30'
+            : state === 'playing'
+              ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20'
+              : state === 'loading'
+                ? 'bg-accent-cyan/5 text-accent-cyan/60 border-accent-cyan/10'
+                : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
         }`}
         title={state === 'playing' ? 'Stop conversation' : 'Play full conversation with different voices'}
       >
@@ -766,7 +785,7 @@ function IeltsTab() {
                         label="Practice as candidate"
                         size="sm"
                       />
-                      <PlayAllExchanges conversation={c} />
+                      <PlaySequence lines={c.exchanges.map((ex) => ({ text: ex.text, voice: IELTS_VOICES[ex.role] }))} />
                     </div>
                   </div>
 
@@ -787,7 +806,12 @@ function IeltsTab() {
                           <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{ex.text}</p>
                         </div>
                         <div className="shrink-0 mt-5">
-                          <ReadAloudVoice text={ex.text} role={ex.role} />
+                          <ReadAloudVoice
+                            text={ex.text}
+                            voice={IELTS_VOICES[ex.role]}
+                            tone={ex.role === 'examiner' ? 'orange' : 'cyan'}
+                            voiceLabel={ex.role === 'examiner' ? 'Emma — British' : 'Michael — American'}
+                          />
                         </div>
                       </div>
                     ))}
@@ -835,6 +859,224 @@ function IeltsTab() {
   );
 }
 
+/* ─── Tab: Daily Dialogue ────────────────────────────────────── */
+function DialogueTab() {
+  const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
+  const [selectedLevel, setSelectedLevel] = useState<string | 'all'>('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const filtered = useMemo(
+    () => dialogues.filter((d) => {
+      if (selectedTopic !== 'all' && d.topic !== selectedTopic) return false;
+      if (selectedLevel !== 'all' && d.level !== selectedLevel) return false;
+      return true;
+    }),
+    [selectedTopic, selectedLevel],
+  );
+
+  const topicCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    dialogues.forEach((d) => { map[d.topic] = (map[d.topic] || 0) + 1; });
+    return map;
+  }, []);
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-text-muted">
+          {filtered.length} dialogues
+          {selectedTopic !== 'all' ? ` · ${selectedTopic}` : ''}
+          {selectedLevel !== 'all' ? ` · ${selectedLevel}` : ''}
+        </span>
+        <PracticeButton
+          topic={selectedTopic === 'all' ? 'Everyday Dialogues' : selectedTopic}
+          focus="Role-play a short everyday conversation with me. You start."
+          label="Practice a role-play"
+        />
+      </div>
+
+      <div className="flex gap-1.5 mb-3">
+        {['all', 'Easy', 'Medium'].map((level) => (
+          <button
+            key={level}
+            onClick={() => { setSelectedLevel(level); setExpandedId(null); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
+              selectedLevel === level
+                ? 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/20'
+                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
+            }`}
+          >
+            {level === 'all' ? 'All Levels' : level}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 mb-6">
+        <button
+          onClick={() => { setSelectedTopic('all'); setExpandedId(null); }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
+            selectedTopic === 'all'
+              ? 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/20'
+              : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
+          }`}
+        >
+          All <span className="ml-1 opacity-60">{dialogues.length}</span>
+        </button>
+        {dialogueTopics.map((topic) => (
+          <button
+            key={topic}
+            onClick={() => { setSelectedTopic(topic); setExpandedId(null); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
+              selectedTopic === topic
+                ? 'bg-accent-yellow/10 text-accent-yellow border-accent-yellow/20'
+                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
+            }`}
+          >
+            {topic} <span className="ml-1 opacity-60">{topicCounts[topic] || 0}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {filtered.map((d) => {
+          const isExpanded = expandedId === d.id;
+          return (
+            <div key={d.id} className="rounded-lg border border-border bg-bg-card overflow-hidden transition-all">
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : d.id)}
+                className="w-full text-left px-5 py-4 flex items-start gap-3 cursor-pointer hover:bg-bg-hover/50 transition-colors"
+              >
+                <span className={`px-2 py-1 rounded-md text-[10px] font-bold shrink-0 mt-0.5 border ${
+                  d.level === 'Easy'
+                    ? 'text-accent-green bg-accent-green/10 border-accent-green/20'
+                    : 'text-accent-orange bg-accent-orange/10 border-accent-orange/20'
+                }`}>
+                  {d.level}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-medium text-text-primary leading-relaxed">{d.title}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px] text-text-muted">{d.topic}</span>
+                    <span className="text-[10px] text-text-muted">·</span>
+                    <span className="text-[11px] text-text-muted">{d.lines.length} lines</span>
+                    <span className="text-[10px] text-text-muted">·</span>
+                    <span className="text-[11px] text-text-muted flex items-center gap-1">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      {d.duration}
+                    </span>
+                  </div>
+                </div>
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  className={`text-text-muted shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+
+              {isExpanded && (
+                <div className="border-t border-border animate-fade-in">
+                  <div className="px-5 py-3 bg-bg-tertiary/50 flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-text-secondary leading-relaxed">{d.situation}</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-accent-green/30" />
+                          <span className="text-[10px] text-text-muted">{d.speakers.a} — Sarah</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-accent-cyan/30" />
+                          <span className="text-[10px] text-text-muted">{d.speakers.b} — Michael</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <PracticeButton
+                        topic={`${d.topic} — ${d.title}`}
+                        focus={`Role-play this situation with me: ${d.situation} You are the ${d.speakers.a.toLowerCase()}, I am the ${d.speakers.b.toLowerCase()}. Start the conversation.`}
+                        label={`Practice as ${d.speakers.b.toLowerCase()}`}
+                        size="sm"
+                      />
+                      <PlaySequence
+                        lines={d.lines.map((l) => ({ text: l.text, voice: DIALOGUE_VOICES[l.speaker] }))}
+                        tone="green"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-4 space-y-4">
+                    {d.lines.map((l, i) => (
+                      <div key={i} className="flex gap-3">
+                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${
+                          l.speaker === 'a' ? 'bg-accent-green/15 text-accent-green' : 'bg-accent-cyan/15 text-accent-cyan'
+                        }`}>
+                          {(l.speaker === 'a' ? d.speakers.a : d.speakers.b).charAt(0).toUpperCase()}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <span className={`text-[10px] font-semibold block mb-1 ${
+                            l.speaker === 'a' ? 'text-accent-green' : 'text-accent-cyan'
+                          }`}>
+                            {l.speaker === 'a' ? d.speakers.a : d.speakers.b}
+                          </span>
+                          <p className="text-sm text-text-secondary leading-relaxed">{l.text}</p>
+                        </div>
+                        <div className="shrink-0 mt-5">
+                          <ReadAloudVoice
+                            text={l.text}
+                            voice={DIALOGUE_VOICES[l.speaker]}
+                            tone={l.speaker === 'a' ? 'orange' : 'cyan'}
+                            voiceLabel={l.speaker === 'a' ? 'Sarah — American' : 'Michael — American'}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {d.usefulPhrases && d.usefulPhrases.length > 0 && (
+                    <div className="px-5 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
+                      <p className="text-xs font-semibold text-accent-yellow mb-2">Useful Phrases</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {d.usefulPhrases.map((phrase, i) => (
+                          <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-accent-yellow/10 text-text-secondary border border-accent-yellow/15">
+                            {phrase}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {d.notes && d.notes.length > 0 && (
+                    <div className="px-5 py-3 bg-accent-green/5 border-t border-accent-green/10">
+                      <p className="text-xs font-semibold text-accent-green mb-2">Language Notes</p>
+                      <ul className="space-y-1">
+                        {d.notes.map((note, i) => (
+                          <li key={i} className="text-xs text-text-secondary flex items-start gap-2">
+                            <span className="text-accent-green/60 mt-0.5 shrink-0">•</span>
+                            {note}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="text-center py-12 text-text-muted">
+          <p className="text-sm">No dialogues found for this filter.</p>
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ─── Main Page ──────────────────────────────────────────────── */
 const tabs: { key: Tab; label: string; icon: React.ReactNode; color: string }[] = [
   {
@@ -844,6 +1086,17 @@ const tabs: { key: Tab; label: string; icon: React.ReactNode; color: string }[] 
     icon: (
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+  {
+    key: 'dialogue',
+    label: 'Daily Dialogue',
+    color: 'accent-yellow',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
+        <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
       </svg>
     ),
   },
@@ -909,6 +1162,7 @@ export function EnglishSpeakingPage() {
       </div>
 
       {activeTab === 'conversation' && <ConversationTab />}
+      {activeTab === 'dialogue' && <DialogueTab />}
       {activeTab === 'podcast' && <PodcastTab />}
       {activeTab === 'ielts' && <IeltsTab />}
     </div>
