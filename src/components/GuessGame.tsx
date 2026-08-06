@@ -12,6 +12,7 @@ import { AnimalAvatar } from './AnimalAvatar';
 import { Selector } from './Selector';
 import { SpeakGame } from './SpeakGame';
 import { familyForms } from '../lib/answerMask';
+import { getMotherLanguage } from '../lib/languages';
 import type { VocabularyWord } from '../types';
 
 // Desktop pill row: these modes show up front, the rest live behind "More".
@@ -270,7 +271,14 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
         </div>
 
         {activeGame === 'letters' && (
-          <LettersGame key={word} word={word} disabled={result !== null} onSolve={solve} onGaveUp={fail} />
+          <LettersGame
+            key={word}
+            word={word}
+            hint={wordData.translation}
+            disabled={result !== null}
+            onSolve={solve}
+            onGaveUp={fail}
+          />
         )}
         {activeGame === 'scramble' && (
           <ScrambleGame key={word} word={word} disabled={result === 'correct'} onSolve={solve} onWrong={miss} />
@@ -314,6 +322,8 @@ function flash(setResult: (r: 'correct' | 'wrong' | null) => void) {
 
 interface GameProps {
   word: string;
+  /** Optional nudge shown with the puzzle — the word in the mother language. */
+  hint?: string;
   disabled: boolean;
   onSolve: () => void;
   onWrong?: () => void;
@@ -322,10 +332,26 @@ interface GameProps {
 }
 
 // ─── Game 1 · Letters ───────────────────────────────────────────────
-function LettersGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
+/** Share of the letters handed to the player for free. Two letters (first and
+ *  last) left most words unguessable; 40% keeps it a puzzle but a solvable one. */
+const LETTERS_REVEAL_RATIO = 0.4;
+
+/** Random positions of the freely-shown letters. Non-letter characters (spaces,
+ *  hyphens, apostrophes) aren't part of the puzzle and are always visible, so
+ *  they don't take up part of the budget. */
+function freeLetterPositions(word: string): Set<number> {
+  const positions = word
+    .split('')
+    .map((c, i) => (/\p{L}/u.test(c) ? i : -1))
+    .filter((i) => i >= 0);
+  const count = Math.max(1, Math.round(positions.length * LETTERS_REVEAL_RATIO));
+  return new Set(shuffle(positions).slice(0, Math.min(count, positions.length)));
+}
+
+function LettersGame({ word, hint, disabled, onSolve, onGaveUp }: GameProps) {
   const [guess, setGuess] = useState('');
   const [wrong, setWrong] = useState(false);
-  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+  const given = useMemo(() => freeLetterPositions(word), [word]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const check = () => {
@@ -343,39 +369,44 @@ function LettersGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
 
   return (
     <>
-      {/* Letter boxes — first and last shown, click to reveal more. A wrong
-          guess fills in the whole word so the answer is seen straight away. */}
+      {/* Letter boxes — a random 40% of the letters comes free; the rest stay
+          hidden (there's no way to reveal them one by one). A wrong guess fills
+          in the whole word so the answer is seen straight away. */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {word.split('').map((char, i) => {
-          const known = i === 0 || i === word.length - 1 || revealed.has(i);
+          const known = !/\p{L}/u.test(char) || given.has(i);
           const shown = known || wrong;
-          const canReveal = !shown && !disabled;
-          return shown ? (
+          return (
             <span
               key={i}
               style={{ animationDelay: `${i * 45}ms` }}
               className={`${boxBase} ${
-                wrong && !known
-                  ? 'border-accent-red bg-accent-red/10 text-accent-red'
-                  : 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan'
+                !shown
+                  ? 'border-border bg-bg-tertiary text-transparent select-none'
+                  : wrong && !known
+                    ? 'border-accent-red bg-accent-red/10 text-accent-red'
+                    : 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan'
               }`}
             >
-              {char}
+              {shown ? char : '·'}
             </span>
-          ) : (
-            <button
-              key={i}
-              onClick={() => { if (canReveal) { playSelect(); setRevealed((p) => new Set([...p, i])); } }}
-              disabled={!canReveal}
-              title="Click to reveal this letter"
-              style={{ animationDelay: `${i * 45}ms` }}
-              className={`${boxBase} border-border bg-bg-tertiary text-transparent select-none hover:border-accent-cyan/40 hover:bg-accent-cyan/5 cursor-pointer hover:-translate-y-0.5`}
-            >
-              ·
-            </button>
           );
         })}
       </div>
+
+      {/* Meaning in the player's mother language — the nudge that makes the
+          hidden letters guessable. Only there when the word carries one. */}
+      {hint && (
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-accent-cyan/10 border border-accent-cyan/25">
+          <Icon icon="lucide:languages" className="text-accent-cyan text-lg shrink-0" />
+          <div className="min-w-0">
+            <span className="block text-[10px] font-bold text-accent-cyan/70 uppercase tracking-wider">
+              Hint · {getMotherLanguage()}
+            </span>
+            <span className="text-sm font-bold text-accent-cyan">{hint}</span>
+          </div>
+        </div>
+      )}
 
       <GuessInput
         inputRef={inputRef}
