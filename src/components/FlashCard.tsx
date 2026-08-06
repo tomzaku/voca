@@ -21,6 +21,7 @@ import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useTeams } from '../hooks/useTeams';
 import { useWordSearch } from '../hooks/useWordSearch';
+import { peekWord } from '../hooks/useWordPeek';
 import { useWordDoodle } from '../hooks/useWordDoodle';
 import { useIsPro } from '../hooks/useProStatus';
 import { speakText, stopSpeaking, isTtsPlaying, isKokoroSupported } from '../lib/tts';
@@ -255,8 +256,8 @@ function IdiomsCard({ idioms }: { idioms: NonNullable<VocabularyWord['idioms']> 
         {visible.map((i) => (
           <div key={i.idiom}>
             <button
-              onClick={() => useWordSearch.getState().requestSearch(i.idiom)}
-              title={`Look up “${i.idiom}”`}
+              onClick={(e) => peekWord(i.idiom, e.currentTarget)}
+              title={`What does “${i.idiom}” mean?`}
               className="text-sm font-bold text-accent-pink hover:underline text-left cursor-pointer"
             >
               {i.idiom}
@@ -1147,8 +1148,8 @@ export function FlashCard() {
                     {wordData.collocations!.map((c) => (
                       <button
                         key={c}
-                        onClick={() => useWordSearch.getState().requestSearch(c)}
-                        title={`Look up “${c}”`}
+                        onClick={(e) => peekWord(c, e.currentTarget)}
+                        title={`What does “${c}” mean?`}
                         className="text-xs px-2.5 py-1 rounded-full bg-accent-purple/10 text-accent-purple border border-accent-purple/20 hover:bg-accent-purple/20 hover:border-accent-purple/40 transition-all cursor-pointer"
                       >
                         {c}
@@ -1168,8 +1169,8 @@ export function FlashCard() {
                     {wordData.wordFamily!.map((f) => (
                       <button
                         key={`${f.word}-${f.pos}`}
-                        onClick={() => useWordSearch.getState().requestSearch(f.word)}
-                        title={`Look up “${f.word}”`}
+                        onClick={(e) => peekWord(f.word, e.currentTarget)}
+                        title={`What does “${f.word}” mean?`}
                         className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-accent-orange/10 border border-accent-orange/20 hover:bg-accent-orange/20 hover:border-accent-orange/40 transition-all cursor-pointer"
                       >
                         <span className="font-bold text-accent-orange">{f.word}</span>

@@ -21,6 +21,7 @@ import { QuizResults } from './components/QuizResults';
 import { MyQuizzes } from './components/MyQuizzes';
 import { OnboardingModal } from './components/OnboardingModal';
 import { LoginGate } from './components/LoginGate';
+import { WordPeek } from './components/WordPeek';
 
 export default function App() {
   return (
@@ -55,6 +56,8 @@ export default function App() {
         </div>
         <FabMenu />
         <EnglishPractice />
+        {/* Word chips anywhere in the app open their meaning here, in place. */}
+        <WordPeek />
         <LoginGate />
         <OnboardingModal />
         <Toaster

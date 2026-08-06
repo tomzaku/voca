@@ -174,6 +174,16 @@ function getCachedWord(word: string): VocabularyWord | null {
 }
 
 /**
+ * A word's data if this device already holds it, without touching the network.
+ *
+ * Lets the peek popup paint its content on the first frame for a word already
+ * seen, instead of flashing a spinner at something we can already answer.
+ */
+export function cachedWordData(word: string): VocabularyWord | null {
+  return getCachedWord(word);
+}
+
+/**
  * Full data for the most recently seen words still cached on this device,
  * oldest-first (the order the Learn page's history strip renders in).
  *
