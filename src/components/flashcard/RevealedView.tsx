@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { SynAnt } from '../SynAnt';
 import { PeekText } from '../PeekText';
@@ -329,8 +329,26 @@ function PhoneticList({ wordData }: { wordData: VocabularyWord }) {
  */
 function IdiomsCard({ idioms }: { idioms: NonNullable<VocabularyWord['idioms']> }) {
   const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? idioms : idioms.slice(0, 2);
-  const hidden = idioms.length - 2;
+  // A word's idiom links accumulate across generations and the backfill, so the
+  // same expression can arrive twice under slightly different text ("a piece of
+  // cake" / "piece of cake"). Two entries that only differ in an article or
+  // punctuation read as a bug, so keep the first (highest ranked) of each.
+  const list = useMemo(() => {
+    const seen = new Set<string>();
+    return idioms.filter((i) => {
+      const key = i.idiom
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\b(?:a|an|the|to|one'?s|someone'?s)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [idioms]);
+  const visible = showAll ? list : list.slice(0, 2);
+  const hidden = list.length - 2;
   return (
     <div className="card-game p-4 sm:p-5">
       <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">

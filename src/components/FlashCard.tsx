@@ -442,7 +442,12 @@ export function FlashCard() {
           onSkip={handleSkip}
         />
       ) : (
+        // Keyed by word: stepping through history swaps `wordData` while this
+        // view stays mounted (revealed → revealed), so without a key React
+        // reconciles the right column in place and its cards — idioms, notes —
+        // carry the previous word's content over. A fresh subtree per word.
         <RevealedView
+          key={wordData.word}
           wordData={wordData}
           doodle={doodle}
           definition={definitionText(wordData)}

@@ -151,9 +151,11 @@ export const WORD_LIST: { word: string; level: VocabularyWord['level'] }[] = [
 // Cache key includes the mother language so switching it regenerates entries
 // (each carries a translation into that language).
 function cachePrefix(): string {
-  // Bump the version when the cached word shape changes (v6: wordFamily) so
-  // stale entries are re-fetched instead of shown missing fields.
-  return `voca-word-v6-${getLearnLanguage()}-${getMotherLanguage()}-`;
+  // Bump the version when the cached word shape changes (v7: idioms) so stale
+  // entries are re-fetched instead of shown missing — or worse, outdated —
+  // fields. A cached entry is never refreshed on its own, so a shape that
+  // landed without a bump stays wrong on that device forever.
+  return `voca-word-v7-${getLearnLanguage()}-${getMotherLanguage()}-`;
 }
 
 function cacheKey(word: string): string {
