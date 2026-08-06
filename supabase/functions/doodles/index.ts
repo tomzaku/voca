@@ -274,9 +274,15 @@ Deno.serve(async (req) => {
             const wordKey = sheet[i].word.toLowerCase();
             // Upsert, not update: the word may have no cache row of its own
             // yet, and an image we've paid for has to persist regardless.
+            //
+            // Never verified: nobody has looked at this cell — it was drawn
+            // while a user waited and goes straight on screen. That holds for a
+            // redraw of an already-approved word too, which is why `verified` is
+            // written every time rather than left alone: the approval belonged
+            // to the picture that just got replaced.
             const { error: writeErr } = await svc
               .from('word_doodles')
-              .upsert({ word: wordKey, doodle: cell }, { onConflict: 'word' });
+              .upsert({ word: wordKey, doodle: cell, verified: false }, { onConflict: 'word' });
             if (writeErr) console.error(`[sheet] doodle write error word="${wordKey}": ${writeErr.message}`);
           }
         }

@@ -26,6 +26,47 @@ const INK_MAX_CHANNEL = 205;
 const PAPER_MIN_CHANNEL = 252;
 
 /**
+ * The sheet's own white, so "not paper" means something on a page the model
+ * drew a shade under pure white.
+ *
+ * 252 is right for a #FFFFFF page and useless on a #FAFAF8 one: measured off a
+ * real sheet, the paper sat at 249-251 in every channel, so EVERY pixel on it
+ * counted as ink, every scanline read as a rule, and the rule machinery went
+ * blind — no grid could be detected and no neighbour's ink could be trimmed.
+ * The prompt asks for pure white and mostly gets it; this is what makes the
+ * geometry survive the times it doesn't.
+ *
+ * Measured as the MEDIAN of a sparse sample of the whole sheet. Most of a
+ * doodle sheet is empty page by construction — the doodles are asked to fill
+ * 70% of a cell and come in well under that — so the middle of the sample is
+ * paper. The edges can't be used for this even though they are always blank:
+ * when the model does frame the sheet, the frame is exactly what the border
+ * ring reads, and the level comes back as the colour of a line.
+ *
+ * Never above the tuned 252 — a rule's fade runs through the high 240s, and
+ * catching that fade is the whole point of the number.
+ */
+export function paperLevel(bitmap: Uint8ClampedArray, imgWidth: number, imgHeight: number): number {
+  // Every 4th pixel each way: 1/16th of a 1024px sheet is 65k samples, enough
+  // that the median can't move, cheap enough to run per sheet.
+  const step = 4;
+  const seen: number[] = [];
+  for (let y = 0; y < imgHeight; y += step) {
+    for (let x = 0; x < imgWidth; x += step) {
+      const i = (y * imgWidth + x) * 4;
+      if (bitmap[i + 3] < 128) continue; // transparent — no colour to read
+      seen.push(Math.min(bitmap[i], bitmap[i + 1], bitmap[i + 2]));
+    }
+  }
+  if (!seen.length) return PAPER_MIN_CHANNEL;
+  seen.sort((a, b) => a - b);
+  const median = seen[Math.floor(seen.length / 2)];
+  // Two levels of headroom under the measured white: enough for the dithering
+  // an image model leaves on a flat fill, far short of a drawn line.
+  return Math.min(PAPER_MIN_CHANNEL, median - 2);
+}
+
+/**
  * Bounding box of the ink inside a region, or null if the region is blank.
  * Works straight off the RGBA bitmap — 0-based, 4 bytes per pixel.
  */
@@ -62,6 +103,7 @@ export function isRuleLine(
   to: number,
   fixed: number,
   horizontal: boolean,
+  paper: number = PAPER_MIN_CHANNEL,
 ): boolean {
   let ink = 0;
   const span = to - from;
@@ -70,7 +112,7 @@ export function isRuleLine(
     const y = horizontal ? fixed : v;
     const i = (y * imgWidth + x) * 4;
     if (bitmap[i + 3] < 128) continue;
-    if (bitmap[i] >= PAPER_MIN_CHANNEL && bitmap[i + 1] >= PAPER_MIN_CHANNEL && bitmap[i + 2] >= PAPER_MIN_CHANNEL) continue;
+    if (bitmap[i] >= paper && bitmap[i + 1] >= paper && bitmap[i + 2] >= paper) continue;
     ink++;
   }
   return ink > span * 0.8;
@@ -83,13 +125,14 @@ function ruleBands(
   imgWidth: number,
   imgHeight: number,
   horizontal: boolean,
+  paper: number,
 ): { start: number; end: number }[] {
   const bands: { start: number; end: number }[] = [];
   const count = horizontal ? imgHeight : imgWidth;
   const span = horizontal ? imgWidth : imgHeight;
   let start = -1;
   for (let i = 0; i < count; i++) {
-    if (isRuleLine(bitmap, imgWidth, 0, span, i, horizontal)) {
+    if (isRuleLine(bitmap, imgWidth, 0, span, i, horizontal, paper)) {
       if (start < 0) start = i;
     } else if (start >= 0) {
       bands.push({ start, end: i - 1 });
@@ -151,9 +194,10 @@ export function cellRegions(
   imgHeight: number,
   cols: number,
   rows: number,
+  paper: number = paperLevel(bitmap, imgWidth, imgHeight),
 ): { regions: Region[]; grid: 'detected' | 'ungridded' | 'mismatch' } {
-  const xs = spansBetween(ruleBands(bitmap, imgWidth, imgHeight, false), imgWidth, cols);
-  const ys = spansBetween(ruleBands(bitmap, imgWidth, imgHeight, true), imgHeight, rows);
+  const xs = spansBetween(ruleBands(bitmap, imgWidth, imgHeight, false, paper), imgWidth, cols);
+  const ys = spansBetween(ruleBands(bitmap, imgWidth, imgHeight, true, paper), imgHeight, rows);
   const cw = Math.floor(imgWidth / cols);
   const ch = Math.floor(imgHeight / rows);
   const detected = xs.length === cols && ys.length === rows;
@@ -203,6 +247,7 @@ function inkProfile(
   imgWidth: number,
   region: Region,
   horizontal: boolean,
+  paper: number,
 ): number[] {
   const lines = horizontal ? region.h : region.w;
   const span = horizontal ? region.w : region.h;
@@ -216,7 +261,7 @@ function inkProfile(
       const py = horizontal ? fixed : v;
       const i = (py * imgWidth + px) * 4;
       if (bitmap[i + 3] < 128) continue;
-      if (bitmap[i] >= PAPER_MIN_CHANNEL && bitmap[i + 1] >= PAPER_MIN_CHANNEL && bitmap[i + 2] >= PAPER_MIN_CHANNEL) continue;
+      if (bitmap[i] >= paper && bitmap[i + 1] >= paper && bitmap[i + 2] >= paper) continue;
       ink++;
     }
     profile[l] = ink;
@@ -279,6 +324,7 @@ export function clearRegion(
   imgWidth: number,
   imgHeight: number,
   region: Region,
+  paper: number = paperLevel(bitmap, imgWidth, imgHeight),
 ): Region {
   const maxRule = Math.max(4, Math.floor(Math.min(region.w, region.h) * 0.08));
   // Rules are judged across the WHOLE sheet, not just this cell. That is what
@@ -287,14 +333,14 @@ export function clearRegion(
   // there, while a rule carries on across every cell in the row.
   const isRuleCol: boolean[] = [];
   for (let i = 0; i < region.w; i++) {
-    isRuleCol.push(isRuleLine(bitmap, imgWidth, 0, imgHeight, region.x + i, false));
+    isRuleCol.push(isRuleLine(bitmap, imgWidth, 0, imgHeight, region.x + i, false, paper));
   }
   const isRuleRow: boolean[] = [];
   for (let i = 0; i < region.h; i++) {
-    isRuleRow.push(isRuleLine(bitmap, imgWidth, 0, imgWidth, region.y + i, true));
+    isRuleRow.push(isRuleLine(bitmap, imgWidth, 0, imgWidth, region.y + i, true, paper));
   }
-  const cols = inkProfile(bitmap, imgWidth, region, false);
-  const rows = inkProfile(bitmap, imgWidth, region, true);
+  const cols = inkProfile(bitmap, imgWidth, region, false, paper);
+  const rows = inkProfile(bitmap, imgWidth, region, true, paper);
   const xs = bestSegment(cols, thinBands(isRuleCol, maxRule));
   const ys = bestSegment(rows, thinBands(isRuleRow, maxRule));
   return {
@@ -359,6 +405,7 @@ export function fitCrop(
   imgWidth: number,
   imgHeight: number,
   region: Region,
+  paper: number = paperLevel(bitmap, imgWidth, imgHeight),
 ): { x: number; y: number; side: number } {
   // Strip the drawn rules by FINDING them rather than assuming where they are.
   // A fixed guard band only works if the model puts its lines exactly on the
@@ -367,7 +414,7 @@ export function fitCrop(
   // maxes out with a border around a too-small doodle.
   // Cut to the clear stretch holding this cell's drawing: no rules inside, and
   // nothing from beyond one. This subsumes trimming rules off the edges.
-  const inner = clearRegion(bitmap, imgWidth, imgHeight, region);
+  const inner = clearRegion(bitmap, imgWidth, imgHeight, region, paper);
   const box = inkBounds(bitmap, imgWidth, inner.x, inner.y, inner.w, inner.h);
   if (!box) {
     // Blank cell (or a doodle too faint to measure) — fall back to the middle.

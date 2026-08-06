@@ -3,20 +3,17 @@
 // Kept apart from the edge function (and free of any Deno API) so it can be
 // unit tested — see prompt.test.ts.
 //
-// The word is handed to the model along with its meaning: naming it gives the
-// model far more to draw from than a meaning alone. A model given a quoted word
-// does tend to letter it under the picture, which the sheet prompt forbids
-// outright — a caption is not a doodle, it eats the cell's white margin, and
-// the crop cuts it into the thumbnail as a stray line of text.
+// The MEANING is sent, not the word. Naming the word gives the model more to
+// draw from, and it was sent for a while for exactly that reason — but a model
+// handed a quoted word letters that word onto the picture, and no wording of
+// "no text anywhere" stops it. The definition alone is enough to draw from: it
+// is what disambiguates anyway ("bank" the riverside vs the building). Only a
+// word with no definition at all falls back to sending its name.
+//
+// Nothing frames the meaning — the prompt's cell list is `R2C3: <this>`, and
+// every extra word here is one the model reads sixteen times over.
 
-/**
- * What to tell the model a cell should show: the word and, when we have one,
- * the meaning to draw. The meaning is what actually disambiguates ("bank" the
- * riverside vs the building), so it is sent whenever it exists.
- */
+/** What to tell the model a cell should show: the meaning to draw. */
 export function cellSubject(word: string, definition?: string): string {
-  const meaning = definition?.trim();
-  return meaning
-    ? `the word "${word}" — ${meaning}`
-    : `the meaning of the word "${word}"`;
+  return definition?.trim() || word;
 }

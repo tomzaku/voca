@@ -1,24 +1,30 @@
-// The word reaches the image model: it is the strongest hint the model has
-// about what to draw. Keeping it out of the drawing is the sheet prompt's job.
+// The word does NOT reach the image model: given the string, the model letters
+// it under (or over) the picture whatever the prompt says. Only the meaning is
+// sent — see prompt.ts.
 
 import { describe, expect, it } from 'vitest';
 import { cellSubject } from './prompt.ts';
 
 describe('cellSubject', () => {
-  it('sends the word together with its meaning', () => {
-    expect(cellSubject('bulimia', 'An eating disorder involving binges.'))
-      .toBe('the word "bulimia" — An eating disorder involving binges.');
+  it('sends the meaning, and never the word itself', () => {
+    const subject = cellSubject('bulimia', 'An eating disorder involving binges.');
+    expect(subject).toBe('An eating disorder involving binges.');
+    expect(subject).not.toContain('bulimia');
   });
 
-  it('keeps the meaning intact, including the word itself', () => {
-    // Definitions often name their own headword; nothing is blanked out now.
+  it('keeps a meaning that names its own headword', () => {
+    // Definitions often repeat the word they define. Blanking it out would
+    // leave a hole in the sentence the model has to draw from, and one loose
+    // mention reads as prose, not as a label to letter.
     expect(cellSubject('harvest', 'The harvest season, when crops are gathered.'))
-      .toBe('the word "harvest" — The harvest season, when crops are gathered.');
+      .toBe('The harvest season, when crops are gathered.');
   });
 
   it('falls back to the word alone when there is no definition', () => {
-    expect(cellSubject('gangster')).toBe('the meaning of the word "gangster"');
-    expect(cellSubject('gangster', '')).toBe('the meaning of the word "gangster"');
-    expect(cellSubject('gangster', '   ')).toBe('the meaning of the word "gangster"');
+    // Nothing else to go on: an unillustrated word beats a blank cell, which
+    // would break the grid the crop is cut on.
+    expect(cellSubject('gangster')).toBe('gangster');
+    expect(cellSubject('gangster', '')).toBe('gangster');
+    expect(cellSubject('gangster', '   ')).toBe('gangster');
   });
 });

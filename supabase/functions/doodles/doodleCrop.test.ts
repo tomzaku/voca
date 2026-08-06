@@ -268,6 +268,24 @@ describe('cellRegions', () => {
     expect(grid).toBe('ungridded');
   });
 
+  it('works on a sheet whose paper is not pure white', () => {
+    // Live failure: the model handed back a page at 249-251 in every channel,
+    // under the fixed 252 that meant "paper". Every pixel on the sheet then
+    // counted as ink, every scanline read as a full run, and the rule scan went
+    // blind — a drawn grid could not be found and a stray line could not be
+    // trimmed off a cell. The level has to be measured off the sheet.
+    const b = blankSheet();
+    const OFF_WHITE: RGB = [250, 251, 250];
+    fill(b, { x: 0, y: 0, w: W, h: H }, OFF_WHITE);
+    const rules = drawRules(b, { thickness: 3, colour: RULE_PALE });
+    const { regions, grid } = cellRegions(b, W, H, COLS, ROWS);
+    expect(grid).toBe('detected');
+    for (const region of regions) {
+      const rect = { x: region.x, y: region.y, w: region.w, h: region.h };
+      for (const rule of rules) expect(overlaps(rect, rule)).toBe(false);
+    }
+  });
+
   it('reports a grid that is not the one we asked for', () => {
     // Live failure: asked for 4x4, the model drew 3x3. Every even quarter then
     // straddles a real rule, clearRegion keeps whichever fragment holds most

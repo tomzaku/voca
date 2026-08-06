@@ -36,6 +36,11 @@
 // from then on and can't be re-cut later, so a human decides by default.
 // `--auto` writes without asking; `--no-write` never writes at all.
 //
+// What was approved is recorded: a sheet you say yes to is written with
+// `word_doodles.verified` true. `--auto` writes the same doodles with verified
+// false, as does the edge function drawing on demand — usable pictures nobody
+// has looked at.
+//
 // Usage:
 //   npm run doodles:backfill                    # 160 words, reviewed sheet by sheet
 //   npm run doodles:backfill -- --dry-run       # list the words, draw nothing
@@ -196,8 +201,14 @@ async function drawSheet(items, n) {
   return { cells, dir };
 }
 
-/** Write the approved cells. Returns [saved, failed] word lists. */
-async function saveCells(items, cells) {
+/**
+ * Write the approved cells. Returns [saved, failed] word lists.
+ *
+ * `verified` is the y/n that got us here: true only when a person looked at the
+ * sheet and its cut cells and said yes. `--auto` writes the same doodles with
+ * verified false — they're usable, nobody has checked them.
+ */
+async function saveCells(items, cells, verified) {
   const saved = [];
   const failed = [];
   for (let i = 0; i < items.length; i++) {
@@ -207,7 +218,7 @@ async function saveCells(items, cells) {
     // an image we've paid for has to persist regardless.
     const { error } = await svc
       .from('word_doodles')
-      .upsert({ word: word.toLowerCase(), doodle: cells[i] }, { onConflict: 'word' });
+      .upsert({ word: word.toLowerCase(), doodle: cells[i], verified }, { onConflict: 'word' });
     if (error) {
       failed.push(word);
       console.warn(`  ✗ write failed for "${word}": ${error.message}`);
@@ -330,7 +341,10 @@ async function main() {
           console.warn(`  skipped — ${items.length} word(s) stay undrawn and come back next run`);
           continue;
         }
-        const [saved, failed] = await saveCells(items, cells);
+        // REVIEW is the only path that has a human's yes behind it — the
+        // approve() above returned true. --auto skipped that, so its doodles go
+        // in unverified and can be found later.
+        const [saved, failed] = await saveCells(items, cells, REVIEW);
         savedCount += saved.length;
         // Everything not written comes back next run: rejected crops and any
         // write that errored.

@@ -12,7 +12,7 @@
 // supabase/functions/deno.json for Deno, and from node_modules for Node.
 
 import { Image } from 'imagescript';
-import { cellRegions, cropFault, describeCrop, fitCrop } from './doodleCrop.ts';
+import { cellRegions, cropFault, describeCrop, fitCrop, paperLevel } from './doodleCrop.ts';
 import { cellSubject } from './prompt.ts';
 
 /** A cell's subject: the word, and the meaning that disambiguates what to draw. */
@@ -123,22 +123,26 @@ async function generateImageInner(model: string, apiKey: string, prompt: string)
   return { mime: inline.mimeType || 'image/png', b64: inline.data };
 }
 
-// Purpose context shared by both doodle prompts. Telling the model WHY the
-// image exists (a memory aid inside a vocabulary mind map, shown tiny next to
-// the word) steers it toward the right choices — instantly readable icon-like
-// sketches rather than detailed illustrations.
-const DOODLE_CONTEXT =
-  `Context: we are building a hand-drawn vocabulary MIND MAP for English learners. Each word on the map gets a tiny doodle next to it as a memory hook — a quick visual that makes the word's meaning click and stick. The doodles are displayed very small (about 1cm), so each one must be a single bold, instantly recognizable idea; fine detail would be lost.`;
-
-const DOODLE_STYLE =
-  'Style: quick felt-tip pen doodle, 2-3 flat accent colors, thick clean lines, loose and hand-drawn like a margin doodle. The page behind it is plain blank white — never graph paper, squared or ruled notebook paper, a colored wash, or any texture or tint. The drawing floats free on the white page — never inside a frame, border, circle, or colored panel, and never captioned or labelled.';
-
 // ─── Doodle sheets ──────────────────────────────────────────────────
 // Every generated image costs the same regardless of content, so we pack a
 // grid of doodles into ONE 1024px image and crop it into cells — ~16x cheaper
 // per word than one image per word. The prompt pins a strict row-major grid;
 // the crop assumes the model respected it (it reliably does with explicit
 // cell-by-cell numbering). A bad sheet just gets re-sketched by the user.
+//
+// The prompt is kept SHORT on purpose. It grew long one clause at a time —
+// every failed sheet answered with another line spelling out what not to draw —
+// and the long version obeyed less, not more: the anti-text stanza alone ran to
+// four positions in the prompt and the model captioned every cell anyway. What
+// survives is one line per rule, stated once.
+//
+// The grid is INVISIBLE: the prompt asks for placement on an imaginary 4x4, not
+// for a drawn table. Asked for ruled cells the model kept enclosing each doodle
+// — first as a boxed card, then as a bordered table cell — and that enclosing
+// line is inside the cell, so `fitCrop` keeps it and every thumbnail comes out
+// as a doodle in a box. With nothing drawn between the doodles there is no line
+// to cut into, so `cellRegions` reports 'ungridded' and even division is the
+// expected path: equal cells filling the canvas is exactly what it assumes.
 // 16 = 4x4 grid → 256px cells, still above the 192px thumbnail size.
 
 // The grid is ALWAYS 4x4, and every one of its 16 cells is always filled —
@@ -169,36 +173,23 @@ export async function generateDoodleSheet(items: SheetItem[], cfg: ImageConfig):
   const cols = SHEET_COLS;
   const rows = SHEET_COLS;
   // Address every cell to an explicit (row, column) — a bare numbered list
-  // lets the model drift out of row-major order on bigger grids.
+  // lets the model drift out of row-major order. Short keys, because the list
+  // is the one part of the prompt that repeats 16 times.
   const list = items
-    .map((it, i) => {
-      const r = Math.floor(i / cols) + 1;
-      const c = (i % cols) + 1;
-      return `Row ${r}, Column ${c}: ${cellSubject(it.word, it.definition)}`;
-    })
+    .map((it, i) => `R${Math.floor(i / cols) + 1}C${(i % cols) + 1}: ${cellSubject(it.word, it.definition)}`)
     .join('\n');
-  const prompt = `${DOODLE_CONTEXT}
+  const prompt = `${rows * cols} small hand-drawn doodles on a pure white square page, laid out in ${rows} rows of ${cols}. No text and no lines: pictures only.
 
-This image is a production sheet: it will be cut apart into individual doodles by exact grid position, one per word. That is why the layout must be followed precisely — if a doodle drifts into a neighboring cell or lands in the wrong cell, the wrong picture ends up next to the wrong word on the map.
+Each doodle is a memory hook for an English learner — one bold, instantly recognizable idea, still readable at 1cm.
 
-Draw a ${rows}x${cols} grid of equal-sized square cells covering the whole image on plain blank white paper, separated by thin light gray lines (like a worksheet table). Each cell contains exactly ONE small hand-drawn doodle — a single object or simple scene — centered in its cell, filling at most 70% of the cell so there is clear white margin between the doodle and the cell's gray border lines. A doodle must NEVER touch or cross a gray line.
+- Imagine the page split into ${rows} equal rows and ${cols} equal columns filling it edge to edge. Center one doodle in each cell, about 60% of the cell's size, with white space all around it.
+- Never draw the grid: no lines, boxes, frames, panels or borders anywhere, and nothing enclosing a doodle.
+- Never write anything: no words, letters, captions or labels anywhere on the page.
+- Background: pure white (#FFFFFF), no texture or tint.
+- Style: quick felt-tip pen doodle, thick clean lines, 2-3 flat accent colors.
 
-How to draw the grid — as LINES, not as boxes: exactly ${rows - 1} light gray hairlines running the full width of the image and ${cols - 1} light gray hairlines running its full height, and nothing else. Neighboring cells SHARE the single line between them. Do NOT draw a square, box, card, tile, panel, or rounded rectangle around a cell or around a doodle; do NOT leave a gap or gutter between separate boxes; do NOT double the lines; do NOT draw an outer border or frame around the edge of the image. Apart from those ${rows - 1 + cols - 1} hairlines and the doodle strokes themselves, every pixel of the page is white.
-
-STRICT rules for every cell:
-- ONE doodle per cell — never a group of separate small drawings
-- NO tables, frames, boxes, or smaller grids inside a cell — a cell is bounded only by the shared grid lines, never by a second square drawn inside it
-- NO border, outline, frame, circle, badge, or panel drawn AROUND the doodle — each doodle sits directly on the white page with nothing enclosing it. The only lines in the whole image are the thin gray grid and the doodles themselves.
-- NO shading, backdrop, or filled background behind a doodle — the paper stays plain white right up to the doodle's own strokes
-- NO text ANYWHERE in the image — no words, letters, captions, labels, titles, or numbers, not inside a cell, not above or below a doodle, not in the margins. Do not write the word the cell was assigned; the picture alone has to carry the meaning
-- The paper is plain blank white — NOT graph paper, NOT squared or ruled notebook paper, no dots, no texture, no tint. The ONLY gray lines in the whole image are the ${rows}x${cols} grid lines described above: no smaller squares, no background pattern, no extra lines anywhere
-
-Cell assignments (rows numbered top to bottom, columns left to right). Each word below says what that cell must depict — it is never to be written or lettered in the image:
-${list}
-
-${DOODLE_STYLE}
-
-Last and most important, because every cell is cut out on its exact grid position: keep each doodle centered well inside its own cell, at most 70% of the cell's width and height, with clear white space between it and the gray lines. A doodle must never touch a gray line, cross into a neighboring cell, be drawn in a cell other than the one it was assigned, or sit inside a box, card, or panel of its own.`
+What to draw in each cell (R = row from the top, C = column from the left):
+${list}`
   console.log('[sheet] prompt: ', prompt)
   return { ...await generateImage(prompt, cfg), prompt };
 }
@@ -222,8 +213,10 @@ function encodeBase64Png(png: Uint8Array): string {
  * Always SHEET_MAX cells, in the order the words were sent. A cell whose crop
  * can't be trusted comes back null rather than as a picture: it isn't sent to
  * the caller and isn't saved, and the word gets drawn again on a later sheet.
- * Null for the whole sheet means the model didn't draw the grid it was asked
- * for, so no cell on it can be located — see `cellRegions`.
+ * Null for the whole sheet means the model drew rules across it after all, and
+ * not on the grid it was placing to — every cut would then land on a
+ * boundary that isn't where it looks, so nothing on it is worth keeping. See
+ * `cellRegions`.
  */
 export async function cropDoodleSheet(b64: string, words: string[]): Promise<(string | null)[] | null> {
   const bin = atob(b64);
@@ -233,8 +226,13 @@ export async function cropDoodleSheet(b64: string, words: string[]): Promise<(st
   const bitmap = img.bitmap;
   const cols = SHEET_COLS;
   const rows = SHEET_COLS;
-  // Cells are located from the drawn rules, not assumed to be even quarters.
-  const { regions, grid } = cellRegions(bitmap, img.width, img.height, cols, rows);
+  // What counts as blank page on THIS sheet, measured once and used for every
+  // cell: models hand back off-white pages, and a fixed "white" then reads the
+  // whole sheet as ink (see `paperLevel`).
+  const paper = paperLevel(bitmap, img.width, img.height);
+  // Even quarters normally, but rules are looked for first: if the model drew
+  // any, they are where the cells actually are (or proof the sheet is unusable).
+  const { regions, grid } = cellRegions(bitmap, img.width, img.height, cols, rows, paper);
   const maxSide = Math.floor(Math.min(img.width / cols, img.height / rows));
   if (grid === 'mismatch') {
     // The model drew a grid, just not this one. Every cell would be cut on a
@@ -245,16 +243,15 @@ export async function cropDoodleSheet(b64: string, words: string[]): Promise<(st
     return null;
   }
   if (grid === 'ungridded') {
-    // No rules at all: even division is a fair guess, because there are no
-    // lines between the doodles for a crop to cut into. Worth knowing about
-    // though — it means the prompt's grid instruction was ignored.
-    console.warn(`[sheet] no rules found — falling back to even ${cols}x${rows} division`);
+    // The normal case: the prompt asks for an invisible grid, so there are no
+    // rules to find and nothing between the doodles for a crop to cut into.
+    console.log(`[sheet] no rules drawn (as asked) — cutting on even ${cols}x${rows} division`);
   }
   const out: (string | null)[] = [];
   const fitted: string[] = [];
   for (let i = 0; i < words.length; i++) {
     const region = regions[i];
-    const { x, y, side } = fitCrop(bitmap, img.width, img.height, region);
+    const { x, y, side } = fitCrop(bitmap, img.width, img.height, region, paper);
     const fault = cropFault(region, { x, y, side });
     // Per-cell diagnostics: `edges` (darkest pixel on each side of the
     // finished thumbnail) is the one to scan — four numbers near 255 mean the
@@ -271,6 +268,6 @@ export async function cropDoodleSheet(b64: string, words: string[]): Promise<(st
     cell.resize(DOODLE_THUMB, DOODLE_THUMB);
     out.push(`data:image/png;base64,${encodeBase64Png(await cell.encode())}`);
   }
-  console.log(`[sheet] crop report (${img.width}x${img.height}, ${cols}x${rows} grid, cell~${maxSide}px):\n${fitted.join('\n')}`);
+  console.log(`[sheet] crop report (${img.width}x${img.height}, ${cols}x${rows} grid, cell~${maxSide}px, paper>=${paper}):\n${fitted.join('\n')}`);
   return out;
 }
