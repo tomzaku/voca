@@ -41,6 +41,8 @@ export function WordPeek() {
 const PEEK_WIDTH = 320;
 /** Gap between the chip and the popup, and the minimum margin to the viewport. */
 const GAP = 8;
+/** How long backdrop clicks are ignored after opening — see `dismiss`. */
+const GHOST_CLICK_MS = 400;
 
 function PeekCard({ word, anchor, onClose }: {
   word: string;
@@ -48,6 +50,17 @@ function PeekCard({ word, anchor, onClose }: {
   onClose: () => void;
 }) {
   const navigate = useNavigate();
+  // When a touch-hold opens the popup, the finger is still down. Lifting it
+  // fires a click at that point — which is now the backdrop, since the popup
+  // appeared under the finger — and the popup would close the instant it
+  // opened. Ignore backdrop clicks that arrive before the finger could
+  // plausibly have been lifted deliberately.
+  const openedAt = useRef(0);
+  useEffect(() => { openedAt.current = Date.now(); }, []);
+  const dismiss = () => {
+    if (Date.now() - openedAt.current < GHOST_CLICK_MS) return;
+    onClose();
+  };
   // A word already on this device paints on the first frame — no spinner for
   // something we can answer immediately.
   const [data, setData] = useState<VocabularyWord | null>(() => cachedWordData(word));
@@ -164,7 +177,7 @@ function PeekCard({ word, anchor, onClose }: {
   return (
     <div
       className={`fixed inset-0 z-[70] ${isPhone ? 'bg-black/50 backdrop-blur-[2px] animate-fade-in' : ''}`}
-      onClick={onClose}
+      onClick={dismiss}
     >
       <div
         ref={cardRef}

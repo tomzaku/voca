@@ -19,9 +19,17 @@ import { answerRegex } from '../lib/answerMask';
  * looking words up in it would hand over the answer.
  */
 
-/** How long the pointer must rest on a word before its meaning opens. */
+/** Mouse: how long the pointer must rest on a word before its meaning opens. */
 const HOVER_MS = 700;
-/** How long the same word stays inert after opening — see `enter`. */
+/**
+ * Touch: how long a finger must stay on the word. Touch has no hover — a
+ * finger is either down or gone — so the gesture there is a deliberate press
+ * and hold, on the usual long-press timing, not a dwell.
+ */
+const HOLD_MS = 500;
+/** Finger drift (px) that means the touch was a scroll, not a hold. */
+const MOVE_TOLERANCE = 12;
+/** How long the same word stays inert after opening — see `start`. */
 const COOLDOWN_MS = 900;
 
 /** Word-ish runs, keeping internal apostrophes and hyphens ("don't", "well-known"). */
@@ -60,11 +68,13 @@ export function PeekText({ text, highlight, boldHighlight = false, className = '
 }) {
   const segments = useMemo(() => splitOnAnswer(text, highlight), [text, highlight]);
 
-  // Which word is arming, as its render key — restarting on a new word restarts
-  // the animation from zero rather than continuing the previous sweep.
-  const [arming, setArming] = useState<string | null>(null);
+  // Which word is arming and for how long — the duration travels with it so the
+  // progress bar under a held word is honest about the shorter touch timing.
+  const [arming, setArming] = useState<{ key: string; ms: number } | null>(null);
   const timer = useRef<number | null>(null);
-  /** The word that last opened a popup, and when — see the cooldown in `enter`. */
+  /** The in-flight gesture: touch holds cancel on drift, mouse dwells don't. */
+  const gesture = useRef<{ touch: boolean; x: number; y: number } | null>(null);
+  /** The word that last opened a popup, and when — see the cooldown in `start`. */
   const fired = useRef<{ key: string; at: number } | null>(null);
 
   const cancel = useCallback(() => {
@@ -72,37 +82,47 @@ export function PeekText({ text, highlight, boldHighlight = false, className = '
       clearTimeout(timer.current);
       timer.current = null;
     }
+    gesture.current = null;
     setArming(null);
   }, []);
 
   useEffect(() => cancel, [cancel]);
 
-  const enter = (key: string, word: string, e: React.PointerEvent<HTMLSpanElement>) => {
+  const start = (key: string, word: string, e: React.PointerEvent<HTMLSpanElement>) => {
     // A popup already open covers the text, so nothing behind it should arm.
     if (useWordPeek.getState().word) return;
     // Dismissing the popup can re-expose the very word that opened it under a
     // motionless cursor, which some browsers report as a fresh enter. Without
-    // this the popup would reopen itself two seconds after being closed.
+    // this the popup would reopen itself a moment after being closed.
     const last = fired.current;
     if (last && last.key === key && Date.now() - last.at < COOLDOWN_MS) return;
 
+    const touch = e.pointerType !== 'mouse';
+    const ms = touch ? HOLD_MS : HOVER_MS;
     const el = e.currentTarget;
     if (timer.current !== null) clearTimeout(timer.current);
-    setArming(key);
+    gesture.current = { touch, x: e.clientX, y: e.clientY };
+    setArming({ key, ms });
     timer.current = window.setTimeout(() => {
       timer.current = null;
+      gesture.current = null;
       setArming(null);
       fired.current = { key, at: Date.now() };
       // A short buzz where the platform supports it — on a phone the finger is
       // covering the word, so the animation finishing isn't necessarily visible.
       navigator.vibrate?.(15);
       peekWord(word, el);
-    }, HOVER_MS);
+    }, ms);
   };
 
-  // The duration lives in one place: this custom property drives both the
-  // rainbow sweep on the word and the progress bar under it.
-  const armingStyle = { '--peek-ms': `${HOVER_MS}ms` } as CSSProperties;
+  // A finger that travels is scrolling the page, not holding a word. A mouse
+  // that moves inside the word it's already resting on is doing nothing at all,
+  // so only touch gestures are cancelled on movement.
+  const onMove = (e: React.PointerEvent) => {
+    const g = gesture.current;
+    if (!g?.touch) return;
+    if (Math.hypot(e.clientX - g.x, e.clientY - g.y) > MOVE_TOLERANCE) cancel();
+  };
 
   let key = 0;
   const nodes: ReactNode[] = [];
@@ -126,11 +146,18 @@ export function PeekText({ text, highlight, boldHighlight = false, className = '
       nodes.push(
         <span
           key={k}
-          className={`peek-word ${arming === k ? 'is-arming' : ''}`}
-          style={arming === k ? armingStyle : undefined}
-          onPointerEnter={(e) => enter(k, word, e)}
+          className={`peek-word ${arming?.key === k ? 'is-arming' : ''}`}
+          style={arming?.key === k ? { '--peek-ms': `${arming.ms}ms` } as CSSProperties : undefined}
+          // Mouse arms by arriving; touch arms by staying down. Splitting them
+          // is what keeps a scroll on a phone from opening popups.
+          onPointerEnter={(e) => { if (e.pointerType === 'mouse') start(k, word, e); }}
+          onPointerDown={(e) => { if (e.pointerType !== 'mouse') start(k, word, e); }}
+          onPointerUp={cancel}
           onPointerLeave={cancel}
           onPointerCancel={cancel}
+          // Android fires a context menu at roughly the same moment as a long
+          // press, which would tear the gesture in half.
+          onContextMenu={(e) => { if (gesture.current?.touch) e.preventDefault(); }}
         >
           {word}
         </span>,
@@ -140,10 +167,8 @@ export function PeekText({ text, highlight, boldHighlight = false, className = '
     if (last < seg.text.length) nodes.push(seg.text.slice(last));
   }
 
-  // Scrolling away from a word the pointer never leaves would otherwise arm it
-  // under a finger that's long gone.
   return (
-    <span className={className} onPointerLeave={cancel}>
+    <span className={className} onPointerMove={onMove} onPointerLeave={cancel}>
       {nodes}
     </span>
   );

@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Icon } from '@iconify/react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
-import { getMotherLanguage } from '../lib/languages';
 import { useCollections } from '../hooks/useCollections';
 import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
@@ -13,26 +11,28 @@ import {
   UnknownWordError,
 } from '../lib/wordService';
 import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
-import { WordTest } from './WordTest';
-import { WordNotes } from './WordNotes';
-import { GuessGame } from './GuessGame';
-import { BuddyBadge } from './BuddyBadge';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useTeams } from '../hooks/useTeams';
 import { useWordSearch } from '../hooks/useWordSearch';
-import { peekWord } from '../hooks/useWordPeek';
 import { useWordDoodle } from '../hooks/useWordDoodle';
 import { useIsPro } from '../hooks/useProStatus';
-import { speakText, stopSpeaking, isTtsPlaying, isKokoroSupported } from '../lib/tts';
-import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../hooks/useTtsSettings';
+import { stopSpeaking } from '../lib/tts';
 import { encodeWord, decodeWord } from '../lib/wordCode';
-import { familyForms, maskAnswer } from '../lib/answerMask';
-import { SynAnt } from './SynAnt';
-import { PeekText } from './PeekText';
 import { SimilarWords } from './SimilarWords';
-import type { AnswerVia, VocabularyWord, WordProgress } from '../types';
+import { GuessView } from './flashcard/GuessView';
+import { RevealedView } from './flashcard/RevealedView';
+import { HistoryStrip } from './flashcard/HistoryStrip';
+import { useCardSpeech } from './flashcard/useCardSpeech';
+import { FULL_DEF_KEY } from './flashcard/constants';
+import type { AnswerVia, VocabularyWord } from '../types';
 import toast from 'react-hot-toast';
+
+// The flash card owns the word — loading it, remembering which ones came
+// before, recording what the learner did with it — and hands the rendering to
+// one of two faces: `GuessView` while the word is hidden, `RevealedView` once
+// it isn't. Everything those two need is passed to them, so neither can reach
+// into the card's loading state and neither can show the other's material.
 
 /** How many previously-seen words the history strip is restored with. */
 const HISTORY_RESTORE_LIMIT = 12;
@@ -66,360 +66,6 @@ async function generateWithRetry(
   throw lastErr;
 }
 
-// Examples now render through PeekText, which does the same answer-word
-// highlighting on its way to making every other word peekable.
-
-// Dictionary abbreviations for the part-of-speech chip. The full word is fine on
-// desktop, but on a phone "adjective" alone eats the header row.
-const POS_ABBR: [RegExp, string][] = [
-  [/^phrasal verb/i, 'phr.v.'],
-  [/^noun/i, 'n.'],
-  [/^verb/i, 'v.'],
-  [/^adjective/i, 'adj.'],
-  [/^adverb/i, 'adv.'],
-  [/^pronoun/i, 'pron.'],
-  [/^preposition/i, 'prep.'],
-  [/^conjunction/i, 'conj.'],
-  [/^interjection/i, 'interj.'],
-  [/^determiner/i, 'det.'],
-  [/^article/i, 'art.'],
-  [/^idiom/i, 'idiom'],
-];
-
-function abbreviatePos(pos: string): string {
-  const hit = POS_ABBR.find(([re]) => re.test(pos.trim()));
-  // Unknown labels fall back to the first four letters ("particle" → "part…"),
-  // which still beats wrapping the row.
-  return hit ? hit[1] : pos.trim().length > 5 ? `${pos.trim().slice(0, 4)}.` : pos.trim();
-}
-
-/** The word's doodle, sitting straight on the card — its white paper is keyed
- *  out to transparent, and `doodle-ink` flips the ink light on the dark theme
- *  so it stays legible without a box around it. Sized by the caller: beside the
- *  definition in the clue card while guessing, inline in the word card once
- *  revealed. */
-function WordDoodle({ src, word, className = '' }: { src: string; word: string; className?: string }) {
-  return (
-    <img
-      src={src}
-      alt={`Doodle showing the meaning of ${word}`}
-      className={`shrink-0 object-contain doodle-ink animate-fade-in ${className}`}
-    />
-  );
-}
-
-/** Part-of-speech chip: abbreviated on mobile, spelled out from `sm` up. */
-function PosChip({ pos, className = '' }: { pos: string; className?: string }) {
-  return (
-    <span
-      title={pos}
-      className={`shrink-0 font-medium text-accent-purple bg-accent-purple/10 px-2 py-0.5 rounded whitespace-nowrap ${className}`}
-    >
-      <span className="sm:hidden">{abbreviatePos(pos)}</span>
-      <span className="hidden sm:inline">{pos}</span>
-    </span>
-  );
-}
-
-// Voices cycled through when the pronunciation button is clicked repeatedly
-// (Kokoro only). The user's chosen voice always plays first; the rest add
-// variety across gender and accent. Capped at 5 voices, then wraps around.
-const VOICE_CYCLE_IDS = ['af_heart', 'am_michael', 'bf_emma', 'bm_george', 'af_bella'];
-
-function kokoroVoiceCycle(): string[] {
-  const preferred = getTtsVoice();
-  return [preferred, ...VOICE_CYCLE_IDS.filter((id) => id !== preferred)].slice(0, 5);
-}
-
-// Preferred accents to show, with a flag + label per locale.
-const ACCENT_LABELS: { locale: string; label: string; flag: string }[] = [
-  { locale: 'en-US', label: 'US', flag: '🇺🇸' },
-  { locale: 'en-GB', label: 'UK', flag: '🇬🇧' },
-];
-
-/** Per-accent pronunciations, keyed by locale. Accents that share the same IPA
- *  are combined (both flags, one transcription). */
-function PhoneticList({ wordData }: { wordData: VocabularyWord }) {
-  const map = wordData.phonetics ?? {};
-  // Group accents by identical IPA, preserving the ACCENT_LABELS order.
-  const groups: { ipa: string; accents: typeof ACCENT_LABELS }[] = [];
-  for (const a of ACCENT_LABELS) {
-    const ipa = map[a.locale];
-    if (!ipa) continue;
-    const existing = groups.find((g) => g.ipa === ipa);
-    if (existing) existing.accents.push(a);
-    else groups.push({ ipa, accents: [a] });
-  }
-  if (groups.length === 0) return null;
-  return (
-    <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm font-code text-text-muted">
-      {groups.map((g) => (
-        <span key={g.ipa} className="flex items-center gap-1.5" title={g.accents.map((a) => a.label).join(' / ')}>
-          <span className="text-base leading-none" aria-label={g.accents.map((a) => a.label).join(' / ')}>
-            {g.accents.map((a) => a.flag).join('')}
-          </span>
-          {g.ipa}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-/**
- * Example sentences, shown beneath the definition. While guessing (introduce),
- * shows the first two with the answer masked; once revealed, shows all with a
- * per-sentence read-aloud button.
- */
-function ExampleList({ wordData, phase, speakingExample, onSpeak }: {
-  wordData: VocabularyWord;
-  phase: CardPhase;
-  speakingExample: number | null;
-  onSpeak: (index: number, text: string) => void;
-}) {
-  if (wordData.examples.length === 0) return null;
-  const answerWord = wordData.headword || wordData.word;
-  const examples = phase === 'introduce' ? wordData.examples.slice(0, 2) : wordData.examples;
-  return (
-    <div className="mt-3 pt-3 border-t border-border/60">
-      <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Examples</h4>
-      <ul className="space-y-2">
-        {examples.map((ex, i) => {
-          const text = phase === 'introduce' ? maskAnswer(ex, answerWord, familyForms(wordData.wordFamily)) : ex;
-          return (
-            <li key={i} className="flex gap-3 text-sm text-text-secondary leading-relaxed">
-              {phase === 'introduce' ? (
-                <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
-              ) : (
-                <button
-                  onClick={() => onSpeak(i, text)}
-                  title="Read aloud"
-                  className={`shrink-0 w-6 h-6 mt-0.5 rounded-md flex items-center justify-center border transition-all ${
-                    speakingExample === i
-                      ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
-                      : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
-                  }`}
-                >
-                  {speakingExample === i ? (
-                    <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor">
-                      <rect x="0" y="0" width="4" height="10" rx="1" /><rect x="6" y="0" width="4" height="10" rx="1" />
-                    </svg>
-                  ) : (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                    </svg>
-                  )}
-                </button>
-              )}
-              <span className={phase === 'introduce' ? 'italic' : ''}>
-                {phase === 'introduce'
-                  ? text
-                  : <PeekText text={ex} highlight={answerWord} boldHighlight />}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-/**
- * Popular idioms containing the word (revealed only). The server returns them
- * ranked by how often they're heard in everyday speech, so the top 2 are shown
- * and the rest sit behind a toggle. Rendered with key={word} so the toggle
- * resets on every new card.
- */
-function IdiomsCard({ idioms }: { idioms: NonNullable<VocabularyWord['idioms']> }) {
-  const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? idioms : idioms.slice(0, 2);
-  const hidden = idioms.length - 2;
-  return (
-    <div className="card-game p-4 sm:p-5">
-      <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-        Idioms
-      </h3>
-      <div className="space-y-3">
-        {visible.map((i) => (
-          <div key={i.idiom}>
-            <button
-              onClick={(e) => peekWord(i.idiom, e.currentTarget)}
-              title={`What does “${i.idiom}” mean?`}
-              className="text-sm font-bold text-accent-pink hover:underline text-left cursor-pointer"
-            >
-              {i.idiom}
-            </button>
-            <p className="text-xs text-text-secondary">{i.meaning}</p>
-            {i.example && (
-              <p className="text-xs text-text-muted italic mt-0.5">“{i.example}”</p>
-            )}
-          </div>
-        ))}
-      </div>
-      {hidden > 0 && (
-        <button
-          onClick={() => setShowAll(!showAll)}
-          className="mt-3 text-xs font-bold text-text-muted hover:text-accent-pink transition-colors cursor-pointer"
-        >
-          {showAll ? 'Show less' : `Show ${hidden} more`}
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** "just now / 5m ago / 3h ago / 2d ago", or the date for older answers. */
-function timeAgo(iso: string, now: number): string {
-  const ms = now - new Date(iso).getTime();
-  if (ms < 60_000) return 'just now';
-  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
-  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
-  if (ms < 30 * 86_400_000) return `${Math.floor(ms / 86_400_000)}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-// How an answer was given, shown on each history row — quiz question formats
-// and guess games (labels/icons match their pickers), plus the game-less
-// flash-card actions (Know it / Reveal).
-const VIA_META: Record<AnswerVia, { label: string; icon: string }> = {
-  choice:    { label: 'Choice',     icon: 'lucide:list-checks' },
-  letters:   { label: 'Letters',    icon: 'lucide:type' },
-  listen:    { label: 'Listen',     icon: 'lucide:headphones' },
-  gap:       { label: 'Fill gap',   icon: 'lucide:text-cursor-input' },
-  scramble:  { label: 'Unscramble', icon: 'lucide:shuffle' },
-  hangman:   { label: 'Hangman',    icon: 'lucide:skull' },
-  vowels:    { label: 'No Vowels',  icon: 'lucide:circle-dashed' },
-  speak:     { label: 'Speak',      icon: 'lucide:mic' },
-  meaning:   { label: 'Meaning',    icon: 'lucide:book-open' },
-  flashcard: { label: 'Flash card', icon: 'lucide:layers' },
-};
-
-/**
- * Lifetime correct/incorrect tally for the word, shown once revealed. Both
- * segments carry an icon + word + count so the meter never relies on the
- * green/red hues alone (they blend for red-green colorblind readers).
- * A History toggle expands the per-answer log (each answer's datetime).
- */
-function AnswerTally({ progress }: { progress: WordProgress | undefined }) {
-  const [showHistory, setShowHistory] = useState(false);
-  const correct = progress?.correct ?? 0;
-  const wrong = progress?.wrong ?? 0;
-  const total = correct + wrong;
-  if (total === 0) return null;
-  const history = progress?.history ?? [];
-  const now = Date.now();
-  return (
-    <div className="mt-3 pt-3 border-t border-border/60">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
-          Your answers
-        </h4>
-        {history.length > 0 && (
-          <button
-            onClick={() => setShowHistory((v) => !v)}
-            className="flex items-center gap-1 text-[11px] font-bold text-text-muted hover:text-accent-cyan transition-colors"
-          >
-            <Icon icon="lucide:history" className="text-sm" />
-            {showHistory ? 'Hide history' : 'History'}
-            <Icon icon={showHistory ? 'lucide:chevron-up' : 'lucide:chevron-down'} className="text-xs" />
-          </button>
-        )}
-      </div>
-      <div className="flex items-center justify-between mb-1.5 text-xs font-bold">
-        <span className="flex items-center gap-1 text-accent-green">
-          <Icon icon="lucide:check" className="text-sm" />
-          {correct} correct
-        </span>
-        <span className="flex items-center gap-1 text-accent-red">
-          <Icon icon="lucide:x" className="text-sm" />
-          {wrong} wrong
-        </span>
-      </div>
-      <div
-        className="flex h-2 rounded-full overflow-hidden bg-bg-tertiary"
-        role="img"
-        aria-label={`${correct} correct, ${wrong} wrong`}
-      >
-        {correct > 0 && <div className="bg-accent-green rounded-full" style={{ width: `${(correct / total) * 100}%` }} />}
-        {correct > 0 && wrong > 0 && <div className="w-0.5 shrink-0" />}
-        {wrong > 0 && <div className="bg-accent-red rounded-full" style={{ width: `${(wrong / total) * 100}%` }} />}
-      </div>
-
-      {/* Per-answer log, newest first — when each round was answered and how */}
-      {showHistory && (
-        <div className="mt-2.5 animate-fade-in">
-          <ul className="max-h-44 overflow-y-auto divide-y divide-border/40 rounded-xl border border-border/60">
-            {[...history].reverse().map((ev, i) => (
-              <li key={`${ev.at}-${i}`} className="flex items-center gap-2 px-3 py-1.5 text-xs bg-bg-tertiary/40">
-                <Icon
-                  icon={ev.ok ? 'lucide:check' : 'lucide:x'}
-                  className={`text-sm shrink-0 ${ev.ok ? 'text-accent-green' : 'text-accent-red'}`}
-                />
-                <span className={`font-bold ${ev.ok ? 'text-accent-green' : 'text-accent-red'}`}>
-                  {ev.ok ? 'Correct' : 'Wrong'}
-                </span>
-                {ev.via && VIA_META[ev.via] && (
-                  <span className="flex items-center gap-1 text-text-muted">
-                    <Icon icon={VIA_META[ev.via].icon} className="text-sm shrink-0" />
-                    {VIA_META[ev.via].label}
-                  </span>
-                )}
-                <span
-                  className="ml-auto text-text-muted"
-                  title={new Date(ev.at).toLocaleString()}
-                >
-                  {timeAgo(ev.at, now)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {history.length >= 50 && (
-            <p className="mt-1.5 text-[10px] text-text-muted">
-              Showing the last {history.length} rounds — earlier answers are only in the totals above.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const FULL_DEF_KEY = 'voca-flashcard-full-def';
-
-/** Definition-length switch — a two-segment control with Short on the left
- *  (the default) and Full on the right, so it reads as a switch rather than a
- *  button. Shown only when a short definition exists (without one there is
- *  nothing to switch between). */
-function DefLengthToggle({ show, fullDef, onToggle }: { show: boolean; fullDef: boolean; onToggle: () => void }) {
-  if (!show) return null;
-  const setFull = (want: boolean) => {
-    if (want !== fullDef) onToggle();
-  };
-  return (
-    <div
-      role="switch"
-      aria-checked={fullDef}
-      title={fullDef ? 'Showing the full definition' : 'Showing the short definition'}
-      className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border bg-bg-tertiary p-0.5 text-[10px] font-bold select-none"
-    >
-      <button
-        type="button"
-        onClick={() => setFull(false)}
-        className={`px-1.5 sm:px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'text-text-muted hover:text-text-secondary' : 'bg-accent-cyan/20 text-accent-cyan'}`}
-      >
-        Short
-      </button>
-      <button
-        type="button"
-        onClick={() => setFull(true)}
-        className={`px-1.5 sm:px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'}`}
-      >
-        Full
-      </button>
-    </div>
-  );
-}
-
 export function FlashCard() {
   const { user, loading: authLoading } = useAuth();
   const store = useVocabularyStore();
@@ -442,13 +88,15 @@ export function FlashCard() {
   // The short one-liner when preferred and available, else the full definition.
   const definitionText = (wd: VocabularyWord) =>
     !fullDef && wd.shortDefinition ? wd.shortDefinition : wd.definition;
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [speakingExample, setSpeakingExample] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const { isPro } = useIsPro();
   // Drawn in the background — the card never waits for it (see useWordDoodle).
   const doodle = useWordDoodle(wordData, isPro);
+  const speech = useCardSpeech(wordData);
+  // Pulled out on its own: `stop` is stable, so the loaders below can depend on
+  // it without being rebuilt every time the speaking indicator flips.
+  const { stop: stopSpeech } = speech;
 
   const { game, setGame } = useGuessGame();
   const breakStreak = useGameScore((s) => s.breakStreak);
@@ -472,7 +120,6 @@ export function FlashCard() {
   const historyIndexRef = useRef(restoredHistory.length - 1);
   const [wordHistory, setWordHistory] = useState<VocabularyWord[]>(restoredHistory);
   const [historyIndex, setHistoryIndex] = useState(restoredHistory.length - 1);
-  const historyScrollRef = useRef<HTMLDivElement>(null);
 
   const pushWord = useCallback((data: VocabularyWord) => {
     // Drop any forward entries when a new word is pushed mid-history
@@ -492,8 +139,7 @@ export function FlashCard() {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    stopSpeaking();
-    setIsSpeaking(false);
+    stopSpeech();
     setPhase('loading');
     setGaveUp(false);
     setSolved(false);
@@ -557,7 +203,7 @@ export function FlashCard() {
     } finally {
       setIsGenerating(false);
     }
-  }, [store, pushWord, user?.id]);
+  }, [store, pushWord, user?.id, stopSpeech]);
 
   // `reveal: false` opens the word in guess mode (the `?w=` encoded link);
   // everything else — a header search, a `?word=` link — shows it outright.
@@ -565,8 +211,7 @@ export function FlashCard() {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    stopSpeaking();
-    setIsSpeaking(false);
+    stopSpeech();
     setPhase('loading');
     setGaveUp(false);
     setSolved(false);
@@ -607,7 +252,7 @@ export function FlashCard() {
     } finally {
       setIsGenerating(false);
     }
-  }, [pushWord, store, user?.id]);
+  }, [pushWord, store, user?.id, stopSpeech]);
 
   // Kick off the first word only once auth has resolved. AI calls are proxied
   // through the server and require the user's session token, so we wait for the
@@ -657,11 +302,6 @@ export function FlashCard() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!wordData) return;
-    speakClicksRef.current = 0; // new word — voice cycle starts over
-  }, [wordData]);
-
   // Keep the URL in step with the mode: while the word is still hidden it's
   // `?w=<base64>` (sharing the link doesn't spoil the guess); once it's on
   // screen the link becomes `?word=<the word>`, which reopens it revealed.
@@ -685,56 +325,18 @@ export function FlashCard() {
     setPhase('revealed');
   };
 
-  // How many times the pronunciation button was clicked for the current word —
-  // with Kokoro, each click reads the word in the next voice of the cycle.
-  const speakClicksRef = useRef(0);
-
-  const handleSpeak = async () => {
+  const handleSolved = (playedGame: AnswerVia) => {
     if (!wordData) return;
-    const word = wordData.headword || wordData.word;
-
-    // Kokoro: don't toggle-stop — every click (re)reads the word. The first
-    // two clicks use the preferred voice (hear it twice), then each click
-    // advances through up to 5 different voices so the learner hears variety.
-    if (getTtsEngine() === 'kokoro' && isKokoroSupported()) {
-      const cycle = kokoroVoiceCycle();
-      const clicks = speakClicksRef.current;
-      const idx = clicks === 0 ? 0 : (clicks - 1) % cycle.length;
-      const voiceId = cycle[idx];
-      speakClicksRef.current++;
-      if (idx > 0) {
-        const v = KOKORO_VOICES.find((k) => k.id === voiceId);
-        if (v) toast(`🎙️ ${v.name} — ${v.accent} ${v.gender}`, { duration: 1200 });
-      }
-      stopSpeaking();
-      setSpeakingExample(null);
-      setIsSpeaking(true);
-      await speakText(word, { voice: voiceId, onEnd: () => setIsSpeaking(false) });
-      return;
-    }
-
-    if (isTtsPlaying() || isSpeaking) {
-      stopSpeaking();
-      setIsSpeaking(false);
-      return;
-    }
-    // Speak just the word — reading the whole definition + examples is slow.
-    stopSpeaking();
-    setSpeakingExample(null);
-    setIsSpeaking(true);
-    await speakText(word, { onEnd: () => setIsSpeaking(false) });
-  };
-
-  const handleSpeakExample = async (index: number, text: string) => {
-    if (speakingExample === index && isTtsPlaying()) {
-      stopSpeaking();
-      setSpeakingExample(null);
-      return;
-    }
-    stopSpeaking();
-    setIsSpeaking(false);
-    setSpeakingExample(index);
-    await speakText(text, { onEnd: () => setSpeakingExample(null) });
+    setGaveUp(false);
+    setSolved(true);
+    // Solving the guess counts as a successful review (schedules the word);
+    // wrong attempts made along the way are recorded with it.
+    store.markWord(wordData.word, 'known', user?.id, roundMistakesRef.current, playedGame);
+    // The badge that shows the learner's place is on the revealed card they're
+    // about to land on, so the score behind it is brought up to date now rather
+    // than on their next visit.
+    if (user) void useTeams.getState().recordAnswer();
+    setPhase('revealed');
   };
 
   const handleSkip = () => {
@@ -767,8 +369,7 @@ export function FlashCard() {
     const data = wordHistoryRef.current[index];
     if (!data) return;
     abortRef.current?.abort();
-    stopSpeaking();
-    setIsSpeaking(false);
+    stopSpeech();
     historyIndexRef.current = index;
     setHistoryIndex(index);
     setWordData(data);
@@ -776,7 +377,7 @@ export function FlashCard() {
     setSolved(true); // past words are already resolved — no "Know it" prompt
     roundMistakesRef.current = 0;
     setPhase('revealed');
-  }, []);
+  }, [stopSpeech]);
 
   const handlePrev = useCallback(() => {
     navigateToHistory(historyIndexRef.current - 1);
@@ -791,15 +392,6 @@ export function FlashCard() {
     }
   }, [navigateToHistory, loadNextWord]);
 
-  // Auto-scroll the history strip to keep the current chip visible
-  useEffect(() => {
-    if (!historyScrollRef.current) return;
-    const chips = historyScrollRef.current.querySelectorAll<HTMLButtonElement>('button');
-    chips[historyIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  }, [historyIndex]);
-
-  const isBookmarked = wordData ? store.isBookmarked(wordData.word) : false;
-
   // The collection currently being studied — shown on the history header.
   const activeCollectionId = useCollections((s) => s.activeId);
   const myCollections = useCollections((s) => s.mine);
@@ -809,84 +401,19 @@ export function FlashCard() {
     ?? sharedCollections[activeCollectionId]?.name
     ?? getCollection(activeCollectionId).name;
 
-  const levelColor: Record<string, string> = {
-    beginner: 'text-accent-green bg-accent-green/10',
-    intermediate: 'text-accent-orange bg-accent-orange/10',
-    advanced: 'text-accent-red bg-accent-red/10',
-  };
-
   return (
     <div className="max-w-page mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      <HistoryStrip
+        words={wordHistory}
+        index={historyIndex}
+        collectionName={collectionName}
+        maskCurrent={phase === 'introduce'}
+        busy={isGenerating}
+        onPick={navigateToHistory}
+        onPrev={handlePrev}
+        onNext={handleNext}
+      />
 
-
-      {/* ── History navigation ── */}
-      {wordHistory.length > 0 && (
-        <div className="max-w-page mx-auto mb-5 flex items-center gap-2">
-          {/* Active collection — tap to switch on the Collections page */}
-          <Link
-            to="/collections"
-            title="Change collection"
-            className="btn-3d shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent-purple/15 border-2 border-accent-purple/30 text-accent-purple text-xs font-extrabold max-w-[10rem]"
-          >
-            <Icon icon="lucide:library" className="text-sm shrink-0" />
-            <span className="truncate">{collectionName}</span>
-          </Link>
-
-          <button
-            onClick={handlePrev}
-            disabled={historyIndex <= 0 || isGenerating}
-            className="btn-3d shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-bg-card text-text-secondary hover:text-text-primary disabled:cursor-not-allowed"
-            title="Previous word"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-
-          <div
-            ref={historyScrollRef}
-            className="flex-1 flex gap-1.5 overflow-x-auto py-0.5"
-            style={{ scrollbarWidth: 'none' }}
-          >
-            {wordHistory.map((w, i) => {
-              // Hide the current word while it's still being guessed — otherwise
-              // the answer is readable straight off the history strip.
-              const masked = i === historyIndex && phase === 'introduce';
-              return (
-                <button
-                  key={i}
-                  onClick={() => navigateToHistory(i)}
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-extrabold whitespace-nowrap border-2 transition-all hover:-translate-y-0.5 ${i === historyIndex
-                      ? 'bg-accent-cyan text-bg-primary border-accent-cyan'
-                      : 'bg-bg-card border-border text-text-muted hover:text-text-primary hover:border-border-light'
-                    }`}
-                >
-                  {masked ? '• • •' : (w.headword || w.word)}
-                </button>
-              );
-            })}
-            {/* Trailing room, 3x a chip's own padding. Without it the last word
-                — normally the current one — sits flush against the Next button
-                and a long one is hard to read. A spacer rather than padding on
-                the scroller: trailing padding is unreliably honoured in an
-                overflow container, a flex child always is. */}
-            <span aria-hidden className="shrink-0 w-9" />
-          </div>
-
-          <button
-            onClick={handleNext}
-            disabled={isGenerating}
-            className="btn-3d shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-bg-card text-text-secondary hover:text-text-primary disabled:cursor-not-allowed"
-            title="Next word"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* ── Main content ── */}
       {phase === 'loading' ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
           <div className="w-12 h-12 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
@@ -900,340 +427,37 @@ export function FlashCard() {
           suggestions={unknown.suggestions}
           onPick={(w) => loadSpecificWord(w)}
         />
-      ) : wordData ? (
-        <>
-
-          {/* Definition clue — surfaced at the top while guessing so the
-              hint sits above the game (key for mobile flow) */}
-          {phase === 'introduce' && (
-            <div className="mb-4 sm:mb-5 card-game border-accent-cyan p-4 sm:p-5 animate-bounce-in">
-              <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
-                <span className="text-lg sm:text-xl leading-none animate-bob">💡</span>
-                {/* Just "Guess" on mobile — the long title was pushing the
-                    Short/Full switch off the card. */}
-                <h3 className="text-sm font-display font-extrabold text-accent-cyan uppercase tracking-wide whitespace-nowrap">
-                  Guess<span className="hidden sm:inline"> the word</span>
-                </h3>
-                {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[10px]" />}
-                <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${levelColor[wordData.level]}`}>
-                  {wordData.level}
-                </span>
-                <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={toggleFullDef} />
-              </div>
-              {/* No doodle here: a sketch of the meaning gives the answer away
-                  far faster than the text does, so it's held back until the
-                  word is revealed. Mask the answer out of the definition and
-                  syn/ant chips too — AI text sometimes restates the word while
-                  it's being guessed. */}
-              <p className="text-text-primary leading-relaxed text-base sm:text-lg">
-                {maskAnswer(definitionText(wordData), wordData.headword || wordData.word, familyForms(wordData.wordFamily))}
-              </p>
-              <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
-              <SynAnt wordData={wordData} maskWord={wordData.headword || wordData.word} />
-            </div>
-          )}
-
-          {/* Two-column layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-4 sm:gap-5 items-start">
-
-            {/* ── Left column ── */}
-            <div className="flex flex-col gap-3 sm:gap-4">
-              {phase === 'introduce' ? (
-                <GuessGame
-                  key={wordData.word}
-                  wordData={wordData}
-                  game={game}
-                  onGameChange={setGame}
-                  onSolved={(playedGame) => {
-                    setGaveUp(false);
-                    setSolved(true);
-                    // Solving the guess counts as a successful review (schedules the
-                    // word); wrong attempts made along the way are recorded with it.
-                    store.markWord(wordData.word, 'known', user?.id, roundMistakesRef.current, playedGame);
-                    // The badge that shows the learner's place is on the revealed
-                    // card they're about to land on, so the score behind it is
-                    // brought up to date now rather than on their next visit.
-                    if (user) void useTeams.getState().recordAnswer();
-                    setPhase('revealed');
-                  }}
-                  onGaveUp={handleReveal}
-                  onMistake={() => { roundMistakesRef.current += 1; }}
-                />
-              ) : (
-                /* Revealed word card */
-                <div className="card-game border-accent-purple p-6 animate-bounce-in">
-                  <div className="flex items-start justify-between gap-4">
-                    {/* The doodle sits beside the word, filling space this card
-                        already had spare — rather than pushing the word down
-                        the page from a band of its own. */}
-                    <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-                      {doodle && (
-                        <WordDoodle
-                          src={doodle}
-                          word={wordData.word}
-                          className="w-16 h-16 sm:w-24 sm:h-24"
-                        />
-                      )}
-                      <div className="min-w-0">
-                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
-                          <h1 className="text-2xl sm:text-4xl font-title text-accent-purple tracking-tight drop-shadow-[0_2px_0_var(--btn-lip)] break-words">
-                            {wordData.headword || wordData.word}
-                          </h1>
-                          {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-xs" />}
-                        </div>
-                        <PhoneticList wordData={wordData} />
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleSpeak}
-                      className={`btn-3d w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-1 ${isSpeaking
-                          ? 'bg-accent-cyan text-bg-primary'
-                          : 'bg-bg-tertiary text-text-secondary hover:text-accent-cyan'
-                        }`}
-                      title={
-                        getTtsEngine() === 'kokoro' && isKokoroSupported()
-                          ? 'Hear pronunciation — click again for another voice'
-                          : isSpeaking ? 'Stop' : 'Hear pronunciation'
-                      }
-                    >
-                      {isSpeaking ? (
-                        <svg width="14" height="14" viewBox="0 0 10 10" fill="currentColor">
-                          <rect x="0" y="0" width="4" height="10" rx="1" />
-                          <rect x="6" y="0" width="4" height="10" rx="1" />
-                        </svg>
-                      ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Definition + synonyms/antonyms — kept together with the word so the
-                  full meaning is front and center */}
-              {phase === 'revealed' && (
-                <div className="card-game p-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
-                      Definition
-                    </h3>
-                    {store.progress[wordData.word]?.mastered && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-medium">Mastered ✨</span>
-                    )}
-                    <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${levelColor[wordData.level]}`}>
-                      {wordData.level}
-                    </span>
-                    <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={toggleFullDef} />
-                  </div>
-                  <p className="text-text-primary leading-relaxed">
-                    <PeekText
-                      text={definitionText(wordData)}
-                      highlight={wordData.headword || wordData.word}
-                    />
-                  </p>
-                  {wordData.translation && (
-                    <div className="mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-accent-cyan/10 border border-accent-cyan/25">
-                      <Icon icon="lucide:languages" className="text-accent-cyan text-xl shrink-0" />
-                      <div className="min-w-0">
-                        <span className="block text-[10px] font-bold text-accent-cyan/70 uppercase tracking-wider">
-                          {getMotherLanguage()}
-                        </span>
-                        <span className="text-base font-bold text-accent-cyan">{wordData.translation}</span>
-                      </div>
-                    </div>
-                  )}
-                  <ExampleList wordData={wordData} phase={phase} speakingExample={speakingExample} onSpeak={handleSpeakExample} />
-                  <SynAnt wordData={wordData} />
-                  <AnswerTally progress={store.progress[wordData.word]} />
-                </div>
-              )}
-
-              {/* Actions */}
-              {phase === 'introduce' ? (
-                <div className="flex gap-3">
-                  {/* Hovering swaps the label for what the button actually does —
-                      the default label slides out and the hint slides in. */}
-                  <button
-                    onClick={() => handleReveal()}
-                    className="group btn-3d relative overflow-hidden flex-1 py-4 bg-accent-orange text-bg-primary text-base font-bold"
-                  >
-                    <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
-                      <Icon icon="solar:flag-2-bold" className="text-2xl" />
-                      Give up
-                    </span>
-                    <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                      <Icon icon="solar:eye-bold" className="text-2xl" />
-                      Reveal the answer
-                    </span>
-                  </button>
-                  <button
-                    onClick={handleSkip}
-                    className="group btn-3d relative overflow-hidden flex-1 py-4 bg-accent-blue text-bg-primary text-base font-bold"
-                  >
-                    <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
-                      <Icon icon="solar:skip-next-bold" className="text-2xl" />
-                      Skip
-                    </span>
-                    <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                      <Icon icon="solar:eye-closed-bold" className="text-2xl" />
-                      Never show again
-                    </span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleNext}
-                    disabled={isGenerating}
-                    className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-cyan text-bg-primary"
-                    title="Next word — keeps this word saved"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-                    </svg>
-                    <span className="text-xs">Next</span>
-                  </button>
-                  <button
-                    onClick={handleBookmark}
-                    className={`btn-3d flex-1 flex flex-col items-center gap-1 py-3 ${isBookmarked
-                        ? 'bg-accent-yellow text-bg-primary'
-                        : 'bg-bg-card text-text-secondary hover:text-accent-yellow'
-                      }`}
-                    title={isBookmarked ? 'Remove bookmark' : 'Bookmark this word'}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <span className="text-xs">{isBookmarked ? 'Saved' : 'Save'}</span>
-                  </button>
-                  {/* "Know it" only makes sense when you actually solved it.
-                      If you gave up, you don't know it — just move on. */}
-                  {!gaveUp && !solved && (
-                    <button
-                      onClick={handleKnow}
-                      className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-green text-bg-primary"
-                      title="I know this word!"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      <span className="text-xs">Know it</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* ── Right column ── */}
-            <div className="space-y-4">
-              {/* Collocations — natural word pairings (revealed only) */}
-              {phase === 'revealed' && (wordData.collocations?.length ?? 0) > 0 && (
-                <div className="card-game p-4 sm:p-5">
-                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-                    Common phrases
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {wordData.collocations!.map((c) => (
-                      <button
-                        key={c}
-                        onClick={(e) => peekWord(c, e.currentTarget)}
-                        title={`What does “${c}” mean?`}
-                        className="text-xs px-2.5 py-1 rounded-full bg-accent-purple/10 text-accent-purple border border-accent-purple/20 hover:bg-accent-purple/20 hover:border-accent-purple/40 transition-all cursor-pointer"
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Word family — related forms across parts of speech (revealed only) */}
-              {phase === 'revealed' && (wordData.wordFamily?.length ?? 0) > 0 && (
-                <div className="card-game p-4 sm:p-5">
-                  <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-                    Word family
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {wordData.wordFamily!.map((f) => (
-                      <button
-                        key={`${f.word}-${f.pos}`}
-                        onClick={(e) => peekWord(f.word, e.currentTarget)}
-                        title={`What does “${f.word}” mean?`}
-                        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-accent-orange/10 border border-accent-orange/20 hover:bg-accent-orange/20 hover:border-accent-orange/40 transition-all cursor-pointer"
-                      >
-                        <span className="font-bold text-accent-orange">{f.word}</span>
-                        <span className="text-text-muted">{f.pos}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Idioms — popular fixed expressions containing the word (revealed only) */}
-              {phase === 'revealed' && (wordData.idioms?.length ?? 0) > 0 && (
-                <IdiomsCard key={wordData.word} idioms={wordData.idioms!} />
-              )}
-
-              <BuddyBadge />
-              {/* Notes + AI test (revealed only) */}
-              {phase === 'revealed' && (
-                <>
-                  {/* Real-world usage — clips of the word in videos and movies */}
-                  <div className="card-game p-5">
-                    <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-                      See it used
-                    </h3>
-                    <div className="flex flex-col gap-2">
-                      <a
-                        href={`https://youglish.com/pronounce/${encodeURIComponent(wordData.word)}/english`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-bg-tertiary hover:border-accent-red/40 hover:bg-accent-red/5 transition-all group"
-                      >
-                        <span className="w-8 h-8 rounded-lg bg-accent-red/10 text-accent-red flex items-center justify-center shrink-0">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M23 12s0-3.9-.5-5.8a3 3 0 0 0-2.1-2.1C18.5 3.6 12 3.6 12 3.6s-6.5 0-8.4.5A3 3 0 0 0 1.5 6.2C1 8.1 1 12 1 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 8.4.5 8.4.5s6.5 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.9 23 12 23 12zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z" />
-                          </svg>
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-text-primary">Real videos (YouGlish)</p>
-                          <p className="text-xs text-text-muted">Hear “{wordData.word}” spoken in real YouTube clips</p>
-                        </div>
-                      </a>
-                      <a
-                        href={`https://www.playphrase.me/#/search?q=${encodeURIComponent(wordData.word)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-bg-tertiary hover:border-accent-purple/40 hover:bg-accent-purple/5 transition-all"
-                      >
-                        <span className="w-8 h-8 rounded-lg bg-accent-purple/10 text-accent-purple flex items-center justify-center shrink-0">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="23 7 16 12 23 17 23 7" />
-                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                          </svg>
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-text-primary">Movie clips (PlayPhrase)</p>
-                          <p className="text-xs text-text-muted">Scenes from films using “{wordData.word}”</p>
-                        </div>
-                      </a>
-                    </div>
-                  </div>
-
-                  {/* Reset to the AI intro card on each new word so no AI call
-                      fires until the learner opts in */}
-                  <WordTest key={wordData.word} wordData={wordData} />
-                  <WordNotes word={wordData.word} />
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      ) : null}
+      ) : !wordData ? null : phase === 'introduce' ? (
+        <GuessView
+          wordData={wordData}
+          definition={definitionText(wordData)}
+          fullDef={fullDef}
+          onToggleFullDef={toggleFullDef}
+          speech={speech}
+          game={game}
+          onGameChange={setGame}
+          onSolved={handleSolved}
+          onMistake={() => { roundMistakesRef.current += 1; }}
+          onReveal={handleReveal}
+          onSkip={handleSkip}
+        />
+      ) : (
+        <RevealedView
+          wordData={wordData}
+          doodle={doodle}
+          definition={definitionText(wordData)}
+          fullDef={fullDef}
+          onToggleFullDef={toggleFullDef}
+          speech={speech}
+          progress={store.progress[wordData.word]}
+          isBookmarked={store.isBookmarked(wordData.word)}
+          showKnowIt={!gaveUp && !solved}
+          busy={isGenerating}
+          onNext={handleNext}
+          onBookmark={handleBookmark}
+          onKnow={handleKnow}
+        />
+      )}
     </div>
   );
 }
