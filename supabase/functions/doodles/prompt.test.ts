@@ -1,6 +1,5 @@
-// The word reaches the image model now: the flash card hides the doodle until
-// the word is revealed, so a lettered caption gives nothing away — and the word
-// itself is the strongest hint the model has about what to draw.
+// The word reaches the image model: it is the strongest hint the model has
+// about what to draw. Keeping it out of the drawing is the sheet prompt's job.
 
 import { describe, expect, it } from 'vitest';
 import { cellSubject } from './prompt.ts';

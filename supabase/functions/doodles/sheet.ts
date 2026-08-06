@@ -131,7 +131,7 @@ const DOODLE_CONTEXT =
   `Context: we are building a hand-drawn vocabulary MIND MAP for English learners. Each word on the map gets a tiny doodle next to it as a memory hook — a quick visual that makes the word's meaning click and stick. The doodles are displayed very small (about 1cm), so each one must be a single bold, instantly recognizable idea; fine detail would be lost.`;
 
 const DOODLE_STYLE =
-  'Style: quick felt-tip pen doodle, 2-3 flat accent colors, plain white background, thick clean lines, like a margin doodle in a study notebook. The drawing floats free on the white page — never inside a frame, border, circle, or colored panel.';
+  'Style: quick felt-tip pen doodle, 2-3 flat accent colors, thick clean lines, loose and hand-drawn like a margin doodle. The page behind it is plain blank white — never graph paper, squared or ruled notebook paper, a colored wash, or any texture or tint. The drawing floats free on the white page — never inside a frame, border, circle, or colored panel, and never captioned or labelled.';
 
 // ─── Doodle sheets ──────────────────────────────────────────────────
 // Every generated image costs the same regardless of content, so we pack a
@@ -181,20 +181,24 @@ export async function generateDoodleSheet(items: SheetItem[], cfg: ImageConfig):
 
 This image is a production sheet: it will be cut apart into individual doodles by exact grid position, one per word. That is why the layout must be followed precisely — if a doodle drifts into a neighboring cell or lands in the wrong cell, the wrong picture ends up next to the wrong word on the map.
 
-Draw a ${rows}x${cols} grid of equal-sized square cells covering the whole image, separated by thin light gray lines (like a worksheet table). Each cell contains exactly ONE small hand-drawn doodle — a single object or simple scene — centered in its cell, filling at most 70% of the cell so there is clear white margin between the doodle and the cell's gray border lines. A doodle must NEVER touch or cross a gray line.
+Draw a ${rows}x${cols} grid of equal-sized square cells covering the whole image on plain blank white paper, separated by thin light gray lines (like a worksheet table). Each cell contains exactly ONE small hand-drawn doodle — a single object or simple scene — centered in its cell, filling at most 70% of the cell so there is clear white margin between the doodle and the cell's gray border lines. A doodle must NEVER touch or cross a gray line.
+
+How to draw the grid — as LINES, not as boxes: exactly ${rows - 1} light gray hairlines running the full width of the image and ${cols - 1} light gray hairlines running its full height, and nothing else. Neighboring cells SHARE the single line between them. Do NOT draw a square, box, card, tile, panel, or rounded rectangle around a cell or around a doodle; do NOT leave a gap or gutter between separate boxes; do NOT double the lines; do NOT draw an outer border or frame around the edge of the image. Apart from those ${rows - 1 + cols - 1} hairlines and the doodle strokes themselves, every pixel of the page is white.
 
 STRICT rules for every cell:
 - ONE doodle per cell — never a group of separate small drawings
-- NO tables, frames, boxes, or smaller grids inside a cell
+- NO tables, frames, boxes, or smaller grids inside a cell — a cell is bounded only by the shared grid lines, never by a second square drawn inside it
 - NO border, outline, frame, circle, badge, or panel drawn AROUND the doodle — each doodle sits directly on the white page with nothing enclosing it. The only lines in the whole image are the thin gray grid and the doodles themselves.
 - NO shading, backdrop, or filled background behind a doodle — the paper stays plain white right up to the doodle's own strokes
+- NO text ANYWHERE in the image — no words, letters, captions, labels, titles, or numbers, not inside a cell, not above or below a doodle, not in the margins. Do not write the word the cell was assigned; the picture alone has to carry the meaning
+- The paper is plain blank white — NOT graph paper, NOT squared or ruled notebook paper, no dots, no texture, no tint. The ONLY gray lines in the whole image are the ${rows}x${cols} grid lines described above: no smaller squares, no background pattern, no extra lines anywhere
 
-Cell assignments (rows numbered top to bottom, columns left to right):
+Cell assignments (rows numbered top to bottom, columns left to right). Each word below says what that cell must depict — it is never to be written or lettered in the image:
 ${list}
 
 ${DOODLE_STYLE}
 
-Last and most important, because every cell is cut out on its exact grid position: keep each doodle centered well inside its own cell, at most 70% of the cell's width and height, with clear white space between it and the gray lines. A doodle must never touch a gray line, cross into a neighboring cell, or be drawn in a cell other than the one it was assigned.`
+Last and most important, because every cell is cut out on its exact grid position: keep each doodle centered well inside its own cell, at most 70% of the cell's width and height, with clear white space between it and the gray lines. A doodle must never touch a gray line, cross into a neighboring cell, be drawn in a cell other than the one it was assigned, or sit inside a box, card, or panel of its own.`
   console.log('[sheet] prompt: ', prompt)
   return { ...await generateImage(prompt, cfg), prompt };
 }
