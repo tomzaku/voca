@@ -12,7 +12,10 @@
 // supabase/functions/deno.json for Deno, and from node_modules for Node.
 
 import { Image } from 'imagescript';
-import { cellRegions, cropFault, describeCrop, fitCrop, paperLevel } from './doodleCrop.ts';
+// LABEL_BAND is shared with the prompt on purpose: the band the prompt tells
+// the model to write in is the same band the crop cuts off, so the two can only
+// ever disagree by being changed together.
+import { cellRegions, cropFault, describeCrop, fitCrop, LABEL_BAND, paperLevel, pictureRows } from './doodleCrop.ts';
 import { cellSubject } from './prompt.ts';
 
 /** A cell's subject: the word, and the meaning that disambiguates what to draw. */
@@ -130,19 +133,29 @@ async function generateImageInner(model: string, apiKey: string, prompt: string)
 // the crop assumes the model respected it (it reliably does with explicit
 // cell-by-cell numbering). A bad sheet just gets re-sketched by the user.
 //
-// The prompt is kept SHORT on purpose. It grew long one clause at a time —
-// every failed sheet answered with another line spelling out what not to draw —
-// and the long version obeyed less, not more: the anti-text stanza alone ran to
-// four positions in the prompt and the model captioned every cell anyway. What
-// survives is one line per rule, stated once.
+// The prompt is kept SHORT on purpose, and each rule is stated ONCE. It grew
+// long one clause at a time — every failed sheet answered with another line
+// spelling out what not to draw — and the long version obeyed less, not more.
+// Measured on the same 16 words, same model:
+//
+//   "no text" in 5 places, word withheld ......... 16/16 cells captioned
+//   said once, word withheld ......................  0/16 on most sets
+//   said once, word given .........................  3/16 (first row only)
+//   said once + "not the words below" + a closing
+//     line repeating it ........................... 12/16
+//
+// So the ban is gone. The prompt now ASKS for the word, in the one place a
+// crop can remove it from: `LABEL_BAND` at the foot of the cell, with the
+// picture kept above it. A caption whose position we chose is arithmetic; a
+// caption we forbade is a fight we lose at some rate we don't control.
 //
 // The grid is INVISIBLE: the prompt asks for placement on an imaginary 4x4, not
 // for a drawn table. Asked for ruled cells the model kept enclosing each doodle
 // — first as a boxed card, then as a bordered table cell — and that enclosing
 // line is inside the cell, so `fitCrop` keeps it and every thumbnail comes out
 // as a doodle in a box. With nothing drawn between the doodles there is no line
-// to cut into, so `cellRegions` reports 'ungridded' and even division is the
-// expected path: equal cells filling the canvas is exactly what it assumes.
+// to cut into, so `cellRegions` reports 'ungridded' and cuts on the white space
+// between them instead — the gutter, not the quarter, is where a cell ends.
 // 16 = 4x4 grid → 256px cells, still above the 192px thumbnail size.
 
 // The grid is ALWAYS 4x4, and every one of its 16 cells is always filled —
@@ -178,17 +191,20 @@ export async function generateDoodleSheet(items: SheetItem[], cfg: ImageConfig):
   const list = items
     .map((it, i) => `R${Math.floor(i / cols) + 1}C${(i % cols) + 1}: ${cellSubject(it.word, it.definition)}`)
     .join('\n');
-  const prompt = `${rows * cols} small hand-drawn doodles on a pure white square page, laid out in ${rows} rows of ${cols}. No text and no lines: pictures only.
+  const prompt = `${rows * cols} small hand-drawn doodles on a pure white square page, laid out in ${rows} rows of ${cols}, each with its word written underneath.
 
 Each doodle is a memory hook for an English learner — one bold, instantly recognizable idea, still readable at 1cm.
 
-- Imagine the page split into ${rows} equal rows and ${cols} equal columns filling it edge to edge. Center one doodle in each cell, about 60% of the cell's size, with white space all around it.
+- Imagine the page split into ${rows} equal rows and ${cols} equal columns filling it edge to edge. Each cell holds one doodle with its word under it.
+- The doodle sits in the TOP ${Math.round((1 - LABEL_BAND) * 100)}% of its cell, centered, about 60% of the cell wide, with white space around it. It never reaches down into the bottom ${Math.round(LABEL_BAND * 100)}%.
+- The word goes in that bottom ${Math.round(LABEL_BAND * 100)}% of the cell: centered, small, plain lowercase, on one line, well clear of the picture above it.
+- That word is the ONLY text in the cell. Nothing is written on or beside the doodle itself, and objects that would normally carry writing — newspaper, sign, book, blackboard — are drawn blank or with wavy lines instead of letters.
 - Never draw the grid: no lines, boxes, frames, panels or borders anywhere, and nothing enclosing a doodle.
-- Never write anything: no words, letters, captions or labels anywhere on the page.
+- An abstract meaning still gets a concrete picture — an everyday object, a person doing something, or one simple symbol. Draw the nearest thing you can picture.
 - Background: pure white (#FFFFFF), no texture or tint.
 - Style: quick felt-tip pen doodle, thick clean lines, 2-3 flat accent colors.
 
-What to draw in each cell (R = row from the top, C = column from the left):
+What to draw in each cell, and the word to write under it (R = row from the top, C = column from the left):
 ${list}`
   console.log('[sheet] prompt: ', prompt)
   return { ...await generateImage(prompt, cfg), prompt };
@@ -235,10 +251,14 @@ export async function cropDoodleSheet(b64: string, words: string[]): Promise<(st
   const { regions, grid } = cellRegions(bitmap, img.width, img.height, cols, rows, paper);
   const maxSide = Math.floor(Math.min(img.width / cols, img.height / rows));
   if (grid === 'mismatch') {
-    // The model drew a grid, just not this one. Every cell would be cut on a
-    // boundary that isn't there — the "20 magnified pixels" thumbnails.
+    // Either the model drew rules that aren't this grid, or it drew a different
+    // number of rows than it was asked for (a 5x4 for a 4x4 is the one seen
+    // live). Every cell would then be cut on a boundary that isn't there — the
+    // "20 magnified pixels" thumbnails, or a neighbour's word inside one.
     console.error(
-      `[sheet] the ${img.width}x${img.height} sheet does not hold the ${cols}x${rows} grid it was asked for — discarding it rather than cutting ${words.length} cells on boundaries that aren't there`,
+      `[sheet] the ${img.width}x${img.height} sheet does not hold the ${cols}x${rows} layout it was asked for ` +
+      `(${pictureRows(bitmap, img.width, img.height)} rows of pictures drawn) — discarding it rather than cutting ` +
+      `${words.length} cells on boundaries that aren't there`,
     );
     return null;
   }
@@ -251,7 +271,7 @@ export async function cropDoodleSheet(b64: string, words: string[]): Promise<(st
   const fitted: string[] = [];
   for (let i = 0; i < words.length; i++) {
     const region = regions[i];
-    const { x, y, side } = fitCrop(bitmap, img.width, img.height, region, paper);
+    const { x, y, side, wordTop } = fitCrop(bitmap, img.width, img.height, region, paper);
     const fault = cropFault(region, { x, y, side });
     // Per-cell diagnostics: `edges` (darkest pixel on each side of the
     // finished thumbnail) is the one to scan — four numbers near 255 mean the
@@ -265,6 +285,15 @@ export async function cropDoodleSheet(b64: string, words: string[]): Promise<(st
       continue;
     }
     const cell = img.clone().crop(x, y, side, side);
+    // The square may reach past the word the prompt asked for — a doodle wider
+    // than the picture area needs the height, and clipping its sides to avoid
+    // the word is the worse trade. Wipe the word back to paper instead: the
+    // thumbnail ends up with white under the drawing, which is what the rest of
+    // the sheet looks like anyway.
+    const wordInCrop = wordTop - y;
+    if (wordInCrop < side) {
+      cell.drawBox(1, Math.max(1, wordInCrop + 1), side, side - Math.max(0, wordInCrop), 0xffffffff);
+    }
     cell.resize(DOODLE_THUMB, DOODLE_THUMB);
     out.push(`data:image/png;base64,${encodeBase64Png(await cell.encode())}`);
   }

@@ -162,6 +162,119 @@ function spansBetween(
   return out.filter((s) => s.to - s.from + 1 >= minWidth);
 }
 
+// Snapping the cut to the GUTTER the drawing actually left.
+//
+// With no rules drawn, the fallback is even division — and an even quarter is
+// only right if the model centred every doodle. It does not: measured on a real
+// sheet, the gutters in the bottom row sat at 270, 518 and 728 where the
+// quarters are 256, 512 and 768, so the last cut fell 40px inside a seesaw and
+// the thumbnail lost the end of it. The white space between two doodles is the
+// boundary; the quarter is only a guess at where to find it.
+const GUTTER_SEARCH = 0.25; // how far from the even boundary to look, as a fraction of the cell
+const GUTTER_MIN = 0.02;    // and how wide a run of blank has to be to count as one
+
+/** Blank runs in an ink profile — the gaps between drawings. */
+function blankRuns(profile: number[], floor: number, minWidth: number): { start: number; end: number }[] {
+  const runs: { start: number; end: number }[] = [];
+  let start = -1;
+  for (let i = 0; i <= profile.length; i++) {
+    if (i < profile.length && profile[i] <= floor) {
+      if (start < 0) start = i;
+    } else if (start >= 0) {
+      if (i - start >= minWidth) runs.push({ start, end: i - 1 });
+      start = -1;
+    }
+  }
+  return runs;
+}
+
+/**
+ * The `n + 1` cut positions across `size`: even division, with each interior
+ * cut moved onto a gutter when there is one close enough. A cut with no gutter
+ * near it stays where it was — two doodles that run together have no boundary
+ * to find, and guessing further afield would only cut a third one.
+ *
+ * The WIDEST gutter in range wins, not the nearest. Between two rows there are
+ * now two gaps: the thin one between a doodle and its own word, and the broad
+ * one between that word and the next row. The thin one is often closer to the
+ * even boundary, and taking it would cut a cell off from its own label and hand
+ * it to the row below — which is exactly the ink `withoutLabelBand` then
+ * expects to find at the foot of the cell above.
+ */
+function snapBoundaries(profile: number[], size: number, n: number): number[] {
+  const cell = size / n;
+  // A stray antialiased pixel or two does not make a column non-blank.
+  const floor = Math.max(1, Math.round(size * 0.002));
+  const runs = blankRuns(profile, floor, Math.max(2, Math.round(cell * GUTTER_MIN)));
+  const cuts = [0];
+  for (let i = 1; i < n; i++) {
+    const ideal = Math.round(i * cell);
+    let best = ideal;
+    let bestWidth = 0;
+    for (const run of runs) {
+      const mid = Math.round((run.start + run.end) / 2);
+      const width = run.end - run.start + 1;
+      // Never cross a neighbouring cut: a gutter that would collapse a cell is
+      // the wrong gutter, however wide it looks.
+      if (
+        Math.abs(mid - ideal) < cell * GUTTER_SEARCH &&
+        width > bestWidth &&
+        mid > cuts[cuts.length - 1] + cell * 0.4 &&
+        mid < ideal + cell * 0.6
+      ) {
+        best = mid;
+        bestWidth = width;
+      }
+    }
+    cuts.push(best);
+  }
+  cuts.push(size);
+  return cuts;
+}
+
+// Counting the rows the model actually drew.
+//
+// Asked for 4x4 it sometimes draws 5x4 — seen live: twenty doodles, one word
+// repeated twice, and every row after the first straddling a cut. Cutting a
+// five-row sheet into four rows puts a neighbour's word inside a thumbnail, and
+// no amount of measuring inside a cell can undo that, because the cell is in
+// the wrong place. So the row count is checked before anything is cut.
+//
+// A picture row and a word row are told apart by height alone, and the two are
+// nowhere near each other: measured on a real sheet the pictures ran 128-138px
+// on a 1024px page and the words 20-26px.
+const PICTURE_ROW_MIN = 0.06; // of the page height — anything shorter is a word
+const ROW_MERGE_GAP = 0.01;   // bands closer than this are one row
+
+/** How many rows of PICTURES the sheet holds, however many it was asked for. */
+export function pictureRows(bitmap: Uint8ClampedArray, imgWidth: number, imgHeight: number): number {
+  const profile = inkProfile(bitmap, imgWidth, { x: 0, y: 0, w: imgWidth, h: imgHeight }, true, INK_MAX_CHANNEL);
+  const floor = Math.max(1, Math.round(imgWidth * 0.002));
+  const bands = inkBands(profile, floor);
+  const merge = Math.round(imgHeight * ROW_MERGE_GAP);
+  const blocks: { start: number; end: number }[] = [];
+  for (const band of bands) {
+    const last = blocks[blocks.length - 1];
+    if (last && band.start - last.end <= merge) last.end = band.end;
+    else blocks.push({ ...band });
+  }
+  return blocks.filter((b) => b.end - b.start + 1 >= imgHeight * PICTURE_ROW_MIN).length;
+}
+
+/** True when the sheet holds a different number of picture rows than it was
+ *  asked for. A sheet with NO rows at all doesn't count as wrong: there is
+ *  nothing there to contradict the layout, and an empty cell is rejected on its
+ *  own merits further down. */
+function isRowCountWrong(
+  bitmap: Uint8ClampedArray,
+  imgWidth: number,
+  imgHeight: number,
+  rows: number,
+): boolean {
+  const drawn = pictureRows(bitmap, imgWidth, imgHeight);
+  return drawn > 0 && drawn !== rows;
+}
+
 /**
  * Where each cell of the sheet actually is.
  *
@@ -177,16 +290,18 @@ function spansBetween(
  *
  *   'detected'  — the sheet holds the cols x rows grid it was asked for and the
  *                 regions were read off the drawn rules.
- *   'ungridded' — no rules anywhere. The regions are even division: still a
- *                 sound guess, since with nothing drawn between the doodles
- *                 there is no line for a crop to cut into.
- *   'mismatch'  — rules were found, but not that grid (3 columns where 4 were
- *                 asked for, a merged pair of cells, an omitted line). Even
- *                 division is then wrong for EVERY cell: each quarter straddles
- *                 a real boundary, `clearRegion` keeps whichever fragment holds
- *                 the most ink, and the thumbnail comes out as a piece of one
- *                 stroke magnified. Nothing cut from such a sheet is worth
- *                 keeping.
+ *   'ungridded' — no rules anywhere, which is what the prompt asks for. The
+ *                 cells are then read off the white space between the doodles:
+ *                 even division to start, each interior cut moved onto the
+ *                 nearest gutter (see `snapBoundaries`).
+ *   'mismatch'  — the sheet isn't the layout that was asked for: rules that
+ *                 aren't that grid (3 columns where 4 were wanted, a merged
+ *                 pair, an omitted line), or no rules and the wrong number of
+ *                 picture rows (a 5x4 drawn for a 4x4 — see `pictureRows`).
+ *                 Every cut is then in the wrong place: each cell straddles a
+ *                 real boundary, so a thumbnail comes out as a piece of one
+ *                 stroke magnified, or with a neighbour's word in it. Nothing
+ *                 cut from such a sheet is worth keeping.
  */
 export function cellRegions(
   bitmap: Uint8ClampedArray,
@@ -198,18 +313,38 @@ export function cellRegions(
 ): { regions: Region[]; grid: 'detected' | 'ungridded' | 'mismatch' } {
   const xs = spansBetween(ruleBands(bitmap, imgWidth, imgHeight, false, paper), imgWidth, cols);
   const ys = spansBetween(ruleBands(bitmap, imgWidth, imgHeight, true, paper), imgHeight, rows);
-  const cw = Math.floor(imgWidth / cols);
-  const ch = Math.floor(imgHeight / rows);
   const detected = xs.length === cols && ys.length === rows;
   // One span each way is a blank sheet as far as rules go: the scan found
-  // nothing to divide on, not a grid of the wrong shape.
-  const grid = detected ? 'detected' : xs.length <= 1 && ys.length <= 1 ? 'ungridded' : 'mismatch';
+  // nothing to divide on, not a grid of the wrong shape. A lineless sheet has
+  // to be counted instead — a 5x4 drawn for a 4x4 has no rules to give it away
+  // and cuts into sixteen wrong cells without complaint.
+  const grid = detected
+    ? 'detected'
+    : xs.length <= 1 && ys.length <= 1
+      ? (isRowCountWrong(bitmap, imgWidth, imgHeight, rows) ? 'mismatch' : 'ungridded')
+      : 'mismatch';
   const regions: Region[] = [];
+  if (detected) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        regions.push({ x: xs[c].from, y: ys[r].from, w: xs[c].to - xs[c].from + 1, h: ys[r].to - ys[r].from + 1 });
+      }
+    }
+    return { regions, grid };
+  }
+  // Nothing drawn between the doodles, so the cut goes on the white space they
+  // left. Rows first, across the whole sheet; then the columns of each row on
+  // its own, because a gutter is only clear where the two doodles beside it
+  // are — one row's neighbours can run wide where another's leave a gap.
+  const wholeSheet = { x: 0, y: 0, w: imgWidth, h: imgHeight };
+  const rowCuts = snapBoundaries(inkProfile(bitmap, imgWidth, wholeSheet, true, INK_MAX_CHANNEL), imgHeight, rows);
   for (let r = 0; r < rows; r++) {
+    const y = rowCuts[r];
+    const h = rowCuts[r + 1] - y;
+    const band = { x: 0, y, w: imgWidth, h };
+    const colCuts = snapBoundaries(inkProfile(bitmap, imgWidth, band, false, INK_MAX_CHANNEL), imgWidth, cols);
     for (let c = 0; c < cols; c++) {
-      regions.push(detected
-        ? { x: xs[c].from, y: ys[r].from, w: xs[c].to - xs[c].from + 1, h: ys[r].to - ys[r].from + 1 }
-        : { x: c * cw, y: r * ch, w: cw, h: ch });
+      regions.push({ x: colCuts[c], y, w: colCuts[c + 1] - colCuts[c], h });
     }
   }
   return { regions, grid };
@@ -351,6 +486,82 @@ export function clearRegion(
   };
 }
 
+// The word band at the foot of every cell.
+//
+// The prompt no longer fights the model's habit of lettering its doodles — it
+// asks for the word, in one fixed place: the doodle in the top of the cell, the
+// word small and centered underneath. Every attempt to ban lettering instead
+// ended somewhere between 3 and 16 cells out of 16 with text on them (the table
+// in sheet.ts has the runs). A caption whose position we chose is one the crop
+// can find; a caption we forbade is a fight we lose at a rate we don't control.
+//
+// It buys something else too: the word under each doodle is what makes a sheet
+// reviewable at a glance — a picture in the wrong cell is obvious when the
+// wrong word is under it.
+export const LABEL_BAND = 0.2;
+
+// The cut is made on the GAP between picture and word, not at a fixed fraction
+// of the cell. Asking for the word in the bottom fifth gets the word in roughly
+// the bottom fifth OF THE DRAWN CONTENT, which is not the same thing: on a real
+// sheet the model left 40px of blank page under the last row, the content sat
+// that much higher, and a cut at 80% of the cell went straight through the
+// word. The layout the prompt asks for is picture, gap, word — so the widest
+// gap low in the cell is the boundary, wherever the block happens to sit.
+const LABEL_MIN_GAP = 2;       // px of clear paper; a split needs at least this
+const LABEL_ZONE = 0.45;       // the cut must be below this much of the cell
+const LABEL_MAX_INK = 0.35;    // and the word never holds this much of the cell's ink
+
+/** Horizontal runs of ink in a region: the picture, and the word under it.
+ *  `floor` keeps them apart on a real sheet — the paper an image model produces
+ *  is not flat, so a few pixels per row sit under the page white all the way
+ *  down the cell. */
+function inkBands(rows: number[], floor: number): { start: number; end: number }[] {
+  const bands: { start: number; end: number }[] = [];
+  let start = -1;
+  for (let i = 0; i <= rows.length; i++) {
+    if (i < rows.length && rows[i] > floor) {
+      if (start < 0) start = i;
+    } else if (start >= 0) {
+      bands.push({ start, end: i - 1 });
+      start = -1;
+    }
+  }
+  return bands;
+}
+
+/**
+ * The cell without the word written under it — where the picture is.
+ *
+ * Everything below the widest low gap comes off, which takes a word split into
+ * two runs by its own descenders with it. A cell with nothing under its picture
+ * comes back unchanged: no gap qualifies, so nothing is cut.
+ */
+export function withoutLabelBand(
+  bitmap: Uint8ClampedArray,
+  imgWidth: number,
+  region: Region,
+): Region {
+  const rows = inkProfile(bitmap, imgWidth, region, true, INK_MAX_CHANNEL);
+  // 1% of the cell's width: under a word's stroke count, over a stray
+  // antialiased pixel or two.
+  const bands = inkBands(rows, Math.max(1, Math.round(region.w * 0.01)));
+  if (bands.length < 2) return region;
+  const total = rows.reduce((a, b) => a + b, 0);
+  let cutAfter = -1;
+  let widest = LABEL_MIN_GAP - 1;
+  for (let i = 1; i < bands.length; i++) {
+    const gap = bands[i].start - bands[i - 1].end - 1;
+    if (gap <= widest) continue;
+    if (bands[i - 1].end < region.h * LABEL_ZONE) continue;
+    let below = 0;
+    for (let r = bands[i].start; r < rows.length; r++) below += rows[r];
+    if (total > 0 && below > total * LABEL_MAX_INK) continue;
+    widest = gap;
+    cutAfter = bands[i - 1].end;
+  }
+  return cutAfter < 0 ? region : { ...region, h: cutAfter + 1 };
+}
+
 /**
  * A one-line report on how a crop turned out, for the function logs. The part
  * that matters is `edges`: the darkest pixel along each side of the finished
@@ -406,7 +617,7 @@ export function fitCrop(
   imgHeight: number,
   region: Region,
   paper: number = paperLevel(bitmap, imgWidth, imgHeight),
-): { x: number; y: number; side: number } {
+): { x: number; y: number; side: number; wordTop: number } {
   // Strip the drawn rules by FINDING them rather than assuming where they are.
   // A fixed guard band only works if the model puts its lines exactly on the
   // quarter boundaries; when they sit a few pixels off, or it frames the whole
@@ -414,7 +625,14 @@ export function fitCrop(
   // maxes out with a border around a too-small doodle.
   // Cut to the clear stretch holding this cell's drawing: no rules inside, and
   // nothing from beyond one. This subsumes trimming rules off the edges.
-  const inner = clearRegion(bitmap, imgWidth, imgHeight, region, paper);
+  const cleared = clearRegion(bitmap, imgWidth, imgHeight, region, paper);
+  // Then take off the word band at its foot: that text is ink like any other
+  // to the measurement below, and left in it drags the square down off the
+  // doodle and shrinks it to fit the pair.
+  const inner = withoutLabelBand(bitmap, imgWidth, cleared);
+  // Where the word starts. The square is allowed to reach past it — see below —
+  // and the caller wipes whatever falls beyond, so the line has to come back.
+  const wordTop = inner.y + inner.h;
   const box = inkBounds(bitmap, imgWidth, inner.x, inner.y, inner.w, inner.h);
   if (!box) {
     // Blank cell (or a doodle too faint to measure) — fall back to the middle.
@@ -423,9 +641,17 @@ export function fitCrop(
       x: inner.x + Math.floor((inner.w - side) / 2),
       y: inner.y + Math.floor((inner.h - side) / 2),
       side,
+      wordTop,
     };
   }
-  const maxSide = Math.min(inner.w, inner.h);
+  // The square is measured against the WHOLE cell, not the picture area above
+  // the word. Reserving a fifth of the cell for the word caps a square at the
+  // remaining height, and the model draws doodles wider than that — measured on
+  // a real sheet, bunk beds and a bookcase both came out ~90% of the cell wide
+  // and lost their ends. So a wide doodle is allowed to take the height it
+  // needs, reaching down past the word if it must; anything below `wordTop` is
+  // wiped to paper afterwards, so the word cannot come with it.
+  const maxSide = Math.min(cleared.w, cleared.h);
   // Square it around the drawing's centre, with a little air so strokes don't
   // touch the thumbnail's edge.
   const boxW = box.maxX - box.minX + 1;
@@ -433,7 +659,7 @@ export function fitCrop(
   const side = Math.min(maxSide, Math.round(Math.max(boxW, boxH) * 1.12));
   const cx = (box.minX + box.maxX) / 2;
   const cy = (box.minY + box.maxY) / 2;
-  const x = Math.max(inner.x, Math.min(Math.round(cx - side / 2), inner.x + inner.w - side));
-  const y = Math.max(inner.y, Math.min(Math.round(cy - side / 2), inner.y + inner.h - side));
-  return { x, y, side };
+  const x = Math.max(cleared.x, Math.min(Math.round(cx - side / 2), cleared.x + cleared.w - side));
+  const y = Math.max(cleared.y, Math.min(Math.round(cy - side / 2), cleared.y + cleared.h - side));
+  return { x, y, side, wordTop };
 }

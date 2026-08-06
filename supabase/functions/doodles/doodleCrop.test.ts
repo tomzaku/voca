@@ -7,7 +7,16 @@
 // these tests are how we know it does.
 
 import { describe, expect, it } from 'vitest';
-import { cellRegions, clearRegion, cropFault, fitCrop, inkBounds, type Region } from './doodleCrop.ts';
+import {
+  cellRegions,
+  clearRegion,
+  cropFault,
+  fitCrop,
+  inkBounds,
+  LABEL_BAND,
+  withoutLabelBand,
+  type Region,
+} from './doodleCrop.ts';
 
 const W = 1024, H = 1024, COLS = 4, ROWS = 4, CW = W / COLS, CH = H / ROWS;
 
@@ -90,11 +99,29 @@ const cellRegion = (i: number): Region => ({
   x: (i % COLS) * CW, y: Math.floor(i / COLS) * CH, w: CW, h: CH,
 });
 
-/** A doodle of `frac` of the cell, centred unless nudged. */
+/** The part of a cell the picture lives in: everything above the word band. */
+const pictureArea = (i: number): Region => ({ ...cellRegion(i), h: Math.round(cellRegion(i).h * (1 - LABEL_BAND)) });
+
+/** A doodle of `frac` of the picture area, centred in it unless nudged. The
+ *  prompt asks the model to keep the drawing clear of the word band, so that —
+ *  not the whole cell — is the space a doodle is measured against. */
 function doodleIn(i: number, frac: number, nudge = { x: 0, y: 0 }): Rect {
+  const area = pictureArea(i);
+  const s = Math.round(Math.min(area.w, area.h) * frac);
+  return {
+    x: area.x + Math.round((area.w - s) / 2) + nudge.x,
+    y: area.y + Math.round((area.h - s) / 2) + nudge.y,
+    w: s,
+    h: s,
+  };
+}
+
+/** The word the model is asked to write under a doodle, in the band reserved
+ *  for it at the foot of the cell. */
+function labelUnder(b: Uint8ClampedArray, i: number): Rect {
   const reg = cellRegion(i);
-  const s = Math.round(CW * frac);
-  return { x: reg.x + Math.round((CW - s) / 2) + nudge.x, y: reg.y + Math.round((CH - s) / 2) + nudge.y, w: s, h: s };
+  const area = pictureArea(i);
+  return drawCaption(b, { x: reg.x + 60, y: area.y + area.h + 18 });
 }
 
 const overlaps = (a: Rect, b: Rect) =>
@@ -122,6 +149,20 @@ function expectGoodCrop(
     expect(crop.x + crop.side).toBeGreaterThanOrEqual(doodle.x + doodle.w);
     expect(crop.y + crop.side).toBeGreaterThanOrEqual(doodle.y + doodle.h);
   }
+}
+
+/** A line of lettering under (or over) a doodle: thin upright strokes, spaced
+ *  out, spanning most of the cell — what the model writes no matter what the
+ *  prompt says. Returns the band's bounding rect. */
+function drawCaption(b: Uint8ClampedArray, { x, y, letters = 9, height = 12 }: { x: number; y: number; letters?: number; height?: number }): Rect {
+  const pitch = 14;
+  for (let l = 0; l < letters; l++) {
+    const lx = x + l * pitch;
+    fill(b, { x: lx, y, w: 2, h: height }, INK);          // stem
+    fill(b, { x: lx + 5, y, w: 2, h: height }, INK);      // second stroke
+    fill(b, { x: lx, y: y + Math.round(height / 2), w: 7, h: 2 }, INK); // crossbar
+  }
+  return { x, y, w: letters * pitch, h: height };
 }
 
 /** How much of the thumbnail the drawing takes up. */
@@ -222,6 +263,55 @@ describe('clearRegion', () => {
   });
 });
 
+describe('withoutLabelBand', () => {
+  // The prompt asks for the word under each doodle; this is what takes it back
+  // off. It cuts on the gap between picture and word, because the model puts
+  // the block where it likes — on a real sheet it left 40px of blank page under
+  // the last row, and a cut at a fixed 80% of the cell went through the word.
+  it('cuts the word off the bottom of the cell', () => {
+    const b = blankSheet();
+    const reg = cellRegion(5);
+    const doodle = doodleIn(5, 0.6);
+    fill(b, doodle, INK);
+    const label = labelUnder(b, 5);
+    const inner = withoutLabelBand(b, W, reg);
+    expect(inner.y + inner.h).toBeLessThanOrEqual(label.y);
+    expect(inner.y + inner.h).toBeGreaterThanOrEqual(doodle.y + doodle.h);
+  });
+
+  it('cuts it wherever the block sits, not at a fixed fraction', () => {
+    // The same cell with 40px of blank page under the word, as the model
+    // really drew the bottom row.
+    const b = blankSheet();
+    const reg = cellRegion(5);
+    const doodle = { x: reg.x + 50, y: reg.y + 20, w: 150, h: 140 };
+    fill(b, doodle, INK);
+    const label = drawCaption(b, { x: reg.x + 60, y: reg.y + 186 });
+    const inner = withoutLabelBand(b, W, reg);
+    expect(inner.y + inner.h).toBeLessThanOrEqual(label.y);
+    expect(inner.y + inner.h).toBeGreaterThanOrEqual(doodle.y + doodle.h);
+  });
+
+  it('takes a word split in two by its own descenders', () => {
+    // Measured on a real cell: "dormitory" came back as bands 222-243 and
+    // 245-248. Cutting only the last run would leave most of the word.
+    const b = blankSheet();
+    const reg = cellRegion(5);
+    fill(b, { x: reg.x + 50, y: reg.y + 20, w: 150, h: 140 }, INK);
+    const label = drawCaption(b, { x: reg.x + 60, y: reg.y + 190 });
+    fill(b, { x: reg.x + 90, y: label.y + label.h + 2, w: 40, h: 4 }, INK); // descenders
+    const inner = withoutLabelBand(b, W, reg);
+    expect(inner.y + inner.h).toBeLessThanOrEqual(label.y);
+  });
+
+  it('leaves a cell with no word under it exactly as it was', () => {
+    const b = blankSheet();
+    const reg = cellRegion(5);
+    fill(b, doodleIn(5, 0.6), INK);
+    expect(withoutLabelBand(b, W, reg)).toEqual(reg);
+  });
+});
+
 describe('cellRegions', () => {
   it('reads the cells off the drawn rules', () => {
     const b = blankSheet();
@@ -284,6 +374,61 @@ describe('cellRegions', () => {
       const rect = { x: region.x, y: region.y, w: region.w, h: region.h };
       for (const rule of rules) expect(overlaps(rect, rule)).toBe(false);
     }
+  });
+
+  it('cuts on the gutter the doodles left, not on the even quarter', () => {
+    // Live failure: with no rules to find, the last cut fell on x=768 while the
+    // gutter the model actually left was at 728 — 40px inside a doodle, and the
+    // thumbnail lost the end of it. Nothing is drawn between doodles now, so
+    // the white space between them IS the boundary.
+    const b = blankSheet();
+    const bottom = 3 * CH;
+    for (let c = 0; c < 3; c++) {
+      fill(b, { x: c * CW + 50, y: bottom + 50, w: 150, h: 150 }, INK);
+    }
+    // ...and the last one drawn 40px left of where its cell starts.
+    const straddler = { x: 3 * CW - 40, y: bottom + 50, w: 190, h: 150 };
+    fill(b, straddler, INK);
+    const { regions } = cellRegions(b, W, H, COLS, ROWS);
+    expect(regions[15].x).toBeLessThan(straddler.x);
+    // And the whole doodle survives the crop that follows.
+    expectGoodCrop(fitCrop(b, W, H, regions[15]), regions[15], [], straddler);
+  });
+
+  it('leaves the cut where it was when two doodles run together', () => {
+    // No gutter to find: guessing further afield would only cut a third doodle.
+    const b = blankSheet();
+    const bottom = 3 * CH;
+    fill(b, { x: 2 * CW + 40, y: bottom + 40, w: CW - 40, h: 160 }, INK);
+    fill(b, { x: 3 * CW, y: bottom + 40, w: 180, h: 160 }, INK);
+    const { regions } = cellRegions(b, W, H, COLS, ROWS);
+    expect(regions[15].x).toBe(3 * CW);
+  });
+
+  it('reports a lineless sheet with the wrong number of rows', () => {
+    // Live failure: asked for 4x4, the model drew FIVE rows of four — twenty
+    // doodles, one word drawn twice. With no rules to give it away, the sheet
+    // cut into sixteen cells that each straddled a boundary, and thumbnails
+    // came back with a neighbour's word inside them.
+    const b = blankSheet();
+    const rowHeight = H / 5;
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const top = Math.round(r * rowHeight);
+        fill(b, { x: c * CW + 60, y: top + 20, w: 130, h: 120 }, INK);
+        drawCaption(b, { x: c * CW + 70, y: top + 160 });
+      }
+    }
+    expect(cellRegions(b, W, H, COLS, ROWS).grid).toBe('mismatch');
+  });
+
+  it('accepts the layout it asked for', () => {
+    const b = blankSheet();
+    for (let i = 0; i < 16; i++) {
+      fill(b, doodleIn(i, 0.6), INK);
+      labelUnder(b, i);
+    }
+    expect(cellRegions(b, W, H, COLS, ROWS).grid).toBe('ungridded');
   });
 
   it('reports a grid that is not the one we asked for', () => {
@@ -381,10 +526,25 @@ describe('fitCrop', () => {
     expect(Math.max(...ratios) - Math.min(...ratios)).toBeLessThan(0.15);
   });
 
+  it('fits the doodle, not the doodle plus the word under it', () => {
+    // The whole pipeline on a cell as the prompt now asks for it: picture on
+    // top, word in the band below. Left in, the word pulls the square down off
+    // the doodle and shrinks it to fit both.
+    const b = blankSheet();
+    const rules = drawRules(b);
+    const doodle = doodleIn(5, 0.7);
+    fill(b, doodle, INK);
+    const label = labelUnder(b, 5);
+    const { crop, region } = cropCell(b, 5);
+    expectGoodCrop(crop, region, [...rules, label], doodle);
+    // And it still fills the thumbnail, rather than being squeezed by the text.
+    expect(fillRatio(crop, doodle)).toBeGreaterThan(0.8);
+  });
+
   it('centres a doodle the model pushed into a corner', () => {
     const b = blankSheet();
     const rules = drawRules(b);
-    const doodle = doodleIn(5, 0.6, { x: 50, y: 44 });
+    const doodle = doodleIn(5, 0.6, { x: 50, y: 30 });
     fill(b, doodle, INK);
     const { crop, region } = cropCell(b, 5);
     expectGoodCrop(crop, region, rules, doodle);
@@ -397,7 +557,9 @@ describe('fitCrop', () => {
     const b = blankSheet();
     const rules = drawRules(b);
     const reg = cellRegion(5);
-    const doodle = { x: reg.x + 26, y: reg.y + 90, w: Math.round(CW * 0.8), h: Math.round(CH * 0.3) };
+    // Wide, but no wider than the picture area is tall: with the word band
+    // reserved, that height is the biggest square the crop can cut.
+    const doodle = { x: reg.x + 26, y: reg.y + 90, w: Math.round(CW * 0.7), h: Math.round(CH * 0.3) };
     fill(b, doodle, INK);
     const { crop, region } = cropCell(b, 5);
     expectGoodCrop(crop, region, rules, doodle);
@@ -532,6 +694,32 @@ describe('fitCrop', () => {
     const crop = fitCrop(b, W, H, whole);
     expectGoodCrop(crop, whole, [], doodle);
     expect(fillRatio(crop, doodle)).toBeGreaterThan(0.8);
+  });
+});
+
+describe('a whole sheet, laid out the way the prompt asks for it', () => {
+  // No rules, a doodle in the top of every cell, its word in the band below.
+  it('gives every cell its own word band, and keeps the words out of the crops', () => {
+    const b = blankSheet();
+    const doodles: Rect[] = [];
+    const labels: Rect[] = [];
+    for (let i = 0; i < 16; i++) {
+      const doodle = doodleIn(i, 0.6);
+      fill(b, doodle, INK);
+      doodles.push(doodle);
+      labels.push(labelUnder(b, i));
+    }
+    const { regions, grid } = cellRegions(b, W, H, COLS, ROWS);
+    expect(grid).toBe('ungridded');
+    for (let i = 0; i < 16; i++) {
+      const region = regions[i];
+      // The row cut must fall BELOW a word, not between a doodle and its own
+      // word — otherwise the band the crop trims is in the next cell down.
+      expect(region.y).toBeLessThanOrEqual(labels[i].y);
+      expect(region.y + region.h).toBeGreaterThanOrEqual(labels[i].y + labels[i].h);
+      const crop = fitCrop(b, W, H, region);
+      expectGoodCrop(crop, region, labels, doodles[i]);
+    }
   });
 });
 

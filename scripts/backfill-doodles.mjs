@@ -32,9 +32,14 @@
 // NOTHING IS WRITTEN WITHOUT APPROVAL. Every sheet is drawn, cropped and
 // written to `doodle-sheets/` (git-ignored) as the full image, the thumbnails
 // cut from it, and the exact prompt that drew it — then you look at them and
-// say y/n. A doodle in `word_doodles` is what every learner sees for that word
-// from then on and can't be re-cut later, so a human decides by default.
-// `--auto` writes without asking; `--no-write` never writes at all.
+// answer y / r / n. A doodle in `word_doodles` is what every learner sees for
+// that word from then on and can't be re-cut later, so a human decides by
+// default. `--auto` writes without asking; `--no-write` never writes at all.
+//
+// "r" redraws the sheet on the spot, as many times as you like, each take kept
+// beside the last as `sheet-NN-takeN/`. It costs one image (~$0.04) — the same
+// as saying no and picking those words up on a later run, except the words stay
+// together and you can compare the takes.
 //
 // What was approved is recorded: a sheet you say yes to is written with
 // `word_doodles.verified` true. `--auto` writes the same doodles with verified
@@ -165,10 +170,13 @@ function slug(word) {
  * survived the crop, so what the model actually drew can be looked at.
  * Rejected cells have no image by definition — the sheet shows why.
  */
-async function saveSheetImages(n, b64, prompt, items, cells) {
+async function saveSheetImages(n, b64, prompt, items, cells, attempt = 1) {
   if (!OUT_DIR) return null;
   const pad = String(n).padStart(2, '0');
-  const dir = join(OUT_DIR, `sheet-${pad}`);
+  // A redraw gets its own folder rather than overwriting the take it replaces:
+  // deciding whether the second one is better means seeing both, and a rejected
+  // cell writes no thumbnail, so overwriting would leave the old one behind.
+  const dir = join(OUT_DIR, attempt > 1 ? `sheet-${pad}-take${attempt}` : `sheet-${pad}`);
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, 'sheet.png'), Buffer.from(b64, 'base64'));
   // The exact prompt that drew this image, so a sheet can be read against what
@@ -191,13 +199,13 @@ async function saveSheetImages(n, b64, prompt, items, cells) {
  * `cells` is null when the crop couldn't read the sheet at all, and holds a
  * null per cell whose own crop couldn't be trusted.
  */
-async function drawSheet(items, n) {
+async function drawSheet(items, n, attempt = 1) {
   const { b64, prompt } = await generateDoodleSheet(items, {
     apiKey: GOOGLE_API_KEY,
     model: MINDMAP_IMAGE_MODEL || undefined,
   });
   const cells = await cropDoodleSheet(b64, items.map((it) => it.word));
-  const dir = await saveSheetImages(n, b64, prompt, items, cells);
+  const dir = await saveSheetImages(n, b64, prompt, items, cells, attempt);
   return { cells, dir };
 }
 
@@ -238,34 +246,52 @@ function reader() {
 }
 
 /**
- * Show the crop and ask whether it should go in the database. Anything but a
- * clear yes leaves the words undrawn, so they come back on the next run —
- * costing another sheet, which is the cheap side of the trade against a bad
- * doodle every learner sees from then on.
+ * Ask a y / r / n question at the terminal. Returns 'write', 'retry' or 'skip'.
+ *
+ * Only a clear yes writes. Anything else leaves the words undrawn, so they come
+ * back on the next run — costing another sheet, which is the cheap side of the
+ * trade against a bad doodle every learner sees from then on.
  */
-async function approve(items, cells, dir) {
-  const drawn = items.filter((_, i) => cells[i]).map((it) => it.word);
-  const cut = items.filter((_, i) => !cells[i]).map((it) => it.word);
-  console.warn(`\n  ${drawn.length}/${items.length} cells cropped cleanly.`);
-  if (cut.length) console.warn(`  no usable crop: ${cut.join(', ')}`);
-  console.warn(`  Look at ${resolve(dir ?? '.')}/`);
-  console.warn('    sheet.png    what the model drew');
-  console.warn('    NN-word.png  the thumbnail each word would get');
+async function ask(question) {
   if (!process.stdin.isTTY) {
     // Piped or backgrounded: there is nobody to ask, and defaulting to "yes"
     // would write unreviewed doodles under a flag that promised review.
     console.warn('  ✗ not a terminal, so nothing can be reviewed — skipping. Use --auto to write without review.');
-    return false;
+    return 'skip';
   }
   let answer;
   try {
-    answer = await reader().question('  Write these to the database? [y/N] ');
+    answer = await reader().question(question);
   } catch {
     // Ctrl+D (or stdin closing under us) is not an answer, so it isn't a yes.
     console.warn('\n  no answer — nothing written');
-    return false;
+    return 'skip';
   }
-  return ['y', 'yes'].includes(answer.trim().toLowerCase());
+  const a = answer.trim().toLowerCase();
+  if (['y', 'yes'].includes(a)) return 'write';
+  if (['r', 'retry', 'redraw'].includes(a)) return 'retry';
+  return 'skip';
+}
+
+/**
+ * Show the crop and ask what to do with it: write it, draw the sheet again, or
+ * leave these words undrawn.
+ *
+ * Retry is here because "no" is a poor answer to a sheet that is nearly right.
+ * Without it the sixteen words go back in the pool and only come round again on
+ * another run, in whatever company the query gives them next time — so the way
+ * to get one bad cell redrawn was to re-run the whole script. It costs one
+ * image (~$0.04), the same as the sheet being rejected does later.
+ */
+async function approve(items, cells, dir, attempt) {
+  const drawn = items.filter((_, i) => cells[i]).map((it) => it.word);
+  const cut = items.filter((_, i) => !cells[i]).map((it) => it.word);
+  console.warn(`\n  ${drawn.length}/${items.length} cells cropped cleanly${attempt > 1 ? ` (take ${attempt})` : ''}.`);
+  if (cut.length) console.warn(`  no usable crop: ${cut.join(', ')}`);
+  console.warn(`  Look at ${resolve(dir ?? '.')}/`);
+  console.warn('    sheet.png    what the model drew');
+  console.warn('    NN-word.png  the thumbnail each word would get');
+  return ask('  Write these to the database? [y]es / [r]edraw the sheet / [N]o ');
 }
 
 async function main() {
@@ -294,7 +320,7 @@ async function main() {
   if (NO_WRITE) {
     say('\nDrawing only — nothing will be written to the database (--no-write).');
   } else if (REVIEW) {
-    say('\nEach sheet will be shown for approval before anything is written. --auto to skip that.');
+    say('\nEach sheet is shown before anything is written: y to write it, r to draw it again. --auto to skip that.');
   }
 
   let savedCount = 0;
@@ -315,42 +341,57 @@ async function main() {
         console.warn(`- ${label}: skipped — only ${items.length}/${SHEET_MAX} words, and a part-full sheet crops wrong`);
         continue;
       }
-      const t0 = Date.now();
       try {
-        const { cells, dir } = await drawSheet(items, n);
-        const secs = ((Date.now() - t0) / 1000).toFixed(0);
-        // A sheet the crop can't read is dropped whole, exactly as the edge
-        // function drops it: saving it would put a mis-cut thumbnail in front
-        // of every learner who meets those words from now on, and the stored
-        // cell can't be re-cut later. A word with no picture costs nothing.
-        if (!cells) {
-          skippedCount += items.length;
-          console.warn(`✗ ${label}: sheet discarded — the model didn't draw the 4x4 grid (${secs}s)`);
-          if (dir) console.warn(`  see ${dir}/sheet.png`);
-          continue;
-        }
-        const usable = cells.filter(Boolean).length;
-        console.warn(`· ${label}: ${usable}/${items.length} cells cropped in ${secs}s${dir ? ` → ${dir}/` : ''}`);
+        // Redraws loop here. Only a reviewer asks for one, and each costs an
+        // image, so the loop can only ever be driven by someone typing "r".
+        for (let attempt = 1; ; attempt++) {
+          const t0 = Date.now();
+          const { cells, dir } = await drawSheet(items, n, attempt);
+          const secs = ((Date.now() - t0) / 1000).toFixed(0);
+          // A sheet the crop can't read is dropped whole, exactly as the edge
+          // function drops it: saving it would put a mis-cut thumbnail in front
+          // of every learner who meets those words from now on, and the stored
+          // cell can't be re-cut later. A word with no picture costs nothing.
+          if (!cells) {
+            console.warn(`✗ ${label}: sheet discarded — not the ${SHEET_MAX === 16 ? '4x4' : 'asked-for'} layout (wrong row count, or rules across it) (${secs}s)`);
+            if (dir) console.warn(`  see ${dir}/sheet.png`);
+            // Worth offering: a discarded sheet is the case a redraw most often
+            // fixes, and there is nothing to weigh up — no cell survived.
+            if (REVIEW && await ask('  Draw this sheet again? [r]edraw / [N]o ') === 'retry') continue;
+            skippedCount += items.length;
+            break;
+          }
+          const usable = cells.filter(Boolean).length;
+          console.warn(`· ${label}: ${usable}/${items.length} cells cropped in ${secs}s${dir ? ` → ${dir}/` : ''}`);
 
-        if (NO_WRITE) {
-          skippedCount += items.length;
-          continue;
+          if (NO_WRITE) {
+            skippedCount += items.length;
+            break;
+          }
+          if (REVIEW) {
+            const decision = await approve(items, cells, dir, attempt);
+            if (decision === 'retry') {
+              console.warn(`  redrawing ${label} — this take stays in ${dir ?? 'memory'} to compare against`);
+              continue;
+            }
+            if (decision === 'skip') {
+              skippedCount += items.length;
+              console.warn(`  skipped — ${items.length} word(s) stay undrawn and come back next run`);
+              break;
+            }
+          }
+          // REVIEW is the only path that has a human's yes behind it — the
+          // approve() above returned 'write'. --auto skipped that, so its
+          // doodles go in unverified and can be found later.
+          const [saved, failed] = await saveCells(items, cells, REVIEW);
+          savedCount += saved.length;
+          // Everything not written comes back next run: rejected crops and any
+          // write that errored.
+          skippedCount += items.length - saved.length - failed.length;
+          failedCount += failed.length;
+          console.warn(`✓ ${label}: wrote ${saved.length}/${items.length}`);
+          break;
         }
-        if (REVIEW && !await approve(items, cells, dir)) {
-          skippedCount += items.length;
-          console.warn(`  skipped — ${items.length} word(s) stay undrawn and come back next run`);
-          continue;
-        }
-        // REVIEW is the only path that has a human's yes behind it — the
-        // approve() above returned true. --auto skipped that, so its doodles go
-        // in unverified and can be found later.
-        const [saved, failed] = await saveCells(items, cells, REVIEW);
-        savedCount += saved.length;
-        // Everything not written comes back next run: rejected crops and any
-        // write that errored.
-        skippedCount += items.length - saved.length - failed.length;
-        failedCount += failed.length;
-        console.warn(`✓ ${label}: wrote ${saved.length}/${items.length}`);
       } catch (err) {
         failedCount += items.length;
         console.warn(`✗ ${label}: ${err.message}`);
@@ -369,9 +410,9 @@ async function main() {
   if (OUT_DIR) console.warn(`Sheets, thumbnails and prompts: ${resolve(OUT_DIR)}/`);
   if (skippedCount || failedCount) {
     console.warn('Re-run to retry the rest — only undrawn words are ever picked.');
-    console.warn(`If a whole sheet was discarded, open its sheet.png: no gray grid ("no rules` +
-      `\nfound") is the usual cause — the crop then has no boundaries to cut on and every` +
-      `\ncell fits onto a fragment. prompt.txt next to it is exactly what was asked for.`);
+    console.warn(`If a whole sheet was discarded, open its sheet.png: either the model drew` +
+      `\nrules across it, or it drew the wrong number of rows (a 5x4 for a 4x4 happens),` +
+      `\nso nothing on it can be located. prompt.txt beside it is what was asked for.`);
   }
 }
 
