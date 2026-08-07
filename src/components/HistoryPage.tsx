@@ -7,7 +7,8 @@ import { useIsPro } from '../hooks/useProStatus';
 import { generateWordData } from '../lib/wordService';
 import { getRecentDailyWords } from '../lib/dailyWord';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
-import { whyLine, wordBucket, BUCKET_META, BUCKET_ORDER, type BucketTab } from '../lib/progress';
+import { whyLine, wordBucket, BUCKET_META, BUCKET_ORDER } from '../lib/progress';
+import { useProgressQuery, type Filter } from '../hooks/useProgressQuery';
 import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
@@ -159,9 +160,8 @@ function DailyWords() {
 
 /** A filter chip: the two "how you got here" lists, plus one per learning
  *  bucket. Bucket ids double as the `?tab=` values, so a link like
- *  /history?tab=struggling lands on exactly that filter. */
-type Filter = 'recent' | 'saved' | BucketTab;
-
+ *  /history?tab=struggling lands on exactly that filter — and as the server's
+ *  `bucket` column, so the same word is the whole query. */
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'recent', label: 'Recent' },
   { id: 'saved', label: 'Saved' },
@@ -171,9 +171,6 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 const isFilter = (s: string): s is Filter => FILTERS.some((f) => f.id === s);
-
-/** Newest-seen first. */
-const byRecent = (a: WordProgress, b: WordProgress) => b.seenAt.localeCompare(a.seenAt);
 
 /** The status pill on each row: which learning bucket the word is in, so with
  *  mixed filters checked you can still tell what you're looking at. */
@@ -209,46 +206,21 @@ export function HistoryPage() {
     setParams(p, { replace: true });
   };
 
-  const bookmarks = store.bookmarkedWords();
-  // Recent = everything you've touched (any status, saved, or just viewed),
-  // newest-first — one unified timeline across all the buckets below.
-  const recent = useMemo(
-    () => Object.values(store.progress).sort(byRecent),
-    [store.progress],
-  );
-  // One list per learning bucket, from the same wordBucket() the Learn-page
-  // rotation uses — so "Struggling" here means exactly what it means there.
-  const byBucket = useMemo(() => {
-    const out = {} as Record<BucketTab, WordProgress[]>;
-    for (const b of BUCKET_ORDER) out[BUCKET_META[b].tab] = [];
-    for (const p of recent) out[BUCKET_META[wordBucket(p)].tab].push(p);
-    return out;
-  }, [recent]);
-  const buckets: Record<Filter, WordProgress[]> = {
-    recent,
-    saved: bookmarks,
-    ...byBucket,
-  };
-  // Union of the checked buckets, deduped by word, newest-first.
-  const list = useMemo(() => {
-    const seen = new Set<string>();
-    const merged: WordProgress[] = [];
-    for (const f of FILTERS) {
-      if (!checked.has(f.id)) continue;
-      for (const item of buckets[f.id]) {
-        if (seen.has(item.word)) continue;
-        seen.add(item.word);
-        merged.push(item);
-      }
-    }
-    return merged.sort(byRecent);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checked, store.progress]);
-  // Every word in the filtered view — the quiz picker offers all of them.
-  const quizWords = list.map((w) => w.word);
-  // Story Gaps / Mind Map get the newest slice, capped (see GAME_LIMIT).
-  const gameWords = quizWords.slice(0, GAME_LIMIT);
+  // The words themselves come from the server, filtered and paged (see
+  // useProgressQuery) — the local store answers until the first page lands.
+  const { rows: list, counts, loading, initialLoading, hasMore, loadMore, forget, fetchAllWords } =
+    useProgressQuery(checked);
+  // Story Gaps / Mind Map get the newest slice, capped (see GAME_LIMIT) — well
+  // inside the first page, so no extra fetch.
+  const gameWords = list.slice(0, GAME_LIMIT).map((w) => w.word);
+  // The quiz offers every matching word, so it needs the ones past the loaded
+  // page — fetched (words only) when the quiz is actually opened.
+  const [quizWords, setQuizWords] = useState<string[] | null>(null);
   const [mode, setMode] = useState<'list' | 'quiz' | 'paragraph' | 'mindmap'>('list');
+  const openQuiz = async () => {
+    setQuizWords(await fetchAllWords());
+    setMode('quiz');
+  };
   const { isPro } = useIsPro();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [wordCache, setWordCache] = useState<Record<string, VocabularyWord>>({});
@@ -300,6 +272,9 @@ export function HistoryPage() {
     if (checked.has('recent')) store.removeWord(word, user?.id);
     else if (savedOnly && item.bookmarked) store.setBookmarked(word, false, user?.id);
     else store.clearStatus(word, user?.id);
+    // The loaded page is a server snapshot; drop the row from it rather than
+    // refetching every page the user has scrolled through.
+    forget(word);
     if (expanded === word) setExpanded(null);
     toast.success(item.status === 'dismissed' && !checked.has('recent')
       ? `"${word}" will show up again`
@@ -307,7 +282,7 @@ export function HistoryPage() {
   };
 
   if (mode === 'quiz') {
-    return <QuizSetup words={quizWords} onBack={() => setMode('list')} />;
+    return <QuizSetup words={quizWords ?? gameWords} onBack={() => setMode('list')} />;
   }
 
   if (mode === 'paragraph') {
@@ -327,6 +302,13 @@ export function HistoryPage() {
     mastered: { icon: '✨', title: 'Nothing mastered yet', hint: 'Words graduate here once you keep getting them right over about three weeks.' },
     skipped: { icon: '🙈', title: 'Nothing skipped yet', hint: 'Words you skip while learning land here and stop appearing. Remove one to bring it back.' },
   };
+  // Day groups, minus the trailing one while more pages are coming: the last
+  // group of a page is usually half a day, and its header would claim "12
+  // words" for a day that actually has thirty. Held back until the rest of
+  // that day arrives (or the list ends).
+  const groups = groupByDate(list);
+  const visibleGroups = hasMore ? groups.slice(0, -1) : groups;
+
   // Empty-state copy: bucket-specific when exactly one filter is checked,
   // otherwise a generic message (or a nudge to check something).
   const only = checked.size === 1 ? [...checked][0] : null;
@@ -346,7 +328,7 @@ export function HistoryPage() {
       {/* ── Filters — check any mix of lists; the words (and games) follow ── */}
       <div className="flex flex-wrap items-center gap-2 mb-6">
         {FILTERS.map((f) => {
-          const count = buckets[f.id].length;
+          const count = counts[f.id];
           const on = checked.has(f.id);
           // Bucket filters carry their bucket's icon + colour, matching the
           // status tag on the flash card that links here.
@@ -376,7 +358,12 @@ export function HistoryPage() {
         })}
       </div>
 
-      {list.length === 0 ? (
+      {initialLoading ? (
+        <div className="py-16 flex items-center justify-center gap-2 text-sm text-text-muted">
+          <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
+          Loading your words…
+        </div>
+      ) : list.length === 0 ? (
         <div className="py-16 text-center">
           <div className="text-4xl mb-4">{emptyCopy.icon}</div>
           <h2 className="text-xl font-display font-bold text-text-primary mb-2">{emptyCopy.title}</h2>
@@ -385,11 +372,11 @@ export function HistoryPage() {
       ) : (
         <>
           {/* Practice tools — playing the words in whatever mix of lists is
-              checked above (Recent, Saved, Known, Don't-know, Skipped). */}
+              checked above. */}
           {gameWords.length >= 2 && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <button
-                onClick={() => setMode('quiz')}
+                onClick={openQuiz}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium hover:bg-accent-cyan/20 transition-all"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -461,7 +448,7 @@ export function HistoryPage() {
           )}
 
       <div className="space-y-6">
-        {groupByDate(list).map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.key}>
             {/* Day header with count so users see how many they learned that day */}
             <div className="flex items-center justify-between mb-2 px-1">
@@ -628,6 +615,28 @@ export function HistoryPage() {
           </div>
         ))}
       </div>
+
+      {/* Paged rather than endless: the words are ordered newest-first, so
+          what you came for is nearly always on the first page. */}
+      {hasMore && (
+        <button
+          onClick={loadMore}
+          disabled={loading}
+          className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-border bg-bg-card text-sm font-extrabold text-text-secondary hover:border-border-light hover:text-text-primary disabled:opacity-60 transition-all"
+        >
+          {loading ? (
+            <>
+              <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
+              Loading…
+            </>
+          ) : (
+            <>
+              <Icon icon="lucide:chevron-down" />
+              Load more
+            </>
+          )}
+        </button>
+      )}
         </>
       )}
         </div>

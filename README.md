@@ -289,10 +289,91 @@ Migrations live in `supabase/migrations`. Apply them with:
 npm run db:push        # supabase db push
 ```
 
+### Reading data: use an edge function, not the table
+
+**The client does not query Supabase tables directly.** A read belongs in an edge function
+under `supabase/functions/`, fronted by a small typed module in `src/lib/…Api.ts`. New code
+should follow this; a lot of older code predates it (see below).
+
+Keeping the table behind one endpoint means filters, pagination, page-size caps and column
+names all live in one file. The function also returns the client's shape (`seenAt`, `correct`)
+rather than the table's (`learned_at`, `correct_count`), so renaming a column never reaches a
+component — and aggregates like "how many words am I struggling with" can be counted over rows
+the device has never downloaded.
+
+**Write them as normal REST APIs.** A function is a resource, routed on HTTP method + path —
+not a dispatcher on an `action` field, and not one function per operation. `progress` covers
+every read and write of `user_word_progress`; nothing in `src/` touches the table.
+
+```
+GET    /functions/v1/progress        ?filters=&after=&limit=   → { progress, hasMore, cursor }
+POST   /functions/v1/progress        { progress, event? }      → { ok }
+DELETE /functions/v1/progress        ?word=                    → { ok }
+GET    /functions/v1/progress/count                            → { counts }
+GET    /functions/v1/progress/words  ?filters=&limit=          → { words }
+GET    /functions/v1/progress/peers  ?bucket=&exclude=&limit=  → { words, total }
+GET    /functions/v1/progress/log    ?word=                    → { log }
+POST   /functions/v1/progress/lookup { words: string[] }       → { progress }
+```
+
+The conventions, which any new resource should follow:
+
+- **The verb is the HTTP method** — `GET` never changes anything, `DELETE` is idempotent.
+- **`GET` takes query parameters**, comma-separating lists (`?filters=struggling,saved`).
+- **A read uses `POST` only when its input won't fit in a URL** — `/lookup` takes a
+  several-hundred-word list. Naming the route for what it does keeps the exception visible.
+- **`word` is a query parameter, not a path segment**: words contain spaces, and `%2F` in a
+  path is mangled by enough proxies to not be worth it.
+- **Paging is a keyset cursor, never an offset.** Send `?after=<the last cursor>`. Rows are
+  ordered by a timestamp that moves when a word is answered, so an offset silently skips rows
+  mid-walk — and a deep `OFFSET` makes Postgres scan and discard everything before it. The
+  same route and the same paging serve both History's "Load more" and the whole-account sync
+  (which just passes no filters).
+- **One shape per route**, whatever the outcome: `{ log: [] }`, never `{ log: null }`.
+- **A key's name implies its type**: `progress` is always `WordProgress[]`, `words` is always
+  `string[]`. Failures are always `{ error }` with a real status code.
+
+`POST /progress` takes the answer that caused the write as `event` and appends it to the word's
+log itself — the client never holds the whole log, so it can't send one back without
+truncating it. `user_id` always comes from the session, never the request body.
+
+On the client, `src/lib/api.ts` is the HTTP client for *every* edge function — session token,
+`apikey`, JSON, timeouts, error unwrapping — so a resource module is route definitions and
+nothing else:
+
+```ts
+request.get('/progress/count')                 // → T, throws ApiError on failure
+request.get('/progress/count', { quiet: true }) // → T | null
+```
+
+A call throws by default, carrying the server's own message for a toast. `quiet: true` turns
+failures into `null` instead, and the return type says so. `src/lib/progressApi.ts` is quiet
+throughout, because the app is offline-capable and a failed read should fall back to the
+stored copy of progress rather than interrupt anyone.
+
+```bash
+npm run deploy:progress
+```
+
+**Still direct, to be migrated:** the older features (collections, quizzes, teams, streak,
+companion, word notes). Don't add new direct queries; move one over when you're already
+working in that area.
+
+### Learning buckets
+
+Which bucket a word is in (`not-started` / `struggling` / `learning` / `mastered` / `skipped`)
+is defined **twice on purpose**: `wordBucket()` in `src/lib/progress.ts` for the UI, and the
+`bucket` generated column in `supabase/migrations/20260807000000_progress_bucket.sql` so
+History can filter and count server-side without downloading rows. The two must agree —
+`src/lib/progress.test.ts` pins the cases both have to satisfy. The slugs also appear in URLs
+(`/history?tab=struggling`), so renaming one breaks saved links.
+
 ## Tech notes
 
 - **TTS** runs in-browser (Kokoro / Piper), with a native Web Speech fallback. The engine, voice,
   and speed are user-configurable in Settings.
 - **STT** uses on-device Whisper.
-- **Progress** (known / skipped / saved words) is stored in `localStorage` and synced to Supabase
-  per user, so History follows you across devices when signed in.
+- **Progress** (learning state, saved words) is stored in `localStorage` and synced to Supabase
+  per user, so History follows you across devices when signed in. The per-answer log is the one
+  thing kept server-side only — it dwarfs everything else on the row, so it's fetched for a
+  single word when you open its answer history.

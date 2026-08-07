@@ -7,14 +7,22 @@
 // Classification is `wordBucket()` from lib/progress, the same function the
 // Learn-page rotation and CollectionStats use, so the numbers here always agree
 // with what the app actually serves you.
+//
+// The counts are the server's (useProgressCounts), so they cover every word on
+// the account rather than the ones this device happens to hold — the same
+// numbers History's filter chips show. A bucket's words are fetched only when
+// someone opens it.
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
-import { useVocabularyStore } from '../hooks/useVocabulary';
-import { BUCKET_META, BUCKET_ORDER, wordBucket, type WordBucket } from '../lib/progress';
+import { useBucketPeers, useProgressCounts } from '../hooks/useProgressQuery';
+import { BUCKET_META, BUCKET_ORDER, type WordBucket } from '../lib/progress';
 
 type Bucket = Exclude<WordBucket, 'dismissed'>;
+
+/** How many of a bucket's words the panel lists before deferring to History. */
+const PANEL_LIMIT = 60;
 
 /**
  * The four in-rotation buckets in progression order — never answered,
@@ -28,41 +36,26 @@ const BUCKETS = BUCKET_ORDER.filter((b): b is Bucket => b !== 'dismissed').map((
 }));
 
 export function MasteryBar() {
-  const progress = useVocabularyStore((s) => s.progress);
   // Which bucket's words are open. Null = just the bar, as before.
   const [open, setOpen] = useState<Bucket | null>(null);
+  const { counts: byTab } = useProgressCounts();
 
-  const { words, counts, total, dismissed } = useMemo(() => {
-    const words: Record<Bucket, string[]> = {
-      pending: [],
-      difficult: [],
-      learning: [],
-      mastered: [],
-    };
-    let dismissed = 0;
-    // Most recently seen first: a list of struggling words is something you act
-    // on, and what you touched last is what you're most likely to recognise.
-    const entries = Object.values(progress).sort((a, b) =>
-      (b.seenAt ?? '').localeCompare(a.seenAt ?? ''),
-    );
-    for (const p of entries) {
-      const bucket = wordBucket(p);
-      // Skipped-for-good words are out of rotation entirely. Counting them here
-      // would pad the denominator with words you've opted out of and make the
-      // mastered share look worse than it is.
-      if (bucket === 'dismissed') dismissed++;
-      else words[bucket].push(p.word);
-    }
-    const counts = Object.fromEntries(
-      Object.entries(words).map(([k, v]) => [k, v.length]),
-    ) as Record<Bucket, number>;
-    const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    return { words, counts, total, dismissed };
-  }, [progress]);
-
-  if (total === 0) return null;
+  const counts = Object.fromEntries(
+    BUCKETS.map((b) => [b.id, byTab[b.tab]]),
+  ) as Record<Bucket, number>;
+  // Skipped-for-good words are out of rotation entirely. Counting them here
+  // would pad the denominator with words you've opted out of and make the
+  // mastered share look worse than it is.
+  const dismissed = byTab.skipped;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
   const openBucket = open ? BUCKETS.find((b) => b.id === open) : null;
+  // Most recently seen first: a list of struggling words is something you act
+  // on, and what you touched last is what you're most likely to recognise.
+  // No word is being excluded here — this is the whole bucket.
+  const panel = useBucketPeers(openBucket?.tab ?? 'not-started', '', PANEL_LIMIT, open !== null);
+
+  if (total === 0) return null;
 
   return (
     <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6">
@@ -136,7 +129,7 @@ export function MasteryBar() {
               scroll, and paging it would hide exactly the words someone opened
               this to find. */}
           <div className="flex flex-wrap gap-1.5 max-h-52 overflow-y-auto">
-            {words[openBucket.id].map((word) => (
+            {panel.words.map((word) => (
               <Link
                 key={word}
                 to={`/?word=${encodeURIComponent(word)}`}
@@ -146,6 +139,17 @@ export function MasteryBar() {
               </Link>
             ))}
           </div>
+          {/* Past the cap the list stops being something you scan — History
+              filters, sorts and quizzes the same bucket. */}
+          {panel.total > panel.words.length && (
+            <Link
+              to={`/history?tab=${openBucket.tab}`}
+              className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-text-muted hover:text-accent-cyan"
+            >
+              See all {panel.total} in History
+              <Icon icon="lucide:arrow-right" className="text-xs" />
+            </Link>
+          )}
         </div>
       )}
 

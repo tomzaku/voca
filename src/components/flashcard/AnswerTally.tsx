@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import { useAuth } from '../../hooks/useAuth';
+import { useVocabularyStore } from '../../hooks/useVocabulary';
 import type { AnswerVia, WordProgress } from '../../types';
 
 /** "just now / 5m ago / 3h ago / 2d ago", or the date for older answers. */
@@ -33,26 +35,45 @@ const VIA_META: Record<AnswerVia, { label: string; icon: string }> = {
  * segments carry an icon + word + count so the meter never relies on the
  * green/red hues alone (they blend for red-green colorblind readers).
  * A History toggle expands the per-answer log (each answer's datetime).
+ *
+ * The tallies come with the word; the log does not — it's the biggest thing on
+ * the row and nothing else displays it, so it's fetched the first time someone
+ * opens this panel.
  */
 export function AnswerTally({ progress }: { progress: WordProgress | undefined }) {
   // "now" is stamped when the log is opened rather than read during render:
   // the relative times ("5m ago") then stay put while the panel is on screen,
   // instead of silently shifting on every unrelated re-render.
   const [openedAt, setOpenedAt] = useState<number | null>(null);
+  const { user } = useAuth();
+  const loadWordHistory = useVocabularyStore((s) => s.loadWordHistory);
   const showHistory = openedAt !== null;
-  const toggleHistory = () => setOpenedAt(showHistory ? null : Date.now());
+  const toggleHistory = () => {
+    if (showHistory) {
+      setOpenedAt(null);
+      return;
+    }
+    setOpenedAt(Date.now());
+    // undefined = never fetched (an empty array is a word with no log).
+    if (progress && progress.history === undefined && user) {
+      void loadWordHistory(progress.word);
+    }
+  };
   const correct = progress?.correct ?? 0;
   const wrong = progress?.wrong ?? 0;
   const total = correct + wrong;
   if (total === 0) return null;
-  const history = progress?.history ?? [];
+  const history = progress?.history;
+  const loadingHistory = showHistory && history === undefined;
   return (
     <div className="mt-3 pt-3 border-t border-border/60">
       <div className="flex items-center justify-between mb-2">
         <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
           Your answers
         </h4>
-        {history.length > 0 && (
+        {/* Offered whenever there are answers — whether this word's log has
+            been fetched yet is not something the reader should have to know. */}
+        {total > 0 && (
           <button
             onClick={toggleHistory}
             className="flex items-center gap-1 text-[11px] font-bold text-text-muted hover:text-accent-cyan transition-colors"
@@ -83,8 +104,20 @@ export function AnswerTally({ progress }: { progress: WordProgress | undefined }
         {wrong > 0 && <div className="bg-accent-red rounded-full" style={{ width: `${(wrong / total) * 100}%` }} />}
       </div>
 
-      {/* Per-answer log, newest first — when each round was answered and how */}
-      {showHistory && (
+      {/* Per-answer log, newest first — when each round was answered and how.
+          Fetched on first open, so it starts as a spinner. */}
+      {showHistory && loadingHistory && (
+        <div className="mt-2.5 flex items-center gap-2 text-[11px] text-text-muted animate-fade-in">
+          <div className="w-3.5 h-3.5 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
+          Loading your answers…
+        </div>
+      )}
+      {showHistory && history && history.length === 0 && (
+        <p className="mt-2.5 text-[11px] text-text-muted animate-fade-in">
+          No per-answer record for this word — it was answered before the log existed.
+        </p>
+      )}
+      {showHistory && history && history.length > 0 && (
         <div className="mt-2.5 animate-fade-in">
           <ul className="max-h-44 overflow-y-auto divide-y divide-border/40 rounded-xl border border-border/60">
             {[...history].reverse().map((ev, i) => (

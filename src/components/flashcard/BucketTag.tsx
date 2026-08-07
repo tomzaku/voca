@@ -6,10 +6,10 @@
 // So the tag opens a peek at its bucket-mates, with a link into History
 // filtered to the same bucket for the full list.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
-import { useVocabularyStore } from '../../hooks/useVocabulary';
+import { useBucketPeers } from '../../hooks/useProgressQuery';
 import { BUCKET_META, wordBucket } from '../../lib/progress';
 import type { WordProgress } from '../../types';
 
@@ -25,19 +25,11 @@ export function BucketTag({
 }) {
   const bucket = wordBucket(progress);
   const meta = BUCKET_META[bucket];
-  const all = useVocabularyStore((s) => s.progress);
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
-
-  // Other words in the same bucket, most recently seen first — what you
-  // touched last is what you're most likely to recognise.
-  const peers = useMemo(() => {
-    const lower = word.toLowerCase();
-    return Object.values(all)
-      .filter((p) => p.word.toLowerCase() !== lower && wordBucket(p) === bucket)
-      .sort((a, b) => (b.seenAt ?? '').localeCompare(a.seenAt ?? ''))
-      .map((p) => p.word);
-  }, [all, bucket, word]);
+  // Other words in the same bucket, newest-seen first — what you touched last
+  // is what you're most likely to recognise. Only asked for once opened.
+  const peers = useBucketPeers(meta.tab, word, PREVIEW, open);
 
   // Click-away / Escape, so the popover never traps the card underneath it.
   useEffect(() => {
@@ -56,7 +48,7 @@ export function BucketTag({
     };
   }, [open]);
 
-  const hidden = peers.length - PREVIEW;
+  const hidden = peers.total - peers.words.length;
 
   return (
     <div className="relative" ref={boxRef}>
@@ -77,15 +69,17 @@ export function BucketTag({
       {open && (
         <div className="absolute left-0 top-full mt-2 z-30 w-64 sm:w-72 rounded-xl border-2 border-border bg-bg-card p-3 shadow-xl animate-fade-in">
           <p className={`text-[11px] font-bold ${meta.text}`}>
-            {peers.length === 0
+            {peers.loading
+              ? `Other ${meta.label.toLowerCase()} words…`
+              : peers.total === 0
               ? `No other ${meta.label.toLowerCase()} words`
-              : `${peers.length} ${meta.label.toLowerCase()} word${peers.length === 1 ? '' : 's'}`}
+              : `${peers.total} ${meta.label.toLowerCase()} word${peers.total === 1 ? '' : 's'}`}
           </p>
           <p className="text-[10px] text-text-muted mt-0.5 leading-snug">{meta.hint}</p>
 
-          {peers.length > 0 && (
+          {peers.words.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2.5">
-              {peers.slice(0, PREVIEW).map((w) => (
+              {peers.words.map((w) => (
                 <Link
                   key={w}
                   to={`/?word=${encodeURIComponent(w)}`}
@@ -105,7 +99,7 @@ export function BucketTag({
             onClick={() => setOpen(false)}
             className="mt-3 flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-[11px] font-bold bg-bg-tertiary text-text-secondary hover:text-accent-cyan border border-border transition-colors"
           >
-            {hidden > 0 ? `See all ${peers.length}` : 'See more'}
+            {hidden > 0 ? `See all ${peers.total}` : 'See more'}
             <Icon icon="lucide:arrow-right" className="text-xs" />
           </Link>
         </div>

@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Pull saved/known/skipped word progress from Supabase so History is
       // populated on a fresh browser (writes sync up; this brings it back down).
       if (session?.user) {
-        useVocabularyStore.getState().loadFromRemote(session.user.id);
+        useVocabularyStore.getState().loadFromRemote();
         useCompanion.getState().loadFromRemote(session.user.id);
         useCollections.getState().loadFromRemote(session.user.id);
         useGuessGame.getState().loadFromRemote(session.user.id);
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // here deadlocks it and hangs every subsequent Supabase request.
       setTimeout(() => {
         if (session?.user) {
-          useVocabularyStore.getState().loadFromRemote(session.user.id);
+          useVocabularyStore.getState().loadFromRemote();
           useCompanion.getState().loadFromRemote(session.user.id);
           useCollections.getState().loadFromRemote(session.user.id);
           useGuessGame.getState().loadFromRemote(session.user.id);

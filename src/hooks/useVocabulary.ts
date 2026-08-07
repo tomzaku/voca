@@ -1,7 +1,12 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AnswerVia, WordProgress, WordStatus } from '../types';
-import { supabase } from '../lib/supabase';
+import type { AnswerVia, ReviewEvent, WordProgress, WordStatus } from '../types';
+import {
+  fetchProgressList,
+  fetchWordLog,
+  removeProgress,
+  saveProgress,
+} from '../lib/progressApi';
 import { gradeReview } from '../lib/spacedRepetition';
 import { useStreak } from './useStreak';
 
@@ -31,7 +36,11 @@ interface VocabularyState {
   skippedWords: () => Set<string>;
   bookmarkedWords: () => WordProgress[];
   wordsByStatus: (status: WordStatus) => WordProgress[];
-  loadFromRemote: (userId: string) => Promise<void>;
+  // The two reads take no userId: the `progress` function identifies the
+  // caller from their session, so passing one would only invite mismatches.
+  loadFromRemote: () => Promise<void>;
+  /** Fetch one word's answer log on demand (see `history` on WordProgress). */
+  loadWordHistory: (word: string) => Promise<void>;
 }
 
 const byRecent = (a: WordProgress, b: WordProgress) => b.seenAt.localeCompare(a.seenAt);
@@ -73,9 +82,21 @@ export const useVocabularyStore = create<VocabularyState>()(
         // Answer log — the datetime of every correct/incorrect answer (last 50).
         // FSRS reschedules from the real elapsed time (via lastReviewedAt); the
         // log itself feeds the analytics dashboard.
-        const history = status === 'dismissed'
+        //
+        // The log is NOT synced down at sign-in (it dwarfs everything else —
+        // see loadFromRemote), so `prev.history` is undefined until something
+        // asks for it. Appending to it locally is therefore only safe when it
+        // has been loaded; the server-side append below is what actually
+        // records the answer. Leaving it undefined means "not loaded", and the
+        // next reader fetches the real thing.
+        const event: ReviewEvent | undefined = status === 'dismissed'
+          ? undefined
+          : { at: now.toISOString(), ok: status === 'known', ...(via ? { via } : {}) };
+        const history = !event
           ? prev?.history
-          : [...(prev?.history ?? []), { at: now.toISOString(), ok: status === 'known', ...(via ? { via } : {}) }].slice(-50);
+          : prev?.history
+          ? [...prev.history, event].slice(-50)
+          : undefined;
         const entry: WordProgress = {
           word,
           status,
@@ -88,7 +109,7 @@ export const useVocabularyStore = create<VocabularyState>()(
           ...srs,
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
-        if (userId) syncWordToRemote(userId, entry);
+        if (userId) syncWordToRemote(entry, event);
       },
 
       recordView: (word, userId) => {
@@ -113,7 +134,7 @@ export const useVocabularyStore = create<VocabularyState>()(
           history: prev?.history,
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
-        if (userId) syncWordToRemote(userId, entry);
+        if (userId) syncWordToRemote(entry);
       },
 
       triageWord: (word, known, userId) => {
@@ -136,7 +157,7 @@ export const useVocabularyStore = create<VocabularyState>()(
           mastered: known,
         };
         set((s) => ({ progress: { ...s.progress, [key]: entry } }));
-        if (userId) syncWordToRemote(userId, entry);
+        if (userId) syncWordToRemote(entry);
       },
 
       setBookmarked: (word, bookmarked, userId) => {
@@ -146,14 +167,18 @@ export const useVocabularyStore = create<VocabularyState>()(
           get().removeWord(word, userId);
           return;
         }
+        // Spread `prev`: saving a word must not touch its schedule or tallies.
+        // (Rebuilding the entry from scratch here used to reset every SRS
+        // field to its default on the way to the server.)
         const entry: WordProgress = {
+          ...prev,
           word,
           status: prev?.status,
           bookmarked,
           seenAt: prev?.seenAt ?? new Date().toISOString(),
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
-        if (userId) syncWordToRemote(userId, entry);
+        if (userId) syncWordToRemote(entry);
       },
 
       clearStatus: (word, userId) => {
@@ -164,9 +189,12 @@ export const useVocabularyStore = create<VocabularyState>()(
           get().removeWord(word, userId);
           return;
         }
-        const entry: WordProgress = { word, status: undefined, bookmarked: true, seenAt: prev.seenAt };
+        // Takes the word out of its list — the outcome and the graduation go,
+        // so it re-enters rotation. What it earned (reps, tallies, memory
+        // state) stays: this is "not in that list", not "never happened".
+        const entry: WordProgress = { ...prev, word, status: undefined, mastered: false, bookmarked: true, seenAt: prev.seenAt };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
-        if (userId) syncWordToRemote(userId, entry);
+        if (userId) syncWordToRemote(entry);
       },
 
       removeWord: (word, userId) => {
@@ -175,7 +203,7 @@ export const useVocabularyStore = create<VocabularyState>()(
           delete next[word];
           return { progress: next };
         });
-        if (userId) removeWordFromRemote(userId, word);
+        if (userId) removeWordFromRemote(word);
       },
 
       getStatus: (word) => get().progress[word]?.status ?? null,
@@ -204,44 +232,70 @@ export const useVocabularyStore = create<VocabularyState>()(
           .sort(byRecent);
       },
 
-      loadFromRemote: async (userId) => {
-        if (!supabase) return;
-        const { data } = await supabase
-          .from('user_word_progress')
-          .select('word, status, bookmarked, learned_at, reps, lapses, srs_interval, stability, difficulty, ease, due_at, last_reviewed_at, mastered, views, correct_count, wrong_count, review_log')
-          .eq('user_id', userId);
-
-        if (!data) return;
+      loadFromRemote: async () => {
+        // GET /progress with no filters — the whole account. Read through the
+        // resource, never the table (see CLAUDE.md); with no Supabase or no
+        // session it returns null and the local copy stands.
+        //
+        // It returns every column EXCEPT the answer log — that's ~75% of the
+        // bytes and only the open card's tally reads it, so it's fetched per
+        // word by loadWordHistory.
+        //
+        // Paged, because a single response is capped (PostgREST `max_rows`,
+        // 1000 by default) and silently returns a truncated list — which used
+        // to look like "my other device lost half my words".
         const remote: Record<string, WordProgress> = {};
-        for (const row of data) {
-          const r = row as Record<string, unknown>;
-          remote[r.word as string] = {
-            word: r.word as string,
-            status: (r.status as WordStatus | null) ?? undefined,
-            bookmarked: Boolean(r.bookmarked),
-            seenAt: r.learned_at as string,
-            reps: (r.reps as number | null) ?? undefined,
-            lapses: (r.lapses as number | null) ?? undefined,
-            interval: (r.srs_interval as number | null) ?? undefined,
-            stability: (r.stability as number | null) ?? undefined,
-            difficulty: (r.difficulty as number | null) ?? undefined,
-            ease: (r.ease as number | null) ?? undefined,
-            dueAt: (r.due_at as string | null) ?? undefined,
-            lastReviewedAt: (r.last_reviewed_at as string | null) ?? undefined,
-            mastered: (r.mastered as boolean | null) ?? undefined,
-            views: (r.views as number | null) ?? undefined,
-            correct: (r.correct_count as number | null) ?? undefined,
-            wrong: (r.wrong_count as number | null) ?? undefined,
-            history: (r.review_log as WordProgress['history'] | null) ?? undefined,
-          };
+        let cursor: string | null = null;
+        for (;;) {
+          const res: Awaited<ReturnType<typeof fetchProgressList>> =
+            await fetchProgressList({ after: cursor, limit: 1000 });
+          if (!res) return; // offline or server trouble — keep what's local
+          const before = Object.keys(remote).length;
+          for (const entry of res.progress) remote[entry.word] = entry;
+          if (!res.hasMore || !res.cursor) break;
+          // The cursor is inclusive, so a page that adds nothing new means
+          // every row in it shares one timestamp — advancing would loop.
+          if (Object.keys(remote).length === before) break;
+          cursor = res.cursor;
         }
-        // Merge: remote wins for conflicts (each remote row carries both fields).
-        set((s) => ({ progress: { ...s.progress, ...remote } }));
+        // Merge: remote wins for conflicts (each remote row carries both
+        // fields) — but never let a remote row drop an answer log that's
+        // already loaded, since this query doesn't fetch one.
+        set((s) => ({
+          progress: {
+            ...s.progress,
+            ...Object.fromEntries(
+              Object.entries(remote).map(([k, v]) => [k, { ...v, history: s.progress[k]?.history }]),
+            ),
+          },
+        }));
+      },
+
+      loadWordHistory: async (word) => {
+        const res = await fetchWordLog(word);
+        if (!res) return;
+        const log = res.log;
+        set((s) => {
+          const prev = s.progress[word];
+          // Nothing local to attach it to (the word was removed meanwhile).
+          if (!prev) return s;
+          return { progress: { ...s.progress, [word]: { ...prev, history: log } } };
+        });
       },
     }),
     {
       name: 'voca-progress',
       storage: createJSONStorage(() => localStorage),
+      // The answer log is left out of the persisted copy: it's the bulk of the
+      // payload, localStorage is a ~5MB budget for the whole origin, and this
+      // blob is rewritten on every single answer. It's re-fetched per word on
+      // demand instead — safe because using the app at all requires signing in
+      // (LoginGate), so there is always a server copy to fetch from.
+      partialize: (s) => ({
+        progress: Object.fromEntries(
+          Object.entries(s.progress).map(([k, v]) => [k, { ...v, history: undefined }]),
+        ),
+      }),
     },
   ),
 );
@@ -259,47 +313,28 @@ export function progressSynced(): Promise<void> {
   return lastRemoteWrite;
 }
 
-function syncWordToRemote(userId: string, entry: WordProgress) {
-  if (!supabase) return;
-  // Promise.resolve, because a query builder is only a PromiseLike — it has no
-  // `catch` of its own, and this one has to be a real Promise that never
-  // rejects (see `lastRemoteWrite`).
-  lastRemoteWrite = Promise.resolve(supabase
-    .from('user_word_progress')
-    .upsert({
-      user_id: userId,
-      word: entry.word,
-      status: entry.status ?? null,
-      bookmarked: entry.bookmarked ?? false,
-      learned_at: entry.seenAt,
-      reps: entry.reps ?? 0,
-      lapses: entry.lapses ?? 0,
-      srs_interval: entry.interval ?? 0,
-      stability: entry.stability ?? null,
-      difficulty: entry.difficulty ?? null,
-      ease: entry.ease ?? 2.5,
-      due_at: entry.dueAt ?? null,
-      last_reviewed_at: entry.lastReviewedAt ?? null,
-      mastered: entry.mastered ?? false,
-      views: entry.views ?? 0,
-      correct_count: entry.correct ?? 0,
-      wrong_count: entry.wrong ?? 0,
-      review_log: entry.history ?? [],
+/**
+ * Push one word's state to the server, through progress-save.
+ *
+ * `event`, when given, is the answer that caused this write; the endpoint
+ * appends it to the word's log rather than taking a whole array. The client no
+ * longer holds the full log, so a read-modify-write from here would truncate
+ * it — and two devices answering the same word would overwrite each other's
+ * answers.
+ *
+ * Tracked in `lastRemoteWrite` so `progressSynced()` can wait for it. Never
+ * rejects: a failed write is warned about and the local state stands.
+ */
+function syncWordToRemote(entry: WordProgress, event?: ReviewEvent) {
+  lastRemoteWrite = saveProgress(entry, event)
+    .then((res) => {
+      if (!res) console.warn(`[voca] could not save "${entry.word}"`);
     })
-    .then(({ error }) => {
-      if (error) console.warn('[voca] sync error:', error.message);
-    }))
     .catch((e: unknown) => console.warn('[voca] sync error:', e));
 }
 
-function removeWordFromRemote(userId: string, word: string) {
-  if (!supabase) return;
-  supabase
-    .from('user_word_progress')
-    .delete()
-    .eq('user_id', userId)
-    .eq('word', word)
-    .then(({ error }) => {
-      if (error) console.warn('[voca] remove error:', error.message);
-    });
+function removeWordFromRemote(word: string) {
+  void removeProgress(word).then((res) => {
+    if (!res) console.warn(`[voca] could not remove "${word}"`);
+  });
 }

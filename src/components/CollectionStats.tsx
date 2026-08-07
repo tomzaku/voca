@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useProgressForWords } from '../hooks/useProgressQuery';
 import { progressLookup, wordBucket, type WordBucket } from '../lib/progress';
 import { isDue, dueTime } from '../lib/spacedRepetition';
 import type { WordProgress } from '../types';
@@ -62,9 +63,14 @@ interface Props {
  */
 export function CollectionStats({ name, words, onClose }: Props) {
   const { user } = useAuth();
-  const progress = useVocabularyStore((s) => s.progress);
+  const localProgress = useVocabularyStore((s) => s.progress);
   const triageWord = useVocabularyStore((s) => s.triageWord);
   const now = Date.now();
+  // Progress for this collection's words, asked for by name rather than
+  // filtered out of a full local copy — so the panel is right even on a device
+  // that hasn't finished syncing. The local map answers until it lands, and
+  // stays the fallback if the call fails.
+  const progress = useProgressForWords(words, localProgress);
 
   const { counts, rows, dueNow, answered, correctTotal, wrongTotal } = useMemo(() => {
     const prog = progressLookup(progress);
