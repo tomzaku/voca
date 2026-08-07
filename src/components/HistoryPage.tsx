@@ -16,28 +16,13 @@ import { QuizSetup } from './QuizSetup';
 import { ParagraphGame } from './ParagraphGame';
 import { ReviewPanel } from './ReviewPanel';
 import { WordMindMap } from './WordMindMap';
+import { MindMapButton } from './MindMapButton';
 
 const LEVEL_COLOR: Record<string, string> = {
   beginner: 'text-accent-green',
   intermediate: 'text-accent-orange',
   advanced: 'text-accent-red',
 };
-
-/** ChatGPT URL pre-filled with a prompt that draws a handwritten mind-map
- *  image of the given words (same open-in-ChatGPT pattern as the collection
- *  builder's word-list helper). */
-function chatGptMindmapUrl(words: string[]): string {
-  const prompt = `Create a handwritten-style mind map image to help me memorize these English vocabulary words:
-
-${words.join(', ')}
-
-Rules:
-- Generate it as ONE image, drawn like a hand-written sketchnote mind map
-- Group related words into labeled branches by theme
-- Keep every word large and legible
-- Add a small doodle next to each word that hints at its meaning`;
-  return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
-}
 
 /** Human label for a `YYYY-MM-DD` key relative to today. */
 function dayLabel(dateStr: string): string {
@@ -408,42 +393,13 @@ export function HistoryPage() {
                   Pro
                 </span>
               </button>
-              {/* Opens ChatGPT pre-filled with a prompt to draw a handwritten
-                  mind-map image of every saved word. */}
-              <a
-                href={chatGptMindmapUrl(gameWords)}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Ask ChatGPT to draw a handwritten mind-map image of these words"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-orange/10 border border-accent-orange/20 text-accent-orange text-xs font-medium hover:bg-accent-orange/20 transition-all"
-              >
-                <Icon icon="lucide:git-fork" className="text-sm" />
-                Mind Map
-              </a>
-              {/* Pro: interactive in-app mind map (collapsible themes, tap a
-                  word for its definition or to open its page). The button is
-                  always visible as a teaser; the server re-checks Pro. */}
-              <button
-                onClick={() => {
-                  if (!isPro) {
-                    toast('The interactive Mind Map is a Pro feature.', { icon: '👑' });
-                    return;
-                  }
-                  setMode('mindmap');
-                }}
-                title={
-                  isPro
-                    ? 'Open an interactive mind map of these words'
-                    : 'Pro feature — interactive mind map of these words'
-                }
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-accent-yellow text-xs font-medium hover:bg-accent-yellow/20 transition-all"
-              >
-                <Icon icon={isPro ? 'lucide:pencil-line' : 'lucide:lock'} className="text-sm" />
-                Mind Map
-                <span className="text-[9px] px-1 py-px rounded bg-accent-yellow/20 font-extrabold uppercase tracking-wider">
-                  Pro
-                </span>
-              </button>
+              {/* One entry point, two ways to get a map: the Pro interactive
+                  board in-app, or a hand-drawn picture from ChatGPT. */}
+              <MindMapButton
+                words={gameWords}
+                isPro={isPro}
+                onOpenInteractive={() => setMode('mindmap')}
+              />
             </div>
           )}
 
