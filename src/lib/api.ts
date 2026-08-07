@@ -44,6 +44,12 @@ export interface Options {
   signal?: AbortSignal;
   /** Resolve to null on failure instead of throwing. Needs a local fallback. */
   quiet?: boolean;
+  /**
+   * Send the call even with nobody signed in (anon key only). For routes a
+   * stranger may reach — a student opening a quiz link. Off by default, so a
+   * signed-out call fails here instead of wasting a round trip on a 401.
+   */
+  allowAnon?: boolean;
 }
 
 type Quiet = Options & { quiet: true };
@@ -71,7 +77,7 @@ function signalFor(opts: Options): AbortSignal {
 async function send<T>(method: Method, path: string, body: unknown, opts: Options): Promise<T> {
   if (!supabase) throw new ApiError(0, 'Not connected.');
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new ApiError(401, 'Please sign in.');
+  if (!session && !opts.allowAnon) throw new ApiError(401, 'Please sign in.');
 
   let response: Response;
   try {
@@ -80,7 +86,9 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
       headers: {
         'Content-Type': 'application/json',
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${session.access_token}`,
+        // Without a session the anon key stands alone, and the row-level
+        // policies see an anonymous caller.
+        Authorization: `Bearer ${session?.access_token ?? SUPABASE_ANON_KEY}`,
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: signalFor(opts),

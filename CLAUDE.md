@@ -109,9 +109,16 @@ somewhere else.
 
 ### Known exceptions
 
-- **Collections, quizzes, word notes, and the Pro check** still query directly, including the
-  `join_collection` and `collection_members_progress` RPCs. Don't add more; migrate one when
-  you're already working in it.
+- **Push subscriptions and the Pro check** still query directly. Don't add more; migrate one
+  when you're already working in it.
+
+### Identity comes from the session
+
+Never take a user id from a request body. `owner_id`, `student_id`, `user_id` and any display
+name are read from the caller's session server-side — otherwise a client can act as someone
+else, whatever the UI does. Where a route is open to strangers (`allowAnon: true` on the
+client — a student opening a quiz link), forward the caller's credentials and let the
+row-level policy decide; don't hand-roll the check.
 
 ## Bucket rules are written twice
 

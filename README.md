@@ -403,8 +403,44 @@ follows the learner's calendar rather than UTC's.
 Which table a resource reads is an implementation detail — both of these sit on
 `user_settings`, and no client knows it.
 
-**Still direct, to be migrated:** collections, quizzes, word notes, and the Pro check. Don't
-add new direct queries; move one over when you're already working in that area.
+`collections` covers the word lists a user owns and the ones they've joined:
+
+```
+GET    /functions/v1/collections             → { mine, joined }
+POST   /functions/v1/collections             → { collection }
+GET    /functions/v1/collections/:id         → { collection }
+PATCH  /functions/v1/collections/:id         → { collection }   only the keys you send
+DELETE /functions/v1/collections/:id         → { ok }
+POST   /functions/v1/collections/:id/join    → { ok }
+GET    /functions/v1/collections/:id/members → { members }
+```
+
+Ids are UUIDs, so here they sit in the path — unlike a `word`, they can't contain a slash or a
+space. Reads are quiet (the store caches lists in localStorage), writes throw: a rename that
+silently didn't happen is worse than an error message.
+
+`quizzes` and `word-notes` round out the set:
+
+```
+GET  /quizzes                 → { quizzes }    POST /quizzes              → { quiz }
+GET  /quizzes/:id             → { quiz }       anyone with the link, signed in or not
+GET  /quizzes/:id/attempts    → { attempts }   the owner only
+POST /quizzes/:id/attempts    → { ok }         a finished attempt
+
+GET    /word-notes ?word=…    → { notes }
+POST   /word-notes            → { note }
+DELETE /word-notes/:id        → { ok }
+```
+
+**Two quiz routes are open to strangers** — reading a quiz and filing an attempt — because
+that's what a share link is for, and the row-level policies already say so. The client marks
+those calls `allowAnon: true`; everything else fails locally when signed out rather than
+wasting a round trip on a 401.
+
+Identity always comes from the session, never the body: a quiz attempt's `student_id`, a
+note's `user_id` and the name it's signed with, a collection's `owner_id`.
+
+**Still direct, to be migrated:** push subscriptions and the Pro check.
 
 ### Learning buckets
 

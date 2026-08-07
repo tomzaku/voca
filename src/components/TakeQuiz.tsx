@@ -70,7 +70,6 @@ export function TakeQuiz() {
     try {
       await recordAttempt({
         quizId: quiz.id,
-        studentId: user?.id ?? null,
         studentName: name.trim() || 'Anonymous',
         score: r.score,
         total: r.total,

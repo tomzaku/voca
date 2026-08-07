@@ -1,19 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { supabase } from '../lib/supabase';
-
-export interface MemberProgress {
-  user_id: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  done: number;
-  total: number;
-}
+import { fetchMembers, type MemberProgress } from '../lib/collectionsApi';
 
 /** One member avatar wrapped in a conic progress ring; hover shows name + %. */
 export function MemberRing({ m, size = 'w-9 h-9' }: { m: MemberProgress; size?: string }) {
   const pct = m.total > 0 ? Math.round((m.done / m.total) * 100) : 0;
-  const name = m.display_name || 'Learner';
+  const name = m.displayName || 'Learner';
   const deg = pct * 3.6;
   return (
     <div
@@ -24,8 +16,8 @@ export function MemberRing({ m, size = 'w-9 h-9' }: { m: MemberProgress; size?: 
       }}
     >
       <span className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-bg-card">
-        {m.avatar_url ? (
-          <img src={m.avatar_url} alt={name} className="w-full h-full object-cover rounded-full" />
+        {m.avatarUrl ? (
+          <img src={m.avatarUrl} alt={name} className="w-full h-full object-cover rounded-full" />
         ) : (
           <span className="text-[11px] font-extrabold text-accent-purple">
             {name[0]?.toUpperCase() ?? '?'}
@@ -52,11 +44,9 @@ export function MemberAvatars({ collectionId, name, openSignal = 0 }: {
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
-    if (!supabase) return;
     let cancelled = false;
-    supabase.rpc('collection_members_progress', { cid: collectionId }).then(({ data, error }) => {
-      if (cancelled || error || !data) return;
-      setMembers(data as MemberProgress[]);
+    void fetchMembers(collectionId).then((rows) => {
+      if (!cancelled) setMembers(rows);
     });
     return () => { cancelled = true; };
   }, [collectionId]);
@@ -72,7 +62,7 @@ export function MemberAvatars({ collectionId, name, openSignal = 0 }: {
 
   return (
     <div className="flex items-center gap-1.5 mt-2">
-      {shown.map((m) => <MemberRing key={m.user_id} m={m} />)}
+      {shown.map((m) => <MemberRing key={m.userId} m={m} />)}
       {extra > 0 && <span className="text-[11px] font-bold text-text-muted">+{extra}</span>}
 
       {showAll && (
@@ -98,10 +88,10 @@ export function MemberAvatars({ collectionId, name, openSignal = 0 }: {
               {members.map((m) => {
                 const pct = m.total > 0 ? Math.round((m.done / m.total) * 100) : 0;
                 return (
-                  <li key={m.user_id} className="flex items-center gap-3">
+                  <li key={m.userId} className="flex items-center gap-3">
                     <MemberRing m={m} size="w-10 h-10" />
                     <span className="flex-1 min-w-0 text-sm font-bold text-text-primary truncate">
-                      {m.display_name || 'Learner'}
+                      {m.displayName || 'Learner'}
                     </span>
                     <span className={`text-xs font-extrabold shrink-0 ${pct >= 100 ? 'text-accent-green' : 'text-text-muted'}`}>
                       {pct}%

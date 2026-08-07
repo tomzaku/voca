@@ -1,8 +1,12 @@
-// Persistence for shared quizzes: a teacher saves a quiz, students take it via
-// a link, and each attempt is recorded for the teacher to track. Talks to the
-// `quizzes` / `quiz_attempts` tables (see the quizzes migration) via RLS.
+// Shared quizzes: a teacher saves a quiz, students take it via a link, and each
+// attempt is recorded for the teacher to track. Talks to the `quizzes` resource
+// (supabase/functions/quizzes) — never to the tables.
+//
+// Two calls pass `allowAnon`: opening a quiz and filing an attempt. A student
+// following a share link may not have an account, which is the whole point of
+// the link, and the row-level policies decide what an anonymous visitor may do.
 
-import { supabase } from './supabase';
+import { request } from './api';
 import { generateWordData } from './wordService';
 import type { QuizConfig } from './quizConfig';
 
@@ -37,9 +41,9 @@ export interface QuizAttempt {
   createdAt: string;
 }
 
+/** No studentId: the server takes it from the session, or files it anonymously. */
 export interface AttemptInput {
   quizId: string;
-  studentId: string | null;
   studentName: string;
   score: number;
   total: number;
@@ -47,52 +51,23 @@ export interface AttemptInput {
   durationSec: number;
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-function rowToQuiz(r: any): SharedQuiz {
-  return {
-    id: r.id,
-    ownerId: r.owner_id,
-    title: r.title ?? null,
-    config: r.config as QuizConfig,
-    wordData: (r.words_data ?? {}) as Record<string, MiniWordData>,
-    requireAuth: Boolean(r.require_auth),
-    createdAt: r.created_at,
-  };
-}
-
-function rowToAttempt(r: any): QuizAttempt {
-  return {
-    id: r.id,
-    quizId: r.quiz_id,
-    studentId: r.student_id ?? null,
-    studentName: r.student_name,
-    score: r.score ?? 0,
-    total: r.total ?? 0,
-    answers: Array.isArray(r.answers) ? r.answers : [],
-    durationSec: r.duration_sec ?? 0,
-    createdAt: r.created_at,
-  };
-}
-/* eslint-enable @typescript-eslint/no-explicit-any */
-
 /** The shareable student link for a quiz id, honouring the app's base path. */
 export function quizLink(id: string): string {
   const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
   return `${window.location.origin}${base}/quiz/${id}`;
 }
 
-/** Save a quiz owned by the current user. Requires sign-in. */
+/**
+ * Save a quiz owned by the current user. Requires sign-in.
+ *
+ * The word data is snapshotted here, while the teacher is signed in, so a
+ * student never needs an auth-gated word-service call to take the quiz.
+ */
 export async function createSharedQuiz(
   config: QuizConfig,
   title: string | null,
   requireAuth: boolean,
 ): Promise<SharedQuiz> {
-  if (!supabase) throw new Error('Supabase is not configured.');
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Sign in to share a quiz.');
-
-  // Snapshot word data now (teacher is signed in) so students take the quiz
-  // without any further auth-gated word-service calls.
   const wordData: Record<string, MiniWordData> = {};
   await Promise.all(
     config.words.map(async (w) => {
@@ -106,66 +81,50 @@ export async function createSharedQuiz(
   const words = config.words.filter((w) => wordData[w]);
   if (words.length < 2) throw new Error('Could not prepare enough words for this quiz.');
 
-  const { data, error } = await supabase
-    .from('quizzes')
-    .insert({
-      owner_id: user.id,
-      title: title || null,
-      config: { ...config, words },
-      words_data: wordData,
-      require_auth: requireAuth,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return rowToQuiz(data);
+  const { quiz } = await request.post<{ quiz: SharedQuiz }>('/quizzes', {
+    title,
+    config: { ...config, words },
+    wordData,
+    requireAuth,
+  });
+  return quiz;
 }
 
-/** Fetch a quiz by id (readable by anyone with the link). */
+/** Fetch a quiz by id — readable by anyone with the link, signed in or not. */
 export async function fetchSharedQuiz(id: string): Promise<SharedQuiz | null> {
-  if (!supabase) throw new Error('Supabase is not configured.');
-  const { data, error } = await supabase.from('quizzes').select('*').eq('id', id).maybeSingle();
-  if (error) throw error;
-  return data ? rowToQuiz(data) : null;
+  const res = await request.get<{ quiz: SharedQuiz }>(`/quizzes/${id}`, {
+    allowAnon: true,
+    quiet: true,
+  });
+  return res?.quiz ?? null;
 }
 
 /** Quizzes owned by the current user, newest first. */
 export async function fetchMyQuizzes(): Promise<SharedQuiz[]> {
-  if (!supabase) throw new Error('Supabase is not configured.');
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-  const { data, error } = await supabase
-    .from('quizzes')
-    .select('*')
-    .eq('owner_id', user.id)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(rowToQuiz);
+  const { quizzes } = await request.get<{ quizzes: SharedQuiz[] }>('/quizzes');
+  return quizzes ?? [];
 }
 
-/** Record a completed attempt. RLS enforces who may insert what. */
+/**
+ * Record a completed attempt. Throws, so a student sees that their score
+ * didn't save rather than assuming it did.
+ *
+ * `studentId` isn't sent: the server takes it from the session, or files the
+ * attempt anonymously. Which quizzes accept an anonymous attempt is a policy
+ * decision, not the client's.
+ */
 export async function recordAttempt(a: AttemptInput): Promise<void> {
-  if (!supabase) throw new Error('Supabase is not configured.');
-  const { error } = await supabase.from('quiz_attempts').insert({
-    quiz_id: a.quizId,
-    student_id: a.studentId,
-    student_name: a.studentName,
+  await request.post(`/quizzes/${a.quizId}/attempts`, {
+    studentName: a.studentName,
     score: a.score,
     total: a.total,
     answers: a.answers,
-    duration_sec: a.durationSec,
-  });
-  if (error) throw error;
+    durationSec: a.durationSec,
+  }, { allowAnon: true });
 }
 
-/** All attempts for a quiz (owner only, per RLS), newest first. */
+/** All attempts for a quiz (owner only, per the policies), newest first. */
 export async function fetchAttempts(quizId: string): Promise<QuizAttempt[]> {
-  if (!supabase) throw new Error('Supabase is not configured.');
-  const { data, error } = await supabase
-    .from('quiz_attempts')
-    .select('*')
-    .eq('quiz_id', quizId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(rowToAttempt);
+  const { attempts } = await request.get<{ attempts: QuizAttempt[] }>(`/quizzes/${quizId}/attempts`);
+  return attempts ?? [];
 }

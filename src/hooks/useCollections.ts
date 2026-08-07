@@ -1,23 +1,26 @@
 import { create } from 'zustand';
 import { DEFAULT_COLLECTION_ID, getCollection, isCollectionId } from '../lib/collections';
-import { supabase } from '../lib/supabase';
+import {
+  createCollection as apiCreateCollection,
+  deleteCollection as apiDeleteCollection,
+  fetchCollection,
+  fetchCollections,
+  joinCollection,
+  updateCollection as apiUpdateCollection,
+  type Collection,
+} from '../lib/collectionsApi';
 import { fetchSettings, saveSettings } from '../lib/settingsApi';
 import type { VocabularyWord } from '../types';
 
 const KEY = 'voca-collection';
 const USER_KEY = 'voca-user-collections';
 
-/** A collection stored on the server (user-created; shareable when public). */
-export interface UserCollection {
-  id: string;
-  ownerId: string;
-  name: string;
-  description: string | null;
-  words: string[];
-  isPublic: boolean;
-  /** How many users study this collection (denormalized on the server). */
-  memberCount: number;
-}
+/**
+ * A collection stored on the server (user-created; shareable when public).
+ * Re-exported from the API client so there's one definition of the shape,
+ * and existing imports of `UserCollection` keep working.
+ */
+export type UserCollection = Collection;
 
 type W = { word: string; level: VocabularyWord['level'] };
 
@@ -48,18 +51,6 @@ function loadUserCache(): { mine: UserCollection[]; shared: Record<string, UserC
 
 function saveUserCache(mine: UserCollection[], shared: Record<string, UserCollection>, joinedIds: string[]) {
   try { localStorage.setItem(USER_KEY, JSON.stringify({ mine, shared, joinedIds })); } catch { /* ignore */ }
-}
-
-function rowToCollection(r: Record<string, unknown>): UserCollection {
-  return {
-    id: r.id as string,
-    ownerId: r.owner_id as string,
-    name: r.name as string,
-    description: (r.description as string | null) ?? null,
-    words: (r.words as string[]) ?? [],
-    isPublic: Boolean(r.is_public),
-    memberCount: (r.member_count as number | null) ?? 0,
-  };
 }
 
 /** The public share URL for a collection (matches the router basename). */
@@ -109,15 +100,13 @@ export const useCollections = create<CollectionsState>((set, get) => ({
     // Studying a server collection counts you as one of its learners
     // (idempotent server-side; fire-and-forget). Track the join locally too so
     // the collection stays listed on the Collections page after a refresh.
-    if (userCol && supabase) {
+    if (userCol) {
       if (!get().joinedIds.includes(id)) {
         const joinedIds = [...get().joinedIds, id];
         set({ joinedIds });
         saveUserCache(get().mine, get().shared, joinedIds);
       }
-      supabase.rpc('join_collection', { cid: id }).then(({ error }) => {
-        if (error) console.warn('[voca] join_collection error:', error.message);
-      });
+      void joinCollection(id);
     }
   },
 
@@ -134,8 +123,7 @@ export const useCollections = create<CollectionsState>((set, get) => ({
   getUserCollection: (id) => get().mine.find((c) => c.id === id) ?? get().shared[id],
 
   loadFromRemote: async () => {
-    if (!supabase) return;
-    await Promise.all([get().refreshMine(), get().refreshJoined()]);
+    await get().refreshMine();
 
     const remote = (await fetchSettings())?.activeCollection;
 
@@ -149,61 +137,23 @@ export const useCollections = create<CollectionsState>((set, get) => ({
   },
 
   refreshMine: async () => {
-    if (!supabase) return;
-    const { data: session } = await supabase.auth.getSession();
-    const uid = session.session?.user.id;
-    if (!uid) return;
-    const { data, error } = await supabase
-      .from('collections')
-      .select('*')
-      .eq('owner_id', uid)
-      .order('created_at', { ascending: true });
-    if (error || !data) return;
-    const mine = data.map(rowToCollection);
-    set({ mine });
-    saveUserCache(mine, get().shared, get().joinedIds);
+    // One request answers both lists — what you own and what you joined.
+    const res = await fetchCollections();
+    if (!res) return;
+    const shared = { ...get().shared };
+    for (const col of res.joined) shared[col.id] = col;
+    const joinedIds = res.joined.map((c) => c.id);
+    set({ mine: res.mine, shared, joinedIds });
+    saveUserCache(res.mine, shared, joinedIds);
   },
 
+  /** Kept as an alias: both lists arrive together now. */
   refreshJoined: async () => {
-    if (!supabase) return;
-    const { data: session } = await supabase.auth.getSession();
-    const uid = session.session?.user.id;
-    if (!uid) return;
-    // Memberships are the durable record of what this user joined (RLS lets a
-    // user read only their own rows). The joined collections themselves are
-    // fetched alongside so they render after a refresh / on a new device.
-    const { data, error } = await supabase
-      .from('collection_members')
-      .select('collection_id, collections(*)')
-      .eq('user_id', uid);
-    if (error || !data) return;
-    const joinedIds: string[] = [];
-    const shared = { ...get().shared };
-    for (const row of data) {
-      const id = row.collection_id as string;
-      joinedIds.push(id);
-      // supabase-js types embedded relations loosely (array), but a to-one FK
-      // returns an object at runtime — normalize both shapes defensively.
-      const raw = row.collections as unknown;
-      const col = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown> | null;
-      if (col) shared[id] = rowToCollection(col);
-    }
-    set({ joinedIds, shared });
-    saveUserCache(get().mine, shared, joinedIds);
+    await get().refreshMine();
   },
 
   createCollection: async (name, words) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    const { data: session } = await supabase.auth.getSession();
-    const uid = session.session?.user.id;
-    if (!uid) throw new Error('Please sign in to create collections.');
-    const { data, error } = await supabase
-      .from('collections')
-      .insert({ owner_id: uid, name, words })
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    const created = rowToCollection(data);
+    const created = await apiCreateCollection(name, words);
     const mine = [...get().mine, created];
     set({ mine });
     saveUserCache(mine, get().shared, get().joinedIds);
@@ -211,21 +161,14 @@ export const useCollections = create<CollectionsState>((set, get) => ({
   },
 
   updateCollection: async (id, name, words) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    const { error } = await supabase
-      .from('collections')
-      .update({ name, words, updated_at: new Date().toISOString() })
-      .eq('id', id);
-    if (error) throw new Error(error.message);
+    await apiUpdateCollection(id, { name, words });
     const mine = get().mine.map((c) => (c.id === id ? { ...c, name, words } : c));
     set({ mine });
     saveUserCache(mine, get().shared, get().joinedIds);
   },
 
   deleteCollection: async (id) => {
-    if (!supabase) return;
-    const { error } = await supabase.from('collections').delete().eq('id', id);
-    if (error) throw new Error(error.message);
+    await apiDeleteCollection(id);
     const mine = get().mine.filter((c) => c.id !== id);
     set({ mine });
     saveUserCache(mine, get().shared, get().joinedIds);
@@ -234,11 +177,9 @@ export const useCollections = create<CollectionsState>((set, get) => ({
   },
 
   shareCollection: async (id) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
     const target = get().mine.find((c) => c.id === id);
     if (target && !target.isPublic) {
-      const { error } = await supabase.from('collections').update({ is_public: true }).eq('id', id);
-      if (error) throw new Error(error.message);
+      await apiUpdateCollection(id, { isPublic: true });
       const mine = get().mine.map((c) => (c.id === id ? { ...c, isPublic: true } : c));
       set({ mine });
       saveUserCache(mine, get().shared, get().joinedIds);
@@ -249,10 +190,8 @@ export const useCollections = create<CollectionsState>((set, get) => ({
   fetchById: async (id) => {
     const cached = get().getUserCollection(id);
     if (cached) return cached;
-    if (!supabase) return null;
-    const { data } = await supabase.from('collections').select('*').eq('id', id).maybeSingle();
-    if (!data) return null;
-    const col = rowToCollection(data);
+    const col = await fetchCollection(id);
+    if (!col) return null;
     const shared = { ...get().shared, [id]: col };
     set({ shared });
     saveUserCache(get().mine, shared, get().joinedIds);

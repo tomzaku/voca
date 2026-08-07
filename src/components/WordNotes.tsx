@@ -1,17 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-
-interface Note {
-  id: string;
-  word: string;
-  user_id: string;
-  user_name: string;
-  content: string;
-  created_at: string;
-  is_private: boolean;
-}
+import { deleteNote, fetchNotes, postNote, type Note } from '../lib/wordNotesApi';
 
 function timeAgo(date: string): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -54,56 +44,47 @@ export function WordNotes({ word }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) { setLoading(false); return; }
     setLoading(true);
     setNotes([]);
-
-    supabase
-      .from('word_notes')
-      .select('*')
-      .eq('word', word)
-      .or(`is_private.eq.false${user ? `,user_id.eq.${user.id}` : ''}`)
-      .order('created_at', { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        setNotes(data ?? []);
-        setLoading(false);
-      });
+    let cancelled = false;
+    // Which notes are visible — everyone's public ones plus your own — is the
+    // server's call, so there's nothing to filter for here.
+    void fetchNotes(word).then((rows) => {
+      if (cancelled) return;
+      setNotes(rows);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [word]);
 
   const handleSubmit = async () => {
-    if (!supabase || !user || !input.trim()) return;
+    if (!user || !input.trim()) return;
     setSubmitting(true);
     setError(null);
 
-    const userName =
-      user.user_metadata?.full_name ||
-      user.email?.split('@')[0] ||
-      'Anonymous';
-
-    const { data, error: err } = await supabase
-      .from('word_notes')
-      .insert({ word, user_id: user.id, user_name: userName, content: input.trim(), is_private: isPrivate })
-      .select()
-      .single();
-
-    if (err) {
-      setError('Failed to post note. Try again.');
-    } else if (data) {
-      setNotes((prev) => [data as Note, ...prev]);
+    try {
+      // The note is signed with the name on your session, server-side.
+      const note = await postNote(word, input.trim(), isPrivate);
+      setNotes((prev) => [note, ...prev]);
       setInput('');
       setIsPrivate(false);
+    } catch {
+      setError('Failed to post note. Try again.');
     }
     setSubmitting(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (!supabase) return;
-    await supabase.from('word_notes').delete().eq('id', id);
+    const previous = notes;
     setNotes((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await deleteNote(id);
+    } catch {
+      // Put it back rather than leaving the list lying about what's stored.
+      setNotes(previous);
+      setError('Could not delete that note.');
+    }
   };
-
-  if (!supabase) return null;
 
   return (
     <div>
@@ -123,16 +104,16 @@ export function WordNotes({ word }: Props) {
             <div key={note.id} className="bg-bg-tertiary rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-display font-bold shrink-0 ${avatarColor(note.user_name)}`}>
-                    {note.user_name[0].toUpperCase()}
+                  <div className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-display font-bold shrink-0 ${avatarColor(note.userName)}`}>
+                    {note.userName[0].toUpperCase()}
                   </div>
-                  <span className="text-xs font-medium text-text-secondary">{note.user_name}</span>
-                  <span className="text-xs text-text-muted">{timeAgo(note.created_at)}</span>
-                  {note.is_private && (
+                  <span className="text-xs font-medium text-text-secondary">{note.userName}</span>
+                  <span className="text-xs text-text-muted">{timeAgo(note.createdAt)}</span>
+                  {note.isPrivate && (
                     <span className="text-xs text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded">private</span>
                   )}
                 </div>
-                {user?.id === note.user_id && (
+                {user?.id === note.userId && (
                   <button
                     onClick={() => handleDelete(note.id)}
                     className="text-text-muted hover:text-accent-red transition-colors"
