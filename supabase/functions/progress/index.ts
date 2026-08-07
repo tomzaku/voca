@@ -8,6 +8,7 @@
 //   GET    /progress/words           ?filters=&limit=          → { words }
 //   GET    /progress/peers           ?bucket=&exclude=&limit=  → { words, total }
 //   GET    /progress/log             ?word=                    → { log }
+//   GET    /progress/activity        ?since=&until=&limit=     → { events, hasMore }
 //   POST   /progress/lookup          { words: string[] }       → { progress }
 //
 // Routed on HTTP method + path, not on a field in the body. Two routes take a
@@ -51,6 +52,13 @@ const DEFAULT_PREVIEW = 10;
 const MAX_LOOKUP = 2000;
 /** How many words per `in.(…)`: it travels in the query string, which is finite. */
 const LOOKUP_CHUNK = 200;
+
+// The activity feed reads whole answer logs, so both ends are capped: how many
+// word rows are opened, and how many events come back. A dashboard quarter for
+// a heavy learner is a few thousand events; the defaults sit above that.
+const ACTIVITY_ROWS = 2000;
+const DEFAULT_ACTIVITY = 5000;
+const MAX_ACTIVITY = 20000;
 
 interface Ctx {
   url: URL;
@@ -227,6 +235,64 @@ async function log({ url, db, userId }: Ctx) {
 }
 
 /**
+ * Every answer in a date range, across all the caller's words.
+ *
+ * The dashboard's chart and calendar are built from this. They used to read the
+ * answer log out of the vocabulary store, which worked while the whole log was
+ * synced down at sign-in; it isn't any more (it's ~75% of a row's bytes and
+ * `/log` fetches it per word on demand), so there was nothing left in the store
+ * to count and both drew empty.
+ *
+ * Flattened here rather than in the client because the log is a jsonb array per
+ * word: answering "what happened on the 3rd" from the client would mean pulling
+ * every word's entire log down to throw nearly all of it away.
+ *
+ * Days are the caller's, not the server's — `since`/`until` are instants, and
+ * the client sends the ones bounding its own local range. Nothing here has an
+ * opinion about where a day starts.
+ */
+async function activity({ url, db, userId }: Ctx) {
+  const since = url.searchParams.get('since');
+  if (!since) throw new ApiError(400, 'Missing since.');
+  const sinceMs = Date.parse(since);
+  if (!Number.isFinite(sinceMs)) throw new ApiError(400, '"since" must be an ISO date.');
+
+  const untilRaw = url.searchParams.get('until');
+  const untilMs = untilRaw ? Date.parse(untilRaw) : Date.now();
+  if (!Number.isFinite(untilMs)) throw new ApiError(400, '"until" must be an ISO date.');
+
+  const limit = limitOf(url.searchParams.get('limit'), DEFAULT_ACTIVITY, MAX_ACTIVITY);
+
+  // Newest-reviewed first, so when the row cap bites it keeps the words the
+  // range is most likely to be about. No upper bound on last_reviewed_at: a
+  // word answered again yesterday still holds the answers it got last month.
+  const { data, error } = await db
+    .from('user_word_progress')
+    .select('word, review_log')
+    .eq('user_id', userId)
+    .gte('last_reviewed_at', new Date(sinceMs).toISOString())
+    .order('last_reviewed_at', { ascending: false })
+    .limit(ACTIVITY_ROWS);
+  if (error) throw new Error(error.message);
+
+  const events: { word: string; ok: boolean; at: string }[] = [];
+  for (const row of (data ?? []) as { word: string; review_log: unknown }[]) {
+    const log = Array.isArray(row.review_log) ? row.review_log : [];
+    for (const ev of log as { at?: unknown; ok?: unknown }[]) {
+      if (typeof ev?.at !== 'string') continue;
+      const t = Date.parse(ev.at);
+      if (!Number.isFinite(t) || t < sinceMs || t > untilMs) continue;
+      events.push({ word: row.word, ok: Boolean(ev.ok), at: ev.at });
+    }
+  }
+
+  // Newest first, so the cap drops the oldest — the far end of the range, which
+  // is the part a dashboard is least likely to be looking at.
+  events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  return { events: events.slice(0, limit), hasMore: events.length > limit };
+}
+
+/**
  * Progress for one named set of words — a collection's stats panel.
  *
  * Rows, not counts: the panel draws a per-word table (what the scheduler shows
@@ -262,6 +328,7 @@ const ROUTES: Record<string, (ctx: Ctx) => Promise<unknown>> = {
   'GET /words': words,
   'GET /peers': peers,
   'GET /log': log,
+  'GET /activity': activity,
   'POST /lookup': lookup,
 };
 

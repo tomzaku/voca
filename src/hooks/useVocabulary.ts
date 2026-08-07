@@ -9,6 +9,7 @@ import {
 } from '../lib/progressApi';
 import { gradeReview } from '../lib/spacedRepetition';
 import { useStreak } from './useStreak';
+import { useActivity } from './useActivity';
 
 interface VocabularyState {
   progress: Record<string, WordProgress>;
@@ -110,6 +111,10 @@ export const useVocabularyStore = create<VocabularyState>()(
         };
         set((s) => ({ progress: { ...s.progress, [word]: entry } }));
         if (userId) syncWordToRemote(entry, event);
+        // The dashboard's feed is now a day older than the truth. Marked stale
+        // rather than refetched: the answer is still on its way to the server,
+        // and nothing is on screen to update until that page is opened.
+        if (event) useActivity.getState().invalidate();
       },
 
       recordView: (word, userId) => {

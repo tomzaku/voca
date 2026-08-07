@@ -7,6 +7,7 @@ import { useCollections } from './useCollections';
 import { useGuessGame } from './useGuessGame';
 import { useStreak } from './useStreak';
 import { useTeams } from './useTeams';
+import { useActivity } from './useActivity';
 
 interface AuthContextType {
   user: User | null;
@@ -105,6 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Same reason: the board (and whether *this* user shares to it) would
     // otherwise carry over to the next person signing in on this device.
     useTeams.getState().reset();
+    // And the answer feed the dashboard draws — someone else's answers.
+    useActivity.getState().reset();
     await supabase.auth.signOut();
   }, []);
 

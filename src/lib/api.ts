@@ -53,7 +53,7 @@ export interface Options {
 }
 
 type Quiet = Options & { quiet: true };
-type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 function url(path: string, params?: Params): string {
   const u = new URL(`${SUPABASE_URL}/functions/v1${path}`);

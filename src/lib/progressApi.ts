@@ -6,6 +6,7 @@
 //   GET    /progress/words    words only       POST /progress/lookup  a given word list
 //   GET    /progress/peers    a bucket's words
 //   GET    /progress/log      one word's answer log
+//   GET    /progress/activity every answer in a date range, across all words
 //
 // Response shapes are per-route, but key names are consistent: `progress` is
 // always WordProgress[], `words` is always string[]. Failures are always
@@ -75,6 +76,35 @@ export function fetchBucketPeers(
 /** One word's answer log (the per-answer datetimes behind the tally). */
 export function fetchWordLog(word: string): Promise<{ log: ReviewEvent[] } | null> {
   return request.get('/progress/log', { quiet: true, params: { word } });
+}
+
+/** One answer, flattened out of its word so days can be built across all words. */
+export interface ActivityEvent {
+  word: string;
+  ok: boolean;
+  at: string;
+}
+
+/**
+ * Every answer between two instants, across all words, newest-first.
+ *
+ * The dashboard's chart and calendar read this. It's a server route rather than
+ * a walk over the store because the store no longer holds the answer logs — see
+ * `fetchWordLog`, which fetches them one word at a time.
+ *
+ * `since`/`until` are instants: the caller sends the ones bounding its own local
+ * days, and buckets the results by local day itself. `hasMore` means the range
+ * held more answers than `limit` and the oldest were dropped.
+ */
+export function fetchActivity(opts: {
+  since: string;
+  until?: string;
+  limit?: number;
+}): Promise<{ events: ActivityEvent[]; hasMore: boolean } | null> {
+  return request.get('/progress/activity', {
+    quiet: true,
+    params: { since: opts.since, until: opts.until, limit: opts.limit },
+  });
 }
 
 /**

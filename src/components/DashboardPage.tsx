@@ -1,26 +1,23 @@
 // Learning dashboard: how long the streak is, and a month-by-month calendar of
 // what was actually answered each day.
 //
-// Everything here is derived from `history` (the per-word answer log) already in
-// the vocabulary store — no extra queries. That log keeps the last 50 answers
-// per word, so very old days can thin out for heavily-drilled words; recent
-// months, which is what anyone actually looks at, are complete.
+// The chart and the calendar are both built from the answer feed in
+// `useActivity` — one range fetch, not a walk over the vocabulary store, which
+// no longer carries answer logs. The range covers whatever the chart and the
+// displayed month need between them, and widens when the calendar goes back.
+//
+// The log keeps the last 50 answers per word, so very old days can thin out for
+// heavily-drilled words; recent months, which is what anyone actually looks at,
+// are complete.
 
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
-import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useActivity } from '../hooks/useActivity';
 import { MasteryBar } from './MasteryBar';
 import { Leaderboard } from './Leaderboard';
 import { useStreak, localDateString } from '../hooks/useStreak';
-import type { ReviewEvent } from '../types';
-
-/** One answer, flattened out of its word so days can be built across all words. */
-interface DayEvent {
-  word: string;
-  ok: boolean;
-  at: string;
-}
+import type { ActivityEvent as DayEvent } from '../lib/progressApi';
 
 type Filter = 'all' | 'correct' | 'incorrect';
 /** Which edge the day drawer slides in from. */
@@ -91,7 +88,9 @@ function useWordsPerCell(): number {
 }
 
 export function DashboardPage() {
-  const progress = useVocabularyStore((s) => s.progress);
+  const events = useActivity((s) => s.events);
+  const loadingActivity = useActivity((s) => s.loading);
+  const ensureActivity = useActivity((s) => s.ensure);
   const streak = useStreak((s) => s.count);
   const longest = useStreak((s) => s.longest);
 
@@ -107,20 +106,36 @@ export function DashboardPage() {
   const [range, setRange] = useState<Range>('day');
   const perCell = useWordsPerCell();
 
-  /** Every answer ever recorded, bucketed by local day. */
+  // The earliest instant anything on screen needs: the chart's window, or the
+  // month grid being browsed, whichever reaches further back. Asked for on every
+  // render — `ensure` is a no-op once the range is covered and fresh.
+  const neededSince = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const chart = range === 'day'
+      ? startOfToday.getTime() - (DAY_BUCKETS - 1) * DAY_MS
+      : startOfToday.getTime() - (startOfToday.getDay() + (WEEK_BUCKETS - 1) * 7) * DAY_MS;
+    // The grid, not the month: `cells` fills its leading slots with up to six
+    // real days from the month before, and those carry data worth showing.
+    const grid = new Date(month.getFullYear(), month.getMonth(), 1 - month.getDay());
+    return Math.min(chart, grid.getTime());
+  }, [range, month]);
+
+  useEffect(() => {
+    void ensureActivity(neededSince);
+  }, [ensureActivity, neededSince]);
+
+  /** Every answer in the loaded range, bucketed by local day. */
   const eventsByDay = useMemo(() => {
     const map = new Map<string, DayEvent[]>();
-    for (const entry of Object.values(progress)) {
-      for (const ev of (entry.history ?? []) as ReviewEvent[]) {
-        const key = dayKeyOf(ev.at);
-        const list = map.get(key);
-        const item: DayEvent = { word: entry.word, ok: ev.ok, at: ev.at };
-        if (list) list.push(item);
-        else map.set(key, [item]);
-      }
+    for (const ev of events) {
+      const key = dayKeyOf(ev.at);
+      const list = map.get(key);
+      if (list) list.push(ev);
+      else map.set(key, [ev]);
     }
     return map;
-  }, [progress]);
+  }, [events]);
 
   /** Day key -> the events that survive the current filter, deduped by word. */
   const filteredByDay = useMemo(() => {
@@ -266,8 +281,12 @@ export function DashboardPage() {
               <p className="text-xs font-bold text-text-secondary">
                 Words per {range === 'day' ? 'day' : 'week'}
               </p>
+              {/* "0 on average" is a claim about the learner; while the feed is
+                  still arriving it isn't one we can make yet. */}
               <p className="text-[11px] text-text-muted tabular-nums">
-                {activity.average} on average · best {activity.max}
+                {loadingActivity && activity.total === 0
+                  ? 'Loading…'
+                  : `${activity.average} on average · best ${activity.max}`}
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
