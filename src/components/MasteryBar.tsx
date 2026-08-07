@@ -12,56 +12,20 @@ import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
-import { wordBucket, type WordBucket } from '../lib/progress';
+import { BUCKET_META, BUCKET_ORDER, wordBucket, type WordBucket } from '../lib/progress';
 
 type Bucket = Exclude<WordBucket, 'dismissed'>;
 
 /**
- * Ordered as a progression — never answered, struggling, in rotation, done —
- * so the bar reads left-to-right as forward movement. Colours match
- * CollectionStats so one bucket means one colour everywhere in the app.
+ * The four in-rotation buckets in progression order — never answered,
+ * struggling, in rotation, done — so the bar reads left-to-right as forward
+ * movement. Names and colours come from BUCKET_META, so one bucket means one
+ * word and one colour everywhere in the app.
  */
-const BUCKETS: {
-  id: Bucket;
-  label: string;
-  icon: string;
-  bar: string;
-  text: string;
-  hint: string;
-}[] = [
-  {
-    id: 'pending',
-    label: 'Not started',
-    icon: 'lucide:circle-dashed',
-    bar: 'bg-accent-orange',
-    text: 'text-accent-orange',
-    hint: 'Never answered yet — waiting for their first round.',
-  },
-  {
-    id: 'difficult',
-    label: 'Struggling',
-    icon: 'lucide:flame',
-    bar: 'bg-accent-red',
-    text: 'text-accent-red',
-    hint: 'Failed the last round, or more wrong answers than correct — these repeat until learned.',
-  },
-  {
-    id: 'learning',
-    label: 'Learning',
-    icon: 'lucide:refresh-cw',
-    bar: 'bg-accent-cyan',
-    text: 'text-accent-cyan',
-    hint: 'On the review schedule, coming back at growing intervals.',
-  },
-  {
-    id: 'mastered',
-    label: 'Mastered',
-    icon: 'lucide:sparkles',
-    bar: 'bg-accent-green',
-    text: 'text-accent-green',
-    hint: 'Graduated — the review gap passed ~3 weeks.',
-  },
-];
+const BUCKETS = BUCKET_ORDER.filter((b): b is Bucket => b !== 'dismissed').map((id) => ({
+  id,
+  ...BUCKET_META[id],
+}));
 
 export function MasteryBar() {
   const progress = useVocabularyStore((s) => s.progress);

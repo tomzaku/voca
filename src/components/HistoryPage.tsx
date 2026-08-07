@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
@@ -7,7 +7,7 @@ import { useIsPro } from '../hooks/useProStatus';
 import { generateWordData } from '../lib/wordService';
 import { getRecentDailyWords } from '../lib/dailyWord';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
-import { whyLine } from '../lib/progress';
+import { whyLine, wordBucket, BUCKET_META, BUCKET_ORDER, type BucketTab } from '../lib/progress';
 import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
@@ -157,28 +157,28 @@ function DailyWords() {
   );
 }
 
-type Bucket = 'recent' | 'saved' | 'known' | 'unknown' | 'skipped';
+/** A filter chip: the two "how you got here" lists, plus one per learning
+ *  bucket. Bucket ids double as the `?tab=` values, so a link like
+ *  /history?tab=struggling lands on exactly that filter. */
+type Filter = 'recent' | 'saved' | BucketTab;
 
-const FILTERS: { id: Bucket; label: string }[] = [
+const FILTERS: { id: Filter; label: string }[] = [
   { id: 'recent', label: 'Recent' },
   { id: 'saved', label: 'Saved' },
-  { id: 'known', label: 'Known' },
-  { id: 'unknown', label: "Don't know" },
-  { id: 'skipped', label: 'Skipped' },
+  // Learning state, in progression order — the same names and colours the
+  // flash card and the dashboard bar use.
+  ...BUCKET_ORDER.map((b) => ({ id: BUCKET_META[b].tab, label: BUCKET_META[b].label })),
 ];
+
+const isFilter = (s: string): s is Filter => FILTERS.some((f) => f.id === s);
 
 /** Newest-seen first. */
 const byRecent = (a: WordProgress, b: WordProgress) => b.seenAt.localeCompare(a.seenAt);
 
-/** The status pill shown on the Recent timeline so you can tell, at a glance,
- *  what each word's outcome was. A word with no learning outcome falls back to
- *  "saved" (if bookmarked) or "seen". */
-function recentBadge(item: WordProgress): { label: string; icon: string; cls: string } {
-  if (item.status === 'known') return { label: 'known', icon: '✓', cls: 'text-accent-green bg-accent-green/10' };
-  if (item.status === 'skipped') return { label: "don't know", icon: '✗', cls: 'text-accent-red bg-accent-red/10' };
-  if (item.status === 'dismissed') return { label: 'skipped', icon: '🙈', cls: 'text-text-muted bg-bg-tertiary' };
-  if (item.bookmarked) return { label: 'saved', icon: '★', cls: 'text-accent-cyan bg-accent-cyan/10' };
-  return { label: 'seen', icon: '👁', cls: 'text-text-muted bg-bg-tertiary' };
+/** The status pill on each row: which learning bucket the word is in, so with
+ *  mixed filters checked you can still tell what you're looking at. */
+function bucketBadge(item: WordProgress) {
+  return BUCKET_META[wordBucket(item)];
 }
 
 /** Cap on how many words Story Gaps / Mind Map pull from the filtered list —
@@ -190,25 +190,44 @@ const GAME_LIMIT = 30;
 export function HistoryPage() {
   const { user } = useAuth();
   const store = useVocabularyStore();
-  // Multi-select filters: the list (and the games) show the union of every
-  // checked bucket. "Recent" is the superset — everything you've touched.
-  const [checked, setChecked] = useState<Set<Bucket>>(new Set(['recent']));
+  // Multi-select filters, held in the URL so a link can point at one of them
+  // ("/history?tab=struggling" from the flash card's status tag) and so a
+  // reload keeps the view. Comma-separated; absent means the Recent default,
+  // empty means the user unchecked everything.
+  const [params, setParams] = useSearchParams();
+  const checked = useMemo(() => {
+    const raw = params.get('tab');
+    if (raw === null) return new Set<Filter>(['recent']);
+    return new Set<Filter>(raw.split(',').map((s) => s.trim()).filter(isFilter));
+  }, [params]);
+  const toggleFilter = (id: Filter) => {
+    const next = new Set(checked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    const p = new URLSearchParams(params);
+    p.set('tab', [...next].join(','));
+    setParams(p, { replace: true });
+  };
+
   const bookmarks = store.bookmarkedWords();
-  const known = store.wordsByStatus('known');
-  const unknown = store.wordsByStatus('skipped');
-  const dismissed = store.wordsByStatus('dismissed');
   // Recent = everything you've touched (any status, saved, or just viewed),
   // newest-first — one unified timeline across all the buckets below.
   const recent = useMemo(
     () => Object.values(store.progress).sort(byRecent),
     [store.progress],
   );
-  const buckets: Record<Bucket, WordProgress[]> = {
+  // One list per learning bucket, from the same wordBucket() the Learn-page
+  // rotation uses — so "Struggling" here means exactly what it means there.
+  const byBucket = useMemo(() => {
+    const out = {} as Record<BucketTab, WordProgress[]>;
+    for (const b of BUCKET_ORDER) out[BUCKET_META[b].tab] = [];
+    for (const p of recent) out[BUCKET_META[wordBucket(p)].tab].push(p);
+    return out;
+  }, [recent]);
+  const buckets: Record<Filter, WordProgress[]> = {
     recent,
     saved: bookmarks,
-    known,
-    unknown,
-    skipped: dismissed,
+    ...byBucket,
   };
   // Union of the checked buckets, deduped by word, newest-first.
   const list = useMemo(() => {
@@ -299,11 +318,13 @@ export function HistoryPage() {
     return <WordMindMap words={gameWords} onBack={() => setMode('list')} />;
   }
 
-  const emptyCopyByBucket: Record<Bucket, { icon: string; title: string; hint: string }> = {
+  const emptyCopyByBucket: Record<Filter, { icon: string; title: string; hint: string }> = {
     recent: { icon: '🕑', title: 'Nothing here yet', hint: 'Words you learn, save, or look up show up here newest-first — your whole history in one place.' },
     saved: { icon: '★', title: 'No saved words yet', hint: 'Bookmark words while learning to build your personal vocabulary list.' },
-    known: { icon: '✓', title: 'No known words yet', hint: 'Words you mark as “Know it” while learning show up here.' },
-    unknown: { icon: '↷', title: 'Nothing here yet', hint: 'Words you couldn’t guess show up here — they keep coming back until you learn them.' },
+    'not-started': { icon: '◌', title: 'Nothing waiting', hint: 'Words you’ve opened but never answered land here, ready for their first round.' },
+    struggling: { icon: '🔥', title: 'Nothing here yet', hint: 'Words you get wrong more often than right show up here — they keep coming back until you learn them.' },
+    learning: { icon: '🔄', title: 'Nothing in rotation yet', hint: 'Answer a word correctly and it joins the review schedule, coming back at growing intervals.' },
+    mastered: { icon: '✨', title: 'Nothing mastered yet', hint: 'Words graduate here once you keep getting them right over about three weeks.' },
     skipped: { icon: '🙈', title: 'Nothing skipped yet', hint: 'Words you skip while learning land here and stop appearing. Remove one to bring it back.' },
   };
   // Empty-state copy: bucket-specific when exactly one filter is checked,
@@ -327,18 +348,17 @@ export function HistoryPage() {
         {FILTERS.map((f) => {
           const count = buckets[f.id].length;
           const on = checked.has(f.id);
+          // Bucket filters carry their bucket's icon + colour, matching the
+          // status tag on the flash card that links here.
+          const meta = BUCKET_ORDER.map((b) => BUCKET_META[b]).find((m) => m.tab === f.id);
           return (
             <button
               key={f.id}
               onClick={() => {
-                setChecked((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(f.id)) next.delete(f.id);
-                  else next.add(f.id);
-                  return next;
-                });
+                toggleFilter(f.id);
                 setExpanded(null);
               }}
+              title={meta?.hint}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-extrabold transition-all ${
                 on
                   ? 'bg-accent-cyan/10 border-accent-cyan text-accent-cyan'
@@ -346,6 +366,7 @@ export function HistoryPage() {
               }`}
             >
               <Icon icon={on ? 'solar:check-circle-bold' : 'lucide:circle'} className={on ? 'text-accent-cyan' : 'text-text-muted'} />
+              {meta && <Icon icon={meta.icon} className={meta.text} />}
               {f.label}
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${on ? 'bg-accent-cyan/20 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
                 {count}
@@ -491,10 +512,10 @@ export function HistoryPage() {
                 {/* Show each word's outcome at a glance — with mixed filters
                     checked you can't tell otherwise which list a word is from. */}
                 {(() => {
-                  const b = recentBadge(item);
+                  const b = bucketBadge(item);
                   return (
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${b.cls}`}>
-                      <span aria-hidden>{b.icon}</span>
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${b.chip}`} title={b.hint}>
+                      <Icon icon={b.icon} className="text-xs" />
                       <span className="hidden sm:inline">{b.label}</span>
                     </span>
                   );

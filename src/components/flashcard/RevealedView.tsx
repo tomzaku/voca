@@ -6,6 +6,7 @@ import { WordTest } from '../WordTest';
 import { WordNotes } from '../WordNotes';
 import { BuddyBadge } from '../BuddyBadge';
 import { AnswerTally } from './AnswerTally';
+import { BucketTag } from './BucketTag';
 import { DefLengthToggle, ExampleList, PosChip } from './parts';
 import { LEVEL_COLOR } from './constants';
 import { peekWord } from '../../hooks/useWordPeek';
@@ -110,9 +111,9 @@ export function RevealedView({
             <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
               Definition
             </h3>
-            {progress?.mastered && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-medium">Mastered ✨</span>
-            )}
+            {/* Where this word stands — and a way into the other words that
+                stand there with it. */}
+            <BucketTag word={wordData.word} progress={progress} />
             <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
               {wordData.level}
             </span>
