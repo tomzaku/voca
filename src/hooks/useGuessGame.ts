@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { fetchSettings, saveSettings } from '../lib/settingsApi';
 import type { ReviewEvent, WordProgress } from '../types';
 
 // 'random' picks a different real game for every word; 'smart' picks by the
@@ -79,7 +79,8 @@ interface GuessGameState {
   game: GuessGameMode;
   setGame: (g: GuessGameMode) => void;
   /** Pull the saved mode from Supabase on login (user_settings.guess_game). */
-  loadFromRemote: (userId: string) => Promise<void>;
+  /** No userId: the settings API identifies the caller from their session. */
+  loadFromRemote: () => Promise<void>;
 }
 
 /** The guess-game mode for the learn page. Kept on the server (user_settings)
@@ -92,30 +93,14 @@ export const useGuessGame = create<GuessGameState>((set) => ({
     syncGuessGame(g);
   },
 
-  loadFromRemote: async (userId) => {
-    if (!supabase) return;
-    const { data } = await supabase
-      .from('user_settings')
-      .select('guess_game')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (isMode(data?.guess_game)) set({ game: data.guess_game });
+  loadFromRemote: async () => {
+    const settings = await fetchSettings();
+    if (isMode(settings?.guessGame)) set({ game: settings.guessGame });
   },
 }));
 
-/** Upsert the mode onto the user's settings row (fire-and-forget). */
+/** Save the mode onto the user's settings (fire-and-forget).
+ *  Signed out, the call is a no-op and the choice lasts for this session. */
 function syncGuessGame(game: GuessGameMode) {
-  if (!supabase) return;
-  const client = supabase;
-  (async () => {
-    const { data } = await client.auth.getSession();
-    const uid = data.session?.user.id;
-    if (!uid) return; // not signed in — the choice lasts for this session only
-    const { error } = await client.from('user_settings').upsert({
-      user_id: uid,
-      guess_game: game,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) console.warn('[voca] guess-game sync error:', error.message);
-  })();
+  void saveSettings({ guessGame: game });
 }

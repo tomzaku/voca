@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { DEFAULT_COLLECTION_ID, getCollection, isCollectionId } from '../lib/collections';
 import { supabase } from '../lib/supabase';
+import { fetchSettings, saveSettings } from '../lib/settingsApi';
 import type { VocabularyWord } from '../types';
 
 const KEY = 'voca-collection';
@@ -81,7 +82,8 @@ interface CollectionsState {
   /** Look up a server collection (own or fetched-shared) by id. */
   getUserCollection: (id: string) => UserCollection | undefined;
   /** Pull selection + owned collections from the server on login (remote wins). */
-  loadFromRemote: (userId: string) => Promise<void>;
+  /** No userId: the settings API identifies the caller from their session. */
+  loadFromRemote: () => Promise<void>;
   refreshMine: () => Promise<void>;
   /** Fetch the collections this user has joined (from collection_members). */
   refreshJoined: () => Promise<void>;
@@ -131,23 +133,18 @@ export const useCollections = create<CollectionsState>((set, get) => ({
 
   getUserCollection: (id) => get().mine.find((c) => c.id === id) ?? get().shared[id],
 
-  loadFromRemote: async (userId) => {
+  loadFromRemote: async () => {
     if (!supabase) return;
     await Promise.all([get().refreshMine(), get().refreshJoined()]);
 
-    const { data } = await supabase
-      .from('user_settings')
-      .select('active_collection')
-      .eq('user_id', userId)
-      .maybeSingle();
-    const remote = data?.active_collection as string | null | undefined;
+    const remote = (await fetchSettings())?.activeCollection;
 
     if (remote && (isCollectionId(remote) || get().getUserCollection(remote) || await get().fetchById(remote))) {
       try { localStorage.setItem(KEY, remote); } catch { /* ignore */ }
       set({ activeId: remote });
     } else {
       // Nothing valid on the server yet — push the local choice up.
-      syncActive(get().activeId, userId);
+      syncActive(get().activeId);
     }
   },
 
@@ -263,22 +260,8 @@ export const useCollections = create<CollectionsState>((set, get) => ({
   },
 }));
 
-/** Persist the selected collection onto the user's settings row (fire-and-forget). */
-function syncActive(id: string, userId?: string) {
-  if (!supabase) return;
-  const client = supabase;
-  (async () => {
-    let uid = userId;
-    if (!uid) {
-      const { data } = await client.auth.getSession();
-      uid = data.session?.user.id;
-    }
-    if (!uid) return;
-    const { error } = await client.from('user_settings').upsert({
-      user_id: uid,
-      active_collection: id,
-      updated_at: new Date().toISOString(),
-    });
-    if (error) console.warn('[voca] collection sync error:', error.message);
-  })();
+/** Persist the selected collection onto the user's settings (fire-and-forget).
+ *  Signed out, the call is a no-op and the choice stays in localStorage. */
+function syncActive(id: string) {
+  void saveSettings({ activeCollection: id });
 }

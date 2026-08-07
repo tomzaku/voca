@@ -6,6 +6,7 @@
 // push service -> the service worker in src/sw.ts.
 
 import { supabase } from './supabase';
+import { fetchSettings, saveSettings } from './settingsApi';
 
 /**
  * Reminder times are stored as MINUTES SINCE MIDNIGHT (7:30 AM = 450), in
@@ -256,7 +257,7 @@ export async function unsubscribeDevice(userId: string): Promise<void> {
 }
 
 /** Load the user's reminder schedule, falling back to 8am local. */
-export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs> {
+export async function fetchReminderPrefs(): Promise<ReminderPrefs> {
   const fallback: ReminderPrefs = {
     enabled: false,
     notifyStreak: true,
@@ -265,25 +266,18 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
     days: ALL_DAYS,
     timezone: localTimezone(),
   };
-  if (!supabase) return fallback;
+  const settings = await fetchSettings();
+  if (!settings) return fallback;
 
-  const { data, error } = await supabase
-    .from('user_settings')
-    .select('reminder_enabled, notify_streak, notify_review, reminder_times, reminder_days, reminder_timezone')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error || !data) return fallback;
-  const days = data.reminder_days as number[] | null;
-  const times = data.reminder_times as number[] | null;
+  const { reminderDays: days, reminderTimes: times } = settings;
   return {
-    enabled: Boolean(data.reminder_enabled),
+    enabled: Boolean(settings.reminderEnabled),
     // Default true when absent: an opted-in user wanted everything.
-    notifyStreak: (data.notify_streak as boolean | null) ?? true,
-    notifyReview: (data.notify_review as boolean | null) ?? true,
+    notifyStreak: settings.notifyStreak ?? true,
+    notifyReview: settings.notifyReview ?? true,
     times: times && times.length > 0 ? times : DEFAULT_REMINDER_TIMES,
     days: days && days.length > 0 ? days : ALL_DAYS,
-    timezone: (data.reminder_timezone as string | null) || fallback.timezone,
+    timezone: settings.reminderTimezone || fallback.timezone,
   };
 }
 
@@ -292,21 +286,16 @@ export async function fetchReminderPrefs(userId: string): Promise<ReminderPrefs>
  * reminder follows a user who moves rather than firing on their old clock.
  */
 export async function saveReminderPrefs(
-  userId: string,
   prefs: Pick<ReminderPrefs, 'enabled' | 'notifyStreak' | 'notifyReview' | 'times' | 'days'>,
 ): Promise<void> {
-  if (!supabase) return;
-  const { error } = await supabase.from('user_settings').upsert({
-    user_id: userId,
-    reminder_enabled: prefs.enabled,
-    notify_streak: prefs.notifyStreak,
-    notify_review: prefs.notifyReview,
+  await saveSettings({
+    reminderEnabled: prefs.enabled,
+    notifyStreak: prefs.notifyStreak,
+    notifyReview: prefs.notifyReview,
     // Sorted + deduped: the DB caps the length, and a stored duplicate would
     // read back as a repeated row in the UI.
-    reminder_times: [...new Set(prefs.times)].sort((a, b) => a - b),
-    reminder_days: [...prefs.days].sort(),
-    reminder_timezone: localTimezone(),
-    updated_at: new Date().toISOString(),
+    reminderTimes: [...new Set(prefs.times)].sort((a, b) => a - b),
+    reminderDays: [...prefs.days].sort(),
+    reminderTimezone: localTimezone(),
   });
-  if (error) console.warn('[voca] failed to save reminder prefs:', error.message);
 }

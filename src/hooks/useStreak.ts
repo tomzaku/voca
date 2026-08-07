@@ -6,7 +6,7 @@
 // store is a local mirror plus the call that advances it.
 
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { fetchSettings, recordLearningDay } from '../lib/settingsApi';
 
 /** Today as YYYY-MM-DD in the *browser's* zone — not UTC. */
 export function localDateString(date = new Date()): string {
@@ -22,7 +22,8 @@ interface StreakState {
   lastActiveDay: string | null;
   /** True once today has been counted — lets the UI celebrate only on the day's first answer. */
   countedToday: () => boolean;
-  loadFromRemote: (userId: string) => Promise<void>;
+  /** No userId: the settings API identifies the caller from their session. */
+  loadFromRemote: () => Promise<void>;
   /** Call on any graded answer. Cheap and idempotent after the first call each day. */
   record: () => Promise<void>;
   reset: () => void;
@@ -35,44 +36,28 @@ export const useStreak = create<StreakState>()((set, get) => ({
 
   countedToday: () => get().lastActiveDay === localDateString(),
 
-  loadFromRemote: async (userId) => {
-    if (!supabase) return;
-    const { data, error } = await supabase
-      .from('user_settings')
-      .select('streak_count, longest_streak, last_active_day')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error || !data) return;
+  loadFromRemote: async () => {
+    const settings = await fetchSettings();
+    if (!settings) return;
     set({
-      count: (data.streak_count as number | null) ?? 0,
-      longest: (data.longest_streak as number | null) ?? 0,
-      lastActiveDay: (data.last_active_day as string | null) ?? null,
+      count: settings.streakCount ?? 0,
+      longest: settings.longestStreak ?? 0,
+      lastActiveDay: settings.lastActiveDay,
     });
   },
 
   record: async () => {
     // Skip the round trip once the day is already counted — this fires on every
     // single answer, and only the first one of the day can change anything.
-    if (!supabase || get().countedToday()) return;
+    if (get().countedToday()) return;
 
-    const today = localDateString();
-    const { data, error } = await supabase.rpc('record_learning_day', {
-      p_local_date: today,
-    });
-    if (error) {
-      console.warn('[voca] failed to record learning day:', error.message);
-      return;
-    }
-
-    const row = (Array.isArray(data) ? data[0] : data) as
-      | { streak_count: number; longest_streak: number; last_active_day: string }
-      | undefined;
-    if (!row) return;
-
+    // The server counts the day (once) and hands back the resulting streak.
+    const settings = await recordLearningDay(localDateString());
+    if (!settings) return;
     set({
-      count: row.streak_count,
-      longest: row.longest_streak,
-      lastActiveDay: row.last_active_day,
+      count: settings.streakCount ?? 0,
+      longest: settings.longestStreak ?? 0,
+      lastActiveDay: settings.lastActiveDay,
     });
   },
 

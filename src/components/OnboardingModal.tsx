@@ -44,7 +44,7 @@ export function OnboardingModal() {
       return;
     }
     let cancelled = false;
-    fetchOnboardingPrefs(user.id).then((prefs) => {
+    fetchOnboardingPrefs().then((prefs) => {
       if (!cancelled) setShow(!hasOnboarded(prefs));
     });
     return () => { cancelled = true; };
@@ -66,11 +66,11 @@ export function OnboardingModal() {
     if (voice) setTtsVoice(voice);
 
     // Persist so we don't ask again (on this or any other device).
-    await saveOnboardingPrefs(user.id, {
-      word_pack: collectionId,
-      mother_language: mother,
-      tts_engine: engine,
-      tts_voice: voice,
+    await saveOnboardingPrefs({
+      wordPack: collectionId,
+      motherLanguage: mother,
+      ttsEngine: engine,
+      ttsVoice: voice,
     });
     setShow(false);
     setSaving(false);

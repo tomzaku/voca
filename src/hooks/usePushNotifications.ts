@@ -66,7 +66,7 @@ export function usePushNotifications(userId: string | undefined) {
     if (!userId) return;
 
     let cancelled = false;
-    void fetchReminderPrefs(userId).then((prefs) => {
+    void fetchReminderPrefs().then((prefs) => {
       if (cancelled) return;
       setEnabled(prefs.enabled);
       setNotifyStreak(prefs.notifyStreak);
@@ -100,7 +100,7 @@ export function usePushNotifications(userId: string | undefined) {
         toast.error("Couldn't set up reminders on this device.");
         return;
       }
-      await saveReminderPrefs(userId, { enabled: true, notifyStreak, notifyReview, times, days });
+      await saveReminderPrefs({ enabled: true, notifyStreak, notifyReview, times, days });
       setEnabled(true);
     } catch (err) {
       // Never let a rejection escape: an unhandled one leaves the control
@@ -131,7 +131,7 @@ export function usePushNotifications(userId: string | undefined) {
       } else {
         await unsubscribeDevice(userId);
       }
-      await saveReminderPrefs(userId, { enabled: next, notifyStreak, notifyReview, times, days });
+      await saveReminderPrefs({ enabled: next, notifyStreak, notifyReview, times, days });
       setEnabled(next);
     } catch (err) {
       console.warn('[voca] toggling reminders failed:', err);
@@ -147,7 +147,7 @@ export function usePushNotifications(userId: string | undefined) {
       const previous = times;
       setTimesState(next);
       try {
-        await saveReminderPrefs(userId, { enabled, notifyStreak, notifyReview, times: next, days });
+        await saveReminderPrefs({ enabled, notifyStreak, notifyReview, times: next, days });
       } catch (err) {
         // `saveReminderPrefs` throws, so without this the rejection is unhandled
         // and the UI silently claims a schedule the server never stored.
@@ -203,7 +203,7 @@ export function usePushNotifications(userId: string | undefined) {
       if (next.length === 0) return;
       setDaysState(next);
       try {
-        await saveReminderPrefs(userId, { enabled, notifyStreak, notifyReview, times, days: next });
+        await saveReminderPrefs({ enabled, notifyStreak, notifyReview, times, days: next });
       } catch (err) {
         setDaysState(days);
         console.warn('[voca] saving reminder days failed:', err);
@@ -225,7 +225,7 @@ export function usePushNotifications(userId: string | undefined) {
       if (type === 'streak') setNotifyStreak(nextStreak);
       else setNotifyReview(nextReview);
       try {
-        await saveReminderPrefs(userId, {
+        await saveReminderPrefs({
           enabled,
           notifyStreak: nextStreak,
           notifyReview: nextReview,

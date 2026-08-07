@@ -55,10 +55,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // populated on a fresh browser (writes sync up; this brings it back down).
       if (session?.user) {
         useVocabularyStore.getState().loadFromRemote();
-        useCompanion.getState().loadFromRemote(session.user.id);
-        useCollections.getState().loadFromRemote(session.user.id);
-        useGuessGame.getState().loadFromRemote(session.user.id);
-        useStreak.getState().loadFromRemote(session.user.id);
+        useCompanion.getState().loadFromRemote();
+        useCollections.getState().loadFromRemote();
+        useGuessGame.getState().loadFromRemote();
+        useStreak.getState().loadFromRemote();
       }
       setLoading(false);
     });
@@ -72,10 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setTimeout(() => {
         if (session?.user) {
           useVocabularyStore.getState().loadFromRemote();
-          useCompanion.getState().loadFromRemote(session.user.id);
-          useCollections.getState().loadFromRemote(session.user.id);
-          useGuessGame.getState().loadFromRemote(session.user.id);
-          useStreak.getState().loadFromRemote(session.user.id);
+          useCompanion.getState().loadFromRemote();
+          useCollections.getState().loadFromRemote();
+          useGuessGame.getState().loadFromRemote();
+          useStreak.getState().loadFromRemote();
         }
         setLoading(false);
       }, 0);

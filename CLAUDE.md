@@ -97,10 +97,15 @@ caller's `signal` is combined with the timeout rather than replacing it.
 `src/hooks/useVocabulary.ts` doesn't import `supabase` at all. Writes also mean the server owns
 `user_id` (taken from the session, never the request body) and the answer-log append.
 
+`user_settings` is fully migrated too — the `settings` resource (`src/lib/settingsApi.ts`).
+Its `PATCH` writes only the keys it's given, because six modules used to upsert that one row
+and could undo each other's fields.
+
 ### Known exceptions
 
-- **Older features** (collections, quizzes, teams, streak, companion, notes) still query
-  directly. Don't add more; migrate one when you're already working in it.
+- **Collections, quizzes, word notes, and the Pro check** still query directly, including the
+  `join_collection` and `collection_members_progress` RPCs. Don't add more; migrate one when
+  you're already working in it.
 
 ## Bucket rules are written twice
 

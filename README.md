@@ -377,9 +377,22 @@ stored copy of progress rather than interrupt anyone.
 npm run deploy:progress    # or npm run deploy:supabase for everything
 ```
 
-**Still direct, to be migrated:** the older features (collections, quizzes, teams, streak,
-companion, word notes). Don't add new direct queries; move one over when you're already
-working in that area.
+`settings` is the other resource on this pattern — one row per user holding onboarding
+choices, companion, reminder preferences and the learning streak:
+
+```
+GET   /functions/v1/settings          → { settings }
+PATCH /functions/v1/settings   { … }  → { settings }   writes only the keys you send
+POST  /functions/v1/settings/streak { day } → { settings }   counts today, once
+```
+
+`PATCH` writing only the keys it was given is the point: six client modules used to upsert
+this row, each naming its own columns, so two saving at once could undo each other. The streak
+fields are read-only — they move through `record_learning_day`, which enforces "one day counts
+once" in SQL.
+
+**Still direct, to be migrated:** collections, quizzes, word notes, and the Pro check. Don't
+add new direct queries; move one over when you're already working in that area.
 
 ### Learning buckets
 
