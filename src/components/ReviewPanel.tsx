@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import type { WordProgress } from '../types';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { isDue } from '../lib/spacedRepetition';
 import { whyLine } from '../lib/progress';
+import { MIN_QUIZ_WORDS } from '../lib/quizConfig';
 
 const DAY = 86_400_000;
 
@@ -35,8 +37,12 @@ function dueLabel(p: WordProgress): string {
  * words it stands for, each a link to open that word. Words enter the schedule
  * as you answer them on the Learn page; getting one right pushes its next
  * review further out until, after ~21 days, it's mastered.
+ *
+ * `onQuiz` turns a due list into a test: the panel says which words are due,
+ * but only an answer proves you still know one, and the quiz's answers feed
+ * straight back into the schedule shown here.
  */
-export function ReviewPanel() {
+export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) {
   const progress = useVocabularyStore((s) => s.progress);
   // What the popup is currently showing (null = closed).
   const [popup, setPopup] = useState<{ title: string; kind: PopupKind; words: WordProgress[] } | null>(null);
@@ -74,6 +80,12 @@ export function ReviewPanel() {
     if (buckets[i].length === 0) return;
     setPopup({ title: `Due ${i === 0 ? 'today' : weekdayLabel(i)}`, kind: 'due', words: buckets[i] });
   };
+
+  // A list is quizzable only if the host page can run one and it has enough
+  // words to build a round from.
+  const quizFor = (words: WordProgress[]) =>
+    onQuiz && words.length >= MIN_QUIZ_WORDS ? () => onQuiz(words.map((p) => p.word)) : undefined;
+  const quizDue = quizFor(dueWords);
 
   return (
     <section className="mb-8">
@@ -124,6 +136,21 @@ export function ReviewPanel() {
                 onClick={masteredWords.length ? () => setPopup({ title: 'Mastered', kind: 'mastered', words: masteredWords }) : undefined} />
             </div>
 
+            {/* Test the due words instead of just reading them — the quiz
+                records every answer, so what you get right here is what moves
+                on the schedule above. */}
+            {quizDue && (
+              <button
+                type="button"
+                onClick={quizDue}
+                title="Take a quiz on the words due right now — your answers count towards your progress."
+                className="w-full mb-4 py-2.5 rounded-xl bg-accent-orange/10 border border-accent-orange/30 text-accent-orange text-xs font-display font-extrabold flex items-center justify-center gap-1.5 hover:bg-accent-orange/20 transition-colors"
+              >
+                <Icon icon="lucide:file-question" className="text-sm" />
+                Quiz {dueWords.length} due
+              </button>
+            )}
+
             {/* 7-day forecast — click a bar to see that day's words. */}
             <div className="flex items-end justify-between gap-1.5">
               {buckets.map((b, i) => {
@@ -167,7 +194,17 @@ export function ReviewPanel() {
         )}
       </div>
 
-      {popup && <WordPopup title={popup.title} kind={popup.kind} words={popup.words} onClose={() => setPopup(null)} />}
+      {popup && (
+        <WordPopup
+          title={popup.title}
+          kind={popup.kind}
+          words={popup.words}
+          // Only due lists get the quiz shortcut: quizzing "mastered" would
+          // drag graduated words back onto the schedule.
+          onQuiz={popup.kind === 'due' ? quizFor(popup.words) : undefined}
+          onClose={() => setPopup(null)}
+        />
+      )}
     </section>
   );
 }
@@ -176,8 +213,8 @@ export function ReviewPanel() {
  *  explanation of *why* these words are here, then each row shows the word, its
  *  personal review history (the reason it resurfaced), and its next-due timing —
  *  and links to open the word. */
-function WordPopup({ title, kind, words, onClose }: {
-  title: string; kind: PopupKind; words: WordProgress[]; onClose: () => void;
+function WordPopup({ title, kind, words, onQuiz, onClose }: {
+  title: string; kind: PopupKind; words: WordProgress[]; onQuiz?: () => void; onClose: () => void;
 }) {
   return (
     <div
@@ -209,7 +246,7 @@ function WordPopup({ title, kind, words, onClose }: {
           </button>
         </div>
 
-        <div className="overflow-y-auto divide-y divide-border">
+        <div className="min-h-0 overflow-y-auto divide-y divide-border">
           {words.map((p) => (
             <Link
               key={p.word}
@@ -228,6 +265,20 @@ function WordPopup({ title, kind, words, onClose }: {
             </Link>
           ))}
         </div>
+
+        {/* Quiz the whole list rather than opening the words one at a time. */}
+        {onQuiz && (
+          <div className="shrink-0 px-4 py-3 border-t border-border">
+            <button
+              type="button"
+              onClick={() => { onClose(); onQuiz(); }}
+              className="w-full py-2.5 rounded-xl bg-accent-cyan text-bg-primary text-sm font-display font-extrabold flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
+            >
+              <Icon icon="lucide:file-question" className="text-base" />
+              Quiz these {words.length} words
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

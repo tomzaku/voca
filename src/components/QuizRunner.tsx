@@ -255,7 +255,10 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
     if (correct) setScore((s) => s + 1);
     setAnswers((a) => [...a, { kind: 'match', question: q, links, correct }]);
     if (recordProgress) {
-      q.pairs.forEach((p) => markWord(p.word, links[p.word] === p.word ? 'known' : 'skipped', user?.id));
+      // Each pair is graded on its own: a board with one bad link shouldn't
+      // mark the other words wrong. 'meaning' — the learner connected the word
+      // to its definition, same question as the notification review.
+      q.pairs.forEach((p) => markWord(p.word, links[p.word] === p.word ? 'known' : 'skipped', user?.id, 0, 'meaning'));
     }
     goNext();
   };

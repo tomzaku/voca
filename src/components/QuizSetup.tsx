@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { playSelect } from '../lib/sfx';
 import {
-  QUESTION_TYPES, QUESTION_TYPE_META, SECONDS_PER_WORD, makeQuizConfig,
+  MIN_QUIZ_WORDS, QUESTION_TYPES, QUESTION_TYPE_META, SECONDS_PER_WORD, makeQuizConfig,
   type QuestionType, type QuizConfig, type RevealMode,
 } from '../lib/quizConfig';
 import { createSharedQuiz, quizLink } from '../lib/quizShare';
@@ -14,11 +14,16 @@ import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { QuizRunner } from './QuizRunner';
 
-const MIN_WORDS = 2;
+const MIN_WORDS = MIN_QUIZ_WORDS;
 
 // Word chips shown before the list collapses behind a "Show more" button —
 // a 900-word collection should not render a 900-chip wall.
 const WORDS_SHOWN_STEP = 60;
+
+// Most words `selectAll` preselects. The pool is already the batch there, but
+// a month away can leave hundreds of reviews due, and at SECONDS_PER_WORD that
+// is an hour-long quiz nobody finishes. The rest stay one "All" click away.
+const MAX_PRESELECT = 30;
 
 // Default for the Smart batch-size input: 30% of the pool, but never below
 // MIN_WORDS. The user can type any size from MIN_WORDS up to the whole pool.
@@ -36,16 +41,22 @@ interface Props {
   onBack: () => void;
   /** Feed live practice answers into the learner's SRS (collection practice). */
   recordProgress?: boolean;
+  /** The pool *is* the batch — preselect it (up to MAX_PRESELECT, in the order
+   *  given) instead of smart-sampling a slice. For callers that already chose
+   *  the words, like the review panel's due lists. */
+  selectAll?: boolean;
 }
 
-export function QuizSetup({ words, onBack, recordProgress = false }: Props) {
+export function QuizSetup({ words, onBack, recordProgress = false, selectAll = false }: Props) {
   const { user } = useAuth();
 
   // ── Config (the settings) ──
   // Start with a smart batch selected (not the whole pool — a 900-word
   // collection should not default to a 900-question quiz).
   const [chosen, setChosen] = useState<Set<string>>(() => new Set(
-    sampleSmartWords(words, smartCount(words.length), progressLookup(useVocabularyStore.getState().progress)),
+    selectAll
+      ? words.slice(0, MAX_PRESELECT)
+      : sampleSmartWords(words, smartCount(words.length), progressLookup(useVocabularyStore.getState().progress)),
   ));
   const [qTypes, setQTypes] = useState<Set<QuestionType>>(() => new Set(QUESTION_TYPES));
   const [reveal, setReveal] = useState<RevealMode>('end');

@@ -201,9 +201,19 @@ export function HistoryPage() {
   // The quiz offers every matching word, so it needs the ones past the loaded
   // page — fetched (words only) when the quiz is actually opened.
   const [quizWords, setQuizWords] = useState<string[] | null>(null);
+  // Whether the quiz pool is already the batch (the review panel hands over an
+  // exact due list) or a pool to sample a batch from (the filtered history).
+  const [quizAll, setQuizAll] = useState(false);
   const [mode, setMode] = useState<'list' | 'quiz' | 'paragraph' | 'mindmap'>('list');
   const openQuiz = async () => {
     setQuizWords(await fetchAllWords());
+    setQuizAll(false);
+    setMode('quiz');
+  };
+  // Quiz a due list straight from the review panel — every word, no sampling.
+  const openReviewQuiz = (words: string[]) => {
+    setQuizWords(words);
+    setQuizAll(true);
     setMode('quiz');
   };
   const { isPro } = useIsPro();
@@ -267,7 +277,17 @@ export function HistoryPage() {
   };
 
   if (mode === 'quiz') {
-    return <QuizSetup words={quizWords ?? gameWords} onBack={() => setMode('list')} />;
+    // recordProgress: these are the learner's own words, so a quiz answer is a
+    // review — it counts in the tallies and reschedules the word, the same as
+    // answering it on the Learn page.
+    return (
+      <QuizSetup
+        words={quizWords ?? gameWords}
+        recordProgress
+        selectAll={quizAll}
+        onBack={() => setMode('list')}
+      />
+    );
   }
 
   if (mode === 'paragraph') {
@@ -599,7 +619,7 @@ export function HistoryPage() {
 
         {/* ── Right: review + word of the day ── */}
         <aside className="lg:sticky lg:top-20">
-          <ReviewPanel />
+          <ReviewPanel onQuiz={openReviewQuiz} />
           <DailyWords />
         </aside>
       </div>

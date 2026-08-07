@@ -48,6 +48,7 @@ export function RevealedView({
   onKnow: () => void;
 }) {
   const headword = wordData.headword || wordData.word;
+  console.log(">wordData", wordData)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-4 sm:gap-5 items-start">
@@ -232,7 +233,7 @@ export function RevealedView({
 
         {/* Idioms — popular fixed expressions containing the word */}
         {(wordData.idioms?.length ?? 0) > 0 && (
-          <IdiomsCard key={wordData.word} idioms={wordData.idioms!} />
+          <IdiomsCard key={`${wordData.word}-${wordData.idioms?.[0].idiom}`} idioms={wordData.idioms!} />
         )}
 
         <BuddyBadge />

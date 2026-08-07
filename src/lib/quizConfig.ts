@@ -21,6 +21,10 @@ export type RevealMode = 'each' | 'end';
 /** Suggested seconds per word — the basis for the auto time limit. */
 export const SECONDS_PER_WORD = 20;
 
+/** Fewest words a quiz can run with — one word can't fill an MCQ round.
+ *  Callers that offer a "quiz these words" shortcut check it before offering. */
+export const MIN_QUIZ_WORDS = 2;
+
 export interface QuizConfig {
   /** Schema version, so shared codes stay readable as the format evolves. */
   version: 1;
