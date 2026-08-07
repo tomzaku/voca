@@ -26,6 +26,13 @@
 // word for everyone, so a per-request level could only ever apply to whoever
 // happened to search it first.
 //
+// **Signing in is not required to READ.** The cache is shared by everyone, so a
+// visitor without an account sees any word already in it — that's the flash card
+// working before you sign up. Only the third step is gated: generating a word
+// nobody has looked up costs tokens, and the rate limit budgets per user id, so
+// an anonymous caller could neither be billed nor throttled. They get a 401
+// asking them to sign in, and only for words the cache has never seen.
+//
 // Storage lives in cache.ts / rejects.ts / family.ts / idioms.ts; prompts and
 // provider calls in generate.ts; shapes in types.ts, with sanitize.ts turning
 // untrusted model output into them.
@@ -37,7 +44,7 @@ import {
   corsHeaders,
   jsonResponse,
   reqStr,
-  requireUser,
+  optionalUser,
   serviceClient,
   underRateLimit,
 } from '../_shared/ai.ts';
@@ -53,8 +60,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
-  const auth = await requireUser(req);
-  if (!auth) return jsonResponse(401, { error: 'Please sign in to use this feature.' });
+  const auth = await optionalUser(req);
 
   let params: Record<string, unknown>;
   try {
@@ -77,13 +83,15 @@ Deno.serve(async (req) => {
   const learnKey = learnLang.toLowerCase();
   const svc = serviceClient();
   const t0 = Date.now();
-  console.log(`[word] request word="${wordKey}" learn=${learnKey} mother=${motherLang} user=${auth.user.id}`);
+  console.log(`[word] request word="${wordKey}" learn=${learnKey} mother=${motherLang} user=${auth.user?.id ?? 'anon'}`);
 
   // ── 1. Known word? ──
   const cached = await readWord(svc, wordKey);
   if (cached) {
     const [translation, wordFamily, idioms] = await Promise.all([
-      translationFor(svc, auth.supabase, wordKey, cached, motherLang),
+      // Null client for a visitor: they get the translations already stored,
+      // never a fresh translate call (nobody to rate-limit).
+      translationFor(svc, auth.user ? auth.supabase : null, wordKey, cached, motherLang),
       fetchFamily(svc, wordKey, cached.headword),
       fetchIdioms(svc, wordKey),
     ]);
@@ -99,6 +107,11 @@ Deno.serve(async (req) => {
   }
 
   // ── 3. Neither — ask the AI, and remember whatever it says ──
+  // The only step that costs anything, and the only one that needs an account.
+  if (!auth.user) {
+    console.log(`[word] cache MISS "${wordKey}" — anonymous, not generating`);
+    return jsonResponse(401, { error: 'Please sign in to look up a new word.' });
+  }
   if (!await underRateLimit(auth.supabase)) {
     console.warn(`[word] rate-limited user=${auth.user.id} word="${wordKey}"`);
     return jsonResponse(429, { error: 'Too many requests — please slow down and try again shortly.' });

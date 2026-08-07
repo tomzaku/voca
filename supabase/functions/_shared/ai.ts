@@ -47,8 +47,15 @@ const DEFAULT_MODEL: Record<Provider, string> = {
 
 // ─── Auth / clients ─────────────────────────────────────────────────
 
-/** Verify the caller is a signed-in user. Returns the user + a scoped client, or null. */
-export async function requireUser(req: Request): Promise<{ supabase: SupabaseClient; user: User } | null> {
+/**
+ * The caller, whoever they are: a scoped client always, and the user when one is
+ * signed in. Signed out, the client carries only the anon key, so the row-level
+ * policies see an anonymous visitor — which is what decides what they may read.
+ *
+ * For routes a stranger may reach (`word`, `pick`). A route that costs money or
+ * writes to a user's own rows wants `requireUser` instead.
+ */
+export async function optionalUser(req: Request): Promise<{ supabase: SupabaseClient; user: User | null }> {
   const authHeader = req.headers.get('Authorization') ?? '';
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -56,8 +63,13 @@ export async function requireUser(req: Request): Promise<{ supabase: SupabaseCli
     { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } },
   );
   const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  return { supabase, user };
+  return { supabase, user: error ? null : user };
+}
+
+/** Verify the caller is a signed-in user. Returns the user + a scoped client, or null. */
+export async function requireUser(req: Request): Promise<{ supabase: SupabaseClient; user: User } | null> {
+  const { supabase, user } = await optionalUser(req);
+  return user ? { supabase, user } : null;
 }
 
 /**

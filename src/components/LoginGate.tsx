@@ -1,15 +1,35 @@
+import { matchPath, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
 /**
- * Blocking sign-in gate. Overlays the whole app whenever there's no signed-in
- * user, so login is required to use it. Hidden while auth is still resolving
- * (including the OAuth redirect) and when there's no backend to sign into.
+ * Routes a visitor without an account may see. Everything else is overlaid.
+ *
+ * The flash card is here because the word cache is shared: `word` serves any
+ * word already in it to anyone, and `pick` needs no progress rows to choose one.
+ * So a stranger can try the app before deciding to sign up — they just can't
+ * look up a word nobody has generated yet, and nothing they do is saved.
+ *
+ * The quiz routes decide for themselves: a share link is meant for students who
+ * may have no account, and each quiz carries its own `requireAuth`.
+ */
+const PUBLIC_ROUTES = ['/', '/login', '/quiz/:id', '/quiz/:id/results'];
+
+/**
+ * Blocking sign-in gate. Overlays the app whenever there's no signed-in user and
+ * the current route isn't public, so anything that keeps state — history,
+ * collections, streaks, the dashboard — requires an account. Hidden while auth is
+ * still resolving (including the OAuth redirect) and when there's no backend to
+ * sign into.
+ *
+ * On a public route the way in is the sidebar's "Sign in", not this.
  */
 export function LoginGate() {
   const { user, loading, signInWithGoogle } = useAuth();
+  const { pathname } = useLocation();
 
   if (!supabase || loading || user) return null;
+  if (PUBLIC_ROUTES.some((route) => matchPath(route, pathname))) return null;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">

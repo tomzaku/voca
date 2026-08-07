@@ -24,10 +24,17 @@ export interface WordDataResult {
 /** Generation can take a while, and the caller may cancel it. */
 const TIMEOUT_MS = 60_000;
 
-/** Throws ApiError with the server's message — a failed lookup is worth showing. */
+/**
+ * Throws ApiError with the server's message — a failed lookup is worth showing.
+ *
+ * `allowAnon`: the cache is shared, so a visitor without an account can read any
+ * word already in it. Looking up one that isn't comes back 401 from the server
+ * with the message to show them — the sign-in prompt is the server's call, not
+ * something to guess at here.
+ */
 export function fetchWordData(
   params: WordDataParams,
   signal?: AbortSignal,
 ): Promise<WordDataResult> {
-  return request.post<WordDataResult>('/word', params, { signal, timeout: TIMEOUT_MS });
+  return request.post<WordDataResult>('/word', params, { signal, timeout: TIMEOUT_MS, allowAnon: true });
 }

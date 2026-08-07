@@ -294,8 +294,11 @@ export const useVocabularyStore = create<VocabularyState>()(
       // The answer log is left out of the persisted copy: it's the bulk of the
       // payload, localStorage is a ~5MB budget for the whole origin, and this
       // blob is rewritten on every single answer. It's re-fetched per word on
-      // demand instead — safe because using the app at all requires signing in
-      // (LoginGate), so there is always a server copy to fetch from.
+      // demand instead — safe because anything that *keeps* a log requires
+      // signing in (LoginGate gates every route but the flash card), so wherever
+      // there's a log to show there's a server copy to fetch it from. A signed-out
+      // visitor on the flash card has no answers recorded anywhere, so there's
+      // nothing for the missing local copy to lose.
       partialize: (s) => ({
         progress: Object.fromEntries(
           Object.entries(s.progress).map(([k, v]) => [k, { ...v, history: undefined }]),

@@ -19,9 +19,14 @@
 //
 // The client falls back to the same algorithm over local state when offline.
 //
+// Signing in isn't required: a visitor without an account simply has no progress
+// rows, so every word reads as never-answered and they get the same selection
+// the client would make on its own. Nothing here is generated or billed — it's
+// a sort over a list the caller already sent.
+//
 // Deploy: `supabase functions deploy pick`
 
-import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
+import { corsHeaders, jsonResponse, optionalUser } from '../_shared/ai.ts';
 
 const MAX_WORDS = 1000;
 const MAX_EXCLUDE = 100;
@@ -178,8 +183,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
-  const auth = await requireUser(req);
-  if (!auth) return jsonResponse(401, { error: 'Please sign in to use this feature.' });
+  const auth = await optionalUser(req);
 
   let params: Record<string, unknown>;
   try {
@@ -207,16 +211,20 @@ Deno.serve(async (req) => {
     sources = { random: true, unseen: true, mistakes: true, smart: false };
   }
 
-  // The user's own progress rows (RLS-scoped client). Keyed lowercase so
-  // custom-collection casing still matches.
-  const { data: rows, error } = await auth.supabase
-    .from('user_word_progress')
-    .select('word, status, due_at, mastered, correct_count, wrong_count')
-    .eq('user_id', auth.user.id);
-  if (error) return jsonResponse(500, { error: 'Could not load progress.' });
+  // The user's own progress rows (RLS-scoped client), or none at all for a
+  // visitor. Keyed lowercase so custom-collection casing still matches.
+  let rows: Record<string, unknown>[] = [];
+  if (auth.user) {
+    const res = await auth.supabase
+      .from('user_word_progress')
+      .select('word, status, due_at, mastered, correct_count, wrong_count')
+      .eq('user_id', auth.user.id);
+    if (res.error) return jsonResponse(500, { error: 'Could not load progress.' });
+    rows = res.data ?? [];
+  }
 
   const progMap = new Map<string, Prog>();
-  for (const r of rows ?? []) {
+  for (const r of rows) {
     progMap.set(String(r.word).toLowerCase(), {
       status: (r.status as string | null) ?? null,
       dueAt: r.due_at ? new Date(r.due_at as string).getTime() : null,
@@ -242,6 +250,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  console.log(`[pick] mode=${mode} candidates=${words.length} picked=${picks.length} user=${auth.user.id}`);
+  console.log(`[pick] mode=${mode} candidates=${words.length} picked=${picks.length} user=${auth.user?.id ?? 'anon'}`);
   return jsonResponse(200, { words: picks });
 });

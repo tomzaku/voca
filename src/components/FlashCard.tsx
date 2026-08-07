@@ -17,6 +17,7 @@ import { useTeams } from '../hooks/useTeams';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { useWordDoodle } from '../hooks/useWordDoodle';
 import { useIsPro } from '../hooks/useProStatus';
+import { ApiError } from '../lib/api';
 import { stopSpeaking } from '../lib/tts';
 import { encodeWord, decodeWord } from '../lib/wordCode';
 import { SimilarWords } from './SimilarWords';
@@ -40,9 +41,27 @@ const HISTORY_RESTORE_LIMIT = 12;
 // 'unknown' = the search wasn't a real word; the card is replaced by suggestions.
 type CardPhase = 'loading' | 'introduce' | 'revealed' | 'unknown';
 
+/**
+ * What to tell the user about a load that failed.
+ *
+ * The server's own message wins where it's the actionable one: a missing API
+ * key, or the 401 a signed-out visitor gets for a word the shared cache doesn't
+ * have yet (cached words are readable without an account — only generating a
+ * new one needs one).
+ */
+function loadErrorMessage(err: unknown, offlineText: string, fallback: string): string {
+  const msg = (err as Error).message || '';
+  if (msg.includes('API key')) return msg;
+  if (err instanceof ApiError && err.status === 401) {
+    return msg || 'Please sign in to look up a new word.';
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return offlineText;
+  return fallback;
+}
+
 // Retry transient generation failures (network / rate-limit) a few times with
-// a short backoff. Aborts, missing-key errors, and words the server says aren't
-// real won't succeed on retry, so bail on those immediately.
+// a short backoff. Aborts, missing-key errors, needing an account, and words the
+// server says aren't real won't succeed on retry, so bail on those immediately.
 async function generateWithRetry(
   word: string,
   signal: AbortSignal,
@@ -57,6 +76,7 @@ async function generateWithRetry(
       if ((err as Error).name === 'AbortError') throw err;
       if (err instanceof UnknownWordError) throw err;
       if ((err as Error).message?.includes('API key')) throw err;
+      if (err instanceof ApiError && err.status === 401) throw err;
       // Offline won't recover inside a 1.8s backoff — fail now and let the
       // caller say so, rather than spinning through three doomed attempts.
       if (typeof navigator !== 'undefined' && navigator.onLine === false) throw err;
@@ -190,15 +210,11 @@ export function FlashCard() {
         setPhase('unknown');
         return;
       }
-      const msg = (err as Error).message || 'Failed to load word.';
-      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-      toast.error(
-        msg.includes('API key')
-          ? msg
-          : offline
-            ? "You're offline — only words you've already opened are available."
-            : 'Failed to generate word data.',
-      );
+      toast.error(loadErrorMessage(
+        err,
+        "You're offline — only words you've already opened are available.",
+        'Failed to generate word data.',
+      ));
       setPhase('loading');
     } finally {
       setIsGenerating(false);
@@ -239,15 +255,11 @@ export function FlashCard() {
         setPhase('unknown');
         return;
       }
-      const msg = (err as Error).message || '';
-      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-      toast.error(
-        msg.includes('API key')
-          ? msg
-          : offline
-            ? `You're offline — "${word}" hasn't been downloaded yet.`
-            : `Could not find "${word}"`,
-      );
+      toast.error(loadErrorMessage(
+        err,
+        `You're offline — "${word}" hasn't been downloaded yet.`,
+        `Could not find "${word}"`,
+      ));
       setPhase('loading');
     } finally {
       setIsGenerating(false);

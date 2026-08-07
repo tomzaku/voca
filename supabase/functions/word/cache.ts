@@ -55,10 +55,15 @@ export async function readWord(svc: Svc, wordKey: string): Promise<CachedWord | 
  * Returns undefined rather than throwing when the top-up isn't possible (over the
  * rate limit, or the provider failed) — a cached word missing only its
  * translation still beats an error page.
+ *
+ * `userClient` is null for a signed-out visitor, and then a missing translation
+ * stays missing: the rate limit counts against a user id, so there'd be nothing
+ * holding an anonymous caller back from spending the AI budget one mother
+ * tongue at a time.
  */
 export async function translationFor(
   svc: Svc,
-  userClient: SupabaseClient,
+  userClient: SupabaseClient | null,
   wordKey: string,
   cached: CachedWord,
   motherLang: string,
@@ -66,6 +71,7 @@ export async function translationFor(
   const motherKey = motherLang.toLowerCase();
   const existing = cached.translations[motherKey];
   if (existing) return existing;
+  if (!userClient) return undefined;
   if (!await underRateLimit(userClient)) return undefined;
 
   try {

@@ -29,9 +29,12 @@ export interface PickParams {
 export async function fetchPickedWords(params: PickParams): Promise<string[] | null> {
   // quiet: offline / timeout / server trouble come back as null, and the caller
   // then runs the same algorithm over local state.
+  // allowAnon: a visitor has no progress rows, so the server picks exactly what
+  // the local fallback would — but from the same list, without a wasted 401.
   const data = await request.post<{ words?: unknown }>('/pick', params, {
     quiet: true,
     timeout: TIMEOUT_MS,
+    allowAnon: true,
   });
   if (!Array.isArray(data?.words)) return null;
   const picks = data.words.filter((w): w is string => typeof w === 'string');
