@@ -8,9 +8,14 @@
 // Each theme is one card listing its words; cards are distributed
 // right/left/top/bottom around the center title and connected with thick
 // hand-drawn SVG strokes. Pan (drag) and zoom (wheel/buttons) are hand-rolled
-// on a CSS transform. Clicking a word opens its word page. Results are cached
-// in localStorage per word-set so coming back doesn't spend another AI call —
-// "Redraw" forces a fresh map.
+// on a CSS transform. The poster is also rearrangeable: cards and the center
+// title can be dragged, and each connector can be bent by its midpoint handle
+// (double-click either to reset it). Those edits are the user's own, saved
+// separately from the map so a redraw doesn't inherit them. "Export PNG"
+// rasterizes the whole poster at its natural size (src/lib/mapImage.ts).
+// Clicking a word opens its word page. Results are cached in localStorage per
+// word-set so coming back doesn't spend another AI call — "Redraw" forces a
+// fresh map.
 //
 // Each word also gets a small hand-drawn doodle image hinting at its meaning
 // (the `doodles` edge function → Gemini image model → base64 data URI,
@@ -19,7 +24,16 @@
 // doodle is only ever generated once — redrawing the map reuses them. The
 // word's emoji shows as a placeholder until its doodle exists.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
@@ -34,6 +48,7 @@ import {
   shrinkDataUri,
   writeLocalDoodle,
 } from '../lib/doodles';
+import { downloadBlob, mindMapToPngBlob } from '../lib/mapImage';
 import { isTtsPlaying, speakText, stopSpeaking } from '../lib/tts';
 
 interface MindMapNode {
@@ -214,61 +229,224 @@ function parseMindMap(text: string): MindMapNode {
 
 interface Pt { x: number; y: number }
 
-// Stroke width at the root end and the card end — the line swells as it
-// travels outward, like a marker pressed harder toward the target.
-const ARROW_W_START = 3;
-const ARROW_W_END = 25;
+// Shaft half-widths at the root end and where it meets the arrowhead — the
+// line swells slightly as it travels outward, like a marker pressed harder
+// toward the target. Kept thin: a fat shaft reads as a blob, not a stroke.
+const ARROW_W_START = 2.5;
+const ARROW_W_END = 9;
+// Arrowhead length. Effectively constant — every connector on the poster
+// should land with the same weight — but capped as a fraction of the
+// connector so the short root→top/bottom hops don't become all head.
+const ARROW_HEAD_RATIO = 0.38;
+const ARROW_HEAD_MIN = 14;
+const ARROW_HEAD_MAX = 32;
 
-interface ArrowPaths { body: string; head: string }
+// Displacing BOTH cubic control points by a vector v moves the curve's
+// midpoint by 3/8·v + 3/8·v. Dragging the midpoint handle inverts that, so the
+// handle tracks the pointer exactly: bend += drag / MID_GAIN.
+const MID_GAIN = 0.75;
+
+interface ArrowGeom {
+  /** Filled silhouette — shaft + head as one outline. */
+  fill: string;
+  /** Bare centerline, for the invisible grab target. */
+  line: string;
+  /** Where the drag handle sits (the curve's midpoint). */
+  knob: Pt;
+}
 
 /**
- * Hand-drawn tapered arrow from the root to a card. The body is one
- * gently-bowed cubic sweep (wobbled control points — no S-curves) rendered as
- * a FILLED ribbon whose width grows from ARROW_W_START at the root to
- * ARROW_W_END at the card (SVG strokes can't vary width, so the centerline is
- * sampled and offset perpendicular on both sides). `head` is the two-barb
- * arrowhead, drawn as strokes. `d` is the unit direction the stroke leaves
- * the root AND arrives at the card with (both edges face each other). The
- * wobble is seeded per branch so re-renders don't make the lines jiggle.
+ * Hand-drawn arrow from the root to a card, as ONE filled path: a gently-bowed
+ * cubic shaft (wobbled control points — no S-curves) that tapers from
+ * ARROW_W_START to ARROW_W_END, capped by a solid triangular head. SVG strokes
+ * can't vary width, so the centerline is sampled and offset perpendicular on
+ * both sides, and the head's barb corners continue the same outline — shaft
+ * and head are one silhouette, never two overlapping shapes.
+ *
+ * `d` is the unit direction the stroke leaves the root AND arrives at the card
+ * with (both edges face each other); the curve's tangent at the neck is `d`
+ * too, so the head sits square on the shaft. The wobble is seeded per branch
+ * so re-renders don't make the lines jiggle, and `bend` is the user's own
+ * displacement on top of it (see MID_GAIN).
  */
-function sketchArrow(from: Pt, to: Pt, d: Pt, seed: number): ArrowPaths {
+function sketchArrow(from: Pt, to: Pt, d: Pt, seed: number, bend?: Pt): ArrowGeom {
   const wobble = (k: number, amp: number) => Math.sin(seed + k * 2.1) * amp;
-  const dist = Math.hypot(to.x - from.x, to.y - from.y);
-  const ext = Math.min(Math.max(dist * 0.35, 40), 170);
+  const span = Math.hypot(to.x - from.x, to.y - from.y);
+  // Control handles lean out along `d`. Capped at a fraction of the span as
+  // well, or on the short root→top/bottom hops p1 would land beyond p2 and
+  // fold the curve into a loop.
+  const ext = Math.min(Math.max(span * 0.32, 12), 170, span * 0.42);
   const perpX = -d.y;
   const perpY = d.x;
+  const bx = bend?.x ?? 0;
+  const by = bend?.y ?? 0;
   const p0 = from;
-  const p1 = { x: from.x + d.x * ext + perpX * wobble(0, 12), y: from.y + d.y * ext + perpY * wobble(0, 12) };
-  const p2 = { x: to.x - d.x * ext + perpX * wobble(1, 12), y: to.y - d.y * ext + perpY * wobble(1, 12) };
+  const p1 = { x: from.x + d.x * ext + perpX * wobble(0, 10) + bx, y: from.y + d.y * ext + perpY * wobble(0, 10) + by };
+  const p2 = { x: to.x - d.x * ext + perpX * wobble(1, 10) + bx, y: to.y - d.y * ext + perpY * wobble(1, 10) + by };
   const p3 = to;
 
-  const STEPS = 24;
-  const leftPts: string[] = [];
-  const rightPts: string[] = [];
+  // Sample the whole curve — endpoint to endpoint — then cut the head off the
+  // end by ARC LENGTH. Deriving the head from the curve rather than from `d`
+  // is what lets a dragged arrow keep a sane arrowhead: however far the user
+  // bends it, the barbs stay square to the direction the stroke actually
+  // arrives from.
+  const STEPS = 48;
+  const pts: Pt[] = [];
+  const run: number[] = [0];
   for (let j = 0; j <= STEPS; j++) {
     const t = j / STEPS;
     const mt = 1 - t;
-    const x = mt ** 3 * p0.x + 3 * mt ** 2 * t * p1.x + 3 * mt * t ** 2 * p2.x + t ** 3 * p3.x;
-    const y = mt ** 3 * p0.y + 3 * mt ** 2 * t * p1.y + 3 * mt * t ** 2 * p2.y + t ** 3 * p3.y;
-    const dx = 3 * mt ** 2 * (p1.x - p0.x) + 6 * mt * t * (p2.x - p1.x) + 3 * t ** 2 * (p3.x - p2.x);
-    const dy = 3 * mt ** 2 * (p1.y - p0.y) + 6 * mt * t * (p2.y - p1.y) + 3 * t ** 2 * (p3.y - p2.y);
+    pts.push({
+      x: mt ** 3 * p0.x + 3 * mt ** 2 * t * p1.x + 3 * mt * t ** 2 * p2.x + t ** 3 * p3.x,
+      y: mt ** 3 * p0.y + 3 * mt ** 2 * t * p1.y + 3 * mt * t ** 2 * p2.y + t ** 3 * p3.y,
+    });
+    if (j > 0) run.push(run[j - 1] + Math.hypot(pts[j].x - pts[j - 1].x, pts[j].y - pts[j - 1].y));
+  }
+  const total = run[STEPS] || 1;
+  const headLen = Math.min(
+    Math.max(total * ARROW_HEAD_RATIO, ARROW_HEAD_MIN),
+    ARROW_HEAD_MAX,
+    total * 0.5, // never let the head eat more than half the connector
+  );
+  const headHalf = headLen * 0.5;
+  // The shaft always stays narrower than the barbs, or the head disappears
+  // into it on the short connectors.
+  const endHalf = Math.min(ARROW_W_END, headHalf * 0.62) / 2;
+
+  // Where the shaft ends: the point `headLen` back from the tip along the
+  // curve, interpolated between samples so short arrows don't snap.
+  let ni = STEPS;
+  while (ni > 0 && total - run[ni] < headLen) ni -= 1;
+  const segLen = run[ni + 1] !== undefined ? run[ni + 1] - run[ni] : 0;
+  const overshoot = total - run[ni] - headLen; // ≥ 0
+  const f = segLen > 0 ? Math.min(overshoot / segLen, 1) : 0;
+  const neck: Pt = {
+    x: pts[ni].x + (pts[Math.min(ni + 1, STEPS)].x - pts[ni].x) * f,
+    y: pts[ni].y + (pts[Math.min(ni + 1, STEPS)].y - pts[ni].y) * f,
+  };
+
+  const shaft = [...pts.slice(0, ni + 1), neck];
+  const leftPts: string[] = [];
+  const rightPts: string[] = [];
+  const midPts: string[] = [];
+  for (let i = 0; i < shaft.length; i++) {
+    const prev = shaft[Math.max(i - 1, 0)];
+    const nextPt = shaft[Math.min(i + 1, shaft.length - 1)];
+    const dx = nextPt.x - prev.x;
+    const dy = nextPt.y - prev.y;
     const len = Math.hypot(dx, dy) || 1;
     const nx = -dy / len;
     const ny = dx / len;
-    const half = (ARROW_W_START + (ARROW_W_END - ARROW_W_START) * t) / 2;
-    leftPts.push(`${(x + nx * half).toFixed(1)} ${(y + ny * half).toFixed(1)}`);
-    rightPts.push(`${(x - nx * half).toFixed(1)} ${(y - ny * half).toFixed(1)}`);
+    const t = shaft.length > 1 ? i / (shaft.length - 1) : 1;
+    const half = ARROW_W_START / 2 + (endHalf - ARROW_W_START / 2) * t;
+    leftPts.push(`${(shaft[i].x + nx * half).toFixed(1)} ${(shaft[i].y + ny * half).toFixed(1)}`);
+    rightPts.push(`${(shaft[i].x - nx * half).toFixed(1)} ${(shaft[i].y - ny * half).toFixed(1)}`);
+    midPts.push(`${shaft[i].x.toFixed(1)} ${shaft[i].y.toFixed(1)}`);
   }
-  const body = `M ${leftPts[0]} L ${leftPts.slice(1).join(' L ')} L ${rightPts.reverse().join(' L ')} Z`;
 
-  // Arrowhead: two barbs splayed ±~150° off the arrival direction.
-  const th = Math.atan2(d.y, d.x);
-  const barb = (a: number) => `M ${to.x} ${to.y} L ${to.x + Math.cos(th + a) * 34} ${to.y + Math.sin(th + a) * 34}`;
-  return { body, head: `${barb(2.55)} ${barb(-2.55)}` };
+  // Head barbs sit square to how the stroke arrives, not to `d`.
+  const hx = p3.x - neck.x;
+  const hy = p3.y - neck.y;
+  const hlen = Math.hypot(hx, hy) || 1;
+  const hpx = -hy / hlen;
+  const hpy = hx / hlen;
+
+  const pt = (px: number, py: number) => `${px.toFixed(1)} ${py.toFixed(1)}`;
+  const barbL = pt(neck.x + hpx * headHalf, neck.y + hpy * headHalf);
+  const barbR = pt(neck.x - hpx * headHalf, neck.y - hpy * headHalf);
+  return {
+    fill: `M ${leftPts.join(' L ')} L ${barbL} L ${pt(p3.x, p3.y)} L ${barbR} L ${rightPts.reverse().join(' L ')} Z`,
+    line: `M ${midPts.join(' L ')} L ${pt(p3.x, p3.y)}`,
+    // The curve's t=0.5 point, which MID_GAIN inverts exactly.
+    knob: pts[STEPS / 2],
+  };
+}
+
+// How far a connector may be bent, and how far a card may be moved, from
+// where the layout put it. Generous enough to reroute a stroke or rearrange
+// the poster, bounded so a wild drag can't fling something out of reach.
+const MAX_BEND = 600;
+const MAX_MOVE = 1500;
+
+// The center title moves like any other card; it just isn't a branch, so it
+// needs an id of its own in the same map.
+const ROOT_ID = '__root';
+
+// Everything the user has rearranged by hand, per word-set: `bends` is the
+// shape of each connector, `cards` is where each box was dragged to. Kept out
+// of the map cache entry — that one is the AI's answer and gets replaced
+// wholesale on a redraw, while these are the user's own edits.
+const LAYOUT_PREFIX = 'voca-mindmap-layout-v1:';
+
+type PtMap = Record<string, Pt>;
+interface MapLayout { bends: PtMap; cards: PtMap }
+
+const EMPTY_LAYOUT: MapLayout = { bends: {}, cards: {} };
+
+function clampTo(limit: number, v: number): number {
+  return Math.min(Math.max(v, -limit), limit);
+}
+
+/** Coerce one stored `{id: {x, y}}` table, dropping anything malformed. */
+function toPtMap(raw: unknown, limit: number): PtMap {
+  if (typeof raw !== 'object' || raw === null) return {};
+  const out: PtMap = {};
+  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+    const p = v as Partial<Pt> | null;
+    // A corrupt or hand-edited entry must not put NaN into a transform or
+    // into path data — one NaN blanks the whole connector layer.
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+      out[id] = { x: clampTo(limit, p.x as number), y: clampTo(limit, p.y as number) };
+    }
+  }
+  return out;
+}
+
+function readLayout(key: string): MapLayout {
+  try {
+    const raw = localStorage.getItem(LAYOUT_PREFIX + key);
+    if (!raw) return EMPTY_LAYOUT;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      bends: toPtMap(parsed?.bends, MAX_BEND),
+      cards: toPtMap(parsed?.cards, MAX_MOVE),
+    };
+  } catch {
+    return EMPTY_LAYOUT;
+  }
+}
+
+function writeLayout(key: string, layout: MapLayout): void {
+  try {
+    const empty = Object.keys(layout.bends).length === 0 && Object.keys(layout.cards).length === 0;
+    if (empty) localStorage.removeItem(LAYOUT_PREFIX + key);
+    else localStorage.setItem(LAYOUT_PREFIX + key, JSON.stringify(layout));
+  } catch { /* storage full — the edits still apply this session */ }
 }
 
 type Slot = 'right' | 'left' | 'top' | 'bottom';
 const SLOT_ORDER: Slot[] = ['right', 'left', 'top', 'bottom'];
+
+/** One connector's measured endpoints — everything the curve needs but the bend. */
+interface Anchor {
+  id: string;
+  from: Pt;
+  to: Pt;
+  dir: Pt;
+  seed: number;
+  color: string;
+}
+
+/** The pointer handlers that make a box draggable — see `dragPropsFor`. */
+type DragProps = Pick<
+  React.DOMAttributes<HTMLDivElement>,
+  'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel' | 'onDoubleClick'
+>;
+
+/** A card's drag offset, as the custom properties wordMindMap.css reads. */
+function offsetVars(offset?: Pt): CSSProperties {
+  return { '--mm-dx': `${offset?.x ?? 0}px`, '--mm-dy': `${offset?.y ?? 0}px` } as CSSProperties;
+}
 
 /** Theme card: title + one row per word (doodle/emoji, word, speak button,
  *  inline definition). */
@@ -281,6 +459,9 @@ function ThemeCard({
   onSpeak,
   speakingWord,
   innerRef,
+  offset,
+  moving,
+  dragProps,
 }: {
   branch: MindMapNode;
   color: string;
@@ -290,14 +471,26 @@ function ThemeCard({
   onSpeak: (word: MindMapNode) => void;
   speakingWord: string | null;
   innerRef: (el: HTMLDivElement | null) => void;
+  /** Where the user has dragged this card, relative to its laid-out slot. */
+  offset?: Pt;
+  moving: boolean;
+  dragProps: DragProps;
 }) {
   return (
     <div
       ref={innerRef}
-      className="mm-node"
+      className={`mm-node ${moving ? 'mm-moving' : ''}`}
       // Pale wash of the theme color (solid — translucency would let the
-      // paper dot-grid show through the card).
-      style={{ borderColor: color, background: `color-mix(in srgb, ${color} 7%, #ffffff)` }}
+      // paper dot-grid show through the card). The drag offset rides as
+      // custom properties rather than an inline `transform`, because the
+      // stylesheet's own transform carries the card's sketchy rotation and an
+      // inline one would replace it.
+      style={{
+        borderColor: color,
+        background: `color-mix(in srgb, ${color} 7%, #ffffff)`,
+        ...offsetVars(offset),
+      }}
+      {...dragProps}
     >
       <div className="mm-card-title" style={{ color }}>
         {branch.emoji ? `${branch.emoji} ` : ''}
@@ -339,31 +532,55 @@ function ThemeCard({
  * connected by thick sketchy strokes. Layout is a plain flex "ring" (columns
  * left/right, bands above/below the root) so variable-height cards can never
  * overlap; the connector SVG is measured off the real DOM after each render.
+ *
+ * Measuring and drawing are deliberately separate: the layout effect finds
+ * each connector's ANCHORS (where it leaves the root, where it meets the
+ * card), and the paths are derived from those plus the user's bends — so
+ * dragging an arrow re-runs some cheap curve math instead of re-reading the
+ * geometry of every card sixty times a second.
  */
 function RadialMap({
   tree,
   defsOpen,
   doodles,
   tick,
+  storageKey,
   onWordClick,
+  exportRef,
 }: {
   tree: MindMapNode;
   defsOpen: boolean;
   doodles: Record<string, string>;
   tick: number;
+  /** Cache key of the word set — scopes the saved arrow shapes. */
+  storageKey: string;
   onWordClick: (word: string) => void;
+  // Filled in with the export handler so the header button (outside this
+  // component) can trigger it — exporting needs the canvas element.
+  exportRef: RefObject<(() => void) | null>;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef(new Map<string, HTMLDivElement>());
 
   const [view, setView] = useState({ x: 0, y: 0, s: 1 });
   const viewRef = useRef(view);
   viewRef.current = view;
-  const [lines, setLines] = useState<{ body: string; head: string; color: string }[]>([]);
+  const [anchors, setAnchors] = useState<Anchor[]>([]);
   const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
   const [speakingWord, setSpeakingWord] = useState<string | null>(null);
+  // Bumped whenever the cards reflow under us — see the observer below.
+  const [remeasure, setRemeasure] = useState(0);
+  // The user's own edits: bent connectors and moved boxes.
+  const [layout, setLayout] = useState<MapLayout>(() => readLayout(storageKey));
+  const { bends, cards } = layout;
+  // What's being dragged right now (hover is handled in CSS).
+  const [bendingArrow, setBendingArrow] = useState<string | null>(null);
+  const [movingCard, setMovingCard] = useState<string | null>(null);
+  const bendDragRef = useRef<{ id: string; px: number; py: number; base: Pt } | null>(null);
+  const cardDragRef = useRef<{ id: string; px: number; py: number; base: Pt; started: boolean } | null>(null);
   const centeredForRef = useRef<MindMapNode | null>(null);
   const dragRef = useRef<{ px: number; py: number; vx: number; vy: number } | null>(null);
   const dragMovedRef = useRef(false);
@@ -394,19 +611,84 @@ function RadialMap({
       .map((b, i) => ({ b, i }))
       .filter(({ i }) => slots[i] === slot);
 
-  const centerView = useCallback(() => {
-    const viewport = viewportRef.current;
+  /**
+   * Everything actually drawn, in canvas-local px. The canvas box alone isn't
+   * enough once the map can be rearranged: the flex ring sizes it, but a card
+   * dragged outward or an arrow bent wide is only a transform on top and
+   * doesn't grow it. Both the fit-to-screen button and the PNG export take
+   * their bounds from here so nothing the user made ends up cropped.
+   * `x`/`y` can be negative — content above or left of the canvas origin.
+   */
+  const contentBounds = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!viewport || !canvas) return;
-    const s0 = viewRef.current.s;
-    const rect = canvas.getBoundingClientRect();
-    const w = rect.width / s0;
-    const h = rect.height / s0;
-    const s = Math.max(Math.min(viewport.clientWidth / w, viewport.clientHeight / h, 1), 0.3);
-    setView({ x: (viewport.clientWidth - w * s) / 2, y: (viewport.clientHeight - h * s) / 2, s });
+    if (!canvas) return null;
+    const s = viewRef.current.s || 1;
+    const c = canvas.getBoundingClientRect();
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    // Measured from the ink, not from the canvas box: moving a card leaves its
+    // slot standing empty in the flex ring, and unioning with the canvas would
+    // keep exporting that dead space.
+    for (const el of Array.from(canvas.querySelectorAll('.mm-node, .mm-root-node, .mm-arrow'))) {
+      const r = el.getBoundingClientRect();
+      minX = Math.min(minX, (r.left - c.left) / s);
+      minY = Math.min(minY, (r.top - c.top) / s);
+      maxX = Math.max(maxX, (r.right - c.left) / s);
+      maxY = Math.max(maxY, (r.bottom - c.top) / s);
+    }
+    if (!Number.isFinite(minX)) return { x: 0, y: 0, width: c.width / s, height: c.height / s };
+    const pad = 40; // breathing room around the outermost ink
+    return {
+      x: minX - pad,
+      y: minY - pad,
+      width: maxX - minX + pad * 2,
+      height: maxY - minY + pad * 2,
+    };
   }, []);
 
-  // Measure the DOM and (re)draw connector strokes; recenter on a new tree.
+  const centerView = useCallback(() => {
+    const viewport = viewportRef.current;
+    const box = contentBounds();
+    if (!viewport || !box || !box.width || !box.height) return;
+    const s = Math.max(
+      Math.min(viewport.clientWidth / box.width, viewport.clientHeight / box.height, 1),
+      0.3,
+    );
+    // Offset by the box origin, which sits left of / above the canvas origin
+    // whenever something has been dragged out that way.
+    setView({
+      x: (viewport.clientWidth - box.width * s) / 2 - box.x * s,
+      y: (viewport.clientHeight - box.height * s) / 2 - box.y * s,
+      s,
+    });
+  }, [contentBounds]);
+
+  // The connectors are measured off the real DOM, so anything that reflows
+  // the cards after that measurement leaves them pointing at where the cards
+  // used to be. The handwriting webfonts are the big one — they land after
+  // first paint and resize every card — but doodles swapping in for emoji and
+  // the container itself resizing do it too. One observer covers them all.
+  useEffect(() => {
+    const ring = ringRef.current;
+    if (!ring) return;
+    const observer = new ResizeObserver(() => setRemeasure((v) => v + 1));
+    observer.observe(ring);
+    return () => observer.disconnect();
+  }, [tree]);
+
+  // A font swap that doesn't change the ring's overall size still moves the
+  // cards inside it, and wouldn't trip the observer.
+  useEffect(() => {
+    let cancelled = false;
+    void document.fonts?.ready.then(() => {
+      if (!cancelled) setRemeasure((v) => v + 1);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Measure the DOM for the connector anchors; recenter on a new tree.
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     const rootEl = rootRef.current;
@@ -423,7 +705,17 @@ function RadialMap({
     });
     const root = rel(rootEl.getBoundingClientRect());
 
-    const next: { body: string; head: string; color: string }[] = [];
+    // Where each card sits within its own slot — used to fan the connectors
+    // out along the root's edge instead of stacking them all on one point.
+    const order = new Map<number, { pos: number; count: number }>();
+    for (const slot of SLOT_ORDER) {
+      const group = tree.children.map((_, i) => i).filter((i) => slots[i] === slot);
+      group.forEach((i, pos) => order.set(i, { pos, count: group.length }));
+    }
+
+    const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+
+    const next: Anchor[] = [];
     tree.children.forEach((b, i) => {
       const el = cardRefs.current.get(b.id);
       if (!el) return;
@@ -432,40 +724,74 @@ function RadialMap({
       // left-column card always connects on its RIGHT edge (the side facing
       // the root), a top-band card on its bottom edge, and so on — even when
       // the card sits well above or below the root's level.
+      //
+      // The one thing that overrides the slot is the user dragging a box
+      // clear across the root, where keeping the slot's side would send the
+      // stroke out of the card's far edge and back on itself.
+      let slot = slots[i];
+      if (slot === 'left' && card.x - card.w / 2 > root.x) slot = 'right';
+      else if (slot === 'right' && card.x + card.w / 2 < root.x) slot = 'left';
+      else if (slot === 'top' && card.y - card.h / 2 > root.y) slot = 'bottom';
+      else if (slot === 'bottom' && card.y + card.h / 2 < root.y) slot = 'top';
+
       const gap = 6; // keep the arrowhead just off the card border
+      const { pos, count } = order.get(i) ?? { pos: 0, count: 1 };
+      // Fan the origins along the root's edge so two cards on the same side
+      // don't start from the same point.
+      const fan = pos - (count - 1) / 2;
+      const horizontal = slot === 'left' || slot === 'right';
+      const spread = horizontal
+        ? Math.min(18, (root.h * 0.55) / Math.max(count - 1, 1))
+        : Math.min(70, (root.w * 0.5) / Math.max(count - 1, 1));
+      // Enter the card at the point on its facing edge CLOSEST to the root's
+      // level, not at its centre: a tall column card sits far above or below
+      // the root, and aiming at its middle sent the stroke on a long detour
+      // behind the neighbouring cards.
+      const inset = (span: number) => Math.min(34, span * 0.35);
+      const entryY = clamp(root.y, card.y - card.h / 2 + inset(card.h), card.y + card.h / 2 - inset(card.h));
+      const entryX = clamp(root.x, card.x - card.w / 2 + inset(card.w), card.x + card.w / 2 - inset(card.w));
       let from: Pt;
       let to: Pt;
       let dir: Pt;
-      switch (slots[i]) {
+      switch (slot) {
         case 'left':
           dir = { x: -1, y: 0 };
-          from = { x: root.x - root.w * 0.5, y: root.y };
-          to = { x: card.x + card.w * 0.5 + gap, y: card.y };
+          from = { x: root.x - root.w * 0.5, y: root.y + fan * spread };
+          to = { x: card.x + card.w * 0.5 + gap, y: entryY };
           break;
         case 'right':
           dir = { x: 1, y: 0 };
-          from = { x: root.x + root.w * 0.5, y: root.y };
-          to = { x: card.x - card.w * 0.5 - gap, y: card.y };
+          from = { x: root.x + root.w * 0.5, y: root.y + fan * spread };
+          to = { x: card.x - card.w * 0.5 - gap, y: entryY };
           break;
         case 'top':
           dir = { x: 0, y: -1 };
-          from = { x: root.x, y: root.y - root.h * 0.5 };
-          to = { x: card.x, y: card.y + card.h * 0.5 + gap };
+          from = { x: root.x + fan * spread, y: root.y - root.h * 0.5 };
+          to = { x: entryX, y: card.y + card.h * 0.5 + gap };
           break;
         default: // bottom
           dir = { x: 0, y: 1 };
-          from = { x: root.x, y: root.y + root.h * 0.5 };
-          to = { x: card.x, y: card.y - card.h * 0.5 - gap };
+          from = { x: root.x + fan * spread, y: root.y + root.h * 0.5 };
+          to = { x: entryX, y: card.y - card.h * 0.5 - gap };
       }
-      next.push({ ...sketchArrow(from, to, dir, i * 3.7 + 1), color: PALETTE[i % PALETTE.length] });
+      next.push({ id: b.id, from, to, dir, seed: i * 3.7 + 1, color: PALETTE[i % PALETTE.length] });
     });
-    setLines(next);
+    setAnchors(next);
 
     if (centeredForRef.current !== tree) {
       centeredForRef.current = tree;
       centerView();
     }
-  }, [tree, defsOpen, tick, centerView]);
+    // `cards` is a dependency because a moved box changes what the next
+    // measurement reads — the transform is baked into getBoundingClientRect.
+  }, [tree, defsOpen, tick, remeasure, cards, centerView]);
+
+  // Curves from the measured anchors + the user's bends. Cheap enough to redo
+  // on every pointermove of a bend drag; measuring the DOM there would not be.
+  const lines = useMemo(
+    () => anchors.map((a) => ({ ...sketchArrow(a.from, a.to, a.dir, a.seed, bends[a.id]), a })),
+    [anchors, bends],
+  );
 
   // Wheel zoom around the cursor. Native listener — React's onWheel is
   // passive, so preventDefault (needed to stop page scroll) wouldn't work.
@@ -499,6 +825,167 @@ function RadialMap({
     });
   };
 
+  // ── Export ──
+  // The poster is exported at its natural size from the live DOM, so it never
+  // depends on the pan/zoom or on what fits the viewport. Handing the handler
+  // up through a ref keeps the button in the header, where the rest of the
+  // map's actions live.
+  useEffect(() => {
+    exportRef.current = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      void (async () => {
+        const toastId = toast.loading('Rendering your mind map…');
+        try {
+          const blob = await mindMapToPngBlob(canvas, {
+            // The drag handles and speak buttons are things to click, not
+            // things to look at — they don't belong in a saved image.
+            hide: ['.mm-grab', '.mm-knob', '.mm-speak'],
+          });
+          downloadBlob(blob, 'mind-map.png');
+          toast.success('Saved as mind-map.png', { id: toastId });
+        } catch (err) {
+          toast.error(`Couldn't export the image: ${(err as Error).message}`, { id: toastId });
+        }
+      })();
+    };
+    return () => { exportRef.current = null; };
+  }, [exportRef]);
+
+  // ── Bending an arrow ──
+  // Displacing both control points by `bend` moves the curve's midpoint by
+  // MID_GAIN × bend, so dividing the drag by MID_GAIN makes the handle track
+  // the pointer exactly. Coordinates are canvas-local, hence the ÷ scale.
+  const localPoint = (e: { clientX: number; clientY: number }): Pt | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const r = canvas.getBoundingClientRect();
+    const s = viewRef.current.s || 1;
+    return { x: (e.clientX - r.left) / s, y: (e.clientY - r.top) / s };
+  };
+
+  const startBend = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return;
+    const p = localPoint(e);
+    if (!p) return;
+    // Keep the map from panning underneath the drag.
+    e.stopPropagation();
+    e.preventDefault();
+    bendDragRef.current = { id, px: p.x, py: p.y, base: bends[id] ?? { x: 0, y: 0 } };
+    setBendingArrow(id);
+    (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
+  };
+
+  const moveBend = (e: React.PointerEvent) => {
+    const drag = bendDragRef.current;
+    if (!drag) return;
+    const p = localPoint(e);
+    if (!p) return;
+    e.stopPropagation();
+    setLayout((prev) => ({
+      ...prev,
+      bends: {
+        ...prev.bends,
+        [drag.id]: {
+          x: clampTo(MAX_BEND, drag.base.x + (p.x - drag.px) / MID_GAIN),
+          y: clampTo(MAX_BEND, drag.base.y + (p.y - drag.py) / MID_GAIN),
+        },
+      },
+    }));
+  };
+
+  const endBend = () => {
+    if (!bendDragRef.current) return;
+    bendDragRef.current = null;
+    setBendingArrow(null);
+  };
+
+  // ── Moving a box ──
+  // Cards and the center title are placed by the flex ring; a drag just adds
+  // a translation on top, so the ring keeps deciding the arrangement and the
+  // user nudges it. The connectors follow because they're measured off the
+  // real DOM, and getBoundingClientRect already includes the transform.
+  const startCardDrag = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return;
+    const p = localPoint(e);
+    if (!p) return;
+    // A card drag is a move, never a pan — but nothing is committed yet, and
+    // no preventDefault: a press that never travels has to stay a click, so
+    // the word under it still opens.
+    e.stopPropagation();
+    cardDragRef.current = { id, px: p.x, py: p.y, base: cards[id] ?? { x: 0, y: 0 }, started: false };
+    dragMovedRef.current = false;
+  };
+
+  const moveCard = (e: React.PointerEvent) => {
+    const drag = cardDragRef.current;
+    if (!drag) return;
+    const p = localPoint(e);
+    if (!p) return;
+    e.stopPropagation();
+    if (!drag.started) {
+      // Below the threshold this is still a click on whatever's under the
+      // pointer. Capturing at pointer-down instead would swallow every word.
+      if (Math.abs(p.x - drag.px) + Math.abs(p.y - drag.py) < 4) return;
+      drag.started = true;
+      dragMovedRef.current = true; // the word/speak handlers check this
+      setMovingCard(drag.id);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+    setLayout((prev) => ({
+      ...prev,
+      cards: {
+        ...prev.cards,
+        [drag.id]: {
+          x: clampTo(MAX_MOVE, drag.base.x + (p.x - drag.px)),
+          y: clampTo(MAX_MOVE, drag.base.y + (p.y - drag.py)),
+        },
+      },
+    }));
+  };
+
+  const endCardDrag = () => {
+    if (!cardDragRef.current) return;
+    cardDragRef.current = null;
+    setMovingCard(null);
+  };
+
+  /** Double-click puts one arrow or box back where the layout had it. */
+  const resetEdit = (kind: 'bends' | 'cards', id: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLayout((prev) => {
+      if (!(id in prev[kind])) return prev;
+      const next = { ...prev[kind] };
+      delete next[id];
+      return { ...prev, [kind]: next };
+    });
+  };
+
+  const dragPropsFor = (id: string): DragProps => ({
+    onPointerDown: (e) => startCardDrag(e, id),
+    onPointerMove: moveCard,
+    onPointerUp: endCardDrag,
+    onPointerCancel: endCardDrag,
+    onDoubleClick: (e) => {
+      // Double-clicking a word is two attempts to open it, not a request to
+      // move its card back.
+      if ((e.target as Element).closest?.('.mm-word, .mm-speak')) return;
+      resetEdit('cards', id)(e);
+    },
+  });
+
+  // Persist whenever a drag settles. Writing on every pointermove would hit
+  // localStorage sixty times a second for no benefit.
+  useEffect(() => {
+    if (bendingArrow || movingCard) return;
+    writeLayout(storageKey, layout);
+  }, [layout, bendingArrow, movingCard, storageKey]);
+
+  // A different word set is a different map — load its own saved edits.
+  useEffect(() => {
+    setLayout(readLayout(storageKey));
+  }, [storageKey]);
+
   const cardRef = (id: string) => (el: HTMLDivElement | null) => {
     if (el) cardRefs.current.set(id, el);
     else cardRefs.current.delete(id);
@@ -519,6 +1006,9 @@ function RadialMap({
         onSpeak={speak}
         speakingWord={speakingWord}
         innerRef={cardRef(b.id)}
+        offset={cards[b.id]}
+        moving={movingCard === b.id}
+        dragProps={dragPropsFor(b.id)}
       />
     ));
 
@@ -528,10 +1018,10 @@ function RadialMap({
       className="word-mindmap relative h-[calc(100vh-11rem)] min-h-[30rem] rounded-2xl border-2 border-border overflow-hidden animate-fade-in cursor-grab select-none touch-none"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
-        // Words and speak buttons keep normal click behavior — starting a
-        // pan (and especially pointer capture) on them would retarget the
-        // click to this container and swallow it.
-        if ((e.target as HTMLElement).closest?.('.mm-word, .mm-speak')) {
+        // Words, speak buttons and the arrow handles keep their own behavior —
+        // starting a pan (and especially pointer capture) on them would
+        // retarget the event to this container and swallow it.
+        if ((e.target as Element).closest?.('.mm-word, .mm-speak, .mm-grab, .mm-knob')) {
           dragMovedRef.current = false; // clear any previous pan so the click guard passes
           return;
         }
@@ -560,18 +1050,44 @@ function RadialMap({
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}
       >
         <svg className="mm-lines" width={canvasSize.w} height={canvasSize.h} aria-hidden>
-          {lines.map((l, i) => (
-            <g key={i}>
-              <path className="mm-arrow-body" d={l.body} fill={l.color} />
-              <path className="mm-arrow-head" d={l.head} stroke={l.color} />
+          {lines.map((l) => (
+            <path key={l.a.id} className="mm-arrow" d={l.fill} fill={l.a.color} />
+          ))}
+          {/* Drag layer, above every stroke so a handle is never buried under
+              a neighbouring arrow. The wide invisible stroke is the grab
+              target — the drawn arrow itself is far too thin to aim at. */}
+          {lines.map((l) => (
+            // The handle is always mounted and revealed by CSS hover on the
+            // group. Mounting it on a hover STATE instead looks the same until
+            // a drag ends: releasing the capture fires a leave, the handle
+            // unmounts from under the pointer, and the arrow you were just
+            // editing goes quiet.
+            <g
+              key={l.a.id}
+              className={`mm-arrow-ctl ${bendingArrow === l.a.id ? 'mm-bending' : ''}`}
+              onPointerDown={(e) => startBend(e, l.a.id)}
+              onPointerMove={moveBend}
+              onPointerUp={endBend}
+              onPointerCancel={endBend}
+              onDoubleClick={resetEdit('bends', l.a.id)}
+            >
+              <path className="mm-grab" d={l.line}>
+                <title>Drag to bend · double-click to reset</title>
+              </path>
+              <circle className="mm-knob" cx={l.knob.x} cy={l.knob.y} r={7} fill={l.a.color} />
             </g>
           ))}
         </svg>
-        <div className="mm-ring">
+        <div ref={ringRef} className="mm-ring">
           <div className="mm-col">{renderCards('left')}</div>
           <div className="mm-center">
             <div className="mm-band">{renderCards('top')}</div>
-            <div ref={rootRef} className="mm-root-node">
+            <div
+              ref={rootRef}
+              className={`mm-root-node ${movingCard === ROOT_ID ? 'mm-moving' : ''}`}
+              style={offsetVars(cards[ROOT_ID])}
+              {...dragPropsFor(ROOT_ID)}
+            >
               {tree.emoji ? `${tree.emoji} ` : ''}
               {ROOT_TOPIC}
             </div>
@@ -582,7 +1098,7 @@ function RadialMap({
       </div>
 
       {/* Zoom controls */}
-      <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
+      <div className="mm-zoom absolute bottom-3 right-3 flex flex-col gap-1.5">
         {([['lucide:plus', () => zoomBy(1.25), 'Zoom in'],
            ['lucide:minus', () => zoomBy(1 / 1.25), 'Zoom out'],
            ['lucide:maximize', centerView, 'Fit to screen']] as const).map(([icon, fn, label]) => (
@@ -624,6 +1140,8 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   const [unsketched, setUnsketched] = useState<MindMapNode[]>([]);
   const aliveRef = useRef(true);
   useEffect(() => () => { aliveRef.current = false; }, []);
+  // Set by RadialMap while it's mounted — see its export effect.
+  const exportRef = useRef<(() => void) | null>(null);
 
   const key = useMemo(() => (chosen ? cacheKey(chosen) : null), [chosen]);
 
@@ -955,7 +1473,8 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           Pro
         </span>
         <span className="hidden sm:block text-[11px] text-text-muted">
-          drag to pan · scroll to zoom · click a word to study it
+          drag paper to pan · scroll to zoom · click a word to study it · drag a card or arrow to
+          rearrange, double-click it to reset
         </span>
 
         <div className="ml-auto flex items-center gap-2">
@@ -989,6 +1508,16 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
               className="px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
             >
               {defsOpen ? 'Hide definitions' : 'Show all definitions'}
+            </button>
+          )}
+          {tree && !loading && (
+            <button
+              onClick={() => exportRef.current?.()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
+              title="Save the whole map as a PNG image"
+            >
+              <Icon icon="lucide:image-down" className="text-sm" />
+              Export PNG
             </button>
           )}
           <button
@@ -1029,7 +1558,9 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           defsOpen={defsOpen}
           doodles={doodlesRef.current}
           tick={doodleTick}
+          storageKey={key ?? ''}
           onWordClick={(word) => navigate(`/?word=${encodeURIComponent(word)}`)}
+          exportRef={exportRef}
         />
       ) : null}
     </div>
