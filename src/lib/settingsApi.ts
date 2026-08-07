@@ -4,7 +4,9 @@
 //
 //   GET   /settings          → { settings }
 //   PATCH /settings   { … }  → { settings }   only the keys you send
-//   POST  /settings/streak   → { settings }   counts today, once
+//
+// Preferences only — the learning streak is stored on the same row but has its
+// own resource (streakApi.ts), because it's earned rather than chosen.
 //
 // Quiet throughout: every caller keeps the value locally (localStorage, or a
 // store) and treats the server as the copy that follows you between devices.
@@ -15,9 +17,6 @@ import { request } from './api';
 /**
  * The whole row, as the client sees it. Every field is present on a read —
  * null means "never set", never "missing".
- *
- * The three streak fields are read-only: they move only through
- * `recordLearningDay`, which enforces "one day counts once" server-side.
  */
 export interface UserSettings {
   wordPack: string | null;
@@ -34,18 +33,31 @@ export interface UserSettings {
   reminderDays: number[] | null;
   notifyStreak: boolean | null;
   notifyReview: boolean | null;
-  streakCount: number | null;
-  longestStreak: number | null;
-  lastActiveDay: string | null;
 }
 
-/** What a caller may write — the streak is the server's to keep. */
-export type SettingsPatch = Partial<Omit<UserSettings, 'streakCount' | 'longestStreak' | 'lastActiveDay'>>;
+/** Every field is writable — this resource is preferences, all the way down. */
+export type SettingsPatch = Partial<UserSettings>;
+
+/**
+ * Shared in-flight request. Four stores ask for settings at sign-in — companion,
+ * guess-game, collections, streak's neighbours — all within the same tick, and
+ * they want the same row. Without this they'd each fetch it.
+ *
+ * Only the in-flight promise is shared, not the result: once it settles the
+ * next call goes to the server again, so nothing is ever served stale.
+ */
+let inFlight: Promise<UserSettings | null> | null = null;
 
 /** The user's settings, or null if they can't be reached. */
-export async function fetchSettings(): Promise<UserSettings | null> {
-  const res = await request.get<{ settings: UserSettings }>('/settings', { quiet: true });
-  return res?.settings ?? null;
+export function fetchSettings(): Promise<UserSettings | null> {
+  if (inFlight) return inFlight;
+  inFlight = request
+    .get<{ settings: UserSettings }>('/settings', { quiet: true })
+    .then((res) => res?.settings ?? null)
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
 }
 
 /**
@@ -57,12 +69,3 @@ export async function saveSettings(patch: SettingsPatch): Promise<UserSettings |
   return res?.settings ?? null;
 }
 
-/**
- * Count today towards the learning streak. `day` is the caller's LOCAL date
- * (YYYY-MM-DD) so the streak follows the learner's calendar, not UTC's.
- * Counting a day twice is a no-op server-side.
- */
-export async function recordLearningDay(day: string): Promise<UserSettings | null> {
-  const res = await request.post<{ settings: UserSettings }>('/settings/streak', { day }, { quiet: true });
-  return res?.settings ?? null;
-}

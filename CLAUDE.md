@@ -97,9 +97,15 @@ caller's `signal` is combined with the timeout rather than replacing it.
 `src/hooks/useVocabulary.ts` doesn't import `supabase` at all. Writes also mean the server owns
 `user_id` (taken from the session, never the request body) and the answer-log append.
 
-`user_settings` is fully migrated too — the `settings` resource (`src/lib/settingsApi.ts`).
-Its `PATCH` writes only the keys it's given, because six modules used to upsert that one row
-and could undo each other's fields.
+`user_settings` is fully migrated too, as **two** resources: `settings` (preferences a user
+chooses — its `PATCH` writes only the keys it's given, because six modules used to upsert that
+one row and could undo each other's fields) and `streak` (days of study, which the server owns
+and a client can only ask to advance).
+
+That split is the rule in general: **a resource is a thing in the domain, not a table.** Two
+resources may read one table, and one resource may span several. If a member of a resource
+needs its own carve-out — read-only fields, a verb hanging off a noun — it probably belongs
+somewhere else.
 
 ### Known exceptions
 

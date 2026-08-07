@@ -1,5 +1,9 @@
 // Shared pieces of the `settings` resource: the column mapping in both
 // directions, and the whitelist that decides what a client may write.
+//
+// Everything here is a preference — something the user chose. The streak lives
+// on the same row but is not part of this resource: it's earned, not chosen,
+// and it has its own (`streak`).
 
 /**
  * Columns the client may read and write, client name → column name.
@@ -31,25 +35,12 @@ export const FIELDS = {
 
 export type Field = keyof typeof FIELDS;
 
-/**
- * Read-only fields, returned by GET but never accepted from a PATCH.
- *
- * The streak is the server's own tally — it moves only through the
- * record_learning_day function, which enforces "one day counts once". Letting
- * a client PATCH streak_count would make the number meaningless.
- */
-export const READ_ONLY = {
-  streakCount: 'streak_count',
-  longestStreak: 'longest_streak',
-  lastActiveDay: 'last_active_day',
-} as const;
-
-export const SELECT = [...Object.values(FIELDS), ...Object.values(READ_ONLY)].join(', ');
+export const SELECT = Object.values(FIELDS).join(', ');
 
 /** Row → the client's shape. Absent columns come back as null, not missing. */
 export function toSettings(row: Record<string, unknown> | null): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const [name, column] of Object.entries({ ...FIELDS, ...READ_ONLY })) {
+  for (const [name, column] of Object.entries(FIELDS)) {
     out[name] = row?.[column] ?? null;
   }
   return out;

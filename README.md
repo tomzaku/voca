@@ -383,13 +383,25 @@ choices, companion, reminder preferences and the learning streak:
 ```
 GET   /functions/v1/settings          → { settings }
 PATCH /functions/v1/settings   { … }  → { settings }   writes only the keys you send
-POST  /functions/v1/settings/streak { day } → { settings }   counts today, once
 ```
 
 `PATCH` writing only the keys it was given is the point: six client modules used to upsert
-this row, each naming its own columns, so two saving at once could undo each other. The streak
-fields are read-only — they move through `record_learning_day`, which enforces "one day counts
-once" in SQL.
+this row, each naming its own columns, so two saving at once could undo each other.
+
+The learning streak lives on the same row but is **not** part of settings — it's earned, not
+chosen, so it has its own resource:
+
+```
+GET  /functions/v1/streak         → { streak }
+POST /functions/v1/streak { day } → { streak }   counts that day, once
+```
+
+There's no way to *set* a streak. `POST` records a day of study through `record_learning_day`,
+which enforces "one day counts once" in SQL; `day` is the caller's local date so the streak
+follows the learner's calendar rather than UTC's.
+
+Which table a resource reads is an implementation detail — both of these sit on
+`user_settings`, and no client knows it.
 
 **Still direct, to be migrated:** collections, quizzes, word notes, and the Pro check. Don't
 add new direct queries; move one over when you're already working in that area.

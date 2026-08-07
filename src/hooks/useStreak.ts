@@ -1,12 +1,12 @@
 // Daily learning streak — consecutive calendar days with at least one graded
 // answer, counted in the learner's own timezone.
 //
-// The count lives server-side (see record_learning_day) so it follows a user
+// The count lives server-side (the `streak` resource) so it follows a user
 // across devices and can't be inflated by clock-fiddling on one of them. This
 // store is a local mirror plus the call that advances it.
 
 import { create } from 'zustand';
-import { fetchSettings, recordLearningDay } from '../lib/settingsApi';
+import { fetchStreak, recordLearningDay } from '../lib/streakApi';
 
 /** Today as YYYY-MM-DD in the *browser's* zone — not UTC. */
 export function localDateString(date = new Date()): string {
@@ -22,7 +22,7 @@ interface StreakState {
   lastActiveDay: string | null;
   /** True once today has been counted — lets the UI celebrate only on the day's first answer. */
   countedToday: () => boolean;
-  /** No userId: the settings API identifies the caller from their session. */
+  /** No userId: the streak API identifies the caller from their session. */
   loadFromRemote: () => Promise<void>;
   /** Call on any graded answer. Cheap and idempotent after the first call each day. */
   record: () => Promise<void>;
@@ -37,13 +37,8 @@ export const useStreak = create<StreakState>()((set, get) => ({
   countedToday: () => get().lastActiveDay === localDateString(),
 
   loadFromRemote: async () => {
-    const settings = await fetchSettings();
-    if (!settings) return;
-    set({
-      count: settings.streakCount ?? 0,
-      longest: settings.longestStreak ?? 0,
-      lastActiveDay: settings.lastActiveDay,
-    });
+    const streak = await fetchStreak();
+    if (streak) set(streak);
   },
 
   record: async () => {
@@ -52,13 +47,8 @@ export const useStreak = create<StreakState>()((set, get) => ({
     if (get().countedToday()) return;
 
     // The server counts the day (once) and hands back the resulting streak.
-    const settings = await recordLearningDay(localDateString());
-    if (!settings) return;
-    set({
-      count: settings.streakCount ?? 0,
-      longest: settings.longestStreak ?? 0,
-      lastActiveDay: settings.lastActiveDay,
-    });
+    const streak = await recordLearningDay(localDateString());
+    if (streak) set(streak);
   },
 
   reset: () => set({ count: 0, longest: 0, lastActiveDay: null }),

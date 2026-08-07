@@ -2,9 +2,8 @@
 // remembers about them that isn't word progress: onboarding choices, companion,
 // reminder preferences, and the learning streak.
 //
-//   GET   /settings                    → { settings }
-//   PATCH /settings         { … }      → { settings }   only the keys you send
-//   POST  /settings/streak  { day }    → { settings }   counts today, once
+//   GET   /settings           → { settings }
+//   PATCH /settings   { … }   → { settings }   only the keys you send
 //
 // Six client modules used to read and upsert this row directly, each with its
 // own idea of which columns it owned. Two of them saving at once could undo
@@ -12,9 +11,8 @@
 // writes only the keys the caller actually sent, so companion and reminders
 // can be saved in the same second without a fight.
 //
-// The streak is not patchable: it moves through record_learning_day, which
-// enforces "one day counts once" in SQL. A client that could set streak_count
-// could set it to anything.
+// Preferences only. The learning streak is stored on the same row but isn't a
+// preference — it's earned, and it has its own resource (`streak`).
 //
 // Deploy: `supabase functions deploy settings`
 
@@ -40,9 +38,7 @@ Deno.serve(async (req) => {
   const parts = url.pathname.split('/').filter(Boolean);
   const sub = parts.slice(parts.lastIndexOf('settings') + 1).join('/');
   const route = `${req.method} /${sub}`;
-  if (!['GET /', 'PATCH /', 'POST /streak'].includes(route)) {
-    return jsonResponse(404, { error: 'Not found' });
-  }
+  if (!['GET /', 'PATCH /'].includes(route)) return jsonResponse(404, { error: 'Not found' });
 
   const auth = await requireUser(req);
   if (!auth) return jsonResponse(401, { error: 'Please sign in to use this feature.' });
@@ -59,35 +55,21 @@ Deno.serve(async (req) => {
       return jsonResponse(400, { error: 'Invalid JSON body.' });
     }
 
-    if (route === 'PATCH /') {
-      const patch = fromSettings(body);
-      // Nothing recognised — a no-op, not an error, so an older client sending
-      // only fields this deploy doesn't know still gets its settings back.
-      if (Object.keys(patch).length) {
-        const { error } = await db
-          .from('user_settings')
-          .upsert(
-            { user_id: userId, ...patch, updated_at: new Date().toISOString() },
-            // Merge onto the existing row instead of replacing it: the columns
-            // this patch doesn't name — including api_keys_encrypted, which the
-            // client can't even see — must survive untouched.
-            { onConflict: 'user_id' },
-          );
-        if (error) throw new Error(error.message);
-      }
-      return jsonResponse(200, { settings: await read(db, userId) });
+    const patch = fromSettings(body);
+    // Nothing recognised — a no-op, not an error, so an older client sending
+    // only fields this deploy doesn't know still gets its settings back.
+    if (Object.keys(patch).length) {
+      const { error } = await db
+        .from('user_settings')
+        .upsert(
+          { user_id: userId, ...patch, updated_at: new Date().toISOString() },
+          // Merge onto the existing row instead of replacing it: the columns
+          // this patch doesn't name — including api_keys_encrypted, which the
+          // client can't even see — must survive untouched.
+          { onConflict: 'user_id' },
+        );
+      if (error) throw new Error(error.message);
     }
-
-    // POST /streak — "I studied today". The date is the caller's local day, so
-    // the streak follows the learner's calendar rather than UTC's.
-    const day = body.day;
-    if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-      return jsonResponse(400, { error: '"day" must be a YYYY-MM-DD date.' });
-    }
-    const { error } = await db.rpc('record_learning_day', { p_local_date: day });
-    if (error) throw new Error(error.message);
-    // The function's own return is read back through the same mapping, so a
-    // streak looks identical however the client obtained it.
     return jsonResponse(200, { settings: await read(db, userId) });
   } catch (err) {
     console.error('[settings]', err);
