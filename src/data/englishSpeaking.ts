@@ -1608,4 +1608,449 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'the default is everything pulling you back to...',
     ],
   },
+
+  // ── More Questions ─────────────────────────────────────
+  {
+    id: 'sp-80',
+    topic: 'Relationships & Family',
+    question: 'How do you stay in touch with family and friends who live far away?',
+    sampleAnswers: [
+      {
+        label: 'Video Calls & Small Habits',
+        answer:
+          "Mostly through video calls, but I've learned that scheduling them matters more than intending to. My parents live about two hours from Da Nang, and we do a video call every Sunday evening — it's a fixed thing, so nobody has to arrange it. With friends who've moved abroad, it's more casual: voice messages, sharing photos, sending each other things we find funny. Honestly, the small, low-effort contact keeps a friendship alive better than a long call every six months. I've also noticed that the friendships that survive distance are the ones where both people make the effort, not just one.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "I try to keep it regular rather than perfect. A quick message, a photo, a five-minute call — it doesn't have to be a big catch-up every time. My closest friend moved to Ho Chi Minh City two years ago and we probably speak more now than when we lived in the same city, just in shorter bursts.",
+      },
+    ],
+    usefulPhrases: [
+      "scheduling them matters more than intending to",
+      "it's a fixed thing",
+      'low-effort contact',
+      'keeps a friendship alive',
+      'both people make the effort',
+      'in shorter bursts',
+    ],
+  },
+  {
+    id: 'sp-81',
+    topic: 'Relationships & Family',
+    question: 'What qualities do you look for in a close friend?',
+    sampleAnswers: [
+      {
+        label: 'Honesty & Consistency',
+        answer:
+          "The first thing is honesty — someone who'll tell me when they think I'm wrong, not just agree with me. That's rarer than it sounds. The second is consistency. I'd much rather have a friend who reliably shows up than one who's very warm when they're in the mood and unreachable the rest of the time. And I think a sense of humour is underrated. Some of my closest friendships are built on being able to laugh at ourselves. What I don't need is someone who has everything in common with me — some of my best conversations are with people who see things completely differently.",
+      },
+    ],
+    usefulPhrases: [
+      "That's rarer than it sounds",
+      "I'd much rather have... than...",
+      'reliably shows up',
+      'is underrated',
+      'being able to laugh at ourselves',
+      'see things completely differently',
+    ],
+  },
+  {
+    id: 'sp-82',
+    topic: 'Relationships & Family',
+    question: 'How has your relationship with your parents changed as you got older?',
+    sampleAnswers: [
+      {
+        label: 'From Authority to Equals',
+        answer:
+          "It's shifted from being quite hierarchical to something much closer to equals. When I was younger, conversations with my parents were mostly them advising and me listening — that's fairly typical in Vietnamese families. Now they ask my opinion about things, especially anything involving technology or money, and I've started to see them as people with their own worries rather than just as parents. The other change is that I've become more forgiving. Things that frustrated me at twenty — how cautious they are, how much they worry — I now understand as coming from a much harder life than mine.",
+      },
+    ],
+    usefulPhrases: [
+      "It's shifted from... to...",
+      "that's fairly typical in...",
+      'as people with their own worries',
+      "I've become more forgiving",
+      'coming from a much harder life than mine',
+    ],
+  },
+  {
+    id: 'sp-83',
+    topic: 'Money & Finance',
+    question: 'How do you manage your monthly budget?',
+    sampleAnswers: [
+      {
+        label: 'Simple System',
+        answer:
+          "I keep it fairly simple, because complicated systems never last for me. As soon as my salary comes in, I move a fixed amount into savings — that way I'm not deciding at the end of the month whether there's anything left. The rest covers rent, food, and everything else, and I don't track every coffee. I do review my bank app once a month, mostly to spot subscriptions I've forgotten about, which happens more often than I'd like to admit. The one rule I stick to is waiting a few days before any non-essential purchase over a certain amount.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "I save first and spend what's left, rather than the other way around. I check my spending once a month and cancel anything I'm not really using. It's not sophisticated, but it works because I actually keep doing it.",
+      },
+    ],
+    usefulPhrases: [
+      'complicated systems never last for me',
+      "I'm not deciding at the end of the month",
+      "more often than I'd like to admit",
+      'The one rule I stick to is...',
+      'save first and spend what\'s left',
+    ],
+  },
+  {
+    id: 'sp-84',
+    topic: 'Money & Finance',
+    question: 'Do you think it is better to save money or spend it on experiences?',
+    sampleAnswers: [
+      {
+        label: 'Balanced View',
+        answer:
+          "I don't think it has to be one or the other, but if I had to lean one way, I'd say experiences — with a safety net in place first. Having a few months of expenses saved gives you options: you can leave a job you hate, or handle an emergency without panicking. That peace of mind is worth a lot. Beyond that, I've noticed that the things I remember are almost never purchases. I can't tell you what I bought two years ago, but I remember a motorbike trip to Hue in detail. So my approach is: save enough to be secure, then spend fairly freely on things that create memories.",
+      },
+    ],
+    usefulPhrases: [
+      "I don't think it has to be one or the other",
+      'if I had to lean one way',
+      'with a safety net in place',
+      'That peace of mind is worth a lot',
+      'things that create memories',
+    ],
+  },
+  {
+    id: 'sp-85',
+    topic: 'Money & Finance',
+    question: 'What was the best purchase you have ever made?',
+    sampleAnswers: [
+      {
+        label: 'Something Unglamorous',
+        answer:
+          "Honestly, my noise-cancelling headphones. They were expensive enough that I hesitated for weeks, and I assumed the noise-cancelling was mostly marketing. But they've changed how I work. In an open office, I could only concentrate before nine and after six — now I can find focus almost any time. I use them for calls, for travel, for English listening practice. If I calculate the cost per hour of use, it's probably the cheapest thing I own. That's become my test for a big purchase now: how often will I actually use it?",
+      },
+      {
+        label: 'Experience Answer',
+        answer:
+          "It wasn't an object — it was an online course I bought three years ago to improve my English. It cost about a month's savings at the time, which felt like a lot. But it directly led to me being able to work with international clients, so the return on that has been enormous.",
+      },
+    ],
+    usefulPhrases: [
+      'I hesitated for weeks',
+      "they've changed how I work",
+      'cost per hour of use',
+      "That's become my test for...",
+      'the return on that has been enormous',
+    ],
+  },
+  {
+    id: 'sp-86',
+    topic: 'Problem Solving',
+    question: 'How do you approach a problem you have never faced before?',
+    sampleAnswers: [
+      {
+        label: 'Engineer\'s Approach',
+        answer:
+          "The first thing I do is slow down and make sure I actually understand the problem, because a lot of wasted effort comes from solving the wrong thing. I'll try to state it in one sentence — if I can't, I don't understand it yet. Then I break it into smaller pieces and look for the part I can test quickly, since a small experiment usually teaches me more than an hour of theorising. I'm also not shy about asking someone who's seen it before; I used to think asking made me look incompetent, but it just saves everyone time.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "I try to define the problem clearly first, then break it into smaller parts and tackle the easiest one to get moving. If I'm stuck for more than an hour, I ask for help rather than struggling on alone.",
+      },
+    ],
+    usefulPhrases: [
+      'solving the wrong thing',
+      "if I can't state it in one sentence, I don't understand it yet",
+      'break it into smaller pieces',
+      'teaches me more than an hour of theorising',
+      "I'm not shy about asking",
+      'to get moving',
+    ],
+  },
+  {
+    id: 'sp-87',
+    topic: 'Problem Solving',
+    question: 'Tell me about a time you made a mistake at work. How did you handle it?',
+    sampleAnswers: [
+      {
+        label: 'Owning It',
+        answer:
+          "A couple of years ago I deployed a change late on a Friday that broke the payment flow for about forty minutes. My first instinct was panic, but what I did — and I'd do the same again — was tell the team immediately rather than quietly trying to fix it alone. We rolled it back within ten minutes once two of us were looking at it. Afterwards I wrote up what happened and why, without blaming the process. The useful outcome was that we added an automated check and a rule about not deploying after four on Fridays. What I learned is that the mistake itself matters far less than how quickly you admit it.",
+      },
+    ],
+    usefulPhrases: [
+      'My first instinct was panic, but...',
+      "I'd do the same again",
+      'rather than quietly trying to fix it alone',
+      'we rolled it back',
+      'without blaming the process',
+      'the mistake matters far less than how quickly you admit it',
+    ],
+  },
+  {
+    id: 'sp-88',
+    topic: 'Problem Solving',
+    question: 'How do you handle disagreements with colleagues?',
+    sampleAnswers: [
+      {
+        label: 'Separate the Idea from the Person',
+        answer:
+          "I try to make it about the work rather than about who's right. Something that helps is asking questions before arguing — often when I understand why someone holds a position, it turns out they know something I don't. If we still disagree, I'll say clearly what I think and why, and then, if it's not my decision to make, I'll commit to whatever we choose rather than quietly resisting it. The disagreements that go badly, in my experience, are the ones where people are defending their ego rather than their argument. I've been guilty of that too.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "I ask questions first to understand their reasoning, then explain mine. If we can't agree, we take it to the person who owns the decision — and once it's decided, I support it fully even if it wasn't my preference.",
+      },
+    ],
+    usefulPhrases: [
+      "make it about the work rather than who's right",
+      'asking questions before arguing',
+      "they know something I don't",
+      "I'll commit to whatever we choose",
+      'defending their ego rather than their argument',
+      "I've been guilty of that too",
+    ],
+  },
+  {
+    id: 'sp-89',
+    topic: 'Education & Learning',
+    question: 'What is the best way to learn a new skill as an adult?',
+    sampleAnswers: [
+      {
+        label: 'Learning by Doing',
+        answer:
+          "For me, the single most effective thing is having a real project rather than just studying. When I was learning English, vocabulary lists did almost nothing for me — what worked was having to run a meeting in English, because the stakes made it stick. The second thing is accepting that you'll be bad at it for a while, which adults find much harder than children do. We're used to being competent, so being a beginner feels uncomfortable. And I'd say short daily practice beats long weekend sessions almost every time — fifteen minutes a day is much more powerful than three hours on a Sunday.",
+      },
+    ],
+    usefulPhrases: [
+      'having a real project rather than just studying',
+      'the stakes made it stick',
+      "you'll be bad at it for a while",
+      'being a beginner feels uncomfortable',
+      'short daily practice beats long weekend sessions',
+    ],
+  },
+  {
+    id: 'sp-90',
+    topic: 'Education & Learning',
+    question: 'Do you think university education is still worth it?',
+    sampleAnswers: [
+      {
+        label: 'Depends on the Field',
+        answer:
+          "It depends heavily on what you want to do. For medicine, law, or research, it's obviously essential — there's no alternative route. In my field, software, it's genuinely optional now; some of the best developers I've worked with are self-taught or came through bootcamps, and companies increasingly care about what you can build rather than what your certificate says. That said, I don't regret going. University gave me a foundation in the theory that's hard to pick up later, and honestly, the friendships and the habit of thinking carefully were worth as much as the technical content.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "For some careers it's still necessary, but in tech it's no longer the only path. What matters more now is being able to show what you've actually built. I'd still recommend it if you can afford it, mainly for the foundation and the people you meet.",
+      },
+    ],
+    usefulPhrases: [
+      'It depends heavily on what you want to do',
+      "there's no alternative route",
+      "it's genuinely optional now",
+      'what you can build rather than what your certificate says',
+      "I don't regret going",
+    ],
+  },
+  {
+    id: 'sp-91',
+    topic: 'Environment & Nature',
+    question: 'What do you do in your daily life to reduce your environmental impact?',
+    sampleAnswers: [
+      {
+        label: 'Honest Answer',
+        answer:
+          "A few small things, and I try not to pretend they're more significant than they are. I carry a reusable bottle and refuse plastic bags, which in Vietnam takes some effort because everything is bagged automatically. I use a motorbike rather than a car, though that's honestly convenience rather than virtue. I eat much less meat than I used to. Where I'm inconsistent is flying — I travel a few times a year and that probably outweighs everything else I do. So my honest position is that individual habits matter, but I don't think they substitute for policy.",
+      },
+    ],
+    usefulPhrases: [
+      "I try not to pretend they're more significant than they are",
+      'takes some effort because...',
+      'convenience rather than virtue',
+      "Where I'm inconsistent is...",
+      "that probably outweighs everything else",
+      "they don't substitute for policy",
+    ],
+  },
+  {
+    id: 'sp-92',
+    topic: 'Environment & Nature',
+    question: 'How much time do you spend in nature, and how does it affect you?',
+    sampleAnswers: [
+      {
+        label: 'Sea & Mountains',
+        answer:
+          "More than I used to, mostly because I live somewhere that makes it easy — the beach is ten minutes away and the mountains about half an hour. I swim in the sea a few mornings a week and try to get out of the city properly at least once a month. The effect is quite noticeable, and not subtle. After an hour outdoors I think more clearly, and problems that felt urgent at my desk usually turn out not to be. I've come to treat it as maintenance rather than leisure — if I go two weeks without it, I can feel the difference in my mood.",
+      },
+    ],
+    usefulPhrases: [
+      'More than I used to',
+      'somewhere that makes it easy',
+      'quite noticeable, and not subtle',
+      'turn out not to be',
+      'maintenance rather than leisure',
+      'I can feel the difference in my mood',
+    ],
+  },
+  {
+    id: 'sp-93',
+    topic: 'Health & Wellness',
+    question: 'How do you deal with stress?',
+    sampleAnswers: [
+      {
+        label: 'What Actually Works',
+        answer:
+          "Physical activity is the thing that reliably works for me — a swim or a long walk resets my head better than anything else. Beyond that, I've learned that most of my stress comes from vagueness: a large problem I haven't broken down yet. Writing it out and turning it into three specific tasks usually removes half the weight of it. What doesn't work, though I still do it sometimes, is scrolling on my phone to escape — it feels like rest but I always feel worse afterwards. And when it's serious, talking to someone helps far more than trying to reason my way out alone.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "Exercise first — a walk or a swim clears my head. Then I write down exactly what's worrying me, because it's usually less overwhelming once it's specific. And I try to protect my sleep, since everything feels much worse when I'm tired.",
+      },
+    ],
+    usefulPhrases: [
+      'resets my head',
+      'most of my stress comes from vagueness',
+      'removes half the weight of it',
+      'it feels like rest but I always feel worse afterwards',
+      'reason my way out alone',
+      'protect my sleep',
+    ],
+  },
+  {
+    id: 'sp-94',
+    topic: 'Health & Wellness',
+    question: 'How important is sleep to you, and do you get enough?',
+    sampleAnswers: [
+      {
+        label: 'The Foundation',
+        answer:
+          "I've come to see it as the foundation everything else sits on. When I sleep badly, my diet slips, I skip exercise, and I'm noticeably less patient with people — so it's not just one thing going wrong, it's everything degrading slightly. I get around seven hours on a normal night, which is enough, though I went through a period of sleeping five or six and telling myself I was fine. I wasn't. What helped most was a walk after dinner and keeping my phone out of the bedroom. The phone rule sounds trivial but it made the biggest difference.",
+      },
+    ],
+    usefulPhrases: [
+      'the foundation everything else sits on',
+      'my diet slips',
+      'everything degrading slightly',
+      'telling myself I was fine',
+      'sounds trivial but it made the biggest difference',
+    ],
+  },
+  {
+    id: 'sp-95',
+    topic: 'Food & Culture',
+    question: 'Can you cook? What is your signature dish?',
+    sampleAnswers: [
+      {
+        label: 'Home Cook',
+        answer:
+          "I can cook reasonably well, though I'd never call myself skilled. My signature dish is probably thit kho — pork belly braised slowly with eggs in coconut water. It's a very common home dish in Vietnam, nothing fancy, but the slow cooking makes a big difference and I've got the timing right after a lot of practice. I usually make a big pot on Sunday and eat it through the week. What I enjoy about cooking isn't really the food — it's that it's one of the few things I do where the result is physical and finished at the end.",
+      },
+      {
+        label: 'Learning to Cook',
+        answer:
+          "I'm still learning, honestly. I can make about five dishes well and I rotate them. Living in Da Nang makes it hard to justify cooking every day when excellent street food costs almost nothing, so I mostly cook at weekends when I have time to enjoy the process.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd never call myself skilled",
+      'nothing fancy, but...',
+      "I've got the timing right",
+      'I rotate them',
+      'hard to justify cooking every day',
+      'the result is physical and finished',
+    ],
+  },
+  {
+    id: 'sp-96',
+    topic: 'Daily Life',
+    question: 'What is your morning routine like?',
+    sampleAnswers: [
+      {
+        label: 'Early Start',
+        answer:
+          "I'm up around six, which took real effort to build — I'm not naturally a morning person. The first thing I do is make Vietnamese coffee, and I deliberately don't look at my phone until after that, because once I open messages the morning belongs to other people. A few days a week I go for a swim before work. Then I try to start the hardest task of the day first, while my concentration is still fresh, and leave meetings and email for the afternoon. The whole thing is designed around protecting the first two hours.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "I wake up around seven, make coffee, and try not to check my phone straight away. I like a slow start — twenty quiet minutes before the day begins makes a surprising difference to how the rest of it goes.",
+      },
+    ],
+    usefulPhrases: [
+      'which took real effort to build',
+      "I'm not naturally a morning person",
+      'the morning belongs to other people',
+      'while my concentration is still fresh',
+      'designed around protecting the first two hours',
+      'a slow start',
+    ],
+  },
+  {
+    id: 'sp-97',
+    topic: 'Hometown & Travel',
+    question: 'If a friend visited your city for two days, what would you show them?',
+    sampleAnswers: [
+      {
+        label: 'Da Nang in Two Days',
+        answer:
+          "I'd keep it simple and not try to cram everything in. On the first morning I'd take them for banh mi and Vietnamese coffee at a local place — not a tourist café — then to My Khe beach when it's still cool. In the afternoon, the Marble Mountains, which are close and give you a great view over the city. In the evening, dinner by the Han River and, if it's a weekend, the Dragon Bridge breathing fire. The second day I'd get out of the city — the Hai Van Pass by motorbike, or Hoi An in the late afternoon when the lanterns come on. What I'd avoid is the packed tourist itinerary. Two good meals and one long ride will tell them more about this place than five attractions.",
+      },
+    ],
+    usefulPhrases: [
+      'not try to cram everything in',
+      'not a tourist café',
+      'when it\'s still cool',
+      "I'd get out of the city",
+      'What I\'d avoid is...',
+      'will tell them more about this place than...',
+    ],
+  },
+  {
+    id: 'sp-98',
+    topic: 'Future Plans',
+    question: 'Where do you see yourself in five years?',
+    sampleAnswers: [
+      {
+        label: 'Honest & Specific',
+        answer:
+          "I try to answer this without pretending I have it all mapped out. Professionally, I'd like to be leading a small team rather than only writing code myself — I've found that I enjoy mentoring, and it's the part of the work that scales beyond me. I'd also like to have spent some time working abroad, or at least with a team based overseas, because I think that would stretch me. Personally, I want to still be living somewhere near the sea. Beyond that, I've learned that five-year plans mostly get overtaken by opportunities you couldn't have predicted, so I hold it loosely.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "Ideally leading a small team, working on a product I believe in, and with much stronger English than I have now. I'd also like to have travelled more. I try not to plan too rigidly, though — the best things in my career so far weren't part of any plan.",
+      },
+    ],
+    usefulPhrases: [
+      'without pretending I have it all mapped out',
+      'it scales beyond me',
+      'that would stretch me',
+      'get overtaken by opportunities you couldn\'t have predicted',
+      'I hold it loosely',
+      'a product I believe in',
+    ],
+  },
+  {
+    id: 'sp-99',
+    topic: 'Opinions & Ideas',
+    question: 'Do you think people should always tell the truth?',
+    sampleAnswers: [
+      {
+        label: 'Nuanced View',
+        answer:
+          "As a general rule, yes — I think honesty is the default and lying should need a very good reason. But I'd stop short of saying always. There's a difference between a lie that protects yourself and one that spares someone unnecessary pain. If a colleague shows me work they're proud of and it's a bit weak, I won't pretend it's brilliant, but I'll lead with what's genuinely good before saying what needs fixing. That's not dishonesty, it's judgement about timing and framing. Where I think people go wrong is using 'I'm just being honest' as permission to be unkind. Honesty and bluntness aren't the same thing.",
+      },
+    ],
+    usefulPhrases: [
+      'honesty is the default',
+      "I'd stop short of saying always",
+      "There's a difference between... and...",
+      "I'll lead with what's genuinely good",
+      "That's not dishonesty, it's judgement",
+      "Honesty and bluntness aren't the same thing",
+    ],
+  },
 ];
