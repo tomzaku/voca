@@ -260,3 +260,32 @@
   color: #6b6890;
   margin-left: 4px;
 }
+
+/* IPA: inline right after the word, the way a dictionary sets it. */
+.word-mindmap .mm-ipa {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  color: #8a86ad;
+  margin-left: 2px;
+  white-space: nowrap;
+}
+
+/* Mother tongue and example each take their own line under the word, so a
+   card with everything switched on still reads top-to-bottom instead of
+   running together into one paragraph. */
+.word-mindmap .mm-translation,
+.word-mindmap .mm-example {
+  display: block;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.word-mindmap .mm-translation {
+  color: #0e8f7e; /* distinct from the muted English notes around it */
+}
+
+.word-mindmap .mm-example {
+  font-size: 13px;
+  color: #8a86ad;
+  font-style: italic;
+}

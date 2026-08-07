@@ -173,6 +173,7 @@ Keep it short and practical.`,
   // function and the backfill script), which keeps this generation small.
   mindmap(p) {
     if (!Array.isArray(p.words)) throw new BadRequest('"words" must be an array.');
+    // `motherLang` only reaches the enrichment step below, never the prompt.
     const words = p.words
       .filter((w): w is string => typeof w === 'string')
       .slice(0, 40)
@@ -262,30 +263,49 @@ Deno.serve(async (req) => {
 
   try {
     let text = await callProvider(built.system, built.messages, built.maxTokens);
-    if (action === 'mindmap') text = await syncMindmapDefinitions(text);
+    if (action === 'mindmap') {
+      const motherLang = typeof params.motherLang === 'string' ? params.motherLang.slice(0, 40) : '';
+      text = await enrichMindmapLeaves(text, motherLang);
+    }
     return jsonResponse(200, { text });
   } catch (err) {
     return jsonResponse(502, { error: (err as Error).message || 'AI provider error.' });
   }
 });
 
+/** Accents the mind map will show IPA for, best first. */
+const IPA_LOCALES = ['en-US', 'en-GB'];
+
+/** One mind-map leaf, as it comes back from the model and goes out to the client. */
+interface Leaf {
+  topic?: unknown;
+  definition?: unknown;
+  translation?: string;
+  phonetic?: string;
+  example?: string;
+}
+
 /**
- * Inject per-word definitions into a freshly generated mind map from
- * word_cache's `short_definition` column — the mindmap prompt deliberately
- * does NOT ask the AI for definitions (the cache is the source of truth;
- * populated by the word function and scripts/backfill-short-definitions.mjs).
- * If the model volunteers a definition anyway, it's kept and synced back to
- * rows that exist. Best-effort — on any parse/DB hiccup the original text
- * goes back unchanged.
+ * Fill each leaf of a freshly generated mind map from word_cache — definition,
+ * mother-tongue translation, IPA and one example — so the client can show any
+ * of them without a second round trip.
+ *
+ * The prompt deliberately asks for NONE of this: the cache is the source of
+ * truth (populated by the word function and the backfill scripts), and leaving
+ * it out keeps the generation small and stops the model inventing phonetics.
+ * A definition the model volunteers anyway is kept and synced back to rows
+ * that exist. Best-effort throughout — on any parse or DB hiccup the original
+ * text goes back unchanged, and a word the cache has never seen simply renders
+ * with fewer lines.
  */
-async function syncMindmapDefinitions(text: string): Promise<string> {
+async function enrichMindmapLeaves(text: string, motherLang: string): Promise<string> {
   const svc = serviceClient();
   if (!svc) return text;
   try {
     const parsed = JSON.parse(stripFences(text)) as Record<string, unknown>;
     const root = (parsed?.data ?? parsed) as { children?: unknown } | null;
     const branches = Array.isArray(root?.children) ? root.children : [];
-    const leaves: { topic?: unknown; definition?: unknown }[] = branches.flatMap((b) =>
+    const leaves: Leaf[] = branches.flatMap((b) =>
       Array.isArray((b as { children?: unknown })?.children) ? (b as { children: [] }).children : [],
     );
     if (leaves.length === 0) return text;
@@ -295,43 +315,77 @@ async function syncMindmapDefinitions(text: string): Promise<string> {
     )];
     const { data: rows, error: readErr } = await svc
       .from('word_cache')
-      .select('word, short_definition')
+      .select('word, short_definition, translations, phonetics, examples')
       .in('word', keys);
     if (readErr) {
-      console.warn(`[mindmap] short_definition read error: ${readErr.message}`);
+      console.warn(`[mindmap] word_cache read error: ${readErr.message}`);
       return text;
     }
-    const cached = new Map(
-      ((rows ?? []) as { word: string; short_definition: string | null }[])
-        .map((r) => [r.word, r.short_definition]),
-    );
+    interface Row {
+      word: string;
+      short_definition: string | null;
+      translations: Record<string, string> | null;
+      phonetics: Record<string, string> | null;
+      examples: string[] | null;
+    }
+    const cached = new Map(((rows ?? []) as Row[]).map((r) => [r.word, r]));
 
+    const motherKey = motherLang.toLowerCase();
     let filled = 0;
     const bare: string[] = [];
     const updates = new Map<string, string>();
+    const counts = { translation: 0, phonetic: 0, example: 0 };
+
     for (const leaf of leaves) {
       const key = String(leaf.topic ?? '').trim().toLowerCase();
       if (!key) continue;
+      const row = cached.get(key);
+
       const fresh = typeof leaf.definition === 'string' ? leaf.definition.trim().slice(0, 200) : '';
       if (fresh) {
         // Only rows that exist get the update (same policy as doodles).
-        if (cached.has(key) && cached.get(key) !== fresh) updates.set(key, fresh);
-      } else if (cached.get(key)) {
-        leaf.definition = cached.get(key);
+        if (row && row.short_definition !== fresh) updates.set(key, fresh);
+      } else if (row?.short_definition) {
+        leaf.definition = row.short_definition;
         filled += 1;
       } else {
         bare.push(key); // no definition anywhere — renders as word + emoji only
       }
+
+      if (!row) continue;
+      // Translations are keyed by mother tongue; a word never looked up in this
+      // language just has no entry, and no call is made to create one — the map
+      // is one generation, not forty.
+      const translation = motherKey ? row.translations?.[motherKey] : undefined;
+      if (translation) {
+        leaf.translation = translation.slice(0, 120);
+        counts.translation += 1;
+      }
+      const ipa = IPA_LOCALES.map((l) => row.phonetics?.[l]).find(Boolean);
+      if (ipa) {
+        leaf.phonetic = ipa.slice(0, 60);
+        counts.phonetic += 1;
+      }
+      const example = row.examples?.find((e) => typeof e === 'string' && e.trim());
+      if (example) {
+        leaf.example = example.trim().slice(0, 200);
+        counts.example += 1;
+      }
     }
+
     await Promise.all(
       [...updates].map(([word, def]) =>
         svc.from('word_cache').update({ short_definition: def }).eq('word', word),
       ),
     );
-    console.log(`[mindmap] short_definitions: filledFromCache=${filled} syncedToCache=${updates.size} words=${keys.length}${bare.length ? ` MISSING=[${bare.join(', ')}] — run scripts/backfill-short-definitions.mjs` : ''}`);
-    return filled > 0 ? JSON.stringify(parsed) : text;
+    const enriched = filled + counts.translation + counts.phonetic + counts.example;
+    console.log(
+      `[mindmap] enrich: words=${keys.length} definitions=${filled} translations(${motherKey || 'none'})=${counts.translation} phonetics=${counts.phonetic} examples=${counts.example} syncedToCache=${updates.size}` +
+      (bare.length ? ` MISSING_DEF=[${bare.join(', ')}] — run scripts/backfill-short-definitions.mjs` : ''),
+    );
+    return enriched > 0 ? JSON.stringify(parsed) : text;
   } catch (err) {
-    console.warn(`[mindmap] short_definition sync skipped: ${(err as Error).message}`);
+    console.warn(`[mindmap] enrich skipped: ${(err as Error).message}`);
     return text;
   }
 }

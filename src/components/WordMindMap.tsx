@@ -2,7 +2,11 @@
 //
 // The `mindmap` AI action (pro-gated server-side) returns a jsMind-style
 // "node_tree" JSON document: themed branches with one leaf per word carrying
-// an emoji + short definition. Rendering is a small custom RADIAL renderer
+// an emoji, and — filled in server-side from word_cache, not by the model —
+// a short definition, a mother-tongue translation, IPA and one example. The
+// "Show" menu picks which of those four each word displays; the map is cached
+// per word set AND mother tongue, since the translations are baked in at
+// generation time. Rendering is a small custom RADIAL renderer
 // (no mind-map library: they all lay out left/right columns only, and we
 // want theme cards surrounding the root on ALL sides like a study poster).
 // Each theme is one card listing its words; cards are distributed
@@ -48,6 +52,7 @@ import {
   shrinkDataUri,
   writeLocalDoodle,
 } from '../lib/doodles';
+import { getMotherLanguage } from '../lib/languages';
 import { downloadBlob, mindMapToPngBlob } from '../lib/mapImage';
 import { isTtsPlaying, speakText, stopSpeaking } from '../lib/tts';
 
@@ -56,7 +61,53 @@ interface MindMapNode {
   topic: string;
   emoji?: string;
   definition?: string;
+  /** In the user's mother tongue, when word_cache has one for that language. */
+  translation?: string;
+  /** IPA for the word, US preferred over UK. */
+  phonetic?: string;
+  /** One example sentence. */
+  example?: string;
   children: MindMapNode[];
+}
+
+/** Which per-word lines the cards show. Each is a row in the Show menu. */
+interface MapFields {
+  definitions: boolean;
+  translation: boolean;
+  phonetics: boolean;
+  examples: boolean;
+}
+
+// Definitions on by default — that's what the map showed before this menu
+// existed. The rest are opt-in: all four at once turns every card into a wall
+// of text, which is the opposite of what a poster is for.
+const DEFAULT_FIELDS: MapFields = {
+  definitions: true,
+  translation: false,
+  phonetics: false,
+  examples: false,
+};
+
+// A display preference, not a property of one map — it applies to whichever
+// word set you open next, so it isn't scoped by cache key.
+const FIELDS_KEY = 'voca-mindmap-fields-v1';
+
+function readFields(): MapFields {
+  try {
+    const raw = localStorage.getItem(FIELDS_KEY);
+    if (!raw) return DEFAULT_FIELDS;
+    const parsed = JSON.parse(raw) as Partial<Record<keyof MapFields, unknown>>;
+    const pick = (k: keyof MapFields) =>
+      typeof parsed?.[k] === 'boolean' ? (parsed[k] as boolean) : DEFAULT_FIELDS[k];
+    return {
+      definitions: pick('definitions'),
+      translation: pick('translation'),
+      phonetics: pick('phonetics'),
+      examples: pick('examples'),
+    };
+  } catch {
+    return DEFAULT_FIELDS;
+  }
 }
 
 // The user asked for this exact title in the center — the AI's generated
@@ -74,13 +125,17 @@ const PALETTE = ['#0bb5d6', '#8b5cf6', '#f97316', '#10b862', '#ec4899', '#3b6cff
 // hide the "Sketch doodles" button (cached doodles keep loading for free).
 const DOODLE_GENERATION_ENABLED = true;
 
-const CACHE_PREFIX = 'voca-mindmap-v1:';
+// v2 keys carry the mother tongue: the cached tree holds the translations the
+// server attached at generation time, so a map built for one mother tongue
+// can't be reused for another. Bumping the version also retires v1 entries,
+// which predate the translation/IPA/example fields entirely.
+const CACHE_PREFIX = 'voca-mindmap-v2:';
 const MAX_DEPTH = 4;
 const MAX_WORDS = 40; // the server's `mindmap` action caps words at 40
 
-/** Stable cache key for a word set — order-insensitive. */
-function cacheKey(words: string[]): string {
-  return CACHE_PREFIX + [...words].sort().join('|').toLowerCase();
+/** Stable cache key for a word set + mother tongue — order-insensitive. */
+function cacheKey(words: string[], motherLang: string): string {
+  return `${CACHE_PREFIX}${motherLang.toLowerCase()}:${[...words].sort().join('|').toLowerCase()}`;
 }
 
 /** Coerce one parsed JSON node into a MindMapNode, dropping anything malformed. */
@@ -94,11 +149,15 @@ function toNode(raw: unknown, depth: number, fallbackId: string): MindMapNode | 
         .map((c, i) => toNode(c, depth + 1, `${fallbackId}-${i}`))
         .filter((c): c is MindMapNode => c !== null)
     : [];
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
   return {
     id: typeof o.id === 'string' && o.id ? o.id : fallbackId,
     topic,
     emoji: typeof o.emoji === 'string' ? o.emoji : undefined,
-    definition: typeof o.definition === 'string' ? o.definition : undefined,
+    definition: str(o.definition),
+    translation: str(o.translation),
+    phonetic: str(o.phonetic),
+    example: str(o.example),
     children,
   };
 }
@@ -449,11 +508,11 @@ function offsetVars(offset?: Pt): CSSProperties {
 }
 
 /** Theme card: title + one row per word (doodle/emoji, word, speak button,
- *  inline definition). */
+ *  and whichever of definition / translation / IPA / example is switched on). */
 function ThemeCard({
   branch,
   color,
-  defsOpen,
+  fields,
   doodles,
   onWordClick,
   onSpeak,
@@ -465,7 +524,7 @@ function ThemeCard({
 }: {
   branch: MindMapNode;
   color: string;
-  defsOpen: boolean;
+  fields: MapFields;
   doodles: Record<string, string>;
   onWordClick: (word: string) => void;
   onSpeak: (word: MindMapNode) => void;
@@ -517,11 +576,108 @@ function ThemeCard({
               >
                 <Icon icon={isSpeaking ? 'lucide:square' : 'lucide:volume-2'} />
               </button>
-              {defsOpen && w.definition && <span className="mm-def">— {w.definition}</span>}
+              {/* IPA sits inline right after the word, where a dictionary puts
+                  it; everything else follows as its own line. */}
+              {fields.phonetics && w.phonetic && <span className="mm-ipa">{w.phonetic}</span>}
+              {fields.definitions && w.definition && <span className="mm-def">— {w.definition}</span>}
+              {fields.translation && w.translation && (
+                <span className="mm-translation">{w.translation}</span>
+              )}
+              {fields.examples && w.example && <span className="mm-example">“{w.example}”</span>}
             </span>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** The rows of the Show menu, in the order they read on a card. */
+const FIELD_ROWS: { id: keyof MapFields; label: string; hint: string; icon: string }[] = [
+  { id: 'definitions', label: 'Definitions', hint: 'A one-line meaning in English', icon: 'lucide:text' },
+  { id: 'translation', label: 'Mother language', hint: '', icon: 'lucide:languages' },
+  { id: 'phonetics', label: 'Phonetics', hint: 'IPA pronunciation', icon: 'lucide:audio-lines' },
+  { id: 'examples', label: 'Examples', hint: 'One sentence using the word', icon: 'lucide:quote' },
+];
+
+/**
+ * "Show" menu: which lines each word gets. Anchored under its button rather
+ * than portalled — unlike the buttons in the word list, this one is in a plain
+ * header with nothing clipping it.
+ */
+function FieldsMenu({
+  fields,
+  motherLang,
+  onChange,
+}: {
+  fields: MapFields;
+  motherLang: string;
+  onChange: (next: MapFields) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const shown = FIELD_ROWS.filter((r) => fields[r.id]).length;
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        title="Choose what each word shows"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
+      >
+        <Icon icon="lucide:sliders-horizontal" className="text-sm" />
+        Show
+        <span className="text-[10px] opacity-70">{shown}/{FIELD_ROWS.length}</span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 z-50 w-60 rounded-lg border border-border bg-bg-card shadow-lg overflow-hidden animate-fade-in">
+          <p className="px-3 py-2 border-b border-border text-[11px] font-semibold text-text-primary">
+            Show on each word
+          </p>
+          {FIELD_ROWS.map((row) => {
+            const on = fields[row.id];
+            // The mother-tongue row names the actual language, so it's obvious
+            // which one you'd be turning on.
+            const hint = row.id === 'translation' ? motherLang : row.hint;
+            return (
+              <label
+                key={row.id}
+                className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-bg-hover/60 transition-colors border-b border-border last:border-b-0"
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => onChange({ ...fields, [row.id]: !on })}
+                  className="accent-accent-cyan w-3.5 h-3.5 shrink-0 cursor-pointer"
+                />
+                <Icon icon={row.icon} className={`text-sm shrink-0 ${on ? 'text-accent-cyan' : 'text-text-muted'}`} />
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold text-text-primary">{row.label}</span>
+                  {hint && <span className="block text-[11px] text-text-muted leading-snug">{hint}</span>}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -541,7 +697,7 @@ function ThemeCard({
  */
 function RadialMap({
   tree,
-  defsOpen,
+  fields,
   doodles,
   tick,
   storageKey,
@@ -549,7 +705,7 @@ function RadialMap({
   exportRef,
 }: {
   tree: MindMapNode;
-  defsOpen: boolean;
+  fields: MapFields;
   doodles: Record<string, string>;
   tick: number;
   /** Cache key of the word set — scopes the saved arrow shapes. */
@@ -784,7 +940,8 @@ function RadialMap({
     }
     // `cards` is a dependency because a moved box changes what the next
     // measurement reads — the transform is baked into getBoundingClientRect.
-  }, [tree, defsOpen, tick, remeasure, cards, centerView]);
+    // `fields` too: switching a line on or off changes every card's height.
+  }, [tree, fields, tick, remeasure, cards, centerView]);
 
   // Curves from the measured anchors + the user's bends. Cheap enough to redo
   // on every pointermove of a bend drag; measuring the DOM there would not be.
@@ -997,7 +1154,7 @@ function RadialMap({
         key={b.id}
         branch={b}
         color={PALETTE[i % PALETTE.length]}
-        defsOpen={defsOpen}
+        fields={fields}
         doodles={doodles}
         onWordClick={(w) => {
           if (dragMovedRef.current) return; // pan release, not a click
@@ -1125,8 +1282,8 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   const [tree, setTree] = useState<MindMapNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Definitions render inline in the theme cards (poster style) — on by default.
-  const [defsOpen, setDefsOpen] = useState(true);
+  // Which per-word lines the cards show, remembered across sessions.
+  const [fields, setFields] = useState<MapFields>(readFields);
 
   const loadedKeyRef = useRef<string | null>(null);
 
@@ -1143,7 +1300,11 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   // Set by RadialMap while it's mounted — see its export effect.
   const exportRef = useRef<(() => void) | null>(null);
 
-  const key = useMemo(() => (chosen ? cacheKey(chosen) : null), [chosen]);
+  const motherLang = getMotherLanguage();
+  const key = useMemo(
+    () => (chosen ? cacheKey(chosen, motherLang) : null),
+    [chosen, motherLang],
+  );
 
   const load = useCallback(
     async (force: boolean) => {
@@ -1153,7 +1314,6 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
       if (!force && loadedKeyRef.current === key) return;
       setLoading(true);
       setError(null);
-      setDefsOpen(true);
 
       if (!force) {
         try {
@@ -1168,7 +1328,9 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
       }
 
       try {
-        const text = await callAiAction('mindmap', { words: chosen });
+        // The mother tongue decides which stored translation the server
+        // attaches to each word; it never reaches the prompt.
+        const text = await callAiAction('mindmap', { words: chosen, motherLang });
         const root = parseMindMap(text);
         setTree(root);
         loadedKeyRef.current = key;
@@ -1181,7 +1343,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
         setLoading(false);
       }
     },
-    [key, chosen],
+    [key, chosen, motherLang],
   );
 
   useEffect(() => {
@@ -1353,7 +1515,13 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
 
   // (Doodle arrivals bump `doodleTick`, which re-renders RadialMap — no
   // imperative refresh needed with the React renderer.)
-  const toggleDefs = () => setDefsOpen((v) => !v);
+
+  // Remember the chosen lines for next time.
+  useEffect(() => {
+    try {
+      localStorage.setItem(FIELDS_KEY, JSON.stringify(fields));
+    } catch { /* storage full — the choice still applies this session */ }
+  }, [fields]);
 
   const redraw = () => {
     void load(true);
@@ -1503,12 +1671,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
             </button>
           )}
           {tree && !loading && (
-            <button
-              onClick={toggleDefs}
-              className="px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
-            >
-              {defsOpen ? 'Hide definitions' : 'Show all definitions'}
-            </button>
+            <FieldsMenu fields={fields} motherLang={motherLang} onChange={setFields} />
           )}
           {tree && !loading && (
             <button
@@ -1555,7 +1718,7 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
       ) : tree ? (
         <RadialMap
           tree={tree}
-          defsOpen={defsOpen}
+          fields={fields}
           doodles={doodlesRef.current}
           tick={doodleTick}
           storageKey={key ?? ''}

@@ -28,10 +28,47 @@
 const FONT_CSS_URL =
   'https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Caveat:wght@600;700&display=swap';
 
-// Google splits each family into per-script subsets. An English vocabulary
-// poster only ever needs the Latin ones, and skipping the rest cuts the
-// embedded payload (and the decode work) by about two thirds.
-const WANTED_SUBSETS = ['U+0000-00FF', 'U+0100-02AF'];
+// Google splits each family into per-script subsets — a dozen font files per
+// family, most of which a given poster never touches. Only the ones whose
+// characters actually appear get embedded (see `subsetsFor`): the payload
+// stays small without guessing at the script, which matters now that a card
+// can carry a translation in the learner's mother tongue.
+type CodeRange = [number, number];
+
+/** Parse a `unicode-range` value (`U+0-FF, U+131, U+1EA0-1EF9`) into ranges. */
+function parseUnicodeRange(value: string): CodeRange[] {
+  const out: CodeRange[] = [];
+  for (const part of value.split(',')) {
+    const m = /U\+([0-9A-Fa-f?]+)(?:-([0-9A-Fa-f]+))?/.exec(part.trim());
+    if (!m) continue;
+    if (m[1].includes('?')) {
+      // Wildcard form: U+04?? means U+0400-04FF.
+      out.push([parseInt(m[1].replace(/\?/g, '0'), 16), parseInt(m[1].replace(/\?/g, 'F'), 16)]);
+    } else {
+      const from = parseInt(m[1], 16);
+      out.push([from, m[2] ? parseInt(m[2], 16) : from]);
+    }
+  }
+  return out;
+}
+
+/** Keep only the @font-face blocks this text needs. */
+function subsetsFor(css: string, text: string): string {
+  const used = new Set<number>();
+  for (const ch of text) used.add(ch.codePointAt(0) as number);
+  const blocks = css.match(/@font-face\s*\{[^}]*\}/g) ?? [];
+  return blocks
+    .filter((block) => {
+      const m = /unicode-range:\s*([^;}]+)/.exec(block);
+      if (!m) return true; // no range declared — it covers everything
+      const ranges = parseUnicodeRange(m[1]);
+      for (const cp of used) {
+        if (ranges.some(([lo, hi]) => cp >= lo && cp <= hi)) return true;
+      }
+      return false;
+    })
+    .join('\n');
+}
 
 /** Exported PNGs are drawn at this multiple of CSS pixels. */
 const PIXEL_RATIO = 2;
@@ -61,39 +98,50 @@ async function blobToDataUri(blob: Blob): Promise<string> {
   });
 }
 
+/** Font files already downloaded and base64'd, keyed by their remote URL. */
+const fontDataUris = new Map<string, string>();
+
+async function fontAsDataUri(url: string): Promise<string> {
+  const hit = fontDataUris.get(url);
+  if (hit) return hit;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`font ${res.status}`);
+  const dataUri = await blobToDataUri(await res.blob());
+  fontDataUris.set(url, dataUri);
+  return dataUri;
+}
+
 /**
- * The @font-face rules for the handwriting fonts with the font files themselves
- * inlined as data URIs. Google serves both the CSS and the font files with
- * permissive CORS, but this is still a network call: offline it resolves to an
- * empty string and the poster exports in the fallback cursive rather than
- * failing. Memoized — the bytes don't change between exports.
+ * The @font-face rules for the handwriting fonts, narrowed to the subsets
+ * `text` actually uses and with the font files themselves inlined as data
+ * URIs.
+ *
+ * Google serves both the CSS and the font files with permissive CORS, but this
+ * is still a network call: offline it resolves to an empty string and the
+ * poster exports in a fallback cursive rather than failing. The CSS and each
+ * downloaded file are memoized, so only a genuinely new script costs a fetch.
  */
-async function embeddedFontCss(): Promise<string> {
-  fontCssPromise ??= (async () => {
-    const res = await fetch(FONT_CSS_URL);
-    if (!res.ok) throw new Error(`font css ${res.status}`);
-    // Google's CSS varies by User-Agent; a modern browser gets woff2 URLs.
-    const all = await res.text();
-    let css = (all.match(/@font-face\s*\{[^}]*\}/g) ?? [])
-      .filter((block) => WANTED_SUBSETS.some((range) => block.includes(range)))
-      .join('\n');
+async function embeddedFontCss(text: string): Promise<string> {
+  try {
+    fontCssPromise ??= (async () => {
+      const res = await fetch(FONT_CSS_URL);
+      if (!res.ok) throw new Error(`font css ${res.status}`);
+      // Google's CSS varies by User-Agent; a modern browser gets woff2 URLs.
+      return await res.text();
+    })();
+    let css = subsetsFor(await fontCssPromise, text);
     const urls = [...new Set([...css.matchAll(/url\((https:\/\/[^)]+)\)/g)].map((m) => m[1]))];
     const inlined = await Promise.all(
-      urls.map(async (url) => {
-        const font = await fetch(url);
-        if (!font.ok) throw new Error(`font ${font.status}`);
-        return [url, await blobToDataUri(await font.blob())] as const;
-      }),
+      urls.map(async (url) => [url, await fontAsDataUri(url)] as const),
     );
     for (const [url, dataUri] of inlined) css = css.split(url).join(dataUri);
     return css;
-  })().catch((err) => {
+  } catch (err) {
     // Don't memoize a failure — a later export may be back online.
     fontCssPromise = null;
     console.warn(`[mindmap] font embedding failed, exporting with fallback fonts: ${(err as Error).message}`);
     return '';
-  });
-  return fontCssPromise;
+  }
 }
 
 // The SVG is its own document: none of the app's global CSS reaches it, only
@@ -278,7 +326,9 @@ export async function mindMapToPngBlob(
     }
   }
 
-  const fontCss = await embeddedFontCss();
+  // Subset the fonts against the poster's own text, so a translation in a
+  // non-Latin mother tongue still gets the right glyphs embedded.
+  const fontCss = await embeddedFontCss(clone.textContent ?? '');
   await warmFonts(fontCss);
   const css = `${RESET_CSS}\n${fontCss}\n${mapCss()}`;
   const inherited = inheritedCss(canvasEl);
