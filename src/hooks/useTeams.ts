@@ -21,6 +21,7 @@ import {
   joinTeam,
   leaveTeam,
   rotateInvite,
+  setScoringPeriod,
   TeamsError,
   type Board,
   type BoardMe,
@@ -69,6 +70,12 @@ interface TeamsState {
   joinWithCode: (code: string) => Promise<boolean>;
   /** New invite code for a team you own; the old links stop working. */
   rotateCode: (teamId: string) => Promise<void>;
+  /**
+   * Set the scoring period for a team you own, and show the board it produces.
+   * `{}` puts it back on the rolling window; `{ since }` resets everyone to
+   * zero from that moment; adding `until` makes it a challenge with an end.
+   */
+  setScoring: (teamId: string, period?: { since?: string; until?: string }) => Promise<boolean>;
   reset: () => void;
 }
 
@@ -235,6 +242,27 @@ export const useTeams = create<TeamsState>()((set, get) => ({
       set({ saving: false, teams: get().teams.map((t) => (t.id === team.id ? team : t)) });
     } catch (e) {
       set({ saving: false, error: message(e) });
+    }
+  },
+
+  setScoring: async (teamId, period = {}) => {
+    if (get().saving) return false;
+    set({ saving: true, error: null });
+    try {
+      const team = await setScoringPeriod(teamId, period);
+      set({ saving: false, teams: get().teams.map((t) => (t.id === team.id ? team : t)) });
+      if (get().activeTeamId === teamId) {
+        // Every score on screen was measured against the old period, so the
+        // board is wrong the instant this succeeds. `me` goes too: the new
+        // score is lower by design, and refreshBoard reads a drop as no gain
+        // — but a stale `me` would make the next real gain look enormous.
+        set({ rows: [], myRank: null, me: null, scoreGain: 0 });
+        await get().refreshBoard(teamId);
+      }
+      return true;
+    } catch (e) {
+      set({ saving: false, error: message(e) });
+      return false;
     }
   },
 

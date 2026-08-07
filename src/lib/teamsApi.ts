@@ -21,6 +21,14 @@ export interface Team {
   memberCount: number;
   /** Owners only — the server withholds it from everyone else. */
   inviteCode: string | null;
+  /**
+   * The team's scoring period, as ISO instants. Both null is the rolling
+   * default; a start alone is "scores were reset then"; a start and an end is
+   * a challenge, final once the end has passed. See `Scoring` for the window
+   * the board on screen was actually computed over.
+   */
+  scoredSince: string | null;
+  scoredUntil: string | null;
 }
 
 export interface BoardRow {
@@ -42,13 +50,24 @@ export interface BoardRow {
  * so the explanation can't drift from the formula.
  */
 export interface Scoring {
-  windowDays: number;
+  /** Length of the rolling window, or null when the team runs a fixed period. */
+  windowDays: number | null;
+  /** Start of the period this board was computed over, as an ISO instant. */
+  since: string;
+  /** When the period ends, whether or not it has — `state` says which. */
+  until: string | null;
+  /**
+   * `rolling` the sliding default · `open` a period under way · `upcoming` one
+   * that starts later, so everyone is honestly on zero · `closed` finished, and
+   * these standings are final.
+   */
+  state: 'rolling' | 'open' | 'upcoming' | 'closed';
   points: {
     /** Per word answered correctly, once per word per day. */
     correctDay: number;
-    /** Per word that reached Mastered inside the window. */
+    /** Per word that reached Mastered inside the period. */
     mastered: number;
-    /** Per day of the current streak. */
+    /** Per day of the streak run inside the period. */
     streakDay: number;
   };
 }
@@ -162,6 +181,28 @@ export async function createTeam(input: {
 export async function rotateInvite(teamId: string): Promise<Team> {
   const { team } = await call(() =>
     request.post<{ team: Team }>('/teams/rotate-invite', { team: teamId }, { timeout: TIMEOUT_MS }));
+  return team;
+}
+
+/**
+ * Replace a team's scoring period. Owner only.
+ *
+ * A full replace, because that's the whole feature: `{}` returns the team to
+ * the rolling window, `{ since: now }` is the reset button, and adding `until`
+ * makes it a challenge that finishes on its own. Nothing is recalculated into
+ * anyone's history — the score is derived from the period on every read, so
+ * this moves the goalposts rather than editing the goals.
+ */
+export async function setScoringPeriod(
+  teamId: string,
+  period: { since?: string | null; until?: string | null } = {},
+): Promise<Team> {
+  const { team } = await call(() =>
+    request.put<{ team: Team }>(
+      '/teams/scoring',
+      { team: teamId, since: period.since ?? null, until: period.until ?? null },
+      { timeout: TIMEOUT_MS },
+    ));
   return team;
 }
 

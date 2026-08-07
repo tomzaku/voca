@@ -10,16 +10,28 @@
 //   POST /teams/leave   { team }   → { team }       stop sharing; the row is deleted
 //   POST /teams/join-by-code { code }   → { team }  the way into a private team
 //   POST /teams/rotate-invite { team }  → { team }  owner only; revokes shared links
+//   PUT  /teams/scoring { team, since, until } → { team }  owner only; the period
 //
 // `team` is a team id, or omitted for the built-in Global team.
 //
+// `PUT /scoring` is a full replace of the team's scoring period, which is all a
+// "reset the scores" button has to do: the score is derived from the review log
+// on every read, so moving the window recomputes it rather than editing anyone's
+// numbers. Omitting `since` puts the team back on the rolling default and every
+// score with it. `until` bounds a challenge — after it passes the board is final.
+//
 // What a member shares lives on their membership row (name, avatar, words
 // learned, streak), copied from their own session and progress when they join
-// and refreshed each time they open a board. Nothing here reads one user's
-// private progress on behalf of another: the only progress query is for the
-// caller, over their own rows.
+// and refreshed each time they open a board.
 //
-// Deploy: `supabase functions deploy teams`
+// Reading a board also refreshes a bounded number of OTHER members whose
+// numbers have gone stale — the one place this function touches progress that
+// isn't the caller's. It exposes nothing new, since every number it computes is
+// already on the board in front of them, and it's what keeps a decaying score
+// honest: without it an absent member's peak would never fall. Everything else
+// here reads only the caller's own rows.
+//
+// Deploy: `npm run deploy:teams`
 
 import {
   BadRequest,
@@ -30,10 +42,31 @@ import {
   requireUser,
   serviceClient,
 } from '../_shared/ai.ts';
+// The scoring rules — weights, the period, and the terms derived from the
+// review log. Pure, and tested in _shared/teams.test.ts.
+import {
+  DAY_MS,
+  scanLogs,
+  scoreFrom,
+  scoringFor,
+  streakRun,
+  windowFor,
+  type ScoreWindow,
+} from '../_shared/teams.ts';
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /** How many places a board returns before it cuts to the caller's own row. */
 const BOARD_LIMIT = 20;
+
+/** A member's numbers are recomputed on a board load once they're older than this. */
+const STALE_AFTER_MS = 6 * 3_600_000;
+/** How many stale members one board load will refresh, oldest first. */
+const REFRESH_LIMIT = 12;
+/** How many of those run at once — each one costs four queries. */
+const REFRESH_CONCURRENCY = 4;
+
+/** Longest span a scoring period may cover. A bound on the log scan, not a rule. */
+const MAX_WINDOW_DAYS = 400;
 
 /** Guardrails on what one Pro account can create. Generous, but not unbounded. */
 const MAX_TEAMS_PER_OWNER = 20;
@@ -82,61 +115,6 @@ async function requirePro(client: SupabaseClient, userId: string): Promise<strin
   return null;
 }
 
-// ─── Scoring ────────────────────────────────────────────────────────
-// The board ranks on a ROLLING score, not a lifetime total. A cumulative count
-// only ever goes up, so the standings would freeze in favour of whoever started
-// first and reward nobody for still turning up; a window that decays means a
-// place has to be held. The three terms are effort, outcome and consistency:
-//
-//   1 point   per word answered correctly, counted once per word per day
-//   2 points  per word that reached Mastered in the window
-//   1 point   per day of the current streak
-//
-// These numbers are sent to the client with every board (see `SCORING`), so the
-// "how is this worked out?" tooltip can never drift from what's computed here.
-
-const WINDOW_DAYS = 30;
-
-const POINTS = {
-  /** One correct answer of one word on one day. Repeat drills the same day don't stack. */
-  correctDay: 1,
-  /** Reaching Mastered — the FSRS interval passing ~3 weeks. */
-  mastered: 2,
-  /** Each day of the current streak. */
-  streakDay: 1,
-} as const;
-
-const SCORING = { windowDays: WINDOW_DAYS, points: POINTS };
-
-interface ReviewEvent {
-  at: string;
-  ok: boolean;
-}
-
-/**
- * Distinct (word, day) pairs answered correctly inside the window.
- *
- * Deduping per word per day matches uniqueByWord() on the dashboard calendar,
- * so a day that shows "6 words" there is worth 6 points here. Days are UTC,
- * where the calendar's are local — the only case that differs is the same word
- * drilled either side of local midnight, which is worth a point either way.
- */
-function correctWordDays(rows: { review_log: unknown }[], since: number): number {
-  let total = 0;
-  for (const row of rows) {
-    const log = Array.isArray(row.review_log) ? (row.review_log as ReviewEvent[]) : [];
-    const days = new Set<string>();
-    for (const ev of log) {
-      if (!ev?.ok || typeof ev.at !== 'string') continue;
-      const t = Date.parse(ev.at);
-      if (!Number.isFinite(t) || t < since) continue;
-      days.add(new Date(t).toISOString().slice(0, 10));
-    }
-    total += days.size;
-  }
-  return total;
-}
-
 /**
  * Routes → the operation each one performs. The method carries the verb: GET
  * never changes anything, POST does. Handlers below are unchanged by this
@@ -152,11 +130,12 @@ const ROUTES: Record<string, Action> = {
   'POST /join-by-code': 'joinByCode',
   'POST /leave': 'leave',
   'POST /rotate-invite': 'rotateInvite',
+  'PUT /scoring': 'setScoring',
 };
 
 type Action =
   | 'list' | 'board' | 'join' | 'leave'
-  | 'create' | 'rotateInvite' | 'previewCode' | 'joinByCode';
+  | 'create' | 'rotateInvite' | 'previewCode' | 'joinByCode' | 'setScoring';
 
 interface TeamRow {
   id: string;
@@ -167,6 +146,8 @@ interface TeamRow {
   is_public: boolean;
   member_count: number;
   invite_code: string | null;
+  scored_since: string | null;
+  scored_until: string | null;
 }
 
 interface MemberRow {
@@ -194,7 +175,23 @@ function toTeam(t: TeamRow, userId: string, joined: boolean) {
     // Owners only. A member holding the code could invite people the owner
     // never meant to let in, so it never leaves the server for anyone else.
     inviteCode: isOwner ? t.invite_code : null,
+    // Everyone's, not just the owner's: "this challenge ends Friday" is the
+    // main thing a member wants to know about a board they're on.
+    scoredSince: t.scored_since,
+    scoredUntil: t.scored_until,
   };
+}
+
+/**
+ * An instant from the request, or null when the key is absent, null or empty —
+ * which on a PUT is how that end of the window gets cleared.
+ */
+function dateParam(params: Record<string, unknown>, key: string): number | null {
+  const v = params[key];
+  if (v === undefined || v === null || v === '') return null;
+  const t = typeof v === 'string' ? Date.parse(v) : NaN;
+  if (!Number.isFinite(t)) throw new BadRequest(`"${key}" must be an ISO date.`);
+  return t;
 }
 
 /** A team id from the request, or null meaning "the built-in Global team". */
@@ -238,31 +235,35 @@ Deno.serve(async (req) => {
 
   try {
 
-    // ── The caller's own numbers ────────────────────────────────────
-    // Read from their progress, never from anyone else's, and only ever written
-    // to their own membership rows.
-    const myStats = async () => {
-      const since = Date.now() - WINDOW_DAYS * 86_400_000;
-      const sinceIso = new Date(since).toISOString();
+    // ── A member's numbers, against one team's window ────────────────
+    // Everything scored is recomputed here from the review log; nothing is
+    // carried over from the stored row. `score` therefore depends on the team,
+    // because two teams can be counting over different spans — which is why
+    // this takes a window rather than reading one global constant.
+    const statsFor = async (id: string, w: ScoreWindow) => {
+      const sinceIso = new Date(w.since).toISOString();
+      const untilIso = new Date(w.until).toISOString();
 
       const [{ count: learned }, { data: settings }, { data: active }, { count: mastered }] =
         await Promise.all([
           db
             .from('user_word_progress')
             .select('word', { count: 'exact', head: true })
-            .eq('user_id', userId)
+            .eq('user_id', id)
             .or('mastered.eq.true,status.eq.known'),
           db
             .from('user_settings')
             .select('streak_count, longest_streak')
-            .eq('user_id', userId)
+            .eq('user_id', id)
             .maybeSingle(),
           // Only words touched inside the window can hold answers inside it, so
-          // this filter keeps the logs pulled into memory small.
+          // this filter keeps the logs pulled into memory small. No upper bound:
+          // a row last reviewed after the window closed can still hold events
+          // from inside it — scanLogs is what drops those, per event.
           db
             .from('user_word_progress')
             .select('review_log')
-            .eq('user_id', userId)
+            .eq('user_id', id)
             .gte('last_reviewed_at', sinceIso)
             .limit(1000),
           // No mastered_at column exists, but a mastered word leaves the review
@@ -273,20 +274,24 @@ Deno.serve(async (req) => {
           db
             .from('user_word_progress')
             .select('word', { count: 'exact', head: true })
-            .eq('user_id', userId)
+            .eq('user_id', id)
             .eq('mastered', true)
-            .gte('last_reviewed_at', sinceIso),
+            .gte('last_reviewed_at', sinceIso)
+            .lte('last_reviewed_at', untilIso),
         ]);
 
-      const streak = (settings?.streak_count as number | null) ?? 0;
-      const score = correctWordDays(active ?? [], since) * POINTS.correctDay +
-        (mastered ?? 0) * POINTS.mastered +
-        streak * POINTS.streakDay;
+      const { wordDays, days } = scanLogs(active ?? [], w.since, w.until);
 
       return {
-        score,
+        score: scoreFrom({
+          wordDays,
+          mastered: mastered ?? 0,
+          streakDays: streakRun(days, w.until),
+        }),
         learned: learned ?? 0,
-        streak,
+        // Displayed, not scored: the learner's real lifetime streak, which is
+        // what they see everywhere else in the app.
+        streak: (settings?.streak_count as number | null) ?? 0,
         longest: (settings?.longest_streak as number | null) ?? 0,
         stats_at: new Date().toISOString(),
       };
@@ -397,7 +402,7 @@ Deno.serve(async (req) => {
         display_name: (meta.full_name as string | undefined) ??
           auth.user.email?.split('@')[0] ?? null,
         avatar_url: (meta.avatar_url as string | undefined) ?? null,
-        ...(await myStats()),
+        ...(await statsFor(userId, windowFor(created as TeamRow, Date.now()))),
       });
 
       return jsonResponse(200, { team: toTeam(created as TeamRow, userId, true) });
@@ -445,7 +450,7 @@ Deno.serve(async (req) => {
           display_name: (meta.full_name as string | undefined) ??
             auth.user.email?.split('@')[0] ?? null,
           avatar_url: (meta.avatar_url as string | undefined) ?? null,
-          ...(await myStats()),
+          ...(await statsFor(userId, windowFor(target, Date.now()))),
         },
         { onConflict: 'team_id,user_id' },
       );
@@ -468,6 +473,53 @@ Deno.serve(async (req) => {
       return jsonResponse(200, { team: toTeam(team, userId, await isMember(team.id)) });
     }
 
+    if (action === 'setScoring') {
+      // Global has no owner, so it can never be reset — its window is the one
+      // thing every learner on it has in common.
+      if (team.owner_id !== userId) {
+        return jsonResponse(403, { error: 'Only the team owner can change the scoring period.' });
+      }
+
+      // A full replace, which is what PUT means here: leaving `since` out is
+      // how a team goes back to the rolling window, not a request to keep it.
+      const now = Date.now();
+      const since = dateParam(params, 'since');
+      const until = dateParam(params, 'until');
+      const span = MAX_WINDOW_DAYS * DAY_MS;
+
+      if (since !== null && (since < now - span || since > now + span)) {
+        throw new BadRequest(
+          `A scoring period has to start within ${MAX_WINDOW_DAYS} days of today.`,
+        );
+      }
+      if (until !== null) {
+        const start = since ?? now;
+        if (until <= start) throw new BadRequest('The scoring period has to end after it starts.');
+        if (until > start + span) {
+          throw new BadRequest(`A scoring period can run for at most ${MAX_WINDOW_DAYS} days.`);
+        }
+      }
+
+      team.scored_since = since === null ? null : new Date(since).toISOString();
+      team.scored_until = until === null ? null : new Date(until).toISOString();
+      await db
+        .from('teams')
+        .update({ scored_since: team.scored_since, scored_until: team.scored_until })
+        .eq('id', team.id);
+
+      // Every stored score was measured against the old window and means
+      // nothing against the new one. Zeroed outright rather than left to look
+      // like standings, and stamped stale so the board's pass recomputes them.
+      // Nobody's history is touched: this is the whole of what a reset does,
+      // and clearing the window again would restore every score exactly.
+      await db
+        .from('team_members')
+        .update({ score: 0, stats_at: new Date(0).toISOString() })
+        .eq('team_id', team.id);
+
+      return jsonResponse(200, { team: toTeam(team, userId, await isMember(team.id)) });
+    }
+
     if (action === 'join') {
       if (!team.is_public && team.owner_id !== userId) {
         // Invites are what will open a private team; until then, only its owner.
@@ -483,7 +535,7 @@ Deno.serve(async (req) => {
           display_name: (meta.full_name as string | undefined) ??
             auth.user.email?.split('@')[0] ?? null,
           avatar_url: (meta.avatar_url as string | undefined) ?? null,
-          ...(await myStats()),
+          ...(await statsFor(userId, windowFor(team, Date.now()))),
         },
         { onConflict: 'team_id,user_id' },
       );
@@ -504,21 +556,83 @@ Deno.serve(async (req) => {
       return jsonResponse(403, { error: 'This team is private.' });
     }
 
+    const now = Date.now();
+    const w = windowFor(team, now);
     const joined = await isMember(team.id);
+
     // Opening the board is the moment to bring your own numbers up to date —
-    // your rank should reflect the words you learned since you last looked.
-    // Kept in hand as well as written: the caller's own numbers are returned
-    // outright, so a client showing "your score" doesn't have to find itself
-    // among the rows (and can still show it when it ranks below the cut).
-    let mine: Awaited<ReturnType<typeof myStats>> | null = null;
-    if (joined) {
-      mine = await myStats();
+    // your rank should reflect the words you learned since you last looked, and
+    // the client re-reads this after every correct answer expecting the score
+    // to move. Skipped once the window has closed: the pass below is what
+    // settles a finished challenge, and it only does so once.
+    if (joined && !w.closed) {
       await db
         .from('team_members')
-        .update(mine)
+        .update(await statsFor(userId, w))
         .eq('team_id', team.id)
         .eq('user_id', userId);
     }
+
+    // A closed board settles through the capped pass below, so on a big team
+    // the caller could wait several loads to see their own final number. That's
+    // the one row they'll check, so it doesn't queue behind anyone else's.
+    if (joined && w.closed) {
+      const { data: row } = await db
+        .from('team_members')
+        .select('stats_at')
+        .eq('team_id', team.id)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (row && Date.parse(row.stats_at as string) < w.until) {
+        await db
+          .from('team_members')
+          .update(await statsFor(userId, w))
+          .eq('team_id', team.id)
+          .eq('user_id', userId);
+      }
+    }
+
+    /**
+     * Bring stale members up to date, oldest first and capped.
+     *
+     * Without this a score is only recomputed when that member opens a board,
+     * which for a window that decays is worse than merely stale: an absent
+     * member's peak never falls, so they keep outranking people who are still
+     * turning up — the exact thing the window exists to prevent. It's also what
+     * makes a closed challenge final, since one board load after the end brings
+     * everyone to their last-day numbers and nothing moves them afterwards.
+     *
+     * Capped because this is the one place the function reads progress that
+     * isn't the caller's. It exposes nothing new — every number it computes is
+     * already on the board in front of them — but a single board load should
+     * not be able to fan out across two hundred members.
+     */
+    const refreshStale = async () => {
+      // Open: anything past the staleness cutoff. Closed: anything measured
+      // before the close, which can only be true once per member.
+      const cutoff = new Date(w.closed ? w.until : now - STALE_AFTER_MS).toISOString();
+      const { data: stale } = await db
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', team.id)
+        .lt('stats_at', cutoff)
+        .order('stats_at', { ascending: true })
+        .limit(REFRESH_LIMIT);
+
+      const ids = (stale ?? []).map((r) => r.user_id as string);
+      for (let i = 0; i < ids.length; i += REFRESH_CONCURRENCY) {
+        await Promise.all(
+          ids.slice(i, i + REFRESH_CONCURRENCY).map(async (id) => {
+            await db
+              .from('team_members')
+              .update(await statsFor(id, w))
+              .eq('team_id', team.id)
+              .eq('user_id', id);
+          }),
+        );
+      }
+    };
+    await refreshStale();
 
     const { data: top } = await db
       .from('team_members')
@@ -532,13 +646,31 @@ Deno.serve(async (req) => {
     const rows = (top ?? []) as MemberRow[];
     const meIndex = rows.findIndex((r) => r.user_id === userId);
 
-    // Ranked below the cut: one count says how many members are ahead, which is
-    // cheaper and clearer than paging the whole board to find yourself.
-    let myRank: number | null = meIndex >= 0 ? meIndex + 1 : null;
-    if (joined && meIndex < 0) {
-      const { data: me } = await db
+    // The caller's own line, returned outright so a client showing "your score"
+    // doesn't have to find itself among the rows — and can still show it when
+    // it ranks below the cut. Read back from the table rather than kept in hand
+    // from the update above, so it's the same number the rows were ranked on
+    // whichever of the two passes last wrote it.
+    let myRank: number | null = null;
+    let me: (Omit<MemberRow, 'user_id' | 'display_name' | 'avatar_url'> & { rank: number }) | null =
+      null;
+
+    if (meIndex >= 0) {
+      const row = rows[meIndex];
+      myRank = meIndex + 1;
+      me = {
+        score: row.score,
+        learned: row.learned,
+        streak: row.streak,
+        longest: row.longest,
+        rank: myRank,
+      };
+    } else if (joined) {
+      // Ranked below the cut: one count says how many members are ahead, which
+      // is cheaper and clearer than paging the whole board to find yourself.
+      const { data: row } = await db
         .from('team_members')
-        .select('score')
+        .select('score, learned, streak, longest')
         .eq('team_id', team.id)
         .eq('user_id', userId)
         .maybeSingle();
@@ -546,26 +678,27 @@ Deno.serve(async (req) => {
         .from('team_members')
         .select('user_id', { count: 'exact', head: true })
         .eq('team_id', team.id)
-        .gt('score', (me?.score as number | null) ?? 0);
+        .gt('score', (row?.score as number | null) ?? 0);
       myRank = (ahead ?? 0) + 1;
+      me = row
+        ? {
+          score: row.score as number,
+          learned: row.learned as number,
+          streak: row.streak as number,
+          longest: row.longest as number,
+          rank: myRank,
+        }
+        : null;
     }
 
     return jsonResponse(200, {
       team: toTeam(team, userId, joined),
       rows: rows.map((r, i) => ({ ...r, rank: i + 1 })),
       myRank,
-      me: mine
-        ? {
-          score: mine.score,
-          learned: mine.learned,
-          streak: mine.streak,
-          longest: mine.longest,
-          rank: myRank,
-        }
-        : null,
+      me,
       // Sent with every board so the client's explanation of the score is the
-      // formula actually used, not a copy that can fall behind it.
-      scoring: SCORING,
+      // formula and the period actually used, not a copy that can fall behind.
+      scoring: scoringFor(w, team),
     });
   } catch (e) {
     if (e instanceof BadRequest) return jsonResponse(400, { error: e.message });

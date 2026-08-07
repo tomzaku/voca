@@ -140,10 +140,20 @@ function patch<T>(path: string, body?: unknown, opts: Options = {}) {
   return run<T>('PATCH', path, body, opts);
 }
 
+// PATCH writes only the keys it's given; PUT replaces the whole thing, so
+// leaving a key out is a request to clear it. Both exist because the difference
+// decides what an absent key means, which is not something a caller should have
+// to infer from the route.
+function put<T>(path: string, body: unknown, opts: Quiet): Promise<T | null>;
+function put<T>(path: string, body?: unknown, opts?: Options): Promise<T>;
+function put<T>(path: string, body?: unknown, opts: Options = {}) {
+  return run<T>('PUT', path, body, opts);
+}
+
 function del<T>(path: string, opts: Quiet): Promise<T | null>;
 function del<T>(path: string, opts?: Options): Promise<T>;
 function del<T>(path: string, opts: Options = {}) {
   return run<T>('DELETE', path, undefined, opts);
 }
 
-export const request = { get, post, patch, delete: del };
+export const request = { get, post, patch, put, delete: del };

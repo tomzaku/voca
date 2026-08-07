@@ -4,8 +4,9 @@
 -- earliest and stay there: a newcomer studying every day could never close the
 -- gap, and someone who stopped months ago would still outrank them. The score
 -- decays, so holding a place means still turning up. The formula lives in
--- scoreFor() in the `teams` edge function — one place, in code, next to the
--- data it reads.
+-- supabase/functions/_shared/teams.ts — one place, in code, next to the data it
+-- reads, and pinned by teams.test.ts beside it. This column is only ever a
+-- cache of it; see 20260807010000_team_scoring_window.sql for why that matters.
 --
 -- Written to be safe over any earlier draft of the teams migration: every
 -- column add is guarded, and the objects the edge function replaced are dropped

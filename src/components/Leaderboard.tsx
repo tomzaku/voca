@@ -16,6 +16,7 @@ import { useIsPro } from '../hooks/useProStatus';
 import { useTeams, type BoardRow, type Scoring } from '../hooks/useTeams';
 import { TeamForm } from './TeamForm';
 import { InvitePanel, TeamJoinDialog } from './TeamInvite';
+import { PeriodNote, ScoringPanel } from './TeamScoring';
 
 /** Medal colours for the podium; everyone else gets a plain number. */
 const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
@@ -28,12 +29,20 @@ const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange
 function ScoreHelp({ scoring }: { scoring: Scoring }) {
   const { windowDays, points } = scoring;
   const plural = (n: number) => `${n} point${n === 1 ? '' : 's'}`;
+  const day = (iso: string) =>
+    new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+  // The period is the first thing to state, because it's what makes the score
+  // mean something — and it's the team's, not a constant.
+  const covers = windowDays !== null
+    ? `Your score covers the last ${windowDays} days`
+    : scoring.until
+    ? `Your score covers ${day(scoring.since)} to ${day(scoring.until)}`
+    : `Your score covers everything since ${day(scoring.since)}`;
 
   return (
     <div className="rounded-xl bg-bg-tertiary/50 p-4 text-[11px] text-text-secondary leading-relaxed">
-      <p className="font-bold text-text-primary mb-2">
-        Your score covers the last {windowDays} days
-      </p>
+      <p className="font-bold text-text-primary mb-2">{covers}</p>
       <ul className="flex flex-col gap-1">
         <li>
           <b>{plural(points.correctDay)}</b> for each word you answer correctly — once per word per
@@ -43,12 +52,15 @@ function ScoreHelp({ scoring }: { scoring: Scoring }) {
           <b>{plural(points.mastered)}</b> for each word that reaches Mastered.
         </li>
         <li>
-          <b>{plural(points.streakDay)}</b> for every day of your current streak.
+          <b>{plural(points.streakDay)}</b> for every day in a row you practised — counted inside
+          this period, so it starts from zero when the period does.
         </li>
       </ul>
       <p className="mt-2 text-text-muted">
-        Older activity drops out of the window, so a place on the board has to be held — it isn't a
-        lifetime total. Your numbers update when you open this page.
+        {windowDays !== null
+          ? 'Older activity drops out of the window, so a place on the board has to be held — it isn\'t a lifetime total.'
+          : 'Only practice inside the period counts, so everyone started level.'}{' '}
+        Your numbers update when you open this page.
       </p>
     </div>
   );
@@ -281,8 +293,17 @@ export function Leaderboard() {
         )}
       </div>
 
+      {/* Above the owner tools, because it's for everyone on the board — what
+          period these standings cover, and how long is left of it. */}
+      {scoring && <PeriodNote scoring={scoring} />}
+
       {/* Owner tools for the team on screen. */}
-      {team?.isOwner && <InvitePanel team={team} />}
+      {team?.isOwner && (
+        <>
+          <InvitePanel team={team} />
+          <ScoringPanel team={team} />
+        </>
+      )}
 
       {team && !team.joined && (
         <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
@@ -331,8 +352,10 @@ export function Leaderboard() {
       )}
 
       <p className="text-[11px] text-text-muted/70">
-        Ranked by score over the last {scoring?.windowDays ?? 30} days. Only learners who joined are
-        counted.
+        {scoring && scoring.windowDays === null
+          ? 'Ranked by score over this team\'s scoring period.'
+          : `Ranked by score over the last ${scoring?.windowDays ?? 30} days.`}{' '}
+        Only learners who joined are counted.
       </p>
 
       {creating && <TeamForm onClose={() => setCreating(false)} />}
