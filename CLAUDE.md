@@ -64,10 +64,9 @@ Rules that follow from that:
 Routing and the handlers live in `supabase/functions/<resource>/index.ts`; the shared pieces
 (CORS, replies, row mapping, validation) go in `_shared/<resource>.ts`. See `progress`.
 
-`progress`, `teams`, `chat`, `word` and `doodles` all follow this. The `ai` function is the
-last one still taking `{ action, params }` — it's the pattern being moved away from, so don't
-copy it. (`aiProviders.ts` is also the last client with its own `fetch`; it streams, which is
-why it hasn't moved to `request` yet.)
+Every function follows this — `progress`, `settings`, `streak`, `collections`, `quizzes`,
+`word-notes`, `teams`, `me`, `push`, `ai`, `chat`, `word`, `doodles`. There are no action
+dispatchers left, and no module in `src/` builds its own `fetch`.
 
 ### Never hand-roll `fetch`
 
@@ -107,10 +106,13 @@ resources may read one table, and one resource may span several. If a member of 
 needs its own carve-out — read-only fields, a verb hanging off a noun — it probably belongs
 somewhere else.
 
-### Known exceptions
+The same test catches resources that are too *small*. A single boolean isn't a thing —
+"is this user Pro" is an attribute of the current user, so it lives on `me` rather than a
+`/pro` endpoint that could never grow a second field without becoming a lie.
 
-- **Push subscriptions and the Pro check** still query directly. Don't add more; migrate one
-  when you're already working in it.
+**No table is reached from `src/` any more** — no `.from()`, no `.rpc()`, no hand-rolled
+`fetch`. `supabase` is imported only for auth and to check whether a backend is configured.
+Keep it that way: a new table means a new resource, not a new query in a component.
 
 ### Identity comes from the session
 

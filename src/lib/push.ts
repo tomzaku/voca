@@ -7,6 +7,7 @@
 
 import { supabase } from './supabase';
 import { fetchSettings, saveSettings } from './settingsApi';
+import { removePushSubscription, savePushSubscription } from './pushApi';
 
 /**
  * Reminder times are stored as MINUTES SINCE MIDNIGHT (7:30 AM = 450), in
@@ -201,7 +202,7 @@ async function readyRegistration(timeoutMs = 10_000): Promise<ServiceWorkerRegis
  * refused — the caller has already checked permission, but a push service can
  * still fail (offline, or a service worker that never activated).
  */
-export async function subscribeDevice(userId: string): Promise<boolean> {
+export async function subscribeDevice(): Promise<boolean> {
   if (!supabase || !vapidPublicKey) return false;
 
   const registration = await readyRegistration();
@@ -218,21 +219,14 @@ export async function subscribeDevice(userId: string): Promise<boolean> {
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
     }));
 
-  const { error } = await supabase.from('push_subscriptions').upsert(
-    {
-      user_id: userId,
-      endpoint: sub.endpoint,
-      p256dh: encodeKey(sub, 'p256dh'),
-      auth: encodeKey(sub, 'auth'),
-    },
-    { onConflict: 'user_id,endpoint' },
-  );
-
-  if (error) {
-    console.warn('[voca] failed to save push subscription:', error.message);
-    return false;
-  }
-  return true;
+  const saved = await savePushSubscription({
+    endpoint: sub.endpoint,
+    p256dh: encodeKey(sub, 'p256dh'),
+    auth: encodeKey(sub, 'auth'),
+  });
+  // A browser subscription the server doesn't know about would never be sent
+  // to, so a failed save means this device isn't subscribed.
+  return saved;
 }
 
 /**
@@ -240,7 +234,7 @@ export async function subscribeDevice(userId: string): Promise<boolean> {
  * permission — the user can re-enable later without a prompt, which matters
  * because a denied prompt can never be shown again.
  */
-export async function unsubscribeDevice(userId: string): Promise<void> {
+export async function unsubscribeDevice(): Promise<void> {
   if (!supabase) return;
 
   const registration = await readyRegistration();
@@ -248,12 +242,7 @@ export async function unsubscribeDevice(userId: string): Promise<void> {
   if (!sub) return;
 
   await sub.unsubscribe().catch(() => undefined);
-  const { error } = await supabase
-    .from('push_subscriptions')
-    .delete()
-    .eq('user_id', userId)
-    .eq('endpoint', sub.endpoint);
-  if (error) console.warn('[voca] failed to remove push subscription:', error.message);
+  await removePushSubscription(sub.endpoint);
 }
 
 /** Load the user's reminder schedule, falling back to 8am local. */

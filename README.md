@@ -440,7 +440,24 @@ wasting a round trip on a 401.
 Identity always comes from the session, never the body: a quiz attempt's `student_id`, a
 note's `user_id` and the name it's signed with, a collection's `owner_id`.
 
-**Still direct, to be migrated:** push subscriptions and the Pro check.
+The rest of the set, all on the same pattern:
+
+```
+POST   /ai/<operation>   → { text }        cloze, tutor_reply, mindmap, …
+GET    /me               → { isPro, proExpiresAt }
+POST   /push             → { ok }          register this browser
+DELETE /push ?endpoint=… → { ok }          forget this browser
+```
+
+`me` is what the **server** knows about the caller that their token doesn't already say —
+today the Pro grant, tomorrow a plan tier or a quota. Identity is deliberately not in it: the
+user's id, email, name and avatar ride in the session JWT, so the client already has them for
+free, offline, with no call that can fail. Use `useAuth()` for who someone is, and `me` for
+what their account is entitled to.
+
+**Nothing in `src/` reads or writes a table any more** — no `.from()`, no `.rpc()`, and no
+hand-rolled `fetch` to a function. The `supabase` client is imported only for auth and to ask
+whether a backend is configured at all.
 
 ### Learning buckets
 

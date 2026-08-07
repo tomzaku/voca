@@ -2,8 +2,15 @@
 // story-gaps, mind maps, translation). Word data lives in its own cache-first
 // `word` function — see supabase/functions/word/index.ts.
 //
-// SECURITY: this is an ACTION API, not a raw prompt passthrough. The client may
-// only invoke a fixed set of named actions with small, validated params — it
+//   POST /ai/cloze          { … }  → { text }   Pro
+//   POST /ai/word_dialogues { … }  → { text }
+//   POST /ai/translate_word { … }  → { text }
+//   POST /ai/tutor_start    { … }  → { text }
+//   POST /ai/tutor_reply    { … }  → { text }
+//   POST /ai/mindmap        { … }  → { text }   Pro
+//
+// SECURITY: a fixed set of named operations, not a raw prompt passthrough. The
+// client may only invoke the routes above with small, validated params — it
 // can NOT supply the system prompt or arbitrary conversation. Every system
 // prompt and template lives here, server-side. A signed-in user is required,
 // and each user is rate-limited.
@@ -221,6 +228,11 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
+  // The operation is the path — POST /ai/cloze — not a field in the body.
+  const parts = new URL(req.url).pathname.split('/').filter(Boolean);
+  const action = parts[parts.lastIndexOf('ai') + 1] ?? '';
+  if (!(action in ACTIONS)) return jsonResponse(404, { error: 'Not found' });
+
   const auth = await requireUser(req);
   if (!auth) return jsonResponse(401, { error: 'Please sign in to use AI features.' });
 
@@ -228,16 +240,11 @@ Deno.serve(async (req) => {
     return jsonResponse(429, { error: 'Too many requests — please slow down and try again shortly.' });
   }
 
-  let payload: { action?: string; params?: Record<string, unknown> };
+  let params: Record<string, unknown>;
   try {
-    payload = await req.json();
+    params = (await req.json() ?? {}) as Record<string, unknown>;
   } catch {
     return jsonResponse(400, { error: 'Invalid JSON body.' });
-  }
-
-  const action = payload.action;
-  if (!action || typeof action !== 'string' || !(action in ACTIONS)) {
-    return jsonResponse(400, { error: `Unknown action "${action}".` });
   }
 
   if (PRO_ACTIONS.has(action)) {
@@ -247,7 +254,7 @@ Deno.serve(async (req) => {
 
   let built: BuiltRequest;
   try {
-    built = ACTIONS[action](payload.params ?? {});
+    built = ACTIONS[action](params);
   } catch (err) {
     if (err instanceof BadRequest) return jsonResponse(400, { error: err.message });
     return jsonResponse(400, { error: 'Invalid request parameters.' });

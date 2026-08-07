@@ -78,7 +78,7 @@ export function usePushNotifications(userId: string | undefined) {
       // a second device arrives with the toggle already on and no endpoint of
       // its own. Without this it would show "on" and silently never ring.
       // Subscribing is idempotent, so re-running it costs nothing.
-      if (prefs.enabled && detected === 'granted') void subscribeDevice(userId);
+      if (prefs.enabled && detected === 'granted') void subscribeDevice();
     });
 
     return () => {
@@ -95,7 +95,7 @@ export function usePushNotifications(userId: string | undefined) {
       setStatus(permission as PushStatus);
       if (permission !== 'granted') return;
 
-      const ok = await subscribeDevice(userId);
+      const ok = await subscribeDevice();
       if (!ok) {
         toast.error("Couldn't set up reminders on this device.");
         return;
@@ -123,13 +123,13 @@ export function usePushNotifications(userId: string | undefined) {
     const next = !enabled;
     try {
       if (next) {
-        const ok = await subscribeDevice(userId);
+        const ok = await subscribeDevice();
         if (!ok) {
           toast.error("Couldn't set up reminders on this device.");
           return;
         }
       } else {
-        await unsubscribeDevice(userId);
+        await unsubscribeDevice();
       }
       await saveReminderPrefs({ enabled: next, notifyStreak, notifyReview, times, days });
       setEnabled(next);

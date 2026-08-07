@@ -2,18 +2,18 @@
 // which holds the provider API key server-side. The browser only sends the
 // signed-in user's Supabase JWT; no AI key ever touches the client.
 //
-// This is an ACTION API: the client picks a named action and passes small
-// params. It cannot supply the system prompt, the model, or a token budget —
-// those live in the edge function so the endpoint can't be used as a generic
-// LLM. See supabase/functions/ai/index.ts for the allowed actions.
+// One route per operation — POST /ai/cloze, /ai/tutor_reply, … The client
+// passes small params and cannot supply the system prompt, the model, or a
+// token budget: those live in the edge function, so the endpoint can't be used
+// as a generic LLM. See supabase/functions/ai/index.ts for the routes.
 //
 // English Practice conversations go to the separate `chat` function instead —
 // see ./chatApi.ts.
 
-import { supabase } from './supabase';
+import { request } from './api';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+/** Generation is slow; the caller may also cancel with its own signal. */
+const TIMEOUT_MS = 60_000;
 
 export type AiAction =
   | 'cloze'
@@ -23,32 +23,16 @@ export type AiAction =
   | 'tutor_reply'
   | 'mindmap';
 
-async function postAi(
+function postAi(
   action: string,
   params: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
-  if (!supabase) throw new Error('Supabase is not configured.');
-
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Please sign in to use AI features.');
-
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/ai`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ action, params }),
+  // Throws ApiError with the server's message — every caller shows it.
+  return request.post<Record<string, unknown>>(`/ai/${action}`, params, {
     signal,
+    timeout: TIMEOUT_MS,
   });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(data?.error || `AI request failed (${response.status}).`);
-  }
-  return data ?? {};
 }
 
 export async function callAiAction(

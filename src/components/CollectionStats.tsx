@@ -4,19 +4,15 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useProgressForWords } from '../hooks/useProgressQuery';
-import { progressLookup, wordBucket, type WordBucket } from '../lib/progress';
+import { BUCKET_META, BUCKET_ORDER, progressLookup, wordBucket, type WordBucket } from '../lib/progress';
 import { isDue, dueTime } from '../lib/spacedRepetition';
 import type { WordProgress } from '../types';
 
-// Bucket display order + styling. Every legend/row carries an icon and a text
-// label, so state is never communicated by color alone.
-const BUCKETS: { id: WordBucket; label: string; icon: string; bar: string; text: string; hint: string }[] = [
-  { id: 'difficult', label: 'Incorrect', icon: 'lucide:flame',        bar: 'bg-accent-red',    text: 'text-accent-red',    hint: 'Failed the last round, or more wrong answers than correct — these repeat until learned.' },
-  { id: 'learning',  label: 'Learning',  icon: 'lucide:refresh-cw',   bar: 'bg-accent-cyan',   text: 'text-accent-cyan',   hint: 'On the review schedule, coming back at growing intervals.' },
-  { id: 'pending',   label: 'Pending',   icon: 'lucide:circle-dashed', bar: 'bg-accent-orange', text: 'text-accent-orange', hint: 'Never answered yet — waiting for their first round.' },
-  { id: 'mastered',  label: 'Mastered',  icon: 'lucide:sparkles',     bar: 'bg-accent-green',  text: 'text-accent-green',  hint: 'Graduated — the review gap passed ~3 weeks.' },
-  { id: 'dismissed', label: 'Skipped',   icon: 'lucide:eye-off',      bar: 'bg-border-light',  text: 'text-text-muted',    hint: 'Skipped for good — never shown (restore from History).' },
-];
+// Bucket display order + styling, from the one table every screen shares — so
+// a word reads as the same thing here, on the flash card and in History.
+// Ordered as a progression, like the dashboard's bar. Every legend/row carries
+// an icon and a text label, so state is never communicated by color alone.
+const BUCKETS = BUCKET_ORDER.map((id) => ({ id, ...BUCKET_META[id] }));
 
 /** "in 5m / in 3h / in 2d" or "now" for a future due time. */
 function fmtDue(dueAt: string, now: number): string {
@@ -57,7 +53,7 @@ interface Props {
 }
 
 /**
- * Per-collection analytics popup: how many words are incorrect / pending /
+ * Per-collection analytics popup: how many words are not started / struggling /
  * learning / mastered / skipped, plus a per-word list of what the scheduler
  * will show next and when.
  */
@@ -90,8 +86,8 @@ export function CollectionStats({ name, words, onClose }: Props) {
       correctTotal += p?.correct ?? 0;
       wrongTotal += p?.wrong ?? 0;
     }
-    // Order like the scheduler thinks: incorrect first (due soonest first),
-    // then pending, learning by due time, mastered, skipped last.
+    // Order like the scheduler thinks: struggling first (due soonest first),
+    // then not-started, learning by due time, mastered, skipped last.
     const bucketRank: Record<WordBucket, number> = { difficult: 0, pending: 1, learning: 2, mastered: 3, dismissed: 4 };
     rows.sort((a, b) =>
       bucketRank[a.bucket] - bucketRank[b.bucket] || dueTime(a.p) - dueTime(b.p) || a.word.localeCompare(b.word),
