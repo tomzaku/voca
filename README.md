@@ -281,13 +281,35 @@ lock. Counting in UTC would break a Saigon user's streak seven hours before
 their day actually ended, and two devices answering at once would otherwise both
 read the old count and both add one.
 
-## Database
-
-Migrations live in `supabase/migrations`. Apply them with:
+## Deploying the backend
 
 ```bash
-npm run db:push        # supabase db push
+npm run deploy:supabase   # migrations, then every edge function
 ```
+
+Or each half on its own:
+
+```bash
+npm run db:push                # migrations only  (supabase/migrations)
+npm run deploy:functions       # all 8 functions, one at a time (needs Docker)
+npm run deploy:functions:fast  # same, bundled server-side and 4 at a time
+npm run deploy:progress        # just one, while iterating on it
+```
+
+`deploy:functions:fast` passes `--use-api`, which bundles on Supabase's side instead of in
+local Docker — that's what makes `--jobs` legal (the CLI rejects it on its own) and skips the
+Docker requirement entirely. It's the default in newer CLI versions; kept separate here so the
+plain script keeps working the way it always has.
+
+**Migrations first, functions second** — that's the order `deploy:supabase` uses, and it
+matters: a function that queries a column the database doesn't have yet fails on every call,
+whereas a migration ahead of its function is harmless. For the same reason, deploy the
+functions before (or with) a frontend release that depends on them.
+
+Directories under `supabase/functions/` starting with `_` hold shared code and are not
+deployed as functions. `--prune` deletes remote functions that no longer exist locally; it's
+kept out of these scripts on purpose, since it would remove anything deployed from another
+branch.
 
 ### Reading data: use an edge function, not the table
 
@@ -352,7 +374,7 @@ throughout, because the app is offline-capable and a failed read should fall bac
 stored copy of progress rather than interrupt anyone.
 
 ```bash
-npm run deploy:progress
+npm run deploy:progress    # or npm run deploy:supabase for everything
 ```
 
 **Still direct, to be migrated:** the older features (collections, quizzes, teams, streak,

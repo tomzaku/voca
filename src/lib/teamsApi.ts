@@ -5,10 +5,8 @@
 // Unlike pickApi there is no local fallback: a board is other people's data,
 // so offline there is simply nothing to show.
 
-import { supabase } from './supabase';
+import { ApiError, request } from './api';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const TIMEOUT_MS = 8000;
 
 export interface Team {
@@ -95,16 +93,6 @@ export function boardMe(board: Board, userId: string): BoardMe | null {
   };
 }
 
-type Action =
-  | 'list'
-  | 'board'
-  | 'join'
-  | 'leave'
-  | 'create'
-  | 'rotateInvite'
-  | 'previewCode'
-  | 'joinByCode';
-
 /** What an invite code opens, shown before anyone agrees to share with it. */
 export interface TeamPreview {
   name: string;
@@ -118,52 +106,40 @@ export interface TeamPreview {
 /** Thrown with the server's message so the UI can show why something failed. */
 export class TeamsError extends Error {}
 
-async function call<T>(action: Action, params: Record<string, unknown> = {}): Promise<T> {
-  if (!supabase) throw new TeamsError('Teams need an account.');
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new TeamsError('Please sign in.');
-
-  let res: Response;
+/** The server's own message, in the type the UI already catches. */
+async function call<T>(
+  send: () => Promise<T>,
+): Promise<T> {
   try {
-    res = await fetch(`${SUPABASE_URL}/functions/v1/teams`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ action, params }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch {
-    throw new TeamsError("Couldn't reach the server.");
+    return await send();
+  } catch (err) {
+    throw new TeamsError(err instanceof ApiError ? err.message : 'Something went wrong.');
   }
-
-  const body = await res.json().catch(() => null);
-  if (!res.ok) throw new TeamsError(body?.error || 'Something went wrong.');
-  return body as T;
 }
 
 /** Teams the user can see, each with their own membership state. */
 export async function fetchTeams(): Promise<Team[]> {
-  const { teams } = await call<{ teams: Team[] }>('list');
+  const { teams } = await call(() => request.get<{ teams: Team[] }>('/teams', { timeout: TIMEOUT_MS }));
   return teams ?? [];
 }
 
 /** One team's standings. `teamId` omitted means the built-in Global team. */
 export function fetchBoard(teamId?: string | null): Promise<Board> {
-  return call<Board>('board', { team: teamId ?? null });
+  return call(() =>
+    request.get<Board>('/teams/board', { params: { team: teamId ?? undefined }, timeout: TIMEOUT_MS }));
 }
 
 /** Start sharing progress with a team. Returns the team with `joined` updated. */
 export async function joinTeam(teamId?: string | null): Promise<Team> {
-  const { team } = await call<{ team: Team }>('join', { team: teamId ?? null });
+  const { team } = await call(() =>
+    request.post<{ team: Team }>('/teams/join', { team: teamId ?? null }, { timeout: TIMEOUT_MS }));
   return team;
 }
 
 /** Stop sharing — the membership, and everything it held, is deleted. */
 export async function leaveTeam(teamId?: string | null): Promise<Team> {
-  const { team } = await call<{ team: Team }>('leave', { team: teamId ?? null });
+  const { team } = await call(() =>
+    request.post<{ team: Team }>('/teams/leave', { team: teamId ?? null }, { timeout: TIMEOUT_MS }));
   return team;
 }
 
@@ -177,25 +153,29 @@ export async function createTeam(input: {
   description?: string;
   isPublic?: boolean;
 }): Promise<Team> {
-  const { team } = await call<{ team: Team }>('create', { ...input });
+  const { team } = await call(() =>
+    request.post<{ team: Team }>('/teams', { ...input }, { timeout: TIMEOUT_MS }));
   return team;
 }
 
 /** New invite code for a team you own. Every link handed out before stops working. */
 export async function rotateInvite(teamId: string): Promise<Team> {
-  const { team } = await call<{ team: Team }>('rotateInvite', { team: teamId });
+  const { team } = await call(() =>
+    request.post<{ team: Team }>('/teams/rotate-invite', { team: teamId }, { timeout: TIMEOUT_MS }));
   return team;
 }
 
 /** Which team a code belongs to, without joining it. */
 export async function previewCode(code: string): Promise<TeamPreview> {
-  const { preview } = await call<{ preview: TeamPreview }>('previewCode', { code });
+  const { preview } = await call(() =>
+    request.get<{ preview: TeamPreview }>('/teams/preview', { params: { code }, timeout: TIMEOUT_MS }));
   return preview;
 }
 
 /** Join with an invite code — the only way into a private team. */
 export async function joinByCode(code: string): Promise<Team> {
-  const { team } = await call<{ team: Team }>('joinByCode', { code });
+  const { team } = await call(() =>
+    request.post<{ team: Team }>('/teams/join-by-code', { code }, { timeout: TIMEOUT_MS }));
   return team;
 }
 

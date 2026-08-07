@@ -1,5 +1,5 @@
 import { callAiAction } from './aiProviders';
-import { fetchWordData, isUnknownWord } from './wordApi';
+import { fetchWordData } from './wordApi';
 import { getLearnLanguage, getMotherLanguage } from './languages';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useCollections } from '../hooks/useCollections';
@@ -344,11 +344,12 @@ export async function generateWordData(
   // The `word` edge function is cache-first and returns a ready object (it does
   // the generate/validate/retry server-side), so there's nothing to parse here.
   const result = await fetchWordData({ word, learnLang, motherLang }, signal);
-  if (isUnknownWord(result)) {
+  // A null word is the server's verdict that this isn't a real word.
+  if (!result.word) {
     cacheReject(word, result.suggestions);
     throw new UnknownWordError(word, result.suggestions);
   }
-  const data = result;
+  const data = result.word;
   // Keep the seed as the stable identity (progress/selection/cache keys); the
   // returned word — a learn-language translation or a normalized/spell-corrected
   // English form — becomes the headword shown and guessed. Without this, review

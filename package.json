@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.34",
+  "version": "0.1.35",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,9 @@
     "db:push": "supabase db push",
     "db:migrate": "psql \"$DATABASE_URL\" -f supabase/migration.sql",
     "db:new": "supabase migration new",
+    "deploy:functions": "supabase functions deploy",
+    "deploy:functions:fast": "supabase functions deploy --use-api --jobs 4",
+    "deploy:supabase": "npm run db:push && npm run deploy:functions",
     "deploy:progress": "supabase functions deploy progress",
     "notify:test": "node scripts/test-reminder.mjs",
     "doodles:backfill": "node scripts/backfill-doodles.mjs"

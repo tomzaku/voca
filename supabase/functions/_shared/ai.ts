@@ -12,10 +12,14 @@ export interface ChatMessage {
   content: string;
 }
 
+// Allows the read verbs as well as POST: a browser preflights every call here
+// (the Authorization header sees to that), and a resource with GET routes —
+// `teams`, `progress` — is unreachable if the preflight doesn't advertise them.
+// Functions still reject the methods they don't route.
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
 };
 
 export function jsonResponse(status: number, body: unknown): Response {

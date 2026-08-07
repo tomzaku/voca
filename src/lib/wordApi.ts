@@ -3,11 +3,8 @@
 // from the AI action client (aiProviders.ts) because this is a data lookup that
 // only sometimes generates.
 
-import { supabase } from './supabase';
+import { request } from './api';
 import type { VocabularyWord } from '../types';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export interface WordDataParams {
   word: string;
@@ -15,40 +12,22 @@ export interface WordDataParams {
   motherLang: string;
 }
 
-/** The server's verdict that a lookup isn't a real word, with what it likely was. */
-export interface UnknownWordResult {
-  status: 'unknown';
-  word: string;
+/**
+ * One shape either way: `word` is null when the lookup isn't a real word, and
+ * `suggestions` carries the "did you mean" spellings — empty on a hit.
+ */
+export interface WordDataResult {
+  word: VocabularyWord | null;
   suggestions: string[];
 }
 
-export type WordDataResult = VocabularyWord | UnknownWordResult;
+/** Generation can take a while, and the caller may cancel it. */
+const TIMEOUT_MS = 60_000;
 
-export function isUnknownWord(result: WordDataResult): result is UnknownWordResult {
-  return (result as UnknownWordResult).status === 'unknown';
-}
-
-export async function fetchWordData(params: WordDataParams, signal?: AbortSignal): Promise<WordDataResult> {
-  if (!supabase) throw new Error('Supabase is not configured.');
-
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Please sign in to use AI features.');
-
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/word`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify(params),
-    signal,
-  });
-
-  if (!response.ok) {
-    const errData = await response.json().catch(() => null);
-    throw new Error(errData?.error || `Word request failed (${response.status}).`);
-  }
-
-  return await response.json() as WordDataResult;
+/** Throws ApiError with the server's message — a failed lookup is worth showing. */
+export function fetchWordData(
+  params: WordDataParams,
+  signal?: AbortSignal,
+): Promise<WordDataResult> {
+  return request.post<WordDataResult>('/word', params, { signal, timeout: TIMEOUT_MS });
 }

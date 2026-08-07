@@ -1,14 +1,18 @@
 // Word-data endpoint. Cache-first: it usually returns stored vocabulary data
 // with NO AI call, which is why it lives apart from the always-generative `ai`
-// function. Returns the word object directly (not a `{ text }` wrapper).
+// function.
 //
-//   POST { word, learnLang, motherLang }
-//   → 200 { word, phonetics:{ "en-US":…, "en-GB":… }, partOfSpeech, definition,
-//           translation, examples, synonyms, antonyms, collocations,
-//           wordFamily:[{word,pos}], idioms:[{idiom,meaning,example}],
-//           level, imageKeywords }
-//   → 200 { status: 'unknown', word, suggestions } when the word isn't real —
-//           a typo or nonsense. The client shows a "did you mean" page.
+//   POST /word  { word, learnLang, motherLang }
+//   → 200 { word, suggestions }
+//
+// One shape either way, as everywhere else:
+//
+//   word        the vocabulary object — phonetics { "en-US":…, "en-GB":… },
+//               partOfSpeech, definition, translation, examples, synonyms,
+//               antonyms, collocations, wordFamily [{word,pos}],
+//               idioms [{idiom,meaning,example}], level, imageKeywords —
+//               or null when the lookup isn't a real word (a typo, nonsense).
+//   suggestions "did you mean" spellings, filled in exactly when word is null.
 //
 // The flow, in order — each step exists to avoid the next one's cost:
 //
@@ -84,14 +88,14 @@ Deno.serve(async (req) => {
       fetchIdioms(svc, wordKey),
     ]);
     console.log(`[word] cache HIT "${wordKey}" (${Date.now() - t0}ms, family=${wordFamily.length}, idioms=${idioms.length})`);
-    return jsonResponse(200, { ...cached.data, translation, wordFamily, idioms });
+    return jsonResponse(200, { word: { ...cached.data, translation, wordFamily, idioms }, suggestions: [] });
   }
 
   // ── 2. Known typo? ──
   const suggestions = await readReject(svc, wordKey, learnKey);
   if (suggestions) {
     console.log(`[word] reject HIT "${wordKey}" (${Date.now() - t0}ms, no AI call)`);
-    return jsonResponse(200, { status: 'unknown', word: wordKey, suggestions });
+    return jsonResponse(200, { word: null, suggestions });
   }
 
   // ── 3. Neither — ask the AI, and remember whatever it says ──
@@ -112,12 +116,12 @@ Deno.serve(async (req) => {
   if (isVerdict(result)) {
     storeReject(svc, wordKey, learnKey, result.suggestions);
     console.log(`[word] REJECTED "${wordKey}" (${Date.now() - t0}ms, suggestions=${result.suggestions.length})`);
-    return jsonResponse(200, { status: 'unknown', word: wordKey, suggestions: result.suggestions });
+    return jsonResponse(200, { word: null, suggestions: result.suggestions });
   }
 
   storeWord(svc, wordKey, motherLang, result);
   storeFamily(svc, wordKey, result);
   storeIdioms(svc, wordKey, result);
   console.log(`[word] generated "${wordKey}" (${Date.now() - t0}ms, family=${result.wordFamily?.length ?? 0})`);
-  return jsonResponse(200, result);
+  return jsonResponse(200, { word: result, suggestions: [] });
 });

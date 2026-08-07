@@ -4,11 +4,15 @@
 // turn, plus a long summary), so it deserves its own deploy, its own logs and
 // its own scaling knobs.
 //
-// SECURITY: an ACTION API, not a raw prompt passthrough — same contract as the
-// `ai` function. The client may only invoke the three named actions below with
-// small, validated params; it can NOT supply the system prompt or arbitrary
-// conversation. Every prompt lives here, server-side. Practising is Pro-only
-// and rate-limited per user.
+//   POST /chat/start    { topicId, mode, … }        → { text }
+//   POST /chat/reply    { topicId, mode, messages } → { text }
+//   POST /chat/summary  { conversationText }        → { text }
+//
+// SECURITY: a fixed set of named operations, not a raw prompt passthrough —
+// same contract as the `ai` function. The client may only invoke the three
+// routes below with small, validated params; it can NOT supply the system
+// prompt or arbitrary conversation. Every prompt lives here, server-side.
+// Practising is Pro-only and rate-limited per user.
 //
 // Configure via `supabase secrets set` (shared with the `ai` function):
 //   AI_PROVIDER  anthropic | openai | perplexity | google   (default: google)
@@ -227,16 +231,16 @@ Deno.serve(async (req) => {
     return jsonResponse(429, { error: 'Too many requests — please slow down and try again shortly.' });
   }
 
-  let payload: { action?: string; params?: Record<string, unknown> };
+  // The operation is the path — POST /chat/reply — not a field in the body.
+  const parts = new URL(req.url).pathname.split('/').filter(Boolean);
+  const action = parts[parts.lastIndexOf('chat') + 1] ?? '';
+  if (!(action in ACTIONS)) return jsonResponse(404, { error: 'Not found' });
+
+  let params: Record<string, unknown>;
   try {
-    payload = await req.json();
+    params = (await req.json() ?? {}) as Record<string, unknown>;
   } catch {
     return jsonResponse(400, { error: 'Invalid JSON body.' });
-  }
-
-  const action = payload.action;
-  if (!action || typeof action !== 'string' || !(action in ACTIONS)) {
-    return jsonResponse(400, { error: `Unknown action "${action}".` });
   }
 
   // Practising burns a generative call per turn, so the whole function is
@@ -246,7 +250,7 @@ Deno.serve(async (req) => {
 
   let built: BuiltRequest;
   try {
-    built = ACTIONS[action](payload.params ?? {});
+    built = ACTIONS[action](params);
   } catch (err) {
     if (err instanceof BadRequest) return jsonResponse(400, { error: err.message });
     return jsonResponse(400, { error: 'Invalid request parameters.' });

@@ -9,10 +9,7 @@
 // shows up instantly on its flash card, and vice versa — for every user, not
 // just the one who paid for it. Nothing is ever drawn twice.
 
-import { supabase } from './supabase';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+import { request } from './api';
 
 export const DOODLE_SIZE = 192; // thumbnail px — crisp at the ~126px display box on retina
 export const DOODLE_SHEET_SIZE = 16; // words per generated sheet — keep in sync with SHEET_MAX server-side
@@ -168,27 +165,14 @@ export async function callDoodles(
   words: { word: string; definition?: string }[],
   opts: { generate?: boolean; signal?: AbortSignal } = {},
 ): Promise<Record<string, string>> {
-  if (!supabase) throw new Error('Supabase is not configured.');
-
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Please sign in to see doodles.');
-
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/doodles`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ words, generate: opts.generate === true }),
-    signal: opts.signal,
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(data?.error || `Doodle request failed (${response.status}).`);
-  }
-  return (data?.images as Record<string, string> | undefined) ?? {};
+  // Drawing a sheet is slow; looking one up is not. Either way the caller
+  // decides how long to wait via `signal`.
+  const { images } = await request.post<{ images: Record<string, string> }>(
+    '/doodles',
+    { words, generate: opts.generate === true },
+    { signal: opts.signal, timeout: 120_000 },
+  );
+  return images ?? {};
 }
 
 /**

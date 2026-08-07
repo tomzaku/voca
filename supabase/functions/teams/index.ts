@@ -2,15 +2,14 @@
 // which carry no row-level policies of their own (see the migration). Every
 // rule about who may see or join a team is stated here, in one file, as code.
 //
-//   POST { action, params }
-//
-//   list                → 200 { teams }            teams you can see, with your membership
-//   board  { team }     → 200 { team, rows, … }    one team's standings
-//   join   { team }     → 200 { team }             share your progress with it
-//   leave  { team }     → 200 { team }             stop sharing; the row is deleted
-//   create { name, … }  → 200 { team }             Pro only; you own it and are in it
-//   rotateInvite {team} → 200 { team }             owner only; revokes shared links
-//   joinByCode { code } → 200 { team }             the way into a private team
+//   GET  /teams                    → { teams }      teams you can see, with your membership
+//   GET  /teams/board   ?team=     → { team, rows, myRank, me, scoring }
+//   GET  /teams/preview ?code=     → { preview }    what a code opens, before joining
+//   POST /teams         { name, … }→ { team }       Pro only; you own it and are in it
+//   POST /teams/join    { team }   → { team }       share your progress with it
+//   POST /teams/leave   { team }   → { team }       stop sharing; the row is deleted
+//   POST /teams/join-by-code { code }   → { team }  the way into a private team
+//   POST /teams/rotate-invite { team }  → { team }  owner only; revokes shared links
 //
 // `team` is a team id, or omitted for the built-in Global team.
 //
@@ -138,16 +137,26 @@ function correctWordDays(rows: { review_log: unknown }[], since: number): number
   return total;
 }
 
-const ACTIONS = [
-  'list',
-  'board',
-  'join',
-  'leave',
-  'create',
-  'rotateInvite',
-  'previewCode',
-  'joinByCode',
-] as const;
+/**
+ * Routes → the operation each one performs. The method carries the verb: GET
+ * never changes anything, POST does. Handlers below are unchanged by this
+ * mapping — they read a plain `params` object, which comes from the query
+ * string on a GET and from the JSON body on a POST.
+ */
+const ROUTES: Record<string, Action> = {
+  'GET /': 'list',
+  'POST /': 'create',
+  'GET /board': 'board',
+  'GET /preview': 'previewCode',
+  'POST /join': 'join',
+  'POST /join-by-code': 'joinByCode',
+  'POST /leave': 'leave',
+  'POST /rotate-invite': 'rotateInvite',
+};
+
+type Action =
+  | 'list' | 'board' | 'join' | 'leave'
+  | 'create' | 'rotateInvite' | 'previewCode' | 'joinByCode';
 
 interface TeamRow {
   id: string;
@@ -200,7 +209,12 @@ function teamParam(params: Record<string, unknown>): string | null {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
+
+  const url = new URL(req.url);
+  const parts = url.pathname.split('/').filter(Boolean);
+  const sub = parts.slice(parts.lastIndexOf('teams') + 1).join('/');
+  const action = ROUTES[`${req.method} /${sub}`];
+  if (!action) return jsonResponse(404, { error: 'Not found' });
 
   const auth = await requireUser(req);
   if (!auth) return jsonResponse(401, { error: 'Please sign in to use this feature.' });
@@ -208,18 +222,21 @@ Deno.serve(async (req) => {
   const db = serviceClient();
   if (!db) return jsonResponse(500, { error: 'Server is not configured for teams.' });
 
-  let body: { action?: unknown; params?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return jsonResponse(400, { error: 'Invalid JSON body.' });
+  // A GET carries its parameters in the query string; a POST in its body.
+  let params: Record<string, unknown>;
+  if (req.method === 'GET') {
+    params = Object.fromEntries(url.searchParams);
+  } else {
+    try {
+      params = (await req.json() ?? {}) as Record<string, unknown>;
+    } catch {
+      return jsonResponse(400, { error: 'Invalid JSON body.' });
+    }
   }
 
-  const params = (body.params ?? {}) as Record<string, unknown>;
   const userId = auth.user.id;
 
   try {
-    const action = oneOf({ action: body.action }, 'action', ACTIONS);
 
     // ── The caller's own numbers ────────────────────────────────────
     // Read from their progress, never from anyone else's, and only ever written

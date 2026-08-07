@@ -64,8 +64,10 @@ Rules that follow from that:
 Routing and the handlers live in `supabase/functions/<resource>/index.ts`; the shared pieces
 (CORS, replies, row mapping, validation) go in `_shared/<resource>.ts`. See `progress`.
 
-The older `ai` function takes `{ action, params }` — that's the pattern being moved away from;
-don't copy it.
+`progress`, `teams`, `chat`, `word` and `doodles` all follow this. The `ai` function is the
+last one still taking `{ action, params }` — it's the pattern being moved away from, so don't
+copy it. (`aiProviders.ts` is also the last client with its own `fetch`; it streams, which is
+why it hasn't moved to `request` yet.)
 
 ### Never hand-roll `fetch`
 
