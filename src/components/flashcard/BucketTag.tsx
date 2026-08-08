@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useBucketPeers } from '../../hooks/useProgressQuery';
+import { peekWord, useWordPeek } from '../../hooks/useWordPeek';
 import { BUCKET_META, wordBucket } from '../../lib/progress';
 import type { WordProgress } from '../../types';
 
@@ -34,10 +35,17 @@ export function BucketTag({
   // Click-away / Escape, so the popover never traps the card underneath it.
   useEffect(() => {
     if (!open) return;
+    // The word-peek popup is a full-viewport overlay mounted at the app root,
+    // outside this box — so while it's open, every click (even inside the
+    // peek card itself) lands outside `boxRef` and would otherwise read as a
+    // click-away. Let the peek own its own dismissal; this popover should
+    // only close for a click or Escape that isn't headed for the peek.
     const onDown = (e: MouseEvent) => {
+      if (useWordPeek.getState().word) return;
       if (!boxRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
+      if (useWordPeek.getState().word) return;
       if (e.key === 'Escape') setOpen(false);
     };
     document.addEventListener('mousedown', onDown);
@@ -80,14 +88,14 @@ export function BucketTag({
           {peers.words.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2.5">
               {peers.words.map((w) => (
-                <Link
+                <button
                   key={w}
-                  to={`/?word=${encodeURIComponent(w)}`}
-                  onClick={() => setOpen(false)}
+                  onClick={(e) => peekWord(w, e.currentTarget)}
+                  title={`What does “${w}” mean?`}
                   className="px-2 py-0.5 rounded-full text-[11px] bg-bg-tertiary text-text-secondary hover:text-text-primary border border-border"
                 >
                   {w}
-                </Link>
+                </button>
               ))}
             </div>
           )}
