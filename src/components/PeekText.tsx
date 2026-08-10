@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { peekWord, useWordPeek } from '../hooks/useWordPeek';
 import { answerRegex } from '../lib/answerMask';
+import { warmWordData } from '../lib/wordService';
 
 /**
  * Prose whose individual words open their own meaning when you rest on them.
@@ -21,6 +22,17 @@ import { answerRegex } from '../lib/answerMask';
 
 /** Mouse: how long the pointer must rest on a word before its meaning opens. */
 const HOVER_MS = 700;
+/**
+ * When to start fetching the word, well before the popup is due to open.
+ *
+ * A word that isn't cached takes a server round trip, so opening the popup at
+ * the end of the dwell and only then asking means the learner watches a
+ * skeleton for the whole fetch. Firing the request part-way through the dwell
+ * spends the rest of it usefully — often the data is there by the time the
+ * popup appears. It's short enough to still be a rest rather than a pass-over,
+ * and a warm-up costs nothing for a word this device already holds.
+ */
+const WARM_MS = 200;
 /**
  * Touch: how long a finger must stay on the word. Touch has no hover — a
  * finger is either down or gone — so the gesture there is a deliberate press
@@ -72,6 +84,8 @@ export function PeekText({ text, highlight, boldHighlight = false, className = '
   // progress bar under a held word is honest about the shorter touch timing.
   const [arming, setArming] = useState<{ key: string; ms: number } | null>(null);
   const timer = useRef<number | null>(null);
+  /** The earlier, quieter timer: fetches the word, doesn't open anything. */
+  const warmTimer = useRef<number | null>(null);
   /** The in-flight gesture: touch holds cancel on drift, mouse dwells don't. */
   const gesture = useRef<{ touch: boolean; x: number; y: number } | null>(null);
   /** The word that last opened a popup, and when — see the cooldown in `start`. */
@@ -81,6 +95,12 @@ export function PeekText({ text, highlight, boldHighlight = false, className = '
     if (timer.current !== null) {
       clearTimeout(timer.current);
       timer.current = null;
+    }
+    // Only the pending fetch is cancellable; one already sent stays sent — its
+    // answer lands in the cache either way, which is the point of warming.
+    if (warmTimer.current !== null) {
+      clearTimeout(warmTimer.current);
+      warmTimer.current = null;
     }
     gesture.current = null;
     setArming(null);
@@ -101,8 +121,13 @@ export function PeekText({ text, highlight, boldHighlight = false, className = '
     const ms = touch ? HOLD_MS : HOVER_MS;
     const el = e.currentTarget;
     if (timer.current !== null) clearTimeout(timer.current);
+    if (warmTimer.current !== null) clearTimeout(warmTimer.current);
     gesture.current = { touch, x: e.clientX, y: e.clientY };
     setArming({ key, ms });
+    warmTimer.current = window.setTimeout(() => {
+      warmTimer.current = null;
+      warmWordData(word);
+    }, WARM_MS);
     timer.current = window.setTimeout(() => {
       timer.current = null;
       gesture.current = null;

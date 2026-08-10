@@ -338,12 +338,63 @@ export async function generateWordData(
   const knownBad = getCachedReject(word);
   if (knownBad) throw new UnknownWordError(word, knownBad);
 
+  const load = sharedLoad(word);
+  return signal ? untilAborted(load, signal) : load;
+}
+
+/**
+ * Start loading a word without waiting for it — a bet that it's about to be
+ * asked for. `generateWordData` joins the same request, so warming early only
+ * moves the same single fetch forward in time; it never adds one.
+ *
+ * Free and synchronous for a word already on this device, and quiet by design:
+ * a warm-up that fails is not an error anyone asked to see, and the real call
+ * that follows will surface it.
+ */
+export function warmWordData(word: string): void {
+  if (getCachedWord(word) || getCachedReject(word)) return;
+  void sharedLoad(word).catch(() => { /* the real caller reports it */ });
+}
+
+/**
+ * One request per word (and per language pair — the cache key carries both),
+ * shared by everyone who asks while it's running.
+ *
+ * The shared fetch deliberately takes no `AbortSignal`: it isn't any one
+ * caller's to cancel, and a response that arrives after the caller left still
+ * lands in the cache. A caller's own signal drops it out of the wait instead —
+ * see `untilAborted`.
+ */
+const inFlight = new Map<string, Promise<VocabularyWord>>();
+
+function sharedLoad(word: string): Promise<VocabularyWord> {
+  const key = cacheKey(word);
+  const running = inFlight.get(key);
+  if (running) return running;
+  const load = fetchAndCacheWord(word).finally(() => {
+    if (inFlight.get(key) === load) inFlight.delete(key);
+  });
+  inFlight.set(key, load);
+  return load;
+}
+
+/** A caller's view of a shared request: aborting stops this caller waiting. */
+function untilAborted<T>(load: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    load.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
+
+async function fetchAndCacheWord(word: string): Promise<VocabularyWord> {
   const learnLang = getLearnLanguage();
   const motherLang = getMotherLanguage();
 
   // The `word` edge function is cache-first and returns a ready object (it does
   // the generate/validate/retry server-side), so there's nothing to parse here.
-  const result = await fetchWordData({ word, learnLang, motherLang }, signal);
+  const result = await fetchWordData({ word, learnLang, motherLang });
   // A null word is the server's verdict that this isn't a real word.
   if (!result.word) {
     cacheReject(word, result.suggestions);
