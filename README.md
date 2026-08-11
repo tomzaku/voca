@@ -93,17 +93,31 @@ function is deployed and the secrets are set.
 
 ### Local development
 
-To run the function locally instead of deploying:
+Every function under `supabase/functions/` can be run locally, unmodified, without Docker or the
+Supabase CLI — the deployed entrypoint and the local one both call the same exported `handler`
+(see `supabase/functions/_local/serve.ts`), so there is exactly one implementation of every
+route, run two different ways. This still reads and writes the same Supabase project the deployed
+functions do; only where the code executes has moved.
 
 ```bash
-# supabase/functions/.env  (git-ignored)
-#   AI_PROVIDER=google
-#   GOOGLE_API_KEY=AIza...
-supabase functions serve ai --env-file supabase/functions/.env
+cp supabase/functions/.env.example supabase/functions/.env   # fill in the same values as .env
+npm run start:local   # local function host (:8787) + vite (:5173), pointed at each other
 ```
 
-Point `VITE_SUPABASE_URL` at your local stack (`http://127.0.0.1:54321`) so the client calls the
-locally served function.
+`npm run start:local` is the everyday command: it runs `server:dev` and `vite` together
+(via `concurrently`, prefixed `[server]`/`[client]`) and sets `VITE_API_BASE_URL` for just
+that `vite` process, so which backend the client is talking to is always visible in the
+command rather than sitting in a gitignored dotfile. `npm run start:prod` is the same client
+alone, explicitly pointed at the deployed Edge Functions instead — useful when you want the
+local frontend against real prod data without also running the function host. Plain
+`npm run dev` is unchanged: just `vite`, defaulting to prod, same as `start:prod`.
+
+Leave `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (in the root `.env`) on the real project
+either way — auth hasn't moved, so signing in still goes through Supabase, and the RLS-scoped
+client each function builds from your session JWT behaves identically served locally or
+deployed.
+
+Requires the [Deno CLI](https://deno.com) (`brew install deno`) — nothing else.
 
 ## Daily reminders (Web Push)
 

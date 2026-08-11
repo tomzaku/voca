@@ -225,7 +225,8 @@ Do NOT include definitions — they are added separately.`;
   },
 };
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
@@ -271,7 +272,9 @@ Deno.serve(async (req) => {
   } catch (err) {
     return jsonResponse(502, { error: (err as Error).message || 'AI provider error.' });
   }
-});
+}
+
+if (import.meta.main) Deno.serve(handler);
 
 /** Accents the mind map will show IPA for, best first. */
 const IPA_LOCALES = ['en-US', 'en-GB'];

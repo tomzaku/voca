@@ -108,7 +108,8 @@ async function sheetFillers(
     .map((r) => ({ word: r.word, definition: (r.definition ?? '').slice(0, 200) }));
 }
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
@@ -298,4 +299,6 @@ Deno.serve(async (req) => {
 
   console.log(`[doodles] returning ${Object.keys(images).length}/${items.length} images`);
   return jsonResponse(200, { images });
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

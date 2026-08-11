@@ -31,7 +31,8 @@ async function read(db: SupabaseClient, userId: string) {
   return toSettings(data as Record<string, unknown> | null);
 }
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const url = new URL(req.url);
@@ -75,4 +76,6 @@ Deno.serve(async (req) => {
     console.error('[settings]', err);
     return jsonResponse(500, { error: 'Something went wrong.' });
   }
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

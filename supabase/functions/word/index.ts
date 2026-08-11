@@ -56,7 +56,8 @@ import { generateWordData } from './generate.ts';
 import { isVerdict } from './sanitize.ts';
 import type { Generated } from './types.ts';
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
@@ -137,4 +138,6 @@ Deno.serve(async (req) => {
   storeIdioms(svc, wordKey, result);
   console.log(`[word] generated "${wordKey}" (${Date.now() - t0}ms, family=${result.wordFamily?.length ?? 0})`);
   return jsonResponse(200, { word: result, suggestions: [] });
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

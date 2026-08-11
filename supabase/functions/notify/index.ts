@@ -230,7 +230,8 @@ async function sendAll(
   return { delivered, dead };
 }
 
-Deno.serve(async (req: Request) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const secret = Deno.env.get('CRON_SECRET') ?? '';
@@ -335,4 +336,6 @@ Deno.serve(async (req: Request) => {
   }
 
   return jsonResponse(200, { sent: delivered.length, pruned: dead.length });
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

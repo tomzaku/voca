@@ -71,7 +71,8 @@ function toAttempt(r: Record<string, unknown>) {
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : 0);
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const parts = new URL(req.url).pathname.split('/').filter(Boolean);
@@ -174,4 +175,6 @@ Deno.serve(async (req) => {
     console.error('[quizzes]', err);
     return jsonResponse(500, { error: 'Something went wrong.' });
   }
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

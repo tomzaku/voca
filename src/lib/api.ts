@@ -8,7 +8,9 @@
 //   request.post('/progress', { progress, event })
 //   request.delete('/progress', { params: { word } })
 //
-// Paths are relative to /functions/v1, so '/progress/count' is the whole route.
+// Paths are relative to the API base (VITE_API_BASE_URL, defaulting to
+// /functions/v1 on the Supabase project), so '/progress/count' is the whole
+// route.
 //
 // A call throws ApiError by default, carrying the server's own message — for
 // failures the user should see. Pass `quiet: true` to get null instead, for
@@ -23,6 +25,12 @@ import { supabase } from './supabase';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Where resource routes are served from — defaults to the deployed Edge
+// Functions, so prod behaviour is unchanged when this isn't set. Point it at
+// a local server (e.g. http://localhost:8787) to develop against it instead;
+// VITE_SUPABASE_URL/ANON_KEY stay on the real project either way, since auth
+// hasn't moved and a local server still reads/writes the same database.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `${SUPABASE_URL}/functions/v1`;
 const DEFAULT_TIMEOUT_MS = 8000;
 
 /** A failed call: the HTTP status, and the server's `error` where it sent one. */
@@ -56,7 +64,7 @@ type Quiet = Options & { quiet: true };
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 function url(path: string, params?: Params): string {
-  const u = new URL(`${SUPABASE_URL}/functions/v1${path}`);
+  const u = new URL(`${API_BASE_URL}${path}`);
   for (const [k, v] of Object.entries(params ?? {})) {
     if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
   }

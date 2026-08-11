@@ -44,7 +44,8 @@ function displayName(user: User): string {
   return full || user.email?.split('@')[0] || 'Anonymous';
 }
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const url = new URL(req.url);
@@ -110,4 +111,6 @@ Deno.serve(async (req) => {
     console.error('[word-notes]', err);
     return jsonResponse(500, { error: 'Something went wrong.' });
   }
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

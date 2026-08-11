@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server:dev": "DENO_NO_PACKAGE_JSON=1 deno run --watch --allow-net --allow-env --allow-read --env-file=supabase/functions/.env supabase/functions/_local/serve.ts",
+    "start:local": "concurrently -n server,client -c blue,green \"npm run server:dev\" \"VITE_API_BASE_URL=http://localhost:8787 vite\"",
+    "start:prod": "VITE_API_BASE_URL= vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
@@ -43,6 +46,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^10.0.4",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

@@ -20,7 +20,8 @@ const MAX_LEN = 2000;
 const str = (v: unknown): string =>
   typeof v === 'string' ? v.trim().slice(0, MAX_LEN) : '';
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const auth = await requireUser(req);
@@ -71,4 +72,6 @@ Deno.serve(async (req) => {
     console.error('[push]', err);
     return jsonResponse(500, { error: 'Something went wrong.' });
   }
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

@@ -342,7 +342,14 @@ function subPath(url: URL): string {
   return '/' + (at === -1 ? parts : parts.slice(at + 1)).join('/');
 }
 
-Deno.serve(async (req) => {
+/**
+ * Exported (rather than only passed to Deno.serve) so a local dev server can
+ * import and run this handler directly, unmodified — see
+ * supabase/functions/_local/serve.ts. import.meta.main is false when this
+ * module is imported that way, so the deployed entrypoint behaviour below is
+ * unchanged.
+ */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const url = new URL(req.url);
@@ -359,4 +366,6 @@ Deno.serve(async (req) => {
     console.error('[progress]', err);
     return json(500, { error: 'Something went wrong.' });
   }
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

@@ -22,7 +22,8 @@
 
 import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'GET') return jsonResponse(404, { error: 'Not found' });
 
@@ -45,4 +46,6 @@ Deno.serve(async (req) => {
   // A NULL expiry is a lifetime grant; otherwise Pro lasts until that moment.
   const isPro = Boolean(data) && (!expiresAt || new Date(expiresAt) > new Date());
   return jsonResponse(200, { isPro, proExpiresAt: isPro ? expiresAt : null });
-});
+}
+
+if (import.meta.main) Deno.serve(handler);

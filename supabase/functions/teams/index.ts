@@ -204,7 +204,8 @@ function teamParam(params: Record<string, unknown>): string | null {
   return v;
 }
 
-Deno.serve(async (req) => {
+/** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
+export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const url = new URL(req.url);
@@ -705,4 +706,6 @@ Deno.serve(async (req) => {
     console.error('[teams]', e);
     return jsonResponse(500, { error: 'Something went wrong.' });
   }
-});
+}
+
+if (import.meta.main) Deno.serve(handler);
