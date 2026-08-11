@@ -16,6 +16,7 @@
     "db:push": "supabase db push",
     "db:migrate": "psql \"$DATABASE_URL\" -f supabase/migration.sql",
     "db:new": "supabase migration new",
+    "sync:database": "node scripts/sync-database.mjs",
     "deploy:functions": "supabase functions deploy",
     "deploy:functions:fast": "supabase functions deploy --use-api --jobs 4",
     "deploy:supabase": "npm run db:push && npm run deploy:functions",

@@ -37,3 +37,9 @@ tiled/extracted/
 
 # Generated doodle sheets kept by scripts/backfill-doodles.mjs for inspection
 doodle-sheets/
+
+# Local Supabase CLI state — project link cache, branch info, and per-run
+# secrets for `supabase functions serve` (start-secrets/.../docker.env holds
+# real API keys, the DB URL, and the service role key — never commit this).
+supabase/.temp/
+supabase/.branches/

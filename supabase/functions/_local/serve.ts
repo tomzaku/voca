@@ -25,6 +25,7 @@ import progress from '../progress/index.ts';
 import push from '../push/index.ts';
 import quizzes from '../quizzes/index.ts';
 import settings from '../settings/index.ts';
+import speaking from '../speaking/index.ts';
 import streak from '../streak/index.ts';
 import teams from '../teams/index.ts';
 import word from '../word/index.ts';
@@ -46,6 +47,7 @@ const RESOURCES: Record<string, Handler> = {
   push,
   quizzes,
   settings,
+  speaking,
   streak,
   teams,
   word,

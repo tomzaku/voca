@@ -119,6 +119,30 @@ deployed.
 
 Requires the [Deno CLI](https://deno.com) (`brew install deno`) — nothing else.
 
+### Syncing a local Postgres from the linked project
+
+The above still points at the real Supabase project's database. To instead run a real local
+Postgres — `supabase start`'s local stack, migrations applied fresh, Studio at `:54323` — and
+fill it with a copy of production's `public`-schema data:
+
+```bash
+brew install supabase/tap/supabase   # CLI
+brew install --cask docker           # if you don't have Docker already; open it once
+supabase login                       # one-time, opens a browser
+npm run sync:database
+```
+
+`sync:database` (`scripts/sync-database.mjs`) dumps `public`-schema data only — never `auth` —
+from the linked project (its ref lives in `supabase/.temp/project-ref`, from a prior
+`supabase link`), then resets the local database to current migrations and loads that dump as
+its seed. No real email or password hash ever reaches the laptop. Every `public` table's
+`user_id`/`owner_id` therefore
+points at an `auth.users` row that doesn't exist locally; the load runs with
+`session_replication_role = replica` so those foreign keys aren't enforced, and the row lands
+anyway. Anything that joins through to `auth.users` (an owner's email, say) reads back null
+until you sign up locally too. It's a one-way mirror — local data is discarded and replaced on
+every run, never pushed back.
+
 ## Daily reminders (Web Push)
 
 Users can opt into a nudge when words come due for review, configured from the

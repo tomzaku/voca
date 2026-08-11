@@ -472,7 +472,7 @@ function PodcastTab() {
 }
 
 /* ─── Speaker-specific read-aloud button (IELTS + dialogues) ─── */
-function ReadAloudVoice({ text, voice, tone, voiceLabel }: {
+export function ReadAloudVoice({ text, voice, tone, voiceLabel }: {
   text: string;
   voice: string;
   tone: 'orange' | 'cyan';
@@ -538,7 +538,7 @@ function ReadAloudVoice({ text, voice, tone, voiceLabel }: {
 }
 
 /* ─── Play a multi-voice conversation line by line ───────────── */
-function PlaySequence({ lines, tone = 'cyan' }: {
+export function PlaySequence({ lines, tone = 'cyan' }: {
   lines: { text: string; voice: string }[];
   tone?: 'green' | 'cyan';
 }) {

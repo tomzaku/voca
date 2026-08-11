@@ -17,6 +17,7 @@ import { ParagraphGame } from './ParagraphGame';
 import { ReviewPanel } from './ReviewPanel';
 import { WordMindMap } from './WordMindMap';
 import { MindMapButton } from './MindMapButton';
+import { SpeakingPractice } from './SpeakingPractice';
 
 const LEVEL_COLOR: Record<string, string> = {
   beginner: 'text-accent-green',
@@ -204,7 +205,7 @@ export function HistoryPage() {
   // Whether the quiz pool is already the batch (the review panel hands over an
   // exact due list) or a pool to sample a batch from (the filtered history).
   const [quizAll, setQuizAll] = useState(false);
-  const [mode, setMode] = useState<'list' | 'quiz' | 'paragraph' | 'mindmap'>('list');
+  const [mode, setMode] = useState<'list' | 'quiz' | 'paragraph' | 'mindmap' | 'speaking'>('list');
   const openQuiz = async () => {
     setQuizWords(await fetchAllWords());
     setQuizAll(false);
@@ -296,6 +297,10 @@ export function HistoryPage() {
 
   if (mode === 'mindmap') {
     return <WordMindMap words={gameWords} onBack={() => setMode('list')} />;
+  }
+
+  if (mode === 'speaking') {
+    return <SpeakingPractice words={gameWords} onBack={() => setMode('list')} />;
   }
 
   const emptyCopyByBucket: Record<Filter, { icon: string; title: string; hint: string }> = {
@@ -410,6 +415,30 @@ export function HistoryPage() {
                 <Icon icon={isPro ? 'lucide:book-open' : 'lucide:lock'} className="text-sm" />
                 Story Gaps
                 <span className="text-[9px] px-1 py-px rounded bg-accent-green/20 font-extrabold uppercase tracking-wider">
+                  Pro
+                </span>
+              </button>
+              {/* Pro: an AI dialogue script that weaves in these words, stored
+                  so replaying it later costs nothing — only "Generate" here
+                  actually calls the model. */}
+              <button
+                onClick={() => {
+                  if (!isPro) {
+                    toast('Speaking is a Pro feature.', { icon: '👑' });
+                    return;
+                  }
+                  setMode('speaking');
+                }}
+                title={
+                  isPro
+                    ? 'An AI conversation built from these words'
+                    : 'Pro feature — an AI conversation built from these words'
+                }
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-orange/10 border border-accent-orange/20 text-accent-orange text-xs font-medium hover:bg-accent-orange/20 transition-all"
+              >
+                <Icon icon={isPro ? 'lucide:message-circle' : 'lucide:lock'} className="text-sm" />
+                Speaking
+                <span className="text-[9px] px-1 py-px rounded bg-accent-orange/20 font-extrabold uppercase tracking-wider">
                   Pro
                 </span>
               </button>
