@@ -18,8 +18,10 @@
 // separately from the map so a redraw doesn't inherit them. "Export PNG"
 // rasterizes the whole poster at its natural size (src/lib/mapImage.ts).
 // Clicking a word opens its word page. Results are cached in localStorage per
-// word-set so coming back doesn't spend another AI call — "Redraw" forces a
-// fresh map.
+// word-set so coming back doesn't spend another AI call, and — for a signed-in
+// user — also saved server-side (the `mindmap` resource) so the same word set
+// resolves without an AI call even after localStorage is cleared or on another
+// device. "Redraw" forces a fresh map and overwrites both caches.
 //
 // Each word also gets a small hand-drawn doodle image hinting at its meaning
 // (the `doodles` edge function → Gemini image model → base64 data URI,
@@ -54,20 +56,19 @@ import {
 } from '../lib/doodles';
 import { getMotherLanguage } from '../lib/languages';
 import { downloadBlob, mindMapToPngBlob } from '../lib/mapImage';
+import { type MindMapNode, type SavedMindmap, fetchMindmap, listMindmaps, saveMindmap } from '../lib/mindmapApi';
 import { isTtsPlaying, speakText, stopSpeaking } from '../lib/tts';
 
-interface MindMapNode {
-  id: string;
-  topic: string;
-  emoji?: string;
-  definition?: string;
-  /** In the user's mother tongue, when word_cache has one for that language. */
-  translation?: string;
-  /** IPA for the word, US preferred over UK. */
-  phonetic?: string;
-  /** One example sentence. */
-  example?: string;
-  children: MindMapNode[];
+function timeAgo(date: string): string {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(date).toLocaleDateString();
 }
 
 /** Which per-word lines the cards show. Each is a row in the Show menu. */
@@ -1325,6 +1326,19 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
             return;
           }
         } catch { /* corrupt cache — fall through and regenerate */ }
+
+        // Not in localStorage — check the server before spending an AI call
+        // (covers a cleared browser, a new device, a signed-in switch).
+        const saved = await fetchMindmap(chosen, motherLang);
+        if (saved) {
+          setTree(saved);
+          loadedKeyRef.current = key;
+          try {
+            localStorage.setItem(key, JSON.stringify(saved));
+          } catch { /* storage full — the map still renders */ }
+          setLoading(false);
+          return;
+        }
       }
 
       try {
@@ -1337,6 +1351,9 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
         try {
           localStorage.setItem(key, JSON.stringify(root));
         } catch { /* storage full — the map still renders */ }
+        // Best-effort: the map already rendered from the AI response, so a
+        // failed background save shouldn't surface an error to the user.
+        void saveMindmap(chosen, motherLang, root).catch(() => {});
       } catch (err) {
         setError((err as Error).message || 'Could not build the mind map.');
       } finally {
@@ -1349,6 +1366,30 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
   useEffect(() => {
     void load(false);
   }, [load]);
+
+  // Previously generated maps, for the picker to offer reopening one instead
+  // of regenerating. Scoped to the current mother tongue — a map's baked-in
+  // translations only make sense for the tongue it was built for.
+  const [savedMaps, setSavedMaps] = useState<SavedMindmap[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void listMindmaps(motherLang).then((maps) => { if (alive) setSavedMaps(maps); });
+    return () => { alive = false; };
+  }, [motherLang]);
+
+  /** Reopen a saved map instantly — no AI call, no server round trip. */
+  const openSaved = useCallback((saved: SavedMindmap) => {
+    const k = cacheKey(saved.words, motherLang);
+    try {
+      localStorage.setItem(k, JSON.stringify(saved.tree));
+    } catch { /* storage full — the map still renders */ }
+    loadedKeyRef.current = k;
+    setTree(saved.tree);
+    setError(null);
+    setLoading(false);
+    setPicked(new Set(saved.words));
+    setChosen(saved.words);
+  }, [motherLang]);
 
   // Load doodles for the current tree — FREE sources only. localStorage and
   // migrated legacy thumbs paint immediately, then the shared server cache
@@ -1572,6 +1613,31 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           Choose 2–{MAX_WORDS} saved words to organize into themes.
           {overflow && ` You have ${words.length} saved words — the first ${MAX_WORDS} are pre-selected.`}
         </p>
+
+        {savedMaps.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">
+              Your saved mind maps
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {savedMaps.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => openSaved(m)}
+                  className="text-left px-3 py-2 rounded-xl border border-border bg-bg-card hover:border-accent-cyan/40 transition-all max-w-[240px]"
+                >
+                  <div className="text-sm font-display font-bold text-text-primary">
+                    {m.words.length} words
+                  </div>
+                  <div className="text-xs text-text-muted truncate">
+                    {m.words.slice(0, 4).join(', ')}{m.words.length > 4 ? '…' : ''}
+                  </div>
+                  <div className="text-[10px] text-text-muted mt-0.5">{timeAgo(m.updatedAt)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 mb-4">
           <button

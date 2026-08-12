@@ -19,6 +19,7 @@ import chat from '../chat/index.ts';
 import collections from '../collections/index.ts';
 import doodles from '../doodles/index.ts';
 import me from '../me/index.ts';
+import mindmap from '../mindmap/index.ts';
 import notify from '../notify/index.ts';
 import pick from '../pick/index.ts';
 import progress from '../progress/index.ts';
@@ -41,6 +42,7 @@ const RESOURCES: Record<string, Handler> = {
   collections,
   doodles,
   me,
+  mindmap,
   notify,
   pick,
   progress,
