@@ -44,7 +44,7 @@ import {
   requireUser,
   toWordProgress,
 } from '../_shared/progress.ts';
-import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 const DEFAULT_PAGE = 50;
 const DEFAULT_PREVIEW = 10;

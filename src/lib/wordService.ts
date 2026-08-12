@@ -281,9 +281,9 @@ function cacheWord(word: VocabularyWord) {
 // suggestions are words, not translations.
 
 function rejectKey(word: string): string {
-  // Bump v1 whenever REJECT_VERSION moves in the `word` edge function, or these
+  // Bump v2 whenever REJECT_VERSION moves in the `word` edge function, or these
   // clients will keep serving verdicts the server has already thrown out.
-  return `voca-reject-v1-${getLearnLanguage()}-${word}`;
+  return `voca-reject-v2-${getLearnLanguage()}-${word}`;
 }
 
 /** The stored suggestions for a known typo, or null if we've no verdict on it. */

@@ -3,7 +3,7 @@
 // input validation. Prompts and per-function logic live in each function's own
 // index.ts. Note the rate limit is one per-user budget shared by all of them.
 
-import { createClient, type SupabaseClient, type User } from 'jsr:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient, type User } from 'npm:@supabase/supabase-js@2';
 
 export type Provider = 'anthropic' | 'openai' | 'perplexity' | 'google';
 

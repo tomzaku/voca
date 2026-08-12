@@ -12,12 +12,12 @@ const SYSTEM = 'You are a vocabulary tutor. Return ONLY valid JSON, no markdown,
 /**
  * Generate a word's data, or judge that it isn't a real word.
  *
- * One call answers both questions. A separate "is this real?" pre-flight would
- * be cleaner to read but would tax every valid lookup with an extra round trip,
- * and validity is something the model already has to settle to generate at all.
- *
- * The seed `word` is always English — a non-English `learnLang` translates it —
- * so validity is always judged as English.
+ * One call answers three questions at once: is it real, in which of the
+ * learner's three languages (English / mother tongue / learn language) was it
+ * typed, and what's its data. A separate pre-flight for any of those would be
+ * cleaner to read but would tax every lookup with an extra round trip, and the
+ * model already has to settle all three to generate at all — see `seedWord`
+ * in `buildPrompt` for how the response carries the language it resolved.
  */
 export async function generateWordData(word: string, learnLang: string, motherLang: string): Promise<Generated> {
   const prompt = buildPrompt(word, learnLang, motherLang);
@@ -65,9 +65,15 @@ export async function translateWord(word: string, definition: string, motherLang
 function buildPrompt(word: string, learnLang: string, motherLang: string): string {
   const isEnglish = learnLang.toLowerCase() === 'english';
 
+  // The searcher's mother tongue and learn language are both real candidates for
+  // what script "${word}" is in, not just English — a Vietnamese-mother-tongue
+  // learner types "chó" as often as "dog". Whichever it is, the response is
+  // reproduced verbatim in that language's slot below, so the reverse lookup in
+  // cache.ts (readByTranslation) finds this row on a repeat search with no AI
+  // call at all.
   const headwordSpec = isEnglish
-    ? `"word": "${word}",`
-    : `"word": "the single ${learnLang} word that best translates the English word \\"${word}\\"",`;
+    ? `"word": "the resolved concept's base English dictionary form (same value as seedWord above)",`
+    : `"word": "the single ${learnLang} word that best expresses the resolved concept — if \\"${word}\\" was itself typed in ${learnLang}, this MUST be exactly \\"${word}\\" verbatim",`;
 
   // Idioms are English-only: the shared `idioms` table (unique on idiom text)
   // must not be polluted with learn-language phrases.
@@ -75,22 +81,21 @@ function buildPrompt(word: string, learnLang: string, motherLang: string): strin
     ? `\n  "idioms": [{ "idiom": "popular idiom containing the word", "meaning": "short plain-English meaning", "example": "one natural example sentence" }],`
     : '';
 
-  return `Generate vocabulary data for ${
-    isEnglish ? `the English word "${word}"` : `the ${learnLang} equivalent of the English word "${word}"`
-  }.
+  return `A language learner searched for "${word}". It was typed in exactly one of these three languages: English, ${motherLang} (their native language), or ${learnLang} (the language they're learning) — figure out which, and what real word or phrase it is.
 
-FIRST, decide whether "${word}" is a real word or phrase. If it is NOT — a typo, a misspelling, or nonsense — do NOT invent data for it and do NOT silently correct it to a similar word. Instead return ONLY this JSON and nothing else:
-{ "valid": false, "suggestions": ["up to 5 real words it was most likely meant to be, closest first"] }
-Judge this strictly on whether the word exists, not on how common it is: rare, archaic, technical, dialectal, and proper nouns are all real words, as are inflected forms (plurals, past tenses) and multi-word phrasal verbs and idioms. When in doubt, treat it as real and generate it.
+FIRST, decide whether "${word}" is a real word or phrase in English, ${motherLang}, or ${learnLang}. If it is NOT real in ANY of those three — a typo, a misspelling, or nonsense — do NOT invent data for it and do NOT silently correct it to a similar word. Instead return ONLY this JSON and nothing else:
+{ "valid": false, "suggestions": ["up to 5 real words it was most likely meant to be, closest first, in whichever of those languages seems closest"] }
+Judge this strictly on whether the word exists in at least one of the three, not on how common it is: rare, archaic, technical, dialectal, and proper nouns are all real words, as are inflected forms (plurals, past tenses) and multi-word phrasal verbs and idioms. When in doubt, treat it as real and generate it.
 
-Otherwise return this exact JSON structure (no markdown, no extra text):
+Otherwise, once you've identified the concept "${word}" refers to, return this exact JSON structure (no markdown, no extra text):
 {
+  "seedWord": "the concept's canonical English dictionary form (base singular noun / infinitive verb / etc), lowercase — an internal key, never shown to the user",
   ${headwordSpec}
-  "phonetics": { "en-US": "US IPA like /wɜːrd/", "en-GB": "UK IPA like /wɜːd/" },
+  "phonetics": { "en-US": "US IPA of the English seed word, like /wɜːrd/", "en-GB": "UK IPA like /wɜːd/" },
   "partOfSpeech": "noun | verb | adjective | adverb | etc",
   "definition": "Clear, concise definition in 1-2 sentences${isEnglish ? '' : `, written in ${learnLang}`}",
   "shortDefinition": "very short plain-English definition (max 12 words), phrased like a quick handwritten note next to the word on a study mind map — punchy and memorable, e.g. 'too willing to believe things; easily fooled'",
-  "translation": "the word's meaning translated into ${motherLang} (the most natural equivalent)",
+  "translation": "the word's meaning translated into ${motherLang} (the most natural equivalent) — if \\"${word}\\" was itself typed in ${motherLang}, this MUST be exactly \\"${word}\\" verbatim, not a rephrasing",
   "examples": [
     "Natural example sentence showing the word in context.",
     "Another example with different usage.",

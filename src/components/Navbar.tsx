@@ -6,6 +6,7 @@ import { useGameMode } from '../hooks/useGameMode';
 import { useStreak, localDateString } from '../hooks/useStreak';
 import { useHotkey } from '../hooks/useHotkey';
 import { isApple } from '../lib/device';
+import { getLearnLanguage, getMotherLanguage } from '../lib/languages';
 import { Sidebar } from './Sidebar';
 
 export function Navbar() {
@@ -156,7 +157,7 @@ export function Navbar() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
-              placeholder="Search any word…"
+              placeholder={`Search any ${getLearnLanguage()} or ${getMotherLanguage()} word…`}
               className="w-full bg-bg-card border-[3px] border-border rounded-2xl pl-11 pr-20 py-2.5 text-text-primary font-semibold focus:outline-none focus:border-accent-cyan placeholder:text-text-muted transition-colors"
               autoComplete="off"
               autoCorrect="off"

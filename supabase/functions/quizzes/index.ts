@@ -19,7 +19,7 @@
 //
 // Deploy: `supabase functions deploy quizzes`
 
-import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
 
 const UUID = /^[0-9a-f-]{36}$/i;

@@ -21,7 +21,7 @@
 // Deploy: `supabase functions deploy collections`
 
 import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
-import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX_NAME = 80;

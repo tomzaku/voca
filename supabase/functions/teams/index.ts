@@ -53,7 +53,7 @@ import {
   windowFor,
   type ScoreWindow,
 } from '../_shared/teams.ts';
-import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 /** How many places a board returns before it cuts to the caller's own row. */
 const BOARD_LIMIT = 20;

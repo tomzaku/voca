@@ -40,6 +40,18 @@ export const asFamily = (v: unknown): FamilyEntry[] =>
     .map((e) => ({ word: e.word.slice(0, 60), pos: e.pos.slice(0, 30) }))
     .slice(0, 8);
 
+/**
+ * Sanitize the model's resolved `seedWord` (the English cache key it settled
+ * on, from whichever of the three languages "${word}" turned out to be in).
+ * Falls back to `fallback` (the literal search term) when missing or empty, so
+ * a malformed response degrades to the old literal-English behavior rather
+ * than storing under a blank key.
+ */
+export const asSeedWord = (v: unknown, fallback: string): string => {
+  const s = typeof v === 'string' ? v.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 60) : '';
+  return s || fallback;
+};
+
 /** Sanitize an idioms array: keep well-formed { idiom, meaning, example? } entries only. */
 export const asIdioms = (v: unknown): IdiomEntry[] =>
   (Array.isArray(v) ? v : [])

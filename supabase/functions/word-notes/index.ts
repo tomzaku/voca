@@ -19,7 +19,7 @@
 // Deploy: `supabase functions deploy word-notes`
 
 import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
-import type { User } from 'jsr:@supabase/supabase-js@2';
+import type { User } from 'npm:@supabase/supabase-js@2';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX_CONTENT = 2000;

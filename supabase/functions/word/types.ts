@@ -15,6 +15,11 @@ export interface IdiomEntry {
 }
 
 export interface WordData {
+  // The resolved English seed key, used only to store/find the row — the
+  // language the search term was actually typed in (English, mother tongue, or
+  // learn language) is settled by the same call that produces the rest of this
+  // data. Stripped before the response reaches the client.
+  seedWord?: string;
   word?: string;
   phonetics?: Record<string, string>; // keyed by locale, e.g. { "en-US": "…", "en-GB": "…" }
   partOfSpeech?: string;

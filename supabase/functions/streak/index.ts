@@ -20,7 +20,7 @@
 // Deploy: `supabase functions deploy streak`
 
 import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
-import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 /** The caller's streak, zeroed when they've never studied. */
 async function read(db: SupabaseClient, userId: string) {

@@ -18,7 +18,7 @@
 
 import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
 import { fromSettings, SELECT, toSettings } from '../_shared/settings.ts';
-import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 /** The caller's row, or nulls when they've never saved anything. */
 async function read(db: SupabaseClient, userId: string) {

@@ -22,7 +22,7 @@ import { asArray } from './sanitize.ts';
  * Bump `rejectKey` in src/lib/wordService.ts at the same time — clients cache
  * verdicts too, and won't otherwise notice.
  */
-const REJECT_VERSION = 1;
+const REJECT_VERSION = 2;
 
 /** A stored verdict's suggestions, or null if we have no current verdict on the word. */
 export async function readReject(svc: Svc, wordKey: string, learnKey: string): Promise<string[] | null> {
