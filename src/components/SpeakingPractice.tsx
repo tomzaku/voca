@@ -23,6 +23,7 @@ import {
   type SpeakingDialogue,
 } from '../lib/speakingApi';
 import { ReadAloudVoice, PlaySequence } from './EnglishSpeakingPage';
+import { PeekText } from './PeekText';
 
 interface Props {
   /** The filtered word pool this view samples from — same pool Quiz uses. */
@@ -52,7 +53,9 @@ function plainText(text: string): string {
   return parseCloze(text).segments.map((s) => s.value).join('');
 }
 
-/** A dialogue line with its `[[ ]]`-wrapped target word highlighted — same
+/** A dialogue line, every word hoverable for its definition (`PeekText` — the
+ *  same word-peek popup used in the flash card's revealed definition/examples),
+ *  with the `[[ ]]`-wrapped target word additionally bolded green — same
  *  bracket convention Story Gaps' AI paragraphs use (`parseCloze`). */
 function DialogueLineText({ text }: { text: string }) {
   const { segments } = parseCloze(text);
@@ -60,9 +63,9 @@ function DialogueLineText({ text }: { text: string }) {
     <>
       {segments.map((seg, i) =>
         seg.type === 'text' ? (
-          <span key={i}>{seg.value}</span>
+          <PeekText key={i} text={seg.value} />
         ) : (
-          <span key={i} className="font-semibold text-accent-green">{seg.value}</span>
+          <PeekText key={i} text={seg.value} className="font-semibold text-accent-green" />
         ),
       )}
     </>
