@@ -63,7 +63,7 @@ export function Rail() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex-col bg-bg-secondary border-r-[3px] border-border overflow-hidden transition-[width] duration-200 ${
+        className={`fixed inset-y-0 left-0 z-30 flex-col bg-bg-secondary overflow-hidden transition-[width] duration-200 ${
           // Collapsed mobile shows nothing — full width for content — while
           // collapsed desktop keeps the icon-only strip. Expanded shows on both.
           expanded ? 'flex w-60' : 'hidden sm:flex sm:w-16'
@@ -72,7 +72,9 @@ export function Rail() {
         {/* Border lives on this wrapper, not the h-16 row itself, so it adds
             to the height instead of eating into it — matching how Navbar's
             outer <header> (border) and inner h-16 row (content) are split,
-            so the two borders land on the same line. */}
+            so the two borders land on the same line. No border-r here: the
+            logo sits beside the header's own (mostly empty) left edge, and a
+            vertical line there would look disconnected from it. */}
         <div className="shrink-0 border-b-[3px] border-border">
           <Link
             to="/"
@@ -88,45 +90,49 @@ export function Rail() {
           </Link>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-2.5 space-y-1">
-          {navItems.map((item) => {
-            const active = location.pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                title={item.label}
-                onClick={collapseOnMobile}
-                className={`flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  active
-                    ? 'bg-accent-cyan/15 text-accent-cyan'
-                    : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-                }`}
-              >
-                <Icon icon={item.icon} className="text-lg shrink-0" />
-                {expanded && <span className="truncate">{item.label}</span>}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* border-r starts here, below the header line, instead of running
+            the aside's full height. */}
+        <div className="flex-1 flex flex-col border-r-[3px] border-border">
+          <nav className="flex-1 overflow-y-auto p-2.5 space-y-1">
+            {navItems.map((item) => {
+              const active = location.pathname === item.to;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  title={item.label}
+                  onClick={collapseOnMobile}
+                  className={`flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                    active
+                      ? 'bg-accent-cyan/15 text-accent-cyan'
+                      : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                  }`}
+                >
+                  <Icon icon={item.icon} className="text-lg shrink-0" />
+                  {expanded && <span className="truncate">{item.label}</span>}
+                </Link>
+              );
+            })}
+          </nav>
 
-        <div className="p-2.5 border-t-2 border-border space-y-1 shrink-0">
-          <button
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
-          >
-            <Icon icon={theme === 'dark' ? 'lucide:sun' : 'lucide:moon'} className="text-lg shrink-0" />
-            {expanded && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
-          </button>
-          <button
-            onClick={toggle}
-            title={expanded ? 'Collapse menu' : 'Expand menu'}
-            className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
-          >
-            <Icon icon={expanded ? 'lucide:panel-left-close' : 'lucide:panel-left-open'} className="text-lg shrink-0" />
-            {expanded && <span>Collapse</span>}
-          </button>
+          <div className="p-2.5 border-t-2 border-border space-y-1 shrink-0">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
+            >
+              <Icon icon={theme === 'dark' ? 'lucide:sun' : 'lucide:moon'} className="text-lg shrink-0" />
+              {expanded && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
+            </button>
+            <button
+              onClick={toggle}
+              title={expanded ? 'Collapse menu' : 'Expand menu'}
+              className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
+            >
+              <Icon icon={expanded ? 'lucide:panel-left-close' : 'lucide:panel-left-open'} className="text-lg shrink-0" />
+              {expanded && <span>Collapse</span>}
+            </button>
+          </div>
         </div>
       </aside>
     </>
