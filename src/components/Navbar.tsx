@@ -5,16 +5,19 @@ import { useWordSearch } from '../hooks/useWordSearch';
 import { useStreak, localDateString } from '../hooks/useStreak';
 import { useHotkey } from '../hooks/useHotkey';
 import { useAuth } from '../hooks/useAuth';
+import { useRailState } from '../hooks/useRailState';
 import { isApple } from '../lib/device';
 import { getLearnLanguage, getMotherLanguage } from '../lib/languages';
 
-// All navigation now lives in Rail, on both mobile and desktop — this bar is
-// just search + account, offset to clear Rail's fixed-left column.
+// Desktop's Rail is always on screen, so this bar is just search + account
+// there, offset to clear its fixed-left column. Mobile hides Rail entirely
+// for full-width content, so this bar also carries the trigger that opens it.
 export function Navbar() {
   const navigate = useNavigate();
   const requestSearch = useWordSearch((s) => s.requestSearch);
   const streak = useStreak((s) => s.count);
   const { user } = useAuth();
+  const setRailExpanded = useRailState((s) => s.setExpanded);
   // Subscribe to lastActiveDay rather than calling countedToday(), so the badge
   // re-renders the moment today's first answer lands.
   const countedToday = useStreak((s) => s.lastActiveDay) === localDateString();
@@ -57,7 +60,24 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-10 bg-bg-secondary/85 backdrop-blur border-b-[3px] border-border pt-[env(safe-area-inset-top)]">
-      <div className="max-w-page mx-auto pl-[4.5rem] pr-3 sm:pr-4 h-16 flex items-center justify-end gap-2">
+      <div className="max-w-page mx-auto pl-3 pr-3 sm:pl-[4.5rem] sm:pr-4 h-16 flex items-center gap-2">
+        {/* Mobile-only drawer trigger — desktop's Rail is always visible so it
+            doesn't need one. Either icon opens the same overlay. */}
+        <div className="flex items-center gap-1.5 sm:hidden">
+          <button
+            onClick={() => setRailExpanded(true)}
+            className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary flex items-center justify-center"
+            title="Open menu"
+          >
+            <Icon icon="lucide:menu" className="text-lg" />
+          </button>
+          <button onClick={() => setRailExpanded(true)} className="w-9 h-9 shrink-0" title="Open menu">
+            <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="voca" className="w-full h-full rounded-xl" />
+          </button>
+        </div>
+
+        <div className="flex-1" />
+
         {searchOpen ? (
           <form onSubmit={handleSearch} className="relative flex-1 max-w-xs">
             <Icon

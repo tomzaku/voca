@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTheme } from '../hooks/useTheme';
 import { useGameMode } from '../hooks/useGameMode';
+import { useRailState } from '../hooks/useRailState';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
@@ -18,12 +19,19 @@ const NAV_ITEMS = [
 // The World game tab appears only when it's turned on in Settings.
 const WORLD_ITEM = { to: '/world', label: 'World', icon: 'lucide:gamepad-2' };
 
-/** The app's only nav surface, on every screen size — collapsed to icons by
- *  default, expands as an overlay on click so page content never reflows.
+// Matches useRailState's own breakpoint — desktop keeps the rail open after a
+// nav click (it's pushing content, not overlaying it); mobile dismisses it.
+const DESKTOP_QUERY = '(min-width: 640px)';
+
+/** The app's only nav surface, on every screen size. Desktop defaults open and
+ *  pushes page content over — there's room for it. Mobile defaults collapsed
+ *  to icons and expands as a dimmed overlay instead, since there isn't.
  *  Account actions (profile, sign out) live on the Navbar pill and the
  *  Profile/Settings pages instead of duplicating them here. */
 export function Rail() {
-  const [expanded, setExpanded] = useState(false);
+  const expanded = useRailState((s) => s.expanded);
+  const setExpanded = useRailState((s) => s.setExpanded);
+  const toggle = useRailState((s) => s.toggle);
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const gameEnabled = useGameMode((s) => s.enabled);
@@ -37,20 +45,28 @@ export function Rail() {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setExpanded(false);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [expanded]);
+  }, [expanded, setExpanded]);
+
+  const collapseOnMobile = () => {
+    if (!window.matchMedia(DESKTOP_QUERY).matches) setExpanded(false);
+  };
 
   return (
     <>
+      {/* Dimming is a mobile-only concession for the overlay — desktop's
+          expanded rail pushes content instead, so nothing needs covering. */}
       {expanded && (
         <div
           onClick={() => setExpanded(false)}
-          className="fixed inset-0 z-20 bg-black/30 backdrop-blur-[1px]"
+          className="sm:hidden fixed inset-0 z-20 bg-black/30 backdrop-blur-[1px]"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex flex-col bg-bg-secondary border-r-[3px] border-border overflow-hidden transition-[width] duration-200 ${
-          expanded ? 'w-60' : 'w-16'
+        className={`fixed inset-y-0 left-0 z-30 flex-col bg-bg-secondary border-r-[3px] border-border overflow-hidden transition-[width] duration-200 ${
+          // Collapsed mobile shows nothing — full width for content — while
+          // collapsed desktop keeps the icon-only strip. Expanded shows on both.
+          expanded ? 'flex w-60' : 'hidden sm:flex sm:w-16'
         }`}
       >
         {/* Border lives on this wrapper, not the h-16 row itself, so it adds
@@ -60,7 +76,7 @@ export function Rail() {
         <div className="shrink-0 border-b-[3px] border-border">
           <Link
             to="/"
-            onClick={() => setExpanded(false)}
+            onClick={collapseOnMobile}
             className="flex items-center gap-2.5 h-16 px-3.5 hover-wiggle"
           >
             <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="voca" className="w-9 h-9 rounded-xl shrink-0" />
@@ -80,6 +96,7 @@ export function Rail() {
                 key={item.to}
                 to={item.to}
                 title={item.label}
+                onClick={collapseOnMobile}
                 className={`flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
                   active
                     ? 'bg-accent-cyan/15 text-accent-cyan'
@@ -103,7 +120,7 @@ export function Rail() {
             {expanded && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
           </button>
           <button
-            onClick={() => setExpanded((e) => !e)}
+            onClick={toggle}
             title={expanded ? 'Collapse menu' : 'Expand menu'}
             className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
           >

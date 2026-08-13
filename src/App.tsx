@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
+import { useRailState } from './hooks/useRailState';
 import { Navbar } from './components/Navbar';
 import { Rail } from './components/Rail';
 import { FlashCard } from './components/FlashCard';
@@ -25,13 +26,18 @@ import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
 
 export default function App() {
+  // Desktop's rail pushes content over, so <main> has to track its width.
+  // Mobile's is a full-width overlay with nothing behind it when collapsed,
+  // so there's no gutter to reserve there at all.
+  const expanded = useRailState((s) => s.expanded);
+
   return (
     <AuthProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/+$/, '') || '/'}>
         <div className="min-h-screen">
           <Navbar />
           <Rail />
-          <main className="pl-16">
+          <main className={`transition-[padding] duration-200 ${expanded ? 'sm:pl-60' : 'sm:pl-16'}`}>
             <Routes>
               <Route path="/" element={<FlashCard />} />
               <Route path="/speaking" element={<EnglishSpeakingPage />} />
