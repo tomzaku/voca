@@ -1,37 +1,36 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useWordSearch } from '../hooks/useWordSearch';
-import { useGameMode } from '../hooks/useGameMode';
 import { useStreak, localDateString } from '../hooks/useStreak';
 import { useHotkey } from '../hooks/useHotkey';
+import { useAuth } from '../hooks/useAuth';
 import { isApple } from '../lib/device';
 import { getLearnLanguage, getMotherLanguage } from '../lib/languages';
-import { Sidebar } from './Sidebar';
 
+// All navigation now lives in Rail, on both mobile and desktop — this bar is
+// just search + account, offset to clear Rail's fixed-left column.
 export function Navbar() {
-  const location = useLocation();
   const navigate = useNavigate();
   const requestSearch = useWordSearch((s) => s.requestSearch);
-  const gameEnabled = useGameMode((s) => s.enabled);
   const streak = useStreak((s) => s.count);
+  const { user } = useAuth();
   // Subscribe to lastActiveDay rather than calling countedToday(), so the badge
   // re-renders the moment today's first answer lands.
   const countedToday = useStreak((s) => s.lastActiveDay) === localDateString();
 
   const [searchOpen, setSearchOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Focus the field when the search bar opens.
+  // Focus the field when it expands.
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
   }, [searchOpen]);
 
   // ⌘K / Ctrl+K from anywhere, and "/" when not already typing. Both land the
-  // cursor in the box even if the bar is already open — the focus effect above
-  // only runs on the transition, so pressing it twice would otherwise do nothing.
+  // cursor in the box even if it's already open — the focus effect above only
+  // runs on the transition, so pressing it twice would otherwise do nothing.
   const openSearch = useCallback(() => {
     setSearchOpen(true);
     searchInputRef.current?.focus();
@@ -52,104 +51,18 @@ export function Navbar() {
     requestSearch(word);    // FlashCard picks this up and loads the word
   };
 
-  // Desktop-only tabs — on mobile the whole row is hidden and navigation happens
-  // through the sidebar, which already lists every one of these.
-  const navLinks: { to: string; label: string }[] = [
-    { to: '/', label: 'Learn' },
-    { to: '/history', label: 'History' },
-    { to: '/collections', label: 'Collections' },
-    ...(gameEnabled ? [{ to: '/world', label: 'World' }] : []),
-    { to: '/companion', label: 'Buddy' },
-  ];
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+  const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || '';
+  const initial = name[0]?.toUpperCase() ?? '?';
 
   return (
     <header className="sticky top-0 z-10 bg-bg-secondary/85 backdrop-blur border-b-[3px] border-border pt-[env(safe-area-inset-top)]">
-      <div className="max-w-page mx-auto px-3 sm:px-4 h-16 flex items-center justify-between">
-        {/* Logo. The side groups share `flex-1 basis-0` so they stay equal width
-            and the tabs sit on the real centre of the page, not between two
-            differently sized blocks. */}
-        <div className="flex-1 basis-0 flex items-center">
-          <Link to="/" className="group flex items-center gap-0.5 hover-wiggle">
-            <span className="font-title text-2xl text-accent-cyan drop-shadow-[0_2px_0_var(--btn-lip)] tracking-tight leading-none">
-              voca
-            </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-accent-pink mt-2.5 animate-bob" />
-          </Link>
-        </div>
-
-        {/* Nav links */}
-        <nav className="hidden sm:flex items-center gap-1.5">
-          {navLinks.map((link) => {
-            const active = location.pathname === link.to;
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`btn-3d px-3.5 py-1.5 text-sm font-extrabold transition-all ${
-                  active
-                    ? 'bg-accent-cyan text-bg-primary'
-                    : 'bg-bg-card text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Right controls */}
-        <div className="flex-1 basis-0 flex items-center justify-end gap-2">
-          {/* Streak. Hidden at zero — "0 day streak" advertises failure, and
-              there's nothing yet to protect. */}
-          {streak > 0 && (
-            <Link
-              to="/dashboard"
-              title={
-                countedToday
-                  ? `${streak}-day streak — today is counted`
-                  : `${streak}-day streak — answer one word today to keep it`
-              }
-              aria-label={`${streak} day learning streak`}
-              className={`flex items-center gap-1 px-2 h-9 rounded-full border-2 transition-colors ${
-                countedToday
-                  ? 'bg-accent-orange/15 border-accent-orange/30 text-accent-orange'
-                  // Dimmed until today counts: the gap between "safe" and "about
-                  // to lose it" is the whole point of showing this.
-                  : 'bg-bg-card border-border text-text-muted'
-              }`}
-            >
-              <Icon icon={countedToday ? 'lucide:flame' : 'lucide:flame-kindling'} className="text-base" />
-              <span className="text-sm font-bold tabular-nums">{streak}</span>
-            </Link>
-          )}
-
-          <button
-            onClick={() => setSearchOpen((o) => !o)}
-            className={`btn-3d w-9 h-9 rounded-full flex items-center justify-center ${
-              searchOpen ? 'bg-accent-cyan text-bg-primary' : 'bg-bg-card text-text-secondary'
-            }`}
-            title={`Search a word (${isApple() ? '⌘K' : 'Ctrl+K'})`}
-          >
-            <Icon icon={searchOpen ? 'lucide:x' : 'lucide:search'} className="text-lg" />
-          </button>
-
-          <button
-            onClick={() => setMenuOpen(true)}
-            className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary flex items-center justify-center"
-            title="Menu"
-          >
-            <Icon icon="lucide:menu" className="text-lg" />
-          </button>
-        </div>
-      </div>
-
-      {/* Collapsible search bar */}
-      {searchOpen && (
-        <div className="border-t-2 border-border bg-bg-secondary/95 backdrop-blur animate-fade-in">
-          <form onSubmit={handleSearch} className="max-w-page mx-auto px-3 sm:px-4 py-3 relative">
+      <div className="max-w-page mx-auto pl-[4.5rem] pr-3 sm:pr-4 h-16 flex items-center justify-end gap-2">
+        {searchOpen ? (
+          <form onSubmit={handleSearch} className="relative flex-1 max-w-xs">
             <Icon
               icon="lucide:search"
-              className="absolute left-6 sm:left-7 top-1/2 -translate-y-1/2 text-text-muted text-lg pointer-events-none"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-base pointer-events-none"
             />
             <input
               ref={searchInputRef}
@@ -157,27 +70,74 @@ export function Navbar() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
-              placeholder={`Search any ${getLearnLanguage()} or ${getMotherLanguage()} word…`}
-              className="w-full bg-bg-card border-[3px] border-border rounded-2xl pl-11 pr-20 py-2.5 text-text-primary font-semibold focus:outline-none focus:border-accent-cyan placeholder:text-text-muted transition-colors"
+              onBlur={() => !query.trim() && setSearchOpen(false)}
+              placeholder={`Search ${getLearnLanguage()} or ${getMotherLanguage()}…`}
+              className="w-full bg-bg-card border-2 border-accent-cyan rounded-full pl-9 pr-9 py-1.5 text-sm text-text-primary font-semibold focus:outline-none placeholder:text-text-muted transition-colors"
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
             />
-            {query.trim() && (
-              <div className="absolute right-5 sm:right-6 top-1/2 -translate-y-1/2">
-                <button
-                  type="submit"
-                  className="btn-3d px-4 py-1 bg-accent-cyan text-bg-primary text-sm"
-                >
-                  Go!
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => setSearchOpen(false)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-text-muted hover:text-text-primary"
+              title="Close search"
+            >
+              <Icon icon="lucide:x" className="text-base" />
+            </button>
           </form>
-        </div>
-      )}
+        ) : (
+          <button
+            onClick={openSearch}
+            className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary flex items-center justify-center"
+            title={`Search a word (${isApple() ? '⌘K' : 'Ctrl+K'})`}
+          >
+            <Icon icon="lucide:search" className="text-lg" />
+          </button>
+        )}
 
-      <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+        {/* Account + streak, merged into one control so login state is always
+            visible — not tucked behind a menu — and the streak lives right
+            next to who it belongs to. */}
+        <Link
+          to={user ? '/profile' : '/login'}
+          aria-label={user ? `View profile — signed in as ${name || 'account'}` : 'Sign in'}
+          title={user ? name : 'Sign in'}
+          className={`flex items-center gap-1.5 pl-1 pr-2.5 h-9 rounded-full border-2 transition-colors shrink-0 ${
+            user
+              ? countedToday
+                ? 'bg-accent-orange/15 border-accent-orange/30'
+                // Dimmed until today counts: the gap between "safe" and "about
+                // to lose it" is the whole point of showing this.
+                : 'bg-bg-card border-border'
+              : 'bg-accent-green/15 border-accent-green/30'
+          }`}
+        >
+          {user ? (
+            <span className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center shrink-0">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="w-full h-full bg-accent-purple/20 flex items-center justify-center text-xs font-extrabold text-accent-purple">
+                  {initial}
+                </span>
+              )}
+            </span>
+          ) : (
+            <span className="text-sm font-extrabold text-accent-green">Sign in</span>
+          )}
+          {streak > 0 && (
+            <span
+              className={`flex items-center gap-0.5 text-sm font-bold tabular-nums ${
+                countedToday ? 'text-accent-orange' : 'text-text-muted'
+              }`}
+            >
+              <Icon icon={countedToday ? 'lucide:flame' : 'lucide:flame-kindling'} className="text-base" />
+              {streak}
+            </span>
+          )}
+        </Link>
+      </div>
     </header>
   );
 }

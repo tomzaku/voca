@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
 import { Navbar } from './components/Navbar';
+import { Rail } from './components/Rail';
 import { FlashCard } from './components/FlashCard';
 import { HistoryPage } from './components/HistoryPage';
 import { SettingsPage } from './components/SettingsPage';
@@ -29,7 +30,8 @@ export default function App() {
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/+$/, '') || '/'}>
         <div className="min-h-screen">
           <Navbar />
-          <main>
+          <Rail />
+          <main className="pl-16">
             <Routes>
               <Route path="/" element={<FlashCard />} />
               <Route path="/speaking" element={<EnglishSpeakingPage />} />
