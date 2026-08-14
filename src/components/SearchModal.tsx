@@ -23,10 +23,17 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      // Capture phase + stopPropagation: Rail's own Escape handler also
+      // listens on window, and without this, closing the modal while the
+      // mobile drawer sits open behind it would collapse the drawer too —
+      // capture-phase listeners on window run before bubble-phase ones on
+      // the same node, so stopping it here keeps this Escape ours alone.
+      e.stopPropagation();
+      onClose();
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [onClose]);
 
   const handleSubmit = (e: React.FormEvent) => {
