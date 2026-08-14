@@ -5,23 +5,48 @@ import { useTheme } from '../hooks/useTheme';
 import { useGameMode } from '../hooks/useGameMode';
 import { useRailState } from '../hooks/useRailState';
 
-const NAV_ITEMS = [
+type NavItem = { to: string; label: string; icon: string };
+
+// Daily-use actions: things you'd open every study session.
+const PRIMARY_ITEMS: NavItem[] = [
   { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
   { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
   // Sits next to History: both look backwards at what you've studied.
   { to: '/dashboard', label: 'Dashboard', icon: 'lucide:calendar-days' },
   { to: '/history', label: 'History', icon: 'lucide:history' },
   { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print' },
+];
+
+// Occasional/config actions, visually separated from the daily-use group above.
+const SECONDARY_ITEMS: NavItem[] = [
   { to: '/collections', label: 'Collections', icon: 'lucide:library' },
   { to: '/settings', label: 'Settings', icon: 'lucide:settings' },
 ];
 
 // The World game tab appears only when it's turned on in Settings.
-const WORLD_ITEM = { to: '/world', label: 'World', icon: 'lucide:gamepad-2' };
+const WORLD_ITEM: NavItem = { to: '/world', label: 'World', icon: 'lucide:gamepad-2' };
 
 // Matches useRailState's own breakpoint — desktop keeps the rail open after a
 // nav click (it's pushing content, not overlaying it); mobile dismisses it.
 const DESKTOP_QUERY = '(min-width: 640px)';
+
+const itemClasses = (active: boolean) =>
+  `group relative flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+    active
+      ? 'bg-accent-cyan/15 text-accent-cyan before:absolute before:-left-1 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-1 before:rounded-full before:bg-accent-cyan'
+      : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+  }`;
+
+// Only needed once the label itself is hidden (collapsed rail) — otherwise
+// the visible label already says what the icon means.
+function RailTooltip({ label, show }: { label: string; show: boolean }) {
+  if (!show) return null;
+  return (
+    <span className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg bg-bg-primary px-2.5 py-1.5 text-xs font-bold text-text-primary opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 z-40">
+      {label}
+    </span>
+  );
+}
 
 /** The app's only nav surface, on every screen size. Desktop defaults open and
  *  pushes page content over — there's room for it. Mobile defaults collapsed
@@ -36,9 +61,9 @@ export function Rail() {
   const { theme, toggleTheme } = useTheme();
   const gameEnabled = useGameMode((s) => s.enabled);
 
-  const navItems = gameEnabled
-    ? NAV_ITEMS.flatMap((item) => (item.to === '/collections' ? [item, WORLD_ITEM] : [item]))
-    : NAV_ITEMS;
+  const secondaryItems = gameEnabled
+    ? SECONDARY_ITEMS.flatMap((item) => (item.to === '/collections' ? [item, WORLD_ITEM] : [item]))
+    : SECONDARY_ITEMS;
 
   useEffect(() => {
     if (!expanded) return;
@@ -49,6 +74,23 @@ export function Rail() {
 
   const collapseOnMobile = () => {
     if (!window.matchMedia(DESKTOP_QUERY).matches) setExpanded(false);
+  };
+
+  const renderItem = (item: NavItem) => {
+    const active = location.pathname === item.to;
+    return (
+      <Link
+        key={item.to}
+        to={item.to}
+        aria-label={item.label}
+        onClick={collapseOnMobile}
+        className={itemClasses(active)}
+      >
+        <Icon icon={item.icon} className="text-lg shrink-0" />
+        {expanded && <span className="truncate">{item.label}</span>}
+        <RailTooltip label={item.label} show={!expanded} />
+      </Link>
+    );
   };
 
   return (
@@ -63,7 +105,7 @@ export function Rail() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex-col bg-bg-secondary overflow-hidden transition-[width] duration-200 ${
+        className={`fixed inset-y-0 left-0 z-30 flex-col bg-bg-secondary transition-[width] duration-200 ${
           // Collapsed mobile shows nothing — full width for content — while
           // collapsed desktop keeps the icon-only strip. Expanded shows on both.
           expanded ? 'flex w-60' : 'hidden sm:flex sm:w-16'
@@ -93,44 +135,30 @@ export function Rail() {
         {/* border-r starts here, below the header line, instead of running
             the aside's full height. */}
         <div className="flex-1 flex flex-col border-r-[3px] border-border">
-          <nav className="flex-1 overflow-y-auto p-2.5 space-y-1">
-            {navItems.map((item) => {
-              const active = location.pathname === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  title={item.label}
-                  onClick={collapseOnMobile}
-                  className={`flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                    active
-                      ? 'bg-accent-cyan/15 text-accent-cyan'
-                      : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
-                  }`}
-                >
-                  <Icon icon={item.icon} className="text-lg shrink-0" />
-                  {expanded && <span className="truncate">{item.label}</span>}
-                </Link>
-              );
-            })}
+          <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col p-2.5 gap-1">
+            {PRIMARY_ITEMS.map(renderItem)}
+            <div className="my-1.5 border-t border-border/60" />
+            {secondaryItems.map(renderItem)}
           </nav>
 
           <div className="p-2.5 border-t-2 border-border space-y-1 shrink-0">
             <button
               onClick={toggleTheme}
-              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
+              aria-label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              className="group relative w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
             >
               <Icon icon={theme === 'dark' ? 'lucide:sun' : 'lucide:moon'} className="text-lg shrink-0" />
               {expanded && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
+              <RailTooltip label={theme === 'dark' ? 'Light mode' : 'Dark mode'} show={!expanded} />
             </button>
             <button
               onClick={toggle}
-              title={expanded ? 'Collapse menu' : 'Expand menu'}
-              className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
+              aria-label={expanded ? 'Collapse menu' : 'Expand menu'}
+              className="group relative w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
             >
               <Icon icon={expanded ? 'lucide:panel-left-close' : 'lucide:panel-left-open'} className="text-lg shrink-0" />
               {expanded && <span>Collapse</span>}
+              <RailTooltip label="Expand" show={!expanded} />
             </button>
           </div>
         </div>
