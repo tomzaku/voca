@@ -22,6 +22,7 @@
     "deploy:supabase": "npm run db:push && npm run deploy:functions",
     "deploy:progress": "supabase functions deploy progress",
     "deploy:teams": "supabase functions deploy teams",
+    "deploy:writing-templates": "supabase functions deploy writing-templates",
     "notify:test": "node scripts/test-reminder.mjs",
     "doodles:backfill": "node scripts/backfill-doodles.mjs"
   },
@@ -37,7 +38,10 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hot-toast": "^2.6.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.1",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

@@ -8,6 +8,7 @@
 //   POST /ai/tutor_start    { … }  → { text }
 //   POST /ai/tutor_reply    { … }  → { text }
 //   POST /ai/mindmap        { … }  → { text }   Pro
+//   POST /ai/improve_writing { instructions, text } → { text }   Pro
 //
 // SECURITY: a fixed set of named operations, not a raw prompt passthrough. The
 // client may only invoke the routes above with small, validated params — it
@@ -58,7 +59,8 @@ interface BuiltRequest {
 // `cloze` (Story Gaps) writes a fresh AI story on every round, so it's Pro-only
 // just like the mind-map actions — the client UI also gates it, but this is the
 // real enforcement. (The `chat` function is Pro-only in its entirety.)
-const PRO_ACTIONS = new Set(['mindmap', 'cloze']);
+// `improve_writing` is a fresh generative call every time too, same reasoning.
+const PRO_ACTIONS = new Set(['mindmap', 'cloze', 'improve_writing']);
 
 const ACTIONS: Record<string, (p: Record<string, unknown>) => BuiltRequest> = {
   cloze(p) {
@@ -221,6 +223,26 @@ Do NOT include definitions — they are added separately.`;
       // and an emoji that can cost 2-3 tokens, so ~60 tokens/word with headroom —
       // 35 clipped larger sets mid-stream.
       maxTokens: Math.min(600 + words.length * 60, 3500),
+    };
+  },
+
+  // Pro-only: rewrites `text` per a template's `instructions`. The instructions
+  // come from either a built-in template or one a user wrote themselves (see
+  // the `writing-templates` resource) — either way they're free-form, so unlike
+  // every other action here they can't be validated for shape. They travel as
+  // user-role *content*, never as `system`: the system prompt stays fixed and
+  // server-owned, so the client still can't set what the model is told to be,
+  // only what it's asked to do — the same contract every other action keeps.
+  improve_writing(p) {
+    const instructions = reqStr(p, 'instructions', 2000);
+    const text = reqStr(p, 'text', 6000);
+    return {
+      system: 'You are a professional writing assistant embedded in a language-learning app. Follow the user\'s instructions exactly when revising their text. Reply with the result only — no preamble like "Here\'s the revised version", no restating the request, no "Revised Text" header unless the instructions ask for multiple distinct versions that need labeling. Then, on its own line below a blank line, list each substantive correction — wrong grammar (e.g. subject-verb agreement, tense, wrong word form), wrong word choice, or unclear phrasing — as a Markdown bullet (one bullet per correction, starting with "- "), naming the fix and why, e.g. "- \'are\' → \'am\': subject-verb agreement with \'I\'." That\'s the point of this app, so don\'t skip it. Skip the bullet list only when every fix was purely mechanical — capitalization, stray spacing, a missing period — with nothing to learn from. Keep each bullet to one short line. Format your response in Markdown only where it genuinely helps (e.g. separating multiple requested versions), not as decoration.',
+      messages: [{
+        role: 'user',
+        content: `Instructions for revising the text below:\n${instructions}\n\nText to revise:\n"""\n${text}\n"""`,
+      }],
+      maxTokens: 1500,
     };
   },
 };

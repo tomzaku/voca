@@ -21,7 +21,8 @@ export type AiAction =
   | 'translate_word'
   | 'tutor_start'
   | 'tutor_reply'
-  | 'mindmap';
+  | 'mindmap'
+  | 'improve_writing';
 
 function postAi(
   action: string,

@@ -31,6 +31,7 @@ import streak from '../streak/index.ts';
 import teams from '../teams/index.ts';
 import word from '../word/index.ts';
 import wordNotes from '../word-notes/index.ts';
+import writingTemplates from '../writing-templates/index.ts';
 
 type Handler = (req: Request) => Response | Promise<Response>;
 
@@ -54,6 +55,7 @@ const RESOURCES: Record<string, Handler> = {
   teams,
   word,
   'word-notes': wordNotes,
+  'writing-templates': writingTemplates,
 };
 
 const PORT = Number(Deno.env.get('PORT')) || 8787;

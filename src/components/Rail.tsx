@@ -20,6 +20,7 @@ const PRIMARY_ITEMS: NavItem[] = [
 // Occasional/config actions, visually separated from the daily-use group above.
 const SECONDARY_ITEMS: NavItem[] = [
   { to: '/collections', label: 'Collections', icon: 'lucide:library' },
+  { to: '/writing', label: 'Writing', icon: 'lucide:pen-line' },
   { to: '/settings', label: 'Settings', icon: 'lucide:settings' },
 ];
 
