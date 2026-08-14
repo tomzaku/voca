@@ -76,7 +76,16 @@ export function Navbar() {
           </button>
         </div>
 
-        <div className="flex-1" />
+        {/* This spacer and the search form below both claim flex-1, and on
+            desktop that's load-bearing: once the form hits its max-w-xs cap,
+            flexbox redistributes its unused growth to this spacer, which is
+            what keeps the profile pill pinned to the right edge instead of
+            drifting left with a gap after it. Below sm, though, the gap left
+            of the form is too narrow to reach that cap, so splitting it
+            between two flex-1 elements leaves the form half the width it
+            should have — drop the spacer there instead so the form gets all
+            of it. */}
+        <div className={searchOpen ? 'hidden sm:block sm:flex-1' : 'flex-1'} />
 
         {searchOpen ? (
           <form onSubmit={handleSearch} className="relative flex-1 max-w-xs">
@@ -123,14 +132,14 @@ export function Navbar() {
           to={user ? '/profile' : '/login'}
           aria-label={user ? `View profile — signed in as ${name || 'account'}` : 'Sign in'}
           title={user ? name : 'Sign in'}
-          className={`flex items-center gap-1.5 pl-1 pr-2.5 h-9 rounded-full border-2 transition-colors shrink-0 ${
+          className={`btn-3d flex items-center gap-1.5 pl-1 pr-2.5 h-9 rounded-full transition-colors shrink-0 ${
             user
               ? countedToday
-                ? 'bg-accent-orange/15 border-accent-orange/30'
+                ? 'bg-accent-orange/15'
                 // Dimmed until today counts: the gap between "safe" and "about
                 // to lose it" is the whole point of showing this.
-                : 'bg-bg-card border-border'
-              : 'bg-accent-green/15 border-accent-green/30'
+                : 'bg-bg-card'
+              : 'bg-accent-green/15'
           }`}
         >
           {user ? (
