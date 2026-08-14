@@ -44,8 +44,8 @@ export function GuessView({
     <>
       {/* Definition clue — surfaced at the top while guessing so the hint sits
           above the game (key for mobile flow) */}
-      <div className="mb-4 sm:mb-5 card-game border-accent-cyan p-4 sm:p-5 animate-bounce-in">
-        <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
+      <div className="mb-3 sm:mb-5 card-game border-accent-cyan p-3 sm:p-5 animate-bounce-in">
+        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
           <span className="text-lg sm:text-xl leading-none animate-bob">💡</span>
           {/* Just "Guess" on mobile — the long title was pushing the
               Short/Full switch off the card. */}
@@ -58,7 +58,7 @@ export function GuessView({
           </span>
           <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={onToggleFullDef} />
         </div>
-        <p className="text-text-primary leading-relaxed text-base sm:text-lg">
+        <p className="text-text-primary leading-relaxed text-sm sm:text-lg">
           {maskAnswer(definition, answerWord, familyForms(wordData.wordFamily))}
         </p>
         <ExampleList
@@ -70,8 +70,8 @@ export function GuessView({
         <SynAnt wordData={wordData} maskWord={answerWord} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-4 sm:gap-5 items-start">
-        <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-3 sm:gap-5 items-start">
+        <div className="flex flex-col gap-2.5 sm:gap-4">
           <GuessGame
             key={wordData.word}
             wordData={wordData}
@@ -87,27 +87,27 @@ export function GuessView({
                 the default label slides out and the hint slides in. */}
             <button
               onClick={() => onReveal()}
-              className="group btn-3d relative overflow-hidden flex-1 py-4 bg-accent-orange text-bg-primary text-base font-bold"
+              className="group btn-3d relative overflow-hidden flex-1 py-3 sm:py-4 bg-accent-orange text-bg-primary text-sm sm:text-base font-bold"
             >
               <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
-                <Icon icon="solar:flag-2-bold" className="text-2xl" />
+                <Icon icon="solar:flag-2-bold" className="text-xl sm:text-2xl" />
                 Give up
               </span>
               <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                <Icon icon="solar:eye-bold" className="text-2xl" />
+                <Icon icon="solar:eye-bold" className="text-xl sm:text-2xl" />
                 Reveal the answer
               </span>
             </button>
             <button
               onClick={onSkip}
-              className="group btn-3d relative overflow-hidden flex-1 py-4 bg-accent-blue text-bg-primary text-base font-bold"
+              className="group btn-3d relative overflow-hidden flex-1 py-3 sm:py-4 bg-accent-blue text-bg-primary text-sm sm:text-base font-bold"
             >
               <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
-                <Icon icon="solar:skip-next-bold" className="text-2xl" />
+                <Icon icon="solar:skip-next-bold" className="text-xl sm:text-2xl" />
                 Skip
               </span>
               <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                <Icon icon="solar:eye-closed-bold" className="text-2xl" />
+                <Icon icon="solar:eye-closed-bold" className="text-xl sm:text-2xl" />
                 Never show again
               </span>
             </button>

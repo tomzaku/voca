@@ -204,7 +204,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
         <div className="absolute inset-0 rounded-2xl bg-accent-red/10 pointer-events-none z-10 animate-flash-wrong" />
       )}
 
-      <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+      <div className="p-3 sm:p-6 space-y-3 sm:space-y-5">
         {/* ── HUD: game picker (left) + score/streak (right) ── */}
         <div className="flex items-start justify-between gap-3">
           {/* Mobile: one compact selector instead of a row of pills. */}
@@ -255,12 +255,12 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
               <span className="block text-base font-display font-extrabold text-accent-cyan leading-none">{points}</span>
               <span className="block text-[9px] text-text-muted uppercase tracking-wider font-bold">pts</span>
             </div>
-            <div className="relative px-3 py-1.5 rounded-xl bg-accent-orange/15 border-2 border-accent-orange/40 text-center min-w-[3.25rem] tile-lip">
-              <span className="flex items-center justify-center gap-1 text-base font-display font-extrabold text-accent-orange leading-none">
+            <div className="relative flex items-center gap-1.5 h-7 px-3 rounded-xl bg-accent-orange/15 border-2 border-accent-orange/40 tile-lip">
+              <span className="flex items-center gap-1 text-base font-display font-extrabold text-accent-orange leading-none">
                 {streak > 0 && <span className="animate-flame">🔥</span>}
                 {streak}
               </span>
-              <span className="block text-[9px] text-text-muted uppercase tracking-wider">streak</span>
+              <span className="text-[9px] text-text-muted uppercase tracking-wider">streak</span>
               {result === 'correct' && (
                 <span key={winId} className="absolute -top-4 left-1/2 -translate-x-1/2 text-xs font-display font-bold text-accent-green animate-float-up whitespace-nowrap">
                   +{lastGain}
@@ -552,7 +552,7 @@ function ChoiceGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
       {options.map((opt, i) => {
         const isWrong = wrongPick === opt;
         const isAnswer = locked && opt.toLowerCase() === word.toLowerCase();
@@ -562,7 +562,7 @@ function ChoiceGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
             onClick={() => pick(opt)}
             disabled={disabled || locked}
             style={{ animationDelay: `${i * 60}ms` }}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border-[3px] text-base font-display font-extrabold text-left animate-tile-in tile-lip transition-all ${
+            className={`flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:px-4 sm:py-3.5 rounded-2xl border-[3px] text-sm sm:text-base font-display font-extrabold text-left animate-tile-in tile-lip transition-all ${
               isWrong
                 ? 'border-accent-red bg-accent-red/15 text-accent-red cursor-default animate-shake'
                 : isAnswer
@@ -572,7 +572,7 @@ function ChoiceGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
                     : 'border-border bg-bg-tertiary text-text-primary hover:border-accent-cyan hover:-translate-y-0.5 hover:text-accent-cyan active:translate-y-0.5'
             }`}
           >
-            <span className={`w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-xs font-bold border ${
+            <span className={`w-5 h-5 sm:w-6 sm:h-6 shrink-0 rounded-md flex items-center justify-center text-[10px] sm:text-xs font-bold border ${
               isWrong ? 'border-accent-red/40 text-accent-red/70' : isAnswer ? 'border-accent-green/40 text-accent-green/70' : 'border-border-light text-text-muted'
             }`}>
               {String.fromCharCode(65 + i)}

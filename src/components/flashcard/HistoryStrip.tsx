@@ -46,7 +46,7 @@ export function HistoryStrip({ words, index, collectionName, maskCurrent, busy, 
       <button
         onClick={onPrev}
         disabled={index <= 0 || busy}
-        className="btn-3d shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-bg-card text-text-secondary hover:text-text-primary disabled:cursor-not-allowed"
+        className="btn-3d shrink-0 w-8 h-8 rounded-xl flex items-center justify-center bg-bg-card text-text-secondary hover:text-text-primary disabled:cursor-not-allowed"
         title="Previous word"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -87,7 +87,7 @@ export function HistoryStrip({ words, index, collectionName, maskCurrent, busy, 
       <button
         onClick={onNext}
         disabled={busy}
-        className="btn-3d shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-bg-card text-text-secondary hover:text-text-primary disabled:cursor-not-allowed"
+        className="btn-3d shrink-0 w-8 h-8 rounded-xl flex items-center justify-center bg-bg-card text-text-secondary hover:text-text-primary disabled:cursor-not-allowed"
         title="Next word"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

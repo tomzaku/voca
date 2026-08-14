@@ -35,7 +35,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 bg-bg-secondary/85 backdrop-blur border-b-[3px] border-border pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-10 bg-bg-secondary/85 backdrop-blur border-b-[3px] border-border/50 pt-[env(safe-area-inset-top)]">
         {/* Same two-layer offset <main> uses below: an outer gutter matching
             the Rail's current width, then the page's own max-w-page/px on top
             of that — so this row lines up with the body exactly rather than

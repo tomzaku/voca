@@ -26,15 +26,27 @@ api_url = "http://127.0.0.1"
 enabled = true
 port = 54324
 
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[storage.vector]
+enabled = false
+
 [auth]
 enabled = true
 site_url = "https://tomzaku.github.io/voca"
 additional_redirect_urls = ["http://localhost:5173", "http://localhost:5173/**", "http://127.0.0.1:5173", "http://127.0.0.1:5173/**"]
-jwt_expiry = 3600
+jwt_expiry = 604800
 enable_refresh_token_rotation = true
 refresh_token_reuse_interval = 10
 enable_signup = true
 enable_anonymous_sign_ins = false
+
+[auth.external.google]
+enabled = true
+client_id = "645532512069-tkl9cvqsd4t2683uote8mpi0sgr7odjg.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 
 [auth.mfa.totp]
 enroll_enabled = true

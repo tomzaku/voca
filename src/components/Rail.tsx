@@ -118,7 +118,7 @@ export function Rail() {
             so the two borders land on the same line. No border-r here: the
             logo sits beside the header's own (mostly empty) left edge, and a
             vertical line there would look disconnected from it. */}
-        <div className="shrink-0 border-b-[3px] border-border">
+        <div className="shrink-0 border-b-[3px] border-border/50">
           <Link
             to="/"
             onClick={collapseOnMobile}
@@ -135,14 +135,14 @@ export function Rail() {
 
         {/* border-r starts here, below the header line, instead of running
             the aside's full height. */}
-        <div className="flex-1 flex flex-col border-r-[3px] border-border">
+        <div className="flex-1 flex flex-col border-r-[3px] border-border/50">
           <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col p-2.5 gap-1">
             {PRIMARY_ITEMS.map(renderItem)}
             <div className="my-1.5 border-t border-border/60" />
             {secondaryItems.map(renderItem)}
           </nav>
 
-          <div className="p-2.5 border-t-2 border-border space-y-1 shrink-0">
+          <div className="p-2.5 border-t-2 border-border/50 space-y-1 shrink-0">
             <button
               onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
