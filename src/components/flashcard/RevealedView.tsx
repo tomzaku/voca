@@ -28,7 +28,7 @@ import type { VocabularyWord, WordProgress } from '../../types';
  */
 export function RevealedView({
   wordData, doodle, definition, fullDef, onToggleFullDef, speech, progress,
-  isBookmarked, showKnowIt, busy, onNext, onBookmark, onKnow,
+  isBookmarked, showKnowIt, busy, onNext, onBookmark, onKnow, onSkip,
 }: {
   wordData: VocabularyWord;
   /** The word's sketch, once it has been drawn (never waited on). */
@@ -46,9 +46,10 @@ export function RevealedView({
   onNext: () => void;
   onBookmark: () => void;
   onKnow: () => void;
+  /** Drop the word for good — now that the learner has actually seen it. */
+  onSkip: () => void;
 }) {
   const headword = wordData.headword || wordData.word;
-  console.log(">wordData", wordData)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-4 sm:gap-5 items-start">
@@ -183,6 +184,14 @@ export function RevealedView({
               <span className="text-xs">Know it</span>
             </button>
           )}
+          <button
+            onClick={onSkip}
+            className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-bg-card text-text-secondary hover:text-accent-red"
+            title="Never show this word again — restore it anytime from History"
+          >
+            <Icon icon="solar:eye-closed-bold" className="text-lg" />
+            <span className="text-xs">Never show</span>
+          </button>
         </div>
       </div>
 

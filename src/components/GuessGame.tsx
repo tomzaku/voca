@@ -110,7 +110,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
   const word = wordData.headword || wordData.word;
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
   const [moreModes, setMoreModes] = useState(false);
-  const { points, streak, win, lastGain, winId } = useGameScore();
+  const { streak, win, lastGain, winId } = useGameScore();
 
   // "Random" and "Smart" resolve to a real game per word. The component is
   // keyed by word in FlashCard, so these initializers re-run per word.
@@ -251,11 +251,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden sm:block px-3 py-1.5 rounded-xl bg-bg-tertiary border-2 border-border text-center min-w-[3.25rem] tile-lip">
-              <span className="block text-base font-display font-extrabold text-accent-cyan leading-none">{points}</span>
-              <span className="block text-[9px] text-text-muted uppercase tracking-wider font-bold">pts</span>
-            </div>
-            <div className="relative flex items-center gap-1.5 h-7 px-3 rounded-xl bg-accent-orange/15 border-2 border-accent-orange/40 tile-lip">
+            <div className="relative flex items-center gap-1.5 h-7 px-3 sm:h-auto sm:flex-col sm:justify-center sm:gap-0 sm:py-1.5 sm:min-w-[3.25rem] sm:text-center rounded-xl bg-accent-orange/15 border-2 border-accent-orange/40 tile-lip">
               <span className="flex items-center gap-1 text-base font-display font-extrabold text-accent-orange leading-none">
                 {streak > 0 && <span className="animate-flame">🔥</span>}
                 {streak}

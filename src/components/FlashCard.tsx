@@ -451,7 +451,6 @@ export function FlashCard() {
           onSolved={handleSolved}
           onMistake={() => { roundMistakesRef.current += 1; }}
           onReveal={handleReveal}
-          onSkip={handleSkip}
         />
       ) : (
         // Keyed by word: stepping through history swaps `wordData` while this
@@ -473,6 +472,7 @@ export function FlashCard() {
           onNext={handleNext}
           onBookmark={handleBookmark}
           onKnow={handleKnow}
+          onSkip={handleSkip}
         />
       )}
     </div>

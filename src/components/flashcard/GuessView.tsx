@@ -1,6 +1,5 @@
 import { Icon } from '@iconify/react';
 import { GuessGame } from '../GuessGame';
-import { BuddyBadge } from '../BuddyBadge';
 import { SynAnt } from '../SynAnt';
 import { DefLengthToggle, ExampleList, PosChip } from './parts';
 import { LEVEL_COLOR } from './constants';
@@ -11,8 +10,9 @@ import type { AnswerVia, VocabularyWord } from '../../types';
 
 /**
  * The card while the word is still hidden: a definition clue at the top, the
- * guess game below it, and the two ways out — give up, or drop the word for
- * good.
+ * guess game below it, and the one way out — give up and reveal the answer.
+ * ("Never show again" lives on the revealed card, once the learner has
+ * actually seen what they're dismissing.)
  *
  * Everything shown here is masked. AI-written definitions and synonyms
  * routinely restate the word being guessed, and a doodle of the meaning gives
@@ -21,7 +21,7 @@ import type { AnswerVia, VocabularyWord } from '../../types';
  */
 export function GuessView({
   wordData, definition, fullDef, onToggleFullDef, speech,
-  game, onGameChange, onSolved, onMistake, onReveal, onSkip,
+  game, onGameChange, onSolved, onMistake, onReveal,
 }: {
   wordData: VocabularyWord;
   /** The chosen definition text — short or full, per the toggle. */
@@ -36,7 +36,6 @@ export function GuessView({
   onMistake: () => void;
   /** Give up — `via` names the game that was abandoned, if any. */
   onReveal: (via?: AnswerVia) => void;
-  onSkip: () => void;
 }) {
   const answerWord = wordData.headword || wordData.word;
 
@@ -70,52 +69,31 @@ export function GuessView({
         <SynAnt wordData={wordData} maskWord={answerWord} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-3 sm:gap-5 items-start">
-        <div className="flex flex-col gap-2.5 sm:gap-4">
-          <GuessGame
-            key={wordData.word}
-            wordData={wordData}
-            game={game}
-            onGameChange={onGameChange}
-            onSolved={onSolved}
-            onGaveUp={onReveal}
-            onMistake={onMistake}
-          />
+      <div className="flex flex-col gap-2.5 sm:gap-4">
+        <GuessGame
+          key={wordData.word}
+          wordData={wordData}
+          game={game}
+          onGameChange={onGameChange}
+          onSolved={onSolved}
+          onGaveUp={onReveal}
+          onMistake={onMistake}
+        />
 
-          <div className="flex gap-3">
-            {/* Hovering swaps the label for what the button actually does —
-                the default label slides out and the hint slides in. */}
-            <button
-              onClick={() => onReveal()}
-              className="group btn-3d relative overflow-hidden flex-1 py-3 sm:py-4 bg-accent-orange text-bg-primary text-sm sm:text-base font-bold"
-            >
-              <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
-                <Icon icon="solar:flag-2-bold" className="text-xl sm:text-2xl" />
-                Give up
-              </span>
-              <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                <Icon icon="solar:eye-bold" className="text-xl sm:text-2xl" />
-                Reveal the answer
-              </span>
-            </button>
-            <button
-              onClick={onSkip}
-              className="group btn-3d relative overflow-hidden flex-1 py-3 sm:py-4 bg-accent-blue text-bg-primary text-sm sm:text-base font-bold"
-            >
-              <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
-                <Icon icon="solar:skip-next-bold" className="text-xl sm:text-2xl" />
-                Skip
-              </span>
-              <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                <Icon icon="solar:eye-closed-bold" className="text-xl sm:text-2xl" />
-                Never show again
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <BuddyBadge />
+        <div className="flex justify-end">
+          <button
+            onClick={() => onReveal()}
+            className="group btn-3d relative overflow-hidden w-full sm:w-auto px-10 py-2.5 sm:py-3 bg-accent-orange text-bg-primary text-sm sm:text-base font-bold"
+          >
+            <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
+              <Icon icon="solar:flag-2-bold" className="text-xl sm:text-2xl" />
+              Give up
+            </span>
+            <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+              <Icon icon="solar:eye-bold" className="text-xl sm:text-2xl" />
+              Reveal the answer
+            </span>
+          </button>
         </div>
       </div>
     </>
