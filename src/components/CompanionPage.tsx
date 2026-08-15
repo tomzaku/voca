@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useGameScore } from '../hooks/useGameScore';
 import { AnimalAvatar } from './AnimalAvatar';
+import { CatMascot, type CatPose } from './CatMascot';
 import {
   ANIMALS,
   getAnimal,
@@ -12,13 +13,6 @@ import {
   nextStage,
   type AnimalId,
 } from '../lib/companion';
-
-// SVG motion per skill index (0–4), defined in index.css. Paired with a Lottie
-// effect burst (SkillFx) overlaid on top for richer, non-trivial previews.
-const PREVIEW_ANIMS = ['companion-pounce', 'companion-spin', 'companion-wiggle', 'companion-pop', 'companion-float'];
-
-// Lazy so lottie-react + the clips only load on the first skill preview.
-const SkillFx = lazy(() => import('./SkillFx'));
 
 export function CompanionPage() {
   const { animalId, name, choose, rename } = useCompanion();
@@ -112,24 +106,16 @@ function Companion({ animalId, name, known, onRename, onChange }: {
   const stage = STAGES[idx];
   const next = nextStage(known);
 
-  // Bounce with joy on every game win.
-  const [mood, setMood] = useState<'idle' | 'happy'>('idle');
+  // The real cat mascot cheers with a trophy on every game win, then settles
+  // back to its idle pose (see src/assets/lottie/cat — only the cat has real
+  // animations, so this is what shows regardless of the companion picked).
+  const [pose, setPose] = useState<CatPose>('idle');
   useEffect(() => {
     if (winId === 0) return;
-    setMood('happy');
-    const t = setTimeout(() => setMood('idle'), 800);
+    setPose('correct');
+    const t = setTimeout(() => setPose('idle'), 1200);
     return () => clearTimeout(t);
   }, [winId]);
-
-  // Preview a skill: bounce the SVG avatar (per-skill CSS motion) AND burst a
-  // Lottie effect over it. `id` bumps each click so both replay.
-  const [preview, setPreview] = useState<{ i: number; id: number } | null>(null);
-  useEffect(() => {
-    if (!preview) return;
-    const t = setTimeout(() => setPreview(null), 1600);
-    return () => clearTimeout(t);
-  }, [preview]);
-  const doPreview = (i: number) => setPreview((p) => ({ i, id: (p?.id ?? 0) + 1 }));
 
   const toNext = next ? next.min - known : 0;
   const progress = next
@@ -144,19 +130,7 @@ function Companion({ animalId, name, known, onRename, onChange }: {
           className="relative rounded-full mb-3"
           style={{ background: `radial-gradient(circle at 50% 42%, ${a.colors.belly}, transparent 68%)` }}
         >
-          <AnimalAvatar
-            key={preview?.id ?? 'idle'}
-            animalId={animalId}
-            stage={idx}
-            mood={mood}
-            anim={preview ? PREVIEW_ANIMS[preview.i % PREVIEW_ANIMS.length] : undefined}
-            size={180}
-          />
-          {preview && (
-            <Suspense fallback={null}>
-              <SkillFx key={preview.id} index={preview.i} />
-            </Suspense>
-          )}
+          <CatMascot pose={pose} size={180} />
         </div>
 
         <input
@@ -237,14 +211,6 @@ function Companion({ animalId, name, known, onRename, onChange }: {
                 </div>
                 <p className="text-xs text-text-muted leading-snug mt-0.5">{skill.desc}</p>
               </div>
-              <button
-                onClick={() => doPreview(i)}
-                title={`Preview ${skill.name}`}
-                className="shrink-0 self-center flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-bg-card text-xs font-bold text-text-secondary hover:text-accent-cyan hover:border-accent-cyan/40 transition-all"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4" /></svg>
-                Preview
-              </button>
             </div>
           );
         })}

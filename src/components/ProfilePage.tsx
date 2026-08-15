@@ -84,6 +84,18 @@ export function ProfilePage() {
       {/* Menu */}
       <div className="rounded-xl border border-border bg-bg-card divide-y divide-border overflow-hidden">
         <Link
+          to="/companion"
+          className="flex items-center justify-between px-4 py-3.5 text-sm text-text-primary hover:bg-bg-hover transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-7 h-7 rounded-lg bg-bg-tertiary flex items-center justify-center text-text-muted text-base">🐾</span>
+            <span>Buddy</span>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </Link>
+        <Link
           to="/settings"
           className="flex items-center justify-between px-4 py-3.5 text-sm text-text-primary hover:bg-bg-hover transition-colors"
         >

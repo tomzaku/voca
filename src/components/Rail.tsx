@@ -7,21 +7,17 @@ import { useRailState } from '../hooks/useRailState';
 
 type NavItem = { to: string; label: string; icon: string };
 
-// Daily-use actions: things you'd open every study session.
-const PRIMARY_ITEMS: NavItem[] = [
+// The ways you actually study: reading/quizzing, speaking practice, writing.
+const LEARN_ITEMS: NavItem[] = [
   { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
   { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
-  // Sits next to History: both look backwards at what you've studied.
-  { to: '/dashboard', label: 'Dashboard', icon: 'lucide:calendar-days' },
-  { to: '/history', label: 'History', icon: 'lucide:history' },
-  { to: '/companion', label: 'Buddy', icon: 'lucide:paw-print' },
+  { to: '/writing', label: 'Writing', icon: 'lucide:pen-line' },
 ];
 
-// Occasional/config actions, visually separated from the daily-use group above.
-const SECONDARY_ITEMS: NavItem[] = [
+// Your word library and a look back at what you've studied.
+const LIBRARY_ITEMS: NavItem[] = [
   { to: '/collections', label: 'Collections', icon: 'lucide:library' },
-  { to: '/writing', label: 'Writing', icon: 'lucide:pen-line' },
-  { to: '/settings', label: 'Settings', icon: 'lucide:settings' },
+  { to: '/history', label: 'History', icon: 'lucide:history' },
 ];
 
 // The World game tab appears only when it's turned on in Settings.
@@ -49,6 +45,17 @@ function RailTooltip({ label, show }: { label: string; show: boolean }) {
   );
 }
 
+// A text heading when there's room for one; collapsed to icons, there's only
+// room for the plain divider it replaces.
+function RailGroupLabel({ label, expanded }: { label: string; expanded: boolean }) {
+  if (!expanded) return <div className="my-1.5 border-t border-border/60" />;
+  return (
+    <div className="px-2.5 pt-3 pb-1 text-[10px] font-bold text-text-muted/60 uppercase tracking-wider">
+      {label}
+    </div>
+  );
+}
+
 /** The app's only nav surface, on every screen size. Desktop defaults open and
  *  pushes page content over — there's room for it. Mobile defaults collapsed
  *  to icons and expands as a dimmed overlay instead, since there isn't.
@@ -62,9 +69,9 @@ export function Rail() {
   const { theme, toggleTheme } = useTheme();
   const gameEnabled = useGameMode((s) => s.enabled);
 
-  const secondaryItems = gameEnabled
-    ? SECONDARY_ITEMS.flatMap((item) => (item.to === '/collections' ? [item, WORLD_ITEM] : [item]))
-    : SECONDARY_ITEMS;
+  const libraryItems = gameEnabled
+    ? LIBRARY_ITEMS.flatMap((item) => (item.to === '/collections' ? [item, WORLD_ITEM] : [item]))
+    : LIBRARY_ITEMS;
 
   useEffect(() => {
     if (!expanded) return;
@@ -137,9 +144,10 @@ export function Rail() {
             the aside's full height. */}
         <div className="flex-1 flex flex-col border-r-[3px] border-border/50">
           <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col p-2.5 gap-1">
-            {PRIMARY_ITEMS.map(renderItem)}
-            <div className="my-1.5 border-t border-border/60" />
-            {secondaryItems.map(renderItem)}
+            <RailGroupLabel label="Learn" expanded={expanded} />
+            {LEARN_ITEMS.map(renderItem)}
+            <RailGroupLabel label="Library" expanded={expanded} />
+            {libraryItems.map(renderItem)}
           </nav>
 
           <div className="p-2.5 border-t-2 border-border/50 space-y-1 shrink-0">

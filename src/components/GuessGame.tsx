@@ -5,10 +5,8 @@ import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect } from '../lib/sfx';
 import { GUESS_GAMES, REAL_GUESS_GAMES, recentAccuracy, smartPick, type GuessGameMode, type RealGuessGameMode } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
-import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
-import { stageIndex } from '../lib/companion';
-import { AnimalAvatar } from './AnimalAvatar';
+import { CatMascot } from './CatMascot';
 import { Selector } from './Selector';
 import { SpeakGame } from './SpeakGame';
 import { familyForms } from '../lib/answerMask';
@@ -135,12 +133,6 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
     return 'hidden';
   };
 
-  // The companion cheers on a correct answer.
-  const companion = useCompanion((s) => s.animalId);
-  const knownCount = useVocabularyStore(
-    (s) => Object.values(s.progress).filter((e) => e.status === 'known').length,
-  );
-
   // Every wrong attempt counts toward the word's mistake tally.
   const miss = () => {
     onMistake?.();
@@ -166,7 +158,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
     setResult('wrong');
     stopSpeaking();
     setTimeout(() => speakText(word), 250);
-    setTimeout(() => onGaveUp(activeGame), 1150);
+    setTimeout(() => onGaveUp(activeGame), 1500);
   };
 
   return (
@@ -180,17 +172,9 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
           <Confetti />
           <div className="absolute inset-0 flex items-center justify-center bg-bg-card/95 rounded-2xl z-10 animate-fade-in">
             <div className="animate-bounce-in text-center">
-              {companion ? (
-                <div className="mx-auto mb-2 w-24 h-24">
-                  <AnimalAvatar animalId={companion} stage={stageIndex(knownCount)} anim="companion-cheer" size={96} />
-                </div>
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-accent-green border-[3px] border-accent-green flex items-center justify-center mx-auto mb-3 animate-jelly shadow-[0_5px_0_0_var(--btn-lip)]">
-                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-bg-primary">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-              )}
+              <div className="mx-auto mb-2 w-36 h-36">
+                <CatMascot pose="correct" size={140} />
+              </div>
               <p className="text-accent-green font-title text-3xl">
                 {streak >= 3 ? `${streak}× COMBO!` : 'Correct!'}
               </p>
@@ -201,7 +185,11 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
       )}
       {/* Wrong flash overlay */}
       {result === 'wrong' && (
-        <div className="absolute inset-0 rounded-2xl bg-accent-red/10 pointer-events-none z-10 animate-flash-wrong" />
+        <div className="absolute inset-0 rounded-2xl bg-accent-red/10 z-10 animate-flash-wrong flex items-center justify-center pointer-events-none">
+          <div className="w-32 h-32 animate-bounce-in">
+            <CatMascot pose="wrong" size={128} />
+          </div>
+        </div>
       )}
 
       <div className="p-3 sm:p-6 space-y-3 sm:space-y-5">
@@ -313,7 +301,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
 function flash(setResult: (r: 'correct' | 'wrong' | null) => void) {
   playWrong();
   setResult('wrong');
-  setTimeout(() => setResult(null), 600);
+  setTimeout(() => setResult(null), 1500);
 }
 
 interface GameProps {

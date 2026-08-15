@@ -31,11 +31,11 @@ const MARKDOWN_COMPONENTS: Components = {
   h1: (p) => <h3 className="font-bold text-base mt-3 mb-1.5 text-text-primary" {...p} />,
   h2: (p) => <h3 className="font-bold text-sm mt-3 mb-1 text-text-primary" {...p} />,
   h3: (p) => <h4 className="font-bold text-sm mt-2 mb-1 text-text-primary" {...p} />,
-  p: (p) => <p className="text-sm text-text-secondary leading-relaxed mb-2" {...p} />,
+  p: (p) => <p className="text-base text-text-secondary leading-relaxed mb-2" {...p} />,
   strong: (p) => <strong className="text-text-primary" {...p} />,
   ul: (p) => <ul className="list-disc ml-4 mb-2 space-y-0.5" {...p} />,
   ol: (p) => <ol className="list-decimal ml-4 mb-2 space-y-0.5" {...p} />,
-  li: (p) => <li className="text-sm text-text-secondary leading-relaxed" {...p} />,
+  li: (p) => <li className="text-base text-text-secondary leading-relaxed" {...p} />,
   code: (p) => <code className="px-1 py-0.5 rounded bg-bg-tertiary text-accent-cyan text-xs font-code" {...p} />,
   blockquote: (p) => <blockquote className="border-l-2 border-border pl-3 italic text-text-muted" {...p} />,
   a: (p) => <a className="text-accent-cyan underline" target="_blank" rel="noopener noreferrer" {...p} />,
@@ -76,7 +76,7 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
   };
 
   return (
-    <div className="mb-3 p-4 rounded-2xl border-2 border-accent-cyan/40 bg-bg-card space-y-3 animate-fade-in">
+    <div className="card-game border-accent-cyan mb-3 p-4 space-y-3 animate-fade-in">
       {editingId && (
         <p className="text-xs font-bold text-accent-cyan uppercase tracking-wider">Editing template</p>
       )}
@@ -85,14 +85,14 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
         onChange={(e) => setName(e.target.value)}
         placeholder="Template name (e.g. Standup Update)"
         maxLength={MAX_NAME}
-        className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
+        className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-3.5 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60"
       />
       <input
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Short description (optional) — shown when browsing templates"
         maxLength={MAX_DESCRIPTION}
-        className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
+        className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-3.5 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60"
       />
       <textarea
         value={instructions}
@@ -100,7 +100,7 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
         placeholder="Instructions for the AI — e.g. 'Rewrite this as a concise, upbeat standup update...'"
         rows={4}
         maxLength={MAX_INSTRUCTIONS}
-        className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50 resize-y"
+        className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-3.5 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60 resize-y leading-relaxed"
       />
       <div className="flex items-center justify-between">
         <span className="text-xs text-text-muted">{instructions.length}/{MAX_INSTRUCTIONS}</span>
@@ -319,51 +319,53 @@ export function ImproveWritingPage() {
 
       {/* ── Input ── */}
       <section className="mb-4">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT))}
-          placeholder="Paste the text you want to improve…"
-          rows={8}
-          className="w-full bg-bg-tertiary border border-border rounded-2xl px-4 py-3 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50 resize-y"
-        />
-        <div className="flex items-center justify-between mt-1.5">
-          <span className="text-xs text-text-muted">{text.length}/{MAX_TEXT}</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleOpenChatGpt}
-              disabled={!text.trim()}
-              title="Open this template + text in ChatGPT — free, no account needed"
-              className="btn-3d px-4 py-2.5 text-sm bg-bg-card text-text-secondary font-bold border border-border disabled:opacity-60 flex items-center gap-2"
-            >
-              <Icon icon="lucide:external-link" /> ChatGPT
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !text.trim()}
-              className="btn-3d px-5 py-2.5 text-sm bg-accent-cyan text-bg-primary font-bold disabled:opacity-60 flex items-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Icon icon="lucide:loader-2" className="animate-spin" /> Improving…
-                </>
-              ) : (
-                <>
-                  <Icon icon="lucide:wand-2" /> Improve
-                  {locked && (
-                    <span className="text-[9px] px-1 py-px rounded bg-bg-primary/20 font-extrabold uppercase tracking-wider">
-                      Pro
-                    </span>
-                  )}
-                </>
-              )}
-            </button>
+        <div className="card-game border-accent-cyan p-3 sm:p-4">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT))}
+            placeholder="Paste the text you want to improve…"
+            rows={8}
+            className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-4 py-3.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60 resize-y leading-relaxed"
+          />
+          <div className="flex items-center justify-between mt-2.5">
+            <span className="text-xs text-text-muted">{text.length}/{MAX_TEXT}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenChatGpt}
+                disabled={!text.trim()}
+                title="Open this template + text in ChatGPT — free, no account needed"
+                className="btn-3d px-4 py-2.5 text-sm bg-bg-card text-text-secondary font-bold border-2 border-border disabled:opacity-60 flex items-center gap-2"
+              >
+                <Icon icon="lucide:external-link" /> ChatGPT
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={loading || !text.trim()}
+                className="btn-3d px-5 py-2.5 text-base bg-accent-cyan text-bg-primary font-bold disabled:opacity-60 flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Icon icon="lucide:loader-2" className="animate-spin" /> Improving…
+                  </>
+                ) : (
+                  <>
+                    <Icon icon="lucide:wand-2" /> Improve
+                    {locked && (
+                      <span className="text-[9px] px-1 py-px rounded bg-bg-primary/20 font-extrabold uppercase tracking-wider">
+                        Pro
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── Result ── */}
       {result && (
-        <section className="p-4 rounded-2xl border-2 border-border bg-bg-card animate-fade-in">
+        <section className="card-game border-accent-green p-4 sm:p-5 animate-fade-in">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Result</h2>
             <button

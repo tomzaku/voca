@@ -59,6 +59,15 @@ export function Navbar() {
 
             <div className="flex-1" />
 
+            <Link
+              to="/dashboard"
+              aria-label="Dashboard"
+              title="Dashboard"
+              className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary hover:text-text-primary flex items-center justify-center shrink-0"
+            >
+              <Icon icon="lucide:calendar-days" className="text-lg" />
+            </Link>
+
             <button
               onClick={() => setSearchOpen(true)}
               className="btn-3d flex items-center gap-1.5 pl-3 pr-3.5 h-9 rounded-full bg-bg-card text-text-secondary hover:text-text-primary shrink-0"
