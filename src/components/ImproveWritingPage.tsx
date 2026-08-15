@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import type { Components } from 'react-markdown';
+import TextareaAutosize from 'react-textarea-autosize';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { allTemplates, useWritingTemplates, type AnyWritingTemplate } from '../hooks/useWritingTemplates';
@@ -320,12 +321,14 @@ export function ImproveWritingPage() {
       {/* ── Input ── */}
       <section className="mb-4">
         <div className="card-game border-accent-cyan p-3 sm:p-4">
-          <textarea
+          <TextareaAutosize
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT))}
             placeholder="Paste the text you want to improve…"
-            rows={8}
-            className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-4 py-3.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60 resize-y leading-relaxed"
+            minRows={2}
+            rows={2}
+            maxRows={20}
+            className="w-full bg-transparent border-2 border-border rounded-xl px-4 py-3.5 text-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60 resize-none leading-relaxed"
           />
           <div className="flex items-center justify-between mt-2.5">
             <span className="text-xs text-text-muted">{text.length}/{MAX_TEXT}</span>
