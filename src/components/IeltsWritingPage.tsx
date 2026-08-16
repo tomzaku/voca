@@ -7,8 +7,10 @@ import { useIsPro } from '../hooks/useProStatus';
 import { callAiAction } from '../lib/aiProviders';
 import { ApiError } from '../lib/api';
 import { randomIeltsWritingQuestion, type IeltsWritingQuestion, type IeltsTask } from '../data/ieltsWriting';
+import { IELTS_CATEGORY_TIPS, IELTS_TASK_TIPS } from '../data/ieltsWritingTips';
 import { listIeltsSubmissions, saveIeltsSubmission, type IeltsSubmission } from '../lib/ieltsSubmissionsApi';
 import { parseIeltsScoreResult, type IeltsScoreResult } from '../lib/ieltsScoreResult';
+import { IeltsChart } from './IeltsChart';
 
 const MAX_ESSAY = 8000;
 
@@ -54,10 +56,14 @@ export function IeltsWritingPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   const [history, setHistory] = useState<IeltsSubmission[]>([]);
+  const [showTips, setShowTips] = useState(false);
+  const [showSample, setShowSample] = useState(false);
 
   const loadQuestion = useCallback((task?: IeltsTask) => {
     setEssay('');
     setResult(null);
+    setShowTips(false);
+    setShowSample(false);
     setQuestion(randomIeltsWritingQuestion(task));
   }, []);
 
@@ -163,12 +169,91 @@ export function IeltsWritingPage() {
             </span>
           </div>
           <p className="text-base text-text-primary leading-relaxed">{question.prompt}</p>
-          {question.dataDescription && (
+          {question.chartData && (
             <div className="mt-1 p-3 rounded-lg bg-bg-tertiary/60 border border-border">
-              <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Data described</p>
+              <IeltsChart data={question.chartData} />
+            </div>
+          )}
+          {question.dataDescription && (
+            <div className={question.chartData ? '' : 'mt-1 p-3 rounded-lg bg-bg-tertiary/60 border border-border'}>
+              {!question.chartData && (
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Data described</p>
+              )}
               <p className="text-sm text-text-secondary leading-relaxed">{question.dataDescription}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Tips / model answer toggles ── */}
+      {question && (
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            onClick={() => setShowTips((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+              showTips
+                ? 'border-accent-purple bg-accent-purple/15 text-accent-purple'
+                : 'border-border bg-bg-card text-text-secondary hover:border-border-light'
+            }`}
+          >
+            <Icon icon="lucide:lightbulb" /> Tips for a higher band
+          </button>
+          <button
+            onClick={() => setShowSample((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+              showSample
+                ? 'border-accent-purple bg-accent-purple/15 text-accent-purple'
+                : 'border-border bg-bg-card text-text-secondary hover:border-border-light'
+            }`}
+          >
+            <Icon icon="lucide:file-text" /> Model answer
+          </button>
+        </div>
+      )}
+
+      {question && showTips && (
+        <div className="card-game border-accent-purple p-4 mb-4 space-y-3 animate-fade-in">
+          <div>
+            <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1.5">
+              {TASK_META[question.task].label}
+            </p>
+            <ul className="space-y-1">
+              {IELTS_TASK_TIPS[question.task].map((tip, i) => (
+                <li key={i} className="text-sm text-text-secondary flex items-start gap-1.5">
+                  <span className="text-accent-purple mt-0.5">•</span> {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {IELTS_CATEGORY_TIPS[question.category] && (
+            <div>
+              <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1.5 capitalize">
+                {question.category.replace(/-/g, ' ')} structure
+              </p>
+              <ul className="space-y-1">
+                {IELTS_CATEGORY_TIPS[question.category].structure.map((tip, i) => (
+                  <li key={i} className="text-sm text-text-secondary flex items-start gap-1.5">
+                    <span className="text-accent-purple mt-0.5">•</span> {tip}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1.5 mt-3">Useful phrases</p>
+              <div className="flex flex-wrap gap-1.5">
+                {IELTS_CATEGORY_TIPS[question.category].phrases.map((phrase, i) => (
+                  <span key={i} className="px-2 py-1 rounded-lg bg-bg-tertiary/60 border border-border text-xs text-text-secondary italic">
+                    {phrase}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {question && showSample && (
+        <div className="card-game border-accent-purple p-4 mb-4 animate-fade-in">
+          <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-2">Model answer</p>
+          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">{question.sampleAnswer}</p>
         </div>
       )}
 
