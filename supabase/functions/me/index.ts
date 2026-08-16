@@ -1,7 +1,7 @@
 // The `me` resource — what the server knows about the caller that their token
 // doesn't already say.
 //
-//   GET /me → { isPro, proExpiresAt }
+//   GET /me → { isPro, proExpiresAt, isTrial }
 //
 // Identity (id, email, display name, avatar) is deliberately NOT here. It rides
 // in the session JWT, so the client already has it for free, offline, with no
@@ -16,7 +16,9 @@
 // feature that costs money re-checks server-side at the point of use
 // (proGateError in _shared/ai.ts), so a client that lies to itself about being
 // Pro still can't spend anything. Nothing here can grant Pro either: rows in
-// `pro_users` are written out of band, never by a client.
+// `pro_users` are written out of band, never by a client — except the 5-day
+// trial, which a DB trigger inserts (note = 'trial') the moment a new
+// `auth.users` row appears (see the pro_trial migration).
 //
 // Deploy: `supabase functions deploy me`
 
@@ -34,7 +36,7 @@ export default async function handler(req: Request): Promise<Response> {
   // coming back is proof the grant is theirs.
   const { data, error } = await auth.supabase
     .from('pro_users')
-    .select('expires_at')
+    .select('expires_at, note')
     .eq('user_id', auth.user.id)
     .maybeSingle();
   if (error) {
@@ -45,7 +47,8 @@ export default async function handler(req: Request): Promise<Response> {
   const expiresAt = (data?.expires_at as string | null | undefined) ?? null;
   // A NULL expiry is a lifetime grant; otherwise Pro lasts until that moment.
   const isPro = Boolean(data) && (!expiresAt || new Date(expiresAt) > new Date());
-  return jsonResponse(200, { isPro, proExpiresAt: isPro ? expiresAt : null });
+  const isTrial = isPro && data?.note === 'trial';
+  return jsonResponse(200, { isPro, proExpiresAt: isPro ? expiresAt : null, isTrial });
 }
 
 if (import.meta.main) Deno.serve(handler);

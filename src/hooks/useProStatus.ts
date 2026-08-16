@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import { fetchMe, type Me } from '../lib/meApi';
 import { useAuth } from './useAuth';
 
-const NOT_PRO: Me = { isPro: false, proExpiresAt: null };
+const NOT_PRO: Me = { isPro: false, proExpiresAt: null, isTrial: false };
 
 /** True if the grant (or its cached copy) is currently active. */
 function isActive(expiresAt: string | null): boolean {

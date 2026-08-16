@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useEnglishChat, ENGLISH_TOPICS, topicLabel, type TopicId, type PracticeMode } from '../hooks/useEnglishChat';
 import { useEnglishConversations, type EnglishConversation } from '../hooks/useEnglishConversations';
 import { useLearnings, type LearningCategory } from '../hooks/useLearnings';
+import { CATEGORY_CONFIG } from '../lib/learningCategories';
 import { ReadAloud } from './ReadAloud';
 import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 import { transcribeBlob } from '../lib/whisperStt';
@@ -56,14 +57,6 @@ function renderMarkdown(text: string) {
     );
   });
 }
-
-// ─── Category UI config ─────────────────────────────────────────────
-const CATEGORY_CONFIG: Record<LearningCategory, { icon: string; label: string; color: string; bg: string; border: string }> = {
-  grammar:    { icon: '📝', label: 'Grammar',    color: 'text-accent-red',    bg: 'bg-accent-red/8',    border: 'border-accent-red/20' },
-  vocabulary: { icon: '📖', label: 'Vocabulary', color: 'text-accent-cyan',   bg: 'bg-accent-cyan/8',   border: 'border-accent-cyan/20' },
-  rephrase:   { icon: '🔄', label: 'Rephrase',   color: 'text-accent-purple', bg: 'bg-accent-purple/8', border: 'border-accent-purple/20' },
-  tip:        { icon: '💡', label: 'Tip',         color: 'text-accent-yellow', bg: 'bg-accent-yellow/8', border: 'border-accent-yellow/20' },
-};
 
 type SetupStep = 'mode' | 'topic';
 type DrawerTab = 'chat' | 'learnings';

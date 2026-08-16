@@ -8,7 +8,10 @@
 //   POST /ai/tutor_start    { … }  → { text }
 //   POST /ai/tutor_reply    { … }  → { text }
 //   POST /ai/mindmap        { … }  → { text }   Pro
-//   POST /ai/improve_writing { instructions, text } → { text }   Pro
+//   POST /ai/improve_writing { instructions, text, categories? } → { text }   Pro
+//     `categories` (subset of grammar/vocabulary/rephrase, default: all) trims
+//     which correction categories the model is asked for.
+//     `text` is a JSON string: { options: string[2], corrections: WritingCorrection[] }
 //
 // SECURITY: a fixed set of named operations, not a raw prompt passthrough. The
 // client may only invoke the routes above with small, validated params — it
@@ -49,6 +52,15 @@ interface BuiltRequest {
   messages: ChatMessage[];
   maxTokens: number;
 }
+
+/** `improve_writing`'s correction taxonomy — see the action below. */
+const CORRECTION_CATEGORIES = ['grammar', 'vocabulary', 'rephrase'] as const;
+type CorrectionCategory = typeof CORRECTION_CATEGORIES[number];
+const CORRECTION_CATEGORY_PROMPT: Record<CorrectionCategory, string> = {
+  grammar: 'Wrong grammar (subject-verb agreement, tense, wrong word form) as "grammar".',
+  vocabulary: 'A better word or phrase choice as "vocabulary".',
+  rephrase: 'A restructured or reworded passage for clarity/flow as "rephrase".',
+};
 
 // ─── Action registry ────────────────────────────────────────────────
 // Each builder validates its own params and returns the exact request. Adding a
@@ -233,16 +245,48 @@ Do NOT include definitions — they are added separately.`;
   // user-role *content*, never as `system`: the system prompt stays fixed and
   // server-owned, so the client still can't set what the model is told to be,
   // only what it's asked to do — the same contract every other action keeps.
+  //
+  // Returns JSON (as the `text` field, like `mindmap` does) rather than plain
+  // text: two full alternate revisions plus a categorized corrections list,
+  // parsed client-side by src/lib/improveWritingResult.ts. The categories
+  // (grammar/vocabulary/rephrase) match the taxonomy English Practice already
+  // uses for its "learnings" — see src/lib/learningCategories.ts.
+  //
+  // `categories` is which of those the caller wants flagged (their "what to
+  // show" picker — src/hooks/useWritingPrefs.ts). It only trims the prompt, so
+  // the model doesn't spend output on a category the user has hidden; it isn't
+  // a second gate — the client still filters `corrections` before rendering,
+  // in case the model includes one anyway.
   improve_writing(p) {
     const instructions = reqStr(p, 'instructions', 2000);
     const text = reqStr(p, 'text', 6000);
+    const categories = Array.isArray(p.categories)
+      ? CORRECTION_CATEGORIES.filter((c) => (p.categories as unknown[]).includes(c))
+      : CORRECTION_CATEGORIES;
+
+    const correctionsSpec = categories.length > 0
+      ? `"corrections" lists each substantive fix worth learning from, but ONLY in these categories — ${categories.map((c) => `"${c}"`).join(', ')}: ${categories.map((c) => CORRECTION_CATEGORY_PROMPT[c]).join(' ')} Do not include any category other than ${categories.map((c) => `"${c}"`).join(', ')}. Skip purely mechanical fixes (capitalization, stray spacing, a missing period) — nothing to learn from there. Keep "original" and "corrected" to the specific phrase that changed, not the whole sentence, and "explanation" to one short line. Return an empty "corrections" array if there's genuinely nothing worth flagging, and don't list the same fix twice.`
+      : `The caller only wants the two revised options, not a corrections breakdown — always return "corrections" as an empty array.`;
+
     return {
-      system: 'You are a professional writing assistant embedded in a language-learning app. Follow the user\'s instructions exactly when revising their text. Reply with the result only — no preamble like "Here\'s the revised version", no restating the request, no "Revised Text" header unless the instructions ask for multiple distinct versions that need labeling. Then, on its own line below a blank line, list each substantive correction — wrong grammar (e.g. subject-verb agreement, tense, wrong word form), wrong word choice, or unclear phrasing — as a Markdown bullet (one bullet per correction, starting with "- "), naming the fix and why, e.g. "- \'are\' → \'am\': subject-verb agreement with \'I\'." That\'s the point of this app, so don\'t skip it. Skip the bullet list only when every fix was purely mechanical — capitalization, stray spacing, a missing period — with nothing to learn from. Keep each bullet to one short line. Format your response in Markdown only where it genuinely helps (e.g. separating multiple requested versions), not as decoration.',
+      system: `You are a professional writing assistant embedded in a language-learning app. Follow the user's instructions exactly when revising their text.
+
+Return ONLY valid JSON (no markdown fences, no commentary) with this exact shape:
+{
+  "options": ["first full revised version of the text", "second full revised version of the text"],
+  "corrections": [
+    { "category": "grammar" | "vocabulary" | "rephrase", "original": "the original wording", "corrected": "the fixed wording", "explanation": "one short sentence: what was wrong and why the fix is correct" }
+  ]
+}
+
+"options" must contain exactly two complete, independently usable revisions of the whole text, both following the instructions above — make them meaningfully different from each other in phrasing or structure, not near-duplicates.
+
+${correctionsSpec}`,
       messages: [{
         role: 'user',
         content: `Instructions for revising the text below:\n${instructions}\n\nText to revise:\n"""\n${text}\n"""`,
       }],
-      maxTokens: 1500,
+      maxTokens: 2500,
     };
   },
 };

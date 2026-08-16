@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import type { Components } from 'react-markdown';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { allTemplates, useWritingTemplates, type AnyWritingTemplate } from '../hooks/useWritingTemplates';
+import { useWritingPrefs, WRITING_CORRECTION_CATEGORIES, type WritingCorrectionCategory } from '../hooks/useWritingPrefs';
 import { callAiAction } from '../lib/aiProviders';
 import { ApiError } from '../lib/api';
+import { CATEGORY_CONFIG } from '../lib/learningCategories';
+import { parseImproveWritingResult, type ImproveWritingResult } from '../lib/improveWritingResult';
 
 const MAX_TEXT = 6000;
 const MAX_NAME = 60;
@@ -27,20 +26,11 @@ function chatGptImproveWritingUrl(instructions: string, text: string): string {
   return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
 }
 
-// ─── Markdown result rendering — themed to match the app's text tokens ─────
-const MARKDOWN_COMPONENTS: Components = {
-  h1: (p) => <h3 className="font-bold text-base mt-3 mb-1.5 text-text-primary" {...p} />,
-  h2: (p) => <h3 className="font-bold text-sm mt-3 mb-1 text-text-primary" {...p} />,
-  h3: (p) => <h4 className="font-bold text-sm mt-2 mb-1 text-text-primary" {...p} />,
-  p: (p) => <p className="text-base text-text-secondary leading-relaxed mb-2" {...p} />,
-  strong: (p) => <strong className="text-text-primary" {...p} />,
-  ul: (p) => <ul className="list-disc ml-4 mb-2 space-y-0.5" {...p} />,
-  ol: (p) => <ol className="list-decimal ml-4 mb-2 space-y-0.5" {...p} />,
-  li: (p) => <li className="text-base text-text-secondary leading-relaxed" {...p} />,
-  code: (p) => <code className="px-1 py-0.5 rounded bg-bg-tertiary text-accent-cyan text-xs font-code" {...p} />,
-  blockquote: (p) => <blockquote className="border-l-2 border-border pl-3 italic text-text-muted" {...p} />,
-  a: (p) => <a className="text-accent-cyan underline" target="_blank" rel="noopener noreferrer" {...p} />,
-  hr: () => <hr className="border-border my-3" />,
+/** Section heading + copy for each correction category, in display order. */
+const SECTION_TITLES: Record<WritingCorrectionCategory, string> = {
+  grammar: 'Fix Grammar',
+  vocabulary: 'Improve Word Choice',
+  rephrase: 'Rephrase',
 };
 
 /** Inline create/edit form for a custom template — `editingId` set = editing. */
@@ -145,9 +135,13 @@ export function ImproveWritingPage() {
   const [detailOpen, setDetailOpen] = useState(false);
 
   const [text, setText] = useState('');
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<ImproveWritingResult | null>(null);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  const visibleCategories = useWritingPrefs((s) => s.visibleCategories);
+  const toggleCategory = useWritingPrefs((s) => s.toggleCategory);
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -189,12 +183,13 @@ export function ImproveWritingPage() {
     setLoading(true);
     setResult(null);
     try {
+      const categories = WRITING_CORRECTION_CATEGORIES.filter((c) => visibleCategories[c]);
       const text_ = await callAiAction(
         'improve_writing',
-        { instructions: selected.instructions, text: text.trim() },
+        { instructions: selected.instructions, text: text.trim(), categories },
         { signal: controller.signal },
       );
-      setResult(text_);
+      setResult(parseImproveWritingResult(text_));
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
       else if ((err as Error).name !== 'AbortError') toast.error('Could not reach the AI. Try again.');
@@ -211,9 +206,8 @@ export function ImproveWritingPage() {
     window.open(chatGptImproveWritingUrl(selected.instructions, text.trim()), '_blank', 'noopener,noreferrer');
   };
 
-  const handleCopy = async () => {
-    if (!result) return;
-    await navigator.clipboard.writeText(result);
+  const handleCopyOption = async (option: string) => {
+    await navigator.clipboard.writeText(option);
     toast.success('Copied!');
   };
 
@@ -341,26 +335,61 @@ export function ImproveWritingPage() {
               >
                 <Icon icon="lucide:external-link" /> ChatGPT
               </button>
-              <button
-                onClick={handleSubmit}
-                disabled={loading || !text.trim()}
-                className="btn-3d px-5 py-2.5 text-base bg-accent-cyan text-bg-primary font-bold disabled:opacity-60 flex items-center gap-2"
-              >
-                {loading ? (
+              <div className="relative flex items-stretch gap-1">
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading || !text.trim()}
+                  className="btn-3d px-5 py-2.5 text-base bg-accent-cyan text-bg-primary font-bold disabled:opacity-60 flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Icon icon="lucide:loader-2" className="animate-spin" /> Improving…
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="lucide:wand-2" /> Improve
+                      {locked && (
+                        <span className="text-[9px] px-1 py-px rounded bg-bg-primary/20 font-extrabold uppercase tracking-wider">
+                          Pro
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setPrefsOpen((o) => !o)}
+                  title="Choose which correction categories to include"
+                  aria-label="Correction categories to show"
+                  className="btn-3d px-3 py-2.5 bg-accent-cyan text-bg-primary disabled:opacity-60 flex items-center justify-center"
+                >
+                  <Icon icon="lucide:sliders-horizontal" />
+                </button>
+                {prefsOpen && (
                   <>
-                    <Icon icon="lucide:loader-2" className="animate-spin" /> Improving…
-                  </>
-                ) : (
-                  <>
-                    <Icon icon="lucide:wand-2" /> Improve
-                    {locked && (
-                      <span className="text-[9px] px-1 py-px rounded bg-bg-primary/20 font-extrabold uppercase tracking-wider">
-                        Pro
-                      </span>
-                    )}
+                    <div className="fixed inset-0 z-30" onClick={() => setPrefsOpen(false)} />
+                    <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 rounded-xl border-2 border-border bg-bg-card shadow-xl p-2 space-y-0.5 animate-fade-in">
+                      <p className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">Corrections to include</p>
+                      {WRITING_CORRECTION_CATEGORIES.map((cat) => {
+                        const config = CATEGORY_CONFIG[cat];
+                        return (
+                          <label
+                            key={cat}
+                            className="flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-bold text-text-secondary hover:bg-bg-tertiary cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visibleCategories[cat]}
+                              onChange={() => toggleCategory(cat)}
+                              className="accent-accent-cyan"
+                            />
+                            <span>{config.icon}</span> {SECTION_TITLES[cat]}
+                          </label>
+                        );
+                      })}
+                    </div>
                   </>
                 )}
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -368,21 +397,58 @@ export function ImproveWritingPage() {
 
       {/* ── Result ── */}
       {result && (
-        <section className="card-game border-accent-green p-4 sm:p-5 animate-fade-in">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Result</h2>
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
-            >
-              <Icon icon="lucide:copy" /> Copy
-            </button>
-          </div>
+        <section className="space-y-4 animate-fade-in">
           <div>
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={MARKDOWN_COMPONENTS}>
-              {result}
-            </ReactMarkdown>
+            <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Revised — pick one</h2>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {result.options.map((option, i) => (
+                <div key={i} className="card-game border-accent-green p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-text-muted uppercase tracking-wider">Option {i + 1}</span>
+                    <button
+                      onClick={() => handleCopyOption(option)}
+                      className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
+                    >
+                      <Icon icon="lucide:copy" /> Copy
+                    </button>
+                  </div>
+                  <p className="text-base text-text-secondary leading-relaxed whitespace-pre-wrap">{option}</p>
+                </div>
+              ))}
+            </div>
           </div>
+
+          {WRITING_CORRECTION_CATEGORIES.some(
+            (cat) => visibleCategories[cat] && result.corrections.some((c) => c.category === cat),
+          ) && (
+            <div className="space-y-3">
+              <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">What changed</h2>
+              {WRITING_CORRECTION_CATEGORIES.filter((cat) => visibleCategories[cat]).map((cat) => {
+                const items = result.corrections.filter((c) => c.category === cat);
+                if (items.length === 0) return null;
+                const config = CATEGORY_CONFIG[cat];
+                return (
+                  <div key={cat}>
+                    <p className={`text-xs font-bold mb-1.5 flex items-center gap-1.5 ${config.color}`}>
+                      {config.icon} {SECTION_TITLES[cat]}
+                    </p>
+                    <div className="space-y-2">
+                      {items.map((item, i) => (
+                        <div key={i} className={`rounded-lg border ${config.border} ${config.bg} p-3`}>
+                          {item.original && (
+                            <p className="text-sm text-text-muted line-through mb-0.5">{item.original}</p>
+                          )}
+                          <p className="text-sm text-text-primary font-medium mb-0.5">{item.corrected}</p>
+                          {item.explanation && <p className="text-xs text-text-secondary">{item.explanation}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       )}
     </div>

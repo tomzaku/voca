@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import type { LearningCategory } from '../lib/learningCategories';
 
-export type LearningCategory = 'grammar' | 'vocabulary' | 'rephrase' | 'tip';
+export type { LearningCategory };
 
 export interface Learning {
   id: string;

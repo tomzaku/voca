@@ -23,6 +23,7 @@ import { TakeQuiz } from './components/TakeQuiz';
 import { QuizResults } from './components/QuizResults';
 import { MyQuizzes } from './components/MyQuizzes';
 import { OnboardingModal } from './components/OnboardingModal';
+import { TrialWelcomeToast } from './components/TrialWelcomeToast';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
 
@@ -70,6 +71,7 @@ export default function App() {
         <WordPeek />
         <LoginGate />
         <OnboardingModal />
+        <TrialWelcomeToast />
         <Toaster
           position="bottom-center"
           toastOptions={{
