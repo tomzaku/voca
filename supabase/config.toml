@@ -73,6 +73,13 @@ deno_version = 2
 [functions.notify]
 verify_jwt = false
 
+# `doodles/sheet.ts` imports the bare specifier "imagescript", resolved via
+# this import map both locally (Deno auto-detects functions/deno.json) and on
+# deploy (the CLI's remote bundler does not auto-detect it, and fails the
+# whole `functions deploy` batch without this).
+[functions.doodles]
+import_map = "./functions/deno.json"
+
 [analytics]
 enabled = true
 port = 54327

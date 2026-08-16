@@ -12,6 +12,13 @@ export interface ChatMessage {
   content: string;
 }
 
+/** What each `ai-*` function's builder produces — everything `callProvider` needs. */
+export interface BuiltRequest {
+  system: string;
+  messages: ChatMessage[];
+  maxTokens: number;
+}
+
 // Allows the read verbs as well as POST: a browser preflights every call here
 // (the Authorization header sees to that), and a resource with GET routes —
 // `teams`, `progress` — is unreachable if the preflight doesn't advertise them.

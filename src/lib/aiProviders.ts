@@ -1,11 +1,13 @@
-// AI client — requests are proxied through our Supabase Edge Function (`ai`),
-// which holds the provider API key server-side. The browser only sends the
-// signed-in user's Supabase JWT; no AI key ever touches the client.
+// AI client — requests are proxied through our Supabase Edge Functions, each
+// one a standalone `ai-*` resource that holds the provider API key
+// server-side. The browser only sends the signed-in user's Supabase JWT; no
+// AI key ever touches the client.
 //
-// One route per operation — POST /ai/cloze, /ai/tutor_reply, … The client
-// passes small params and cannot supply the system prompt, the model, or a
-// token budget: those live in the edge function, so the endpoint can't be used
-// as a generic LLM. See supabase/functions/ai/index.ts for the routes.
+// One function per operation — POST /ai-cloze, /ai-tutor-reply, … — not one
+// function dispatching on an action field. The client passes small params and
+// cannot supply the system prompt, the model, or a token budget: those live
+// in the edge function, so no route can be used as a generic LLM. See
+// supabase/functions/ai-*/index.ts for the routes.
 //
 // English Practice conversations go to the separate `chat` function instead —
 // see ./chatApi.ts.
@@ -24,23 +26,26 @@ export type AiAction =
   | 'mindmap'
   | 'improve_writing';
 
-function postAi(
-  action: string,
-  params: Record<string, unknown>,
-  signal?: AbortSignal,
-): Promise<Record<string, unknown>> {
-  // Throws ApiError with the server's message — every caller shows it.
-  return request.post<Record<string, unknown>>(`/ai/${action}`, params, {
-    signal,
-    timeout: TIMEOUT_MS,
-  });
-}
+/** Action name → its standalone `ai-*` function. */
+const ACTION_PATHS: Record<AiAction, string> = {
+  cloze: '/ai-cloze',
+  word_dialogues: '/ai-word-dialogues',
+  translate_word: '/ai-translate-word',
+  tutor_start: '/ai-tutor-start',
+  tutor_reply: '/ai-tutor-reply',
+  mindmap: '/ai-mindmap',
+  improve_writing: '/ai-improve-writing',
+};
 
 export async function callAiAction(
   action: AiAction,
   params: Record<string, unknown>,
   opts: { signal?: AbortSignal } = {},
 ): Promise<string> {
-  const data = await postAi(action, params, opts.signal);
+  // Throws ApiError with the server's message — every caller shows it.
+  const data = await request.post<Record<string, unknown>>(ACTION_PATHS[action], params, {
+    signal: opts.signal,
+    timeout: TIMEOUT_MS,
+  });
   return (data.text as string) || 'No response received.';
 }
