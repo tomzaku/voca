@@ -1,9 +1,19 @@
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme, type Theme } from '../hooks/useTheme';
 import { useGameMode } from '../hooks/useGameMode';
 import { useRailState } from '../hooks/useRailState';
+
+// Matches THEMES' cycle order in useTheme.ts — kept alongside it since
+// toggleTheme's own cycling logic lives there and this only needs to preview
+// where one more click lands.
+const THEME_CYCLE: Theme[] = ['light', 'dark', 'colorful'];
+const THEME_LABEL: Record<Theme, string> = { light: 'Light mode', dark: 'Dark mode', colorful: 'Colorful mode' };
+const THEME_ICON: Record<Theme, string> = { light: 'lucide:sun', dark: 'lucide:moon', colorful: 'lucide:sparkles' };
+function nextTheme(t: Theme): Theme {
+  return THEME_CYCLE[(THEME_CYCLE.indexOf(t) + 1) % THEME_CYCLE.length];
+}
 
 type NavItem = { to: string; label: string; icon: string };
 
@@ -153,12 +163,13 @@ export function Rail() {
           <div className="p-2.5 border-t-2 border-border/50 space-y-1 shrink-0">
             <button
               onClick={toggleTheme}
-              aria-label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              aria-label={`Theme: ${THEME_LABEL[theme]} — tap to switch to ${THEME_LABEL[nextTheme(theme)]}`}
+              title={`Switch to ${THEME_LABEL[nextTheme(theme)]}`}
               className="group relative w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
             >
-              <Icon icon={theme === 'dark' ? 'lucide:sun' : 'lucide:moon'} className="text-lg shrink-0" />
-              {expanded && <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>}
-              <RailTooltip label={theme === 'dark' ? 'Light mode' : 'Dark mode'} show={!expanded} />
+              <Icon icon={THEME_ICON[theme]} className="text-lg shrink-0" />
+              {expanded && <span>{THEME_LABEL[theme]}</span>}
+              <RailTooltip label={THEME_LABEL[theme]} show={!expanded} />
             </button>
             <button
               onClick={toggle}

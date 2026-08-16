@@ -17,6 +17,7 @@ import { useTeams } from '../hooks/useTeams';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { useWordDoodle } from '../hooks/useWordDoodle';
 import { useIsPro } from '../hooks/useProStatus';
+import { useTheme } from '../hooks/useTheme';
 import { ApiError } from '../lib/api';
 import { stopSpeaking } from '../lib/tts';
 import { encodeWord, decodeWord } from '../lib/wordCode';
@@ -114,6 +115,12 @@ export function FlashCard() {
   // Drawn in the background — the card never waits for it (see useWordDoodle).
   const doodle = useWordDoodle(wordData, isPro);
   const speech = useCardSpeech(wordData);
+  // Colorful theme: a new solid colour every time a new word/question shows
+  // up here — a no-op unless that theme is active (see useTheme.rotateHue).
+  const rotateHue = useTheme((s) => s.rotateHue);
+  useEffect(() => {
+    if (wordData?.word) rotateHue();
+  }, [wordData?.word, rotateHue]);
   // Pulled out on its own: `stop` is stable, so the loaders below can depend on
   // it without being rebuilt every time the speaking indicator flips.
   const { stop: stopSpeech } = speech;

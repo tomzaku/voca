@@ -10,6 +10,7 @@ import {
 import { MatchBoard, type MatchPair } from '../MatchBoard';
 import { useVocabularyStore } from '../../hooks/useVocabulary';
 import { useAuth } from '../../hooks/useAuth';
+import { useQuestionAccent } from '../../hooks/useQuestionAccent';
 
 // The Quizzes building. Same setup options as the full Quiz page
 // (src/components/QuizSetup.tsx) — question types, when answers show, a time
@@ -172,6 +173,9 @@ export function QuizArena({ words }: { words: string[] }) {
 
   const question = questions[index];
   const total = questions.length;
+  // Sketch of a "game theme" — a decorative accent that cycles every question,
+  // scoped to touchpoints that never mean "right" or "wrong" (see the hook).
+  const accent = useQuestionAccent(index);
 
   const finish = useCallback((outOfLives = false) => {
     if (doneRef.current) return;
@@ -433,7 +437,12 @@ export function QuizArena({ words }: { words: string[] }) {
         <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
           {question.kind === 'match' ? QUESTION_TYPE_META.match.ask : QUESTION_TYPE_META[question.type].ask}
         </span>
-        <span className="text-[11px] font-bold text-text-muted">{index + 1}/{total}</span>
+        <span className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted">
+          {/* Ticks over every question, purely decorative — the run's actual
+              progress is the number next to it. */}
+          <span key={index} className={`w-1.5 h-1.5 rounded-full animate-pop-in ${accent.dot}`} />
+          {index + 1}/{total}
+        </span>
       </div>
 
       {question.kind === 'match' ? (
@@ -443,7 +452,7 @@ export function QuizArena({ words }: { words: string[] }) {
           {question.type === 'listen' ? (
             <button
               onClick={() => { stopSpeaking(); speakText(question.word); }}
-              className="btn-3d w-full py-4 mb-3 bg-bg-tertiary text-accent-cyan font-bold flex items-center justify-center gap-2"
+              className={`btn-3d w-full py-4 mb-3 bg-bg-tertiary font-bold flex items-center justify-center gap-2 ${accent.text}`}
             >
               <Icon icon="lucide:volume-2" className="text-xl" /> Play again
             </button>
@@ -457,7 +466,7 @@ export function QuizArena({ words }: { words: string[] }) {
               const show = decided && reveal === 'each';
               const isAnswer = opt === question.word;
               const style = !show
-                ? decided ? 'bg-bg-tertiary text-text-muted/60' : 'bg-bg-tertiary text-text-primary hover:bg-accent-purple/15'
+                ? decided ? 'bg-bg-tertiary text-text-muted/60' : `bg-bg-tertiary text-text-primary ${accent.hoverBgSoft}`
                 : isAnswer
                   ? 'bg-accent-green/20 text-accent-green border-accent-green'
                   : picked === opt

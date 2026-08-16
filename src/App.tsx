@@ -16,7 +16,7 @@ import { CompanionPage } from './components/CompanionPage';
 import { DashboardPage } from './components/DashboardPage';
 import { QuickReview } from './components/QuickReview';
 import { CollectionsPage } from './components/CollectionsPage';
-import { ImproveWritingPage } from './components/ImproveWritingPage';
+import { WritingPage } from './components/WritingPage';
 import { WorldGame } from './components/WorldGame';
 import { LevelTestPage } from './components/LevelTestPage';
 import { TakeQuiz } from './components/TakeQuiz';
@@ -53,7 +53,7 @@ export default function App() {
               {/* Old path — keep existing links working. */}
               <Route path="/streak" element={<Navigate to="/dashboard" replace />} />
               <Route path="/collections" element={<CollectionsPage />} />
-              <Route path="/writing" element={<ImproveWritingPage />} />
+              <Route path="/writing" element={<WritingPage />} />
               <Route path="/world" element={<WorldGame />} />
               <Route path="/level-test" element={<LevelTestPage />} />
               <Route path="/quizzes" element={<MyQuizzes />} />

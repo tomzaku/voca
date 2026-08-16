@@ -63,6 +63,114 @@
   --bg-gradient: linear-gradient(165deg, #d5e6ff 0%, #e9e0ff 55%, #ffe4f4 100%);
 }
 
+/* Colorful theme · "Party Arcade" — not one extra palette but a rotation of
+   several. Same light-surface, dark-ink structure as Candy Day throughout (so
+   every component that already contrasts correctly there needs no changes
+   here) and the same full-saturation accent set on every variant — only the
+   backdrop's dominant hue (bg-primary/secondary/tertiary, border, the button
+   shadow tint) changes between them. Each one is a flat, SOLID colour, not a
+   gradient: "colorful" describes the rotation, not any single screen.
+   useTheme.rotateHue() picks the next `data-hue`, called whenever the home
+   page shows a new word (see FlashCard.tsx) — so answering is what moves you
+   to the next solid colour, the same way it moves you to the next question. */
+[data-theme="colorful"] {
+  --color-bg-card: #ffffff;
+  --color-text-primary: #23123f;
+  --color-text-secondary: #5a3a75;
+  --color-text-muted: #8d6ba3;
+  --color-accent-cyan: #00c2d1;
+  --color-accent-green: #17c964;
+  --color-accent-orange: #ff7a1a;
+  --color-accent-red: #ff3366;
+  --color-accent-purple: #9333ea;
+  --color-accent-blue: #2f6bff;
+  --color-accent-yellow: #ffb703;
+  --color-accent-pink: #ff2d95;
+
+  /* Fallback (no data-hue yet) — same values as the "coral" variant below. */
+  --color-bg-primary: #ffe3d3;
+  --color-bg-secondary: #ffd4bb;
+  --color-bg-tertiary: #fff1e6;
+  --color-bg-hover: #fff6f0;
+  --color-border: #ff8a4c;
+  --color-border-light: #ffb27a;
+  --shadow-game: rgba(255, 110, 40, 0.26);
+  --btn-lip: rgba(150, 50, 10, 0.26);
+  --bg-gradient: #ffe3d3;
+}
+
+[data-theme="colorful"][data-hue="coral"] {
+  --color-bg-primary: #ffe3d3;
+  --color-bg-secondary: #ffd4bb;
+  --color-bg-tertiary: #fff1e6;
+  --color-bg-hover: #fff6f0;
+  --color-border: #ff8a4c;
+  --color-border-light: #ffb27a;
+  --shadow-game: rgba(255, 110, 40, 0.26);
+  --btn-lip: rgba(150, 50, 10, 0.26);
+  --bg-gradient: #ffe3d3;
+}
+
+[data-theme="colorful"][data-hue="sky"] {
+  --color-bg-primary: #d8ecff;
+  --color-bg-secondary: #c3e0ff;
+  --color-bg-tertiary: #eaf5ff;
+  --color-bg-hover: #f2f9ff;
+  --color-border: #3ba4ff;
+  --color-border-light: #7cc2ff;
+  --shadow-game: rgba(30, 110, 210, 0.24);
+  --btn-lip: rgba(10, 60, 130, 0.26);
+  --bg-gradient: #d8ecff;
+}
+
+[data-theme="colorful"][data-hue="mint"] {
+  --color-bg-primary: #d7f7e6;
+  --color-bg-secondary: #c1f0d8;
+  --color-bg-tertiary: #ecfbf3;
+  --color-bg-hover: #f3fdf8;
+  --color-border: #22c07f;
+  --color-border-light: #6fdba8;
+  --shadow-game: rgba(15, 150, 95, 0.24);
+  --btn-lip: rgba(5, 90, 55, 0.26);
+  --bg-gradient: #d7f7e6;
+}
+
+[data-theme="colorful"][data-hue="grape"] {
+  --color-bg-primary: #ecdcff;
+  --color-bg-secondary: #ddc4ff;
+  --color-bg-tertiary: #f5ecff;
+  --color-bg-hover: #f9f3ff;
+  --color-border: #9b4dff;
+  --color-border-light: #bd85ff;
+  --shadow-game: rgba(130, 50, 220, 0.24);
+  --btn-lip: rgba(70, 15, 130, 0.26);
+  --bg-gradient: #ecdcff;
+}
+
+[data-theme="colorful"][data-hue="sunshine"] {
+  --color-bg-primary: #fff2c2;
+  --color-bg-secondary: #ffe98a;
+  --color-bg-tertiary: #fff9e0;
+  --color-bg-hover: #fffbea;
+  --color-border: #ffb703;
+  --color-border-light: #ffce4d;
+  --shadow-game: rgba(200, 140, 0, 0.26);
+  --btn-lip: rgba(140, 90, 0, 0.26);
+  --bg-gradient: #fff2c2;
+}
+
+[data-theme="colorful"][data-hue="bubblegum"] {
+  --color-bg-primary: #ffd9ec;
+  --color-bg-secondary: #ffc2e0;
+  --color-bg-tertiary: #fff0f7;
+  --color-bg-hover: #fff5fa;
+  --color-border: #ff4fa3;
+  --color-border-light: #ff8cc4;
+  --shadow-game: rgba(220, 30, 130, 0.24);
+  --btn-lip: rgba(130, 10, 75, 0.26);
+  --bg-gradient: #ffd9ec;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
@@ -86,7 +194,8 @@ body {
   color: var(--color-accent-cyan);
 }
 
-[data-theme="light"] ::selection {
+[data-theme="light"] ::selection,
+[data-theme="colorful"] ::selection {
   background: rgba(11, 181, 214, 0.18);
 }
 
@@ -144,13 +253,15 @@ body {
    card instead of in a white box. That leaves the ink itself: black outlines
    are unreadable on the dark theme's card, so there the whole image is
    inverted — `hue-rotate` then puts the colours back roughly where they
-   started, leaving light ink on dark, like chalk. The light theme needs
-   nothing: it's the paper the doodle was drawn on. */
+   started, leaving light ink on dark, like chalk. The light and colorful
+   themes need nothing: their card is white, the paper the doodle was drawn
+   on. */
 .doodle-ink {
   filter: invert(1) hue-rotate(180deg);
 }
 
-[data-theme="light"] .doodle-ink {
+[data-theme="light"] .doodle-ink,
+[data-theme="colorful"] .doodle-ink {
   filter: none;
 }
 

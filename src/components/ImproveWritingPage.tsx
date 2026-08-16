@@ -119,6 +119,10 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
  * Improve Writing (Pro): paste text, pick a template (5 built-in + your own),
  * and get an AI-revised version back. Templates are managed inline here —
  * they only matter in the context of using them.
+ *
+ * One tab of WritingPage.tsx — no page chrome of its own (no wrapper, no
+ * `<h1>`), since the container owns that and switches this out for
+ * IeltsWritingPage.
  */
 export function ImproveWritingPage() {
   const { user } = useAuth();
@@ -212,8 +216,7 @@ export function ImproveWritingPage() {
   };
 
   return (
-    <div className="mx-auto max-w-page px-4 py-8">
-      <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Improve Writing</h1>
+    <div>
       <p className="text-sm text-text-muted mb-6">
         Paste your text, pick a template, and get an AI-revised version — tuned for Slack, email, Jira, or however you write.
       </p>

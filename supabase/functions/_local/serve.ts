@@ -15,6 +15,7 @@
 // or `npm run server:dev` from the repo root, which wraps the same command.
 
 import aiCloze from '../ai-cloze/index.ts';
+import aiIeltsWriting from '../ai-ielts-writing/index.ts';
 import aiImproveWriting from '../ai-improve-writing/index.ts';
 import aiMindmap from '../ai-mindmap/index.ts';
 import aiTranslateWord from '../ai-translate-word/index.ts';
@@ -24,6 +25,7 @@ import aiWordDialogues from '../ai-word-dialogues/index.ts';
 import chat from '../chat/index.ts';
 import collections from '../collections/index.ts';
 import doodles from '../doodles/index.ts';
+import ieltsSubmissions from '../ielts-submissions/index.ts';
 import me from '../me/index.ts';
 import mindmap from '../mindmap/index.ts';
 import notify from '../notify/index.ts';
@@ -45,6 +47,7 @@ type Handler = (req: Request) => Response | Promise<Response>;
 // same paths that hit /functions/v1/<name>/... in prod work here unprefixed.
 const RESOURCES: Record<string, Handler> = {
   'ai-cloze': aiCloze,
+  'ai-ielts-writing': aiIeltsWriting,
   'ai-improve-writing': aiImproveWriting,
   'ai-mindmap': aiMindmap,
   'ai-translate-word': aiTranslateWord,
@@ -54,6 +57,7 @@ const RESOURCES: Record<string, Handler> = {
   chat,
   collections,
   doodles,
+  'ielts-submissions': ieltsSubmissions,
   me,
   mindmap,
   notify,

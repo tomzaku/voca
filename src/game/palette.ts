@@ -46,7 +46,10 @@ export interface WorldPalette {
 }
 
 export function worldPalette(): WorldPalette {
-  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  // Colorful shares light's white-card, dark-ink structure (see index.css),
+  // so it gets the same "day" zone look rather than falling through to dark.
+  const themeAttr = document.documentElement.getAttribute('data-theme');
+  const light = themeAttr === 'light' || themeAttr === 'colorful';
   const card = cssVar('--color-bg-card', light ? '#ffffff' : '#342b80');
   const cyan = cssVar('--color-accent-cyan', '#22d3ee');
   const purple = cssVar('--color-accent-purple', '#b98bff');

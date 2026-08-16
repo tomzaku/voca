@@ -50,9 +50,9 @@ rebases, cherry-picks and reverts are skipped automatically.
 AI requests (word data, story generation, quizzes, English practice) are **not** made from the
 browser. The client calls one of several standalone Supabase Edge Functions — `ai-cloze`,
 `ai-word-dialogues`, `ai-translate-word`, `ai-tutor-start`, `ai-tutor-reply`, `ai-mindmap`,
-`ai-improve-writing` (see `supabase/functions/ai-*`) — with the signed-in user's JWT, and the
-function makes the upstream provider call using a key stored as a server secret. **No AI key ever
-reaches the client**, and only signed-in users can trigger AI calls.
+`ai-improve-writing`, `ai-ielts-writing` (see `supabase/functions/ai-*`) — with the signed-in
+user's JWT, and the function makes the upstream provider call using a key stored as a server
+secret. **No AI key ever reaches the client**, and only signed-in users can trigger AI calls.
 
 ### 1. Set the provider key as a secret
 
@@ -87,7 +87,7 @@ set those.
 ### 2. Deploy the functions
 
 ```bash
-supabase functions deploy ai-cloze ai-word-dialogues ai-translate-word ai-tutor-start ai-tutor-reply ai-mindmap ai-improve-writing
+supabase functions deploy ai-cloze ai-word-dialogues ai-translate-word ai-tutor-start ai-tutor-reply ai-mindmap ai-improve-writing ai-ielts-writing
 ```
 
 The client points at your remote Supabase project, so AI features start working as soon as the

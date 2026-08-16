@@ -24,7 +24,8 @@ export type AiAction =
   | 'tutor_start'
   | 'tutor_reply'
   | 'mindmap'
-  | 'improve_writing';
+  | 'improve_writing'
+  | 'ielts_writing';
 
 /** Action name → its standalone `ai-*` function. */
 const ACTION_PATHS: Record<AiAction, string> = {
@@ -35,6 +36,7 @@ const ACTION_PATHS: Record<AiAction, string> = {
   tutor_reply: '/ai-tutor-reply',
   mindmap: '/ai-mindmap',
   improve_writing: '/ai-improve-writing',
+  ielts_writing: '/ai-ielts-writing',
 };
 
 export async function callAiAction(

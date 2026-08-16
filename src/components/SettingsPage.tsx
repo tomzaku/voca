@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Icon } from '@iconify/react';
+import { useTheme, type Theme } from '../hooks/useTheme';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { isSfxEnabled, setSfxEnabled, playCorrect } from '../lib/sfx';
@@ -20,6 +22,12 @@ import { useVocabularyStore } from '../hooks/useVocabulary';
 import toast from 'react-hot-toast';
 
 const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
+
+const THEMES: { id: Theme; label: string; desc: string; icon: string }[] = [
+  { id: 'light', label: 'Light', desc: 'Candy Day — soft pastels, easy on the eyes.', icon: 'lucide:sun' },
+  { id: 'dark', label: 'Dark', desc: 'Arcade Night — deep purples, low glare.', icon: 'lucide:moon' },
+  { id: 'colorful', label: 'Colorful', desc: 'Party Arcade — a new solid colour every word.', icon: 'lucide:sparkles' },
+];
 
 const engines: { id: TtsEngine; label: string; desc: string; badge?: string }[] = [
   { id: 'native', label: 'Browser Native', desc: 'Uses your OS/browser built-in speech synthesis. Instant, no download.', badge: 'Fast' },
@@ -43,6 +51,7 @@ const gradeColor: Record<string, string> = {
 };
 
 export function SettingsPage() {
+  const { theme, setTheme } = useTheme();
   const { engine, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed } = useTtsSettings();
   const { user, signInWithGoogle, signOut } = useAuth();
   const store = useVocabularyStore();
@@ -148,6 +157,40 @@ export function SettingsPage() {
             </button>
           </div>
         )}
+      </section>
+
+      {/* Theme */}
+      <section className="mb-8">
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Theme</h2>
+        <p className="text-xs text-text-muted mb-3">How the app looks. Also switchable from the sidebar.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {THEMES.map((t) => {
+            const selected = theme === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setTheme(t.id);
+                  toast.success(`Theme: ${t.label}`);
+                }}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  selected
+                    ? 'bg-accent-cyan/5 border-accent-cyan/30 ring-1 ring-accent-cyan/20'
+                    : 'bg-bg-card border-border hover:border-border-light'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`flex items-center gap-1.5 text-sm font-display font-bold ${selected ? 'text-accent-cyan' : 'text-text-primary'}`}>
+                    <Icon icon={t.icon} className="text-base" />
+                    {t.label}
+                  </span>
+                  {selected && <span className="text-[10px] text-accent-cyan">✓ Active</span>}
+                </div>
+                <p className="text-xs text-text-muted">{t.desc}</p>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* Languages */}
