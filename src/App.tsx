@@ -23,7 +23,7 @@ import { TakeQuiz } from './components/TakeQuiz';
 import { QuizResults } from './components/QuizResults';
 import { MyQuizzes } from './components/MyQuizzes';
 import { OnboardingModal } from './components/OnboardingModal';
-import { TrialWelcomeToast } from './components/TrialWelcomeToast';
+import { ProComparisonPage } from './components/ProComparisonPage';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
 
@@ -62,6 +62,7 @@ export default function App() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/pro" element={<ProComparisonPage />} />
             </Routes>
           </main>
         </div>
@@ -71,7 +72,6 @@ export default function App() {
         <WordPeek />
         <LoginGate />
         <OnboardingModal />
-        <TrialWelcomeToast />
         <Toaster
           position="bottom-center"
           toastOptions={{

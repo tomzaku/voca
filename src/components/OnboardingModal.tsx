@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { fetchMe } from '../lib/meApi';
 import {
   fetchOnboardingPrefs,
   hasOnboarded,
@@ -19,13 +21,23 @@ import { listCollections, getCollection } from '../lib/collections';
 const FENRIR_VOICE = 'am_fenrir';
 
 /**
- * First-run onboarding. After a user signs in, if they've never picked a
- * vocabulary pack / mother language (checked against the DB, so it's a one-time
- * thing across devices), ask them. The voice engine is chosen automatically:
- * Kokoro AI (Fenrir) where supported, else the browser's native speech.
+ * First-run flow. After a user signs in:
+ *
+ * 1. If they've never seen the trial welcome (tracked locally, since it's a
+ *    one-shot announcement rather than a preference), and they currently have
+ *    the automatic 5-day Pro trial (`me.isTrial`), greet them with that alone
+ *    — the setup step is deliberately skipped this pass.
+ * 2. Otherwise, if they've never picked a vocabulary pack / mother language
+ *    (checked against the DB, so it's a one-time thing across devices), ask
+ *    them. The voice engine is chosen automatically: Kokoro AI (Fenrir) where
+ *    supported, else the browser's native speech.
+ *
+ * So a brand-new user sees the welcome step on their first load and the setup
+ * step on their next one, never both at once.
  */
 export function OnboardingModal() {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const [show, setShow] = useState(false);
   const collections = listCollections();
   const [collectionId, setCollectionId] = useState<string>(() => useCollections.getState().activeId);
@@ -33,9 +45,9 @@ export function OnboardingModal() {
   const [saving, setSaving] = useState(false);
   const { animalId, choose } = useCompanion();
 
-  // Level test ("Find your level") — the same shared three-phase word picker
-  // as the /level-test page.
-  const [mode, setMode] = useState<'setup' | 'test'>('setup');
+  // 'welcome' (trial announcement) → 'setup' (pack/language/buddy) → 'test'
+  // (the "find your level" side-quest launched from setup).
+  const [mode, setMode] = useState<'welcome' | 'setup' | 'test'>('setup');
   const [recommended, setRecommended] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,13 +56,71 @@ export function OnboardingModal() {
       return;
     }
     let cancelled = false;
-    fetchOnboardingPrefs().then((prefs) => {
-      if (!cancelled) setShow(!hasOnboarded(prefs));
-    });
+    const welcomeKey = `voca-trial-welcome-shown-${user.id}`;
+    (async () => {
+      let welcomeSeen = true;
+      try {
+        welcomeSeen = localStorage.getItem(welcomeKey) === 'true';
+      } catch {
+        welcomeSeen = true; // storage unavailable — fall straight through to setup
+      }
+      if (!welcomeSeen) {
+        const me = await fetchMe();
+        if (cancelled) return;
+        if (me?.isTrial) {
+          setMode('welcome');
+          setShow(true);
+          return;
+        }
+        // Not trial-eligible (existing account, or the call failed) — don't
+        // keep re-checking `me` on every load.
+        try { localStorage.setItem(welcomeKey, 'true'); } catch { /* ignore */ }
+      }
+      const prefs = await fetchOnboardingPrefs();
+      if (!cancelled) {
+        setMode('setup');
+        setShow(!hasOnboarded(prefs));
+      }
+    })();
     return () => { cancelled = true; };
   }, [user, loading]);
 
   if (!show || !user) return null;
+
+  if (mode === 'welcome') {
+    const dismiss = () => {
+      try {
+        if (user) localStorage.setItem(`voca-trial-welcome-shown-${user.id}`, 'true');
+      } catch { /* ignore */ }
+      setShow(false);
+    };
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-bg-card shadow-2xl">
+          <div className="p-6 text-center">
+            <div className="text-5xl mb-3">🎉</div>
+            <h2 className="text-xl font-display font-bold text-text-primary">Welcome to Voca!</h2>
+            <p className="text-sm text-text-secondary mt-2">
+              You're starting with <span className="font-bold text-accent-cyan">5 days of Pro</span>, free —
+              every feature unlocked, no card required.
+            </p>
+            <button
+              onClick={dismiss}
+              className="btn-3d w-full py-3 bg-accent-cyan text-bg-primary font-bold mt-6"
+            >
+              Let's go
+            </button>
+            <button
+              onClick={() => { dismiss(); navigate('/pro'); }}
+              className="text-xs text-text-muted hover:text-accent-cyan transition-colors mt-3"
+            >
+              See what's included →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const kokoro = isKokoroSupported();
 
