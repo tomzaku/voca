@@ -58,12 +58,16 @@ export function IeltsWritingPage() {
   const [history, setHistory] = useState<IeltsSubmission[]>([]);
   const [showTips, setShowTips] = useState(false);
   const [showSample, setShowSample] = useState(false);
+  // Index into question.sampleAnswers — default to the middle (mid-band) tier,
+  // since that's the most useful reference point for most learners.
+  const [sampleIndex, setSampleIndex] = useState(1);
 
   const loadQuestion = useCallback((task?: IeltsTask) => {
     setEssay('');
     setResult(null);
     setShowTips(false);
     setShowSample(false);
+    setSampleIndex(1);
     setQuestion(randomIeltsWritingQuestion(task));
   }, []);
 
@@ -252,8 +256,33 @@ export function IeltsWritingPage() {
 
       {question && showSample && (
         <div className="card-game border-accent-purple p-4 mb-4 animate-fade-in">
-          <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-2">Model answer</p>
-          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">{question.sampleAnswer}</p>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <p className="text-xs font-bold text-accent-purple uppercase tracking-wider">Sample answers by band</p>
+            <div className="flex items-center gap-1">
+              {question.sampleAnswers.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSampleIndex(i)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                    sampleIndex === i
+                      ? 'border-accent-purple bg-accent-purple/15 text-accent-purple'
+                      : 'border-border bg-bg-tertiary text-text-muted hover:text-text-secondary'
+                  }`}
+                >
+                  Band {s.band}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap mb-3">
+            {question.sampleAnswers[sampleIndex]?.text}
+          </p>
+          <div className="p-3 rounded-lg bg-bg-tertiary/60 border border-border">
+            <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">
+              Why roughly Band {question.sampleAnswers[sampleIndex]?.band}
+            </p>
+            <p className="text-xs text-text-secondary leading-relaxed">{question.sampleAnswers[sampleIndex]?.explanation}</p>
+          </div>
         </div>
       )}
 
