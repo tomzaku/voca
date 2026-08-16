@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import { useStreak, localDateString } from '../hooks/useStreak';
 import { useHotkey } from '../hooks/useHotkey';
 import { useAuth } from '../hooks/useAuth';
+import { useIsPro } from '../hooks/useProStatus';
 import { useRailState } from '../hooks/useRailState';
 import { isApple } from '../lib/device';
 import { SearchModal } from './SearchModal';
@@ -14,6 +15,7 @@ import { SearchModal } from './SearchModal';
 export function Navbar() {
   const streak = useStreak((s) => s.count);
   const { user } = useAuth();
+  const { isPro } = useIsPro();
   const setRailExpanded = useRailState((s) => s.setExpanded);
   // <main> in App.tsx shifts right by the Rail's actual width (pl-16 or
   // pl-60) as it toggles; this header sits outside <main> so it has to
@@ -77,14 +79,18 @@ export function Navbar() {
               <span className="text-sm font-bold">Search</span>
             </button>
 
-            {/* Account + streak, merged into one control so login state is always
-                visible — not tucked behind a menu — and the streak lives right
-                next to who it belongs to. */}
+            {/* Account (Pro badged on the avatar itself) + streak, merged into
+                one control so login state is always visible — not tucked
+                behind a menu — and the streak lives right next to who it
+                belongs to. No streak means no trailing padding either, so the
+                pill hugs the avatar. */}
             <Link
               to={user ? '/profile' : '/login'}
               aria-label={user ? `View profile — signed in as ${name || 'account'}` : 'Sign in'}
               title={user ? name : 'Sign in'}
-              className={`btn-3d flex items-center gap-1.5 pl-1 pr-2.5 h-9 rounded-full transition-colors shrink-0 ${
+              className={`btn-3d flex items-center gap-1.5 pl-1 h-9 rounded-full transition-colors shrink-0 ${
+                user && streak === 0 ? 'pr-1' : 'pr-2.5'
+              } ${
                 user
                   ? countedToday
                     ? 'bg-accent-orange/15'
@@ -95,12 +101,20 @@ export function Navbar() {
               }`}
             >
               {user ? (
-                <span className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center shrink-0">
+                <span className="relative w-7 h-7 rounded-full overflow-hidden shrink-0">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="w-full h-full bg-accent-purple/20 flex items-center justify-center text-xs font-extrabold text-accent-purple">
                       {initial}
+                    </span>
+                  )}
+                  {/* Clipped by the avatar's own rounded-full + overflow-hidden,
+                      so this rectangle reads as a ribbon along the bottom of the
+                      circle rather than a badge sitting on top of it. */}
+                  {isPro && (
+                    <span className="absolute inset-x-0 bottom-0 h-2 bg-accent-green flex items-center justify-center text-[5px] leading-none font-extrabold text-bg-primary tracking-wide">
+                      PRO
                     </span>
                   )}
                 </span>
