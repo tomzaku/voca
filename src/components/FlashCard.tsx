@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useCollections } from '../hooks/useCollections';
+import { useProgressQuery, type Filter } from '../hooks/useProgressQuery';
 import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -147,6 +148,19 @@ export function FlashCard() {
   const historyIndexRef = useRef(restoredHistory.length - 1);
   const [wordHistory, setWordHistory] = useState<VocabularyWord[]>(restoredHistory);
   const [historyIndex, setHistoryIndex] = useState(restoredHistory.length - 1);
+
+  // Which list the strip is browsing. "Recent" is the session walk above;
+  // anything else is a live slice of progress (see useProgressQuery) — Prev/
+  // Next then step through that instead, capped at the loaded page rather
+  // than an endless "load the next new word" like Recent's does.
+  const [historyFilter, setHistoryFilter] = useState<Filter>('recent');
+  const [filterIndex, setFilterIndex] = useState(0);
+  const filterChecked = useMemo(
+    () => new Set<Filter>(historyFilter === 'recent' ? [] : [historyFilter]),
+    [historyFilter],
+  );
+  const filterQuery = useProgressQuery(filterChecked);
+  const bucketRows = historyFilter === 'recent' ? [] : filterQuery.rows;
 
   const pushWord = useCallback((data: VocabularyWord) => {
     // Drop any forward entries when a new word is pushed mid-history
@@ -411,6 +425,52 @@ export function FlashCard() {
     }
   }, [navigateToHistory, loadNextWord]);
 
+  // Switching the strip's filter: back to Recent restores whatever word was
+  // showing there (bypassing navigateToHistory's same-index guard, since the
+  // index itself didn't move); into any other filter resets to its first word,
+  // loaded once the list below actually has one.
+  useEffect(() => {
+    if (historyFilter !== 'recent') { setFilterIndex(0); return; }
+    const data = wordHistoryRef.current[historyIndexRef.current];
+    if (!data) return;
+    abortRef.current?.abort();
+    stopSpeech();
+    setWordData(data);
+    setGaveUp(false);
+    setSolved(true);
+    roundMistakesRef.current = 0;
+    setPhase('revealed');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyFilter]);
+
+  useEffect(() => {
+    if (historyFilter === 'recent' || filterIndex !== 0) return;
+    const word = bucketRows[0]?.word;
+    if (word) loadSpecificWord(word);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyFilter, bucketRows[0]?.word]);
+
+  const handleFilterPick = useCallback((i: number) => {
+    const word = bucketRows[i]?.word;
+    if (!word) return;
+    setFilterIndex(i);
+    loadSpecificWord(word);
+  }, [bucketRows, loadSpecificWord]);
+
+  const handleFilterPrev = useCallback(() => {
+    const word = bucketRows[filterIndex - 1]?.word;
+    if (!word) return;
+    setFilterIndex(filterIndex - 1);
+    loadSpecificWord(word);
+  }, [filterIndex, bucketRows, loadSpecificWord]);
+
+  const handleFilterNext = useCallback(() => {
+    const word = bucketRows[filterIndex + 1]?.word;
+    if (!word) return;
+    setFilterIndex(filterIndex + 1);
+    loadSpecificWord(word);
+  }, [filterIndex, bucketRows, loadSpecificWord]);
+
   // The collection currently being studied — shown on the history header.
   const activeCollectionId = useCollections((s) => s.activeId);
   const myCollections = useCollections((s) => s.mine);
@@ -420,17 +480,23 @@ export function FlashCard() {
     ?? sharedCollections[activeCollectionId]?.name
     ?? getCollection(activeCollectionId).name;
 
+  const onRecent = historyFilter === 'recent';
+
   return (
     <div className="max-w-page mx-auto px-3 sm:px-4 py-4 sm:py-8">
       <HistoryStrip
-        words={wordHistory}
-        index={historyIndex}
+        words={onRecent ? wordHistory.map((w) => w.headword || w.word) : bucketRows.map((r) => r.word)}
+        index={onRecent ? historyIndex : filterIndex}
         collectionName={collectionName}
-        maskCurrent={phase === 'introduce'}
-        busy={isGenerating}
-        onPick={navigateToHistory}
-        onPrev={handlePrev}
-        onNext={handleNext}
+        filter={historyFilter}
+        onFilterChange={setHistoryFilter}
+        maskCurrent={onRecent && phase === 'introduce'}
+        loading={!onRecent && filterQuery.initialLoading}
+        disablePrev={onRecent ? historyIndex <= 0 || isGenerating : filterIndex <= 0 || isGenerating || filterQuery.initialLoading}
+        disableNext={onRecent ? isGenerating : filterIndex >= bucketRows.length - 1 || isGenerating || filterQuery.initialLoading}
+        onPick={onRecent ? navigateToHistory : handleFilterPick}
+        onPrev={onRecent ? handlePrev : handleFilterPrev}
+        onNext={onRecent ? handleNext : handleFilterNext}
       />
 
       {phase === 'loading' ? (

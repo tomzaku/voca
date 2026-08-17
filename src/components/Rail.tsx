@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTheme, type Theme } from '../hooks/useTheme';
@@ -17,17 +17,18 @@ function nextTheme(t: Theme): Theme {
 
 type NavItem = { to: string; label: string; icon: string };
 
-// The ways you actually study: reading/quizzing, speaking practice, writing.
-const LEARN_ITEMS: NavItem[] = [
-  { to: '/', label: 'Vocabulary', icon: 'lucide:sparkles' },
-  { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
-  { to: '/writing', label: 'Writing', icon: 'lucide:pen-line' },
+// The flashcard deck and everything that organizes or reviews it — grouped
+// under a collapsible "Vocabulary" header rather than flat nav items.
+const VOCABULARY_ITEMS: NavItem[] = [
+  { to: '/', label: 'Flashcards', icon: 'lucide:sparkles' },
+  { to: '/history', label: 'History', icon: 'lucide:history' },
+  { to: '/collections', label: 'Collections', icon: 'lucide:library' },
 ];
 
-// Your word library and a look back at what you've studied.
-const LIBRARY_ITEMS: NavItem[] = [
-  { to: '/collections', label: 'Collections', icon: 'lucide:library' },
-  { to: '/history', label: 'History', icon: 'lucide:history' },
+// Speaking, writing, and the World game — flat, ungrouped items below Vocabulary.
+const OTHER_ITEMS: NavItem[] = [
+  { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
+  { to: '/writing', label: 'Writing', icon: 'lucide:pen-line' },
 ];
 
 // The World game tab appears only when it's turned on in Settings.
@@ -37,8 +38,10 @@ const WORLD_ITEM: NavItem = { to: '/world', label: 'World', icon: 'lucide:gamepa
 // nav click (it's pushing content, not overlaying it); mobile dismisses it.
 const DESKTOP_QUERY = '(min-width: 640px)';
 
-const itemClasses = (active: boolean) =>
-  `group relative flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+// `indent` nests a Vocabulary child under its toggle — only meaningful when
+// the rail is expanded; collapsed, every icon lines up the same regardless.
+const itemClasses = (active: boolean, indent = false) =>
+  `group relative flex items-center gap-3 py-2.5 rounded-xl text-sm font-bold transition-all ${indent ? 'pl-8 pr-2.5' : 'px-2.5'} ${
     active
       ? 'bg-accent-cyan/15 text-accent-cyan before:absolute before:-left-1 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-1 before:rounded-full before:bg-accent-cyan'
       : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
@@ -55,14 +58,26 @@ function RailTooltip({ label, show }: { label: string; show: boolean }) {
   );
 }
 
-// A text heading when there's room for one; collapsed to icons, there's only
-// room for the plain divider it replaces.
-function RailGroupLabel({ label, expanded }: { label: string; expanded: boolean }) {
-  if (!expanded) return <div className="my-1.5 border-t border-border/60" />;
+// Styled as a peer of Speak/Writing/World, not a section label above them —
+// same icon-plus-text row, just a button that folds its children away
+// instead of a link. Collapsed rail skips it: there's no room for the
+// chevron, so its items show as plain icons like everything else.
+function VocabularyToggle({ expanded, open, onToggle }: {
+  expanded: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  if (!expanded) return null;
   return (
-    <div className="px-2.5 pt-3 pb-1 text-[10px] font-bold text-text-muted/60 uppercase tracking-wider">
-      {label}
-    </div>
+    <button
+      onClick={onToggle}
+      aria-expanded={open}
+      className="group relative w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all text-text-secondary hover:bg-bg-tertiary hover:text-text-primary cursor-pointer"
+    >
+      <Icon icon="lucide:book-open" className="text-lg shrink-0" />
+      <span className="flex-1 text-left truncate">Vocabulary</span>
+      <Icon icon="lucide:chevron-down" className={`text-sm shrink-0 transition-transform ${open ? '' : '-rotate-90'}`} />
+    </button>
   );
 }
 
@@ -78,10 +93,11 @@ export function Rail() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const gameEnabled = useGameMode((s) => s.enabled);
+  const [vocabOpen, setVocabOpen] = useState(true);
 
-  const libraryItems = gameEnabled
-    ? LIBRARY_ITEMS.flatMap((item) => (item.to === '/collections' ? [item, WORLD_ITEM] : [item]))
-    : LIBRARY_ITEMS;
+  const otherItems = gameEnabled ? [...OTHER_ITEMS, WORLD_ITEM] : OTHER_ITEMS;
+  // Collapsed rail has no room for the toggle, so it always shows every icon.
+  const showVocabItems = !expanded || vocabOpen;
 
   useEffect(() => {
     if (!expanded) return;
@@ -94,15 +110,18 @@ export function Rail() {
     if (!window.matchMedia(DESKTOP_QUERY).matches) setExpanded(false);
   };
 
-  const renderItem = (item: NavItem) => {
+  const renderItem = (item: NavItem, opts?: { indent?: boolean }) => {
     const active = location.pathname === item.to;
+    // Only nests visually when there's a label to nest under — collapsed
+    // rail lines every icon up flush, indent or not.
+    const indent = !!opts?.indent && expanded;
     return (
       <Link
         key={item.to}
         to={item.to}
         aria-label={item.label}
         onClick={collapseOnMobile}
-        className={itemClasses(active)}
+        className={itemClasses(active, indent)}
       >
         <Icon icon={item.icon} className="text-lg shrink-0" />
         {expanded && <span className="truncate">{item.label}</span>}
@@ -154,10 +173,9 @@ export function Rail() {
             the aside's full height. */}
         <div className="flex-1 flex flex-col border-r-[3px] border-border/50">
           <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col p-2.5 gap-1">
-            <RailGroupLabel label="Learn" expanded={expanded} />
-            {LEARN_ITEMS.map(renderItem)}
-            <RailGroupLabel label="Library" expanded={expanded} />
-            {libraryItems.map(renderItem)}
+            <VocabularyToggle expanded={expanded} open={vocabOpen} onToggle={() => setVocabOpen((v) => !v)} />
+            {showVocabItems && VOCABULARY_ITEMS.map((item) => renderItem(item, { indent: true }))}
+            {otherItems.map((item) => renderItem(item))}
           </nav>
 
           <div className="p-2.5 border-t-2 border-border/50 space-y-1 shrink-0">
