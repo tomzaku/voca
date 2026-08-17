@@ -1,13 +1,17 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import TextareaAutosize from 'react-textarea-autosize';
+import toast from 'react-hot-toast';
 import { speakingQuestions, speakingTopics } from '../data/englishSpeaking';
 import { podcasts, podcastTopics } from '../data/englishPodcasts';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { dialogues, dialogueTopics } from '../data/englishDialogues';
 import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
+import { Selector } from './Selector';
 import { speakText, stopSpeaking, preloadTts, CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
+import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES } from '../hooks/useTtsSettings';
 
-type Tab = 'conversation' | 'dialogue' | 'podcast' | 'ielts';
+type Tab = 'conversation' | 'dialogue' | 'podcast' | 'ielts' | 'read';
 
 // Voice mapping for IELTS multi-speaker playback
 // Examiner: British female (Emma), Candidate: American male (Michael)
@@ -1077,6 +1081,133 @@ function DialogueTab() {
   );
 }
 
+/* ─── Tab: Read Aloud — paste your own text, pick a voice, practice ── */
+const MAX_READ_TEXT = 4000;
+
+function ReadAloudTab() {
+  const { engine } = useTtsSettings();
+  const voices = engine === 'piper' ? PIPER_VOICES : KOKORO_VOICES;
+  const [text, setText] = useState('');
+  const [voice, setVoice] = useState(voices[0].id);
+  const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle');
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; stopSpeaking(); };
+  }, []);
+
+  // The voice list depends on the engine chosen in Settings — if it changes
+  // out from under this tab, fall back to that engine's first voice rather
+  // than keep a picked id that no longer belongs to either list.
+  useEffect(() => {
+    if (!voices.some((v) => v.id === voice)) setVoice(voices[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine]);
+
+  const play = useCallback(async () => {
+    if (state === 'loading' || state === 'playing') {
+      stopSpeaking();
+      setState('idle');
+      return;
+    }
+    if (!text.trim()) return;
+    setState('loading');
+    try {
+      await speakText(text, {
+        voice,
+        onStart: () => { if (mountedRef.current) setState('playing'); },
+        onEnd: () => { if (mountedRef.current) setState('idle'); },
+      });
+    } catch { /* ignore */ } finally {
+      if (mountedRef.current) setState('idle');
+    }
+  }, [text, voice, state]);
+
+  const copy = async () => {
+    if (!text.trim()) return;
+    await navigator.clipboard.writeText(text);
+    toast.success('Copied!');
+  };
+
+  return (
+    <div>
+      <p className="text-xs text-text-muted mb-3">
+        Paste a paragraph or a few sentences, listen to a voice read it correctly, then copy it out to practice saying it yourself.
+      </p>
+
+      <div className="rounded-xl border-2 border-border bg-bg-card p-4 mb-4">
+        <TextareaAutosize
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, MAX_READ_TEXT))}
+          placeholder="Paste or type a paragraph to practice…"
+          minRows={4}
+          rows={4}
+          maxRows={16}
+          className="w-full bg-transparent border-2 border-border rounded-xl px-4 py-3.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-orange/60 resize-none leading-relaxed"
+        />
+        <div className="flex items-center justify-between mt-2.5">
+          <span className="text-xs text-text-muted">{text.length}/{MAX_READ_TEXT}</span>
+          <button
+            onClick={copy}
+            disabled={!text.trim()}
+            title="Copy text"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-50 transition-all cursor-pointer"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={play}
+          disabled={!text.trim()}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+            state === 'playing'
+              ? 'bg-accent-orange/10 text-accent-orange border-accent-orange/30'
+              : 'bg-accent-orange text-bg-primary border-accent-orange hover:bg-accent-orange/90'
+          }`}
+        >
+          {state === 'loading' ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 2a10 10 0 0 1 10 10" />
+            </svg>
+          ) : state === 'playing' ? (
+            <svg width="12" height="12" viewBox="0 0 10 10" fill="currentColor">
+              <rect x="0" y="0" width="10" height="10" rx="1" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+          )}
+          {state === 'playing' ? 'Stop' : state === 'loading' ? 'Loading…' : 'Read Aloud'}
+        </button>
+
+        {engine === 'native' ? (
+          <span className="text-xs text-text-muted">
+            Using your device's voice — pick an AI voice in Settings to choose one here.
+          </span>
+        ) : (
+          <Selector
+            value={voice}
+            options={voices.map((v) => ({ value: v.id, label: `${v.name} · ${v.accent} ${v.gender}` }))}
+            onChange={setVoice}
+            ariaLabel="Voice"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Page ──────────────────────────────────────────────── */
 const tabs: { key: Tab; label: string; icon: React.ReactNode; color: string }[] = [
   {
@@ -1126,6 +1257,18 @@ const tabs: { key: Tab; label: string; icon: React.ReactNode; color: string }[] 
       </svg>
     ),
   },
+  {
+    key: 'read',
+    label: 'Read Aloud',
+    color: 'accent-orange',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="4" y1="6" x2="20" y2="6" />
+        <line x1="4" y1="12" x2="20" y2="12" />
+        <line x1="4" y1="18" x2="14" y2="18" />
+      </svg>
+    ),
+  },
 ];
 
 export function EnglishSpeakingPage() {
@@ -1165,6 +1308,7 @@ export function EnglishSpeakingPage() {
       {activeTab === 'dialogue' && <DialogueTab />}
       {activeTab === 'podcast' && <PodcastTab />}
       {activeTab === 'ielts' && <IeltsTab />}
+      {activeTab === 'read' && <ReadAloudTab />}
     </div>
   );
 }
