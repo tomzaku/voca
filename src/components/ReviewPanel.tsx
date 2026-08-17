@@ -102,7 +102,7 @@ export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) 
       <div className="rounded-xl border border-border bg-bg-card p-4">
         {empty ? (
           <p className="text-xs text-text-muted leading-relaxed text-center px-2 py-1">
-            Answer words on the <Link to="/" className="text-accent-cyan hover:underline font-medium">Learn</Link> page to
+            Answer words on the <Link to="/" className="text-accent-cyan hover:underline font-medium">Vocabulary</Link> page to
             start your schedule. Get one right and it comes back later at a longer gap — again and again until it's mastered.
           </p>
         ) : (

@@ -19,7 +19,7 @@ type NavItem = { to: string; label: string; icon: string };
 
 // The ways you actually study: reading/quizzing, speaking practice, writing.
 const LEARN_ITEMS: NavItem[] = [
-  { to: '/', label: 'Learn', icon: 'lucide:sparkles' },
+  { to: '/', label: 'Vocabulary', icon: 'lucide:sparkles' },
   { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
   { to: '/writing', label: 'Writing', icon: 'lucide:pen-line' },
 ];
