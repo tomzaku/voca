@@ -9,7 +9,6 @@ import { HistoryPage } from './components/HistoryPage';
 import { SettingsPage } from './components/SettingsPage';
 import { LoginPage } from './components/LoginPage';
 import { ProfilePage } from './components/ProfilePage';
-import { FabMenu } from './components/FabMenu';
 import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 import { CompanionPage } from './components/CompanionPage';
@@ -66,7 +65,6 @@ export default function App() {
             </Routes>
           </main>
         </div>
-        <FabMenu />
         <EnglishPractice />
         {/* Word chips anywhere in the app open their meaning here, in place. */}
         <WordPeek />
