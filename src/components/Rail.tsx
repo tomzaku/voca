@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { useGameMode } from '../hooks/useGameMode';
@@ -15,20 +15,53 @@ function nextTheme(t: Theme): Theme {
   return THEME_CYCLE[(THEME_CYCLE.indexOf(t) + 1) % THEME_CYCLE.length];
 }
 
-type NavItem = { to: string; label: string; icon: string };
+// `tab` targets a `?tab=` sub-page rather than a distinct route (Speak,
+// Writing) — the page itself canonicalizes the param, so this exact pair is
+// always what's in the URL once that page has mounted (see useSpeakingTab /
+// useWritingTab), which is what makes the `active` check below exact too.
+type NavItem = { to: string; label: string; icon: string; tab?: string };
 
-// The flashcard deck and everything that organizes or reviews it — grouped
-// under a collapsible "Vocabulary" header rather than flat nav items.
-const VOCABULARY_ITEMS: NavItem[] = [
-  { to: '/', label: 'Flashcards', icon: 'lucide:sparkles' },
-  { to: '/history', label: 'History', icon: 'lucide:history' },
-  { to: '/collections', label: 'Collections', icon: 'lucide:library' },
-];
+interface NavGroup {
+  id: string;
+  label: string;
+  icon: string;
+  items: NavItem[];
+}
 
-// Speaking, writing, and the World game — flat, ungrouped items below Vocabulary.
-const OTHER_ITEMS: NavItem[] = [
-  { to: '/speaking', label: 'Speak', icon: 'lucide:mic' },
-  { to: '/writing', label: 'Writing', icon: 'lucide:pen-line' },
+// Every collapsible group in the drawer, in display order. Each is a peer of
+// Speak/Writing/World, not a category above them — see RailGroupToggle.
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: 'vocabulary',
+    label: 'Vocabulary',
+    icon: 'lucide:book-open',
+    items: [
+      { to: '/', label: 'Flashcards', icon: 'lucide:sparkles' },
+      { to: '/history', label: 'History', icon: 'lucide:history' },
+      { to: '/collections', label: 'Collections', icon: 'lucide:library' },
+    ],
+  },
+  {
+    id: 'speak',
+    label: 'Speak',
+    icon: 'lucide:mic',
+    items: [
+      { to: '/speaking', tab: 'conversation', label: 'Conversation', icon: 'lucide:message-square' },
+      { to: '/speaking', tab: 'dialogue', label: 'Dialogue', icon: 'lucide:message-circle' },
+      { to: '/speaking', tab: 'podcast', label: 'Podcast', icon: 'lucide:radio' },
+      { to: '/speaking', tab: 'ielts', label: 'IELTS Speaking', icon: 'lucide:users' },
+      { to: '/speaking', tab: 'read', label: 'Read Aloud', icon: 'lucide:align-left' },
+    ],
+  },
+  {
+    id: 'writing',
+    label: 'Writing',
+    icon: 'lucide:pen-line',
+    items: [
+      { to: '/writing', tab: 'improve', label: 'Improve Writing', icon: 'lucide:wand-2' },
+      { to: '/writing', tab: 'ielts', label: 'IELTS Writing', icon: 'lucide:users' },
+    ],
+  },
 ];
 
 // The World game tab appears only when it's turned on in Settings.
@@ -38,7 +71,7 @@ const WORLD_ITEM: NavItem = { to: '/world', label: 'World', icon: 'lucide:gamepa
 // nav click (it's pushing content, not overlaying it); mobile dismisses it.
 const DESKTOP_QUERY = '(min-width: 640px)';
 
-// `indent` nests a Vocabulary child under its toggle — only meaningful when
+// `indent` nests a group's children under its toggle — only meaningful when
 // the rail is expanded; collapsed, every icon lines up the same regardless.
 const itemClasses = (active: boolean, indent = false) =>
   `group relative flex items-center gap-3 py-2.5 rounded-xl text-sm font-bold transition-all ${indent ? 'pl-8 pr-2.5' : 'px-2.5'} ${
@@ -58,24 +91,38 @@ function RailTooltip({ label, show }: { label: string; show: boolean }) {
   );
 }
 
-// Styled as a peer of Speak/Writing/World, not a section label above them —
-// same icon-plus-text row, just a button that folds its children away
-// instead of a link. Collapsed rail skips it: there's no room for the
-// chevron, so its items show as plain icons like everything else.
-function VocabularyToggle({ expanded, open, onToggle }: {
+// Styled as a peer of every other nav item — same icon-plus-text row, one
+// click target for the whole thing (a real button, not a link split from a
+// chevron — a slim separate hit target for the chevron turned out too easy
+// to miss). What a click does depends on where you already are, decided by
+// the caller: already on the group's first item, it just folds the group
+// away; anywhere else, it navigates there and leaves the group open.
+//
+// `active` only paints the header itself while collapsed — once expanded,
+// the current item's own highlight below already says so, and painting both
+// would just be the same fact twice.
+function RailGroupToggle({ icon, label, expanded, open, active, onClick }: {
+  icon: string;
+  label: string;
   expanded: boolean;
   open: boolean;
-  onToggle: () => void;
+  active: boolean;
+  onClick: () => void;
 }) {
   if (!expanded) return null;
+  const highlight = active && !open;
   return (
     <button
-      onClick={onToggle}
+      onClick={onClick}
       aria-expanded={open}
-      className="group relative w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all text-text-secondary hover:bg-bg-tertiary hover:text-text-primary cursor-pointer"
+      className={`group relative w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+        highlight
+          ? 'bg-accent-cyan/15 text-accent-cyan before:absolute before:-left-1 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-1 before:rounded-full before:bg-accent-cyan'
+          : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+      }`}
     >
-      <Icon icon="lucide:book-open" className="text-lg shrink-0" />
-      <span className="flex-1 text-left truncate">Vocabulary</span>
+      <Icon icon={icon} className="text-lg shrink-0" />
+      <span className="flex-1 text-left truncate">{label}</span>
       <Icon icon="lucide:chevron-down" className={`text-sm shrink-0 transition-transform ${open ? '' : '-rotate-90'}`} />
     </button>
   );
@@ -91,13 +138,28 @@ export function Rail() {
   const setExpanded = useRailState((s) => s.setExpanded);
   const toggle = useRailState((s) => s.toggle);
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const gameEnabled = useGameMode((s) => s.enabled);
-  const [vocabOpen, setVocabOpen] = useState(true);
+  const tabParam = new URLSearchParams(location.search).get('tab');
 
-  const otherItems = gameEnabled ? [...OTHER_ITEMS, WORLD_ITEM] : OTHER_ITEMS;
-  // Collapsed rail has no room for the toggle, so it always shows every icon.
-  const showVocabItems = !expanded || vocabOpen;
+  // Items without a `tab` ignore search entirely (Flashcards keeps its own
+  // `?w=`/`?word=` state there, unrelated to nav) — only a `tab` item needs
+  // its query checked too.
+  const isItemActive = (item: NavItem) =>
+    location.pathname === item.to && (item.tab === undefined || item.tab === tabParam);
+
+  // Each group starts open if the current route is already inside it (so
+  // landing on /speaking or /writing shows its sub-pages right away);
+  // Vocabulary always starts open since "/" is the app's own landing page.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const state: Record<string, boolean> = {};
+    for (const g of NAV_GROUPS) {
+      state[g.id] = g.id === 'vocabulary' || g.items.some((item) => item.to === location.pathname);
+    }
+    return state;
+  });
+  const toggleGroup = (id: string) => setOpenGroups((s) => ({ ...s, [id]: !s[id] }));
 
   useEffect(() => {
     if (!expanded) return;
@@ -111,14 +173,15 @@ export function Rail() {
   };
 
   const renderItem = (item: NavItem, opts?: { indent?: boolean }) => {
-    const active = location.pathname === item.to;
+    const href = item.tab ? `${item.to}?tab=${item.tab}` : item.to;
+    const active = isItemActive(item);
     // Only nests visually when there's a label to nest under — collapsed
     // rail lines every icon up flush, indent or not.
     const indent = !!opts?.indent && expanded;
     return (
       <Link
-        key={item.to}
-        to={item.to}
+        key={href}
+        to={href}
         aria-label={item.label}
         onClick={collapseOnMobile}
         className={itemClasses(active, indent)}
@@ -129,6 +192,8 @@ export function Rail() {
       </Link>
     );
   };
+
+  const flatItems = gameEnabled ? [WORLD_ITEM] : [];
 
   return (
     <>
@@ -173,9 +238,37 @@ export function Rail() {
             the aside's full height. */}
         <div className="flex-1 flex flex-col border-r-[3px] border-border/50">
           <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col p-2.5 gap-1">
-            <VocabularyToggle expanded={expanded} open={vocabOpen} onToggle={() => setVocabOpen((v) => !v)} />
-            {showVocabItems && VOCABULARY_ITEMS.map((item) => renderItem(item, { indent: true }))}
-            {otherItems.map((item) => renderItem(item))}
+            {NAV_GROUPS.map((group) => {
+              // Collapsed rail has no room for the toggle, so it always shows every icon.
+              const showItems = !expanded || openGroups[group.id];
+              const first = group.items[0];
+              const href = first.tab ? `${first.to}?tab=${first.tab}` : first.to;
+              const onFirst = isItemActive(first);
+              const handleClick = () => {
+                if (onFirst) {
+                  // Already there — the click can only mean fold/unfold.
+                  toggleGroup(group.id);
+                } else {
+                  navigate(href);
+                  setOpenGroups((s) => ({ ...s, [group.id]: true }));
+                }
+                collapseOnMobile();
+              };
+              return (
+                <div key={group.id}>
+                  <RailGroupToggle
+                    icon={group.icon}
+                    label={group.label}
+                    expanded={expanded}
+                    open={openGroups[group.id]}
+                    active={group.items.some(isItemActive)}
+                    onClick={handleClick}
+                  />
+                  {showItems && group.items.map((item) => renderItem(item, { indent: true }))}
+                </div>
+              );
+            })}
+            {flatItems.map((item) => renderItem(item))}
           </nav>
 
           <div className="p-2.5 border-t-2 border-border/50 space-y-1 shrink-0">

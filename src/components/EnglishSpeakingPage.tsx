@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import TextareaAutosize from 'react-textarea-autosize';
 import toast from 'react-hot-toast';
 import { speakingQuestions, speakingTopics } from '../data/englishSpeaking';
@@ -1209,100 +1210,46 @@ function ReadAloudTab() {
 }
 
 /* ─── Main Page ──────────────────────────────────────────────── */
-const tabs: { key: Tab; label: string; icon: React.ReactNode; color: string }[] = [
-  {
-    key: 'conversation',
-    label: 'Short Conversation',
-    color: 'accent-green',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
-  {
-    key: 'dialogue',
-    label: 'Daily Dialogue',
-    color: 'accent-yellow',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z" />
-        <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
-      </svg>
-    ),
-  },
-  {
-    key: 'podcast',
-    label: 'Podcast',
-    color: 'accent-purple',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-        <line x1="12" y1="19" x2="12" y2="23" />
-        <line x1="8" y1="23" x2="16" y2="23" />
-      </svg>
-    ),
-  },
-  {
-    key: 'ielts',
-    label: 'IELTS Speaking',
-    color: 'accent-cyan',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-  },
-  {
-    key: 'read',
-    label: 'Read Aloud',
-    color: 'accent-orange',
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="4" y1="6" x2="20" y2="6" />
-        <line x1="4" y1="12" x2="20" y2="12" />
-        <line x1="4" y1="18" x2="14" y2="18" />
-      </svg>
-    ),
-  },
+// Sub-page metadata — just enough to resolve `?tab=` and label the
+// breadcrumb. The Rail drawer owns each one's icon/color for navigation.
+const tabs: { key: Tab; label: string }[] = [
+  { key: 'conversation', label: 'Short Conversation' },
+  { key: 'dialogue', label: 'Daily Dialogue' },
+  { key: 'podcast', label: 'Podcast' },
+  { key: 'ielts', label: 'IELTS Speaking' },
+  { key: 'read', label: 'Read Aloud' },
 ];
 
+// Which sub-page this is — picked from the Vocabulary-style group in the Rail
+// drawer now, not an in-page tab bar. `?tab=` is canonicalized on load so the
+// Rail's own active-link check (an exact `to` + `tab` match) always agrees
+// with what's actually showing.
+function useSpeakingTab(): Tab {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const raw = searchParams.get('tab');
+  const resolved = (tabs.find((t) => t.key === raw)?.key ?? 'conversation') as Tab;
+  useEffect(() => {
+    if (raw !== resolved) setSearchParams({ tab: resolved }, { replace: true });
+  }, [raw, resolved, setSearchParams]);
+  return resolved;
+}
+
 export function EnglishSpeakingPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('conversation');
+  const activeTab = useSpeakingTab();
+  const activeMeta = tabs.find((t) => t.key === activeTab)!;
   const contentRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="max-w-page mx-auto px-4 py-8 relative" ref={contentRef}>
       <SelectionSpeaker containerRef={contentRef} />
 
-      <h1 className="text-2xl font-display font-bold text-text-primary mb-1">
-        English Speaking Practice
+      <h1 className="flex items-center gap-1.5 mb-6 text-base">
+        <Link to="/speaking" className="font-medium text-text-muted hover:text-text-secondary transition-colors">
+          Speak
+        </Link>
+        <span className="text-text-muted/50">/</span>
+        <span className="font-bold text-text-primary">{activeMeta.label}</span>
       </h1>
-      <p className="text-sm text-text-muted mb-5">
-        Practice speaking with conversations, podcasts, and IELTS exercises. Select any text to listen,
-        or hit Practice to talk it through with an AI partner.
-      </p>
-
-      <div className="flex gap-1 mb-6 p-1 rounded-lg bg-bg-tertiary/50 border border-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all cursor-pointer ${
-              activeTab === tab.key
-                ? `bg-bg-card text-${tab.color} shadow-sm border border-border`
-                : 'text-text-muted hover:text-text-secondary border border-transparent'
-            }`}
-          >
-            {tab.icon}
-            <span className="hidden sm:inline">{tab.label}</span>
-          </button>
-        ))}
-      </div>
 
       {activeTab === 'conversation' && <ConversationTab />}
       {activeTab === 'dialogue' && <DialogueTab />}
