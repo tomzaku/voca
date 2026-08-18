@@ -104,44 +104,45 @@ export function RevealedView({
               )}
             </button>
           </div>
-        </div>
 
-        {/* Definition + synonyms/antonyms — kept together with the word so the
-            full meaning is front and center */}
-        <div className="card-game p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
-              Definition
-            </h3>
-            {/* Where this word stands — and a way into the other words that
-                stand there with it. */}
-            <BucketTag word={wordData.word} progress={progress} />
-            <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
-              {wordData.level}
-            </span>
-            <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={onToggleFullDef} />
-          </div>
-          <p className="text-text-primary leading-relaxed">
-            <PeekText text={definition} highlight={headword} />
-          </p>
-          {wordData.translation && (
-            <div className="mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-accent-cyan/10 border border-accent-cyan/25">
-              <Icon icon="lucide:languages" className="text-accent-cyan text-xl shrink-0" />
-              <div className="min-w-0">
-                <span className="block text-[10px] font-bold text-accent-cyan/70 uppercase tracking-wider">
-                  {getMotherLanguage()}
-                </span>
-                <span className="text-base font-bold text-accent-cyan">{wordData.translation}</span>
-              </div>
+          {/* Definition + synonyms/antonyms — merged into the word card, rather
+              than a second card stacked below it, so the word and its full
+              meaning read as one panel instead of two. */}
+          <div className="mt-4 pt-4 border-t-2 border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
+                Definition
+              </h3>
+              {/* Where this word stands — and a way into the other words that
+                  stand there with it. */}
+              <BucketTag word={wordData.word} progress={progress} />
+              <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
+                {wordData.level}
+              </span>
+              <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={onToggleFullDef} />
             </div>
-          )}
-          <ExampleList
-            wordData={wordData}
-            speakingExample={speech.speakingExample}
-            onSpeak={speech.speakExample}
-          />
-          <SynAnt wordData={wordData} />
-          <AnswerTally progress={progress} />
+            <p className="text-text-primary leading-relaxed">
+              <PeekText text={definition} highlight={headword} />
+            </p>
+            {wordData.translation && (
+              <div className="mt-3 flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-accent-cyan/10 border border-accent-cyan/25">
+                <Icon icon="lucide:languages" className="text-accent-cyan text-xl shrink-0" />
+                <div className="min-w-0">
+                  <span className="block text-[10px] font-bold text-accent-cyan/70 uppercase tracking-wider">
+                    {getMotherLanguage()}
+                  </span>
+                  <span className="text-base font-bold text-accent-cyan">{wordData.translation}</span>
+                </div>
+              </div>
+            )}
+            <ExampleList
+              wordData={wordData}
+              speakingExample={speech.speakingExample}
+              onSpeak={speech.speakExample}
+            />
+            <SynAnt wordData={wordData} />
+            <AnswerTally progress={progress} />
+          </div>
         </div>
 
         {/* Actions */}
