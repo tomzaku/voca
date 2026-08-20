@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useCollections } from '../hooks/useCollections';
 import { useProgressQuery, type Filter } from '../hooks/useProgressQuery';
@@ -26,6 +27,7 @@ import { SimilarWords } from './SimilarWords';
 import { GuessView } from './flashcard/GuessView';
 import { RevealedView } from './flashcard/RevealedView';
 import { HistoryStrip } from './flashcard/HistoryStrip';
+import { LoadErrorDialog } from './flashcard/LoadErrorDialog';
 import { useCardSpeech } from './flashcard/useCardSpeech';
 import { FULL_DEF_KEY } from './flashcard/constants';
 import type { AnswerVia, VocabularyWord } from '../types';
@@ -41,24 +43,28 @@ import toast from 'react-hot-toast';
 const HISTORY_RESTORE_LIMIT = 12;
 
 // 'unknown' = the search wasn't a real word; the card is replaced by suggestions.
-type CardPhase = 'loading' | 'introduce' | 'revealed' | 'unknown';
+// 'error' = the load itself failed (network, server, rate limit) — the
+// LoadErrorDialog owns telling the learner why and offering a retry.
+type CardPhase = 'loading' | 'introduce' | 'revealed' | 'unknown' | 'error';
 
 /**
  * What to tell the user about a load that failed.
  *
- * The server's own message wins where it's the actionable one: a missing API
- * key, or the 401 a signed-out visitor gets for a word the shared cache doesn't
- * have yet (cached words are readable without an account — only generating a
- * new one needs one).
+ * Prefers the actual root cause over a canned line: the server's own message
+ * (a missing API key, a 401 a signed-out visitor gets for a word the shared
+ * cache doesn't have yet, or whatever else it rejected the request for) is
+ * shown as-is so the dialog says what really went wrong instead of a generic
+ * "failed to generate". The canned text is only for cases with no message of
+ * their own — offline, or a client-side failure (e.g. a network error) whose
+ * `Error#message` isn't something a learner can act on.
  */
 function loadErrorMessage(err: unknown, offlineText: string, fallback: string): string {
   const msg = (err as Error).message || '';
-  if (msg.includes('API key')) return msg;
   if (err instanceof ApiError && err.status === 401) {
     return msg || 'Please sign in to look up a new word.';
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return offlineText;
-  return fallback;
+  return msg || fallback;
 }
 
 // Retry transient generation failures (network / rate-limit) a few times with
@@ -97,6 +103,9 @@ export function FlashCard() {
   const [wordData, setWordData] = useState<VocabularyWord | null>(null);
   // The rejected search behind the 'unknown' phase, with what it likely meant.
   const [unknown, setUnknown] = useState<{ word: string; suggestions: string[] } | null>(null);
+  // The failure behind the 'error' phase: what to tell the learner, and how to
+  // try the same load again.
+  const [loadError, setLoadError] = useState<{ message: string; retry: () => void } | null>(null);
   // Definitions default to the short one-liner (when cached); the toggle to
   // the full definition is remembered across sessions.
   const [fullDef, setFullDef] = useState(() => {
@@ -187,6 +196,7 @@ export function FlashCard() {
     roundMistakesRef.current = 0;
     setWordData(null);
     setUnknown(null);
+    setLoadError(null);
 
     const known = store.knownWords();
     const skipped = store.skippedWords();
@@ -231,12 +241,16 @@ export function FlashCard() {
         setPhase('unknown');
         return;
       }
-      toast.error(loadErrorMessage(
-        err,
-        "You're offline — only words you've already opened are available.",
-        'Failed to generate word data.',
-      ));
-      setPhase('loading');
+      if (ctrl.signal.aborted) return; // superseded by a newer load
+      setLoadError({
+        message: loadErrorMessage(
+          err,
+          "You're offline — only words you've already opened are available.",
+          'Failed to generate word data.',
+        ),
+        retry: () => { loadNextWord(excludeWord); },
+      });
+      setPhase('error');
     } finally {
       setIsGenerating(false);
     }
@@ -255,6 +269,7 @@ export function FlashCard() {
     roundMistakesRef.current = 0;
     setWordData(null);
     setUnknown(null);
+    setLoadError(null);
     setIsGenerating(true);
     try {
       const data = await generateWordData(word, ctrl.signal);
@@ -276,12 +291,16 @@ export function FlashCard() {
         setPhase('unknown');
         return;
       }
-      toast.error(loadErrorMessage(
-        err,
-        `You're offline — "${word}" hasn't been downloaded yet.`,
-        `Could not find "${word}"`,
-      ));
-      setPhase('loading');
+      if (ctrl.signal.aborted) return; // superseded by a newer load
+      setLoadError({
+        message: loadErrorMessage(
+          err,
+          `You're offline — "${word}" hasn't been downloaded yet.`,
+          `Could not find "${word}"`,
+        ),
+        retry: () => { loadSpecificWord(word, reveal); },
+      });
+      setPhase('error');
     } finally {
       setIsGenerating(false);
     }
@@ -512,6 +531,21 @@ export function FlashCard() {
           suggestions={unknown.suggestions}
           onPick={(w) => loadSpecificWord(w)}
         />
+      ) : phase === 'error' ? (
+        // The dialog carries the actual message and the retry action; this is
+        // just what's left on the page if it gets dismissed instead.
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-text-muted">
+          <Icon icon="lucide:cloud-off" className="text-3xl" />
+          <p className="text-sm">Couldn't load this word.</p>
+          {loadError && (
+            <button
+              onClick={loadError.retry}
+              className="text-sm font-bold text-accent-cyan hover:brightness-110"
+            >
+              Try again
+            </button>
+          )}
+        </div>
       ) : !wordData ? null : phase === 'introduce' ? (
         <GuessView
           wordData={wordData}
@@ -546,6 +580,14 @@ export function FlashCard() {
           onBookmark={handleBookmark}
           onKnow={handleKnow}
           onSkip={handleSkip}
+        />
+      )}
+
+      {loadError && (
+        <LoadErrorDialog
+          message={loadError.message}
+          onRetry={loadError.retry}
+          onDismiss={() => setLoadError(null)}
         />
       )}
     </div>
