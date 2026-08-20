@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import TextareaAutosize from 'react-textarea-autosize';
 import toast from 'react-hot-toast';
-import { speakingQuestions, speakingTopics } from '../data/englishSpeaking';
+import { speakingQuestions, speakingTopics, type SpeakingDifficulty } from '../data/englishSpeaking';
 import { podcasts, podcastTopics } from '../data/englishPodcasts';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { dialogues, dialogueTopics } from '../data/englishDialogues';
@@ -155,19 +155,40 @@ function SelectionSpeaker({ containerRef }: { containerRef: React.RefObject<HTML
 }
 
 /* ─── Tab: Short Conversation ────────────────────────────────── */
+const DIFFICULTIES: SpeakingDifficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTY_LABEL: Record<SpeakingDifficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const difficultyColor = (level: SpeakingDifficulty) => {
+  switch (level) {
+    case 'easy': return 'text-accent-green bg-accent-green/10 border-accent-green/20';
+    case 'medium': return 'text-accent-orange bg-accent-orange/10 border-accent-orange/20';
+    case 'hard': return 'text-accent-red bg-accent-red/10 border-accent-red/20';
+  }
+};
+
 function ConversationTab() {
   const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<SpeakingDifficulty | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
 
   const filtered = useMemo(
-    () => selectedTopic === 'all' ? speakingQuestions : speakingQuestions.filter((q) => q.topic === selectedTopic),
-    [selectedTopic],
+    () => speakingQuestions.filter((q) => {
+      if (selectedTopic !== 'all' && q.topic !== selectedTopic) return false;
+      if (selectedDifficulty !== 'all' && q.difficulty !== selectedDifficulty) return false;
+      return true;
+    }),
+    [selectedTopic, selectedDifficulty],
   );
 
   const topicCounts = useMemo(() => {
     const map: Record<string, number> = {};
     speakingQuestions.forEach((q) => { map[q.topic] = (map[q.topic] || 0) + 1; });
+    return map;
+  }, []);
+
+  const difficultyCounts = useMemo(() => {
+    const map: Record<SpeakingDifficulty, number> = { easy: 0, medium: 0, hard: 0 };
+    speakingQuestions.forEach((q) => { map[q.difficulty]++; });
     return map;
   }, []);
 
@@ -210,6 +231,32 @@ function ConversationTab() {
         </div>
       </div>
 
+      <div className="flex gap-1.5 mb-3">
+        <button
+          onClick={() => { setSelectedDifficulty('all'); setExpandedId(null); }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
+            selectedDifficulty === 'all'
+              ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20'
+              : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
+          }`}
+        >
+          All Levels
+        </button>
+        {DIFFICULTIES.map((level) => (
+          <button
+            key={level}
+            onClick={() => { setSelectedDifficulty(level); setExpandedId(null); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
+              selectedDifficulty === level
+                ? difficultyColor(level)
+                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
+            }`}
+          >
+            {DIFFICULTY_LABEL[level]} <span className="ml-1 opacity-60">{difficultyCounts[level]}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap gap-1.5 mb-6">
         <button
           onClick={() => { setSelectedTopic('all'); setExpandedId(null); }}
@@ -250,7 +297,13 @@ function ConversationTab() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] font-medium text-text-primary leading-relaxed">{q.question}</p>
-                  <span className="text-[11px] text-text-muted mt-1 block">{q.topic}</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px] text-text-muted">{q.topic}</span>
+                    <span className="text-[10px] text-text-muted">·</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${difficultyColor(q.difficulty)}`}>
+                      {DIFFICULTY_LABEL[q.difficulty]}
+                    </span>
+                  </div>
                 </div>
                 <svg
                   width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -302,7 +355,7 @@ function ConversationTab() {
 
       {filtered.length === 0 && (
         <div className="text-center py-12 text-text-muted">
-          <p className="text-sm">No questions found for this topic.</p>
+          <p className="text-sm">No questions found for this filter.</p>
         </div>
       )}
     </>

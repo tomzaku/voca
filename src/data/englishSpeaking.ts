@@ -1,6 +1,12 @@
+// Easy = concrete/descriptive, answerable in the present tense with no real
+// planning. Medium = needs a comparison, a short narrative, or a "why".
+// Hard = abstract, hypothetical, or asks for a reflective opinion.
+export type SpeakingDifficulty = 'easy' | 'medium' | 'hard';
+
 export interface SpeakingQuestion {
   id: string;
   topic: string;
+  difficulty: SpeakingDifficulty;
   question: string;
   sampleAnswers: {
     label: string;
@@ -32,6 +38,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-1',
     topic: 'Self Introduction',
+    difficulty: 'easy',
     question: 'Tell me about yourself.',
     sampleAnswers: [
       {
@@ -56,6 +63,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-2',
     topic: 'Self Introduction',
+    difficulty: 'easy',
     question: "What's your typical workday like?",
     sampleAnswers: [
       {
@@ -80,6 +88,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-3',
     topic: 'Self Introduction',
+    difficulty: 'medium',
     question: 'What are your strengths and weaknesses?',
     sampleAnswers: [
       {
@@ -101,6 +110,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-4',
     topic: 'Work & Career',
+    difficulty: 'medium',
     question: 'Why did you choose software engineering?',
     sampleAnswers: [
       {
@@ -120,6 +130,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-5',
     topic: 'Work & Career',
+    difficulty: 'medium',
     question: 'Can you describe a challenging project you worked on?',
     sampleAnswers: [
       {
@@ -139,6 +150,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-6',
     topic: 'Work & Career',
+    difficulty: 'medium',
     question: 'Where do you see yourself in five years?',
     sampleAnswers: [
       {
@@ -158,6 +170,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-7',
     topic: 'Work & Career',
+    difficulty: 'medium',
     question: 'How do you handle disagreements with coworkers?',
     sampleAnswers: [
       {
@@ -179,6 +192,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-8',
     topic: 'Daily Life',
+    difficulty: 'easy',
     question: 'What do you usually do on weekends?',
     sampleAnswers: [
       {
@@ -198,6 +212,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-9',
     topic: 'Daily Life',
+    difficulty: 'easy',
     question: 'How do you stay healthy?',
     sampleAnswers: [
       {
@@ -219,6 +234,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-10',
     topic: 'Hometown & Travel',
+    difficulty: 'easy',
     question: 'Tell me about your hometown.',
     sampleAnswers: [
       {
@@ -238,6 +254,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-11',
     topic: 'Hometown & Travel',
+    difficulty: 'easy',
     question: "What's a place you'd recommend visiting in Vietnam?",
     sampleAnswers: [
       {
@@ -257,6 +274,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-12',
     topic: 'Hometown & Travel',
+    difficulty: 'medium',
     question: 'Have you traveled abroad? Where would you like to go?',
     sampleAnswers: [
       {
@@ -278,6 +296,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-13',
     topic: 'Technology',
+    difficulty: 'medium',
     question: 'What technology trend are you most excited about?',
     sampleAnswers: [
       {
@@ -297,6 +316,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-14',
     topic: 'Technology',
+    difficulty: 'medium',
     question: "What's your favorite tech stack and why?",
     sampleAnswers: [
       {
@@ -316,6 +336,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-15',
     topic: 'Technology',
+    difficulty: 'easy',
     question: 'How do you keep up with new technologies?',
     sampleAnswers: [
       {
@@ -337,6 +358,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-16',
     topic: 'Hobbies & Interests',
+    difficulty: 'easy',
     question: "What do you do to unwind after a long day of coding?",
     sampleAnswers: [
       {
@@ -356,6 +378,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-17',
     topic: 'Hobbies & Interests',
+    difficulty: 'easy',
     question: 'Do you have any side projects?',
     sampleAnswers: [
       {
@@ -377,6 +400,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-18',
     topic: 'Food & Culture',
+    difficulty: 'easy',
     question: "What's your favorite Vietnamese dish?",
     sampleAnswers: [
       {
@@ -396,6 +420,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-19',
     topic: 'Food & Culture',
+    difficulty: 'hard',
     question: 'What cultural differences have you noticed when working with international teams?',
     sampleAnswers: [
       {
@@ -417,6 +442,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-20',
     topic: 'Future Plans',
+    difficulty: 'medium',
     question: 'What are your goals for learning English?',
     sampleAnswers: [
       {
@@ -436,6 +462,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-21',
     topic: 'Future Plans',
+    difficulty: 'hard',
     question: 'If you could start your own company, what would it be?',
     sampleAnswers: [
       {
@@ -457,6 +484,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-22',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: 'Do you think remote work is better than working from an office?',
     sampleAnswers: [
       {
@@ -476,6 +504,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-23',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: 'What do you think about AI replacing software engineers?',
     sampleAnswers: [
       {
@@ -495,6 +524,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-24',
     topic: 'Opinions & Ideas',
+    difficulty: 'medium',
     question: 'What advice would you give to someone starting their career in tech?',
     sampleAnswers: [
       {
@@ -516,6 +546,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-25',
     topic: 'Self Introduction',
+    difficulty: 'medium',
     question: 'How would you describe your personality?',
     sampleAnswers: [
       {
@@ -535,6 +566,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-26',
     topic: 'Self Introduction',
+    difficulty: 'easy',
     question: "What's something most people don't know about you?",
     sampleAnswers: [
       {
@@ -556,6 +588,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-27',
     topic: 'Work & Career',
+    difficulty: 'easy',
     question: 'What do you enjoy most about your job?',
     sampleAnswers: [
       {
@@ -575,6 +608,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-28',
     topic: 'Work & Career',
+    difficulty: 'medium',
     question: 'Tell me about a time you failed at work.',
     sampleAnswers: [
       {
@@ -594,6 +628,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-29',
     topic: 'Work & Career',
+    difficulty: 'medium',
     question: 'How do you deal with stress at work?',
     sampleAnswers: [
       {
@@ -613,6 +648,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-30',
     topic: 'Work & Career',
+    difficulty: 'medium',
     question: 'What makes a good team in your opinion?',
     sampleAnswers: [
       {
@@ -634,6 +670,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-31',
     topic: 'Daily Life',
+    difficulty: 'easy',
     question: 'Do you prefer mornings or evenings? Why?',
     sampleAnswers: [
       {
@@ -653,6 +690,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-32',
     topic: 'Daily Life',
+    difficulty: 'medium',
     question: 'How has your daily routine changed since you started working?',
     sampleAnswers: [
       {
@@ -672,6 +710,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-33',
     topic: 'Daily Life',
+    difficulty: 'easy',
     question: "What's the first thing you do when you wake up?",
     sampleAnswers: [
       {
@@ -693,6 +732,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-34',
     topic: 'Hometown & Travel',
+    difficulty: 'medium',
     question: 'How has Da Nang changed over the years?',
     sampleAnswers: [
       {
@@ -712,6 +752,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-35',
     topic: 'Hometown & Travel',
+    difficulty: 'easy',
     question: "What's the best time of year to visit your city?",
     sampleAnswers: [
       {
@@ -731,6 +772,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-36',
     topic: 'Hometown & Travel',
+    difficulty: 'medium',
     question: 'Do you prefer traveling alone or with others?',
     sampleAnswers: [
       {
@@ -752,6 +794,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-37',
     topic: 'Technology',
+    difficulty: 'hard',
     question: "What's the hardest technical problem you've solved?",
     sampleAnswers: [
       {
@@ -771,6 +814,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-38',
     topic: 'Technology',
+    difficulty: 'medium',
     question: 'How do you explain technical concepts to non-technical people?',
     sampleAnswers: [
       {
@@ -790,6 +834,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-39',
     topic: 'Technology',
+    difficulty: 'hard',
     question: 'What do you think about the state of web development today?',
     sampleAnswers: [
       {
@@ -811,6 +856,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-40',
     topic: 'Hobbies & Interests',
+    difficulty: 'easy',
     question: "What's the last book or article that really stuck with you?",
     sampleAnswers: [
       {
@@ -830,6 +876,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-41',
     topic: 'Hobbies & Interests',
+    difficulty: 'easy',
     question: 'Are you into any sports?',
     sampleAnswers: [
       {
@@ -849,6 +896,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-42',
     topic: 'Hobbies & Interests',
+    difficulty: 'easy',
     question: "What's something you've always wanted to learn but haven't yet?",
     sampleAnswers: [
       {
@@ -870,6 +918,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-43',
     topic: 'Food & Culture',
+    difficulty: 'easy',
     question: "What's the best meal you've ever had?",
     sampleAnswers: [
       {
@@ -889,6 +938,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-44',
     topic: 'Food & Culture',
+    difficulty: 'medium',
     question: 'How do you think Vietnamese coffee culture is different from Western coffee culture?',
     sampleAnswers: [
       {
@@ -908,6 +958,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-45',
     topic: 'Food & Culture',
+    difficulty: 'easy',
     question: 'Are there any holidays or festivals that are special to you?',
     sampleAnswers: [
       {
@@ -929,6 +980,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-46',
     topic: 'Future Plans',
+    difficulty: 'medium',
     question: 'What skills do you want to develop in the next year?',
     sampleAnswers: [
       {
@@ -948,6 +1000,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-47',
     topic: 'Future Plans',
+    difficulty: 'medium',
     question: 'Do you think you will stay in Da Nang long-term?',
     sampleAnswers: [
       {
@@ -969,6 +1022,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-48',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: 'Is social media more helpful or harmful?',
     sampleAnswers: [
       {
@@ -988,6 +1042,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-49',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: 'Should coding be taught in schools?',
     sampleAnswers: [
       {
@@ -1007,6 +1062,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-50',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: "What's one thing you would change about the tech industry?",
     sampleAnswers: [
       {
@@ -1028,6 +1084,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-51',
     topic: 'Relationships & Family',
+    difficulty: 'easy',
     question: 'Tell me about your family.',
     sampleAnswers: [
       {
@@ -1047,6 +1104,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-52',
     topic: 'Relationships & Family',
+    difficulty: 'medium',
     question: 'How do you maintain friendships as an adult?',
     sampleAnswers: [
       {
@@ -1066,6 +1124,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-53',
     topic: 'Relationships & Family',
+    difficulty: 'medium',
     question: 'How do your parents feel about your career in tech?',
     sampleAnswers: [
       {
@@ -1087,6 +1146,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-54',
     topic: 'Money & Finance',
+    difficulty: 'medium',
     question: 'How do you manage your money?',
     sampleAnswers: [
       {
@@ -1106,6 +1166,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-55',
     topic: 'Money & Finance',
+    difficulty: 'easy',
     question: "What's the best purchase you've ever made?",
     sampleAnswers: [
       {
@@ -1125,6 +1186,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-56',
     topic: 'Money & Finance',
+    difficulty: 'hard',
     question: 'Do you think money can buy happiness?',
     sampleAnswers: [
       {
@@ -1146,6 +1208,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-57',
     topic: 'Health & Wellness',
+    difficulty: 'medium',
     question: 'What do you do to take care of your mental health?',
     sampleAnswers: [
       {
@@ -1165,6 +1228,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-58',
     topic: 'Health & Wellness',
+    difficulty: 'medium',
     question: 'Do you think developers have specific health challenges?',
     sampleAnswers: [
       {
@@ -1184,6 +1248,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-59',
     topic: 'Health & Wellness',
+    difficulty: 'medium',
     question: 'What would you do if you had a whole week off with no responsibilities?',
     sampleAnswers: [
       {
@@ -1205,6 +1270,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-60',
     topic: 'Education & Learning',
+    difficulty: 'easy',
     question: 'How did you learn to code?',
     sampleAnswers: [
       {
@@ -1224,6 +1290,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-61',
     topic: 'Education & Learning',
+    difficulty: 'medium',
     question: 'Do you prefer learning from videos, books, or hands-on practice?',
     sampleAnswers: [
       {
@@ -1243,6 +1310,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-62',
     topic: 'Education & Learning',
+    difficulty: 'hard',
     question: 'What do you think about the education system in Vietnam?',
     sampleAnswers: [
       {
@@ -1264,6 +1332,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-63',
     topic: 'Environment & Nature',
+    difficulty: 'hard',
     question: 'Are you concerned about climate change?',
     sampleAnswers: [
       {
@@ -1283,6 +1352,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-64',
     topic: 'Environment & Nature',
+    difficulty: 'easy',
     question: 'Do you enjoy spending time in nature?',
     sampleAnswers: [
       {
@@ -1302,6 +1372,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-65',
     topic: 'Environment & Nature',
+    difficulty: 'hard',
     question: 'How can technology help solve environmental problems?',
     sampleAnswers: [
       {
@@ -1323,6 +1394,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-66',
     topic: 'Problem Solving',
+    difficulty: 'medium',
     question: 'How do you approach a problem you have no idea how to solve?',
     sampleAnswers: [
       {
@@ -1342,6 +1414,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-67',
     topic: 'Problem Solving',
+    difficulty: 'hard',
     question: 'Tell me about a decision you made that you later regretted.',
     sampleAnswers: [
       {
@@ -1361,6 +1434,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-68',
     topic: 'Problem Solving',
+    difficulty: 'medium',
     question: 'How do you prioritize when everything seems urgent?',
     sampleAnswers: [
       {
@@ -1382,6 +1456,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-69',
     topic: 'Work & Career',
+    difficulty: 'medium',
     question: 'It\'s your daily standup. Share what you did yesterday, what you\'re working on today, and any blockers.',
     sampleAnswers: [
       {
@@ -1420,6 +1495,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-70',
     topic: 'Hometown & Travel',
+    difficulty: 'easy',
     question: 'Do you prefer living in a city or the countryside? Why?',
     sampleAnswers: [
       {
@@ -1439,6 +1515,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-71',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: 'What do you think about advertising? Does it have more benefits or drawbacks?',
     sampleAnswers: [
       {
@@ -1458,6 +1535,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-72',
     topic: 'Hobbies & Interests',
+    difficulty: 'easy',
     question: 'How important is music in your daily life?',
     sampleAnswers: [
       {
@@ -1477,6 +1555,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-73',
     topic: 'Education & Learning',
+    difficulty: 'hard',
     question: 'Do you think people read less now than in the past? Is that a problem?',
     sampleAnswers: [
       {
@@ -1496,6 +1575,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-74',
     topic: 'Daily Life',
+    difficulty: 'medium',
     question: 'How do you feel about public transport in your city?',
     sampleAnswers: [
       {
@@ -1515,6 +1595,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-75',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: 'Describe a time you changed your mind about something important.',
     sampleAnswers: [
       {
@@ -1534,6 +1615,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-76',
     topic: 'Environment & Nature',
+    difficulty: 'easy',
     question: 'What small things do you personally do to help the environment?',
     sampleAnswers: [
       {
@@ -1553,6 +1635,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-77',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: 'How important is it to learn about other cultures? How do you do it?',
     sampleAnswers: [
       {
@@ -1572,6 +1655,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-78',
     topic: 'Future Plans',
+    difficulty: 'medium',
     question: 'Describe an achievement you are proud of.',
     sampleAnswers: [
       {
@@ -1591,6 +1675,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-79',
     topic: 'Health & Wellness',
+    difficulty: 'medium',
     question: 'How do you balance screen time with other activities in your daily life?',
     sampleAnswers: [
       {
@@ -1613,6 +1698,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-80',
     topic: 'Relationships & Family',
+    difficulty: 'easy',
     question: 'How do you stay in touch with family and friends who live far away?',
     sampleAnswers: [
       {
@@ -1638,6 +1724,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-81',
     topic: 'Relationships & Family',
+    difficulty: 'medium',
     question: 'What qualities do you look for in a close friend?',
     sampleAnswers: [
       {
@@ -1658,6 +1745,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-82',
     topic: 'Relationships & Family',
+    difficulty: 'hard',
     question: 'How has your relationship with your parents changed as you got older?',
     sampleAnswers: [
       {
@@ -1677,6 +1765,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-83',
     topic: 'Money & Finance',
+    difficulty: 'medium',
     question: 'How do you manage your monthly budget?',
     sampleAnswers: [
       {
@@ -1701,6 +1790,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-84',
     topic: 'Money & Finance',
+    difficulty: 'hard',
     question: 'Do you think it is better to save money or spend it on experiences?',
     sampleAnswers: [
       {
@@ -1720,6 +1810,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-85',
     topic: 'Money & Finance',
+    difficulty: 'easy',
     question: 'What was the best purchase you have ever made?',
     sampleAnswers: [
       {
@@ -1744,6 +1835,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-86',
     topic: 'Problem Solving',
+    difficulty: 'medium',
     question: 'How do you approach a problem you have never faced before?',
     sampleAnswers: [
       {
@@ -1769,6 +1861,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-87',
     topic: 'Problem Solving',
+    difficulty: 'medium',
     question: 'Tell me about a time you made a mistake at work. How did you handle it?',
     sampleAnswers: [
       {
@@ -1789,6 +1882,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-88',
     topic: 'Problem Solving',
+    difficulty: 'medium',
     question: 'How do you handle disagreements with colleagues?',
     sampleAnswers: [
       {
@@ -1814,6 +1908,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-89',
     topic: 'Education & Learning',
+    difficulty: 'medium',
     question: 'What is the best way to learn a new skill as an adult?',
     sampleAnswers: [
       {
@@ -1833,6 +1928,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-90',
     topic: 'Education & Learning',
+    difficulty: 'hard',
     question: 'Do you think university education is still worth it?',
     sampleAnswers: [
       {
@@ -1857,6 +1953,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-91',
     topic: 'Environment & Nature',
+    difficulty: 'medium',
     question: 'What do you do in your daily life to reduce your environmental impact?',
     sampleAnswers: [
       {
@@ -1877,6 +1974,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-92',
     topic: 'Environment & Nature',
+    difficulty: 'easy',
     question: 'How much time do you spend in nature, and how does it affect you?',
     sampleAnswers: [
       {
@@ -1897,6 +1995,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-93',
     topic: 'Health & Wellness',
+    difficulty: 'medium',
     question: 'How do you deal with stress?',
     sampleAnswers: [
       {
@@ -1922,6 +2021,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-94',
     topic: 'Health & Wellness',
+    difficulty: 'easy',
     question: 'How important is sleep to you, and do you get enough?',
     sampleAnswers: [
       {
@@ -1941,6 +2041,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-95',
     topic: 'Food & Culture',
+    difficulty: 'easy',
     question: 'Can you cook? What is your signature dish?',
     sampleAnswers: [
       {
@@ -1966,6 +2067,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-96',
     topic: 'Daily Life',
+    difficulty: 'easy',
     question: 'What is your morning routine like?',
     sampleAnswers: [
       {
@@ -1991,6 +2093,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-97',
     topic: 'Hometown & Travel',
+    difficulty: 'medium',
     question: 'If a friend visited your city for two days, what would you show them?',
     sampleAnswers: [
       {
@@ -2011,6 +2114,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-98',
     topic: 'Future Plans',
+    difficulty: 'medium',
     question: 'Where do you see yourself in five years?',
     sampleAnswers: [
       {
@@ -2036,6 +2140,7 @@ export const speakingQuestions: SpeakingQuestion[] = [
   {
     id: 'sp-99',
     topic: 'Opinions & Ideas',
+    difficulty: 'hard',
     question: 'Do you think people should always tell the truth?',
     sampleAnswers: [
       {
@@ -2051,6 +2156,778 @@ export const speakingQuestions: SpeakingQuestion[] = [
       "I'll lead with what's genuinely good",
       "That's not dishonesty, it's judgement",
       "Honesty and bluntness aren't the same thing",
+    ],
+  },
+
+  // ── More General / Everyday Questions ──────────────────
+  // Deliberately not framed around work or interviews — small talk topics
+  // for practicing casual conversation.
+  {
+    id: 'sp-100',
+    topic: 'Daily Life',
+    difficulty: 'easy',
+    question: "What's a small thing that instantly makes your day better?",
+    sampleAnswers: [
+      {
+        label: 'Simple Pleasures',
+        answer:
+          "Honestly, it's the small stuff. A good cup of coffee first thing in the morning can set the tone for the whole day. So can a text from a friend I haven't heard from in a while, or finding an empty seat by the window on the bus. None of it is a big deal on its own, but a few of those in one day and I notice I'm in a genuinely good mood by the evening. I think we underestimate how much these tiny things add up.",
+      },
+    ],
+    usefulPhrases: [
+      "it's the small stuff",
+      'can set the tone for the whole day',
+      "none of it is a big deal on its own",
+      'a few of those in one day and...',
+      'we underestimate how much... add up',
+    ],
+  },
+  {
+    id: 'sp-101',
+    topic: 'Daily Life',
+    difficulty: 'medium',
+    question: 'If you had an extra hour every day, how would you spend it?',
+    sampleAnswers: [
+      {
+        label: 'Honest About the Hour',
+        answer:
+          "My first instinct is to say I'd read more, but if I'm honest, that hour would probably get eaten by my phone like most spare time does. So let me answer it more carefully — I'd want to spend it outside, away from a screen. Maybe a proper walk, no destination, no podcast even. I think what I actually want isn't more time, it's more time where nothing is asking for my attention.",
+      },
+    ],
+    usefulPhrases: [
+      'my first instinct is to say...',
+      'if I\'m honest...',
+      'gets eaten by...',
+      'let me answer it more carefully',
+      "what I actually want isn't... it's...",
+    ],
+  },
+  {
+    id: 'sp-102',
+    topic: 'Daily Life',
+    difficulty: 'medium',
+    question: "What's one habit you'd like to build or break this year?",
+    sampleAnswers: [
+      {
+        label: 'Building, Not Breaking',
+        answer:
+          "I'd rather focus on building something than breaking something — it's easier to crowd out a bad habit than to just stop it cold. So my goal is to read for twenty minutes before bed instead of scrolling my phone. I've tried it a few times and it always slips after a week or two, usually when I'm tired and the phone is just easier. What's worked best so far is leaving the book on the pillow, so it's literally in the way.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "I want to stop checking my phone right when I wake up. So far the only thing that's actually worked is charging it in the kitchen overnight instead of next to the bed.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd rather focus on... than...",
+      "it's easier to crowd out a bad habit than to just stop it",
+      'it always slips after...',
+      "what's worked best so far is...",
+      "it's literally in the way",
+    ],
+  },
+  {
+    id: 'sp-103',
+    topic: 'Hobbies & Interests',
+    difficulty: 'easy',
+    question: 'What kind of movies or shows do you enjoy watching?',
+    sampleAnswers: [
+      {
+        label: 'Genre Mix',
+        answer:
+          "I go through phases, honestly. For a while I was really into slow, quiet dramas — the kind where not much happens but you're completely absorbed anyway. Lately I've swung the other way and I'm watching a lot of mystery series, the kind where you're trying to guess the ending before the show gets there. I don't really watch things for background noise — if I put something on, I actually want to be watching it. My one rule is I won't start a show with more than three seasons unless someone I trust says it's worth it.",
+      },
+    ],
+    usefulPhrases: [
+      'I go through phases',
+      "the kind where... but you're completely absorbed anyway",
+      "I've swung the other way",
+      "I don't really watch things for background noise",
+      'unless someone I trust says...',
+    ],
+  },
+  {
+    id: 'sp-104',
+    topic: 'Hobbies & Interests',
+    difficulty: 'medium',
+    question: 'Is there a hobby you used to enjoy but stopped doing? What happened?',
+    sampleAnswers: [
+      {
+        label: 'Drifted Away',
+        answer:
+          "I used to draw a lot, all through my teens. It wasn't anything serious, just sketching in notebooks. I don't remember deciding to stop — it just quietly disappeared once I got busier with school and then work, and one day I realized it had been years. I don't think anything dramatic happened, it just lost the daily habit that kept it alive. I've thought about picking it back up, but I think what's stopping me now is expecting to be as good as I was, which of course I'm not anymore.",
+      },
+    ],
+    usefulPhrases: [
+      "I don't remember deciding to stop",
+      'it just quietly disappeared',
+      'one day I realized...',
+      'lost the daily habit that kept it alive',
+      "what's stopping me now is..."
+    ],
+  },
+  {
+    id: 'sp-105',
+    topic: 'Food & Culture',
+    difficulty: 'medium',
+    question: 'Do you prefer eating out or cooking at home?',
+    sampleAnswers: [
+      {
+        label: 'It Depends on the Day',
+        answer:
+          "It really depends on my mood and how tired I am. Cooking at home is nice when I actually have the energy for it — there's something calming about chopping vegetables after a long day, and I know exactly what's going into the food. But eating out wins more often than I'd like to admit, mostly out of convenience. I think the honest answer is I like the idea of cooking more than the reality of doing it every single day.",
+      },
+    ],
+    usefulPhrases: [
+      'it really depends on my mood',
+      "there's something calming about...",
+      'wins more often than I\'d like to admit',
+      'out of convenience',
+      'I like the idea of... more than the reality of...',
+    ],
+  },
+  {
+    id: 'sp-106',
+    topic: 'Hometown & Travel',
+    difficulty: 'medium',
+    question: "What's the most memorable trip you've ever taken?",
+    sampleAnswers: [
+      {
+        label: 'Unplanned Detour',
+        answer:
+          "The one that sticks with me wasn't even the destination I planned for. I was heading somewhere else and got stuck overnight in a small town because of a delayed bus, and it ended up being one of the best nights of that whole trip — I met people at a tiny restaurant and we just talked for hours. It taught me that the trips I remember most aren't usually the ones that go exactly to plan, they're the ones with a good story attached.",
+      },
+    ],
+    usefulPhrases: [
+      'the one that sticks with me',
+      "wasn't even the destination I planned for",
+      'ended up being...',
+      'it taught me that...',
+      'a good story attached',
+    ],
+  },
+  {
+    id: 'sp-107',
+    topic: 'Hometown & Travel',
+    difficulty: 'medium',
+    question: 'Do you prefer planning a trip in detail or traveling spontaneously?',
+    sampleAnswers: [
+      {
+        label: 'A Bit of Both',
+        answer:
+          "I like having the big things sorted — flights, where I'm sleeping the first couple of nights — but I leave the rest open. Whenever I've planned every single day in advance, I end up rushing between things just to keep to the schedule, and I miss whatever's actually happening around me. But zero planning stresses me out too, especially arriving somewhere late at night with nowhere booked. So I've settled on planning the bones of a trip and leaving the middle completely loose.",
+      },
+    ],
+    usefulPhrases: [
+      'I like having the big things sorted',
+      'I leave the rest open',
+      'I end up rushing between things',
+      'stresses me out',
+      "I've settled on...",
+    ],
+  },
+  {
+    id: 'sp-108',
+    topic: 'Hometown & Travel',
+    difficulty: 'hard',
+    question: 'If you could live in any city in the world for a year, where would you choose?',
+    sampleAnswers: [
+      {
+        label: 'Weighing the Trade-off',
+        answer:
+          "I go back and forth on this, but I think I'd pick somewhere in Japan, maybe Kyoto — I like the idea of a place that's calm but still has real culture and history around every corner. Part of me knows I'd probably miss the beach and the weather I'm used to within a couple of months, but that's kind of the point of doing it for a year and not forever. It would be uncomfortable in a good way — not knowing the language properly, having to figure out the basics again.",
+      },
+    ],
+    usefulPhrases: [
+      'I go back and forth on this',
+      'I like the idea of a place that\'s...',
+      'part of me knows I\'d probably...',
+      "that's kind of the point",
+      'uncomfortable in a good way',
+    ],
+  },
+  {
+    id: 'sp-109',
+    topic: 'Relationships & Family',
+    difficulty: 'easy',
+    question: 'How do you usually spend time with your family on weekends?',
+    sampleAnswers: [
+      {
+        label: 'A Regular Lunch',
+        answer:
+          "It's pretty simple, actually — I go to my parents' place for lunch most Sundays. Nothing is really planned, we just sit around the table for a couple of hours, and my mom always cooks way more than we need. My sister usually comes too if she's free. It's not exciting to describe, but it's become the one fixed point in my week that I'd genuinely be upset to miss.",
+      },
+    ],
+    usefulPhrases: [
+      "it's pretty simple, actually",
+      'nothing is really planned',
+      'we just sit around and...',
+      "it's not exciting to describe, but...",
+      "the one fixed point in my week",
+    ],
+  },
+  {
+    id: 'sp-110',
+    topic: 'Relationships & Family',
+    difficulty: 'hard',
+    question: 'Who has had the biggest influence on the person you are today?',
+    sampleAnswers: [
+      {
+        label: 'A Quiet Influence',
+        answer:
+          "I'd probably say my grandmother, even though she'd never describe herself as an influence on anyone. She never lectured, she just did things a certain way — patient, generous with her time, never in a rush to judge people. I didn't notice it growing up, but a lot of how I try to treat people now, I can trace straight back to just watching how she was with everyone around her. It's strange how the biggest influences are often the quiet ones, not the dramatic advice-giving kind.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd probably say...",
+      "even though she'd never describe herself as...",
+      'she never lectured, she just...',
+      'I can trace straight back to...',
+      'the biggest influences are often the quiet ones',
+    ],
+  },
+  {
+    id: 'sp-111',
+    topic: 'Relationships & Family',
+    difficulty: 'hard',
+    question: "Is there a family tradition you'd like to pass on?",
+    sampleAnswers: [
+      {
+        label: 'The Sunday Meal',
+        answer:
+          "Probably the Sunday family lunch I mentioned before — it sounds small, but I think it's the thing that's actually kept us close as everyone's gotten busier with their own lives. Nobody has to be anywhere else, nobody's checking their phone. I'd want to keep that going myself someday, even if the food or the day changes. I think what matters isn't the specific tradition, it's just having some fixed, low-effort reason for everyone to be in the same room regularly.",
+      },
+    ],
+    usefulPhrases: [
+      'it sounds small, but...',
+      "the thing that's actually kept us close",
+      "as everyone's gotten busier with...",
+      "I'd want to keep that going myself",
+      "what matters isn't... it's...",
+    ],
+  },
+  {
+    id: 'sp-112',
+    topic: 'Self Introduction',
+    difficulty: 'medium',
+    question: 'How would your close friends describe you in three words?',
+    sampleAnswers: [
+      {
+        label: 'What Friends Notice',
+        answer:
+          "I've actually asked a couple of them this before, half-jokingly, and the words that kept coming up were 'reliable,' 'quiet,' and 'stubborn.' Reliable I'll happily take. Quiet is fair — I'm not the loudest person in a group, I tend to listen more than talk until I know people well. Stubborn stung a little at first, but they meant it more as 'once I've decided something, good luck changing my mind,' which, fair enough, is true.",
+      },
+    ],
+    usefulPhrases: [
+      "I've actually asked... this before",
+      'the words that kept coming up were...',
+      "I'll happily take",
+      'is fair',
+      'stung a little at first, but...',
+      'good luck changing my mind',
+    ],
+  },
+  {
+    id: 'sp-113',
+    topic: 'Self Introduction',
+    difficulty: 'medium',
+    question: "What's a compliment you received that you still remember?",
+    sampleAnswers: [
+      {
+        label: 'An Unexpected One',
+        answer:
+          "A teacher once told me I asked good questions, not that I gave good answers — that I asked good questions. At the time it didn't feel like much, but it stuck with me for years, probably because it wasn't about being smart, it was about being curious, which felt like something I actually had control over. I still think about that distinction a lot, especially when I'm learning something new and feel behind everyone else.",
+      },
+    ],
+    usefulPhrases: [
+      'not that... but that...',
+      "it didn't feel like much, but...",
+      'it stuck with me for years',
+      'something I actually had control over',
+      'I still think about that a lot',
+    ],
+  },
+  {
+    id: 'sp-114',
+    topic: 'Daily Life',
+    difficulty: 'easy',
+    question: 'What does your ideal Sunday look like?',
+    sampleAnswers: [
+      {
+        label: 'Slow and Unplanned',
+        answer:
+          "No alarm, that's the first requirement. After that, something with a bit of movement in the morning — a walk or a swim while it's still quiet outside — then a long, slow breakfast rather than rushing through it. The rest of the day I try to leave genuinely open. Not lazy exactly, just unscheduled — maybe I read, maybe I meet someone, maybe I do nothing at all. The ideal version is one where I don't check the time once until the evening.",
+      },
+    ],
+    usefulPhrases: [
+      "that's the first requirement",
+      'something with a bit of movement',
+      "rather than rushing through it",
+      'I try to leave genuinely open',
+      "I don't check the time once until..."
+    ],
+  },
+  {
+    id: 'sp-115',
+    topic: 'Daily Life',
+    difficulty: 'medium',
+    question: 'Are you a planner, or do you prefer to go with the flow?',
+    sampleAnswers: [
+      {
+        label: 'Planner Who Wants to Relax',
+        answer:
+          "I'm a planner by instinct, even when I don't want to be. I make lists for things that honestly don't need a list. But I've noticed the moments I actually enjoy most are the unplanned ones, so I've been trying to consciously leave gaps — an afternoon with nothing decided, a trip with one day left completely open. It doesn't come naturally, and I sometimes catch myself trying to plan the spontaneity, which kind of defeats the point.",
+      },
+    ],
+    usefulPhrases: [
+      'by instinct, even when I don\'t want to be',
+      "that honestly don't need a list",
+      "I've been trying to consciously...",
+      "It doesn't come naturally",
+      'which kind of defeats the point',
+    ],
+  },
+  {
+    id: 'sp-116',
+    topic: 'Hobbies & Interests',
+    difficulty: 'medium',
+    question: "What's a hobby you'd love to pick up if money and time weren't an issue?",
+    sampleAnswers: [
+      {
+        label: 'The Fantasy Hobby',
+        answer:
+          "Sailing, easily. I've never done it, I don't know anyone who has a boat, and I have no idea how hard it actually is — which is probably exactly why it still sounds so appealing. There's something about being that dependent on wind and weather, having to actually read the conditions instead of ignoring them, that seems like the opposite of most of my normal life. It's very possible I'd try it once and hate it, but I like having at least one hobby I've never tested against reality.",
+      },
+    ],
+    usefulPhrases: [
+      'easily',
+      "which is probably exactly why it still sounds so appealing",
+      "there's something about...",
+      'the opposite of most of my normal life',
+      "I've never tested against reality",
+    ],
+  },
+  {
+    id: 'sp-117',
+    topic: 'Hobbies & Interests',
+    difficulty: 'easy',
+    question: 'Do you collect anything?',
+    sampleAnswers: [
+      {
+        label: 'An Accidental Collection',
+        answer:
+          "Not on purpose, but I've realized I have a small pile of ticket stubs and boarding passes from trips, going back years. I never set out to collect them, I just kept not throwing them away, and at some point it became a thing I do on purpose. I like that it's completely useless as an object but means something to look through. I don't think I'll ever display them anywhere, they just live in a drawer.",
+      },
+    ],
+    usefulPhrases: [
+      'not on purpose, but...',
+      "I never set out to..., I just...",
+      'at some point it became a thing I do on purpose',
+      "completely useless as an object but means something",
+      'they just live in a drawer',
+    ],
+  },
+  {
+    id: 'sp-118',
+    topic: 'Food & Culture',
+    difficulty: 'easy',
+    question: 'What\'s a food you disliked as a kid but love now, or the other way around?',
+    sampleAnswers: [
+      {
+        label: 'An Acquired Taste',
+        answer:
+          "As a kid I couldn't stand bitter melon — I'd pick it out of every dish my mom made. Now it's genuinely one of my favorite things to eat, and I actually crave the bitterness, which makes no sense to my younger self. I think my taste just needed time to catch up to it. It's a good reminder not to permanently write off a food after one bad experience, because your palate isn't fixed the way it feels like it is at ten years old.",
+      },
+    ],
+    usefulPhrases: [
+      "I couldn't stand...",
+      "which makes no sense to my younger self",
+      'my taste just needed time to catch up',
+      'not to permanently write off...',
+      "isn't fixed the way it feels like it is",
+    ],
+  },
+  {
+    id: 'sp-119',
+    topic: 'Food & Culture',
+    difficulty: 'medium',
+    question: 'If you could only eat one dish for the rest of your life, what would it be?',
+    sampleAnswers: [
+      {
+        label: 'The Practical Choice',
+        answer:
+          "I'd have to pick something with enough variety inside it to not go insane, so I'd go with a good bowl of noodle soup — broth, noodles, herbs, meat, all in one place, and every restaurant makes it slightly differently, so it wouldn't really be the exact same meal twice. If I picked something too specific, like one particular dessert, I think I'd regret it within a month. So my answer is really a loophole — one dish that secretly contains a lot of small variation.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd have to pick something with enough variety",
+      'to not go insane',
+      'all in one place',
+      "I'd regret it within a month",
+      'my answer is really a loophole',
+    ],
+  },
+  {
+    id: 'sp-120',
+    topic: 'Hometown & Travel',
+    difficulty: 'medium',
+    question: "What's something about your hometown that surprises visitors?",
+    sampleAnswers: [
+      {
+        label: 'Not What They Expected',
+        answer:
+          "People usually expect it to feel small and sleepy, and then they're surprised by how much is actually going on — good restaurants, a decent nightlife, new buildings going up constantly. The other thing that surprises people is how close everything is. Someone visiting can go from the beach to the mountains to the old town in under an hour, which isn't something you can say about most cities their size. I think the reputation lags a bit behind what the place has actually become.",
+      },
+    ],
+    usefulPhrases: [
+      'people usually expect it to...',
+      "they're surprised by how much...",
+      'the other thing that surprises people is...',
+      "isn't something you can say about most...",
+      'the reputation lags a bit behind...',
+    ],
+  },
+  {
+    id: 'sp-121',
+    topic: 'Hometown & Travel',
+    difficulty: 'medium',
+    question: 'Have you ever gotten lost somewhere? What happened?',
+    sampleAnswers: [
+      {
+        label: 'Lost, Then Fine',
+        answer:
+          "Once, in a city where I didn't speak a word of the language, my phone died right as I was trying to find my way back to where I was staying. I ended up just walking in what I hoped was the right direction and pointing at a photo of the building to a few different strangers until someone understood. It was stressful for about twenty minutes and then it became one of my favorite memories of the trip, mostly because of how kind the strangers were about it.",
+      },
+    ],
+    usefulPhrases: [
+      "I didn't speak a word of...",
+      'right as I was trying to...',
+      'I ended up just...',
+      'stressful for about... and then it became...',
+      'one of my favorite memories of the trip',
+    ],
+  },
+  {
+    id: 'sp-122',
+    topic: 'Relationships & Family',
+    difficulty: 'hard',
+    question: "What's a lesson your parents taught you that you didn't appreciate until later?",
+    sampleAnswers: [
+      {
+        label: 'Delayed Understanding',
+        answer:
+          "My dad always insisted on saving a fixed amount every month, no matter how small my allowance was as a kid, and at the time it just felt like a rule I had to follow for no reason. It wasn't until I had my own income and my own emergencies that I understood what he was actually teaching me — not the amount, but the habit of not spending everything just because you have it. I wish I'd told him that at some point, instead of only realizing it years later.",
+      },
+    ],
+    usefulPhrases: [
+      'no matter how small...',
+      'it just felt like a rule I had to follow',
+      'it wasn\'t until... that I understood...',
+      'not the amount, but the habit of...',
+      "I wish I'd told him that",
+    ],
+  },
+  {
+    id: 'sp-123',
+    topic: 'Relationships & Family',
+    difficulty: 'hard',
+    question: 'How do you usually resolve an argument with someone close to you?',
+    sampleAnswers: [
+      {
+        label: 'Cooling Off First',
+        answer:
+          "I've learned I'm not good at resolving anything in the heat of the moment, so my first move is usually to say I need a bit of time rather than push through it right away. Once I've actually cooled down, I try to go back to them instead of waiting for them to come to me, because the person who waits usually waits too long. What helps most is asking what they actually needed from the situation, rather than just defending my side of it.",
+      },
+    ],
+    usefulPhrases: [
+      "I'm not good at... in the heat of the moment",
+      'my first move is usually to...',
+      'rather than push through it right away',
+      "the person who waits usually waits too long",
+      'rather than just defending my side of it',
+    ],
+  },
+  {
+    id: 'sp-124',
+    topic: 'Money & Finance',
+    difficulty: 'hard',
+    question: 'Would you rather have more money or more free time?',
+    sampleAnswers: [
+      {
+        label: 'Time, With a Catch',
+        answer:
+          "If I had to choose right now, I'd say time — I already feel like the bottleneck in my life isn't money, it's not having enough hours to use what I have well. But I'll admit that answer is easy for me to give because I'm not struggling financially. If money were tight enough that it was limiting basic choices, I think the honest answer would flip completely. So it's less a fixed preference and more a question of which one is actually scarce for you right now.",
+      },
+    ],
+    usefulPhrases: [
+      'if I had to choose right now',
+      "the bottleneck in my life isn't... it's...",
+      "I'll admit that answer is easy for me to give because...",
+      'the honest answer would flip completely',
+      'which one is actually scarce for you',
+    ],
+  },
+  {
+    id: 'sp-125',
+    topic: 'Health & Wellness',
+    difficulty: 'medium',
+    question: 'What does a healthy lifestyle mean to you personally?',
+    sampleAnswers: [
+      {
+        label: 'Sustainable Over Strict',
+        answer:
+          "For me it's less about strict rules and more about not being able to tell I'm 'on' a routine at all — meals that don't feel like punishment, movement that fits into the day instead of being a separate chore, sleep that I actually protect. I've tried the stricter version before, cutting out whole food groups, rigid gym schedules, and it always fell apart within a couple of months. So now my standard is just: can I keep doing this without willpower running out? If not, it's probably not sustainable.",
+      },
+    ],
+    usefulPhrases: [
+      "it's less about... and more about...",
+      "meals that don't feel like punishment",
+      'instead of being a separate chore',
+      'it always fell apart within...',
+      "can I keep doing this without willpower running out?",
+    ],
+  },
+  {
+    id: 'sp-126',
+    topic: 'Opinions & Ideas',
+    difficulty: 'hard',
+    question: 'Do you think people are generally getting busier, or does it just feel that way?',
+    sampleAnswers: [
+      {
+        label: 'Perceived vs Real',
+        answer:
+          "I think it's partly real and partly a feeling created by how connected we are now. People probably don't have objectively less free time than a couple of generations ago, but that free time gets constantly interrupted by notifications, so it never feels like proper rest. It's death by a thousand small interruptions rather than a genuine lack of hours. I notice this in myself — I can have a completely open evening and still end it feeling like I never actually stopped.",
+      },
+    ],
+    usefulPhrases: [
+      "it's partly real and partly a feeling created by...",
+      "don't have objectively less... than...",
+      'gets constantly interrupted by...',
+      'death by a thousand small interruptions',
+      'I notice this in myself',
+    ],
+  },
+  {
+    id: 'sp-127',
+    topic: 'Environment & Nature',
+    difficulty: 'easy',
+    question: 'What is your favorite season, and why?',
+    sampleAnswers: [
+      {
+        label: 'A Seasonal Preference',
+        answer:
+          "I'd say the stretch right before the rainy season starts, when it's still warm but the air hasn't gotten heavy yet. There's a particular light in the late afternoon during those weeks that I look forward to every year without really planning to. I think part of why I like it is that it doesn't last long — maybe three or four weeks — so I actually pay attention to it while it's happening, instead of taking it for granted the way I do with the seasons that stick around for months.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd say the stretch right before...",
+      'a particular light in the late afternoon',
+      'I look forward to... without really planning to',
+      "it doesn't last long",
+      'instead of taking it for granted',
+    ],
+  },
+
+  // ── More General / Everyday Questions (Round 2) ────────
+  {
+    id: 'sp-128',
+    topic: 'Daily Life',
+    difficulty: 'easy',
+    question: "What's the most relaxing part of your day?",
+    sampleAnswers: [
+      {
+        label: 'A Specific Window',
+        answer:
+          "It's a pretty narrow window, actually — right after dinner, before I start thinking about tomorrow. I'm not doing anything special, usually just sitting outside for ten or fifteen minutes with a drink, not looking at my phone. If I skip it and go straight from dinner to the couch to scroll, the evening feels rushed even though nothing actually happened. It's less about the activity and more about there being a clear line between the day being done and the evening starting.",
+      },
+    ],
+    usefulPhrases: [
+      "it's a pretty narrow window, actually",
+      'right after..., before...',
+      'nothing special, usually just...',
+      'the evening feels rushed even though nothing actually happened',
+      "it's less about... and more about...",
+    ],
+  },
+  {
+    id: 'sp-129',
+    topic: 'Hobbies & Interests',
+    difficulty: 'medium',
+    question: 'If you had to teach someone a skill you have, what would it be?',
+    sampleAnswers: [
+      {
+        label: 'Something Practical',
+        answer:
+          "Probably how to negotiate a price when you're buying something — it's a small skill but it comes up constantly here, and most people I know are uncomfortable doing it. I'd teach them that it's mostly about being relaxed and willing to walk away, not about being aggressive. The couple of times I've tried explaining it, the hardest part for people isn't the words, it's getting comfortable with an awkward silence after naming a lower price. I think that applies to more than just negotiating, honestly.",
+      },
+    ],
+    usefulPhrases: [
+      "it's a small skill but it comes up constantly",
+      'uncomfortable doing it',
+      "it's mostly about... not about...",
+      "the hardest part for people isn't... it's...",
+      'applies to more than just...',
+    ],
+  },
+  {
+    id: 'sp-130',
+    topic: 'Technology',
+    difficulty: 'medium',
+    question: 'How has technology changed the way you spend your free time?',
+    sampleAnswers: [
+      {
+        label: 'More Options, Less Depth',
+        answer:
+          "It's given me way more options, but I'm not sure it's made my free time better, if I'm honest. Ten years ago if I was bored I'd read or go outside because there wasn't much else. Now there's always something to open on my phone, and it's easy to fill an hour without really choosing to — I just end up there. The technology I'm actually glad about is different, though: video calls with friends who live far away, or being able to find a hiking trail I'd never have known about otherwise. So it's a mixed picture — better for staying connected, worse for just sitting still.",
+      },
+    ],
+    usefulPhrases: [
+      "it's given me way more options, but...",
+      'if I\'m honest',
+      "there's always something to open",
+      'without really choosing to',
+      "it's a mixed picture",
+    ],
+  },
+  {
+    id: 'sp-131',
+    topic: 'Education & Learning',
+    difficulty: 'medium',
+    question: "What's something you learned outside of school that turned out to be really useful?",
+    sampleAnswers: [
+      {
+        label: 'A Practical Lesson',
+        answer:
+          "How to actually listen in a conversation, rather than just waiting for my turn to talk. Nobody taught me that in school — if anything, school rewards having the right answer ready, not listening carefully to the question. I picked it up mostly from watching one particular person who was genuinely good at conversations and noticing what they did differently. It sounds like a small thing, but it's changed almost every relationship in my life, which is more than I can say for most of what I studied formally.",
+      },
+    ],
+    usefulPhrases: [
+      'rather than just waiting for my turn to talk',
+      'if anything, ... rewards...',
+      'I picked it up mostly from...',
+      'noticing what they did differently',
+      "it's changed almost every... in my life",
+    ],
+  },
+  {
+    id: 'sp-132',
+    topic: 'Problem Solving',
+    difficulty: 'medium',
+    question: 'Do you prefer solving problems on your own, or asking for help right away?',
+    sampleAnswers: [
+      {
+        label: 'Try First, Then Ask',
+        answer:
+          "I give myself a limited amount of time on my own first — enough to actually understand what the problem is, but not so long that I'm just stuck out of stubbornness. After that, I'll ask. I used to think asking early made me look like I hadn't tried, but I've come around to the opposite view — struggling silently for hours usually just wastes everyone's time, mine included. The one exception is anything I actually want to get better at myself; for those, I'll sit with it longer, because the struggling is kind of the point.",
+      },
+    ],
+    usefulPhrases: [
+      'I give myself a limited amount of time',
+      'not so long that I\'m just stuck out of stubbornness',
+      "I've come around to the opposite view",
+      'wastes everyone\'s time, mine included',
+      'the struggling is kind of the point',
+    ],
+  },
+  {
+    id: 'sp-133',
+    topic: 'Work & Career',
+    difficulty: 'hard',
+    question: 'What does work-life balance mean to you, personally?',
+    sampleAnswers: [
+      {
+        label: 'Not a 50/50 Split',
+        answer:
+          "For me it's stopped meaning a fixed split between hours at work and hours off — some weeks are heavier and that's fine, as long as it's not every week. What actually matters to me is whether I can be fully present outside of work when I'm there — not half-thinking about a message I haven't replied to. By that definition, I've had plenty of low-hour weeks that felt completely unbalanced, and a couple of genuinely busy ones that didn't. So I've stopped measuring it by the clock and started measuring it by how much I'm actually somewhere else, mentally, when I'm supposed to be.",
+      },
+    ],
+    usefulPhrases: [
+      "it's stopped meaning...",
+      "that's fine, as long as...",
+      'what actually matters to me is whether...',
+      'by that definition...',
+      "I've stopped measuring it by... and started measuring it by...",
+    ],
+  },
+  {
+    id: 'sp-134',
+    topic: 'Money & Finance',
+    difficulty: 'easy',
+    question: "What's something you regret spending money on?",
+    sampleAnswers: [
+      {
+        label: 'The Gym Membership',
+        answer:
+          "A year-long gym membership I used maybe five times. It felt like a smart decision when I paid for it — cheaper per session if I committed upfront, that kind of logic — but I completely overestimated how motivated future-me would be. Now I just go somewhere I pay per visit, which costs more per session on paper but actually gets used, so it works out better in practice. I've learned to be suspicious of any purchase that depends on me becoming a slightly different person.",
+      },
+    ],
+    usefulPhrases: [
+      'It felt like a smart decision when...',
+      'I completely overestimated...',
+      'costs more... but actually gets used',
+      'works out better in practice',
+      "I've learned to be suspicious of...",
+    ],
+  },
+  {
+    id: 'sp-135',
+    topic: 'Health & Wellness',
+    difficulty: 'easy',
+    question: 'How do you make sure you get enough exercise?',
+    sampleAnswers: [
+      {
+        label: 'Attaching It to Something Else',
+        answer:
+          "Honestly, I don't rely on motivation for it, because that runs out. What works is attaching it to something I'm already going to do — I walk or cycle instead of taking a ride wherever that's realistic, so it happens without being a separate decision. I do have one proper workout most weeks, but that's the part I'm least consistent about. The daily movement is what actually adds up, even if none of it looks like 'exercise' on its own.",
+      },
+    ],
+    usefulPhrases: [
+      "I don't rely on motivation for it",
+      'attaching it to something I\'m already going to do',
+      'without being a separate decision',
+      "that's the part I'm least consistent about",
+      "what actually adds up",
+    ],
+  },
+  {
+    id: 'sp-136',
+    topic: 'Opinions & Ideas',
+    difficulty: 'hard',
+    question: 'Do you think being on time really matters, or is being a little late usually fine?',
+    sampleAnswers: [
+      {
+        label: 'Depends What It Signals',
+        answer:
+          "I think it matters less for the minutes themselves and more for what it signals about whether you value someone else's time as much as your own. A few minutes late because of traffic, nobody reasonably minds. But someone who's late everywhere, every time, is usually telling you something about their priorities whether they mean to or not. I try to be on time as a kind of respect rather than a rule, which also means I don't get too worked up when someone else is occasionally late — I try to notice the pattern, not the single instance.",
+      },
+    ],
+    usefulPhrases: [
+      "it matters less for... and more for what it signals",
+      'nobody reasonably minds',
+      'whether they mean to or not',
+      'as a kind of respect rather than a rule',
+      'the pattern, not the single instance',
+    ],
+  },
+  {
+    id: 'sp-137',
+    topic: 'Environment & Nature',
+    difficulty: 'easy',
+    question: 'Do you recycle or try to reduce waste at home?',
+    sampleAnswers: [
+      {
+        label: 'Modest but Consistent',
+        answer:
+          "A bit, though I wouldn't call myself especially disciplined about it. I separate out obvious recyclables, and I've gotten better about not buying things with excessive packaging when there's a simpler option. What I'm honestly bad at is food waste — I still cook too much sometimes and end up throwing food out, which probably matters more than the plastic sorting I'm careful about. I think most people, myself included, are consistent about the visible, easy habits and inconsistent about the ones that actually take more effort.",
+      },
+    ],
+    usefulPhrases: [
+      "I wouldn't call myself especially disciplined about it",
+      "I've gotten better about...",
+      'what I\'m honestly bad at is...',
+      'probably matters more than...',
+      'consistent about the visible, easy habits',
     ],
   },
 ];
