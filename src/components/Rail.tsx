@@ -15,10 +15,11 @@ function nextTheme(t: Theme): Theme {
   return THEME_CYCLE[(THEME_CYCLE.indexOf(t) + 1) % THEME_CYCLE.length];
 }
 
-// `tab` targets a `?tab=` sub-page rather than a distinct route (Speak,
-// Writing) — the page itself canonicalizes the param, so this exact pair is
-// always what's in the URL once that page has mounted (see useSpeakingTab /
-// useWritingTab), which is what makes the `active` check below exact too.
+// `tab` targets a `?tab=` sub-page rather than a distinct route (Speak only —
+// Writing's sub-pages are real paths, `/writing/improve` etc.) — the page
+// itself canonicalizes the param, so this exact pair is always what's in the
+// URL once it has mounted (see useSpeakingTab), which is what makes the
+// `active` check below exact too.
 type NavItem = { to: string; label: string; icon: string; tab?: string };
 
 interface NavGroup {
@@ -58,8 +59,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Writing',
     icon: 'lucide:pen-line',
     items: [
-      { to: '/writing', tab: 'improve', label: 'Improve Writing', icon: 'lucide:wand-2' },
-      { to: '/writing', tab: 'ielts', label: 'IELTS Writing', icon: 'lucide:users' },
+      { to: '/writing/improve', label: 'Improve Writing', icon: 'lucide:wand-2' },
+      { to: '/writing/ielts', label: 'IELTS Writing', icon: 'lucide:users' },
     ],
   },
 ];

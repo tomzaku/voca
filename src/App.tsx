@@ -15,7 +15,7 @@ import { CompanionPage } from './components/CompanionPage';
 import { DashboardPage } from './components/DashboardPage';
 import { QuickReview } from './components/QuickReview';
 import { CollectionsPage } from './components/CollectionsPage';
-import { WritingPage } from './components/WritingPage';
+import { WritingPage, WritingLegacyRedirect } from './components/WritingPage';
 import { WorldGame } from './components/WorldGame';
 import { LevelTestPage } from './components/LevelTestPage';
 import { TakeQuiz } from './components/TakeQuiz';
@@ -25,6 +25,7 @@ import { OnboardingModal } from './components/OnboardingModal';
 import { ProComparisonPage } from './components/ProComparisonPage';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
+import { AiModelBenchmarkPage } from './components/AiModelBenchmarkPage';
 
 export default function App() {
   // Desktop's rail pushes content over, so <main> has to track its width.
@@ -52,7 +53,9 @@ export default function App() {
               {/* Old path — keep existing links working. */}
               <Route path="/streak" element={<Navigate to="/dashboard" replace />} />
               <Route path="/collections" element={<CollectionsPage />} />
-              <Route path="/writing" element={<WritingPage />} />
+              {/* Old shape (`?tab=ielts`) — send it to the equivalent path, keeping any other query params. */}
+              <Route path="/writing" element={<WritingLegacyRedirect />} />
+              <Route path="/writing/:tab" element={<WritingPage />} />
               <Route path="/world" element={<WorldGame />} />
               <Route path="/level-test" element={<LevelTestPage />} />
               <Route path="/quizzes" element={<MyQuizzes />} />
@@ -62,6 +65,8 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/pro" element={<ProComparisonPage />} />
+              {/* Dev-only TTS benchmark — deliberately not linked from the Rail. */}
+              <Route path="/ai-model-benchmark" element={<AiModelBenchmarkPage />} />
             </Routes>
           </main>
         </div>

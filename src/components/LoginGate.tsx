@@ -12,8 +12,12 @@ import { supabase } from '../lib/supabase';
  *
  * The quiz routes decide for themselves: a share link is meant for students who
  * may have no account, and each quiz carries its own `requireAuth`.
+ *
+ * /ai-model-benchmark is here because it's self-contained: everything it does
+ * (loading TTS models, timing them) runs in the browser and saves nothing
+ * server-side, so there's no account-bound state to gate it behind.
  */
-const PUBLIC_ROUTES = ['/', '/login', '/quiz/:id', '/quiz/:id/results'];
+const PUBLIC_ROUTES = ['/', '/login', '/quiz/:id', '/quiz/:id/results', '/ai-model-benchmark'];
 
 /**
  * Blocking sign-in gate. Overlays the app whenever there's no signed-in user and

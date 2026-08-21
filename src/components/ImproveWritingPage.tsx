@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
@@ -125,13 +126,22 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
  * IeltsWritingPage.
  */
 export function ImproveWritingPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isPro, loading: proLoading } = useIsPro();
   const custom = useWritingTemplates((s) => s.custom);
   const templates = useMemo(() => allTemplates(custom), [custom]);
 
+  // Tracks whether custom templates have had their one chance to load, so a
+  // deep-linked ?template= for a bad/unowned id can give up instead of
+  // stalling the auto-submit forever waiting for a match that'll never come.
+  const [customReady, setCustomReady] = useState(!user);
   useEffect(() => {
-    if (user) void useWritingTemplates.getState().fetchMine();
+    if (!user) { setCustomReady(true); return; }
+    let cancelled = false;
+    void useWritingTemplates.getState().fetchMine().finally(() => {
+      if (!cancelled) setCustomReady(true);
+    });
+    return () => { cancelled = true; };
   }, [user]);
 
   const [selectedId, setSelectedId] = useState('default-general');
@@ -148,6 +158,53 @@ export function ImproveWritingPage() {
   const [prefsOpen, setPrefsOpen] = useState(false);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // ── Deep link: ?text=…&template=…&autoAnswer=true ──
+  // Lets an external caller (a bookmarklet, a "send to Voca" share action)
+  // land here with the text and template pre-filled, ChatGPT-style. `template`
+  // is a default template's code (`default-slack`) or a custom template's id —
+  // both are just `AnyWritingTemplate.id`, so one param covers both. Consumed
+  // once on mount, then stripped from the URL so a refresh doesn't redo it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [pendingAutoSubmit, setPendingAutoSubmit] = useState(false);
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
+  useEffect(() => {
+    const urlText = searchParams.get('text');
+    const urlTemplate = searchParams.get('template');
+    if (urlText === null && urlTemplate === null) return;
+    if (urlText !== null) setText(urlText.slice(0, MAX_TEXT));
+    if (urlTemplate) setPendingTemplateId(urlTemplate);
+    if (searchParams.get('autoAnswer') === 'true') setPendingAutoSubmit(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('text');
+        next.delete('template');
+        next.delete('autoAnswer');
+        return next;
+      },
+      { replace: true },
+    );
+    // Runs once on mount — the URL params are only meant to seed initial state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A custom template's id may not be in `templates` yet at mount (its cache
+  // is stale or empty until `fetchMine` resolves), so keep retrying as the
+  // list changes. Once `fetchMine` has had its shot and there's still no
+  // match, give up rather than leaving `selected` at its default silently —
+  // or stalling the auto-submit gate below forever.
+  useEffect(() => {
+    if (!pendingTemplateId) return;
+    const match = templates.find((t) => t.id === pendingTemplateId);
+    if (match) {
+      setSelectedId(match.id);
+      setPendingTemplateId(null);
+    } else if (customReady) {
+      toast.error(`Unknown template “${pendingTemplateId}” — using the default instead.`);
+      setPendingTemplateId(null);
+    }
+  }, [pendingTemplateId, templates, customReady]);
 
   // ── Template management (create/edit) ──
   const [form, setForm] = useState<{ editingId: string | null; name: string; instructions: string; description: string } | null>(null);
@@ -201,6 +258,17 @@ export function ImproveWritingPage() {
       setLoading(false);
     }
   };
+
+  // Fire the deep-linked auto-submit once auth + Pro status have resolved —
+  // both start out "not loading" for an instant before the session restores,
+  // so gating on proLoading alone fired this before `locked` was accurate —
+  // and once any requested ?template= has been applied (or given up on).
+  useEffect(() => {
+    if (!pendingAutoSubmit || authLoading || proLoading || pendingTemplateId) return;
+    setPendingAutoSubmit(false);
+    void handleSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoSubmit, authLoading, proLoading, pendingTemplateId]);
 
   // Free alternative, open to everyone (not just locked accounts) — no server
   // call, so no Pro gate applies here either.

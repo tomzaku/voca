@@ -11,7 +11,9 @@ type PiperTTSModule = {
   predict(config: { text: string; voiceId: string }): Promise<Blob>;
 };
 
-const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+// Exported for the benchmark page (src/lib/ttsBenchmark.ts), which loads its
+// own isolated KokoroTTS instance rather than sharing this module's singleton.
+export const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const TAG = '[tts]';
 const MAX_TTS_CHARS = 5000;
 
@@ -54,7 +56,9 @@ export function isKokoroSupported(): boolean {
 let ttsInstance: KokoroTTSInstance | null = null;
 let ttsPromise: Promise<KokoroTTSInstance> | null = null;
 
-async function hasWebGPU(): Promise<boolean> {
+// Exported for the benchmark page, which needs to know (and report) which
+// device a fresh Kokoro load would pick before it picks it.
+export async function hasWebGPU(): Promise<boolean> {
   try {
     const gpu = (navigator as unknown as { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
     if (!gpu) return false;
