@@ -79,7 +79,12 @@ export function OnboardingModal() {
       const prefs = await fetchOnboardingPrefs();
       if (!cancelled) {
         setMode('setup');
-        setShow(!hasOnboarded(prefs));
+        // `prefs` is only `null` when the call itself failed (offline, API
+        // down, timed out) — a real new user still gets `{ wordPack: null, … }`
+        // back. Don't show the setup dialog on a failure: we can't tell a
+        // fresh account from one that's already onboarded, and popping it up
+        // every time this device goes offline is worse than skipping it once.
+        setShow(prefs !== null && !hasOnboarded(prefs));
       }
     })();
     return () => { cancelled = true; };

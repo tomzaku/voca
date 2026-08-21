@@ -49,9 +49,19 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/speaking', tab: 'conversation', label: 'Conversation', icon: 'lucide:message-square' },
       { to: '/speaking', tab: 'dialogue', label: 'Dialogue', icon: 'lucide:message-circle' },
-      { to: '/speaking', tab: 'podcast', label: 'Podcast', icon: 'lucide:radio' },
       { to: '/speaking', tab: 'ielts', label: 'IELTS Speaking', icon: 'lucide:users' },
       { to: '/speaking', tab: 'read', label: 'Read Aloud', icon: 'lucide:align-left' },
+    ],
+  },
+  {
+    id: 'listen',
+    label: 'Listen',
+    icon: 'lucide:headphones',
+    items: [
+      { to: '/listening', tab: 'podcast', label: 'Podcast', icon: 'lucide:radio' },
+      { to: '/listening', tab: 'comprehension', label: 'Comprehension', icon: 'lucide:ear' },
+      { to: '/listening', tab: 'dictation', label: 'Dictation', icon: 'lucide:text-cursor-input' },
+      { to: '/listening', tab: 'ielts', label: 'IELTS Listening', icon: 'lucide:users' },
     ],
   },
   {

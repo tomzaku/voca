@@ -11,6 +11,7 @@ import { LoginPage } from './components/LoginPage';
 import { ProfilePage } from './components/ProfilePage';
 import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
+import { EnglishListeningPage } from './components/EnglishListeningPage';
 import { CompanionPage } from './components/CompanionPage';
 import { DashboardPage } from './components/DashboardPage';
 import { QuickReview } from './components/QuickReview';
@@ -43,6 +44,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<FlashCard />} />
               <Route path="/speaking" element={<EnglishSpeakingPage />} />
+              <Route path="/listening" element={<EnglishListeningPage />} />
               <Route path="/history" element={<HistoryPage />} />
               {/* Old path — keep existing links working. */}
               <Route path="/bookmarks" element={<Navigate to="/history" replace />} />

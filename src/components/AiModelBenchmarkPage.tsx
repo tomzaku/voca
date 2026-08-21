@@ -7,12 +7,16 @@ import { KOKORO_VOICES, PIPER_VOICES } from '../hooks/useTtsSettings';
 import {
   benchmarkKokoro,
   benchmarkPiper,
+  benchmarkKittenTts,
   benchmarkNative,
   clearKokoroCache,
   clearPiperCache,
+  clearKittenVoiceCache,
+  KITTEN_VOICES,
   type BenchmarkEngine,
   type BenchmarkResult,
   type KokoroDevice,
+  type KokoroPrecision,
 } from '../lib/ttsBenchmark';
 
 // Dev-only page — intentionally not linked from the Rail. Reach it by typing
@@ -36,13 +40,23 @@ const DEFAULT_TEXT =
   'them side by side, using the exact same sentence, is the simplest way to see those tradeoffs ' +
   'clearly instead of guessing from memory or marketing claims.';
 
-const ENGINES: BenchmarkEngine[] = ['kokoro', 'piper', 'native'];
+const ENGINES: BenchmarkEngine[] = ['kokoro', 'piper', 'kitten', 'native'];
 
 const ENGINE_META: Record<BenchmarkEngine, { label: string; icon: string; description: string }> = {
   kokoro: { label: 'Kokoro', icon: 'lucide:cpu', description: 'ONNX model, WASM/WebGPU — downloads on first run' },
   piper: { label: 'Piper', icon: 'lucide:speaker', description: 'ONNX model, WASM — cached to OPFS on first run' },
+  kitten: { label: 'KittenTTS', icon: 'lucide:cat', description: '~23MB ONNX model — built for CPU/mobile' },
   native: { label: 'Native', icon: 'lucide:smartphone', description: "Browser's built-in voice — no model, plays live" },
 };
+
+const SPEED_MIN = 0.5;
+const SPEED_MAX = 2;
+const SPEED_STEP = 0.1;
+
+// Piper has no speed knob in its public API — its voice's pace is baked into
+// its bundled config, not adjustable per call — so it's the one engine with
+// no per-engine slider at all.
+type SpeedableEngine = Exclude<BenchmarkEngine, 'piper'>;
 
 type RowStatus = 'queued' | 'loading' | 'done' | 'error' | 'skipped';
 
@@ -83,7 +97,7 @@ const COLUMN_HINTS: Record<string, string> = {
   Score: '100 ÷ Real-time factor, rounded. 100 = exactly real-time. 400 means this run synthesized speech 4× faster than it takes to play back; 50 means half real-time speed. Depends only on Synthesize (actual inference) — not on network/disk (Load) or model file size — so it\'s the number to compare across machines or chips (e.g. an M1 vs an M5). "—" for Native, whose timing reflects the OS speech engine, not this device\'s own compute.',
   'Model size': "Total bytes of the model this engine needs. Fixed per model, not per text length. Kokoro's one model serves all 26 voices, so this excludes the small per-voice style file — see Voice load.",
   Load: "Time spent fetching + initializing the model. Reads ~0 once it's cached from an earlier run — use Clear model caches to force a cold number.",
-  'Voice load': "Kokoro only: time to fetch this specific voice's small style file, separated out so it doesn't inflate Synthesize the first time a voice is used. Piper's equivalent is already part of Load (each voice is its own model); Native has no voice file at all.",
+  'Voice load': "Kokoro and KittenTTS only: time to fetch this specific voice's small style file, separated out so it doesn't inflate Synthesize the first time a voice is used. Piper's equivalent is already part of Load (each voice is its own model); Native has no voice file at all.",
   Synthesize: 'Time to turn the text into audio, with the model and voice already loaded — the number that reflects raw per-word throughput.',
   'Audio length': 'Duration of the resulting speech clip.',
   'Real-time factor': 'Synthesize time ÷ audio length. Under 1× is faster than real-time playback, and it stays roughly constant across text lengths — the basis for Score.',
@@ -103,28 +117,54 @@ function Th({ children }: { children: string }) {
   );
 }
 
+function SpeedControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center gap-2 shrink-0" title="Speed">
+      <Icon icon="lucide:gauge" className="text-sm text-text-muted shrink-0" />
+      <input
+        type="range"
+        min={SPEED_MIN}
+        max={SPEED_MAX}
+        step={SPEED_STEP}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-24 accent-accent-orange cursor-pointer"
+        aria-label="Speed"
+      />
+      <span className="text-xs font-mono text-accent-orange w-9 text-right shrink-0">{value.toFixed(1)}×</span>
+    </div>
+  );
+}
+
 async function runEngine(
   engine: BenchmarkEngine,
   text: string,
   kokoroVoice: string,
   kokoroDevice: KokoroDevice,
+  kokoroPrecision: KokoroPrecision,
   piperVoice: string,
+  kittenVoice: string,
+  speeds: Record<SpeedableEngine, number>,
 ): Promise<BenchmarkResult> {
   switch (engine) {
     case 'kokoro': {
       const voice = KOKORO_VOICES.find((v) => v.id === kokoroVoice) ?? KOKORO_VOICES[0];
-      return benchmarkKokoro(text, voice.id, voice.name, kokoroDevice);
+      return benchmarkKokoro(text, voice.id, voice.name, kokoroDevice, kokoroPrecision, speeds.kokoro);
     }
     case 'piper': {
       const voice = PIPER_VOICES.find((v) => v.id === piperVoice) ?? PIPER_VOICES[0];
       return benchmarkPiper(text, voice.id, voice.name);
     }
+    case 'kitten': {
+      const voice = KITTEN_VOICES.find((v) => v.id === kittenVoice) ?? KITTEN_VOICES[0];
+      return benchmarkKittenTts(text, voice.id, `${voice.name} · ${voice.gender}`, speeds.kitten);
+    }
     case 'native':
-      return benchmarkNative(text);
+      return benchmarkNative(text, speeds.native);
   }
 }
 
-function playResult(row: Row, text: string) {
+function playResult(row: Row, text: string, speed: number) {
   if (row.result?.blob) {
     const url = URL.createObjectURL(row.result.blob);
     const audio = new Audio(url);
@@ -137,6 +177,7 @@ function playResult(row: Row, text: string) {
     speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
+    utterance.rate = speed;
     speechSynthesis.speak(utterance);
   }
 }
@@ -145,10 +186,13 @@ export function AiModelBenchmarkPage() {
   const [text, setText] = useState(DEFAULT_TEXT);
   // Native plays the text out loud for the whole run (no way to synthesize
   // silently) and its Score is always "—" anyway, so it's opt-in.
-  const [selected, setSelected] = useState<Record<BenchmarkEngine, boolean>>({ kokoro: true, piper: true, native: false });
+  const [selected, setSelected] = useState<Record<BenchmarkEngine, boolean>>({ kokoro: true, piper: true, kitten: true, native: false });
   const [kokoroVoice, setKokoroVoice] = useState(KOKORO_VOICES[0].id);
   const [kokoroDevice, setKokoroDevice] = useState<KokoroDevice>('auto');
+  const [kokoroPrecision, setKokoroPrecision] = useState<KokoroPrecision>('fp32');
   const [piperVoice, setPiperVoice] = useState(PIPER_VOICES[0].id);
+  const [kittenVoice, setKittenVoice] = useState(KITTEN_VOICES[0].id);
+  const [speeds, setSpeeds] = useState<Record<SpeedableEngine, number>>({ kokoro: 1, kitten: 1, native: 1 });
   const [rows, setRows] = useState<Row[]>([]);
   const [running, setRunning] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -156,6 +200,9 @@ export function AiModelBenchmarkPage() {
 
   const toggleEngine = (engine: BenchmarkEngine) =>
     setSelected((s) => ({ ...s, [engine]: !s[engine] }));
+
+  const setSpeedFor = (engine: SpeedableEngine, value: number) =>
+    setSpeeds((s) => ({ ...s, [engine]: value }));
 
   const run = useCallback(async () => {
     if (running || !text.trim()) return;
@@ -176,7 +223,7 @@ export function AiModelBenchmarkPage() {
       }
       setRows((prev) => prev.map((r) => (r.engine === engine ? { ...r, status: 'loading' } : r)));
       try {
-        const result = await runEngine(engine, text, kokoroVoice, kokoroDevice, piperVoice);
+        const result = await runEngine(engine, text, kokoroVoice, kokoroDevice, kokoroPrecision, piperVoice, kittenVoice, speeds);
         setRows((prev) => prev.map((r) => (r.engine === engine ? { engine, status: 'done', result } : r)));
       } catch (err) {
         setRows((prev) => prev.map((r) => (
@@ -186,14 +233,14 @@ export function AiModelBenchmarkPage() {
     }
 
     setRunning(false);
-  }, [running, text, selected, kokoroVoice, kokoroDevice, piperVoice]);
+  }, [running, text, selected, kokoroVoice, kokoroDevice, kokoroPrecision, piperVoice, kittenVoice, speeds]);
 
   const stop = () => { cancelledRef.current = true; };
 
   const clearCaches = async () => {
     setClearing(true);
     try {
-      await Promise.all([clearKokoroCache(), clearPiperCache(piperVoice)]);
+      await Promise.all([clearKokoroCache(), clearPiperCache(piperVoice), clearKittenVoiceCache()]);
       toast.success('Model caches cleared — next run downloads fresh');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to clear caches');
@@ -258,12 +305,24 @@ export function AiModelBenchmarkPage() {
                     onChange={setKokoroDevice}
                     ariaLabel="Kokoro compute backend"
                   />
+                  {kokoroDevice !== 'wasm' && (
+                    <Selector
+                      value={kokoroPrecision}
+                      options={[
+                        { value: 'fp32', label: 'Precision: fp32 (310MB)' },
+                        { value: 'fp16', label: 'Precision: fp16 (155MB, experimental)' },
+                      ]}
+                      onChange={setKokoroPrecision}
+                      ariaLabel="Kokoro GPU precision"
+                    />
+                  )}
                   <Selector
                     value={kokoroVoice}
                     options={KOKORO_VOICES.map((v) => ({ value: v.id, label: `${v.name} · ${v.accent} ${v.gender}` }))}
                     onChange={setKokoroVoice}
                     ariaLabel="Kokoro voice"
                   />
+                  <SpeedControl value={speeds.kokoro} onChange={(v) => setSpeedFor('kokoro', v)} />
                 </>
               )}
               {engine === 'piper' && (
@@ -273,6 +332,20 @@ export function AiModelBenchmarkPage() {
                   onChange={setPiperVoice}
                   ariaLabel="Piper voice"
                 />
+              )}
+              {engine === 'kitten' && (
+                <>
+                  <Selector
+                    value={kittenVoice}
+                    options={KITTEN_VOICES.map((v) => ({ value: v.id, label: `${v.name} · ${v.gender}` }))}
+                    onChange={setKittenVoice}
+                    ariaLabel="KittenTTS voice"
+                  />
+                  <SpeedControl value={speeds.kitten} onChange={(v) => setSpeedFor('kitten', v)} />
+                </>
+              )}
+              {engine === 'native' && (
+                <SpeedControl value={speeds.native} onChange={(v) => setSpeedFor('native', v)} />
               )}
             </div>
           );
@@ -301,7 +374,7 @@ export function AiModelBenchmarkPage() {
         <button
           onClick={clearCaches}
           disabled={clearing || running}
-          title="Delete the downloaded Kokoro and Piper model files so the next run re-downloads them"
+          title="Delete the downloaded Kokoro, Piper, and KittenTTS model files so the next run re-downloads them"
           className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-50 transition-all cursor-pointer"
         >
           <Icon icon="lucide:trash-2" className="text-sm" />
@@ -339,6 +412,12 @@ export function AiModelBenchmarkPage() {
                             <div className="font-bold text-text-primary">{meta.label}</div>
                             <div className="text-[11px] text-text-muted truncate">
                               {row.result?.voiceLabel ?? ''}{row.result?.meta ? ` · ${row.result.meta}` : ''}
+                              {row.result?.speedApplied != null && (
+                                <>
+                                  {` · ${row.result.speedApplied.toFixed(1)}×`}
+                                  {row.engine === 'piper' && ' (fixed)'}
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -380,7 +459,7 @@ export function AiModelBenchmarkPage() {
                       <td className="px-4 py-3 text-right">
                         {row.status === 'done' && (
                           <button
-                            onClick={() => playResult(row, text)}
+                            onClick={() => playResult(row, text, row.result?.speedApplied ?? 1)}
                             title="Play"
                             className="w-7 h-7 rounded-md flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all cursor-pointer ml-auto"
                           >

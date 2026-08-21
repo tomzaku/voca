@@ -1,6 +1,6 @@
 // IELTS Writing prompts — static, hand-written content shipped in the client
 // bundle, the same as IELTS Speaking/Daily Dialogue/Podcast (englishIelts.ts,
-// englishDialogues.ts, englishPodcasts.ts). Not a table, not user-created:
+// englishDialogues.ts, englishListening.ts). Not a table, not user-created:
 // scoring an essay against one of these is a Pro feature (ai-ielts-writing),
 // but reading the prompt, its chart, the sample answers and the tips is free
 // and needs no network call.

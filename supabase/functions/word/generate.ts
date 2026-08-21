@@ -3,6 +3,7 @@
 
 import { callProvider, stripFences, type ChatMessage } from '../_shared/ai.ts';
 import { asSuggestions, isVerdict } from './sanitize.ts';
+import { withPhonemizedIpa } from './phonemize.ts';
 import type { Generated } from './types.ts';
 
 const GENERATE_ATTEMPTS = 4;
@@ -34,7 +35,14 @@ export async function generateWordData(word: string, learnLang: string, motherLa
 
       // A verdict is a complete answer — retrying only buys the same one.
       if (isVerdict(data)) return { valid: false, suggestions: asSuggestions(data.suggestions, word) };
-      if (typeof data.definition === 'string' && data.definition) return data;
+      if (typeof data.definition === 'string' && data.definition) {
+        // Prefer eSpeak's deterministic IPA over the model's guess; fall
+        // back to whatever the model produced for any locale eSpeak can't
+        // handle. seedWord is always the canonical English form, so this
+        // never needs to know which language the user actually typed in.
+        if (data.seedWord) data.phonetics = await withPhonemizedIpa(data.seedWord, data.phonetics);
+        return data;
+      }
       throw new Error('Model returned incomplete word data.');
     } catch (err) {
       lastError = err;
