@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
@@ -479,6 +480,26 @@ export function SettingsPage() {
           Reset learning progress
           <span className="block text-xs font-normal text-accent-red/60 mt-0.5">Clears all known words and skipped words locally.</span>
         </button>
+      </section>
+
+      {/* Developer */}
+      <section className="mb-8">
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Developer</h2>
+        <Link
+          to="/debug/network"
+          className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all"
+        >
+          <div className="flex-1 text-left">
+            <span className="text-sm font-medium text-text-primary block">Network debug</span>
+            <span className="text-xs text-text-muted mt-0.5 block">
+              Log API calls on this device to see what's failing — useful for reporting a "loads
+              wrong on my phone" bug.
+            </span>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted shrink-0">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </Link>
       </section>
 
       <p className="text-xs text-text-muted/50 text-center mt-8">v{__APP_VERSION__}</p>

@@ -27,6 +27,7 @@ import { ProComparisonPage } from './components/ProComparisonPage';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
 import { AiModelBenchmarkPage } from './components/AiModelBenchmarkPage';
+import { NetworkDebugPage } from './components/NetworkDebugPage';
 
 export default function App() {
   // Desktop's rail pushes content over, so <main> has to track its width.
@@ -69,6 +70,8 @@ export default function App() {
               <Route path="/pro" element={<ProComparisonPage />} />
               {/* Dev-only TTS benchmark — deliberately not linked from the Rail. */}
               <Route path="/ai-model-benchmark" element={<AiModelBenchmarkPage />} />
+              {/* Linked from Settings → Developer, not the Rail. */}
+              <Route path="/debug/network" element={<NetworkDebugPage />} />
             </Routes>
           </main>
         </div>

@@ -22,6 +22,7 @@
 // a fact about that call, not about the client.
 
 import { supabase } from './supabase';
+import { useNetworkDebug, truncateBody } from './networkDebug';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -83,9 +84,40 @@ function signalFor(opts: Options): AbortSignal {
 }
 
 async function send<T>(method: Method, path: string, body: unknown, opts: Options): Promise<T> {
-  if (!supabase) throw new ApiError(0, 'Not connected.');
+  const startedAt = Date.now();
+  // Every exit from this function — success or throw — reports through here,
+  // so the debug log (src/lib/networkDebug.ts) sees exactly what a caller saw,
+  // including the failures `quiet: true` swallows before they reach the UI.
+  // Deliberately never passed headers: `record` truncates bodies, not the
+  // Authorization bearer token, which never gets near the log at all.
+  const record = (
+    status: number,
+    ok: boolean,
+    fields: { error?: string; authenticated?: boolean; responseBody?: unknown } = {},
+  ) =>
+    useNetworkDebug.getState().record({
+      method,
+      path,
+      status,
+      ok,
+      durationMs: Date.now() - startedAt,
+      startedAt: new Date(startedAt).toISOString(),
+      error: fields.error,
+      authenticated: fields.authenticated ?? false,
+      requestBody: truncateBody(body),
+      responseBody: truncateBody(fields.responseBody),
+    });
+
+  if (!supabase) {
+    record(0, false, { error: 'Not connected.' });
+    throw new ApiError(0, 'Not connected.');
+  }
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session && !opts.allowAnon) throw new ApiError(401, 'Please sign in.');
+  const authenticated = Boolean(session);
+  if (!session && !opts.allowAnon) {
+    record(401, false, { error: 'Please sign in.', authenticated });
+    throw new ApiError(401, 'Please sign in.');
+  }
 
   let response: Response;
   try {
@@ -101,8 +133,10 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: signalFor(opts),
     });
-  } catch {
+  } catch (err) {
     // Offline, DNS, CORS, timeout — nothing came back to read a status from.
+    const detail = err instanceof Error && err.name === 'TimeoutError' ? 'Timed out.' : "Couldn't reach the server.";
+    record(0, false, { error: detail, authenticated });
     throw new ApiError(0, "Couldn't reach the server.");
   }
 
@@ -111,8 +145,10 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const message = (data as { error?: string } | null)?.error;
+    record(response.status, false, { error: message || `Request failed (${response.status}).`, authenticated, responseBody: data });
     throw new ApiError(response.status, message || `Request failed (${response.status}).`);
   }
+  record(response.status, true, { authenticated, responseBody: data });
   return data as T;
 }
 
