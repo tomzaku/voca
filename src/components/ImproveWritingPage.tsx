@@ -10,7 +10,8 @@ import { useWritingPrefs, WRITING_CORRECTION_CATEGORIES, type WritingCorrectionC
 import { callAiAction } from '../lib/aiProviders';
 import { ApiError } from '../lib/api';
 import { CATEGORY_CONFIG } from '../lib/learningCategories';
-import { parseImproveWritingResult, type ImproveWritingResult } from '../lib/improveWritingResult';
+import { parseImproveWritingResult, type ImproveWritingResult, type WritingCorrection } from '../lib/improveWritingResult';
+import { diffOption } from '../lib/textDiff';
 
 const MAX_TEXT = 6000;
 const MAX_NAME = 60;
@@ -33,6 +34,93 @@ const SECTION_TITLES: Record<WritingCorrectionCategory, string> = {
   vocabulary: 'Improve Word Choice',
   rephrase: 'Rephrase',
 };
+
+/** An option's revised text, with a word-level diff against the original
+ *  highlighted inline — green for what was added, struck-through red for
+ *  what was removed — so the change is visible in place, not just described
+ *  underneath. */
+function DiffText({ original, revised }: { original: string; revised: string }) {
+  const segments = useMemo(() => diffOption(original, revised), [original, revised]);
+  return (
+    <p className="text-base text-text-secondary leading-relaxed whitespace-pre-wrap">
+      {segments.map((seg, i) => {
+        if (seg.removed) {
+          return (
+            <span key={i} className="text-accent-red/70 line-through decoration-2">
+              {seg.value}
+            </span>
+          );
+        }
+        if (seg.added) {
+          return (
+            <span key={i} className="bg-accent-green/20 text-accent-green rounded px-0.5">
+              {seg.value}
+            </span>
+          );
+        }
+        return <span key={i}>{seg.value}</span>;
+      })}
+    </p>
+  );
+}
+
+/** The "What changed" breakdown for one option — grouped by category, scoped
+ *  to that option's own corrections (each option is its own revision, so its
+ *  fixes aren't necessarily the same ones the other option made). */
+function WhatChanged({ corrections, visibleCategories, sortChanges, sourceText }: {
+  corrections: WritingCorrection[];
+  visibleCategories: Record<WritingCorrectionCategory, boolean>;
+  sortChanges: boolean;
+  sourceText: string;
+}) {
+  const cats = WRITING_CORRECTION_CATEGORIES.filter(
+    (cat) => visibleCategories[cat] && corrections.some((c) => c.category === cat),
+  );
+  if (cats.length === 0) return null;
+  return (
+    <div className="space-y-2.5 pt-2.5 border-t border-border">
+      <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider">What changed</p>
+      {cats.map((cat) => {
+        const config = CATEGORY_CONFIG[cat];
+        const items = corrections.filter((c) => c.category === cat);
+        const ordered = sortChanges ? sortByPosition(items, sourceText) : items;
+        return (
+          <div key={cat}>
+            <p className={`text-xs font-bold mb-1.5 flex items-center gap-1.5 ${config.color}`}>
+              {config.icon} {SECTION_TITLES[cat]}
+            </p>
+            <div className="space-y-2">
+              {ordered.map((item, i) => (
+                <div key={i} className={`rounded-lg border ${config.border} ${config.bg} p-3`}>
+                  {item.original && (
+                    <p className="text-sm text-text-muted line-through mb-0.5">{item.original}</p>
+                  )}
+                  <p className="text-sm text-text-primary font-medium mb-0.5">{item.corrected}</p>
+                  {item.explanation && <p className="text-xs text-text-secondary">{item.explanation}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Corrections ordered by where they first appear in the original text —
+ *  "Sort answer" in the settings popover. A fix the model returned that
+ *  can't be found verbatim (paraphrased "original") sorts to the end rather
+ *  than dropping out. */
+function sortByPosition(corrections: WritingCorrection[], sourceText: string): WritingCorrection[] {
+  return [...corrections].sort((a, b) => {
+    const ai = a.original ? sourceText.indexOf(a.original) : -1;
+    const bi = b.original ? sourceText.indexOf(b.original) : -1;
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+}
 
 /** Inline create/edit form for a custom template — `editingId` set = editing. */
 function TemplateForm({ editingId, initialName = '', initialInstructions = '', initialDescription = '', onDone }: {
@@ -150,11 +238,19 @@ export function ImproveWritingPage() {
 
   const [text, setText] = useState('');
   const [result, setResult] = useState<ImproveWritingResult | null>(null);
+  // The text a result belongs to — captured at submit time, since `text`
+  // itself keeps changing if the learner edits the textarea afterward, and
+  // the diff highlight has to stay pinned to what was actually revised.
+  const [resultSourceText, setResultSourceText] = useState('');
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const visibleCategories = useWritingPrefs((s) => s.visibleCategories);
   const toggleCategory = useWritingPrefs((s) => s.toggleCategory);
+  const hideOption2 = useWritingPrefs((s) => s.hideOption2);
+  const setHideOption2 = useWritingPrefs((s) => s.setHideOption2);
+  const sortChanges = useWritingPrefs((s) => s.sortChanges);
+  const setSortChanges = useWritingPrefs((s) => s.setSortChanges);
   const [prefsOpen, setPrefsOpen] = useState(false);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -243,14 +339,16 @@ export function ImproveWritingPage() {
     abortRef.current = controller;
     setLoading(true);
     setResult(null);
+    const submittedText = text.trim();
     try {
       const categories = WRITING_CORRECTION_CATEGORIES.filter((c) => visibleCategories[c]);
       const text_ = await callAiAction(
         'improve_writing',
-        { instructions: selected.instructions, text: text.trim(), categories },
+        { instructions: selected.instructions, text: submittedText, categories },
         { signal: controller.signal },
       );
       setResult(parseImproveWritingResult(text_));
+      setResultSourceText(submittedText);
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
       else if ((err as Error).name !== 'AbortError') toast.error('Could not reach the AI. Try again.');
@@ -429,8 +527,8 @@ export function ImproveWritingPage() {
                 </button>
                 <button
                   onClick={() => setPrefsOpen((o) => !o)}
-                  title="Choose which correction categories to include"
-                  aria-label="Correction categories to show"
+                  title="Display options"
+                  aria-label="Display options"
                   className="btn-3d px-3 py-2.5 bg-accent-cyan text-bg-primary disabled:opacity-60 flex items-center justify-center"
                 >
                   <Icon icon="lucide:sliders-horizontal" />
@@ -439,7 +537,27 @@ export function ImproveWritingPage() {
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setPrefsOpen(false)} />
                     <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 rounded-xl border-2 border-border bg-bg-card shadow-xl p-2 space-y-0.5 animate-fade-in">
-                      <p className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">Corrections to include</p>
+                      <p className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">Display</p>
+                      <label className="flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-bold text-text-secondary hover:bg-bg-tertiary cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hideOption2}
+                          onChange={(e) => setHideOption2(e.target.checked)}
+                          className="accent-accent-cyan"
+                        />
+                        Don't show Option 2
+                      </label>
+                      <label className="flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-bold text-text-secondary hover:bg-bg-tertiary cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sortChanges}
+                          onChange={(e) => setSortChanges(e.target.checked)}
+                          className="accent-accent-cyan"
+                        />
+                        Sort changes by position
+                      </label>
+
+                      <p className="px-2 py-1 mt-1 text-[10px] font-bold text-text-muted uppercase tracking-wider border-t border-border pt-2">Corrections to include</p>
                       {WRITING_CORRECTION_CATEGORIES.map((cat) => {
                         const config = CATEGORY_CONFIG[cat];
                         return (
@@ -470,56 +588,45 @@ export function ImproveWritingPage() {
       {result && (
         <section className="space-y-4 animate-fade-in">
           <div>
-            <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Revised — pick one</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">
+                {hideOption2 || result.options.length < 2 ? 'Revised' : 'Revised — pick one'}
+              </h2>
+              <span className="flex items-center gap-3 text-[10px] font-bold text-text-muted">
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-accent-green/20 border border-accent-green/40" /> Added
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-accent-red/15 border border-accent-red/40" /> Removed
+                </span>
+              </span>
+            </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {result.options.map((option, i) => (
+            <div className={`grid gap-3 ${!hideOption2 && result.options.length > 1 ? 'sm:grid-cols-2' : ''}`}>
+              {(hideOption2 ? result.options.slice(0, 1) : result.options).map((option, i) => (
                 <div key={i} className="card-game border-accent-green p-4 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-text-muted uppercase tracking-wider">Option {i + 1}</span>
+                    <span className="text-xs font-bold text-text-muted uppercase tracking-wider">
+                      {hideOption2 || result.options.length < 2 ? 'Revised text' : `Option ${i + 1}`}
+                    </span>
                     <button
-                      onClick={() => handleCopyOption(option)}
+                      onClick={() => handleCopyOption(option.text)}
                       className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
                     >
                       <Icon icon="lucide:copy" /> Copy
                     </button>
                   </div>
-                  <p className="text-base text-text-secondary leading-relaxed whitespace-pre-wrap">{option}</p>
+                  <DiffText original={resultSourceText} revised={option.text} />
+                  <WhatChanged
+                    corrections={option.corrections}
+                    visibleCategories={visibleCategories}
+                    sortChanges={sortChanges}
+                    sourceText={resultSourceText}
+                  />
                 </div>
               ))}
             </div>
           </div>
-
-          {WRITING_CORRECTION_CATEGORIES.some(
-            (cat) => visibleCategories[cat] && result.corrections.some((c) => c.category === cat),
-          ) && (
-            <div className="space-y-3">
-              <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">What changed</h2>
-              {WRITING_CORRECTION_CATEGORIES.filter((cat) => visibleCategories[cat]).map((cat) => {
-                const items = result.corrections.filter((c) => c.category === cat);
-                if (items.length === 0) return null;
-                const config = CATEGORY_CONFIG[cat];
-                return (
-                  <div key={cat}>
-                    <p className={`text-xs font-bold mb-1.5 flex items-center gap-1.5 ${config.color}`}>
-                      {config.icon} {SECTION_TITLES[cat]}
-                    </p>
-                    <div className="space-y-2">
-                      {items.map((item, i) => (
-                        <div key={i} className={`rounded-lg border ${config.border} ${config.bg} p-3`}>
-                          {item.original && (
-                            <p className="text-sm text-text-muted line-through mb-0.5">{item.original}</p>
-                          )}
-                          <p className="text-sm text-text-primary font-medium mb-0.5">{item.corrected}</p>
-                          {item.explanation && <p className="text-xs text-text-secondary">{item.explanation}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </section>
       )}
     </div>

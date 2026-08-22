@@ -10,8 +10,10 @@
 //
 // `categories` (subset of grammar/vocabulary/rephrase, default: all) trims
 // which correction categories the model is asked for. `text` in the response
-// is a JSON string: { options: string[2], corrections: WritingCorrection[] },
-// parsed client-side by src/lib/improveWritingResult.ts.
+// is a JSON string: { options: [{ text, corrections: WritingCorrection[] }, …] }
+// — corrections are scoped to each option, not shared, since the two options
+// are meaningfully different revisions and don't necessarily change the same
+// things. Parsed client-side by src/lib/improveWritingResult.ts.
 //
 // Deploy: `supabase functions deploy ai-improve-writing`
 
@@ -47,21 +49,29 @@ function build(p: Record<string, unknown>): BuiltRequest {
   // category the user has hidden; it isn't a second gate — the client still
   // filters `corrections` before rendering, in case the model includes one anyway.
   const correctionsSpec = categories.length > 0
-    ? `"corrections" lists each substantive fix worth learning from, but ONLY in these categories — ${categories.map((c) => `"${c}"`).join(', ')}: ${categories.map((c) => CORRECTION_CATEGORY_PROMPT[c]).join(' ')} Do not include any category other than ${categories.map((c) => `"${c}"`).join(', ')}. Skip purely mechanical fixes (capitalization, stray spacing, a missing period) — nothing to learn from there. Keep "original" and "corrected" to the specific phrase that changed, not the whole sentence, and "explanation" to one short line. Return an empty "corrections" array if there's genuinely nothing worth flagging, and don't list the same fix twice.`
-    : `The caller only wants the two revised options, not a corrections breakdown — always return "corrections" as an empty array.`;
+    ? `Each option's "corrections" lists each substantive fix worth learning from IN THAT OPTION SPECIFICALLY — compare it against the ORIGINAL text, not against the other option — but ONLY in these categories — ${categories.map((c) => `"${c}"`).join(', ')}: ${categories.map((c) => CORRECTION_CATEGORY_PROMPT[c]).join(' ')} Do not include any category other than ${categories.map((c) => `"${c}"`).join(', ')}. Skip purely mechanical fixes (capitalization, stray spacing, a missing period) — nothing to learn from there. Keep "original" and "corrected" to the specific phrase that changed, not the whole sentence, and "explanation" to one short line. Return an empty "corrections" array if that option genuinely has nothing worth flagging, and don't list the same fix twice within one option.`
+    : `The caller only wants the two revised options, not a corrections breakdown — always return each option's "corrections" as an empty array.`;
 
   return {
     system: `You are a professional writing assistant embedded in a language-learning app. Follow the user's instructions exactly when revising their text.
 
 Return ONLY valid JSON (no markdown fences, no commentary) with this exact shape:
 {
-  "options": ["first full revised version of the text", "second full revised version of the text"],
-  "corrections": [
-    { "category": "grammar" | "vocabulary" | "rephrase", "original": "the original wording", "corrected": "the fixed wording", "explanation": "one short sentence: what was wrong and why the fix is correct" }
+  "options": [
+    {
+      "text": "first full revised version of the text",
+      "corrections": [
+        { "category": "grammar" | "vocabulary" | "rephrase", "original": "the original wording", "corrected": "the fixed wording", "explanation": "one short sentence: what was wrong and why the fix is correct" }
+      ]
+    },
+    {
+      "text": "second full revised version of the text",
+      "corrections": [ /* same shape, describing only what THIS option changed */ ]
+    }
   ]
 }
 
-"options" must contain exactly two complete, independently usable revisions of the whole text, both following the instructions above — make them meaningfully different from each other in phrasing or structure, not near-duplicates.
+"options" must contain exactly two complete, independently usable revisions of the whole text, both following the instructions above — make them meaningfully different from each other in phrasing or structure, not near-duplicates. Since the two options genuinely differ, their "corrections" lists will usually differ too — never copy one option's corrections onto the other; each must reflect only the edits actually present in its own "text".
 
 ${correctionsSpec}`,
     messages: [{
