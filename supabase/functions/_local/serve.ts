@@ -14,7 +14,6 @@
 //
 // or `npm run server:dev` from the repo root, which wraps the same command.
 
-import aiCloze from '../ai-cloze/index.ts';
 import aiIeltsWriting from '../ai-ielts-writing/index.ts';
 import aiImproveWriting from '../ai-improve-writing/index.ts';
 import aiMindmap from '../ai-mindmap/index.ts';
@@ -35,6 +34,7 @@ import push from '../push/index.ts';
 import quizzes from '../quizzes/index.ts';
 import settings from '../settings/index.ts';
 import speaking from '../speaking/index.ts';
+import storyGaps from '../story-gaps/index.ts';
 import streak from '../streak/index.ts';
 import teams from '../teams/index.ts';
 import word from '../word/index.ts';
@@ -46,7 +46,6 @@ type Handler = (req: Request) => Response | Promise<Response>;
 // Same names as the deployed routes (supabase/functions/<name>), so the exact
 // same paths that hit /functions/v1/<name>/... in prod work here unprefixed.
 const RESOURCES: Record<string, Handler> = {
-  'ai-cloze': aiCloze,
   'ai-ielts-writing': aiIeltsWriting,
   'ai-improve-writing': aiImproveWriting,
   'ai-mindmap': aiMindmap,
@@ -67,6 +66,7 @@ const RESOURCES: Record<string, Handler> = {
   quizzes,
   settings,
   speaking,
+  'story-gaps': storyGaps,
   streak,
   teams,
   word,

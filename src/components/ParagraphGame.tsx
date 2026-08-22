@@ -1,12 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { generateClozeParagraph, type ClozeParagraph } from '../lib/wordService';
+import { parseCloze, type ClozeParagraph } from '../lib/wordService';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
+import { getLearnLanguage } from '../lib/languages';
+import { agoLabel } from '../lib/progress';
+import { createStoryGap, deleteStoryGap, fetchStoryGaps, type StoryGap } from '../lib/storyGapsApi';
+import { useGameWordPool } from '../hooks/useGameWordPool';
+import { FilterChips } from './FilterChips';
 import toast from 'react-hot-toast';
 
 interface Props {
-  bookmarks: string[];
+  /** Omit to let the player pick their own list (Recent/Saved/Struggling/…)
+   *  right here — History's inline row still passes its own filtered words. */
+  bookmarks?: string[];
   onBack: () => void;
 }
 
@@ -55,12 +62,34 @@ function Confetti() {
 }
 
 export function ParagraphGame({ bookmarks, onBack }: Props) {
+  const explicitWords = bookmarks !== undefined;
+  const pool = useGameWordPool('recent', !explicitWords);
+  const words = explicitWords ? bookmarks! : pool.words;
+
   const [phase, setPhase] = useState<Phase>('select');
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(shuffle(bookmarks).slice(0, Math.min(5, bookmarks.length))),
+    () => new Set(shuffle(words).slice(0, Math.min(5, words.length))),
   );
+  // With no explicit list, the pool comes from a filter the player can change
+  // right here — re-sample the default selection whenever it does. Content-
+  // keyed (not the array reference) so History's own re-renders, which hand
+  // down a freshly-built array every time, don't reset a mid-pick selection.
+  const wordsKey = words.join('|');
+  useEffect(() => {
+    if (explicitWords) return;
+    setSelected(new Set(shuffle(words).slice(0, Math.min(5, words.length))));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wordsKey, explicitWords]);
   const [cloze, setCloze] = useState<ClozeParagraph | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+
+  // Past generated stories — replaying one costs nothing (no AI call), only
+  // "Generate story" below does.
+  const [history, setHistory] = useState<StoryGap[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void fetchStoryGaps().then((list) => { if (!cancelled) setHistory(list); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Per-gap placed answer (null = empty). Blanks are keyed by their order.
   const [placed, setPlaced] = useState<(string | null)[]>([]);
@@ -101,18 +130,31 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
   const start = async () => {
     if (selected.size < 2) return;
     setPhase('loading');
-    abortRef.current?.abort();
-    abortRef.current = new AbortController();
     try {
-      const result = await generateClozeParagraph([...selected], abortRef.current.signal);
-      setCloze(result);
-      setPlaced(new Array(result.answers.length).fill(null));
-      setPhase('playing');
+      const saved = await createStoryGap([...selected], getLearnLanguage());
+      setHistory((h) => [saved, ...(h ?? [])]);
+      openStory(saved);
     } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
       const msg = (err as Error).message || '';
-      toast.error(msg.includes('API key') ? msg : 'Could not generate a paragraph. Try again.');
+      toast.error(msg || 'Could not generate a story. Try again.');
       setPhase('select');
+    }
+  };
+
+  /** Load a paragraph (fresh or previously saved) into the playing phase — no AI call. */
+  const openStory = (story: StoryGap) => {
+    const result = parseCloze(story.paragraph);
+    setCloze(result);
+    setPlaced(new Array(result.answers.length).fill(null));
+    setPhase('playing');
+  };
+
+  const removeSaved = async (id: string) => {
+    setHistory((h) => (h ?? []).filter((s) => s.id !== id));
+    try {
+      await deleteStoryGap(id);
+    } catch {
+      toast.error('Could not delete — try again.');
     }
   };
 
@@ -192,15 +234,68 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         {header}
+
+        {/* Past stories — replaying costs nothing, only "Generate story" below does. */}
+        {history === null ? (
+          <div className="py-6 flex items-center justify-center gap-2 text-sm text-text-muted">
+            <div className="w-4 h-4 rounded-full border-2 border-accent-purple/30 border-t-accent-purple animate-spin" />
+            Loading your stories…
+          </div>
+        ) : history.length > 0 ? (
+          <div className="space-y-2 mb-6">
+            <p className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wide mb-2">
+              Your stories
+            </p>
+            {history.map((s) => (
+              <div
+                key={s.id}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-[3px] border-border bg-bg-card hover:border-accent-purple/40 transition-colors"
+              >
+                <button onClick={() => openStory(s)} className="flex-1 min-w-0 text-left flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-lg bg-accent-purple/10 text-accent-purple flex items-center justify-center shrink-0">
+                    <Icon icon="lucide:book-open" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-text-primary truncate">
+                      {s.words.slice(0, 4).join(', ')}{s.words.length > 4 ? `, +${s.words.length - 4} more` : ''}
+                    </span>
+                    <span className="block text-[11px] text-text-muted mt-0.5">{agoLabel(s.createdAt)}</span>
+                  </span>
+                </button>
+                <button
+                  onClick={() => removeSaved(s.id)}
+                  title="Delete this story"
+                  className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors"
+                >
+                  <Icon icon="lucide:trash-2" className="text-sm" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         <div className="card-game border-accent-purple p-5 mb-5">
           <p className="text-sm font-bold text-text-secondary">
-            Pick <span className="text-accent-purple">2–{MAX_WORDS}</span> saved words. We'll write a short story
+            Pick <span className="text-accent-purple">2–{MAX_WORDS}</span> words. We'll write a short story
             using them, then you drag each word into its gap.
           </p>
         </div>
 
+        {/* No explicit list from the caller — pick which words this round draws from. */}
+        {!explicitWords && (
+          <div className="mb-5">
+            <FilterChips checked={pool.checked} counts={pool.counts} onToggle={pool.toggleFilter} />
+          </div>
+        )}
+
+        {!explicitWords && pool.initialLoading ? (
+          <div className="py-6 flex items-center justify-center gap-2 text-sm text-text-muted mb-6">
+            <div className="w-4 h-4 rounded-full border-2 border-accent-purple/30 border-t-accent-purple animate-spin" />
+            Loading words…
+          </div>
+        ) : (
         <div className="flex flex-wrap gap-2 mb-6">
-          {bookmarks.map((word) => {
+          {words.map((word) => {
             const on = selected.has(word);
             return (
               <button
@@ -218,6 +313,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
             );
           })}
         </div>
+        )}
 
         <button
           onClick={start}

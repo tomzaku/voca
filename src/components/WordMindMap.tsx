@@ -58,6 +58,8 @@ import { getMotherLanguage } from '../lib/languages';
 import { downloadBlob, mindMapToPngBlob } from '../lib/mapImage';
 import { type MindMapNode, type SavedMindmap, fetchMindmap, listMindmaps, saveMindmap } from '../lib/mindmapApi';
 import { isTtsPlaying, speakText, stopSpeaking } from '../lib/tts';
+import { useGameWordPool } from '../hooks/useGameWordPool';
+import { FilterChips } from './FilterChips';
 
 function timeAgo(date: string): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -1274,12 +1276,34 @@ function RadialMap({
   );
 }
 
-export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => void }) {
+export function WordMindMap({
+  words: explicitWords,
+  onBack,
+}: {
+  /** Omit to let the player pick their own list (Recent/Saved/Struggling/…)
+   *  right here — History's inline row still passes its own filtered words. */
+  words?: string[];
+  onBack: () => void;
+}) {
   const navigate = useNavigate();
+  const explicit = explicitWords !== undefined;
+  const pool = useGameWordPool('recent', !explicit);
+  const words = explicit ? explicitWords! : pool.words;
+
   // Picker phase: `chosen` is null until the user confirms which words go on
   // the map — nothing is generated (or spent) before that.
   const [chosen, setChosen] = useState<string[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(words.slice(0, MAX_WORDS)));
+  // With no explicit list, the pool comes from a filter the player can change
+  // right here — re-sample the preselection whenever it does. Content-keyed
+  // (not the array reference) so a caller re-render can't reset a mid-pick
+  // selection under an explicit list.
+  const wordsKey = words.join('|');
+  useEffect(() => {
+    if (explicit) return;
+    setPicked(new Set(words.slice(0, MAX_WORDS)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wordsKey, explicit]);
   const [tree, setTree] = useState<MindMapNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1610,9 +1634,16 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           Pick words for your mind map
         </h1>
         <p className="text-sm text-text-muted mb-5">
-          Choose 2–{MAX_WORDS} saved words to organize into themes.
-          {overflow && ` You have ${words.length} saved words — the first ${MAX_WORDS} are pre-selected.`}
+          Choose 2–{MAX_WORDS} words to organize into themes.
+          {overflow && ` You have ${words.length} matching words — the first ${MAX_WORDS} are pre-selected.`}
         </p>
+
+        {/* No explicit list from the caller — pick which words this map draws from. */}
+        {!explicit && (
+          <div className="mb-6">
+            <FilterChips checked={pool.checked} counts={pool.counts} onToggle={pool.toggleFilter} />
+          </div>
+        )}
 
         {savedMaps.length > 0 && (
           <div className="mb-6">
@@ -1639,6 +1670,13 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
           </div>
         )}
 
+        {!explicit && pool.initialLoading ? (
+          <div className="py-6 flex items-center justify-center gap-2 text-sm text-text-muted mb-6">
+            <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
+            Loading words…
+          </div>
+        ) : (
+        <>
         <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => setPicked(new Set(words.slice(0, MAX_WORDS)))}
@@ -1675,6 +1713,8 @@ export function WordMindMap({ words, onBack }: { words: string[]; onBack: () => 
             );
           })}
         </div>
+        </>
+        )}
 
         <button
           onClick={() => setChosen([...picked])}

@@ -6,6 +6,7 @@ import { Navbar } from './components/Navbar';
 import { Rail } from './components/Rail';
 import { FlashCard } from './components/FlashCard';
 import { HistoryPage } from './components/HistoryPage';
+import { ReviewPage } from './components/ReviewPage';
 import { SettingsPage } from './components/SettingsPage';
 import { LoginPage } from './components/LoginPage';
 import { ProfilePage } from './components/ProfilePage';
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="/speaking" element={<EnglishSpeakingPage />} />
               <Route path="/listening" element={<EnglishListeningPage />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/review" element={<ReviewPage />} />
               {/* Old path — keep existing links working. */}
               <Route path="/bookmarks" element={<Navigate to="/history" replace />} />
               <Route path="/companion" element={<CompanionPage />} />

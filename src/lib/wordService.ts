@@ -1,4 +1,3 @@
-import { callAiAction } from './aiProviders';
 import { fetchWordData } from './wordApi';
 import { getLearnLanguage, getMotherLanguage } from './languages';
 import { useVocabularyStore } from '../hooks/useVocabulary';
@@ -426,40 +425,6 @@ export interface ClozeParagraph {
   segments: ClozeSegment[];
   /** The ordered correct answers, one per blank. */
   answers: string[];
-}
-
-/**
- * Generate a short paragraph that naturally uses each of `words` exactly once,
- * with every target word wrapped in [[ ]] so we can turn them into gaps. In a
- * non-English learn language the AI translates each word and wraps the
- * translation, so the draggable tiles match the gaps regardless of language.
- */
-export async function generateClozeParagraph(
-  words: string[],
-  signal?: AbortSignal,
-): Promise<ClozeParagraph> {
-  const learnLang = getLearnLanguage();
-
-  const MAX_ATTEMPTS = 4;
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const raw = await callAiAction('cloze', { words, learnLang }, { signal });
-      const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-      const { paragraph } = JSON.parse(jsonText) as { paragraph: string };
-      const parsed = parseCloze(paragraph);
-      // Need at least two gaps for a meaningful drag-and-drop round.
-      if (parsed.answers.length >= 2) return parsed;
-      throw new Error('Paragraph had too few gaps.');
-    } catch (err) {
-      lastError = err;
-      if ((err as Error).name === 'AbortError') throw err;
-      if (attempt < MAX_ATTEMPTS) continue;
-    }
-  }
-
-  throw lastError;
 }
 
 /** Split a `[[ ]]`-annotated paragraph into ordered text / blank segments. */

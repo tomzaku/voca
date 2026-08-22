@@ -24,10 +24,14 @@ import {
 } from '../lib/speakingApi';
 import { ReadAloudVoice, PlaySequence } from './EnglishSpeakingPage';
 import { PeekText } from './PeekText';
+import { useGameWordPool } from '../hooks/useGameWordPool';
+import { FilterChips } from './FilterChips';
 
 interface Props {
-  /** The filtered word pool this view samples from — same pool Quiz uses. */
-  words: string[];
+  /** The filtered word pool this view samples from — same pool Quiz uses.
+   *  Omit to let the player pick their own list (Recent/Saved/Struggling/…)
+   *  right here — History's inline row still passes its own filtered words. */
+  words?: string[];
   onBack: () => void;
 }
 
@@ -76,7 +80,11 @@ function initialCount(poolSize: number): number {
   return Math.max(MIN_WORDS, Math.min(6, poolSize));
 }
 
-export function SpeakingPractice({ words, onBack }: Props) {
+export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
+  const explicit = explicitWords !== undefined;
+  const pool = useGameWordPool('recent', !explicit);
+  const words = explicit ? explicitWords! : pool.words;
+
   const [history, setHistory] = useState<SpeakingDialogue[] | null>(null);
   const [active, setActive] = useState<SpeakingDialogue | null>(null);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(
@@ -97,6 +105,18 @@ export function SpeakingPractice({ words, onBack }: Props) {
     const prog = progressLookup(useVocabularyStore.getState().progress);
     setPicked(new Set(sampleSmartWords(words, initialCount(words.length), prog)));
   };
+
+  // With no explicit list, the pool comes from a filter the player can change
+  // right here — re-sample the picked batch whenever it does. Content-keyed
+  // (not the array reference) so a caller re-render can't reset a mid-pick
+  // selection under an explicit list.
+  const wordsKey = words.join('|');
+  useEffect(() => {
+    if (explicit) return;
+    const prog = progressLookup(useVocabularyStore.getState().progress);
+    setPicked(new Set(sampleSmartWords(words, initialCount(words.length), prog)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wordsKey, explicit]);
 
   const toggleWord = (word: string) => {
     setPicked((prev) => {
@@ -264,6 +284,13 @@ export function SpeakingPractice({ words, onBack }: Props) {
 
       <div className="rounded-lg border border-border bg-bg-card p-5">
         <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">New conversation</p>
+
+        {/* No explicit list from the caller — pick which words this round draws from. */}
+        {!explicit && (
+          <div className="mb-4">
+            <FilterChips checked={pool.checked} counts={pool.counts} onToggle={pool.toggleFilter} />
+          </div>
+        )}
 
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs text-text-muted">

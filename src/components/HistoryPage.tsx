@@ -7,11 +7,13 @@ import { useIsPro } from '../hooks/useProStatus';
 import { generateWordData } from '../lib/wordService';
 import { getRecentDailyWords } from '../lib/dailyWord';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
-import { whyLine, wordBucket, BUCKET_META, BUCKET_ORDER } from '../lib/progress';
+import { whyLine, wordBucket, BUCKET_META } from '../lib/progress';
+import { isFilter } from '../lib/progressApi';
 import { useProgressQuery, type Filter } from '../hooks/useProgressQuery';
 import { WORD_LIST } from '../lib/wordService';
 import type { VocabularyWord, WordProgress } from '../types';
 import toast from 'react-hot-toast';
+import { FilterChips } from './FilterChips';
 import { QuizSetup } from './QuizSetup';
 import { ParagraphGame } from './ParagraphGame';
 import { ReviewPanel } from './ReviewPanel';
@@ -143,20 +145,6 @@ function DailyWords() {
     </section>
   );
 }
-
-/** A filter chip: the two "how you got here" lists, plus one per learning
- *  bucket. Bucket ids double as the `?tab=` values, so a link like
- *  /history?tab=struggling lands on exactly that filter — and as the server's
- *  `bucket` column, so the same word is the whole query. */
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'recent', label: 'Recent' },
-  { id: 'saved', label: 'Saved' },
-  // Learning state, in progression order — the same names and colours the
-  // flash card and the dashboard bar use.
-  ...BUCKET_ORDER.map((b) => ({ id: BUCKET_META[b].tab, label: BUCKET_META[b].label })),
-];
-
-const isFilter = (s: string): s is Filter => FILTERS.some((f) => f.id === s);
 
 /** The status pill on each row: which learning bucket the word is in, so with
  *  mixed filters checked you can still tell what you're looking at. */
@@ -336,36 +324,8 @@ export function HistoryPage() {
         <div className="min-w-0">
 
       {/* ── Filters — check any mix of lists; the words (and games) follow ── */}
-      <div className="flex flex-wrap items-center gap-2 mb-6">
-        {FILTERS.map((f) => {
-          const count = counts[f.id];
-          const on = checked.has(f.id);
-          // Bucket filters carry their bucket's icon + colour, matching the
-          // status tag on the flash card that links here.
-          const meta = BUCKET_ORDER.map((b) => BUCKET_META[b]).find((m) => m.tab === f.id);
-          return (
-            <button
-              key={f.id}
-              onClick={() => {
-                toggleFilter(f.id);
-                setExpanded(null);
-              }}
-              title={meta?.hint}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-extrabold transition-all ${
-                on
-                  ? 'bg-accent-cyan/10 border-accent-cyan text-accent-cyan'
-                  : 'bg-bg-card border-border text-text-muted hover:border-border-light hover:text-text-primary'
-              }`}
-            >
-              <Icon icon={on ? 'solar:check-circle-bold' : 'lucide:circle'} className={on ? 'text-accent-cyan' : 'text-text-muted'} />
-              {meta && <Icon icon={meta.icon} className={meta.text} />}
-              {f.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${on ? 'bg-accent-cyan/20 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
+      <div className="mb-6">
+        <FilterChips checked={checked} counts={counts} onToggle={(id) => { toggleFilter(id); setExpanded(null); }} />
       </div>
 
       {initialLoading ? (

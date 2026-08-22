@@ -12,7 +12,9 @@ import { progressLookup } from '../lib/progress';
 import { sampleSmartWords } from '../lib/smartSample';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
+import { useGameWordPool } from '../hooks/useGameWordPool';
 import { QuizRunner } from './QuizRunner';
+import { FilterChips } from './FilterChips';
 
 const MIN_WORDS = MIN_QUIZ_WORDS;
 
@@ -36,8 +38,10 @@ function fmtTime(sec: number): string {
 }
 
 interface Props {
-  /** The word pool this quiz draws from (bookmarks, a collection, …). */
-  words: string[];
+  /** The word pool this quiz draws from (bookmarks, a collection, …). Omit to
+   *  let the player pick their own list (Recent/Saved/Struggling/…) right
+   *  here — History's inline row still passes its own filtered words. */
+  words?: string[];
   onBack: () => void;
   /** Feed live practice answers into the learner's SRS (collection practice). */
   recordProgress?: boolean;
@@ -47,21 +51,43 @@ interface Props {
   selectAll?: boolean;
 }
 
-export function QuizSetup({ words, onBack, recordProgress = false, selectAll = false }: Props) {
+/** Smart-sampled starting batch — shared between the initial pick and the
+ *  reset that runs when a filter-picked pool changes underneath it. */
+function initialBatch(words: string[], selectAll: boolean): string[] {
+  return selectAll
+    ? words.slice(0, MAX_PRESELECT)
+    : sampleSmartWords(words, smartCount(words.length), progressLookup(useVocabularyStore.getState().progress));
+}
+
+export function QuizSetup({ words: explicitWords, onBack, recordProgress = false, selectAll = false }: Props) {
   const { user } = useAuth();
+  const explicit = explicitWords !== undefined;
+  const pool = useGameWordPool('recent', !explicit);
+  const words = explicit ? explicitWords! : pool.words;
 
   // ── Config (the settings) ──
   // Start with a smart batch selected (not the whole pool — a 900-word
   // collection should not default to a 900-question quiz).
-  const [chosen, setChosen] = useState<Set<string>>(() => new Set(
-    selectAll
-      ? words.slice(0, MAX_PRESELECT)
-      : sampleSmartWords(words, smartCount(words.length), progressLookup(useVocabularyStore.getState().progress)),
-  ));
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(initialBatch(words, selectAll)));
   const [qTypes, setQTypes] = useState<Set<QuestionType>>(() => new Set(QUESTION_TYPES));
   const [reveal, setReveal] = useState<RevealMode>('end');
   const [autoTime, setAutoTime] = useState(true);
   const [durationSec, setDurationSec] = useState(() => words.length * SECONDS_PER_WORD);
+  // Smart select's batch-size input — declared here (not beside `applySmart`
+  // below) so the pool-change reset effect can update it too.
+  const [smartN, setSmartN] = useState(() => smartCount(words.length));
+
+  // With no explicit list, the pool comes from a filter the player can change
+  // right here — re-sample the batch whenever it does. Content-keyed (not the
+  // array reference) so a caller re-render can't reset a mid-pick selection
+  // under an explicit list.
+  const wordsKey = words.join('|');
+  useEffect(() => {
+    if (explicit) return;
+    setChosen(new Set(initialBatch(words, selectAll)));
+    setSmartN(smartCount(words.length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wordsKey, explicit]);
 
   // ── Run state ──
   const [runConfig, setRunConfig] = useState<QuizConfig | null>(null);
@@ -83,7 +109,6 @@ export function QuizSetup({ words, onBack, recordProgress = false, selectAll = f
   // difficult and never-answered words, then due reviews. The input beside
   // the button sets the batch size and applies as you type (no submit needed
   // on mobile); the Smart button reshuffles.
-  const [smartN, setSmartN] = useState(() => smartCount(words.length));
   const applySmart = (nRaw: number) => {
     const n = Math.max(MIN_WORDS, Math.min(words.length, nRaw || smartCount(words.length)));
     if (n !== smartN) setSmartN(n); // reflect the clamp back into the input
@@ -160,7 +185,20 @@ export function QuizSetup({ words, onBack, recordProgress = false, selectAll = f
         </Link>
       </div>
 
-      {/* Desktop: settings rail on the left, word picker on the right. */}
+      {/* No explicit list from the caller — pick which words this quiz draws from. */}
+      {!explicit && (
+        <div className="mb-6">
+          <FilterChips checked={pool.checked} counts={pool.counts} onToggle={pool.toggleFilter} />
+        </div>
+      )}
+
+      {!explicit && pool.initialLoading ? (
+        <div className="py-16 flex items-center justify-center gap-2 text-sm text-text-muted">
+          <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
+          Loading words…
+        </div>
+      ) : (
+      /* Desktop: settings rail on the left, word picker on the right. */
       <div className="lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:gap-10 lg:items-start">
         <div>
           {/* ── Question types ── */}
@@ -366,6 +404,7 @@ export function QuizSetup({ words, onBack, recordProgress = false, selectAll = f
           )}
         </div>
       </div>
+      )}
 
       {shareOpen && (
         <ShareDialog config={buildConfig()} wordCount={chosen.size} signedIn={Boolean(user)} onClose={() => setShareOpen(false)} />

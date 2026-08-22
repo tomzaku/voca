@@ -20,10 +20,21 @@
 
 import { request } from './api';
 import type { ReviewEvent, WordProgress } from '../types';
-import type { BucketTab } from './progress';
+import { BUCKET_META, BUCKET_ORDER, type BucketTab } from './progress';
 
 /** A History filter: the two "how you got here" lists, plus the buckets. */
 export type Filter = 'recent' | 'saved' | BucketTab;
+
+/** Every filter, in display order — History's row and any other list/game
+ *  picker (Quiz, Story Gaps, …) share this one source so the options and
+ *  labels never drift apart. */
+export const FILTERS: { id: Filter; label: string }[] = [
+  { id: 'recent', label: 'Recent' },
+  { id: 'saved', label: 'Saved' },
+  ...BUCKET_ORDER.map((b) => ({ id: BUCKET_META[b].tab, label: BUCKET_META[b].label })),
+];
+
+export const isFilter = (s: string): s is Filter => FILTERS.some((f) => f.id === s);
 
 /**
  * One page of words, newest-first. No filters means everything, which is what

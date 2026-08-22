@@ -38,6 +38,7 @@ const NAV_GROUPS: NavGroup[] = [
     icon: 'lucide:book-open',
     items: [
       { to: '/', label: 'Flashcards', icon: 'lucide:sparkles' },
+      { to: '/review', label: 'Review', icon: 'lucide:swords' },
       { to: '/history', label: 'History', icon: 'lucide:history' },
       { to: '/collections', label: 'Collections', icon: 'lucide:library' },
     ],

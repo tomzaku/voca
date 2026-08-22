@@ -3,7 +3,7 @@
 // server-side. The browser only sends the signed-in user's Supabase JWT; no
 // AI key ever touches the client.
 //
-// One function per operation — POST /ai-cloze, /ai-tutor-reply, … — not one
+// One function per operation — POST /ai-mindmap, /ai-tutor-reply, … — not one
 // function dispatching on an action field. The client passes small params and
 // cannot supply the system prompt, the model, or a token budget: those live
 // in the edge function, so no route can be used as a generic LLM. See
@@ -18,7 +18,6 @@ import { request } from './api';
 const TIMEOUT_MS = 60_000;
 
 export type AiAction =
-  | 'cloze'
   | 'word_dialogues'
   | 'translate_word'
   | 'tutor_start'
@@ -29,7 +28,6 @@ export type AiAction =
 
 /** Action name → its standalone `ai-*` function. */
 const ACTION_PATHS: Record<AiAction, string> = {
-  cloze: '/ai-cloze',
   word_dialogues: '/ai-word-dialogues',
   translate_word: '/ai-translate-word',
   tutor_start: '/ai-tutor-start',
