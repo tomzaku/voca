@@ -112,44 +112,61 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
     record(0, false, { error: 'Not connected.' });
     throw new ApiError(0, 'Not connected.');
   }
-  const { data: { session } } = await supabase.auth.getSession();
-  const authenticated = Boolean(session);
-  if (!session && !opts.allowAnon) {
-    record(401, false, { error: 'Please sign in.', authenticated });
-    throw new ApiError(401, 'Please sign in.');
-  }
+  const client = supabase;
 
-  let response: Response;
-  try {
-    response = await fetch(url(path, opts.params), {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_ANON_KEY,
-        // Without a session the anon key stands alone, and the row-level
-        // policies see an anonymous caller.
-        Authorization: `Bearer ${session?.access_token ?? SUPABASE_ANON_KEY}`,
-      },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      signal: signalFor(opts),
-    });
-  } catch (err) {
-    // Offline, DNS, CORS, timeout — nothing came back to read a status from.
-    const detail = err instanceof Error && err.name === 'TimeoutError' ? 'Timed out.' : "Couldn't reach the server.";
-    record(0, false, { error: detail, authenticated });
-    throw new ApiError(0, "Couldn't reach the server.");
-  }
+  // One attempt at the call. `retried` guards the recursion below — a second
+  // 401 gets surfaced, not chased forever.
+  const attempt = async (retried: boolean): Promise<T> => {
+    const { data: { session } } = await client.auth.getSession();
+    const authenticated = Boolean(session);
+    if (!session && !opts.allowAnon) {
+      record(401, false, { error: 'Please sign in.', authenticated });
+      throw new ApiError(401, 'Please sign in.');
+    }
 
-  // Parsed before the status check: an error body carries the message worth
-  // showing, and a 204 or an HTML error page must not blow up here.
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message = (data as { error?: string } | null)?.error;
-    record(response.status, false, { error: message || `Request failed (${response.status}).`, authenticated, responseBody: data });
-    throw new ApiError(response.status, message || `Request failed (${response.status}).`);
-  }
-  record(response.status, true, { authenticated, responseBody: data });
-  return data as T;
+    let response: Response;
+    try {
+      response = await fetch(url(path, opts.params), {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          // Without a session the anon key stands alone, and the row-level
+          // policies see an anonymous caller.
+          Authorization: `Bearer ${session?.access_token ?? SUPABASE_ANON_KEY}`,
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: signalFor(opts),
+      });
+    } catch (err) {
+      // Offline, DNS, CORS, timeout — nothing came back to read a status from.
+      const detail = err instanceof Error && err.name === 'TimeoutError' ? 'Timed out.' : "Couldn't reach the server.";
+      record(0, false, { error: detail, authenticated });
+      throw new ApiError(0, "Couldn't reach the server.");
+    }
+
+    // Parsed before the status check: an error body carries the message worth
+    // showing, and a 204 or an HTML error page must not blow up here.
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      // A session was on hand but the server still says unauthenticated: the
+      // access token most likely expired while the app was backgrounded,
+      // faster than the SDK's own refresh timer noticed on resume — the mobile
+      // PWA cold-start case the network log surfaced. Refresh once and retry
+      // before treating it as a real sign-out.
+      if (response.status === 401 && session && !retried) {
+        const { data: refreshed } = await client.auth.refreshSession();
+        if (refreshed.session) return attempt(true);
+      }
+      const message = (data as { error?: string } | null)?.error;
+      record(response.status, false, { error: message || `Request failed (${response.status}).`, authenticated, responseBody: data });
+      throw new ApiError(response.status, message || `Request failed (${response.status}).`);
+    }
+    record(response.status, true, { authenticated, responseBody: data });
+    return data as T;
+  };
+
+  return attempt(false);
 }
 
 /** `quiet` turns any failure into a null, with one line in the console. */
