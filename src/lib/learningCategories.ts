@@ -1,6 +1,6 @@
 // The category taxonomy for an AI-flagged correction — shared by English
 // Practice's "learnings" drawer (see ../hooks/useLearnings.ts) and Improve
-// Writing's per-revision corrections list (see ./improveWritingResult.ts).
+// Writing's per-revision corrections list (see ./improveWritingApi.ts).
 // One place for the icon/color/label so the two features read as one system.
 
 export type LearningCategory = 'grammar' | 'vocabulary' | 'rephrase' | 'tip';

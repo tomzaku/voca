@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
@@ -7,10 +7,14 @@ import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { allTemplates, useWritingTemplates, type AnyWritingTemplate } from '../hooks/useWritingTemplates';
 import { useWritingPrefs, WRITING_CORRECTION_CATEGORIES, type WritingCorrectionCategory } from '../hooks/useWritingPrefs';
-import { callAiAction } from '../lib/aiProviders';
 import { ApiError } from '../lib/api';
 import { CATEGORY_CONFIG } from '../lib/learningCategories';
-import { parseImproveWritingResult, type ImproveWritingResult, type WritingCorrection } from '../lib/improveWritingResult';
+import {
+  improveWriting,
+  type ImproveWritingOption,
+  type ImproveWritingResult,
+  type WritingCorrection,
+} from '../lib/improveWritingApi';
 import { diffOption } from '../lib/textDiff';
 
 const MAX_TEXT = 6000;
@@ -35,27 +39,129 @@ const SECTION_TITLES: Record<WritingCorrectionCategory, string> = {
   rephrase: 'Rephrase',
 };
 
+/** A change span that explains itself on hover (desktop) or tap (touch,
+ *  where hover doesn't exist) — the "why" behind a change, without making
+ *  the paragraph read like a list of footnotes. */
+function ChangeSpan({ correction, children }: {
+  correction: WritingCorrection;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  // Closes on a tap/click anywhere else — the only way a touch device (no
+  // hover, no blur-on-mouseleave) can dismiss it.
+  useEffect(() => {
+    if (!open) return;
+    const onOutside = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onOutside);
+    return () => document.removeEventListener('pointerdown', onOutside);
+  }, [open]);
+
+  const config = CATEGORY_CONFIG[correction.category];
+
+  return (
+    <span ref={ref} className="relative inline-block">
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
+        className="cursor-help"
+      >
+        {children}
+      </span>
+      {open && (
+        <span className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-60 max-w-[75vw] rounded-lg border border-border bg-bg-primary shadow-xl p-2.5 text-xs normal-case not-italic animate-fade-in">
+          <span className={`flex items-center gap-1 font-bold mb-1 ${config.color}`}>
+            {config.icon} {config.label}
+          </span>
+          <span className="block text-text-secondary leading-snug">{correction.explanation || 'No explanation given.'}</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Where a correction's phrase actually sits in `haystack` — case- and
+ *  whitespace-insensitive (the model doesn't always echo punctuation/spacing
+ *  verbatim), but otherwise exact, so a short phrase isn't mistaken for an
+ *  unrelated bit of text that merely contains similar words. Null if it
+ *  isn't there at all (a paraphrased "original"/"corrected"). */
+function phraseRange(haystack: string, phrase: string): [start: number, end: number] | null {
+  const trimmed = phrase.trim();
+  if (!trimmed) return null;
+  const pattern = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  const m = new RegExp(pattern, 'i').exec(haystack);
+  return m ? [m.index, m.index + m[0].length] : null;
+}
+
+/** Which correction (if any) explains this diff segment — matched by where
+ *  each correction's phrase actually falls in the text, not by re-guessing
+ *  from the segment's own words. Anchoring to the correction's actual
+ *  position in `text`, and requiring this segment's own range to overlap it,
+ *  makes a wrong match structurally impossible; the worst case is "no
+ *  explanation found" for a paraphrased fix. */
+function matchCorrection(
+  segStart: number,
+  segEnd: number,
+  corrections: WritingCorrection[],
+  text: string,
+  field: 'original' | 'corrected',
+): WritingCorrection | null {
+  for (const c of corrections) {
+    const range = phraseRange(text, c[field]);
+    if (!range) continue;
+    const [start, end] = range;
+    if (segStart < end && segEnd > start) return c;
+  }
+  return null;
+}
+
 /** An option's revised text, with a word-level diff against the original
  *  highlighted inline — green for what was added, struck-through red for
  *  what was removed — so the change is visible in place, not just described
- *  underneath. */
-function DiffText({ original, revised }: { original: string; revised: string }) {
+ *  underneath. Where a highlighted word's position matches one of this
+ *  option's corrections, it's also hoverable/tappable for the "why". */
+function DiffText({ original, revised, corrections, visibleCategories }: {
+  original: string;
+  revised: string;
+  corrections: WritingCorrection[];
+  visibleCategories: Record<WritingCorrectionCategory, boolean>;
+}) {
   const segments = useMemo(() => diffOption(original, revised), [original, revised]);
+  // Only corrections the learner has chosen to see get a tooltip — hiding a
+  // category from "What changed" should hide its explanation here too.
+  const shown = useMemo(
+    () => corrections.filter((c) => visibleCategories[c.category as WritingCorrectionCategory]),
+    [corrections, visibleCategories],
+  );
   return (
     <p className="text-base text-text-secondary leading-relaxed whitespace-pre-wrap">
       {segments.map((seg, i) => {
         if (seg.removed) {
+          const correction = matchCorrection(seg.originalStart, seg.originalStart + seg.value.length, shown, original, 'original');
+          if (!correction) return <span key={i} className="text-accent-red/70 line-through decoration-2">{seg.value}</span>;
           return (
-            <span key={i} className="text-accent-red/70 line-through decoration-2">
-              {seg.value}
-            </span>
+            <ChangeSpan key={i} correction={correction}>
+              <span className="text-accent-red/70 line-through decoration-2">{seg.value}</span>
+            </ChangeSpan>
           );
         }
         if (seg.added) {
+          const correction = matchCorrection(seg.revisedStart, seg.revisedStart + seg.value.length, shown, revised, 'corrected');
+          if (!correction) return <span key={i} className="bg-accent-green/20 text-accent-green rounded px-0.5">{seg.value}</span>;
           return (
-            <span key={i} className="bg-accent-green/20 text-accent-green rounded px-0.5">
-              {seg.value}
-            </span>
+            <ChangeSpan key={i} correction={correction}>
+              <span className="bg-accent-green/20 text-accent-green rounded px-0.5 underline decoration-dotted decoration-2 underline-offset-2">
+                {seg.value}
+              </span>
+            </ChangeSpan>
           );
         }
         return <span key={i}>{seg.value}</span>;
@@ -103,6 +209,80 @@ function WhatChanged({ corrections, visibleCategories, sortChanges, sourceText }
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** One revised option — a switch between the plain result (clean, for
+ *  copying) and the diff view (highlighted against the original, with the
+ *  "What changed" breakdown), independent per card since a learner may want
+ *  Option 1 as a diff and Option 2 as plain text side by side. */
+function OptionCard({ option, label, copyLabel, sourceText, visibleCategories, sortChanges, onCopy }: {
+  option: ImproveWritingOption;
+  label: string;
+  copyLabel: string;
+  sourceText: string;
+  visibleCategories: Record<WritingCorrectionCategory, boolean>;
+  sortChanges: boolean;
+  onCopy: () => void;
+}) {
+  const [showDiff, setShowDiff] = useState(true);
+  return (
+    <div className="card-game border-accent-green p-4 space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-bold text-text-muted uppercase tracking-wider">{label}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-tertiary" role="tablist" aria-label={`${copyLabel} view`}>
+            <button
+              role="tab"
+              aria-selected={showDiff}
+              onClick={() => setShowDiff(true)}
+              title="Highlighted diff + why each change was made"
+              className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${
+                showDiff ? 'bg-accent-green/20 text-accent-green' : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              Diff
+            </button>
+            <button
+              role="tab"
+              aria-selected={!showDiff}
+              onClick={() => setShowDiff(false)}
+              title="Just the revised text, ready to copy"
+              className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${
+                !showDiff ? 'bg-bg-card text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              Result
+            </button>
+          </div>
+          <button
+            onClick={onCopy}
+            className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
+          >
+            <Icon icon="lucide:copy" /> Copy
+          </button>
+        </div>
+      </div>
+
+      {showDiff ? (
+        <DiffText
+          original={sourceText}
+          revised={option.text}
+          corrections={option.corrections}
+          visibleCategories={visibleCategories}
+        />
+      ) : (
+        <p className="text-base text-text-secondary leading-relaxed whitespace-pre-wrap">{option.text}</p>
+      )}
+      {/* "What changed" isn't part of the diff/result switch — only the text
+          rendering above is. Hiding the highlight shouldn't hide the reasons. */}
+      <WhatChanged
+        corrections={option.corrections}
+        visibleCategories={visibleCategories}
+        sortChanges={sortChanges}
+        sourceText={sourceText}
+      />
     </div>
   );
 }
@@ -342,12 +522,13 @@ export function ImproveWritingPage() {
     const submittedText = text.trim();
     try {
       const categories = WRITING_CORRECTION_CATEGORIES.filter((c) => visibleCategories[c]);
-      const text_ = await callAiAction(
-        'improve_writing',
-        { instructions: selected.instructions, text: submittedText, categories },
+      // Ask for one revision instead of two when Option 2 is hidden anyway —
+      // half the output, half the tokens spent on a round the learner won't see.
+      const result = await improveWriting(
+        { instructions: selected.instructions, text: submittedText, categories, optionCount: hideOption2 ? 1 : 2 },
         { signal: controller.signal },
       );
-      setResult(parseImproveWritingResult(text_));
+      setResult(result);
       setResultSourceText(submittedText);
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
@@ -601,29 +782,23 @@ export function ImproveWritingPage() {
                 </span>
               </span>
             </div>
+            <p className="text-[11px] text-text-muted mb-2 flex items-center gap-1">
+              <Icon icon="lucide:info" className="text-xs" />
+              Dotted underline? Hover it — or tap on mobile — to see why.
+            </p>
 
             <div className={`grid gap-3 ${!hideOption2 && result.options.length > 1 ? 'sm:grid-cols-2' : ''}`}>
               {(hideOption2 ? result.options.slice(0, 1) : result.options).map((option, i) => (
-                <div key={i} className="card-game border-accent-green p-4 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-text-muted uppercase tracking-wider">
-                      {hideOption2 || result.options.length < 2 ? 'Revised text' : `Option ${i + 1}`}
-                    </span>
-                    <button
-                      onClick={() => handleCopyOption(option.text)}
-                      className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
-                    >
-                      <Icon icon="lucide:copy" /> Copy
-                    </button>
-                  </div>
-                  <DiffText original={resultSourceText} revised={option.text} />
-                  <WhatChanged
-                    corrections={option.corrections}
-                    visibleCategories={visibleCategories}
-                    sortChanges={sortChanges}
-                    sourceText={resultSourceText}
-                  />
-                </div>
+                <OptionCard
+                  key={i}
+                  option={option}
+                  label={hideOption2 || result.options.length < 2 ? 'Revised text' : `Option ${i + 1}`}
+                  copyLabel={hideOption2 || result.options.length < 2 ? 'Revised text' : `Option ${i + 1}`}
+                  sourceText={resultSourceText}
+                  visibleCategories={visibleCategories}
+                  sortChanges={sortChanges}
+                  onCopy={() => handleCopyOption(option.text)}
+                />
               ))}
             </div>
           </div>

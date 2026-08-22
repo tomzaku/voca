@@ -10,12 +10,14 @@
 // supabase/functions/ai-*/index.ts for the routes.
 //
 // English Practice conversations go to the separate `chat` function instead —
-// see ./chatApi.ts.
+// see ./chatApi.ts. `/ai-improve-writing` isn't here either — its response is
+// real structured JSON, not the raw-string `{ text }` every action below
+// shares, so it's called directly — see ./improveWritingApi.ts.
 
 import { request } from './api';
 
 /** Generation is slow; the caller may also cancel with its own signal. */
-const TIMEOUT_MS = 60_000;
+export const AI_TIMEOUT_MS = 60_000;
 
 export type AiAction =
   | 'word_dialogues'
@@ -23,7 +25,6 @@ export type AiAction =
   | 'tutor_start'
   | 'tutor_reply'
   | 'mindmap'
-  | 'improve_writing'
   | 'ielts_writing';
 
 /** Action name → its standalone `ai-*` function. */
@@ -33,7 +34,6 @@ const ACTION_PATHS: Record<AiAction, string> = {
   tutor_start: '/ai-tutor-start',
   tutor_reply: '/ai-tutor-reply',
   mindmap: '/ai-mindmap',
-  improve_writing: '/ai-improve-writing',
   ielts_writing: '/ai-ielts-writing',
 };
 
@@ -45,7 +45,7 @@ export async function callAiAction(
   // Throws ApiError with the server's message — every caller shows it.
   const data = await request.post<Record<string, unknown>>(ACTION_PATHS[action], params, {
     signal: opts.signal,
-    timeout: TIMEOUT_MS,
+    timeout: AI_TIMEOUT_MS,
   });
   return (data.text as string) || 'No response received.';
 }

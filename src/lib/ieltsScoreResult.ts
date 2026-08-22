@@ -1,6 +1,6 @@
 // Parses the JSON the `ielts_writing` AI action returns (see
 // supabase/functions/ai-ielts-writing/index.ts) into band scores plus brief
-// feedback. Same best-effort convention as ./improveWritingResult.ts: a model
+// feedback. Same best-effort convention as ./improveWritingApi.ts: a model
 // that ignores the JSON instruction shouldn't break the feature, it should
 // just come back with nothing to show.
 
