@@ -59,7 +59,7 @@ export default defineConfig(({ command }) => ({
         // Transformers, ONNX Runtime, Piper) load on demand, so keep them out
         // of the precache to keep install small and preserve lazy loading.
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
-        globIgnores: ['**/kokoro*', '**/transformers*', '**/ort*', '**/piper*', '**/voices_static*'],
+        globIgnores: ['**/kokoro*', '**/transformers*', '**/ort*', '**/piper*', '**/voices_static*', '**/ttsWorker*'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
     }),

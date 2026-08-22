@@ -1,5 +1,7 @@
 import { cleanMarkdown } from './cleanMarkdown';
 import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, PIPER_VOICES } from '../hooks/useTtsSettings';
+import { KOKORO_MODEL_ID } from './ttsModel';
+import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
 
 type KokoroTTSInstance = {
@@ -12,8 +14,8 @@ type PiperTTSModule = {
 };
 
 // Exported for the benchmark page (src/lib/ttsBenchmark.ts), which loads its
-// own isolated KokoroTTS instance rather than sharing this module's singleton.
-export const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+// own isolated KokoroTTS instance rather than sharing this module's worker.
+export const MODEL_ID = KOKORO_MODEL_ID;
 const TAG = '[tts]';
 const MAX_TTS_CHARS = 5000;
 
@@ -53,9 +55,6 @@ export function isKokoroSupported(): boolean {
   return typeof navigator !== 'undefined' && !isSafari();
 }
 
-let ttsInstance: KokoroTTSInstance | null = null;
-let ttsPromise: Promise<KokoroTTSInstance> | null = null;
-
 // Exported for the benchmark page, which needs to know (and report) which
 // device a fresh Kokoro load would pick before it picks it.
 export async function hasWebGPU(): Promise<boolean> {
@@ -69,38 +68,94 @@ export async function hasWebGPU(): Promise<boolean> {
   }
 }
 
-export async function getKokoroTTS(): Promise<KokoroTTSInstance> {
-  if (ttsInstance) return ttsInstance;
-  if (ttsPromise) return ttsPromise;
+// Kokoro itself runs inside this worker (see ttsWorker.ts) so model loading
+// and every generate() call happen off the main thread — that's what stops
+// the page from freezing while a clip is produced. This wrapper just proxies
+// generate() calls to the worker and turns its postMessage replies back into
+// promises, so the rest of this file can keep treating it as a plain
+// KokoroTTSInstance.
+let ttsWorker: Worker | null = null;
+let workerReadyPromise: Promise<void> | null = null;
+let genCounter = 0;
+const pendingGenerations = new Map<number, { resolve: (blob: Blob) => void; reject: (err: unknown) => void }>();
 
-  const useGPU = await hasWebGPU();
-  const device = useGPU ? 'webgpu' : 'wasm';
-  const dtype = useGPU ? 'fp32' : 'q8';
+function send(msg: WorkerInMsg) {
+  ttsWorker!.postMessage(msg);
+}
 
-  log(`starting model download... device=${device} dtype=${dtype}`);
-  toast.loading('Loading Kokoro AI voice model...', { id: 'tts-loading' });
+function startWorker(device: 'webgpu' | 'wasm', dtype: string): Promise<void> {
+  const worker = new Worker(new URL('./ttsWorker.ts', import.meta.url), { type: 'module' });
+  ttsWorker = worker;
 
-  ttsPromise = import('kokoro-js').then(async ({ KokoroTTS }) => {
-    const tts = await KokoroTTS.from_pretrained(MODEL_ID, {
-      dtype,
-      device,
-      progress_callback: (p: { progress?: number; status?: string; file?: string }) => {
-        if (typeof p.progress === 'number' && p.progress > 0 && p.progress % 10 < 1) {
-          toast.loading(`Loading Kokoro AI... ${p.progress.toFixed(0)}%`, { id: 'tts-loading' });
+  const ready = new Promise<void>((resolve, reject) => {
+    worker.onmessage = (e: MessageEvent<WorkerOutMsg>) => {
+      const msg = e.data;
+      switch (msg.type) {
+        case 'progress':
+          if (typeof msg.progress === 'number' && msg.progress > 0 && msg.progress % 10 < 1) {
+            toast.loading(`Loading Kokoro AI... ${msg.progress.toFixed(0)}%`, { id: 'tts-loading' });
+          }
+          break;
+        case 'ready':
+          toast.success('Kokoro AI voice model ready', { id: 'tts-loading', duration: 2000 });
+          resolve();
+          break;
+        case 'load-error':
+          kokoroUnavailable = true;
+          toast.error('Kokoro AI failed to load', { id: 'tts-loading', duration: 3000 });
+          reject(new Error(msg.error));
+          break;
+        case 'generated': {
+          const pending = pendingGenerations.get(msg.id);
+          if (pending) { pendingGenerations.delete(msg.id); pending.resolve(msg.blob); }
+          break;
         }
-      },
-    });
-    ttsInstance = tts as unknown as KokoroTTSInstance;
-    toast.success('Kokoro AI voice model ready', { id: 'tts-loading', duration: 2000 });
-    return ttsInstance;
-  }).catch((err) => {
-    ttsPromise = null;
-    kokoroUnavailable = true;
-    toast.error('Kokoro AI failed to load', { id: 'tts-loading', duration: 3000 });
-    throw err;
+        case 'generate-error': {
+          const pending = pendingGenerations.get(msg.id);
+          if (pending) { pendingGenerations.delete(msg.id); pending.reject(new Error(msg.error)); }
+          break;
+        }
+      }
+    };
+    worker.onerror = (err) => {
+      kokoroUnavailable = true;
+      reject(err.error ?? new Error(err.message));
+    };
   });
 
-  return ttsPromise!;
+  ready.catch(() => {
+    // Let a later call retry from scratch instead of being stuck on a
+    // rejected promise forever.
+    workerReadyPromise = null;
+    worker.terminate();
+    if (ttsWorker === worker) ttsWorker = null;
+  });
+
+  send({ type: 'load', device, dtype });
+  return ready;
+}
+
+export async function getKokoroTTS(): Promise<KokoroTTSInstance> {
+  if (!workerReadyPromise) {
+    const useGPU = await hasWebGPU();
+    const device = useGPU ? 'webgpu' : 'wasm';
+    const dtype = useGPU ? 'fp32' : 'q8';
+    log(`starting model download... device=${device} dtype=${dtype}`);
+    toast.loading('Loading Kokoro AI voice model...', { id: 'tts-loading' });
+    workerReadyPromise = startWorker(device, dtype);
+  }
+
+  await workerReadyPromise;
+
+  return {
+    generate(text, options) {
+      return new Promise((resolve, reject) => {
+        const id = ++genCounter;
+        pendingGenerations.set(id, { resolve: (blob) => resolve({ toBlob: () => blob }), reject });
+        send({ type: 'generate', id, text, voice: options.voice, speed: options.speed });
+      });
+    },
+  };
 }
 
 export function preloadTts() {
