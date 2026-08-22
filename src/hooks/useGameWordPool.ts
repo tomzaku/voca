@@ -1,13 +1,13 @@
-// A game's own word source — the same Recent/Saved/bucket filters History
+// A game's own word source — the same Recent/Saved/bucket lists History
 // offers, but scoped to whichever game embeds this (Quiz, Story Gaps,
-// Speaking, Mind Map) instead of a page-level setting. Each game keeps its
-// own checked set, so switching lists inside Quiz doesn't touch Story Gaps
-// and neither depends on what History has checked.
+// Speaking, Mind Map) instead of a page-level setting, and one list at a
+// time (see FilterTabs) rather than History's multi-select checkboxes — a
+// round is drawn from one list, not a union of several.
 
 import { useMemo, useState } from 'react';
 import { useProgressQuery, type Filter } from './useProgressQuery';
 
-/** Filter this game starts on before the learner touches the picker. */
+/** List this game starts on before the learner touches the tabs. */
 const DEFAULT_FILTER: Filter = 'recent';
 
 /** Stable empty set — `enabled: false` routes through this so `useProgressQuery`
@@ -17,22 +17,15 @@ const NONE = new Set<Filter>();
 
 /**
  * `enabled: false` for a game that already received an explicit word list
- * from its caller (History's inline row still does) — the picker never
- * renders and no query runs, so a mounted game costs nothing extra.
+ * from its caller (History's inline row still does) — the tabs never render
+ * and no query runs, so a mounted game costs nothing extra.
  */
 export function useGameWordPool(defaultFilter: Filter = DEFAULT_FILTER, enabled = true) {
-  const [checked, setChecked] = useState<Set<Filter>>(() => new Set([defaultFilter]));
-  const toggleFilter = (id: Filter) => {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const [filter, setFilter] = useState<Filter>(defaultFilter);
+  const checked = useMemo(() => (enabled ? new Set([filter]) : NONE), [enabled, filter]);
 
-  const { rows, counts, loading, initialLoading, fetchAllWords } = useProgressQuery(enabled ? checked : NONE);
+  const { rows, counts, loading, initialLoading, fetchAllWords } = useProgressQuery(checked);
   const words = useMemo(() => rows.map((r) => r.word), [rows]);
 
-  return { checked, toggleFilter, counts, words, loading, initialLoading, fetchAllWords };
+  return { filter, setFilter, counts, words, loading, initialLoading, fetchAllWords };
 }

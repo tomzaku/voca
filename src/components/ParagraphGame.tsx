@@ -7,7 +7,7 @@ import { getLearnLanguage } from '../lib/languages';
 import { agoLabel } from '../lib/progress';
 import { createStoryGap, deleteStoryGap, fetchStoryGaps, type StoryGap } from '../lib/storyGapsApi';
 import { useGameWordPool } from '../hooks/useGameWordPool';
-import { FilterChips } from './FilterChips';
+import { FilterTabs } from './FilterTabs';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -284,7 +284,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
         {/* No explicit list from the caller — pick which words this round draws from. */}
         {!explicitWords && (
           <div className="mb-5">
-            <FilterChips checked={pool.checked} counts={pool.counts} onToggle={pool.toggleFilter} />
+            <FilterTabs active={pool.filter} counts={pool.counts} onSelect={pool.setFilter} />
           </div>
         )}
 

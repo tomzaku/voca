@@ -59,7 +59,7 @@ import { downloadBlob, mindMapToPngBlob } from '../lib/mapImage';
 import { type MindMapNode, type SavedMindmap, fetchMindmap, listMindmaps, saveMindmap } from '../lib/mindmapApi';
 import { isTtsPlaying, speakText, stopSpeaking } from '../lib/tts';
 import { useGameWordPool } from '../hooks/useGameWordPool';
-import { FilterChips } from './FilterChips';
+import { FilterTabs } from './FilterTabs';
 
 function timeAgo(date: string): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -1641,7 +1641,7 @@ export function WordMindMap({
         {/* No explicit list from the caller — pick which words this map draws from. */}
         {!explicit && (
           <div className="mb-6">
-            <FilterChips checked={pool.checked} counts={pool.counts} onToggle={pool.toggleFilter} />
+            <FilterTabs active={pool.filter} counts={pool.counts} onSelect={pool.setFilter} />
           </div>
         )}
 

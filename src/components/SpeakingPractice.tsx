@@ -25,7 +25,7 @@ import {
 import { ReadAloudVoice, PlaySequence } from './EnglishSpeakingPage';
 import { PeekText } from './PeekText';
 import { useGameWordPool } from '../hooks/useGameWordPool';
-import { FilterChips } from './FilterChips';
+import { FilterTabs } from './FilterTabs';
 
 interface Props {
   /** The filtered word pool this view samples from — same pool Quiz uses.
@@ -288,7 +288,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
         {/* No explicit list from the caller — pick which words this round draws from. */}
         {!explicit && (
           <div className="mb-4">
-            <FilterChips checked={pool.checked} counts={pool.counts} onToggle={pool.toggleFilter} />
+            <FilterTabs active={pool.filter} counts={pool.counts} onSelect={pool.setFilter} />
           </div>
         )}
 

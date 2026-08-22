@@ -14,7 +14,7 @@ import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { useGameWordPool } from '../hooks/useGameWordPool';
 import { QuizRunner } from './QuizRunner';
-import { FilterChips } from './FilterChips';
+import { FilterTabs } from './FilterTabs';
 
 const MIN_WORDS = MIN_QUIZ_WORDS;
 
@@ -188,7 +188,7 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
       {/* No explicit list from the caller — pick which words this quiz draws from. */}
       {!explicit && (
         <div className="mb-6">
-          <FilterChips checked={pool.checked} counts={pool.counts} onToggle={pool.toggleFilter} />
+          <FilterTabs active={pool.filter} counts={pool.counts} onSelect={pool.setFilter} />
         </div>
       )}
 
