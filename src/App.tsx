@@ -23,7 +23,6 @@ import { LevelTestPage } from './components/LevelTestPage';
 import { TakeQuiz } from './components/TakeQuiz';
 import { QuizResults } from './components/QuizResults';
 import { MyQuizzes } from './components/MyQuizzes';
-import { OnboardingModal } from './components/OnboardingModal';
 import { ProComparisonPage } from './components/ProComparisonPage';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
@@ -81,7 +80,6 @@ export default function App() {
         {/* Word chips anywhere in the app open their meaning here, in place. */}
         <WordPeek />
         <LoginGate />
-        <OnboardingModal />
         <Toaster
           position="bottom-center"
           toastOptions={{
