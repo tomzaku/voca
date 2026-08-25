@@ -52,6 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/speaking', tab: 'dialogue', label: 'Dialogue', icon: 'lucide:message-circle' },
       { to: '/speaking', tab: 'ielts', label: 'IELTS Speaking', icon: 'lucide:users' },
       { to: '/speaking', tab: 'read', label: 'Read Aloud', icon: 'lucide:align-left' },
+      { to: '/ipa', label: 'IPA Sounds', icon: 'lucide:audio-lines' },
     ],
   },
   {

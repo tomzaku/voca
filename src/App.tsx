@@ -13,6 +13,7 @@ import { ProfilePage } from './components/ProfilePage';
 import { EnglishPractice } from './components/EnglishPractice';
 import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
 import { EnglishListeningPage } from './components/EnglishListeningPage';
+import { IpaPage } from './components/IpaPage';
 import { CompanionPage } from './components/CompanionPage';
 import { DashboardPage } from './components/DashboardPage';
 import { QuickReview } from './components/QuickReview';
@@ -45,6 +46,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<FlashCard />} />
               <Route path="/speaking" element={<EnglishSpeakingPage />} />
+              <Route path="/ipa" element={<IpaPage />} />
               <Route path="/listening" element={<EnglishListeningPage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/review" element={<ReviewPage />} />
