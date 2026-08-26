@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -7,8 +7,10 @@ import {
   IPA_SOUNDS,
   MINIMAL_PAIRS,
   pairsForSymbol,
+  sentencesForSymbols,
   youtubeSearchUrl,
   type IpaCategory,
+  type IpaSentenceRound,
   type IpaSound,
   type MinimalPair,
 } from '../data/ipa';
@@ -18,6 +20,9 @@ import { Tabs } from './Tabs';
 
 type View = 'list' | 'practice' | 'detail';
 type ListMode = 'all' | 'compare';
+type PracticeMode = 'listen' | 'sentence';
+/** What Practice is currently drilling — no symbols means the full pool. */
+type PracticeTarget = { focus: string[]; mode: PracticeMode };
 
 function pairKey(pair: MinimalPair): string {
   return `${pair.a.word}-${pair.b.word}`;
@@ -28,19 +33,26 @@ function pairKey(pair: MinimalPair): string {
 // — same convention as /speaking and /listening's own `?tab=`. `mode` (the
 // List sub-view) is carried along untouched by goDetail/goPractice, so
 // "back" from a sound's detail page returns to whichever List sub-view sent
-// you there.
+// you there. `focus`/`pmode` work the same way for Practice: switching
+// between Listen and Sentences with the pill below keeps whatever focus
+// (one sound, a compared pair, or none) sent you into Practice.
 function useIpaState() {
   const [params, setParams] = useSearchParams();
   const rawView = params.get('view');
   const view: View = rawView === 'practice' ? 'practice' : rawView === 'detail' ? 'detail' : 'list';
   const mode: ListMode = params.get('mode') === 'compare' ? 'compare' : 'all';
+  const practiceMode: PracticeMode = params.get('pmode') === 'sentence' ? 'sentence' : 'listen';
   const symbol = params.get('symbol');
+  const focusRaw = params.get('focus');
+  const focusSymbols = useMemo(() => focusRaw ? focusRaw.split(',').filter(Boolean) : [], [focusRaw]);
 
   const goList = useCallback((m?: ListMode) => {
     setParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('view');
       next.delete('symbol');
+      next.delete('focus');
+      next.delete('pmode');
       if ((m ?? mode) === 'compare') next.set('mode', 'compare'); else next.delete('mode');
       return next;
     }, { replace: true });
@@ -55,44 +67,52 @@ function useIpaState() {
     }, { replace: true });
   }, [setParams]);
 
-  const goPractice = useCallback((sym?: string) => {
+  // `focus` is left untouched when omitted (so the Listen/Sentences pill can
+  // switch modes without dropping a pair's focus) — pass `focus: []`
+  // explicitly to clear it.
+  const goPractice = useCallback((opts?: { focus?: string[]; mode?: PracticeMode }) => {
     setParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('view', 'practice');
-      if (sym) next.set('symbol', sym); else next.delete('symbol');
+      next.delete('symbol');
+      if (opts?.mode) next.set('pmode', opts.mode);
+      if (opts?.focus !== undefined) {
+        if (opts.focus.length > 0) next.set('focus', opts.focus.join(',')); else next.delete('focus');
+      }
       return next;
     }, { replace: true });
   }, [setParams]);
 
-  return { view, mode, symbol, goList, goDetail, goPractice };
+  return { view, mode, practiceMode, symbol, focusSymbols, goList, goDetail, goPractice };
 }
 
-/** Two-way switch between the List sub-views, styled exactly like the flash
- *  card's Short/Full definition switch (parts.tsx's `DefLengthToggle`) — one
- *  bordered pill with the active side filled in, since All sounds/Compare
- *  similar are two settings of the same List view, not separate pages (that
- *  distinction is what still makes List/Practice a `Tabs` strip above it). */
-function ListModeSwitch({ mode, onChange }: { mode: ListMode; onChange: (m: ListMode) => void }) {
+/** Two-way switch between sub-views of the current tab, styled exactly like
+ *  the flash card's Short/Full definition switch (parts.tsx's
+ *  `DefLengthToggle`) — one bordered pill with the active side filled in,
+ *  since these are two settings of the current tab, not separate pages
+ *  (that distinction is what makes List/Practice itself a `Tabs` strip). */
+function PillSwitch<T extends string>({ value, options, onChange }: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
   return (
     <div
       role="tablist"
       className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border bg-bg-tertiary p-0.5 text-xs font-bold select-none"
     >
-      {([
-        ['all', 'All sounds'],
-        ['compare', 'Compare similar'],
-      ] as const).map(([value, label]) => (
+      {options.map((opt) => (
         <button
-          key={value}
+          key={opt.value}
           type="button"
           role="tab"
-          aria-selected={mode === value}
-          onClick={() => onChange(value)}
+          aria-selected={value === opt.value}
+          onClick={() => onChange(opt.value)}
           className={`px-3 py-1 rounded-full transition-colors ${
-            mode === value ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
+            value === opt.value ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
           }`}
         >
-          {label}
+          {opt.label}
         </button>
       ))}
     </div>
@@ -195,24 +215,36 @@ function CompareSide({ side, onOpen }: { side: MinimalPair['a']; onOpen: (symbol
  *  to /ð/, and so on — reusing the same pairs the Practice quiz draws from,
  *  so "what's different about these two" and "can I hear the difference"
  *  stay backed by one list instead of two that could drift apart. */
-function CompareView({ onOpen, onPractice }: { onOpen: (symbol: string) => void; onPractice: (symbol: string) => void }) {
+function CompareView({ onOpen, onPractice }: { onOpen: (symbol: string) => void; onPractice: (target: PracticeTarget) => void }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {MINIMAL_PAIRS.map((pair) => (
-        <div key={pairKey(pair)} className="p-3 rounded-2xl border-[3px] border-border bg-bg-card tile-lip">
-          <div className="flex items-stretch gap-2.5">
-            <CompareSide side={pair.a} onOpen={onOpen} />
-            <div className="flex items-center text-xs font-bold text-text-muted/60 shrink-0">vs</div>
-            <CompareSide side={pair.b} onOpen={onOpen} />
+      {MINIMAL_PAIRS.map((pair) => {
+        const focus = [pair.a.symbol, pair.b.symbol];
+        return (
+          <div key={pairKey(pair)} className="p-3 rounded-2xl border-[3px] border-border bg-bg-card tile-lip">
+            <div className="flex items-stretch gap-2.5">
+              <CompareSide side={pair.a} onOpen={onOpen} />
+              <div className="flex items-center text-xs font-bold text-text-muted/60 shrink-0">vs</div>
+              <CompareSide side={pair.b} onOpen={onOpen} />
+            </div>
+            <div className="flex items-center gap-1 mt-2.5 pt-2.5 border-t border-border/60">
+              <button
+                onClick={() => onPractice({ focus, mode: 'listen' })}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1 text-xs font-bold text-accent-cyan hover:opacity-70 transition-opacity"
+              >
+                <Icon icon="lucide:headphones" className="text-sm" /> Listen
+              </button>
+              <div className="w-px self-stretch bg-border/60" />
+              <button
+                onClick={() => onPractice({ focus, mode: 'sentence' })}
+                className="flex-1 flex items-center justify-center gap-1.5 py-1 text-xs font-bold text-accent-purple hover:opacity-70 transition-opacity"
+              >
+                <Icon icon="lucide:message-square-text" className="text-sm" /> Sentences
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => onPractice(pair.a.symbol)}
-            className="flex items-center justify-center gap-1.5 w-full mt-2.5 pt-2.5 border-t border-border/60 text-xs font-bold text-accent-cyan hover:opacity-70 transition-opacity"
-          >
-            <Icon icon="lucide:headphones" className="text-sm" /> Practice this pair
-          </button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -223,7 +255,7 @@ function CompareView({ onOpen, onPractice }: { onOpen: (symbol: string) => void;
 function DetailView({ symbol, onBack, onPractice }: {
   symbol: string;
   onBack: () => void;
-  onPractice: (symbol: string) => void;
+  onPractice: (target: PracticeTarget) => void;
 }) {
   const sound = IPA_SOUNDS.find((s) => s.symbol === symbol);
   const pairs = useMemo(() => pairsForSymbol(symbol), [symbol]);
@@ -276,13 +308,21 @@ function DetailView({ symbol, onBack, onPractice }: {
 
         {pairs.length > 0 && (
           <button
-            onClick={() => onPractice(sound.symbol)}
+            onClick={() => onPractice({ focus: [sound.symbol], mode: 'listen' })}
             className="btn-3d flex items-center justify-center gap-2 py-3 bg-accent-cyan text-bg-primary font-bold"
           >
             <Icon icon="lucide:headphones" className="text-lg" />
-            Practice this sound
+            Practice listening
           </button>
         )}
+
+        <button
+          onClick={() => onPractice({ focus: [sound.symbol], mode: 'sentence' })}
+          className="btn-3d flex items-center justify-center gap-2 py-3 bg-accent-purple text-bg-primary font-bold"
+        >
+          <Icon icon="lucide:message-square-text" className="text-lg" />
+          Practice sentences
+        </button>
       </div>
     </div>
   );
@@ -311,7 +351,7 @@ function randomRound(pool: MinimalPair[], avoidKey?: string): Round {
  *  `focusSymbol` narrows the pool to pairs contrasting one sound, reached from
  *  that sound's detail page or the Compare view; otherwise every pair is
  *  fair game. */
-function PracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string | null; onClearFocus: () => void }) {
+function ListenPracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string | null; onClearFocus: () => void }) {
   const pool = useMemo(() => {
     if (!focusSymbol) return MINIMAL_PAIRS;
     const filtered = pairsForSymbol(focusSymbol);
@@ -417,12 +457,400 @@ function PracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string | nul
   );
 }
 
+/** Highlights the target word inside a sentence — matched case-insensitively
+ *  (see `IpaSentence.target`'s doc), original casing preserved either side. */
+function highlightTarget(text: string, target: string) {
+  const idx = text.toLowerCase().indexOf(target.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="text-accent-cyan">{text.slice(idx, idx + target.length)}</span>
+      {text.slice(idx + target.length)}
+    </>
+  );
+}
+
+// eSpeak-via-WASM, loaded only once IPA is actually requested — the same
+// package word/phonemize.ts calls server-side for single words, dynamically
+// imported here exactly like ttsBenchmark.ts's KittenTTS path, so a page
+// visitor who never taps "Show IPA" never pays for the WASM download. No
+// character substitutions on the output (ttsBenchmark.ts applies some for a
+// different model's tokenizer vocab) — this is for reading, not feeding a
+// model, so it stays the same raw transcription word/phonemize.ts already
+// shows elsewhere in the app.
+const sentenceIpaCache = new Map<string, string>();
+
+async function phonemizeSentence(text: string): Promise<string> {
+  const cached = sentenceIpaCache.get(text);
+  if (cached) return cached;
+  const { phonemize } = await import('phonemizer');
+  const words = await phonemize(text, 'en-us');
+  const ipa = `/${words.join(' ')}/`;
+  sentenceIpaCache.set(text, ipa);
+  return ipa;
+}
+
+/** Show/hide toggle for a sentence's IPA transcription — collapsed by
+ *  default so the sentence reads as English first, computed (and cached)
+ *  lazily on first reveal. */
+function SentenceIpaToggle({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  const [ipa, setIpa] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const toggle = async () => {
+    if (show) { setShow(false); return; }
+    setShow(true);
+    if (ipa) return;
+    setLoading(true);
+    try {
+      setIpa(await phonemizeSentence(text));
+    } catch (err) {
+      console.warn('[ipa] sentence phonemize failed:', err);
+      setIpa(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <button
+        onClick={() => void toggle()}
+        className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-accent-cyan transition-colors"
+      >
+        <Icon icon={show ? 'lucide:eye-off' : 'lucide:eye'} className="text-sm" />
+        {show ? 'Hide IPA' : 'Show IPA'}
+      </button>
+      {show && (
+        <p className="font-code text-sm text-accent-cyan mt-1.5">
+          {loading ? 'Loading…' : ipa ?? "Couldn't load IPA for this sentence."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** A stopped recording, ready to hear back — a small play/pause button
+ *  driving a hidden <audio>, matching the app's own icon-button affordance
+ *  rather than a native <audio controls> bar. */
+function RecordingPlayback({ url, onRerecord }: { url: string; onRerecord: () => void }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const toggle = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (playing) el.pause(); else void el.play();
+  };
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <audio
+        ref={audioRef}
+        src={url}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        className="hidden"
+      />
+      <button
+        onClick={toggle}
+        className="btn-3d w-10 h-10 shrink-0 rounded-xl bg-accent-green/15 text-accent-green flex items-center justify-center"
+        title={playing ? 'Pause' : 'Play your recording'}
+      >
+        <Icon icon={playing ? 'lucide:pause' : 'lucide:play'} className="text-base" />
+      </button>
+      <span className="text-xs text-text-muted flex-1">Your recording</span>
+      <button
+        onClick={onRerecord}
+        className="flex items-center gap-1 text-xs font-bold text-text-muted hover:text-accent-cyan transition-colors"
+      >
+        <Icon icon="lucide:rotate-ccw" className="text-sm" /> Re-record
+      </button>
+    </div>
+  );
+}
+
+const MAX_RECORDING_MS = 10_000;
+
+type RecorderState = 'idle' | 'requesting' | 'recording' | 'recorded' | 'denied' | 'unsupported';
+
+/** Record yourself saying the sentence, then hear it back — no transcription
+ *  or grading (that's SpeakGame's job for single words); this is purely a
+ *  mirror so a learner can compare their own recording against the model
+ *  read-aloud, which is what makes self-correction possible at all. */
+function VoiceRecorder() {
+  const [state, setState] = useState<RecorderState>(() =>
+    typeof MediaRecorder !== 'undefined' && typeof navigator?.mediaDevices !== 'undefined'
+      ? 'idle'
+      : 'unsupported',
+  );
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const urlRef = useRef<string | null>(null);
+  const aliveRef = useRef(true);
+
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+      recorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    };
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+    stopTimerRef.current = null;
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    stopSpeaking();
+    setState('requesting');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!aliveRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (!aliveRef.current) return;
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
+        if (blob.size > 0) {
+          if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+          const url = URL.createObjectURL(blob);
+          urlRef.current = url;
+          setAudioUrl(url);
+          setState('recorded');
+        } else {
+          setState('idle');
+        }
+      };
+
+      recorder.start();
+      setState('recording');
+      stopTimerRef.current = setTimeout(stopRecording, MAX_RECORDING_MS);
+    } catch (err) {
+      if (!aliveRef.current) return;
+      console.warn('[ipa] microphone unavailable:', err);
+      setState('denied');
+    }
+  }, [stopRecording]);
+
+  if (state === 'unsupported') {
+    return <p className="text-xs text-text-muted">Recording isn't supported in this browser.</p>;
+  }
+
+  if (state === 'denied') {
+    return (
+      <p className="text-xs text-text-muted">
+        Microphone access was denied — allow it in your browser's site settings to record yourself.
+      </p>
+    );
+  }
+
+  if (state === 'recorded' && audioUrl) {
+    return <RecordingPlayback url={audioUrl} onRerecord={() => setState('idle')} />;
+  }
+
+  return (
+    <button
+      onClick={state === 'recording' ? stopRecording : () => void startRecording()}
+      disabled={state === 'requesting'}
+      className={`btn-3d flex items-center justify-center gap-2 py-2.5 font-bold disabled:opacity-60 ${
+        state === 'recording' ? 'bg-accent-red text-bg-primary animate-glow-pulse' : 'bg-bg-card text-text-primary'
+      }`}
+    >
+      <Icon icon={state === 'recording' ? 'lucide:square' : 'lucide:mic'} className="text-lg" />
+      {state === 'recording' ? 'Stop recording' : state === 'requesting' ? 'Requesting mic…' : 'Record yourself'}
+    </button>
+  );
+}
+
+function randomSentenceRound(pool: IpaSentenceRound[], avoidKey?: string): IpaSentenceRound {
+  let round: IpaSentenceRound;
+  do {
+    round = pool[Math.floor(Math.random() * pool.length)];
+  } while (pool.length > 1 && `${round.symbol}-${round.sentence.text}` === avoidKey);
+  return round;
+}
+
+function sentenceRoundKey(r: IpaSentenceRound): string {
+  return `${r.symbol}-${r.sentence.text}`;
+}
+
+/** Every sentence in the current pool, grouped by sound, so a learner can
+ *  jump straight to a specific one instead of only cycling random rounds —
+ *  the same "browse instead of only shuffle" gap `randomSentenceRound` alone
+ *  left open. */
+function SentencePicker({ pool, current, onPick }: {
+  pool: IpaSentenceRound[];
+  current: IpaSentenceRound;
+  onPick: (r: IpaSentenceRound) => void;
+}) {
+  const groups = useMemo(() => {
+    const map = new Map<string, IpaSentenceRound[]>();
+    for (const r of pool) {
+      if (!map.has(r.symbol)) map.set(r.symbol, []);
+      map.get(r.symbol)!.push(r);
+    }
+    return [...map.entries()];
+  }, [pool]);
+
+  return (
+    <div className="rounded-2xl border-[3px] border-border bg-bg-card p-3 mb-4 max-h-80 overflow-y-auto">
+      <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2 px-1">
+        Choose a sentence
+      </h3>
+      <div className="space-y-3">
+        {groups.map(([symbol, rounds]) => (
+          <div key={symbol}>
+            <div className="font-code text-xs font-bold text-accent-cyan mb-1 px-1">/{symbol}/</div>
+            <div className="space-y-0.5">
+              {rounds.map((r) => {
+                const active = sentenceRoundKey(r) === sentenceRoundKey(current);
+                return (
+                  <button
+                    key={sentenceRoundKey(r)}
+                    onClick={() => onPick(r)}
+                    className={`block w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
+                      active ? 'bg-accent-cyan/15 text-accent-cyan' : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                    }`}
+                  >
+                    {highlightTarget(r.sentence.text, r.sentence.target)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Sentence-practice mode: a sentence built around one sound's target word,
+ *  read aloud by the app, then recorded and read back by the learner, with
+ *  the sentence's own IPA a tap away — the production counterpart to
+ *  `ListenPracticeView`'s recognition quiz. `focusSymbols` narrows the pool
+ *  to one sound (from its detail page) or a pair (from Compare); empty means
+ *  every sound's sentences are fair game. Short and long sentences are pooled
+ *  together — no separate filter to switch between them. */
+function SentencePracticeView({ focusSymbols, onClearFocus }: { focusSymbols: string[]; onClearFocus: () => void }) {
+  const [picking, setPicking] = useState(false);
+
+  const pool = useMemo(() => {
+    const focused = sentencesForSymbols(focusSymbols);
+    return focused.length > 0 ? focused : sentencesForSymbols([]);
+  }, [focusSymbols]);
+
+  const [round, setRound] = useState<IpaSentenceRound>(() => randomSentenceRound(pool));
+  const [playing, setPlaying] = useState(false);
+
+  // A new focus starts a fresh round from the right pool — adjusted during
+  // render (React's own recommended pattern for resetting state off a
+  // changed value) rather than in an effect, so it's one render instead of
+  // a render-then-effect-then-render cascade.
+  const [poolForRound, setPoolForRound] = useState(pool);
+  if (pool !== poolForRound) {
+    setPoolForRound(pool);
+    setRound(randomSentenceRound(pool));
+    setPicking(false);
+  }
+
+  const readAloud = () => {
+    stopSpeaking();
+    setPlaying(true);
+    speakText(round.sentence.text, { onEnd: () => setPlaying(false) }).catch(() => setPlaying(false));
+  };
+
+  const next = () => {
+    setRound((r) => randomSentenceRound(pool, sentenceRoundKey(r)));
+  };
+
+  const pick = (r: IpaSentenceRound) => {
+    setRound(r);
+    setPicking(false);
+  };
+
+  return (
+    <div className="max-w-lg mx-auto">
+      <div className="flex items-center justify-between mb-4 text-xs font-bold text-text-muted gap-3 flex-wrap">
+        {focusSymbols.length > 0 ? (
+          <span className="flex items-center gap-1.5">
+            Practicing <span className="font-code text-accent-cyan">{focusSymbols.map((s) => `/${s}/`).join(' vs ')}</span>
+            <button onClick={onClearFocus} className="text-text-muted underline decoration-dotted hover:text-accent-cyan">
+              (all sounds)
+            </button>
+          </span>
+        ) : (
+          <span>Read it aloud, then record yourself saying it</span>
+        )}
+        <span className="font-code text-accent-cyan">/{round.symbol}/</span>
+      </div>
+
+      {picking ? (
+        <SentencePicker pool={pool} current={round} onPick={pick} />
+      ) : (
+        <div key={sentenceRoundKey(round)} className="card-game border-accent-cyan p-5 mb-4">
+          <p className="text-lg font-display font-bold text-text-primary leading-relaxed mb-4">
+            {highlightTarget(round.sentence.text, round.sentence.target)}
+          </p>
+
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={readAloud}
+              className="btn-3d flex items-center justify-center gap-2 py-2.5 bg-bg-card text-text-primary font-bold"
+            >
+              <Icon icon={playing ? 'lucide:loader-2' : 'lucide:volume-2'} className={`text-lg ${playing ? 'animate-spin' : ''}`} />
+              Read aloud
+            </button>
+
+            <VoiceRecorder />
+
+            <SentenceIpaToggle text={round.sentence.text} />
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2.5">
+        <button
+          onClick={() => setPicking((p) => !p)}
+          className="btn-3d flex-1 flex items-center justify-center gap-2 py-3 bg-bg-card text-text-primary font-bold"
+        >
+          <Icon icon={picking ? 'lucide:x' : 'lucide:list'} className="text-lg" />
+          {picking ? 'Cancel' : 'Choose a sentence'}
+        </button>
+        {!picking && (
+          <button onClick={next} className="btn-3d flex-1 py-3 bg-accent-cyan text-bg-primary font-bold">
+            Next sentence
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Standalone reference page: every IPA sound English uses (List → All
  *  sounds), commonly-confused sounds side by side (List → Compare), each
  *  sound's own how-to-say-it page plus a video link (Detail), and a
  *  minimal-pairs listening drill (Practice). */
 export function IpaPage() {
-  const { view, mode, symbol, goList, goDetail, goPractice } = useIpaState();
+  const { view, mode, practiceMode, symbol, focusSymbols, goList, goDetail, goPractice } = useIpaState();
 
   return (
     <div className="mx-auto max-w-page px-4 py-8">
@@ -441,17 +869,35 @@ export function IpaPage() {
             items={[{ value: 'list', label: 'List' }, { value: 'practice', label: 'Practice' }]}
             onChange={(v) => v === 'list' ? goList() : goPractice()}
           />
-          {view === 'list' && <ListModeSwitch mode={mode} onChange={goList} />}
+          {view === 'list' && (
+            <PillSwitch
+              value={mode}
+              options={[{ value: 'all', label: 'All sounds' }, { value: 'compare', label: 'Compare similar' }]}
+              onChange={goList}
+            />
+          )}
+          {view === 'practice' && (
+            <PillSwitch
+              value={practiceMode}
+              options={[{ value: 'listen', label: 'Listen' }, { value: 'sentence', label: 'Sentences' }]}
+              onChange={(m) => goPractice({ mode: m })}
+            />
+          )}
         </div>
       )}
 
       {view === 'list' && mode === 'all' && <AllSoundsView onOpen={goDetail} />}
-      {view === 'list' && mode === 'compare' && <CompareView onOpen={goDetail} onPractice={goPractice} />}
-      {view === 'detail' && symbol && (
-        <DetailView symbol={symbol} onBack={() => goList()} onPractice={(sym) => goPractice(sym)} />
+      {view === 'list' && mode === 'compare' && (
+        <CompareView onOpen={goDetail} onPractice={(target) => goPractice(target)} />
       )}
-      {view === 'practice' && (
-        <PracticeView focusSymbol={symbol} onClearFocus={() => goPractice()} />
+      {view === 'detail' && symbol && (
+        <DetailView symbol={symbol} onBack={() => goList()} onPractice={(target) => goPractice(target)} />
+      )}
+      {view === 'practice' && practiceMode === 'listen' && (
+        <ListenPracticeView focusSymbol={focusSymbols[0] ?? null} onClearFocus={() => goPractice({ focus: [] })} />
+      )}
+      {view === 'practice' && practiceMode === 'sentence' && (
+        <SentencePracticeView focusSymbols={focusSymbols} onClearFocus={() => goPractice({ focus: [] })} />
       )}
     </div>
   );
