@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
@@ -14,24 +14,89 @@ import {
 } from '../data/ipa';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
+import { Tabs } from './Tabs';
 
-type View = 'chart' | 'practice' | 'detail';
+type View = 'list' | 'practice' | 'detail';
+type ListMode = 'all' | 'compare';
 
-// `?view=`/`?symbol=` rather than component state, so a link to one sound's
-// detail page (or the practice tab) survives a refresh — same convention as
-// /speaking and /listening's own `?tab=`.
-function useIpaView(): [View, string | null, (v: View, symbol?: string) => void] {
+function pairKey(pair: MinimalPair): string {
+  return `${pair.a.word}-${pair.b.word}`;
+}
+
+// Query-param state rather than component state, so a link to one sound's
+// detail page, the practice tab, or the compare sub-view survives a refresh
+// — same convention as /speaking and /listening's own `?tab=`. `mode` (the
+// List sub-view) is carried along untouched by goDetail/goPractice, so
+// "back" from a sound's detail page returns to whichever List sub-view sent
+// you there.
+function useIpaState() {
   const [params, setParams] = useSearchParams();
-  const view: View = params.get('view') === 'practice' ? 'practice' : params.get('view') === 'detail' ? 'detail' : 'chart';
+  const rawView = params.get('view');
+  const view: View = rawView === 'practice' ? 'practice' : rawView === 'detail' ? 'detail' : 'list';
+  const mode: ListMode = params.get('mode') === 'compare' ? 'compare' : 'all';
   const symbol = params.get('symbol');
-  const setView = useCallback((v: View, sym?: string) => {
-    const next: Record<string, string> = {};
-    if (v !== 'chart') next.view = v;
-    if (v === 'detail' && sym) next.symbol = sym;
-    if (v === 'practice' && sym) next.symbol = sym;
-    setParams(next, { replace: true });
+
+  const goList = useCallback((m?: ListMode) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('view');
+      next.delete('symbol');
+      if ((m ?? mode) === 'compare') next.set('mode', 'compare'); else next.delete('mode');
+      return next;
+    }, { replace: true });
+  }, [setParams, mode]);
+
+  const goDetail = useCallback((sym: string) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('view', 'detail');
+      next.set('symbol', sym);
+      return next;
+    }, { replace: true });
   }, [setParams]);
-  return [view, symbol, setView];
+
+  const goPractice = useCallback((sym?: string) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('view', 'practice');
+      if (sym) next.set('symbol', sym); else next.delete('symbol');
+      return next;
+    }, { replace: true });
+  }, [setParams]);
+
+  return { view, mode, symbol, goList, goDetail, goPractice };
+}
+
+/** Two-way switch between the List sub-views, styled exactly like the flash
+ *  card's Short/Full definition switch (parts.tsx's `DefLengthToggle`) — one
+ *  bordered pill with the active side filled in, since All sounds/Compare
+ *  similar are two settings of the same List view, not separate pages (that
+ *  distinction is what still makes List/Practice a `Tabs` strip above it). */
+function ListModeSwitch({ mode, onChange }: { mode: ListMode; onChange: (m: ListMode) => void }) {
+  return (
+    <div
+      role="tablist"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border bg-bg-tertiary p-0.5 text-xs font-bold select-none"
+    >
+      {([
+        ['all', 'All sounds'],
+        ['compare', 'Compare similar'],
+      ] as const).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={mode === value}
+          onClick={() => onChange(value)}
+          className={`px-3 py-1 rounded-full transition-colors ${
+            mode === value ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /** Small pill that speaks one example word on click — toggles to a stop icon
@@ -79,7 +144,8 @@ function SoundCard({ sound, onOpen }: { sound: IpaSound; onOpen: (symbol: string
   );
 }
 
-function ChartView({ onOpen }: { onOpen: (symbol: string) => void }) {
+/** Every sound, grouped by category — the plain reference list. */
+function AllSoundsView({ onOpen }: { onOpen: (symbol: string) => void }) {
   const groups = useMemo(() => {
     const byCategory = new Map<IpaCategory, IpaSound[]>();
     for (const sound of IPA_SOUNDS) {
@@ -108,6 +174,49 @@ function ChartView({ onOpen }: { onOpen: (symbol: string) => void }) {
   );
 }
 
+/** One side of a comparison card — a sound the learner mixes up with its
+ *  partner, plus the one-line "how to say it" so the difference in mouth
+ *  position is right there next to the symbol, not a click away. */
+function CompareSide({ side, onOpen }: { side: MinimalPair['a']; onOpen: (symbol: string) => void }) {
+  const sound = IPA_SOUNDS.find((s) => s.symbol === side.symbol);
+  return (
+    <button
+      onClick={() => onOpen(side.symbol)}
+      className="flex-1 min-w-0 text-left p-3 rounded-xl bg-bg-tertiary hover:bg-accent-cyan/10 transition-all"
+    >
+      <div className="font-code text-xl font-bold text-accent-cyan mb-1.5">/{side.symbol}/</div>
+      <WordChip word={side.word} />
+      {sound && <p className="text-[11px] text-text-muted mt-2 leading-snug">{sound.howTo}</p>}
+    </button>
+  );
+}
+
+/** Sounds people actually confuse, side by side — /ɪ/ next to /iː/, /θ/ next
+ *  to /ð/, and so on — reusing the same pairs the Practice quiz draws from,
+ *  so "what's different about these two" and "can I hear the difference"
+ *  stay backed by one list instead of two that could drift apart. */
+function CompareView({ onOpen, onPractice }: { onOpen: (symbol: string) => void; onPractice: (symbol: string) => void }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {MINIMAL_PAIRS.map((pair) => (
+        <div key={pairKey(pair)} className="p-3 rounded-2xl border-[3px] border-border bg-bg-card tile-lip">
+          <div className="flex items-stretch gap-2.5">
+            <CompareSide side={pair.a} onOpen={onOpen} />
+            <div className="flex items-center text-xs font-bold text-text-muted/60 shrink-0">vs</div>
+            <CompareSide side={pair.b} onOpen={onOpen} />
+          </div>
+          <button
+            onClick={() => onPractice(pair.a.symbol)}
+            className="flex items-center justify-center gap-1.5 w-full mt-2.5 pt-2.5 border-t border-border/60 text-xs font-bold text-accent-cyan hover:opacity-70 transition-opacity"
+          >
+            <Icon icon="lucide:headphones" className="text-sm" /> Practice this pair
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** One sound's own page: how to make it, a longer word list, and a link out
  *  to a real pronunciation video — rather than embedding one we can't verify
  *  still exists, a search always resolves to something current. */
@@ -127,7 +236,7 @@ function DetailView({ symbol, onBack, onPractice }: {
     return (
       <div>
         <p className="text-sm text-text-muted mb-4">Unknown sound.</p>
-        <button onClick={onBack} className="text-sm font-bold text-accent-cyan">← Back to chart</button>
+        <button onClick={onBack} className="text-sm font-bold text-accent-cyan">← Back to list</button>
       </div>
     );
   }
@@ -135,7 +244,7 @@ function DetailView({ symbol, onBack, onPractice }: {
   return (
     <div className="max-w-lg mx-auto">
       <button onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-text-muted hover:text-accent-cyan transition-all mb-4">
-        <Icon icon="lucide:arrow-left" className="text-sm" /> Chart
+        <Icon icon="lucide:arrow-left" className="text-sm" /> List
       </button>
 
       <div className="card-game border-accent-cyan p-6 mb-5">
@@ -185,10 +294,6 @@ interface Round {
   order: ['a', 'b'] | ['b', 'a'];
 }
 
-function pairKey(pair: MinimalPair): string {
-  return `${pair.a.word}-${pair.b.word}`;
-}
-
 function randomRound(pool: MinimalPair[], avoidKey?: string): Round {
   let pair: MinimalPair;
   do {
@@ -204,7 +309,8 @@ function randomRound(pool: MinimalPair[], avoidKey?: string): Round {
 /** Minimal-pairs listening quiz: play one word from a pair the learner often
  *  confuses (ship/sheep, thin/... teethe, etc.), pick which one they heard.
  *  `focusSymbol` narrows the pool to pairs contrasting one sound, reached from
- *  that sound's detail page; otherwise every pair is fair game. */
+ *  that sound's detail page or the Compare view; otherwise every pair is
+ *  fair game. */
 function PracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string | null; onClearFocus: () => void }) {
   const pool = useMemo(() => {
     if (!focusSymbol) return MINIMAL_PAIRS;
@@ -311,43 +417,41 @@ function PracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string | nul
   );
 }
 
-/** Standalone reference page: every IPA sound English uses, with example
- *  words to hear (Chart), how to make each one plus a video link (Detail),
- *  and a minimal-pairs listening drill (Practice). */
+/** Standalone reference page: every IPA sound English uses (List → All
+ *  sounds), commonly-confused sounds side by side (List → Compare), each
+ *  sound's own how-to-say-it page plus a video link (Detail), and a
+ *  minimal-pairs listening drill (Practice). */
 export function IpaPage() {
-  const [view, symbol, setView] = useIpaView();
+  const { view, mode, symbol, goList, goDetail, goPractice } = useIpaState();
 
   return (
     <div className="mx-auto max-w-page px-4 py-8">
-      <h1 className="text-2xl font-display font-bold text-text-primary mb-1">IPA Sounds</h1>
-      <p className="text-sm text-text-muted mb-6">
-        The 44 sounds of spoken English, with example words you can hear.
-      </p>
+      <h1 className="flex items-center gap-1.5 mb-6 text-base">
+        <Link to="/speaking" className="font-medium text-text-muted hover:text-text-secondary transition-colors">
+          Speak
+        </Link>
+        <span className="text-text-muted/50">/</span>
+        <span className="font-bold text-text-primary">IPA Sounds</span>
+      </h1>
 
       {view !== 'detail' && (
-        <div className="flex gap-2 mb-6">
-          {(['chart', 'practice'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                view === v
-                  ? 'bg-accent-cyan text-bg-primary'
-                  : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {v === 'chart' ? 'Chart' : 'Practice'}
-            </button>
-          ))}
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+          <Tabs
+            value={view === 'practice' ? 'practice' : 'list'}
+            items={[{ value: 'list', label: 'List' }, { value: 'practice', label: 'Practice' }]}
+            onChange={(v) => v === 'list' ? goList() : goPractice()}
+          />
+          {view === 'list' && <ListModeSwitch mode={mode} onChange={goList} />}
         </div>
       )}
 
-      {view === 'chart' && <ChartView onOpen={(sym) => setView('detail', sym)} />}
+      {view === 'list' && mode === 'all' && <AllSoundsView onOpen={goDetail} />}
+      {view === 'list' && mode === 'compare' && <CompareView onOpen={goDetail} onPractice={goPractice} />}
       {view === 'detail' && symbol && (
-        <DetailView symbol={symbol} onBack={() => setView('chart')} onPractice={(sym) => setView('practice', sym)} />
+        <DetailView symbol={symbol} onBack={() => goList()} onPractice={(sym) => goPractice(sym)} />
       )}
       {view === 'practice' && (
-        <PracticeView focusSymbol={symbol} onClearFocus={() => setView('practice')} />
+        <PracticeView focusSymbol={symbol} onClearFocus={() => goPractice()} />
       )}
     </div>
   );
