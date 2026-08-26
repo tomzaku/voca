@@ -457,74 +457,61 @@ function ListenPracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string
   );
 }
 
-/** Highlights the target word inside a sentence — matched case-insensitively
- *  (see `IpaSentence.target`'s doc), original casing preserved either side. */
-function highlightTarget(text: string, target: string) {
-  const idx = text.toLowerCase().indexOf(target.toLowerCase());
-  if (idx === -1) return text;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <span className="text-accent-cyan">{text.slice(idx, idx + target.length)}</span>
-      {text.slice(idx + target.length)}
-    </>
-  );
-}
-
-// eSpeak-via-WASM, loaded only once IPA is actually requested — the same
+// eSpeak-via-WASM, loaded only once a sentence actually needs it — the same
 // package word/phonemize.ts calls server-side for single words, dynamically
-// imported here exactly like ttsBenchmark.ts's KittenTTS path, so a page
-// visitor who never taps "Show IPA" never pays for the WASM download. No
-// character substitutions on the output (ttsBenchmark.ts applies some for a
-// different model's tokenizer vocab) — this is for reading, not feeding a
-// model, so it stays the same raw transcription word/phonemize.ts already
-// shows elsewhere in the app.
+// imported here exactly like ttsBenchmark.ts's KittenTTS path, so nobody pays
+// for the WASM download until Sentence practice is opened. `en-gb-x-rp`, not
+// `en-us`: this chart's own symbols are RP (/ɒ/, /əʊ/, /eə/, /ɪə/, /ʊə/...),
+// and eSpeak's American voice renames or merges several of them (/ɒ/→/ɑ/,
+// /əʊ/→/oʊ/) — matching the chart's accent keeps this transcription
+// consistent with it instead of silently disagreeing.
 const sentenceIpaCache = new Map<string, string>();
 
 async function phonemizeSentence(text: string): Promise<string> {
   const cached = sentenceIpaCache.get(text);
   if (cached) return cached;
   const { phonemize } = await import('phonemizer');
-  const words = await phonemize(text, 'en-us');
+  const words = await phonemize(text, 'en-gb-x-rp');
   const ipa = `/${words.join(' ')}/`;
   sentenceIpaCache.set(text, ipa);
   return ipa;
 }
 
-/** Show/hide toggle for a sentence's IPA transcription — collapsed by
- *  default so the sentence reads as English first, computed (and cached)
- *  lazily on first reveal. */
-function SentenceIpaToggle({ text }: { text: string }) {
-  const [show, setShow] = useState(false);
+/** The sentence's IPA transcription — visible by default (the whole point of
+ *  Sentence practice is following the phonetics while reading aloud), with a
+ *  hide toggle for anyone who'd rather test themselves first. Fetched (and
+ *  cached) as soon as the sentence appears rather than deferred to a click. */
+function SentenceIpa({ text }: { text: string }) {
+  const [show, setShow] = useState(true);
   const [ipa, setIpa] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Starts true, not reset in the effect below: the parent keys each round's
+  // whole card on the sentence, so this component remounts (fresh initial
+  // state) rather than receiving a changed `text` prop on the same instance.
+  const [loading, setLoading] = useState(true);
 
-  const toggle = async () => {
-    if (show) { setShow(false); return; }
-    setShow(true);
-    if (ipa) return;
-    setLoading(true);
-    try {
-      setIpa(await phonemizeSentence(text));
-    } catch (err) {
-      console.warn('[ipa] sentence phonemize failed:', err);
-      setIpa(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    let alive = true;
+    phonemizeSentence(text)
+      .then((result) => { if (alive) setIpa(result); })
+      .catch((err) => {
+        console.warn('[ipa] sentence phonemize failed:', err);
+        if (alive) setIpa(null);
+      })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [text]);
 
   return (
     <div>
       <button
-        onClick={() => void toggle()}
-        className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-accent-cyan transition-colors"
+        onClick={() => setShow((s) => !s)}
+        className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-accent-cyan transition-colors mb-1.5"
       >
         <Icon icon={show ? 'lucide:eye-off' : 'lucide:eye'} className="text-sm" />
         {show ? 'Hide IPA' : 'Show IPA'}
       </button>
       {show && (
-        <p className="font-code text-sm text-accent-cyan mt-1.5">
+        <p className="font-code text-xl sm:text-2xl text-accent-cyan leading-snug">
           {loading ? 'Loading…' : ipa ?? "Couldn't load IPA for this sentence."}
         </p>
       )}
@@ -731,7 +718,7 @@ function SentencePicker({ pool, current, onPick }: {
                       active ? 'bg-accent-cyan/15 text-accent-cyan' : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
                     }`}
                   >
-                    {highlightTarget(r.sentence.text, r.sentence.target)}
+                    {r.sentence.text}
                   </button>
                 );
               })}
@@ -807,11 +794,13 @@ function SentencePracticeView({ focusSymbols, onClearFocus }: { focusSymbols: st
         <SentencePicker pool={pool} current={round} onPick={pick} />
       ) : (
         <div key={sentenceRoundKey(round)} className="card-game border-accent-cyan p-5 mb-4">
-          <p className="text-lg font-display font-bold text-text-primary leading-relaxed mb-4">
-            {highlightTarget(round.sentence.text, round.sentence.target)}
+          <p className="text-2xl sm:text-3xl font-display font-bold text-text-primary leading-snug mb-3">
+            {round.sentence.text}
           </p>
 
-          <div className="flex flex-col gap-2.5">
+          <SentenceIpa text={round.sentence.text} />
+
+          <div className="flex flex-col gap-2.5 mt-4">
             <button
               onClick={readAloud}
               className="btn-3d flex items-center justify-center gap-2 py-2.5 bg-bg-card text-text-primary font-bold"
@@ -821,8 +810,6 @@ function SentencePracticeView({ focusSymbols, onClearFocus }: { focusSymbols: st
             </button>
 
             <VoiceRecorder />
-
-            <SentenceIpaToggle text={round.sentence.text} />
           </div>
         </div>
       )}
