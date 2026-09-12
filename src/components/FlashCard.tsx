@@ -214,16 +214,22 @@ export function FlashCard() {
     const exclude = new Set(getPrefetchedWords());
     if (excludeWord) exclude.add(excludeWord);
     setIsGenerating(true);
-    // Server-side pick (authoritative cross-device progress), local fallback.
-    const [next] = await pickNextWords(exclude);
-    if (!next) {
-      setIsGenerating(false);
-      toast.error('No words to study in this collection.');
-      return;
-    }
-    const { word } = next;
 
+    // Both awaits below share this try/catch/finally — pickNextWords used to
+    // sit outside it, so a failure there (or, on mobile, a supabase auth call
+    // it depends on hanging with no timeout of its own) left isGenerating
+    // stuck true and the phase stuck on 'loading' forever, with no error shown
+    // and no way to recover short of a reload.
     try {
+      // Server-side pick (authoritative cross-device progress), local fallback.
+      const [next] = await pickNextWords(exclude);
+      if (ctrl.signal.aborted) return; // superseded by a newer load
+      if (!next) {
+        toast.error('No words to study in this collection.');
+        return;
+      }
+      const { word } = next;
+
       const data = await generateWithRetry(word, ctrl.signal);
       if (ctrl.signal.aborted) return; // superseded by a newer load
       pushWord(data);

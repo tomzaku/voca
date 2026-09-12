@@ -33,6 +33,28 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 // hasn't moved and a local server still reads/writes the same database.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `${SUPABASE_URL}/functions/v1`;
 const DEFAULT_TIMEOUT_MS = 8000;
+// supabase-js serializes auth.getSession()/refreshSession() through the Web
+// Locks API. On mobile (Safari/PWA especially), a lock left over from a call
+// that was in flight when the tab got backgrounded can fail to release, so
+// the next getSession() call queues on it forever — before a request even
+// reaches signalFor()'s AbortSignal, so that timeout never gets a chance to
+// bound it. Race it separately so a dead lock degrades to "offline" instead
+// of hanging every request (and the whole app) indefinitely.
+const AUTH_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const err = new Error('Timed out.');
+      err.name = 'TimeoutError';
+      reject(err);
+    }, ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
 
 /** A failed call: the HTTP status, and the server's `error` where it sent one. */
 export class ApiError extends Error {
@@ -117,7 +139,16 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
   // One attempt at the call. `retried` guards the recursion below — a second
   // 401 gets surfaced, not chased forever.
   const attempt = async (retried: boolean): Promise<T> => {
-    const { data: { session } } = await client.auth.getSession();
+    let session: Awaited<ReturnType<typeof client.auth.getSession>>['data']['session'];
+    try {
+      ({ data: { session } } = await withTimeout(client.auth.getSession(), AUTH_TIMEOUT_MS));
+    } catch (err) {
+      // A stuck lock hangs this forever otherwise — treat it like any other
+      // unreachable-server failure rather than freezing the caller.
+      const detail = err instanceof Error && err.name === 'TimeoutError' ? 'Timed out.' : "Couldn't reach the server.";
+      record(0, false, { error: detail });
+      throw new ApiError(0, "Couldn't reach the server.");
+    }
     const authenticated = Boolean(session);
     if (!session && !opts.allowAnon) {
       record(401, false, { error: 'Please sign in.', authenticated });
@@ -155,8 +186,13 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
       // PWA cold-start case the network log surfaced. Refresh once and retry
       // before treating it as a real sign-out.
       if (response.status === 401 && session && !retried) {
-        const { data: refreshed } = await client.auth.refreshSession();
-        if (refreshed.session) return attempt(true);
+        try {
+          const { data: refreshed } = await withTimeout(client.auth.refreshSession(), AUTH_TIMEOUT_MS);
+          if (refreshed.session) return attempt(true);
+        } catch {
+          // Stuck lock, or the refresh itself failed — fall through and
+          // surface the original 401 rather than hang retrying it.
+        }
       }
       const message = (data as { error?: string } | null)?.error;
       record(response.status, false, { error: message || `Request failed (${response.status}).`, authenticated, responseBody: data });
