@@ -7,15 +7,13 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,16 +35,14 @@ jobs:
       # Copy index.html as 404.html for SPA client-side routing
       - run: cp dist/index.html dist/404.html
 
-      - uses: actions/upload-pages-artifact@v3
+      # voca stays private; GitHub Pages can't build from a private repo on a
+      # free plan. So instead of publishing this repo's own Pages site
+      # (actions/upload-pages-artifact + deploy-pages), the built static
+      # output is pushed to voca-pages — a separate, public repo dedicated
+      # purely to hosting it. Nothing but compiled assets ever lives there.
+      - uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          personal_token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          external_repository: tomzaku/voca-pages
+          publish_branch: main
+          publish_dir: ./dist

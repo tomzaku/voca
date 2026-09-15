@@ -15,7 +15,7 @@
 //   VAPID_PUBLIC_KEY     required — same key the client subscribes with
 //   VAPID_PRIVATE_KEY    required — never leaves the server
 //   VAPID_SUBJECT        optional — mailto: or https: contact (default mailto)
-//   APP_BASE             optional — base path the app is served from (default /voca)
+//   APP_BASE             optional — base path the app is served from (default '', i.e. root)
 //
 // Two modes, both behind the same secret:
 //   POST (no body)                      scheduled run — all users due this slot
@@ -51,9 +51,10 @@ function chooseAction(row: ReminderRow): ActionId {
   return row.review_due ? 'review_word' : 'test_ping';
 }
 
-// Base path the app is served from. Trailing slashes are normalised away so
-// the URLs below can append their own.
-const APP_BASE = (Deno.env.get('APP_BASE') ?? '/voca').replace(/\/+$/, '');
+// Base path the app is served from — served at the root of its custom domain
+// now, not GitHub's default /voca/ subpath, so this defaults to no prefix.
+// Trailing slashes are normalised away so the URLs below can append their own.
+const APP_BASE = (Deno.env.get('APP_BASE') ?? '').replace(/\/+$/, '');
 
 /**
  * URL-safe base64, mirroring `encodeWord` in src/lib/wordCode.ts — the two must

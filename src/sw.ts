@@ -26,7 +26,7 @@ declare let self: ServiceWorkerGlobalScope;
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-// GitHub Pages has no SPA rewrite, so deep links like /voca/quiz/123 must be
+// GitHub Pages has no SPA rewrite, so deep links like /quiz/123 must be
 // served the app shell. Matches the NavigationRoute generateSW emitted.
 registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
 
@@ -67,7 +67,7 @@ const FALLBACK: PushPayload = {
   body: 'Got a minute to make it stick?',
   // The server normally sends a deep link to a specific card; with no payload
   // to read, home is the only honest destination.
-  url: '/voca/',
+  url: '/',
 };
 
 self.addEventListener('push', (event) => {

@@ -3,14 +3,14 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
   },
-  // GitHub Pages serves the app under /voca/, but the local dev server has no
-  // such prefix — serving dev under '/' avoids the base-path mismatch that
-  // makes URLs like http://localhost:5173/voca?word=… fail.
-  base: command === 'build' ? '/voca/' : '/',
+  // Served at the root of the custom domain (v.trile.site — see
+  // public/CNAME), not GitHub's default /voca/ subpath, so build and dev
+  // both use '/'.
+  base: '/',
   plugins: [
     react(),
     tailwindcss(),
