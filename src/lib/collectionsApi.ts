@@ -4,11 +4,12 @@
 //
 //   GET    /collections             → { mine, joined }
 //   POST   /collections             → { collection }
-//   GET    /collections/:id         → { collection }
+//   GET    /collections/:id         → { collection, owner }
 //   PATCH  /collections/:id         → { collection }
 //   DELETE /collections/:id         → { ok }
 //   POST   /collections/:id/join    → { ok }
-//   GET    /collections/:id/members → { members }
+//   GET    /collections/:id/members → { members }  ranked, most words known first
+//   GET    /collections/:id/invite  → { invite }   open to signed-out visitors
 //
 // Reads are quiet — the store caches collections in localStorage and shows
 // that copy when the server can't be reached. Writes throw, because a create
@@ -35,6 +36,24 @@ export interface MemberProgress {
   total: number;
 }
 
+/** Who made a list — display name and avatar only, never the email. */
+export interface CollectionOwner {
+  name: string | null;
+  avatarUrl: string | null;
+}
+
+/** What a share link shows a visitor before they sign in. */
+export interface CollectionInvite {
+  name: string;
+  description: string | null;
+  wordCount: number;
+  /** The first few words, enough to see what the list is about. */
+  sampleWords: string[];
+  memberCount: number;
+  ownerName: string | null;
+  ownerAvatarUrl: string | null;
+}
+
 /** Everything the user can see: what they own, and what they've joined. */
 export async function fetchCollections(): Promise<{ mine: Collection[]; joined: Collection[] } | null> {
   return await request.get<{ mine: Collection[]; joined: Collection[] }>('/collections', { quiet: true });
@@ -44,6 +63,13 @@ export async function fetchCollections(): Promise<{ mine: Collection[]; joined: 
 export async function fetchCollection(id: string): Promise<Collection | null> {
   const res = await request.get<{ collection: Collection }>(`/collections/${id}`, { quiet: true });
   return res?.collection ?? null;
+}
+
+/** One collection plus who made it — what the detail page shows. Null if it isn't visible. */
+export async function fetchCollectionDetail(
+  id: string,
+): Promise<{ collection: Collection; owner: CollectionOwner } | null> {
+  return await request.get<{ collection: Collection; owner: CollectionOwner }>(`/collections/${id}`, { quiet: true });
 }
 
 /** Create a list owned by the caller. Throws ApiError with the server's message. */
@@ -78,10 +104,19 @@ export async function joinCollection(id: string): Promise<void> {
   await request.post(`/collections/${id}/join`, undefined, { quiet: true });
 }
 
-/** Members of a shared list and their progress. Empty when unreachable. */
+/** Members of a shared list and their progress, best first. Empty when unreachable. */
 export async function fetchMembers(id: string): Promise<MemberProgress[]> {
   const res = await request.get<{ members: MemberProgress[] }>(`/collections/${id}/members`, { quiet: true });
   return res?.members ?? [];
+}
+
+/** Who shared a public list. Works signed out; null if it isn't public. */
+export async function fetchInvite(id: string): Promise<CollectionInvite | null> {
+  const res = await request.get<{ invite: CollectionInvite }>(`/collections/${id}/invite`, {
+    allowAnon: true,
+    quiet: true,
+  });
+  return res?.invite ?? null;
 }
 
 export { ApiError };

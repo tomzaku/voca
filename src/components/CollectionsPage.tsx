@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
 import { QuizSetup } from './QuizSetup';
 import { CollectionStats } from './CollectionStats';
 import { MemberAvatars } from './MemberAvatars';
-import { PreviewModal, sampleWords } from './PreviewModal';
 import { CollectionForm } from './CollectionForm';
 import { completionPct } from '../lib/completion';
-import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 
 /** Thin progress bar + percent label — used on the system Level collections. */
@@ -28,12 +26,12 @@ function CompletionBar({ pct }: { pct: number }) {
   );
 }
 
-/** Small eye button that opens the word preview for a collection. */
-function PreviewButton({ onClick }: { onClick: () => void }) {
+/** Small eye button that opens a collection's detail page. */
+function DetailsButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      title="Preview words"
+      title="View collection"
       className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
     >
       <Icon icon="lucide:eye" className="text-sm" />
@@ -84,10 +82,9 @@ function Learners({ count }: { count: number }) {
 /**
  * Browse and pick the active vocabulary collection: bundled system collections
  * (Curated + CEFR Levels), your own collections (create / share / delete), and
- * collections shared with you via link (?c=<id>).
+ * ones you've joined. Each opens on its own page (CollectionDetailPage).
  */
 export function CollectionsPage() {
-  const { user } = useAuth();
   const activeId = useCollections((s) => s.activeId);
   const setActive = useCollections((s) => s.setActive);
   const mine = useCollections((s) => s.mine);
@@ -105,25 +102,9 @@ export function CollectionsPage() {
   const [searchParams] = useSearchParams();
   const systemCollections = useMemo(() => listCollections(), []);
 
-  // ── Shared link (?c=<id>) ──
+  // Old share links (?c=<id>) land on the detail page now.
   const sharedId = searchParams.get('c');
-  const [sharedCol, setSharedCol] = useState<UserCollection | null>(null);
-  const [sharedMissing, setSharedMissing] = useState(false);
-  useEffect(() => {
-    if (!sharedId) return;
-    let cancelled = false;
-    useCollections.getState().fetchById(sharedId).then((col) => {
-      if (cancelled) return;
-      if (col) setSharedCol(col);
-      else setSharedMissing(true);
-    });
-    return () => { cancelled = true; };
-  }, [sharedId]);
-
-  // ── Word preview ──
-  const [preview, setPreview] = useState<{ name: string; all: string[]; sample: string[] } | null>(null);
-  const openPreview = (name: string, all: string[]) =>
-    setPreview({ name, all, sample: sampleWords(all) });
+  const openDetails = (id: string) => navigate(`/collections/${id}`);
 
   // ── Quiz ──
   const [quiz, setQuiz] = useState<{ name: string; words: string[] } | null>(null);
@@ -173,7 +154,7 @@ export function CollectionsPage() {
     }
   };
 
-  const isForeignShared = sharedCol && sharedCol.ownerId !== user?.id;
+  if (sharedId) return <Navigate to={`/collections/${sharedId}`} replace />;
 
   if (quiz) {
     // Same shareable quiz engine as the History page — with progress recording
@@ -187,43 +168,6 @@ export function CollectionsPage() {
       <p className="text-sm text-text-muted mb-6">
         Pick the set of words you want to study. Your choice syncs across devices.
       </p>
-
-      {/* ── Shared with you (via link) ── */}
-      {sharedId && isForeignShared && (
-        <div className="mb-6 p-4 rounded-2xl border-2 border-accent-purple/40 bg-accent-purple/5">
-          <div className="flex items-center gap-2 mb-1">
-            <Icon icon="lucide:gift" className="text-accent-purple" />
-            <span className="text-xs font-bold text-accent-purple uppercase tracking-wider">Shared with you</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center flex-wrap gap-2">
-                <span className="font-display font-bold text-text-primary">{sharedCol.name}</span>
-                <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold">
-                  {sharedCol.words.length} words
-                </span>
-                <Learners count={sharedCol.memberCount} />
-              </div>
-              {sharedCol.description && <p className="text-xs text-text-muted mt-0.5">{sharedCol.description}</p>}
-              <MemberAvatars collectionId={sharedCol.id} name={sharedCol.name} />
-            </div>
-            <PreviewButton onClick={() => openPreview(sharedCol.name, sharedCol.words)} />
-            <StatsButton onClick={() => setStats({ name: sharedCol.name, words: sharedCol.words })} />
-            <QuizButton onClick={() => setQuiz({ name: sharedCol.name, words: sharedCol.words })} />
-            <button
-              onClick={() => pick(sharedCol.id, sharedCol.name)}
-              className="btn-3d shrink-0 px-4 py-2 text-sm bg-accent-purple text-bg-primary font-bold"
-            >
-              {activeId === sharedCol.id ? 'Studying ✓' : 'Study this'}
-            </button>
-          </div>
-        </div>
-      )}
-      {sharedId && sharedMissing && (
-        <div className="mb-6 p-4 rounded-2xl border-2 border-border bg-bg-card text-sm text-text-muted">
-          This shared collection doesn't exist or isn't public anymore.
-        </div>
-      )}
 
       {/* ── My collections ── */}
       <section className="mb-8">
@@ -278,7 +222,7 @@ export function CollectionsPage() {
                     </div>
                     {c.isPublic && <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal[c.id] ?? 0} />}
                   </button>
-                  <PreviewButton onClick={() => openPreview(c.name, c.words)} />
+                  <DetailsButton onClick={() => openDetails(c.id)} />
                   <StatsButton onClick={() => setStats({ name: c.name, words: c.words })} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
                   {/* Owner actions tucked behind an options menu */}
@@ -360,7 +304,7 @@ export function CollectionsPage() {
                     {c.description && <p className="text-xs text-text-muted mt-0.5">{c.description}</p>}
                     <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal[c.id] ?? 0} />
                   </button>
-                  <PreviewButton onClick={() => openPreview(c.name, c.words)} />
+                  <DetailsButton onClick={() => openDetails(c.id)} />
                   <StatsButton onClick={() => setStats({ name: c.name, words: c.words })} />
                   <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
                   <div className="relative shrink-0">
@@ -427,7 +371,7 @@ export function CollectionsPage() {
                   <p className="text-xs text-text-muted mt-0.5">{c.description}</p>
                   <CompletionBar pct={completionPct(getCollection(c.id).words.map((w) => w.word), progress)} />
                 </button>
-                <PreviewButton onClick={() => openPreview(c.name, getCollection(c.id).words.map((w) => w.word))} />
+                <DetailsButton onClick={() => openDetails(c.id)} />
                 <StatsButton onClick={() => setStats({ name: c.name, words: getCollection(c.id).words.map((w) => w.word) })} />
                 <QuizButton onClick={() => setQuiz({ name: c.name, words: getCollection(c.id).words.map((w) => w.word) })} />
                 {active ? (
@@ -447,16 +391,6 @@ export function CollectionsPage() {
       >
         Start learning
       </button>
-
-      {preview && (
-        <PreviewModal
-          name={preview.name}
-          total={preview.all.length}
-          words={preview.sample}
-          onReshuffle={() => setPreview({ ...preview, sample: sampleWords(preview.all) })}
-          onClose={() => setPreview(null)}
-        />
-      )}
 
       {stats && (
         <CollectionStats name={stats.name} words={stats.words} onClose={() => setStats(null)} />

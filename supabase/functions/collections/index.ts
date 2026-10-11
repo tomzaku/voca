@@ -3,11 +3,12 @@
 //
 //   GET    /collections            → { mine, joined }
 //   POST   /collections            → { collection }   { name, words }
-//   GET    /collections/:id        → { collection }   a shared link's target
+//   GET    /collections/:id        → { collection, owner }   a shared link's target / detail page
 //   PATCH  /collections/:id        → { collection }   { name?, words?, isPublic? }
 //   DELETE /collections/:id        → { ok }
 //   POST   /collections/:id/join   → { ok }           counts you as a learner
-//   GET    /collections/:id/members → { members }     avatars + per-member progress
+//   GET    /collections/:id/members → { members }     per-member progress, most words known first
+//   GET    /collections/:id/invite → { invite }       who shared it — open to signed-out visitors
 //
 // Ids are UUIDs, so they sit in the path — unlike a `word`, they can't contain
 // a slash or a space.
@@ -20,7 +21,7 @@
 //
 // Deploy: `supabase functions deploy collections`
 
-import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
+import { corsHeaders, jsonResponse, optionalUser, requireUser, serviceClient } from '../_shared/ai.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -55,6 +56,23 @@ function readName(v: unknown): string {
   return v.trim().slice(0, MAX_NAME);
 }
 
+/**
+ * Who made a list. The name lives in auth.users, which no client can read, so
+ * this is the service client — and only the display name and avatar leave
+ * here, never the email.
+ */
+async function ownerOf(ownerId: string): Promise<{ name: string | null; avatarUrl: string | null }> {
+  const admin = serviceClient();
+  if (!admin) return { name: null, avatarUrl: null };
+  const { data } = await admin.auth.admin.getUserById(ownerId);
+  const u = data?.user;
+  const meta = (u?.user_metadata ?? {}) as Record<string, unknown>;
+  return {
+    name: (meta.full_name as string | undefined) ?? u?.email?.split('@')[0] ?? null,
+    avatarUrl: (meta.avatar_url as string | undefined) ?? null,
+  };
+}
+
 /** Everything the caller can see: what they own, and what they've joined. */
 async function list(db: SupabaseClient, userId: string) {
   const [owned, memberships] = await Promise.all([
@@ -87,6 +105,30 @@ export default async function handler(req: Request): Promise<Response> {
   const path = parts.slice(parts.lastIndexOf('collections') + 1);
   const [id, sub] = path;
   if (id !== undefined && !UUID.test(id)) return jsonResponse(404, { error: 'Not found' });
+
+  // A share link's landing card is for people who haven't signed in yet, so
+  // this one route is answered before the sign-in check.
+  if (sub === 'invite' && req.method === 'GET') {
+    const { supabase } = await optionalUser(req);
+    // The caller's own client, so RLS is what limits this to public lists.
+    // Private and missing look the same, as on GET /collections/:id.
+    const { data: col } = await supabase.from('collections').select('*').eq('id', id).maybeSingle();
+    if (!col) return jsonResponse(404, { error: 'Collection not found.' });
+
+    const owner = await ownerOf(col.owner_id as string);
+    const c = toCollection(col);
+    return jsonResponse(200, {
+      invite: {
+        name: c.name,
+        description: c.description,
+        wordCount: c.words.length,
+        sampleWords: c.words.slice(0, 8),
+        memberCount: c.memberCount,
+        ownerName: owner.name,
+        ownerAvatarUrl: owner.avatarUrl,
+      },
+    });
+  }
 
   const auth = await requireUser(req);
   if (!auth) return jsonResponse(401, { error: 'Please sign in to use this feature.' });
@@ -154,7 +196,7 @@ export default async function handler(req: Request): Promise<Response> {
       // Not found and not-allowed-to-see are the same answer on purpose: a
       // private list must not be discoverable by probing ids.
       if (!data) return jsonResponse(404, { error: 'Collection not found.' });
-      return jsonResponse(200, { collection: toCollection(data) });
+      return jsonResponse(200, { collection: toCollection(data), owner: await ownerOf(data.owner_id as string) });
     }
 
     if (req.method === 'PATCH') {

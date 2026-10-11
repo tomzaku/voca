@@ -18,6 +18,7 @@ import { CompanionPage } from './components/CompanionPage';
 import { DashboardPage } from './components/DashboardPage';
 import { QuickReview } from './components/QuickReview';
 import { CollectionsPage } from './components/CollectionsPage';
+import { CollectionDetailPage } from './components/CollectionDetailPage';
 import { WritingPage, WritingLegacyRedirect } from './components/WritingPage';
 import { WorldGame } from './components/WorldGame';
 import { LevelTestPage } from './components/LevelTestPage';
@@ -59,6 +60,7 @@ export default function App() {
               {/* Old path — keep existing links working. */}
               <Route path="/streak" element={<Navigate to="/dashboard" replace />} />
               <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/collections/:id" element={<CollectionDetailPage />} />
               {/* Old shape (`?tab=ielts`) — send it to the equivalent path, keeping any other query params. */}
               <Route path="/writing" element={<WritingLegacyRedirect />} />
               <Route path="/writing/:tab" element={<WritingPage />} />

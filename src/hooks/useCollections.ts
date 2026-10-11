@@ -53,10 +53,13 @@ function saveUserCache(mine: UserCollection[], shared: Record<string, UserCollec
   try { localStorage.setItem(USER_KEY, JSON.stringify({ mine, shared, joinedIds })); } catch { /* ignore */ }
 }
 
-/** The public share URL for a collection (matches the router basename). */
+/**
+ * The public share URL for a collection (matches the router basename) — its
+ * detail page. Older `/collections?c=<id>` links still redirect there.
+ */
 export function collectionShareUrl(id: string): string {
   const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
-  return `${window.location.origin}${base}/collections?c=${id}`;
+  return `${window.location.origin}${base}/collections/${id}`;
 }
 
 interface CollectionsState {
