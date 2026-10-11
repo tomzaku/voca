@@ -20,6 +20,7 @@ import { ReviewPanel } from './ReviewPanel';
 import { WordMindMap } from './WordMindMap';
 import { MindMapButton } from './MindMapButton';
 import { SpeakingPractice } from './SpeakingPractice';
+import { WordDetails, WordDetailsLoading } from './WordDetails';
 
 const LEVEL_COLOR: Record<string, string> = {
   beginner: 'text-accent-green',
@@ -532,45 +533,7 @@ export function HistoryPage() {
               {/* Expanded content */}
               {isOpen && (
                 <div className="px-4 pb-4 border-t border-border pt-4 animate-fade-in">
-                  {isLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-text-muted">
-                      <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-                      Loading...
-                    </div>
-                  ) : data ? (
-                    <div className="space-y-4">
-                      {(() => {
-                        const ipa = data.phonetics?.['en-US'] || data.phonetics?.['en-GB'];
-                        return ipa ? <p className="text-sm font-code text-text-muted">{ipa}</p> : null;
-                      })()}
-                      <div>
-                        <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Definition</h4>
-                        <p className="text-sm text-text-primary leading-relaxed">{data.definition}</p>
-                      </div>
-                      {data.examples.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Examples</h4>
-                          <ul className="space-y-1.5">
-                            {data.examples.map((ex, i) => (
-                              <li key={i} className="flex gap-2 text-sm text-text-secondary">
-                                <span className="text-accent-cyan shrink-0">▸</span>
-                                <span>{ex}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {data.synonyms && data.synonyms.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {data.synonyms.map((syn) => (
-                            <span key={syn} className="text-xs px-2 py-0.5 rounded-full bg-bg-tertiary text-text-muted border border-border">
-                              {syn}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
+                  {isLoading ? <WordDetailsLoading /> : data ? <WordDetails data={data} /> : null}
                 </div>
               )}
             </div>

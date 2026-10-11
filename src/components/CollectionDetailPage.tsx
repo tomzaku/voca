@@ -16,12 +16,15 @@ import {
   type CollectionOwner,
   type MemberProgress,
 } from '../lib/collectionsApi';
-import { BUCKET_META, BUCKET_ORDER, progressLookup, wordBucket, type WordBucket } from '../lib/progress';
+import { BUCKET_META, BUCKET_ORDER, progressLookup, whyLine, wordBucket, type WordBucket } from '../lib/progress';
+import { peekWord } from '../hooks/useWordPeek';
+import { speakText } from '../lib/tts';
+import type { WordProgress } from '../types';
 import { MemberRing } from './MemberAvatars';
 import { MindMapButton } from './MindMapButton';
 import { WordMindMap } from './WordMindMap';
 import { QuizSetup } from './QuizSetup';
-import { CollectionStats } from './CollectionStats';
+import { LoadWordDetails } from './WordDetails';
 
 /** Podium colours, matching the team leaderboard's medals. */
 const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
@@ -95,6 +98,177 @@ function CollectionLeaderboard({ members, meId, ownerId, loading }: {
   );
 }
 
+/** Rows rendered at a time — a 2,000-word list shouldn't mount 2,000 rows up front. */
+const ROWS_PAGE = 50;
+
+/**
+ * One word of the list. Tapping the word opens the app-wide peek popup (a
+ * quick meaning without leaving the page); "More" unfolds the full entry under
+ * the row, like History.
+ */
+function WordRow({ word, bucket, p, open, onToggle, onTriage }: {
+  word: string;
+  bucket: WordBucket;
+  p: WordProgress | undefined;
+  open: boolean;
+  onToggle: () => void;
+  /** Mark as known (graduate it out of rotation) or bring it back. */
+  onTriage: (known: boolean) => void;
+}) {
+  const meta = BUCKET_META[bucket];
+  return (
+    <li className={`rounded-xl border transition-colors ${open ? 'border-accent-cyan/30' : 'border-border hover:border-border-light'}`}>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="flex-1 min-w-0">
+          <button
+            onClick={(e) => peekWord(word, e.currentTarget)}
+            className="font-display font-bold text-text-primary hover:text-accent-cyan hover:underline text-left break-words"
+            title={`What does “${word}” mean?`}
+          >
+            {word}
+          </button>
+          <div className="text-[10px] text-text-muted mt-0.5">{p ? whyLine(p) : 'Not studied yet'}</div>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${meta.chip}`}
+          title={meta.hint}
+        >
+          <Icon icon={meta.icon} className="text-xs" />
+          <span className="hidden sm:inline">{meta.label}</span>
+        </span>
+        {/* Same one-button triage as the stats popup: a mastered word offers
+            to come back, anything else offers to graduate. */}
+        {bucket === 'mastered' ? (
+          <button
+            onClick={() => onTriage(false)}
+            title="Bring it back — practice this word again"
+            className="shrink-0 text-[11px] font-bold px-2 h-8 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/40 transition-all"
+          >
+            Don't know
+          </button>
+        ) : (
+          <button
+            onClick={() => onTriage(true)}
+            title="I already know this — stop showing it"
+            className="shrink-0 text-[11px] font-bold px-2 h-8 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-all"
+          >
+            Know it
+          </button>
+        )}
+        <button
+          onClick={() => void speakText(word)}
+          title="Listen"
+          className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
+        >
+          <Icon icon="lucide:volume-2" className="text-sm" />
+        </button>
+        <button
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex items-center gap-1 shrink-0 px-2 h-8 rounded-lg text-xs font-bold text-text-muted hover:text-text-primary transition-colors"
+        >
+          <span className="hidden sm:inline">{open ? 'Less' : 'More'}</span>
+          <Icon icon="lucide:chevron-down" className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {open && (
+        <div className="px-4 pb-4 pt-4 border-t border-border animate-fade-in">
+          <LoadWordDetails word={word} />
+        </div>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Pick which learning groups to quiz on — "just my struggling words" is a
+ * different quiz from "everything I haven't started". QuizSetup still lets the
+ * learner trim the words after this.
+ */
+function QuizGroupPicker({ counts, initial, onStart, onClose }: {
+  counts: Record<WordBucket, number>;
+  initial: Set<WordBucket>;
+  onStart: (groups: Set<WordBucket>) => void;
+  onClose: () => void;
+}) {
+  const [picked, setPicked] = useState(initial);
+  const groups = BUCKET_ORDER.filter((b) => counts[b] > 0);
+  const total = groups.filter((b) => picked.has(b)).reduce((n, b) => n + counts[b], 0);
+  const toggle = (b: WordBucket) => setPicked((s) => {
+    const next = new Set(s);
+    if (next.has(b)) next.delete(b); else next.add(b);
+    return next;
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-border bg-bg-card shadow-2xl p-5 max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <h3 className="flex items-center gap-2 font-display font-bold text-text-primary">
+            <Icon icon="lucide:play" className="text-accent-green" />
+            Quiz these words
+          </h3>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary"
+            title="Close"
+          >
+            <Icon icon="lucide:x" />
+          </button>
+        </div>
+        <p className="text-xs text-text-muted mb-4">Pick the groups to include.</p>
+
+        <div className="flex flex-col gap-2 mb-5">
+          {groups.map((b) => {
+            const on = picked.has(b);
+            const meta = BUCKET_META[b];
+            return (
+              <button
+                key={b}
+                role="checkbox"
+                aria-checked={on}
+                onClick={() => toggle(b)}
+                className={`flex items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${
+                  on ? 'border-accent-cyan bg-accent-cyan/5' : 'border-border hover:border-border-light'
+                }`}
+              >
+                <Icon
+                  icon={on ? 'lucide:square-check' : 'lucide:square'}
+                  className={`text-lg shrink-0 ${on ? 'text-accent-cyan' : 'text-text-muted'}`}
+                />
+                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${meta.chip}`}>
+                  <Icon icon={meta.icon} className="text-sm" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-bold text-text-primary">{meta.label}</span>
+                  <span className="block text-[11px] text-text-muted leading-snug">{meta.hint}</span>
+                </span>
+                <span className="text-sm font-display font-extrabold tabular-nums text-text-secondary shrink-0">
+                  {counts[b]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => onStart(picked)}
+          disabled={total === 0}
+          className="btn-3d w-full px-4 py-3 text-sm font-bold bg-accent-green text-bg-primary disabled:opacity-50"
+        >
+          {total === 0 ? 'Pick a group' : `Quiz ${total} word${total === 1 ? '' : 's'}`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * One collection on its own page: every word in it (tinted by where *you*
  * stand on each), the ways to study it — quiz, stats, mind map — and, for a
@@ -115,6 +289,7 @@ export function CollectionDetailPage() {
   const joinedIds = useCollections((s) => s.joinedIds);
   const cached = useCollections((s) => s.getUserCollection(id));
   const localProgress = useVocabularyStore((s) => s.progress);
+  const triageWord = useVocabularyStore((s) => s.triageWord);
 
   const system = isCollectionId(id) ? getCollection(id) : null;
 
@@ -153,8 +328,8 @@ export function CollectionDetailPage() {
 
   // ── Your standing on each word ──
   const progress = useProgressForWords(words, localProgress);
+  const prog = useMemo(() => progressLookup(progress), [progress]);
   const { bucketOf, counts, known } = useMemo(() => {
-    const prog = progressLookup(progress);
     const bucketOf = new Map<string, WordBucket>();
     const counts: Record<WordBucket, number> = { pending: 0, difficult: 0, learning: 0, mastered: 0, dismissed: 0 };
     // "Known" is the leaderboard's own test (collection_members_progress), so
@@ -168,7 +343,7 @@ export function CollectionDetailPage() {
       if (p?.status === 'known' || p?.mastered) known++;
     }
     return { bucketOf, counts, known };
-  }, [progress, words]);
+  }, [prog, words]);
 
   const [filter, setFilter] = useState<WordBucket | 'all'>('all');
   const [query, setQuery] = useState('');
@@ -178,8 +353,31 @@ export function CollectionDetailPage() {
       (filter === 'all' || bucketOf.get(w) === filter) && (!q || w.toLowerCase().includes(q)));
   }, [words, bucketOf, filter, query]);
 
+  // Paging and open rows start over whenever the list being looked at changes.
+  const [limit, setLimit] = useState(ROWS_PAGE);
+  const [openWords, setOpenWords] = useState<Set<string>>(() => new Set());
+  useEffect(() => { setLimit(ROWS_PAGE); }, [filter, query]);
+  const toggleWord = (w: string) => setOpenWords((s) => {
+    const next = new Set(s);
+    if (next.has(w)) next.delete(w); else next.add(w);
+    return next;
+  });
+
   const [mode, setMode] = useState<'detail' | 'quiz' | 'mindmap'>('detail');
-  const [showStats, setShowStats] = useState(false);
+  const [quizWords, setQuizWords] = useState<string[]>([]);
+  const [pickingQuiz, setPickingQuiz] = useState(false);
+  // The picker opens on the filter already chosen; otherwise on what still
+  // needs work, leaving out what's mastered or skipped.
+  const quizDefault = (): Set<WordBucket> => {
+    if (filter !== 'all') return new Set([filter]);
+    const open = BUCKET_ORDER.filter((b) => counts[b] > 0 && b !== 'mastered' && b !== 'dismissed');
+    return new Set(open.length > 0 ? open : BUCKET_ORDER.filter((b) => counts[b] > 0));
+  };
+  const startQuiz = (groups: Set<WordBucket>) => {
+    setQuizWords(words.filter((w) => groups.has(bucketOf.get(w) ?? 'pending')));
+    setPickingQuiz(false);
+    setMode('quiz');
+  };
   const [joining, setJoining] = useState(false);
 
   const isOwner = !!col && col.ownerId === user?.id;
@@ -226,7 +424,7 @@ export function CollectionDetailPage() {
   };
 
   if (mode === 'quiz') {
-    return <QuizSetup words={words} recordProgress onBack={() => setMode('detail')} />;
+    return <QuizSetup words={quizWords} recordProgress onBack={() => setMode('detail')} />;
   }
   if (mode === 'mindmap') {
     return <WordMindMap words={words} onBack={() => setMode('detail')} />;
@@ -299,16 +497,10 @@ export function CollectionDetailPage() {
             {active ? 'Studying ✓' : joining ? 'Joining…' : joined || system || isOwner ? 'Study this' : 'Join & study'}
           </button>
           <button
-            onClick={() => setMode('quiz')}
+            onClick={() => setPickingQuiz(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-tertiary text-text-secondary text-xs font-medium hover:text-accent-green hover:border-accent-green/30 transition-all"
           >
             <Icon icon="lucide:play" className="text-sm" /> Quiz
-          </button>
-          <button
-            onClick={() => setShowStats(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-tertiary text-text-secondary text-xs font-medium hover:text-accent-purple hover:border-accent-purple/30 transition-all"
-          >
-            <Icon icon="lucide:chart-pie" className="text-sm" /> Stats
           </button>
           <MindMapButton words={words} isPro={isPro} onOpenInteractive={() => setMode('mindmap')} />
           {col && (isOwner || col.isPublic) && (
@@ -372,21 +564,30 @@ export function CollectionDetailPage() {
           {shownWords.length === 0 ? (
             <p className="text-xs text-text-muted">No words match.</p>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {shownWords.map((w) => {
-                const b = bucketOf.get(w) ?? 'pending';
-                return (
-                  <span
+            <>
+              <ul className="flex flex-col gap-2">
+                {shownWords.slice(0, limit).map((w) => (
+                  <WordRow
                     key={w}
-                    title={BUCKET_META[b].label}
-                    className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-transparent ${BUCKET_META[b].chip}`}
-                  >
-                    <Icon icon={BUCKET_META[b].icon} className="text-[10px] opacity-80" />
-                    {w}
-                  </span>
-                );
-              })}
-            </div>
+                    word={w}
+                    bucket={bucketOf.get(w) ?? 'pending'}
+                    p={prog(w)}
+                    open={openWords.has(w)}
+                    onToggle={() => toggleWord(w)}
+                    onTriage={(known) => triageWord(w, known, user?.id)}
+                  />
+                ))}
+              </ul>
+              {shownWords.length > limit && (
+                <button
+                  onClick={() => setLimit((n) => n + ROWS_PAGE)}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-border text-sm font-extrabold text-text-secondary hover:border-border-light hover:text-text-primary transition-all"
+                >
+                  <Icon icon="lucide:chevron-down" />
+                  Show more words ({shownWords.length - limit} left)
+                </button>
+              )}
+            </>
           )}
         </section>
 
@@ -436,7 +637,14 @@ export function CollectionDetailPage() {
         Start learning
       </button>
 
-      {showStats && <CollectionStats name={name} words={words} onClose={() => setShowStats(false)} />}
+      {pickingQuiz && (
+        <QuizGroupPicker
+          counts={counts}
+          initial={quizDefault()}
+          onStart={startQuiz}
+          onClose={() => setPickingQuiz(false)}
+        />
+      )}
     </div>
   );
 }
