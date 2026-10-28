@@ -43,6 +43,8 @@
   --shadow-game: rgba(0, 0, 0, 0.45);
   --btn-lip: rgba(0, 0, 0, 0.4);
   --bg-gradient: radial-gradient(circle at 15% -10%, #1f2950 0%, #111629 50%, #0a0d19 100%);
+  /* Inside of the mouth in the IPA diagram — darker than any surface. */
+  --mouth-cavity: #07050c;
 }
 
 /* Light theme · "Candy Day" — the colour lives in the accents; surfaces are
@@ -70,6 +72,7 @@
   --shadow-game: rgba(48, 52, 130, 0.22);
   --btn-lip: rgba(30, 34, 90, 0.24);
   --bg-gradient: #f0f2f5;
+  --mouth-cavity: #2b1838;
 }
 
 * {
@@ -192,6 +195,22 @@ body {
 
 .animate-shake {
   animation: shake 0.4s ease-out;
+}
+
+/* IPA mouth diagram cues (MouthDiagram.tsx): a buzzing throat for voiced
+   sounds, and dashes streaming out for air through the nose or mouth. */
+@keyframes mouthBuzz {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(1.5px); }
+}
+.mouth-buzz {
+  animation: mouthBuzz 0.12s linear infinite;
+}
+@keyframes mouthFlow {
+  to { stroke-dashoffset: -14; }
+}
+.mouth-flow {
+  animation: mouthFlow 0.6s linear infinite;
 }
 
 @keyframes popIn {
@@ -439,4 +458,5 @@ body {
    and drops the shimmer, which is the part that moves for its own sake. */
 @media (prefers-reduced-motion: reduce) {
   .peek-word.is-arming { animation: none; }
+  .mouth-buzz, .mouth-flow { animation: none; }
 }

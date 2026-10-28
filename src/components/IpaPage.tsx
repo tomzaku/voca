@@ -14,9 +14,10 @@ import {
   type IpaSound,
   type MinimalPair,
 } from '../data/ipa';
+import { IPA_RECORDINGS, recordingUrl } from '../data/ipaAudio';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
-import { Tabs } from './Tabs';
+import { MouthDiagram, MouthTags } from './MouthDiagram';
 
 type View = 'list' | 'practice' | 'detail';
 type ListMode = 'all' | 'compare';
@@ -86,85 +87,213 @@ function useIpaState() {
   return { view, mode, practiceMode, symbol, focusSymbols, goList, goDetail, goPractice };
 }
 
-/** Two-way switch between sub-views of the current tab, styled exactly like
- *  the flash card's Short/Full definition switch (parts.tsx's
- *  `DefLengthToggle`) — one bordered pill with the active side filled in,
- *  since these are two settings of the current tab, not separate pages
- *  (that distinction is what makes List/Practice itself a `Tabs` strip). */
-function PillSwitch<T extends string>({ value, options, onChange }: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-}) {
+/** Colour per sound family, so a symbol reads as "long vowel" or "consonant"
+ *  at a glance everywhere it appears — chart, compare, detail, quiz. */
+const CATEGORY_STYLE: Record<IpaCategory, { text: string; chip: string; hover: string; dot: string; blurb: string }> = {
+  'vowel-short': {
+    text: 'text-accent-cyan', chip: 'bg-accent-cyan/10 text-accent-cyan', hover: 'hover:border-accent-cyan/60', dot: 'bg-accent-cyan',
+    blurb: 'Quick and relaxed',
+  },
+  'vowel-long': {
+    text: 'text-accent-blue', chip: 'bg-accent-blue/10 text-accent-blue', hover: 'hover:border-accent-blue/60', dot: 'bg-accent-blue',
+    blurb: 'Held longer — that’s what the ː means',
+  },
+  diphthong: {
+    text: 'text-accent-purple', chip: 'bg-accent-purple/10 text-accent-purple', hover: 'hover:border-accent-purple/60', dot: 'bg-accent-purple',
+    blurb: 'Two vowels gliding into one',
+  },
+  consonant: {
+    text: 'text-accent-orange', chip: 'bg-accent-orange/10 text-accent-orange', hover: 'hover:border-accent-orange/60', dot: 'bg-accent-orange',
+    blurb: 'Made by stopping or squeezing the air',
+  },
+};
+
+const soundFor = (symbol: string) => IPA_SOUNDS.find((s) => s.symbol === symbol);
+const styleFor = (symbol: string) => CATEGORY_STYLE[soundFor(symbol)?.category ?? 'consonant'];
+
+// One recording at a time across the page, and never over the TTS voice.
+let soundAudio: HTMLAudioElement | null = null;
+function stopAll() {
+  stopSpeaking();
+  soundAudio?.pause();
+  soundAudio = null;
+}
+
+/** Speak a word — or play a sound's recording — toggling to a stop icon
+ *  mid-playback. `playing` is the word, or `/symbol/` for a sound. */
+function useSpeak() {
+  const [playing, setPlaying] = useState<string | null>(null);
+  const speak = useCallback((text: string) => {
+    stopAll();
+    if (playing === text) { setPlaying(null); return; }
+    setPlaying(text);
+    speakText(text, { onEnd: () => setPlaying(null) }).catch(() => setPlaying(null));
+  }, [playing]);
+  const speakSound = useCallback((symbol: string) => {
+    const key = `/${symbol}/`;
+    stopAll();
+    if (playing === key) { setPlaying(null); return; }
+    const rec = IPA_RECORDINGS[symbol];
+    if (!rec) {
+      // Diphthongs have no recording: a word is the honest substitute.
+      const word = soundFor(symbol)?.examples[0];
+      if (!word) return;
+      setPlaying(key);
+      speakText(word, { onEnd: () => setPlaying(null) }).catch(() => setPlaying(null));
+      return;
+    }
+    const audio = new Audio(recordingUrl(rec));
+    soundAudio = audio;
+    setPlaying(key);
+    const done = () => { if (soundAudio === audio) soundAudio = null; setPlaying((p) => (p === key ? null : p)); };
+    audio.onended = done;
+    audio.onerror = done;
+    audio.onpause = done;
+    audio.play().catch(done);
+  }, [playing]);
+  return { playing, speak, speakSound };
+}
+
+/** "Recording: Peter Isotalo · CC BY-SA 3.0" — the attribution the licence asks for. */
+function RecordingCredit({ symbol }: { symbol: string }) {
+  const rec = IPA_RECORDINGS[symbol];
+  if (!rec) {
+    return (
+      <p className="mt-2 text-[11px] text-text-muted">
+        There’s no standard recording of /{symbol}/ on its own, so 🔊 plays an example word.
+      </p>
+    );
+  }
   return (
-    <div
-      role="tablist"
-      className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border bg-bg-tertiary p-0.5 text-xs font-bold select-none"
+    <p className="mt-2 text-[11px] text-text-muted">
+      Recording:{' '}
+      <a href={rec.page} target="_blank" rel="noopener noreferrer" className="underline decoration-dotted hover:text-accent-cyan">
+        {rec.author}
+      </a>
+      {' '}· {rec.license} · Wikimedia Commons
+    </p>
+  );
+}
+
+/** Round button that says the sound itself — /θ/, not "think". */
+function SoundButton({ symbol, size = 'sm', className = '' }: { symbol: string; size?: 'sm' | 'lg'; className?: string }) {
+  const { playing, speakSound } = useSpeak();
+  const on = playing === `/${symbol}/`;
+  const word = IPA_RECORDINGS[symbol] ? null : soundFor(symbol)?.examples[0];
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); speakSound(symbol); }}
+      title={word ? `Hear /${symbol}/ in “${word}”` : `Hear /${symbol}/`}
+      aria-label={`Hear the sound /${symbol}/`}
+      className={`shrink-0 rounded-full flex items-center justify-center transition-all ${
+        size === 'lg' ? 'w-12 h-12 text-xl' : 'w-8 h-8 text-sm'
+      } ${on ? 'bg-accent-cyan text-bg-primary' : 'bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20'} ${className}`}
     >
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          role="tab"
-          aria-selected={value === opt.value}
-          onClick={() => onChange(opt.value)}
-          className={`px-3 py-1 rounded-full transition-colors ${
-            value === opt.value ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
+      <Icon icon={on ? 'lucide:audio-lines' : 'lucide:volume-2'} className={on ? 'animate-pulse' : ''} />
+    </button>
   );
 }
 
 /** Small pill that speaks one example word on click — toggles to a stop icon
  *  mid-playback, same affordance as the flash card's own speaker buttons. */
 function WordChip({ word }: { word: string }) {
-  const [playing, setPlaying] = useState(false);
-
-  const toggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (playing) {
-      stopSpeaking();
-      setPlaying(false);
-      return;
-    }
-    stopSpeaking();
-    setPlaying(true);
-    speakText(word, { onEnd: () => setPlaying(false) }).catch(() => setPlaying(false));
-  };
-
+  const { playing, speak } = useSpeak();
   return (
     <button
-      onClick={toggle}
+      onClick={(e) => { e.stopPropagation(); speak(word); }}
       className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full bg-bg-tertiary text-text-secondary hover:text-accent-cyan hover:bg-accent-cyan/10 transition-all"
     >
-      <Icon icon={playing ? 'lucide:square' : 'lucide:volume-2'} className="text-[11px]" />
+      <Icon icon={playing === word ? 'lucide:square' : 'lucide:volume-2'} className="text-[11px]" />
       {word}
     </button>
   );
 }
 
+type NavKey = 'chart' | 'compare' | 'listen' | 'sentence';
+
+/** The page's one navigation row — the four things you can do here, rather
+ *  than a List/Practice strip with a second switch under each half. */
+function ModeNav({ active, onChange }: { active: NavKey; onChange: (k: NavKey) => void }) {
+  const items: { key: NavKey; label: string; icon: string }[] = [
+    { key: 'chart', label: 'Sound chart', icon: 'lucide:layout-grid' },
+    { key: 'compare', label: 'Compare', icon: 'lucide:git-compare-arrows' },
+    { key: 'listen', label: 'Listening quiz', icon: 'lucide:headphones' },
+    { key: 'sentence', label: 'Sentences', icon: 'lucide:mic' },
+  ];
+  return (
+    <nav role="tablist" className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 rounded-2xl border-2 border-border bg-bg-tertiary">
+      {items.map((it) => {
+        const on = active === it.key;
+        return (
+          <button
+            key={it.key}
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(it.key)}
+            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-sm font-extrabold transition-all ${
+              on ? 'bg-bg-card text-text-primary tile-lip' : 'text-text-muted hover:text-text-primary'
+            }`}
+          >
+            <Icon icon={it.icon} className={on ? 'text-accent-cyan' : ''} />
+            {it.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** "Practicing /ɪ/ vs /iː/ ×" above a practice view, or its plain hint. */
+function FocusBar({ symbols, hint, onClear, children }: {
+  symbols: string[];
+  hint: string;
+  onClear: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap mb-4 min-h-8">
+      {symbols.length > 0 ? (
+        <span className="flex items-center gap-1 pl-3 pr-1 py-1 rounded-full bg-accent-cyan/10 text-xs font-bold text-accent-cyan">
+          Practicing {symbols.map((s) => `/${s}/`).join(' vs ')}
+          <button
+            onClick={onClear}
+            title="Practice every sound"
+            aria-label="Practice every sound"
+            className="w-5 h-5 rounded-full flex items-center justify-center hover:bg-accent-cyan/20"
+          >
+            <Icon icon="lucide:x" className="text-xs" />
+          </button>
+        </span>
+      ) : (
+        <span className="text-xs font-bold text-text-muted">{hint}</span>
+      )}
+      {children}
+    </div>
+  );
+}
+
 function SoundCard({ sound, onOpen }: { sound: IpaSound; onOpen: (symbol: string) => void }) {
+  const style = CATEGORY_STYLE[sound.category];
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(sound.symbol)}
-      className="p-3 rounded-2xl border-[3px] border-border bg-bg-card tile-lip cursor-pointer hover:border-accent-cyan/50 transition-all"
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(sound.symbol); }}
+      className={`group flex flex-col gap-3 p-3.5 rounded-2xl border-2 border-border bg-bg-card cursor-pointer transition-all hover:-translate-y-0.5 ${style.hover}`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-code text-2xl font-bold text-accent-cyan">/{sound.symbol}/</span>
-        <Icon icon="lucide:chevron-right" className="text-text-muted/50 text-sm" />
+      <div className="flex items-start justify-between">
+        <span className={`font-code text-3xl font-black leading-none ${style.text}`}>/{sound.symbol}/</span>
+        <SoundButton symbol={sound.symbol} />
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1">
         {sound.examples.map((w) => <WordChip key={w} word={w} />)}
       </div>
     </div>
   );
 }
 
-/** Every sound, grouped by category — the plain reference list. */
+/** Every sound, grouped by category — the plain reference chart. */
 function AllSoundsView({ onOpen }: { onOpen: (symbol: string) => void }) {
   const groups = useMemo(() => {
     const byCategory = new Map<IpaCategory, IpaSound[]>();
@@ -179,35 +308,60 @@ function AllSoundsView({ onOpen }: { onOpen: (symbol: string) => void }) {
 
   return (
     <div className="space-y-8">
-      {groups.map(({ category, sounds }) => (
-        <section key={category}>
-          <h2 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-            {CATEGORY_LABELS[category]}
-            <span className="ml-1.5 normal-case font-normal text-text-muted/60">({sounds.length})</span>
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {sounds.map((sound) => <SoundCard key={sound.symbol} sound={sound} onOpen={onOpen} />)}
-          </div>
-        </section>
-      ))}
+      <p className="flex items-center gap-1.5 text-xs text-text-muted">
+        <Icon icon="lucide:info" />
+        Tap <Icon icon="lucide:volume-2" className="text-accent-cyan" /> to hear the sound, a word to hear it in use, or the card to see how the mouth makes it.
+      </p>
+      {groups.map(({ category, sounds }) => {
+        const style = CATEGORY_STYLE[category];
+        return (
+          <section key={category}>
+            <div className="flex items-baseline gap-2 mb-3 px-1">
+              <span className={`w-2.5 h-2.5 rounded-full self-center ${style.dot}`} />
+              <h2 className="font-display font-extrabold text-text-primary">{CATEGORY_LABELS[category]}</h2>
+              <span className="text-xs font-bold text-text-muted">{sounds.length}</span>
+              <span className="hidden sm:inline text-xs text-text-muted">· {style.blurb}</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3">
+              {sounds.map((sound) => <SoundCard key={sound.symbol} sound={sound} onOpen={onOpen} />)}
+            </div>
+          </section>
+        );
+      })}
+      <p className="text-[11px] text-text-muted">
+        Sound recordings from Wikimedia Commons (CC BY-SA and public domain) — each sound’s page credits its recording.
+        Diphthongs have no standard recording, so theirs play an example word.
+      </p>
     </div>
   );
 }
 
-/** One side of a comparison card — a sound the learner mixes up with its
- *  partner, plus the one-line "how to say it" so the difference in mouth
- *  position is right there next to the symbol, not a click away. */
+/** One side of a comparison card: the mouth making the sound, its symbol and
+ *  word, and the one-line "how to say it" — so the difference in mouth
+ *  position is right there, not a click away. The mouth moves on hover. */
 function CompareSide({ side, onOpen }: { side: MinimalPair['a']; onOpen: (symbol: string) => void }) {
-  const sound = IPA_SOUNDS.find((s) => s.symbol === side.symbol);
+  const sound = soundFor(side.symbol);
+  const [hover, setHover] = useState(false);
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(side.symbol)}
-      className="flex-1 min-w-0 text-left p-3 rounded-xl bg-bg-tertiary hover:bg-accent-cyan/10 transition-all"
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(side.symbol); }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      className="flex-1 min-w-0 flex flex-col p-3 rounded-xl bg-bg-tertiary hover:bg-bg-hover cursor-pointer transition-colors"
     >
-      <div className="font-code text-xl font-bold text-accent-cyan mb-1.5">/{side.symbol}/</div>
-      <WordChip word={side.word} />
-      {sound && <p className="text-[11px] text-text-muted mt-2 leading-snug">{sound.howTo}</p>}
-    </button>
+      <MouthDiagram symbol={side.symbol} animate={hover} className="w-full h-20 mb-2" />
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <span className="flex items-center gap-1.5">
+          <span className={`font-code text-xl font-black ${styleFor(side.symbol).text}`}>/{side.symbol}/</span>
+          <SoundButton symbol={side.symbol} />
+        </span>
+        <WordChip word={side.word} />
+      </div>
+      {sound && <p className="text-[11px] text-text-muted leading-snug">{sound.howTo}</p>}
+    </div>
   );
 }
 
@@ -217,29 +371,30 @@ function CompareSide({ side, onOpen }: { side: MinimalPair['a']; onOpen: (symbol
  *  stay backed by one list instead of two that could drift apart. */
 function CompareView({ onOpen, onPractice }: { onOpen: (symbol: string) => void; onPractice: (target: PracticeTarget) => void }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {MINIMAL_PAIRS.map((pair) => {
         const focus = [pair.a.symbol, pair.b.symbol];
         return (
-          <div key={pairKey(pair)} className="p-3 rounded-2xl border-[3px] border-border bg-bg-card tile-lip">
-            <div className="flex items-stretch gap-2.5">
+          <div key={pairKey(pair)} className="p-3 rounded-2xl border-2 border-border bg-bg-card">
+            <div className="relative flex items-stretch gap-2">
               <CompareSide side={pair.a} onOpen={onOpen} />
-              <div className="flex items-center text-xs font-bold text-text-muted/60 shrink-0">vs</div>
+              <span className="absolute left-1/2 top-10 -translate-x-1/2 w-8 h-8 rounded-full bg-bg-card border-2 border-border flex items-center justify-center text-[10px] font-black text-text-muted pointer-events-none">
+                VS
+              </span>
               <CompareSide side={pair.b} onOpen={onOpen} />
             </div>
-            <div className="flex items-center gap-1 mt-2.5 pt-2.5 border-t border-border/60">
+            <div className="grid grid-cols-2 gap-2 mt-3">
               <button
                 onClick={() => onPractice({ focus, mode: 'listen' })}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1 text-xs font-bold text-accent-cyan hover:opacity-70 transition-opacity"
+                className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-accent-cyan/10 text-xs font-extrabold text-accent-cyan hover:bg-accent-cyan/20 transition-colors"
               >
-                <Icon icon="lucide:headphones" className="text-sm" /> Listen
+                <Icon icon="lucide:headphones" className="text-sm" /> Hear the difference
               </button>
-              <div className="w-px self-stretch bg-border/60" />
               <button
                 onClick={() => onPractice({ focus, mode: 'sentence' })}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1 text-xs font-bold text-accent-purple hover:opacity-70 transition-opacity"
+                className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-accent-purple/10 text-xs font-extrabold text-accent-purple hover:bg-accent-purple/20 transition-colors"
               >
-                <Icon icon="lucide:message-square-text" className="text-sm" /> Sentences
+                <Icon icon="lucide:mic" className="text-sm" /> Say sentences
               </button>
             </div>
           </div>
@@ -249,80 +404,165 @@ function CompareView({ onOpen, onPractice }: { onOpen: (symbol: string) => void;
   );
 }
 
-/** One sound's own page: how to make it, a longer word list, and a link out
- *  to a real pronunciation video — rather than embedding one we can't verify
- *  still exists, a search always resolves to something current. */
-function DetailView({ symbol, onBack, onPractice }: {
+/** One sound's own page: the mouth making it, how to make it, a longer word
+ *  list, the sounds it's confused with, and a link out to real pronunciation
+ *  videos — a search rather than one embedded video we can't verify still
+ *  exists. */
+function DetailView({ symbol, onBack, onOpen, onPractice }: {
   symbol: string;
   onBack: () => void;
+  onOpen: (symbol: string) => void;
   onPractice: (target: PracticeTarget) => void;
 }) {
-  const sound = IPA_SOUNDS.find((s) => s.symbol === symbol);
+  const sound = soundFor(symbol);
   const pairs = useMemo(() => pairsForSymbol(symbol), [symbol]);
   const allExamples = useMemo(
     () => sound ? [...sound.examples, ...sound.moreExamples] : [],
     [sound],
   );
+  const { playing, speak, speakSound } = useSpeak();
+  // Prev/next and "often confused with" swap the sound in place; start each
+  // one at the top rather than wherever the last one was scrolled to.
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [symbol]);
 
   if (!sound) {
     return (
       <div>
         <p className="text-sm text-text-muted mb-4">Unknown sound.</p>
-        <button onClick={onBack} className="text-sm font-bold text-accent-cyan">← Back to list</button>
+        <button onClick={onBack} className="text-sm font-bold text-accent-cyan">← Back to the chart</button>
       </div>
     );
   }
 
+  const style = CATEGORY_STYLE[sound.category];
+  const index = IPA_SOUNDS.indexOf(sound);
+  const prev = IPA_SOUNDS[(index - 1 + IPA_SOUNDS.length) % IPA_SOUNDS.length];
+  const next = IPA_SOUNDS[(index + 1) % IPA_SOUNDS.length];
+
   return (
-    <div className="max-w-lg mx-auto">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-text-muted hover:text-accent-cyan transition-all mb-4">
-        <Icon icon="lucide:arrow-left" className="text-sm" /> List
-      </button>
-
-      <div className="card-game border-accent-cyan p-6 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <span className="font-code text-4xl font-bold text-accent-cyan">/{sound.symbol}/</span>
-          <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider bg-bg-tertiary px-2 py-1 rounded-full">
-            {CATEGORY_LABELS[sound.category]}
-          </span>
+    <div className="max-w-3xl mx-auto">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-text-muted hover:text-accent-cyan transition-colors">
+          <Icon icon="lucide:arrow-left" className="text-sm" /> Sound chart
+        </button>
+        <div className="flex items-center gap-1.5">
+          {[{ s: prev, icon: 'lucide:chevron-left', label: 'Previous sound' }, { s: next, icon: 'lucide:chevron-right', label: 'Next sound' }].map(({ s, icon, label }) => (
+            <button
+              key={label}
+              onClick={() => onOpen(s.symbol)}
+              title={`${label}: /${s.symbol}/`}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border-2 border-border bg-bg-card text-xs font-extrabold text-text-secondary hover:text-text-primary hover:border-border-light transition-colors"
+            >
+              {icon.endsWith('left') && <Icon icon={icon} />}
+              <span className="font-code">/{s.symbol}/</span>
+              {icon.endsWith('right') && <Icon icon={icon} />}
+            </button>
+          ))}
         </div>
-        <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1">How to say it</h3>
-        <p className="text-sm text-text-primary leading-relaxed">{sound.howTo}</p>
       </div>
 
-      <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Example words</h3>
-      <div className="flex flex-wrap gap-1.5 mb-5">
-        {allExamples.map((w) => <WordChip key={w} word={w} />)}
+      {/* Hero: the moving mouth beside the symbol and how to make it */}
+      <div className="card-game p-5 sm:p-6 mb-5 grid grid-cols-1 sm:grid-cols-[15rem_1fr] gap-5 items-center">
+        <div className="rounded-2xl bg-bg-secondary border-2 border-border p-3">
+          <MouthDiagram symbol={sound.symbol} className="w-full h-auto" />
+          <div className="mt-2"><MouthTags symbol={sound.symbol} /></div>
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
+            <span className={`font-code text-5xl font-black leading-none ${style.text}`}>/{sound.symbol}/</span>
+            <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full ${style.chip}`}>
+              {CATEGORY_LABELS[sound.category]}
+            </span>
+          </div>
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">How to say it</h3>
+          <p className="text-[15px] text-text-primary leading-relaxed mb-4">{sound.howTo}</p>
+          <div className="flex flex-wrap gap-2">
+            {IPA_RECORDINGS[sound.symbol] && <button
+              onClick={() => speakSound(sound.symbol)}
+              className="btn-3d inline-flex items-center gap-2 px-4 py-2.5 bg-accent-cyan text-bg-primary"
+            >
+              <Icon icon={playing === `/${sound.symbol}/` ? 'lucide:audio-lines' : 'lucide:volume-2'} className="text-lg" />
+              Hear /{sound.symbol}/
+            </button>}
+            <button
+              onClick={() => speak(sound.examples[0])}
+              className="btn-3d inline-flex items-center gap-2 px-4 py-2.5 bg-bg-card text-text-primary"
+            >
+              <Icon icon={playing === sound.examples[0] ? 'lucide:square' : 'lucide:volume-2'} className="text-lg" />
+              In “{sound.examples[0]}”
+            </button>
+          </div>
+          <RecordingCredit symbol={sound.symbol} />
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2.5">
+      <section className="mb-5">
+        <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 px-1">Example words</h3>
+        <div className="flex flex-wrap gap-1.5">
+          {allExamples.map((w) => <WordChip key={w} word={w} />)}
+        </div>
+      </section>
+
+      {pairs.length > 0 && (
+        <section className="mb-5">
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 px-1">Often confused with</h3>
+          <div className="rounded-2xl border-2 border-border bg-bg-card divide-y divide-border overflow-hidden">
+            {pairs.map((pair) => {
+              const mine = pair.a.symbol === symbol ? pair.a : pair.b;
+              const other = pair.a.symbol === symbol ? pair.b : pair.a;
+              return (
+                <div key={pairKey(pair)} className="flex items-center gap-3 px-4 py-3 flex-wrap">
+                  <button
+                    onClick={() => onOpen(other.symbol)}
+                    className={`font-code text-xl font-black w-14 text-left hover:underline ${styleFor(other.symbol).text}`}
+                    title={`Open /${other.symbol}/`}
+                  >
+                    /{other.symbol}/
+                  </button>
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <WordChip word={mine.word} />
+                    <span className="text-[10px] font-black text-text-muted">VS</span>
+                    <WordChip word={other.word} />
+                  </div>
+                  <button
+                    onClick={() => onPractice({ focus: [mine.symbol, other.symbol], mode: 'listen' })}
+                    className="flex items-center gap-1 text-xs font-extrabold text-accent-cyan hover:opacity-70 transition-opacity"
+                  >
+                    <Icon icon="lucide:headphones" /> Quiz this pair
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        {pairs.length > 0 && (
+          <button
+            onClick={() => onPractice({ focus: [sound.symbol], mode: 'listen' })}
+            className="btn-3d flex items-center justify-center gap-2 py-3 bg-accent-cyan text-bg-primary"
+          >
+            <Icon icon="lucide:headphones" className="text-lg" />
+            Listening quiz
+          </button>
+        )}
+        <button
+          onClick={() => onPractice({ focus: [sound.symbol], mode: 'sentence' })}
+          className="btn-3d flex items-center justify-center gap-2 py-3 bg-accent-purple text-bg-primary"
+        >
+          <Icon icon="lucide:mic" className="text-lg" />
+          Say sentences
+        </button>
         <a
           href={youtubeSearchUrl(sound.symbol)}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn-3d flex items-center justify-center gap-2 py-3 bg-bg-card text-text-primary font-bold"
+          className="btn-3d flex items-center justify-center gap-2 py-3 bg-bg-card text-text-primary"
         >
           <Icon icon="lucide:youtube" className="text-lg text-accent-red" />
-          Watch pronunciation videos on YouTube
+          Videos
         </a>
-
-        {pairs.length > 0 && (
-          <button
-            onClick={() => onPractice({ focus: [sound.symbol], mode: 'listen' })}
-            className="btn-3d flex items-center justify-center gap-2 py-3 bg-accent-cyan text-bg-primary font-bold"
-          >
-            <Icon icon="lucide:headphones" className="text-lg" />
-            Practice listening
-          </button>
-        )}
-
-        <button
-          onClick={() => onPractice({ focus: [sound.symbol], mode: 'sentence' })}
-          className="btn-3d flex items-center justify-center gap-2 py-3 bg-accent-purple text-bg-primary font-bold"
-        >
-          <Icon icon="lucide:message-square-text" className="text-lg" />
-          Practice sentences
-        </button>
       </div>
     </div>
   );
@@ -348,10 +588,13 @@ function randomRound(pool: MinimalPair[], avoidKey?: string): Round {
 
 /** Minimal-pairs listening quiz: play one word from a pair the learner often
  *  confuses (ship/sheep, thin/... teethe, etc.), pick which one they heard.
- *  `focusSymbol` narrows the pool to pairs contrasting one sound, reached from
- *  that sound's detail page or the Compare view; otherwise every pair is
- *  fair game. */
-function ListenPracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string | null; onClearFocus: () => void }) {
+ *  `focusSymbols` narrows the pool to pairs contrasting its first sound,
+ *  reached from a sound's detail page or the Compare view; otherwise every
+ *  pair is fair game. After each answer both words can be heard again and
+ *  both mouths are shown side by side — the moment the difference matters.
+ *  Keys: 1/2 pick, Space replays, Enter goes on. */
+function ListenPracticeView({ focusSymbols, onClearFocus }: { focusSymbols: string[]; onClearFocus: () => void }) {
+  const focusSymbol = focusSymbols[0] ?? null;
   const pool = useMemo(() => {
     if (!focusSymbol) return MINIMAL_PAIRS;
     const filtered = pairsForSymbol(focusSymbol);
@@ -360,7 +603,7 @@ function ListenPracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string
 
   const [round, setRound] = useState<Round>(() => randomRound(pool));
   const [picked, setPicked] = useState<'a' | 'b' | null>(null);
-  const [score, setScore] = useState({ correct: 0, total: 0 });
+  const [score, setScore] = useState({ correct: 0, total: 0, streak: 0 });
   const [playing, setPlaying] = useState(false);
 
   // A new focus (or leaving one) starts a fresh round from the right pool.
@@ -381,48 +624,65 @@ function ListenPracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round]);
 
-  const pick = (side: 'a' | 'b') => {
+  const pick = useCallback((side: 'a' | 'b') => {
     if (picked) return;
     setPicked(side);
     const ok = side === round.correct;
     if (ok) playCorrect(); else playWrong();
-    setScore((s) => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1 }));
-  };
+    setScore((s) => ({ correct: s.correct + (ok ? 1 : 0), total: s.total + 1, streak: ok ? s.streak + 1 : 0 }));
+  }, [picked, round]);
 
-  const next = () => {
+  const next = useCallback(() => {
     setPicked(null);
     setRound(randomRound(pool, pairKey(round.pair)));
-  };
+  }, [pool, round]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable]')) return;
+      if (e.key === '1' || e.key === '2') pick(round.order[Number(e.key) - 1]);
+      else if (e.key === ' ') { e.preventDefault(); playPrompt(round); }
+      else if (e.key === 'Enter' && picked) { e.preventDefault(); next(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pick, next, playPrompt, round, picked]);
+
+  const answer = round.pair[round.correct];
+  const gotIt = picked === round.correct;
 
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="flex items-center justify-between mb-4 text-xs font-bold text-text-muted">
-        {focusSymbol ? (
-          <span className="flex items-center gap-1.5">
-            Practicing <span className="font-code text-accent-cyan">/{focusSymbol}/</span>
-            <button onClick={onClearFocus} className="text-text-muted underline decoration-dotted hover:text-accent-cyan">
-              (all sounds)
-            </button>
+    <div className="max-w-xl mx-auto">
+      <FocusBar symbols={focusSymbols} hint="Listen, then pick the word you heard" onClear={onClearFocus}>
+        <div className="flex items-center gap-2 text-xs font-extrabold">
+          <span className="px-2 py-1 rounded-full bg-accent-green/10 text-accent-green">
+            {score.correct} / {score.total}
           </span>
-        ) : (
-          <span>Listen and pick the word you heard</span>
-        )}
-        <span className="text-accent-green">{score.correct} / {score.total}</span>
-      </div>
+          {score.streak >= 2 && (
+            <span className="px-2 py-1 rounded-full bg-accent-orange/10 text-accent-orange animate-pop-in">
+              🔥 {score.streak}
+            </span>
+          )}
+        </div>
+      </FocusBar>
 
-      <div className="card-game border-accent-cyan p-6 mb-5 flex flex-col items-center gap-3">
+      <div className="card-game p-6 mb-4 flex flex-col items-center gap-3 text-center">
         <button
           onClick={() => playPrompt(round)}
-          className="btn-3d w-16 h-16 rounded-2xl bg-accent-cyan text-bg-primary flex items-center justify-center"
-          title="Play again"
+          className="btn-3d w-20 h-20 rounded-full bg-accent-cyan text-bg-primary flex items-center justify-center"
+          title="Play again (Space)"
+          aria-label="Play the word again"
         >
-          <Icon icon={playing ? 'lucide:loader-2' : 'lucide:volume-2'} className={`text-2xl ${playing ? 'animate-spin' : ''}`} />
+          <Icon icon={playing ? 'lucide:audio-lines' : 'lucide:volume-2'} className={`text-3xl ${playing ? 'animate-pulse' : ''}`} />
         </button>
-        <p className="text-xs text-text-muted">Tap to hear it again</p>
+        <p className="font-display font-extrabold text-text-primary">Which word did you hear?</p>
+        <p className="hidden sm:block text-[11px] text-text-muted">
+          <kbd className="px-1 rounded bg-bg-tertiary">Space</kbd> to replay
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {round.order.map((side) => {
+        {round.order.map((side, i) => {
           const opt = round.pair[side];
           const isPicked = picked === side;
           const isAnswer = picked && side === round.correct;
@@ -431,17 +691,20 @@ function ListenPracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string
               key={side}
               onClick={() => pick(side)}
               disabled={!!picked}
-              className={`px-4 py-4 rounded-2xl border-[3px] text-center font-display font-extrabold tile-lip transition-all ${
+              className={`relative px-4 py-5 rounded-2xl border-2 text-center font-display font-extrabold tile-lip transition-all ${
                 isAnswer
                   ? 'border-accent-green bg-accent-green/15 text-accent-green'
                   : isPicked
                     ? 'border-accent-red bg-accent-red/15 text-accent-red animate-shake'
                     : picked
-                      ? 'border-border bg-bg-tertiary text-text-muted opacity-60'
-                      : 'border-border bg-bg-tertiary text-text-primary hover:border-accent-cyan hover:-translate-y-0.5'
+                      ? 'border-border bg-bg-card text-text-muted opacity-60'
+                      : 'border-border bg-bg-card text-text-primary hover:border-accent-cyan hover:-translate-y-0.5'
               }`}
             >
-              <div className="text-lg">{opt.word}</div>
+              <kbd className="hidden sm:flex absolute top-2 left-2 w-5 h-5 items-center justify-center rounded bg-bg-tertiary text-[10px] text-text-muted">
+                {i + 1}
+              </kbd>
+              <div className="text-xl">{opt.word}</div>
               <div className="font-code text-xs opacity-70 mt-0.5">/{opt.symbol}/</div>
             </button>
           );
@@ -449,9 +712,29 @@ function ListenPracticeView({ focusSymbol, onClearFocus }: { focusSymbol: string
       </div>
 
       {picked && (
-        <button onClick={next} className="btn-3d w-full mt-5 py-3 bg-accent-cyan text-bg-primary font-bold">
-          Next
-        </button>
+        <div className="mt-4 rounded-2xl border-2 border-border bg-bg-card p-4 animate-fade-in">
+          <p className={`flex items-center gap-1.5 font-display font-extrabold mb-3 ${gotIt ? 'text-accent-green' : 'text-accent-red'}`}>
+            <Icon icon={gotIt ? 'lucide:circle-check' : 'lucide:circle-x'} className="text-lg" />
+            {gotIt ? 'Nice — ' : 'Not quite — it was '}“{answer.word}” /{answer.symbol}/
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {(['a', 'b'] as const).map((side) => {
+              const opt = round.pair[side];
+              return (
+                <div key={side} className="rounded-xl bg-bg-tertiary p-2.5 flex flex-col items-center gap-1.5">
+                  <MouthDiagram symbol={opt.symbol} animate={false} className="w-full h-20" />
+                  <div className="flex items-center gap-2">
+                    <span className={`font-code font-black ${styleFor(opt.symbol).text}`}>/{opt.symbol}/</span>
+                    <WordChip word={opt.word} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={next} className="btn-3d w-full mt-4 py-3 bg-accent-cyan text-bg-primary">
+            Next <span className="hidden sm:inline text-xs opacity-70">(Enter)</span>
+          </button>
+        </div>
       )}
     </div>
   );
@@ -699,14 +982,14 @@ function SentencePicker({ pool, current, onPick }: {
   }, [pool]);
 
   return (
-    <div className="rounded-2xl border-[3px] border-border bg-bg-card p-3 mb-4 max-h-80 overflow-y-auto">
-      <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2 px-1">
+    <div className="rounded-2xl border-2 border-border bg-bg-card p-3 mb-4 max-h-96 overflow-y-auto animate-fade-in">
+      <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 px-1">
         Choose a sentence
       </h3>
       <div className="space-y-3">
         {groups.map(([symbol, rounds]) => (
           <div key={symbol}>
-            <div className="font-code text-xs font-bold text-accent-cyan mb-1 px-1">/{symbol}/</div>
+            <div className={`font-code text-sm font-black mb-1 px-1 ${styleFor(symbol).text}`}>/{symbol}/</div>
             <div className="space-y-0.5">
               {rounds.map((r) => {
                 const active = sentenceRoundKey(r) === sentenceRoundKey(current);
@@ -714,8 +997,8 @@ function SentencePicker({ pool, current, onPick }: {
                   <button
                     key={sentenceRoundKey(r)}
                     onClick={() => onPick(r)}
-                    className={`block w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                      active ? 'bg-accent-cyan/15 text-accent-cyan' : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
+                    className={`block w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors ${
+                      active ? 'bg-accent-cyan/15 text-accent-cyan font-bold' : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
                     }`}
                   >
                     {r.sentence.text}
@@ -737,7 +1020,11 @@ function SentencePicker({ pool, current, onPick }: {
  *  to one sound (from its detail page) or a pair (from Compare); empty means
  *  every sound's sentences are fair game. Short and long sentences are pooled
  *  together — no separate filter to switch between them. */
-function SentencePracticeView({ focusSymbols, onClearFocus }: { focusSymbols: string[]; onClearFocus: () => void }) {
+function SentencePracticeView({ focusSymbols, onClearFocus, onOpen }: {
+  focusSymbols: string[];
+  onClearFocus: () => void;
+  onOpen: (symbol: string) => void;
+}) {
   const [picking, setPicking] = useState(false);
 
   const pool = useMemo(() => {
@@ -774,57 +1061,64 @@ function SentencePracticeView({ focusSymbols, onClearFocus }: { focusSymbols: st
     setPicking(false);
   };
 
+  const style = styleFor(round.symbol);
+
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="flex items-center justify-between mb-4 text-xs font-bold text-text-muted gap-3 flex-wrap">
-        {focusSymbols.length > 0 ? (
-          <span className="flex items-center gap-1.5">
-            Practicing <span className="font-code text-accent-cyan">{focusSymbols.map((s) => `/${s}/`).join(' vs ')}</span>
-            <button onClick={onClearFocus} className="text-text-muted underline decoration-dotted hover:text-accent-cyan">
-              (all sounds)
-            </button>
-          </span>
-        ) : (
-          <span>Read it aloud, then record yourself saying it</span>
-        )}
-        <span className="font-code text-accent-cyan">/{round.symbol}/</span>
-      </div>
+    <div className="max-w-2xl mx-auto">
+      <FocusBar symbols={focusSymbols} hint="Listen, record yourself, then compare" onClear={onClearFocus} />
 
       {picking ? (
         <SentencePicker pool={pool} current={round} onPick={pick} />
       ) : (
-        <div key={sentenceRoundKey(round)} className="card-game border-accent-cyan p-5 mb-4">
-          <p className="text-2xl sm:text-3xl font-display font-bold text-text-primary leading-snug mb-3">
+        <div key={sentenceRoundKey(round)} className="card-game p-5 sm:p-6 mb-4 animate-fade-in">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <button
+              onClick={() => onOpen(round.symbol)}
+              className={`flex items-center gap-1.5 text-xs font-extrabold px-2.5 py-1 rounded-full ${style.chip} hover:opacity-80`}
+              title={`How to make /${round.symbol}/`}
+            >
+              Tongue twister for <span className="font-code text-sm">/{round.symbol}/</span>
+              <Icon icon="lucide:arrow-up-right" />
+            </button>
+            <MouthDiagram symbol={round.symbol} className="w-20 h-auto shrink-0 -mt-1" />
+          </div>
+
+          <p className="text-2xl sm:text-3xl font-display font-extrabold text-text-primary leading-snug mb-4">
             {round.sentence.text}
           </p>
 
           <SentenceIpa text={round.sentence.text} />
 
-          <div className="flex flex-col gap-2.5 mt-4">
-            <button
-              onClick={readAloud}
-              className="btn-3d flex items-center justify-center gap-2 py-2.5 bg-bg-card text-text-primary font-bold"
-            >
-              <Icon icon={playing ? 'lucide:loader-2' : 'lucide:volume-2'} className={`text-lg ${playing ? 'animate-spin' : ''}`} />
-              Read aloud
-            </button>
-
-            <VoiceRecorder />
-          </div>
+          <ol className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-5">
+            <li className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-bold text-text-muted px-1">1 · Listen</span>
+              <button
+                onClick={readAloud}
+                className="btn-3d flex items-center justify-center gap-2 py-2.5 bg-bg-card text-text-primary"
+              >
+                <Icon icon={playing ? 'lucide:audio-lines' : 'lucide:volume-2'} className={`text-lg ${playing ? 'animate-pulse' : ''}`} />
+                Read aloud
+              </button>
+            </li>
+            <li className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-bold text-text-muted px-1">2 · Say it and hear yourself</span>
+              <VoiceRecorder />
+            </li>
+          </ol>
         </div>
       )}
 
       <div className="flex gap-2.5">
         <button
           onClick={() => setPicking((p) => !p)}
-          className="btn-3d flex-1 flex items-center justify-center gap-2 py-3 bg-bg-card text-text-primary font-bold"
+          className="btn-3d flex-1 flex items-center justify-center gap-2 py-3 bg-bg-card text-text-primary"
         >
           <Icon icon={picking ? 'lucide:x' : 'lucide:list'} className="text-lg" />
           {picking ? 'Cancel' : 'Choose a sentence'}
         </button>
         {!picking && (
-          <button onClick={next} className="btn-3d flex-1 py-3 bg-accent-cyan text-bg-primary font-bold">
-            Next sentence
+          <button onClick={next} className="btn-3d flex-1 flex items-center justify-center gap-2 py-3 bg-accent-cyan text-bg-primary">
+            Next sentence <Icon icon="lucide:arrow-right" />
           </button>
         )}
       </div>
@@ -832,44 +1126,38 @@ function SentencePracticeView({ focusSymbols, onClearFocus }: { focusSymbols: st
   );
 }
 
-/** Standalone reference page: every IPA sound English uses (List → All
- *  sounds), commonly-confused sounds side by side (List → Compare), each
- *  sound's own how-to-say-it page plus a video link (Detail), and a
- *  minimal-pairs listening drill (Practice). */
+/** Standalone reference page: every IPA sound English uses (Sound chart),
+ *  commonly-confused sounds side by side (Compare), each sound's own page
+ *  with an animated mouth and how-to (Detail), a minimal-pairs listening
+ *  quiz, and read-aloud sentence practice. */
 export function IpaPage() {
   const { view, mode, practiceMode, symbol, focusSymbols, goList, goDetail, goPractice } = useIpaState();
 
+  const active: NavKey =
+    view === 'practice' ? practiceMode : mode === 'compare' ? 'compare' : 'chart';
+  const navigate = (k: NavKey) => {
+    if (k === 'chart') goList('all');
+    else if (k === 'compare') goList('compare');
+    else goPractice({ mode: k });
+  };
+
   return (
     <div className="mx-auto max-w-page px-4 py-8">
-      <h1 className="flex items-center gap-1.5 mb-6 text-base">
-        <Link to="/speaking" className="font-medium text-text-muted hover:text-text-secondary transition-colors">
-          Speak
-        </Link>
-        <span className="text-text-muted/50">/</span>
-        <span className="font-bold text-text-primary">IPA Sounds</span>
-      </h1>
+      <header className="mb-6">
+        <div className="flex items-center gap-1.5 mb-1 text-xs font-bold">
+          <Link to="/speaking" className="text-text-muted hover:text-text-secondary transition-colors">Speak</Link>
+          <span className="text-text-muted/50">/</span>
+          <span className="text-text-secondary">IPA Sounds</span>
+        </div>
+        <h1 className="font-title font-black text-2xl sm:text-3xl text-text-primary leading-tight">IPA Sounds</h1>
+        <p className="text-sm text-text-muted">
+          The {IPA_SOUNDS.length} sounds of British English — see how the mouth makes each one, hear it, then practise.
+        </p>
+      </header>
 
       {view !== 'detail' && (
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
-          <Tabs
-            value={view === 'practice' ? 'practice' : 'list'}
-            items={[{ value: 'list', label: 'List' }, { value: 'practice', label: 'Practice' }]}
-            onChange={(v) => v === 'list' ? goList() : goPractice()}
-          />
-          {view === 'list' && (
-            <PillSwitch
-              value={mode}
-              options={[{ value: 'all', label: 'All sounds' }, { value: 'compare', label: 'Compare similar' }]}
-              onChange={goList}
-            />
-          )}
-          {view === 'practice' && (
-            <PillSwitch
-              value={practiceMode}
-              options={[{ value: 'listen', label: 'Listen' }, { value: 'sentence', label: 'Sentences' }]}
-              onChange={(m) => goPractice({ mode: m })}
-            />
-          )}
+        <div className="mb-6">
+          <ModeNav active={active} onChange={navigate} />
         </div>
       )}
 
@@ -878,13 +1166,13 @@ export function IpaPage() {
         <CompareView onOpen={goDetail} onPractice={(target) => goPractice(target)} />
       )}
       {view === 'detail' && symbol && (
-        <DetailView symbol={symbol} onBack={() => goList()} onPractice={(target) => goPractice(target)} />
+        <DetailView symbol={symbol} onBack={() => goList()} onOpen={goDetail} onPractice={(target) => goPractice(target)} />
       )}
       {view === 'practice' && practiceMode === 'listen' && (
-        <ListenPracticeView focusSymbol={focusSymbols[0] ?? null} onClearFocus={() => goPractice({ focus: [] })} />
+        <ListenPracticeView focusSymbols={focusSymbols} onClearFocus={() => goPractice({ focus: [] })} />
       )}
       {view === 'practice' && practiceMode === 'sentence' && (
-        <SentencePracticeView focusSymbols={focusSymbols} onClearFocus={() => goPractice({ focus: [] })} />
+        <SentencePracticeView focusSymbols={focusSymbols} onClearFocus={() => goPractice({ focus: [] })} onOpen={goDetail} />
       )}
     </div>
   );
