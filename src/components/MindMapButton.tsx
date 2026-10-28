@@ -35,11 +35,16 @@ export function MindMapButton({
   words,
   isPro,
   onOpenInteractive,
+  className,
+  children,
 }: {
   words: string[];
   isPro: boolean;
   /** Switch the page to the in-app interactive map. */
   onOpenInteractive: () => void;
+  /** Restyle the trigger (History draws it as a practice tile); the menu is unchanged. */
+  className?: string;
+  children?: React.ReactNode;
 }) {
   const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -92,18 +97,22 @@ export function MindMapButton({
   };
 
   return (
-    <div className="shrink-0">
+    <div className={className ? 'contents' : 'shrink-0'}>
       <button
         ref={btnRef}
         onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={menu !== null}
         title="Build a mind map of these words"
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-accent-yellow text-xs font-medium hover:bg-accent-yellow/20 transition-all cursor-pointer"
+        className={className ?? 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-accent-yellow text-xs font-medium hover:bg-accent-yellow/20 transition-all cursor-pointer'}
       >
-        <Icon icon="lucide:git-fork" className="text-sm" />
-        Mind Map
-        <Icon icon="lucide:chevron-down" className="text-[11px] opacity-70" />
+        {children ?? (
+          <>
+            <Icon icon="lucide:git-fork" className="text-sm" />
+            Mind Map
+            <Icon icon="lucide:chevron-down" className="text-[11px] opacity-70" />
+          </>
+        )}
       </button>
 
       {menu && createPortal(

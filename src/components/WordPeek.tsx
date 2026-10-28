@@ -194,7 +194,7 @@ function PeekCard({ word, anchor, onClose }: {
         {/* Header — the word, what kind of word it is, and how it sounds */}
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="font-title text-lg text-text-primary break-words leading-tight">{headword}</h3>
+            <h3 className="font-title font-black text-lg text-text-primary break-words leading-tight">{headword}</h3>
             {data?.partOfSpeech && (
               <span className="text-[11px] text-text-muted italic">{data.partOfSpeech}</span>
             )}

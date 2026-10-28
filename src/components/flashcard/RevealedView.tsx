@@ -70,7 +70,7 @@ export function RevealedView({
               )}
               <div className="min-w-0">
                 <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
-                  <h1 className="text-2xl sm:text-4xl font-title text-accent-purple tracking-tight drop-shadow-[0_2px_0_var(--btn-lip)] break-words">
+                  <h1 className="text-3xl sm:text-5xl font-display font-extrabold leading-tight text-text-primary break-words">
                     {headword}
                   </h1>
                   {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-xs" />}

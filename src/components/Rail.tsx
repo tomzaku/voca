@@ -240,7 +240,7 @@ export function Rail() {
           >
             <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="voca" className="w-9 h-9 rounded-xl shrink-0" />
             {expanded && (
-              <span className="font-title text-xl text-accent-cyan tracking-tight leading-none truncate">
+              <span className="font-title font-black text-xl text-accent-cyan tracking-tight leading-none truncate">
                 voca
               </span>
             )}

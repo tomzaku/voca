@@ -56,7 +56,7 @@ export function worldPalette(): WorldPalette {
 
   return {
     light,
-    void: hex(cssVar('--color-bg-primary', light ? '#e6ebf3' : '#0d1120')),
+    void: hex(cssVar('--color-bg-primary', light ? '#f0f2f5' : '#0d1120')),
     zones: {
       forest: light
         ? {
@@ -88,8 +88,8 @@ export function worldPalette(): WorldPalette {
     },
     card: hex(card),
     cardCss: card,
-    border: hex(cssVar('--color-border', light ? '#c6cfe2' : '#46528c')),
-    track: hex(cssVar('--color-bg-tertiary', light ? '#eef1f7' : '#242c4c')),
+    border: hex(cssVar('--color-border', light ? '#dddfe2' : '#46528c')),
+    track: hex(cssVar('--color-bg-tertiary', light ? '#f0f2f5' : '#242c4c')),
     textCss: cssVar('--color-text-primary', light ? '#262357' : '#ffffff'),
     mutedCss: cssVar('--color-text-muted', light ? '#8d8bb4' : '#a3acce'),
     kind: {
@@ -101,4 +101,4 @@ export function worldPalette(): WorldPalette {
   };
 }
 
-export const FONT = '"Baloo 2", "Nunito", sans-serif';
+export const FONT = '"Nunito", sans-serif';

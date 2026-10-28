@@ -7,7 +7,7 @@ import { useIsPro } from '../hooks/useProStatus';
 import { generateWordData } from '../lib/wordService';
 import { getRecentDailyWords } from '../lib/dailyWord';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
-import { whyLine, wordBucket, BUCKET_META } from '../lib/progress';
+import { whyLine, wordBucket, BUCKET_META, BUCKET_ORDER } from '../lib/progress';
 import { isFilter } from '../lib/progressApi';
 import { useProgressQuery, type Filter } from '../hooks/useProgressQuery';
 import { WORD_LIST } from '../lib/wordService';
@@ -158,6 +158,95 @@ function bucketBadge(item: WordProgress) {
  *  The quiz has no such cap: QuizSetup paginates its word picker and defaults
  *  to a smart batch, so it gets the full filtered list. */
 const GAME_LIMIT = 30;
+
+/** Colour per practice tool — the same pairing the Review hub uses. */
+const TOOL_COLOR = {
+  cyan: { chip: 'bg-accent-cyan/10 text-accent-cyan', hover: 'hover:border-accent-cyan/50' },
+  green: { chip: 'bg-accent-green/10 text-accent-green', hover: 'hover:border-accent-green/50' },
+  orange: { chip: 'bg-accent-orange/10 text-accent-orange', hover: 'hover:border-accent-orange/50' },
+  yellow: { chip: 'bg-accent-yellow/10 text-accent-yellow', hover: 'hover:border-accent-yellow/50' },
+} as const;
+
+const tileClass = (color: keyof typeof TOOL_COLOR) =>
+  `group flex items-center gap-3 p-3 rounded-xl border-2 border-border bg-bg-card text-left transition-all hover:-translate-y-0.5 cursor-pointer ${TOOL_COLOR[color].hover}`;
+
+/** A practice tile's contents. Rendered inside a <button> here, or inside
+ *  MindMapButton's own trigger so its menu keeps working. */
+function TileBody({ icon, label, hint, color, pro }: {
+  icon: string;
+  label: string;
+  hint: string;
+  color: keyof typeof TOOL_COLOR;
+  pro?: boolean;
+}) {
+  return (
+    <>
+      <span className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${TOOL_COLOR[color].chip}`}>
+        <Icon icon={icon} className="text-xl" />
+      </span>
+      <span className="min-w-0">
+        <span className="flex items-center gap-1.5 font-display font-extrabold text-sm text-text-primary">
+          {label}
+          {pro && (
+            <span className={`text-[9px] px-1 py-px rounded font-extrabold uppercase tracking-wider ${TOOL_COLOR[color].chip}`}>
+              Pro
+            </span>
+          )}
+        </span>
+        <span className="block text-[11px] text-text-muted leading-snug truncate">{hint}</span>
+      </span>
+    </>
+  );
+}
+
+/** Title plus where every word stands — one bar split by learning bucket, so
+ *  the page opens on progress rather than straight into a list. */
+function HistoryHeader({ counts }: { counts: Partial<Record<Filter, number>> }) {
+  const segments = BUCKET_ORDER.map((b) => ({ ...BUCKET_META[b], count: counts[BUCKET_META[b].tab] ?? 0 }));
+  const total = segments.reduce((n, s) => n + s.count, 0);
+  const mastered = counts.mastered ?? 0;
+
+  return (
+    <header className="mb-6">
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="font-title font-black text-2xl sm:text-3xl text-text-primary leading-tight">History</h1>
+          <p className="text-sm text-text-muted">Every word you’ve met, newest first.</p>
+        </div>
+        {total > 0 && (
+          <p className="text-sm font-bold text-text-secondary">
+            <span className="font-extrabold text-text-primary">{total}</span> words ·{' '}
+            <span className="font-extrabold text-accent-green">{mastered}</span> mastered
+          </p>
+        )}
+      </div>
+
+      {total > 0 && (
+        <>
+          <div className="mt-4 h-2.5 rounded-full bg-bg-tertiary overflow-hidden flex">
+            {segments.map((s) => s.count > 0 && (
+              <div
+                key={s.tab}
+                className={`h-full ${s.bar}`}
+                style={{ width: `${(s.count / total) * 100}%` }}
+                title={`${s.label}: ${s.count}`}
+              />
+            ))}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {segments.map((s) => (
+              <span key={s.tab} className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted">
+                <span className={`w-2 h-2 rounded-full ${s.bar}`} />
+                {s.label}
+                <span className="text-text-secondary">{s.count}</span>
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+    </header>
+  );
+}
 
 export function HistoryPage() {
   const { user } = useAuth();
@@ -320,12 +409,14 @@ export function HistoryPage() {
 
   return (
     <div className="max-w-page mx-auto px-4 py-8">
+      <HistoryHeader counts={counts} />
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_19rem] gap-6 items-start">
         {/* ── Left: word lists ── */}
         <div className="min-w-0">
 
       {/* ── Filters — check any mix of lists; the words (and games) follow ── */}
-      <div className="mb-6">
+      <div className="mb-5">
         <FilterChips checked={checked} counts={counts} onToggle={(id) => { toggleFilter(id); setExpanded(null); }} />
       </div>
 
@@ -335,95 +426,91 @@ export function HistoryPage() {
           Loading your words…
         </div>
       ) : list.length === 0 ? (
-        <div className="py-16 text-center">
+        <div className="py-16 px-6 text-center rounded-2xl border-2 border-dashed border-border">
           <div className="text-4xl mb-4">{emptyCopy.icon}</div>
           <h2 className="text-xl font-display font-bold text-text-primary mb-2">{emptyCopy.title}</h2>
-          <p className="text-sm text-text-muted">{emptyCopy.hint}</p>
+          <p className="text-sm text-text-muted max-w-sm mx-auto">{emptyCopy.hint}</p>
         </div>
       ) : (
         <>
           {/* Practice tools — playing the words in whatever mix of lists is
               checked above. */}
           {gameWords.length >= 2 && (
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <button
-                onClick={openQuiz}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-xs font-medium hover:bg-accent-cyan/20 transition-all"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-                Quiz
-              </button>
-              {/* Pro: Story Gaps writes a fresh AI story every round (always a
-                  generative call), so it's gated like the interactive Mind Map.
-                  The button stays visible as a teaser; the server re-checks Pro. */}
-              <button
-                onClick={() => {
-                  if (!isPro) {
-                    toast('Story Gaps is a Pro feature.', { icon: '👑' });
-                    return;
+            <section className="mb-7">
+              <h2 className="mb-2 px-1 text-xs font-bold text-text-muted uppercase tracking-wider">
+                Practice these words
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+                <button onClick={openQuiz} className={tileClass('cyan')}>
+                  <TileBody icon="lucide:play" label="Quiz" hint="Test yourself" color="cyan" />
+                </button>
+                {/* Pro: Story Gaps writes a fresh AI story every round (always a
+                    generative call), so it's gated like the interactive Mind Map.
+                    The tile stays visible as a teaser; the server re-checks Pro. */}
+                <button
+                  onClick={() => {
+                    if (!isPro) {
+                      toast('Story Gaps is a Pro feature.', { icon: '👑' });
+                      return;
+                    }
+                    setMode('paragraph');
+                  }}
+                  title={
+                    isPro
+                      ? 'Fill these words into an AI-written short story'
+                      : 'Pro feature — an AI-written story that uses your words'
                   }
-                  setMode('paragraph');
-                }}
-                title={
-                  isPro
-                    ? 'Fill these words into an AI-written short story'
-                    : 'Pro feature — an AI-written story that uses your words'
-                }
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-green/10 border border-accent-green/20 text-accent-green text-xs font-medium hover:bg-accent-green/20 transition-all"
-              >
-                <Icon icon={isPro ? 'lucide:book-open' : 'lucide:lock'} className="text-sm" />
-                Story Gaps
-                <span className="text-[9px] px-1 py-px rounded bg-accent-green/20 font-extrabold uppercase tracking-wider">
-                  Pro
-                </span>
-              </button>
-              {/* Pro: an AI dialogue script that weaves in these words, stored
-                  so replaying it later costs nothing — only "Generate" here
-                  actually calls the model. */}
-              <button
-                onClick={() => {
-                  if (!isPro) {
-                    toast('Speaking is a Pro feature.', { icon: '👑' });
-                    return;
+                  className={tileClass('green')}
+                >
+                  <TileBody icon={isPro ? 'lucide:book-open' : 'lucide:lock'} label="Story Gaps" hint="Fill an AI story" color="green" pro />
+                </button>
+                {/* Pro: an AI dialogue script that weaves in these words, stored
+                    so replaying it later costs nothing — only "Generate" here
+                    actually calls the model. */}
+                <button
+                  onClick={() => {
+                    if (!isPro) {
+                      toast('Speaking is a Pro feature.', { icon: '👑' });
+                      return;
+                    }
+                    setMode('speaking');
+                  }}
+                  title={
+                    isPro
+                      ? 'An AI conversation built from these words'
+                      : 'Pro feature — an AI conversation built from these words'
                   }
-                  setMode('speaking');
-                }}
-                title={
-                  isPro
-                    ? 'An AI conversation built from these words'
-                    : 'Pro feature — an AI conversation built from these words'
-                }
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-orange/10 border border-accent-orange/20 text-accent-orange text-xs font-medium hover:bg-accent-orange/20 transition-all"
-              >
-                <Icon icon={isPro ? 'lucide:message-circle' : 'lucide:lock'} className="text-sm" />
-                Speaking
-                <span className="text-[9px] px-1 py-px rounded bg-accent-orange/20 font-extrabold uppercase tracking-wider">
-                  Pro
-                </span>
-              </button>
-              {/* One entry point, two ways to get a map: the Pro interactive
-                  board in-app, or a hand-drawn picture from ChatGPT. */}
-              <MindMapButton
-                words={gameWords}
-                isPro={isPro}
-                onOpenInteractive={() => setMode('mindmap')}
-              />
-            </div>
+                  className={tileClass('orange')}
+                >
+                  <TileBody icon={isPro ? 'lucide:message-circle' : 'lucide:lock'} label="Speaking" hint="Talk them through" color="orange" pro />
+                </button>
+                {/* One entry point, two ways to get a map: the Pro interactive
+                    board in-app, or a hand-drawn picture from ChatGPT. */}
+                <MindMapButton
+                  words={gameWords}
+                  isPro={isPro}
+                  onOpenInteractive={() => setMode('mindmap')}
+                  className={tileClass('yellow')}
+                >
+                  <TileBody icon="lucide:git-fork" label="Mind Map" hint="See how they connect" color="yellow" />
+                </MindMapButton>
+              </div>
+            </section>
           )}
 
       <div className="space-y-6">
         {visibleGroups.map((group) => (
-          <div key={group.key}>
+          <section key={group.key}>
             {/* Day header with count so users see how many they learned that day */}
-            <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center gap-2 mb-2 px-1">
               <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider">{groupLabel(group.key)}</h3>
-              <span className="text-[11px] font-bold text-accent-cyan">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan">
                 {group.items.length} word{group.items.length === 1 ? '' : 's'}
               </span>
             </div>
-            <div className="space-y-2">
+            {/* One card per day; rows are divided rather than boxed so a long
+                day reads as a list, not a stack of tiles. */}
+            <div className="rounded-2xl border-2 border-border bg-bg-card overflow-hidden divide-y divide-border">
         {group.items.map((item) => {
           const { word } = item;
           const views = item.views ?? 0;
@@ -433,106 +520,94 @@ export function HistoryPage() {
           const isSpeaking = speakingWord === word;
           const wordEntry = WORD_LIST.find((w) => w.word === word);
           const level = wordEntry?.level ?? 'intermediate';
+          // The bucket icon leads the row — with mixed filters checked you
+          // can't tell otherwise which list a word is from.
+          const b = bucketBadge(item);
 
           return (
             <div
               key={word}
-              className={`rounded-xl border transition-all overflow-hidden ${
-                isOpen ? 'border-accent-cyan/30 bg-bg-card' : 'border-border bg-bg-card hover:border-border-light cursor-pointer'
-              }`}
+              className={`transition-colors ${isOpen ? 'bg-bg-hover' : 'hover:bg-bg-hover cursor-pointer'}`}
               onClick={() => handleExpand(word)}
             >
               {/* Header row */}
-              <div className="flex items-center gap-3 p-4">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <span
+                  className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center ${b.chip}`}
+                  title={`${b.label} — ${b.hint}`}
+                >
+                  <Icon icon={b.icon} className="text-base" />
+                </span>
+
                 <div className="flex-1 min-w-0">
-                  <Link
-                    to={`/?word=${encodeURIComponent(word)}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="font-display font-bold text-text-primary hover:text-accent-cyan hover:underline transition-colors"
-                    title={`Open "${word}"`}
-                  >
-                    {word}
-                  </Link>
-                  {data?.partOfSpeech && (
-                    <span className="ml-2 text-xs text-accent-purple bg-accent-purple/10 px-1.5 py-0.5 rounded">
-                      {data.partOfSpeech}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Link
+                      to={`/?word=${encodeURIComponent(word)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-display font-extrabold text-base text-text-primary hover:text-accent-cyan hover:underline transition-colors truncate"
+                      title={`Open "${word}"`}
+                    >
+                      {word}
+                    </Link>
+                    {data?.partOfSpeech && (
+                      <span className="shrink-0 text-[10px] font-bold text-accent-purple bg-accent-purple/10 px-1.5 py-0.5 rounded">
+                        {data.partOfSpeech}
+                      </span>
+                    )}
+                  </div>
                   {/* Why this word is where it is: its review history at a glance. */}
-                  <div className="text-[10px] text-text-muted mt-0.5">{whyLine(item)}</div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 min-w-0">
+                    <span className={`shrink-0 font-bold ${b.text}`}>{b.label}</span>
+                    <span aria-hidden>·</span>
+                    <span className="truncate">{whyLine(item)}</span>
+                    <span aria-hidden className="hidden sm:inline">·</span>
+                    <span className={`hidden sm:inline shrink-0 font-bold ${LEVEL_COLOR[level]}`}>{level}</span>
+                    {views > 0 && (
+                      <span className="hidden sm:flex shrink-0 items-center gap-0.5" title={`Seen ${views} time${views === 1 ? '' : 's'}`}>
+                        <span aria-hidden>·</span>
+                        <Icon icon="lucide:eye" className="text-xs" />
+                        {views}
+                      </span>
+                    )}
+                  </div>
                 </div>
-
-                {/* Show each word's outcome at a glance — with mixed filters
-                    checked you can't tell otherwise which list a word is from. */}
-                {(() => {
-                  const b = bucketBadge(item);
-                  return (
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${b.chip}`} title={b.hint}>
-                      <Icon icon={b.icon} className="text-xs" />
-                      <span className="hidden sm:inline">{b.label}</span>
-                    </span>
-                  );
-                })()}
-
-                {views > 0 && (
-                  <span className="flex items-center gap-1 text-[11px] text-text-muted whitespace-nowrap" title={`Seen ${views} time${views === 1 ? '' : 's'}`}>
-                    {views}
-                    <Icon icon="lucide:eye" className="text-sm" />
-                  </span>
-                )}
-                <span className={`hidden sm:inline text-xs font-medium ${LEVEL_COLOR[level]}`}>{level}</span>
 
                 {/* Speak button */}
                 <button
                   onClick={(e) => handleSpeak(e, word)}
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all ${
+                  aria-label={isSpeaking ? `Stop reading "${word}"` : `Read "${word}" aloud`}
+                  className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
                     isSpeaking
-                      ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
-                      : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
+                      ? 'bg-accent-cyan/15 text-accent-cyan'
+                      : 'text-text-muted hover:text-accent-cyan hover:bg-accent-cyan/10'
                   }`}
                 >
-                  {isSpeaking ? (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                      <rect x="0" y="0" width="4" height="10" rx="1" />
-                      <rect x="6" y="0" width="4" height="10" rx="1" />
-                    </svg>
-                  ) : (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                    </svg>
-                  )}
+                  <Icon icon={isSpeaking ? 'lucide:pause' : 'lucide:volume-2'} className="text-base" />
                 </button>
 
                 {/* Remove button */}
                 <button
                   onClick={(e) => handleRemove(e, word, item)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/30 transition-all"
+                  className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors"
                   title={
                     checked.size === 1 && checked.has('saved') ? 'Remove from saved'
                     : item.status === 'dismissed' && !checked.has('recent') ? 'Show this word again'
                     : 'Remove from history'
                   }
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
+                  <Icon icon="lucide:x" className="text-base" />
                 </button>
 
                 {/* Expand chevron */}
-                <svg
-                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round"
-                  className={`text-text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+                <Icon
+                  icon="lucide:chevron-down"
+                  className={`shrink-0 text-text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                />
               </div>
 
               {/* Expanded content */}
               {isOpen && (
-                <div className="px-4 pb-4 border-t border-border pt-4 animate-fade-in">
+                <div className="px-4 pb-4 pt-1 sm:pl-16 animate-fade-in" onClick={(e) => e.stopPropagation()}>
                   {isLoading ? <WordDetailsLoading /> : data ? <WordDetails data={data} /> : null}
                 </div>
               )}
@@ -540,7 +615,7 @@ export function HistoryPage() {
           );
         })}
             </div>
-          </div>
+          </section>
         ))}
       </div>
 
