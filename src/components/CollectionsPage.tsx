@@ -9,6 +9,7 @@ import { CollectionStats } from './CollectionStats';
 import { MemberAvatars } from './MemberAvatars';
 import { CollectionForm } from './CollectionForm';
 import { completionPct } from '../lib/completion';
+import { topicBadge, topicInk, topicSurface } from '../lib/topicTheme';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 
 /** Thin progress bar + percent label — used on the system Level collections. */
@@ -81,7 +82,7 @@ function Learners({ count }: { count: number }) {
 
 /**
  * Browse and pick the active vocabulary collection: bundled system collections
- * (Curated + CEFR Levels), your own collections (create / share / delete), and
+ * (themed Topics, Curated + CEFR Levels), your own collections (create / share / delete), and
  * ones you've joined. Each opens on its own page (CollectionDetailPage).
  */
 export function CollectionsPage() {
@@ -100,7 +101,8 @@ export function CollectionsPage() {
     .map((id) => shared[id])
     .filter((c): c is UserCollection => Boolean(c)), [joinedIds, mine, shared]);
   const [searchParams] = useSearchParams();
-  const systemCollections = useMemo(() => listCollections(), []);
+  const systemCollections = useMemo(() => listCollections('level'), []);
+  const topicCollections = useMemo(() => listCollections('topic'), []);
 
   // Old share links (?c=<id>) land on the detail page now.
   const sharedId = searchParams.get('c');
@@ -337,7 +339,54 @@ export function CollectionsPage() {
         </section>
       )}
 
-      {/* ── System collections ── */}
+      {/* ── Topic collections ── */}
+      <section className="mb-8">
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Topics</h2>
+          <span className="text-[11px] text-text-muted">{topicCollections.length} themes · tap one to study it</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          {topicCollections.map((c) => {
+            const active = c.id === activeId;
+            const words = getCollection(c.id).words.map((w) => w.word);
+            const color = c.color ?? 'cyan';
+            const icon = c.icon ?? 'lucide:book-open';
+            return (
+              <div
+                key={c.id}
+                className={`relative overflow-hidden flex flex-col rounded-2xl border-2 p-3 transition-all hover:-translate-y-0.5 ${active ? 'shadow-md' : ''}`}
+                style={topicSurface(color, active)}
+              >
+                {/* Oversized faded icon — the tile's "background theme". */}
+                <Icon
+                  icon={icon}
+                  aria-hidden
+                  className="pointer-events-none absolute -right-3 -bottom-4 text-[5.5rem] opacity-[0.12]"
+                  style={topicInk(color)}
+                />
+                <button onClick={() => pick(c.id, c.name)} className="relative flex-1 min-w-0 text-left" aria-pressed={active}>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={topicBadge(color)}>
+                      <Icon icon={icon} className="text-lg" />
+                    </span>
+                    {active && <Icon icon="lucide:check-circle-2" className="text-lg shrink-0" style={topicInk(color)} />}
+                  </div>
+                  <p className="mt-2 font-display font-bold leading-tight text-text-primary">{c.name}</p>
+                  <p className="text-[11px] text-text-muted leading-snug mt-0.5 line-clamp-2">{c.description}</p>
+                  <CompletionBar pct={completionPct(words, progress)} />
+                </button>
+                <div className="relative flex items-center gap-1.5 mt-2 pt-2 border-t border-border/60">
+                  <span className="text-[11px] font-bold text-text-muted mr-auto">{c.count} words</span>
+                  <DetailsButton onClick={() => openDetails(c.id)} />
+                  <QuizButton onClick={() => setQuiz({ name: c.name, words })} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Level collections ── */}
       <section>
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Levels</h2>

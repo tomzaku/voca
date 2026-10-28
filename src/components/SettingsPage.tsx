@@ -64,7 +64,7 @@ export function SettingsPage() {
   const [previewState, setPreviewState] = useState<{ id: string; phase: 'loading' | 'playing' } | null>(null);
   const activeCollection = useCollections((s) => s.activeId);
   const setActiveCollection = useCollections((s) => s.setActive);
-  const collections = listCollections();
+  const collections = listCollections('level');
 
   const [learnLang, setLearnLangState] = useState(getLearnLanguage);
   const [motherLang, setMotherLangState] = useState(getMotherLanguage);
@@ -252,6 +252,12 @@ export function SettingsPage() {
             );
           })}
         </div>
+        <p className="text-xs text-text-muted mt-3">
+          {getCollection(activeCollection).kind === 'topic' && getCollection(activeCollection).id === activeCollection
+            ? <>Studying the <span className="font-bold text-accent-cyan">{getCollection(activeCollection).name}</span> topic. </>
+            : 'Want a theme instead? '}
+          <Link to="/collections" className="font-bold text-accent-cyan hover:underline">Browse topic collections →</Link>
+        </p>
       </section>
 
       {/* World Game */}

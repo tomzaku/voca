@@ -19,7 +19,8 @@ export function useWorldStations(): { stations: WorldStation[]; mine: UserCollec
     .map((id) => shared[id])
     .filter((c): c is UserCollection => Boolean(c)), [joinedIds, mine, shared]);
 
-  const systemCollections = useMemo(() => listCollections(), []);
+  // Levels only — the map has a fixed number of system station slots.
+  const systemCollections = useMemo(() => listCollections('level'), []);
 
   const stations = useMemo<WorldStation[]>(() => [
     ...mine.map((c) => ({

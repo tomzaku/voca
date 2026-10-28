@@ -8,6 +8,7 @@ import { collectionShareUrl, useCollections } from '../hooks/useCollections';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useProgressForWords } from '../hooks/useProgressQuery';
 import { getCollection, isCollectionId } from '../lib/collections';
+import { topicBadge, topicInk, topicSurface } from '../lib/topicTheme';
 import {
   fetchCollectionDetail,
   fetchMembers,
@@ -292,6 +293,9 @@ export function CollectionDetailPage() {
   const triageWord = useVocabularyStore((s) => s.triageWord);
 
   const system = isCollectionId(id) ? getCollection(id) : null;
+  const topic = system?.kind === 'topic' && system.icon && system.color
+    ? { icon: system.icon, color: system.color }
+    : null;
 
   // The store's copy answers first (and offline); the server's replaces it.
   const [fetched, setFetched] = useState<{ collection: Collection; owner: CollectionOwner } | null>(null);
@@ -452,9 +456,25 @@ export function CollectionDetailPage() {
         <Icon icon="lucide:arrow-left" /> Collections
       </Link>
 
-      {/* ── Header ── */}
-      <header className="mb-6">
-        <div className="flex items-start gap-3">
+      {/* ── Header ── (topic collections get a banner in the topic's colour) */}
+      <header
+        className={topic ? 'relative overflow-hidden mb-6 rounded-2xl border-2 p-5' : 'mb-6'}
+        style={topic ? topicSurface(topic.color) : undefined}
+      >
+        {topic && (
+          <Icon
+            icon={topic.icon}
+            aria-hidden
+            className="pointer-events-none absolute -right-4 -bottom-6 text-[9rem] opacity-[0.13]"
+            style={topicInk(topic.color)}
+          />
+        )}
+        <div className="relative flex items-start gap-3">
+          {topic && (
+            <span className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm" style={topicBadge(topic.color)}>
+              <Icon icon={topic.icon} className="text-2xl" />
+            </span>
+          )}
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-display font-bold text-text-primary break-words">{name}</h1>
             <div className="flex items-center flex-wrap gap-2 mt-1.5 text-xs text-text-muted">
@@ -486,7 +506,7 @@ export function CollectionDetailPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mt-4">
+        <div className="relative flex flex-wrap items-center gap-2 mt-4">
           <button
             onClick={study}
             disabled={active || joining}
