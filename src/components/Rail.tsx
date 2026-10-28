@@ -8,9 +8,9 @@ import { useRailState } from '../hooks/useRailState';
 // Matches THEMES' cycle order in useTheme.ts — kept alongside it since
 // toggleTheme's own cycling logic lives there and this only needs to preview
 // where one more click lands.
-const THEME_CYCLE: Theme[] = ['light', 'dark', 'colorful'];
-const THEME_LABEL: Record<Theme, string> = { light: 'Light mode', dark: 'Dark mode', colorful: 'Colorful mode' };
-const THEME_ICON: Record<Theme, string> = { light: 'lucide:sun', dark: 'lucide:moon', colorful: 'lucide:sparkles' };
+const THEME_CYCLE: Theme[] = ['light', 'dark'];
+const THEME_LABEL: Record<Theme, string> = { light: 'Light mode', dark: 'Dark mode' };
+const THEME_ICON: Record<Theme, string> = { light: 'lucide:sun', dark: 'lucide:moon' };
 function nextTheme(t: Theme): Theme {
   return THEME_CYCLE[(THEME_CYCLE.indexOf(t) + 1) % THEME_CYCLE.length];
 }

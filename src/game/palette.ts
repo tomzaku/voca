@@ -46,20 +46,17 @@ export interface WorldPalette {
 }
 
 export function worldPalette(): WorldPalette {
-  // Colorful shares light's white-card, dark-ink structure (see index.css),
-  // so it gets the same "day" zone look rather than falling through to dark.
-  const themeAttr = document.documentElement.getAttribute('data-theme');
-  const light = themeAttr === 'light' || themeAttr === 'colorful';
-  const card = cssVar('--color-bg-card', light ? '#ffffff' : '#342b80');
-  const cyan = cssVar('--color-accent-cyan', '#22d3ee');
-  const purple = cssVar('--color-accent-purple', '#b98bff');
-  const green = cssVar('--color-accent-green', '#34e39b');
-  const orange = cssVar('--color-accent-orange', '#ff9f43');
-  const yellow = cssVar('--color-accent-yellow', '#ffd23f');
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  const card = cssVar('--color-bg-card', light ? '#ffffff' : '#1c2340');
+  const cyan = cssVar('--color-accent-cyan', '#3dd9f0');
+  const purple = cssVar('--color-accent-purple', '#b9a2ff');
+  const green = cssVar('--color-accent-green', '#4ade9b');
+  const orange = cssVar('--color-accent-orange', '#ffa94d');
+  const yellow = cssVar('--color-accent-yellow', '#ffd54f');
 
   return {
     light,
-    void: hex(cssVar('--color-bg-primary', light ? '#cfe1ff' : '#1b1246')),
+    void: hex(cssVar('--color-bg-primary', light ? '#e6ebf3' : '#0d1120')),
     zones: {
       forest: light
         ? {
@@ -91,10 +88,10 @@ export function worldPalette(): WorldPalette {
     },
     card: hex(card),
     cardCss: card,
-    border: hex(cssVar('--color-border', light ? '#b7c9ef' : '#5a4fc0')),
-    track: hex(cssVar('--color-bg-tertiary', light ? '#ebf2ff' : '#2f2472')),
+    border: hex(cssVar('--color-border', light ? '#c6cfe2' : '#46528c')),
+    track: hex(cssVar('--color-bg-tertiary', light ? '#eef1f7' : '#242c4c')),
     textCss: cssVar('--color-text-primary', light ? '#262357' : '#ffffff'),
-    mutedCss: cssVar('--color-text-muted', light ? '#8d8bb4' : '#9c91da'),
+    mutedCss: cssVar('--color-text-muted', light ? '#8d8bb4' : '#a3acce'),
     kind: {
       mine: { color: hex(cyan), css: cyan },
       joined: { color: hex(purple), css: purple },

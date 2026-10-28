@@ -826,7 +826,7 @@ export class WorldScene extends Phaser.Scene {
             fontFamily: FONT,
             fontSize: '8px',
             fontStyle: 'bold',
-            color: this.pal.light ? '#ffffff' : '#1b1246',
+            color: this.pal.light ? '#ffffff' : '#0d1120',
             backgroundColor: kind.css,
             padding: { x: 6, y: 2 },
             resolution: this.args.dpr,

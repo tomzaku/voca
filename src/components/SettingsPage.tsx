@@ -26,8 +26,7 @@ const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.te
 
 const THEMES: { id: Theme; label: string; desc: string; icon: string }[] = [
   { id: 'light', label: 'Light', desc: 'Candy Day — soft pastels, easy on the eyes.', icon: 'lucide:sun' },
-  { id: 'dark', label: 'Dark', desc: 'Arcade Night — deep purples, low glare.', icon: 'lucide:moon' },
-  { id: 'colorful', label: 'Colorful', desc: 'Party Arcade — a new solid colour every word.', icon: 'lucide:sparkles' },
+  { id: 'dark', label: 'Dark', desc: 'Arcade Night — deep navy, high contrast, low glare.', icon: 'lucide:moon' },
 ];
 
 const engines: { id: TtsEngine; label: string; desc: string; badge?: string }[] = [
