@@ -455,6 +455,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'you can leave a place, but it never really leaves you',
     ],
   },
+  {
+    id: 'sp-559',
+    topic: 'Self Introduction',
+    difficulty: 'easy',
+    question: "What's something you always carry with you when you leave the house?",
+    sampleAnswers: [
+      {
+        label: 'My Little Essentials',
+        answer:
+          "Apart from my keys, I'd say it's a small notebook. I know it sounds a bit old-fashioned, but I like writing things down by hand — shopping lists, ideas, even words I want to remember. I also always have a bottle of water, because I get thirsty really easily. My friends laugh at me because my bag is always heavy, but honestly, I feel a bit lost if I forget any of these things.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'I always carry a small notebook and a bottle of water. I feel lost without them.',
+      },
+    ],
+    usefulPhrases: [
+      'apart from my ...',
+      'I know it sounds a bit old-fashioned, but...',
+      'I get ... really easily',
+      'my friends laugh at me because...',
+      'I feel a bit lost if I forget...',
+    ],
+  },
+  {
+    id: 'sp-560',
+    topic: 'Self Introduction',
+    difficulty: 'easy',
+    question: 'Is there a word or phrase you say a lot?',
+    sampleAnswers: [
+      {
+        label: 'My Favourite Expression',
+        answer:
+          'Yes, apparently I say "no worries" all the time. I didn\'t notice until a friend of mine started counting how many times I said it in one afternoon — it was something like fifteen! I think it shows that I\'m quite relaxed and I don\'t like making a big deal out of small problems. In English, I also catch myself saying "actually" a lot, probably because it gives me a second to think.',
+      },
+    ],
+    usefulPhrases: [
+      'apparently I say ... all the time',
+      "I didn't notice until...",
+      "I don't like making a big deal out of...",
+      'I catch myself saying...',
+      'it gives me a second to think',
+    ],
+  },
+  {
+    id: 'sp-561',
+    topic: 'Self Introduction',
+    difficulty: 'easy',
+    question: "Where's your favourite place to sit and think?",
+    sampleAnswers: [
+      {
+        label: 'A Quiet Corner',
+        answer:
+          "My favourite spot is a bench in a small park near my home. It's under a big tree, so it's shady even in the afternoon, and there's usually nobody around except a few older people walking their dogs. I go there when I need to clear my head or make a decision. Something about the fresh air and the sound of the leaves helps me slow down and see things more clearly.",
+      },
+    ],
+    usefulPhrases: [
+      'my favourite spot is...',
+      "there's usually nobody around except...",
+      'I go there when I need to clear my head',
+      'something about ... helps me...',
+      'see things more clearly',
+    ],
+  },
+  {
+    id: 'sp-562',
+    topic: 'Self Introduction',
+    difficulty: 'medium',
+    question: 'How do you usually introduce yourself to someone new, and does it change depending on the situation?',
+    sampleAnswers: [
+      {
+        label: 'It Depends on the Room',
+        answer:
+          "It really depends. At a friend's party, I keep it casual — just my name, how I know the host, and maybe a joke to break the ice. In a more formal setting, like a class or a community event, I'm a bit more careful and I'll mention why I'm there. I've noticed I share more about my hobbies when I'm relaxed. So the basic facts stay the same, but the tone changes quite a lot.",
+      },
+    ],
+    usefulPhrases: [
+      'it really depends',
+      'I keep it casual',
+      'a joke to break the ice',
+      'in a more formal setting...',
+      'the basic facts stay the same, but...',
+    ],
+  },
+  {
+    id: 'sp-563',
+    topic: 'Self Introduction',
+    difficulty: 'medium',
+    question: "What's something you used to dislike but now really enjoy? What changed?",
+    sampleAnswers: [
+      {
+        label: 'A Change of Taste',
+        answer:
+          'Believe it or not, I used to hate going for walks. As a teenager, I thought walking without a destination was a complete waste of time. But a few years ago, when I was going through a stressful period, a friend dragged me out for an evening walk, and I realised how much calmer I felt afterwards. Now I walk almost every day. I guess I just needed to be at the right stage of life to appreciate it.',
+      },
+    ],
+    usefulPhrases: [
+      'believe it or not, I used to...',
+      'a complete waste of time',
+      'I was going through a stressful period',
+      'dragged me out for...',
+      'at the right stage of life to appreciate it',
+    ],
+  },
+  {
+    id: 'sp-564',
+    topic: 'Self Introduction',
+    difficulty: 'medium',
+    question: 'Are you more someone who loves routine or someone who loves surprises? Why?',
+    sampleAnswers: [
+      {
+        label: 'Mostly a Creature of Habit',
+        answer:
+          "I'm definitely a creature of habit. I like knowing what my day looks like — when I'll eat, when I'll exercise, when I'll have some quiet time. It makes me feel in control and less anxious. That said, too much routine makes me feel a bit flat, so every now and then I'll do something unplanned, like trying a new café on the spur of the moment. Small surprises inside a steady routine — that's the balance that works for me.",
+      },
+    ],
+    usefulPhrases: [
+      "I'm definitely a creature of habit",
+      'it makes me feel in control',
+      'that said, ...',
+      'on the spur of the moment',
+      "that's the balance that works for me",
+    ],
+  },
+  {
+    id: 'sp-565',
+    topic: 'Self Introduction',
+    difficulty: 'medium',
+    question: 'Tell me about something you did that surprised the people who know you.',
+    sampleAnswers: [
+      {
+        label: 'Out of Character',
+        answer:
+          "A couple of years ago, I signed up for a singing class. Everyone who knows me was shocked, because I'm usually the quiet one who'd never perform in front of anyone. I did it because I wanted to push myself out of my comfort zone. At the end of the course, we had a tiny concert, and my family came to watch. My voice was shaking, but I got through it, and I'm really glad I did.",
+      },
+    ],
+    usefulPhrases: [
+      'I signed up for...',
+      'everyone who knows me was shocked',
+      'push myself out of my comfort zone',
+      'my voice was shaking, but I got through it',
+      "I'm really glad I did",
+    ],
+  },
+  {
+    id: 'sp-566',
+    topic: 'Self Introduction',
+    difficulty: 'hard',
+    question: 'Do you think other people see you more accurately than you see yourself?',
+    sampleAnswers: [
+      {
+        label: 'Two Different Mirrors',
+        answer:
+          "In some ways, yes. Other people notice habits we're blind to — the way we react under pressure, or how we come across in a group. A friend once told me I go quiet when I'm upset, and I genuinely had no idea. On the other hand, people only see what we show them. They don't know our fears or the reasons behind our choices. So I'd say the truth is somewhere in between, and it's worth listening to both views.",
+      },
+    ],
+    usefulPhrases: [
+      "habits we're blind to",
+      'how we come across in a group',
+      'I genuinely had no idea',
+      'on the other hand, ...',
+      'the truth is somewhere in between',
+    ],
+  },
+  {
+    id: 'sp-567',
+    topic: 'Self Introduction',
+    difficulty: 'hard',
+    question: 'Is it possible to truly know yourself, or do we keep discovering new sides of ourselves?',
+    sampleAnswers: [
+      {
+        label: 'Always a Work in Progress',
+        answer:
+          "I don't think we ever fully get there. Just when I think I know exactly who I am, something unexpected happens — a loss, a new friendship, a move — and I react in a way I'd never have predicted. That used to frustrate me, but now I find it kind of exciting. Knowing yourself, for me, isn't a final destination. It's more like an ongoing conversation with yourself that changes as your life changes.",
+      },
+    ],
+    usefulPhrases: [
+      "I don't think we ever fully get there",
+      "in a way I'd never have predicted",
+      'that used to frustrate me, but now...',
+      "it isn't a final destination",
+      "it's more like an ongoing...",
+    ],
+  },
+  {
+    id: 'sp-568',
+    topic: 'Self Introduction',
+    difficulty: 'hard',
+    question: 'If a stranger read a short description of you a hundred years from now, what would you want it to say?',
+    sampleAnswers: [
+      {
+        label: 'A Note for the Future',
+        answer:
+          'I wouldn\'t want it to list achievements, to be honest. I\'d rather it said something like: "This person was curious, kind to the people around them, and always ready to laugh at themselves." Those are the qualities I try to live by, even when I don\'t quite manage it. Achievements fade, but the way you treat people tends to ripple out. If someone a century later could get a sense of that, I\'d be pretty happy.',
+      },
+    ],
+    usefulPhrases: [
+      "I'd rather it said something like...",
+      'the qualities I try to live by',
+      "even when I don't quite manage it",
+      'tends to ripple out',
+      'get a sense of...',
+    ],
+  },
 
   // ── Childhood & Memories ──────────────────────────────
   {
@@ -779,6 +984,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'looking back, it made me...',
       'whenever I face a big change',
       'it turned out fine',
+    ],
+  },
+  {
+    id: 'sp-569',
+    topic: 'Childhood & Memories',
+    difficulty: 'easy',
+    question: 'What did you usually spend your pocket money on as a kid?',
+    sampleAnswers: [
+      {
+        label: 'Sweets and Stickers',
+        answer:
+          "Mostly sweets, if I'm honest! There was a tiny shop on the corner of our street, and every Friday I'd go there with my coins and spend ages choosing. I also collected stickers, so some of my money went on those. My parents tried to teach me to save, but it never really worked — the money was usually gone by Saturday morning.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'I spent it on sweets and stickers. It was usually gone in a day!',
+      },
+    ],
+    usefulPhrases: [
+      "if I'm honest",
+      'on the corner of our street',
+      'spend ages choosing',
+      'some of my money went on...',
+      'it never really worked',
+    ],
+  },
+  {
+    id: 'sp-570',
+    topic: 'Childhood & Memories',
+    difficulty: 'easy',
+    question: 'What was your bedroom like when you were little?',
+    sampleAnswers: [
+      {
+        label: 'My Childhood Room',
+        answer:
+          "I shared a small room with my older sister, so it was always a bit crowded. We had bunk beds, and I slept on the top one, which I thought was really cool. The walls were pale blue, and there were drawings stuck everywhere. We had a little window that looked out onto the garden, and on summer nights we'd open it and chat until we fell asleep.",
+      },
+    ],
+    usefulPhrases: [
+      'I shared a ... with...',
+      'it was always a bit crowded',
+      'I thought it was really cool',
+      'looked out onto...',
+      'chat until we fell asleep',
+    ],
+  },
+  {
+    id: 'sp-571',
+    topic: 'Childhood & Memories',
+    difficulty: 'easy',
+    question: 'What did you usually do after school when you were in primary school?',
+    sampleAnswers: [
+      {
+        label: 'Afternoons at Home',
+        answer:
+          "Most days, my grandmother picked me up and we walked home together. I'd have a snack, then do my homework at the kitchen table while she cooked dinner. After that, I was allowed to go outside and play with the neighbours' kids until it got dark. It was a pretty simple routine, but I loved it, and I still think of those afternoons as some of the happiest times of my life.",
+      },
+    ],
+    usefulPhrases: [
+      'picked me up',
+      'I was allowed to...',
+      'until it got dark',
+      'a pretty simple routine',
+      'some of the happiest times of my life',
+    ],
+  },
+  {
+    id: 'sp-572',
+    topic: 'Childhood & Memories',
+    difficulty: 'medium',
+    question: 'Tell me about something that scared you as a child but seems silly now.',
+    sampleAnswers: [
+      {
+        label: 'The Monster in the Wardrobe',
+        answer:
+          'For years, I was convinced there was something living in my wardrobe. Every night, I\'d make my dad check inside before I\'d turn the light off. It turned out the "monster" was just the shadow of a coat hanging on the door, which looked like a person in the dark. Looking back, it\'s quite funny, but at the time I was genuinely terrified. I still sleep with the wardrobe door closed, though!',
+      },
+    ],
+    usefulPhrases: [
+      'I was convinced there was...',
+      'it turned out ... was just...',
+      'looking back, ...',
+      'at the time I was genuinely terrified',
+      'I still ..., though!',
+    ],
+  },
+  {
+    id: 'sp-573',
+    topic: 'Childhood & Memories',
+    difficulty: 'medium',
+    question: 'Is there a smell or sound that instantly takes you back to your childhood? Why?',
+    sampleAnswers: [
+      {
+        label: 'The Smell of Rain on Hot Ground',
+        answer:
+          "Definitely the smell of rain on hot ground. Where I grew up, summer afternoons were really hot, and then suddenly there'd be a heavy shower. All the kids would run outside and play in the puddles, and that earthy smell filled the air. Whenever I smell it now, I'm about eight years old again for a second. I think smells are so powerful because they bring back feelings, not just pictures.",
+      },
+    ],
+    usefulPhrases: [
+      'instantly takes me back to...',
+      'where I grew up, ...',
+      'filled the air',
+      "I'm about eight years old again for a second",
+      'they bring back feelings, not just pictures',
+    ],
+  },
+  {
+    id: 'sp-574',
+    topic: 'Childhood & Memories',
+    difficulty: 'medium',
+    question: 'How did you spend your school holidays as a kid, and how is that different from your holidays now?',
+    sampleAnswers: [
+      {
+        label: 'Then and Now',
+        answer:
+          "As a kid, the summer holidays felt endless. I'd spend weeks at my grandparents' house in the countryside, climbing trees and helping feed the chickens. There was no plan — every day just happened. These days, my holidays are much shorter, and I tend to plan them carefully so I don't waste a single day. I enjoy them, but I miss that feeling of having all the time in the world.",
+      },
+    ],
+    usefulPhrases: [
+      'felt endless',
+      'there was no plan',
+      'these days, ...',
+      "so I don't waste a single day",
+      'having all the time in the world',
+    ],
+  },
+  {
+    id: 'sp-575',
+    topic: 'Childhood & Memories',
+    difficulty: 'medium',
+    question: "Was there a rule at home that you didn't understand as a child but makes sense to you now?",
+    sampleAnswers: [
+      {
+        label: 'No Eating in Front of the TV',
+        answer:
+          "My parents had a strict rule that we always ate dinner together at the table, never in front of the TV. As a kid, I thought it was so unfair, especially when my favourite show was on. But now I get it. That was the only time in the day when the whole family actually talked to each other. I'd honestly like to bring the same rule into my own home someday.",
+      },
+    ],
+    usefulPhrases: [
+      'had a strict rule that...',
+      'I thought it was so unfair',
+      'now I get it',
+      'the only time in the day when...',
+      'bring the same rule into...',
+    ],
+  },
+  {
+    id: 'sp-576',
+    topic: 'Childhood & Memories',
+    difficulty: 'hard',
+    question: "Do you think it's possible to have a happy childhood without much money?",
+    sampleAnswers: [
+      {
+        label: 'Love Over Luxuries',
+        answer:
+          "Absolutely, and I think a lot of people would say the same. What children really need is attention, safety, and a bit of freedom to explore. You can't buy those. Some of my best memories cost nothing — building forts out of blankets, or walking to the river with my cousins. Of course, real poverty causes stress that children feel, so money isn't irrelevant. But beyond the basics, I'd say love matters far more than toys.",
+      },
+    ],
+    usefulPhrases: [
+      'what children really need is...',
+      "you can't buy those",
+      'cost nothing',
+      "money isn't irrelevant",
+      'beyond the basics, ...',
+    ],
+  },
+  {
+    id: 'sp-577',
+    topic: 'Childhood & Memories',
+    difficulty: 'hard',
+    question: 'Do you think childhood is ending earlier for kids nowadays? Why or why not?',
+    sampleAnswers: [
+      {
+        label: 'Growing Up Faster',
+        answer:
+          "In some ways, I think it is. Kids today seem to worry about grades, appearance, and fitting in at a much younger age than we did. They also hear about adult problems much earlier. On the other hand, children still play, imagine, and get excited about small things — that hasn't changed. So maybe childhood isn't really shorter, but the pressure arrives sooner, and that can make it feel less carefree.",
+      },
+    ],
+    usefulPhrases: [
+      'in some ways, I think it is',
+      'fitting in',
+      'at a much younger age than...',
+      "that hasn't changed",
+      'the pressure arrives sooner',
+    ],
+  },
+  {
+    id: 'sp-578',
+    topic: 'Childhood & Memories',
+    difficulty: 'hard',
+    question: 'Why do you think some childhood memories stay so vivid while others disappear completely?',
+    sampleAnswers: [
+      {
+        label: 'What Sticks and What Fades',
+        answer:
+          "From what I understand, it's mostly about emotion. The moments I remember clearly — getting lost at a market, my first day at school — were either really scary or really exciting. Ordinary days just blur together. I also think we keep some memories alive by retelling them. My family loves repeating certain stories, so I'm not always sure whether I remember the event itself or just the story about it.",
+      },
+    ],
+    usefulPhrases: [
+      "from what I understand, it's mostly about...",
+      'ordinary days just blur together',
+      'keep some memories alive by...',
+      "I'm not always sure whether...",
+      'the event itself',
     ],
   },
 
@@ -1229,6 +1639,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'without ... becomes ...',
     ],
   },
+  {
+    id: 'sp-579',
+    topic: 'Relationships & Family',
+    difficulty: 'easy',
+    question: "Who's the funniest person in your family?",
+    sampleAnswers: [
+      {
+        label: 'My Uncle the Comedian',
+        answer:
+          "That would be my uncle, without a doubt. He has a joke for every situation, and he does brilliant impressions of everyone in the family. At big family dinners, he's always the centre of attention, and even my serious grandfather ends up laughing. He's also the person I call when I'm feeling down, because he always manages to cheer me up.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'My uncle. He tells great jokes and always makes everyone laugh.',
+      },
+    ],
+    usefulPhrases: [
+      'without a doubt',
+      'he has a ... for every situation',
+      'the centre of attention',
+      'ends up laughing',
+      'always manages to cheer me up',
+    ],
+  },
+  {
+    id: 'sp-580',
+    topic: 'Relationships & Family',
+    difficulty: 'easy',
+    question: "Is there a family photo you really love? What's happening in it?",
+    sampleAnswers: [
+      {
+        label: 'Everyone on the Beach',
+        answer:
+          "Yes, there's one on my parents' fridge that I love. It was taken on a beach trip when I was about ten. All of us are squeezed together, squinting at the sun, and my little brother is pulling a funny face. Nobody looks perfect, but everyone looks happy. Whenever I visit my parents, I always stop and look at it for a moment.",
+      },
+    ],
+    usefulPhrases: [
+      'it was taken on...',
+      'squeezed together',
+      'pulling a funny face',
+      'nobody looks perfect, but...',
+      'I always stop and look at it',
+    ],
+  },
+  {
+    id: 'sp-581',
+    topic: 'Relationships & Family',
+    difficulty: 'easy',
+    question: 'Is there a dish someone in your family makes that nobody else can copy?',
+    sampleAnswers: [
+      {
+        label: "Grandma's Soup",
+        answer:
+          "My grandma makes a chicken soup that's just impossible to copy. My mum has tried to make it so many times, using the exact same ingredients, but it never tastes quite the same. Grandma says the secret is patience — she cooks it slowly for hours. Every time I'm sick, it's the first thing I want to eat.",
+      },
+    ],
+    usefulPhrases: [
+      "it's just impossible to copy",
+      'it never tastes quite the same',
+      'the secret is...',
+      'for hours',
+      "it's the first thing I want to...",
+    ],
+  },
+  {
+    id: 'sp-582',
+    topic: 'Relationships & Family',
+    difficulty: 'medium',
+    question: 'Does your family have any inside jokes or sayings that only you understand? Where did they come from?',
+    sampleAnswers: [
+      {
+        label: 'The Famous Umbrella',
+        answer:
+          'We do! Whenever someone in my family is overprepared, we say, "Don\'t forget the umbrella." It comes from a trip years ago when my dad packed three umbrellas for a weekend in the middle of summer, and it didn\'t rain once. We teased him for the whole trip. Now it\'s become a family saying, and it still makes us laugh. Inside jokes like that make me feel really connected to my family.',
+      },
+    ],
+    usefulPhrases: [
+      'it comes from...',
+      'we teased him for the whole trip',
+      "it's become a family saying",
+      'it still makes us laugh',
+      'make me feel really connected to...',
+    ],
+  },
+  {
+    id: 'sp-583',
+    topic: 'Relationships & Family',
+    difficulty: 'medium',
+    question: 'What did you and your siblings or cousins used to argue about when you were younger?',
+    sampleAnswers: [
+      {
+        label: 'The Front Seat Wars',
+        answer:
+          "Mostly silly things! My brother and I argued constantly about who got to sit in the front seat of the car. We even made a calendar to take turns, but we'd still fight over whose day it was. We also argued about the TV remote. Looking back, it seems ridiculous, but I think those little fights taught us how to negotiate. Now we get along really well.",
+      },
+    ],
+    usefulPhrases: [
+      'argued constantly about...',
+      'take turns',
+      'fight over...',
+      'it seems ridiculous, but...',
+      'we get along really well',
+    ],
+  },
+  {
+    id: 'sp-584',
+    topic: 'Relationships & Family',
+    difficulty: 'medium',
+    question: 'How do people in your family show love without saying it out loud?',
+    sampleAnswers: [
+      {
+        label: 'Love in Small Actions',
+        answer:
+          'In my family, we\'re not great at saying "I love you", but we show it in other ways. My dad always checks the tyres on my bike before I go anywhere far. My mum sends me home with containers full of food, even when I tell her I don\'t need them. I think it comes from the way my parents were raised. For them, love is something you do, not something you say.',
+      },
+    ],
+    usefulPhrases: [
+      "we're not great at saying...",
+      'we show it in other ways',
+      'sends me home with...',
+      'it comes from the way ... were raised',
+      'love is something you do, not something you say',
+    ],
+  },
+  {
+    id: 'sp-585',
+    topic: 'Relationships & Family',
+    difficulty: 'medium',
+    question: 'How do the grandparents and grandchildren in your family get along? Why do you think that is?',
+    sampleAnswers: [
+      {
+        label: 'A Special Bond',
+        answer:
+          "Really well, actually. My grandparents are much more relaxed with the grandkids than they were with their own children. My mum jokes that they've become completely different people! I think it's because grandparents don't have the daily pressure of raising kids, so they can just enjoy them. And the kids love the attention and the stories. There's a kind of patience between them that parents don't always have time for.",
+      },
+    ],
+    usefulPhrases: [
+      'much more relaxed with...',
+      "they've become completely different people",
+      "don't have the daily pressure of...",
+      'they can just enjoy them',
+      "that parents don't always have time for",
+    ],
+  },
+  {
+    id: 'sp-586',
+    topic: 'Relationships & Family',
+    difficulty: 'hard',
+    question: 'Do you think adult children owe anything to their parents?',
+    sampleAnswers: [
+      {
+        label: 'Gratitude, Not Debt',
+        answer:
+          'That\'s a tricky one. I don\'t like the idea of children "owing" their parents, as if raising a child were a loan to be paid back. Parents choose to have kids. That said, I do feel a strong sense of gratitude, and I want to take care of my parents when they\'re older. So for me, it\'s less about obligation and more about wanting to give back to people who gave me so much.',
+      },
+    ],
+    usefulPhrases: [
+      "that's a tricky one",
+      "I don't like the idea of...",
+      'a strong sense of gratitude',
+      "it's less about ... and more about...",
+      'give back to...',
+    ],
+  },
+  {
+    id: 'sp-587',
+    topic: 'Relationships & Family',
+    difficulty: 'hard',
+    question: 'Should parents treat all their children exactly the same, or does fairness mean something different?',
+    sampleAnswers: [
+      {
+        label: 'Fair Is Not Always Equal',
+        answer:
+          "I'd argue that fair doesn't always mean identical. Every child has different needs. My sister needed a lot of help with her studies, while I needed more encouragement to be confident. If my parents had treated us exactly the same, one of us would have missed out. What matters is that every child feels equally loved and valued. Where parents go wrong is when the differences look like favouritism.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd argue that...",
+      "fair doesn't always mean identical",
+      'would have missed out',
+      'what matters is that...',
+      'where ... go wrong is when...',
+    ],
+  },
+  {
+    id: 'sp-588',
+    topic: 'Relationships & Family',
+    difficulty: 'hard',
+    question: 'How do you think families might change over the next fifty years?',
+    sampleAnswers: [
+      {
+        label: 'Smaller but Wider',
+        answer:
+          'My guess is that families will get smaller, since people are having fewer children. But I think the idea of family might also get wider — close friends, neighbours, and step-relatives could play a bigger role. People are living longer too, so we might see four generations alive at the same time. Whatever happens, I hope the core stays the same: people who look out for each other no matter what.',
+      },
+    ],
+    usefulPhrases: [
+      'my guess is that...',
+      'play a bigger role',
+      'four generations alive at the same time',
+      'whatever happens, ...',
+      'look out for each other no matter what',
+    ],
+  },
 
   // ── Future Plans ──────────────────────────────────────
   {
@@ -1568,6 +2183,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'that matters more to me than...',
     ],
   },
+  {
+    id: 'sp-589',
+    topic: 'Future Plans',
+    difficulty: 'easy',
+    question: "Is there a place near where you live that you've been meaning to visit but haven't yet?",
+    sampleAnswers: [
+      {
+        label: 'So Close, Yet So Far',
+        answer:
+          'Yes, there\'s a small museum about local history just twenty minutes from my home, and I\'ve never been inside. It\'s funny — I\'d happily travel hours to see a museum somewhere else, but I always assume I\'ll get to the nearby one "another time". I\'m planning to go next month with a friend, and maybe we\'ll have lunch in the old market afterwards.',
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "There's a local museum I've never visited. I'm planning to go next month.",
+      },
+    ],
+    usefulPhrases: [
+      "I've been meaning to...",
+      "it's funny — ...",
+      "I'd happily ... but...",
+      "I'm planning to go next month",
+      "maybe we'll ... afterwards",
+    ],
+  },
+  {
+    id: 'sp-590',
+    topic: 'Future Plans',
+    difficulty: 'easy',
+    question: "Is there a book or film you're planning to get to soon?",
+    sampleAnswers: [
+      {
+        label: 'On My List',
+        answer:
+          "There's a long novel that's been sitting on my shelf for almost a year. A friend gave it to me for my birthday and keeps asking if I've started it! I'm planning to read it during my next holiday, when I actually have time to get into it properly. Long books need a bit of space, I think, so I'm saving it for then.",
+      },
+    ],
+    usefulPhrases: [
+      "it's been sitting on my shelf for...",
+      'keeps asking if...',
+      'get into it properly',
+      'need a bit of space',
+      "I'm saving it for...",
+    ],
+  },
+  {
+    id: 'sp-591',
+    topic: 'Future Plans',
+    difficulty: 'easy',
+    question: "What's one small change you'd like to make to your daily routine soon?",
+    sampleAnswers: [
+      {
+        label: 'Earlier to Bed',
+        answer:
+          "I'd really like to start going to bed earlier. At the moment, I often stay up later than I mean to, and then I'm tired the next morning. My plan is to stop doing anything stimulating after ten and read for a while instead. It's a small change, but I think it would make a big difference to my energy and my mood.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd really like to start...",
+      'stay up later than I mean to',
+      'my plan is to...',
+      "it's a small change, but...",
+      'make a big difference to...',
+    ],
+  },
+  {
+    id: 'sp-592',
+    topic: 'Future Plans',
+    difficulty: 'medium',
+    question: 'How have your hopes for the future changed since you were a teenager?',
+    sampleAnswers: [
+      {
+        label: 'Smaller Dreams, Deeper Ones',
+        answer:
+          "As a teenager, my dreams were huge and a bit vague — I wanted to be famous, travel everywhere, and live in a big house. Now my hopes are smaller but much clearer. I want to be healthy, live somewhere peaceful, and have people around me I really trust. I don't think I've given up on big dreams; I've just realised that a good life is mostly built from ordinary days.",
+      },
+    ],
+    usefulPhrases: [
+      'my dreams were huge and a bit vague',
+      'smaller but much clearer',
+      "I don't think I've given up on...",
+      "I've just realised that...",
+      'built from ordinary days',
+    ],
+  },
+  {
+    id: 'sp-593',
+    topic: 'Future Plans',
+    difficulty: 'medium',
+    question: 'When you make plans with friends, do you prefer to arrange things well in advance or at the last minute? Why?',
+    sampleAnswers: [
+      {
+        label: 'Better Booked Early',
+        answer:
+          'I much prefer planning ahead. If we leave it to the last minute, someone is always busy and the whole thing falls apart. When we pick a date a few weeks in advance, everyone can make time, and I get to look forward to it. Having said that, some of our best evenings were completely unplanned — someone just called and said, "Are you free tonight?" So I like a mix of both.',
+      },
+    ],
+    usefulPhrases: [
+      'I much prefer planning ahead',
+      'the whole thing falls apart',
+      'a few weeks in advance',
+      'I get to look forward to it',
+      'having said that, ...',
+    ],
+  },
+  {
+    id: 'sp-594',
+    topic: 'Future Plans',
+    difficulty: 'medium',
+    question: 'Tell me about a promise you made to yourself. Have you kept it so far?',
+    sampleAnswers: [
+      {
+        label: 'Mostly Kept',
+        answer:
+          "Last year, I promised myself I'd call my grandparents every Sunday. Before that, I only spoke to them on special occasions, and I felt guilty about it. I've kept it up most weeks, though I've missed a few when I was travelling. The funny thing is, it's become one of my favourite parts of the week. Their stories always put my own worries into perspective.",
+      },
+    ],
+    usefulPhrases: [
+      "I promised myself I'd...",
+      'I felt guilty about it',
+      "I've kept it up most weeks",
+      'the funny thing is, ...',
+      'put ... into perspective',
+    ],
+  },
+  {
+    id: 'sp-595',
+    topic: 'Future Plans',
+    difficulty: 'medium',
+    question: "What's something you keep putting off, and what's stopping you?",
+    sampleAnswers: [
+      {
+        label: 'The Endless Clear-Out',
+        answer:
+          'I keep putting off sorting through all the boxes in my cupboard. They\'re full of old letters, clothes, and random things I can\'t bring myself to throw away. Every weekend I say "next week", but it never happens. I think what\'s stopping me is that it feels emotional, not just practical. Going through old memories takes energy. Maybe I need to ask a friend to help and make it less of a chore.',
+      },
+    ],
+    usefulPhrases: [
+      'I keep putting off...',
+      "I can't bring myself to...",
+      'it never happens',
+      "what's stopping me is that...",
+      'make it less of a chore',
+    ],
+  },
+  {
+    id: 'sp-596',
+    topic: 'Future Plans',
+    difficulty: 'hard',
+    question: "Do you think it's ever too late to start something new?",
+    sampleAnswers: [
+      {
+        label: 'Never Too Late',
+        answer:
+          'I really don\'t think so. Some things get harder with age — you probably won\'t become a professional athlete at sixty. But learning a language, picking up an instrument, or making new friends? Those are open to anyone. I\'ve met people who started painting in their seventies and absolutely love it. Often the only thing holding us back is the story we tell ourselves about being "too old".',
+      },
+    ],
+    usefulPhrases: [
+      "I really don't think so",
+      'some things get harder with age',
+      'open to anyone',
+      'in their seventies',
+      'the only thing holding us back is...',
+    ],
+  },
+  {
+    id: 'sp-597',
+    topic: 'Future Plans',
+    difficulty: 'hard',
+    question: 'If you could write a letter to yourself to open in ten years, what would you say?',
+    sampleAnswers: [
+      {
+        label: 'Dear Future Me',
+        answer:
+          'I think I\'d start by asking questions rather than giving advice — "Are you still drawing? Do you still talk to your old friends?" I\'d remind my future self not to take life too seriously, and to remember what used to matter. I\'d probably also include a few of my current worries, just so my future self could smile and see how small they turned out to be.',
+      },
+    ],
+    usefulPhrases: [
+      "I think I'd start by...",
+      'rather than giving advice',
+      'not to take life too seriously',
+      'what used to matter',
+      'how small they turned out to be',
+    ],
+  },
+  {
+    id: 'sp-598',
+    topic: 'Future Plans',
+    difficulty: 'hard',
+    question: 'Should people follow their dreams even if their family disagrees?',
+    sampleAnswers: [
+      {
+        label: 'Listen, Then Decide',
+        answer:
+          "I'd say yes, but carefully. Families often disagree because they're worried, not because they want to control us, so it's worth really listening to their concerns. Sometimes they spot risks we can't see. But in the end, we're the ones who have to live with our choices. If you give up a dream just to keep everyone happy, you might end up resenting them, which isn't good for anyone.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd say yes, but carefully",
+      "it's worth really listening to...",
+      "they spot risks we can't see",
+      "we're the ones who have to live with...",
+      'you might end up resenting...',
+    ],
+  },
 
   // ── Feelings & Emotions ───────────────────────────────
   {
@@ -1875,6 +2695,210 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'it depends on how you grew up',
     ],
   },
+  {
+    id: 'sp-599',
+    topic: 'Feelings & Emotions',
+    difficulty: 'easy',
+    question: 'Who do you usually tell first when you have good news?',
+    sampleAnswers: [
+      {
+        label: 'First Call Goes to Mum',
+        answer:
+          "Nearly always my mum. She gets excited about everything, even really small things, so telling her makes the good news feel even better. If it's something silly or funny, though, I'll probably tell my best friend first, because she shares my sense of humour. I love that moment of sharing — happiness seems to double when someone else feels it with you.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Usually my mum. She gets so excited, and that makes me even happier.',
+      },
+    ],
+    usefulPhrases: [
+      'nearly always...',
+      'gets excited about everything',
+      'makes ... feel even better',
+      'shares my sense of humour',
+      'happiness seems to double when...',
+    ],
+  },
+  {
+    id: 'sp-600',
+    topic: 'Feelings & Emotions',
+    difficulty: 'easy',
+    question: "What's a small thing that annoys you more than it should?",
+    sampleAnswers: [
+      {
+        label: 'The Half-Closed Cupboard',
+        answer:
+          "Cupboard doors left half open! I know it's a tiny thing, but it drives me crazy. I always end up walking around the kitchen closing them. My family thinks it's hilarious and sometimes leaves them open on purpose just to tease me. I'm trying to let it go, but so far I haven't had much success.",
+      },
+    ],
+    usefulPhrases: [
+      "I know it's a tiny thing, but...",
+      'it drives me crazy',
+      'I always end up...',
+      'on purpose just to tease me',
+      "I'm trying to let it go",
+    ],
+  },
+  {
+    id: 'sp-601',
+    topic: 'Feelings & Emotions',
+    difficulty: 'easy',
+    question: 'How do you usually feel on the evening before a new week starts?',
+    sampleAnswers: [
+      {
+        label: 'A Mix of Calm and Nerves',
+        answer:
+          "Usually it's a bit of a mix. Part of me feels calm and ready, especially if I've had a restful weekend. But there's often a little knot in my stomach when I think about everything I need to do. To make it easier, I like to tidy up, make a simple plan for Monday, and have an early night. That helps me start the week feeling more in control.",
+      },
+    ],
+    usefulPhrases: [
+      "it's a bit of a mix",
+      'part of me feels...',
+      'a little knot in my stomach',
+      'have an early night',
+      'feeling more in control',
+    ],
+  },
+  {
+    id: 'sp-602',
+    topic: 'Feelings & Emotions',
+    difficulty: 'medium',
+    question: 'Tell me about a time you felt embarrassed but could laugh about it later.',
+    sampleAnswers: [
+      {
+        label: 'Waving at a Stranger',
+        answer:
+          "Once at a busy train station, I saw someone I thought was my cousin, so I ran up, waved like crazy, and called out his name. He turned around, and it was a complete stranger! He looked so confused. I wanted the ground to swallow me up. But by the time I got home, I couldn't stop laughing about it, and now it's one of my favourite stories to tell.",
+      },
+    ],
+    usefulPhrases: [
+      'waved like crazy',
+      'it was a complete stranger',
+      'I wanted the ground to swallow me up',
+      "I couldn't stop laughing about it",
+      'one of my favourite stories to tell',
+    ],
+  },
+  {
+    id: 'sp-603',
+    topic: 'Feelings & Emotions',
+    difficulty: 'medium',
+    question: 'What makes you feel calm when everything around you is busy?',
+    sampleAnswers: [
+      {
+        label: 'A Few Slow Breaths',
+        answer:
+          "Strangely, it's the simplest things. If I'm somewhere loud and crowded, I take a few slow breaths and focus on one small detail — the sound of my footsteps, or the taste of my drink. It sounds silly, but it pulls me out of the noise. At home, tidying one small corner helps too. When my space feels ordered, my head usually follows.",
+      },
+    ],
+    usefulPhrases: [
+      "Strangely, it's the simplest things.",
+      'focus on one small detail',
+      'It sounds silly, but...',
+      'my head usually follows',
+    ],
+  },
+  {
+    id: 'sp-604',
+    topic: 'Feelings & Emotions',
+    difficulty: 'medium',
+    question: "How do you cheer up a friend who's having a really bad day?",
+    sampleAnswers: [
+      {
+        label: 'Listen First, Snacks Second',
+        answer:
+          "First, I just listen. I've learned that most people don't want solutions straight away — they want to feel heard. So I let them talk without interrupting. After that, depending on the person, I might suggest a walk or bring over their favourite snacks. Sometimes we just sit and watch something silly together. Being there matters more than saying exactly the right thing.",
+      },
+    ],
+    usefulPhrases: [
+      "I've learned that...",
+      'they want to feel heard',
+      'without interrupting',
+      'depending on the person, ...',
+      'being there matters more than...',
+    ],
+  },
+  {
+    id: 'sp-605',
+    topic: 'Feelings & Emotions',
+    difficulty: 'medium',
+    question: 'Tell me about a time you felt jealous. How did you deal with it?',
+    sampleAnswers: [
+      {
+        label: 'Turning Envy Into Motivation',
+        answer:
+          "A few years ago, a close friend of mine started running and, within months, she finished a long race. I was happy for her, but honestly, I also felt a bit jealous, because I'd always said I wanted to do that too. Instead of hiding it, I admitted it to her. She laughed and invited me to train with her. So that jealousy actually turned into motivation.",
+      },
+    ],
+    usefulPhrases: [
+      'I was happy for her, but...',
+      'I also felt a bit jealous',
+      "I'd always said I wanted to...",
+      'instead of hiding it, I admitted it',
+      'turned into motivation',
+    ],
+  },
+  {
+    id: 'sp-606',
+    topic: 'Feelings & Emotions',
+    difficulty: 'hard',
+    question: 'Is nostalgia a happy feeling or a sad one?',
+    sampleAnswers: [
+      {
+        label: 'Bittersweet by Nature',
+        answer:
+          "I'd say it's both at once, which is what makes it so interesting. When I look at old photos, I smile because the memories are warm, but there's also a little ache because those moments are gone. I think nostalgia can be healthy — it reminds us what we value. The danger is when we start believing the past was perfect and stop enjoying the present.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd say it's both at once",
+      'what makes it so interesting',
+      'a little ache',
+      'it reminds us what we value',
+      'the danger is when...',
+    ],
+  },
+  {
+    id: 'sp-607',
+    topic: 'Feelings & Emotions',
+    difficulty: 'hard',
+    question: 'Why do you think some people hide their feelings behind humour?',
+    sampleAnswers: [
+      {
+        label: 'Jokes as a Shield',
+        answer:
+          "I think humour is a kind of shield. If you make a joke about something painful, you stay in control of how people react — they laugh instead of feeling sorry for you. I do it myself sometimes. It's not always a bad thing; laughing can genuinely help us cope. But if someone always jokes and never gets serious, it might be a sign they don't feel safe enough to be open.",
+      },
+    ],
+    usefulPhrases: [
+      'humour is a kind of shield',
+      'you stay in control of...',
+      'I do it myself sometimes',
+      'help us cope',
+      "they don't feel safe enough to...",
+    ],
+  },
+  {
+    id: 'sp-608',
+    topic: 'Feelings & Emotions',
+    difficulty: 'hard',
+    question: 'Do you think people today are more anxious than in the past, or just more willing to talk about it?',
+    sampleAnswers: [
+      {
+        label: 'More Talk, Maybe More Worry',
+        answer:
+          "Probably a bit of both. People definitely talk about anxiety more openly now, which I think is a really good change — my grandparents' generation mostly kept these things to themselves. At the same time, modern life is busy and full of comparison, which can make people feel they're never doing enough. So I'd guess some of the increase is real, and some is just that we finally have words for it.",
+      },
+    ],
+    usefulPhrases: [
+      'probably a bit of both',
+      'talk about ... more openly',
+      'kept these things to themselves',
+      'full of comparison',
+      'we finally have words for it',
+    ],
+  },
 
   // ── Friends & Social Life ─────────────────────────────
   {
@@ -2179,6 +3203,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'nobody does anything wrong',
       'the effort stops being shared',
       'there for a chapter, not the whole book',
+    ],
+  },
+  {
+    id: 'sp-609',
+    topic: 'Friends & Social Life',
+    difficulty: 'easy',
+    question: "Do you have a friend you've known for more than ten years?",
+    sampleAnswers: [
+      {
+        label: 'An Old Friend',
+        answer:
+          "Yes, I've known my friend from the next street since we were about seven. We went to the same school and spent almost every weekend together. These days we don't see each other as often, but when we do, it feels like no time has passed. She knows all my old stories, so I never have to explain anything to her.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "Yes, a friend from my childhood. We've known each other since we were seven.",
+      },
+    ],
+    usefulPhrases: [
+      "I've known ... since we were...",
+      'spent almost every weekend together',
+      "we don't see each other as often",
+      'it feels like no time has passed',
+      'I never have to explain anything',
+    ],
+  },
+  {
+    id: 'sp-610',
+    topic: 'Friends & Social Life',
+    difficulty: 'easy',
+    question: "What's a cheap or free thing you love doing with your friends?",
+    sampleAnswers: [
+      {
+        label: 'Picnics in the Park',
+        answer:
+          "We love having picnics in the park. Everyone brings something small — fruit, bread, a homemade snack — and we sit on a blanket for hours. Sometimes someone brings a ball or a card game. It costs almost nothing, but those afternoons are some of my favourite times with my friends. It's relaxed, and nobody's in a hurry.",
+      },
+    ],
+    usefulPhrases: [
+      'everyone brings something small',
+      'for hours',
+      'it costs almost nothing, but...',
+      'some of my favourite times with...',
+      "nobody's in a hurry",
+    ],
+  },
+  {
+    id: 'sp-611',
+    topic: 'Friends & Social Life',
+    difficulty: 'easy',
+    question: 'Do you enjoy going to big parties? Why or why not?',
+    sampleAnswers: [
+      {
+        label: 'Not Really a Party Person',
+        answer:
+          "Not really, to be honest. I find big parties a bit overwhelming — it's loud, and you only get to chat with each person for a few minutes. I much prefer small get-togethers where I can actually have a proper conversation. That said, I'll happily go to a big party if it's a friend's birthday. I just usually leave a bit early!",
+      },
+    ],
+    usefulPhrases: [
+      'not really, to be honest',
+      'a bit overwhelming',
+      'small get-togethers',
+      'have a proper conversation',
+      "I'll happily go to ... if...",
+    ],
+  },
+  {
+    id: 'sp-612',
+    topic: 'Friends & Social Life',
+    difficulty: 'medium',
+    question: 'Tell me about a friend who introduced you to something new that you now love.',
+    sampleAnswers: [
+      {
+        label: 'How I Got Into Hiking',
+        answer:
+          "A friend of mine is crazy about hiking, and for ages she tried to convince me to join her. I always made excuses, because I thought it would be boring and exhausting. Finally, I gave in and went on a short trail with her. The view at the top was amazing, and I felt so proud of myself. Now we go hiking together once a month, and I'm the one who suggests it.",
+      },
+    ],
+    usefulPhrases: [
+      'is crazy about...',
+      'tried to convince me to...',
+      'I always made excuses',
+      'I finally gave in',
+      "I'm the one who suggests it",
+    ],
+  },
+  {
+    id: 'sp-613',
+    topic: 'Friends & Social Life',
+    difficulty: 'medium',
+    question: 'How do you feel when a friend cancels plans at the last minute? Why?',
+    sampleAnswers: [
+      {
+        label: 'Disappointed, but Understanding',
+        answer:
+          "It depends on the reason and how often it happens. If something urgent comes up, I totally understand — life happens. But if the same person cancels again and again, I start to feel like I'm not a priority for them. Honestly, part of me is sometimes secretly relieved, especially if I'm tired! I just appreciate it when people let me know as early as possible.",
+      },
+    ],
+    usefulPhrases: [
+      'it depends on the reason',
+      'life happens',
+      "I'm not a priority for them",
+      'part of me is secretly relieved',
+      'let me know as early as possible',
+    ],
+  },
+  {
+    id: 'sp-614',
+    topic: 'Friends & Social Life',
+    difficulty: 'medium',
+    question: 'Tell me about a time you made a friend in an unexpected place.',
+    sampleAnswers: [
+      {
+        label: 'Friends at the Bus Stop',
+        answer:
+          "A few years ago, I took the same early bus every morning, and there was a woman who always waited at the same stop. At first, we just nodded at each other. Then one rainy morning, she offered to share her umbrella, and we started chatting. It turned out we lived on the same street and loved the same books. Now we meet for coffee regularly. You never know where you'll find a friend.",
+      },
+    ],
+    usefulPhrases: [
+      'at first, we just nodded at each other',
+      'offered to share...',
+      'we started chatting',
+      'it turned out we...',
+      "you never know where you'll find...",
+    ],
+  },
+  {
+    id: 'sp-615',
+    topic: 'Friends & Social Life',
+    difficulty: 'medium',
+    question: 'What makes someone a good guest when you invite them to your home?',
+    sampleAnswers: [
+      {
+        label: 'The Perfect Guest',
+        answer:
+          "For me, a good guest is relaxed and makes themselves at home, but still respects the space. They arrive roughly on time, maybe bring something small like fruit or dessert, and offer to help clear the table. Most of all, they're good company — they ask questions and join in the conversation. I don't care if they're a bit messy; I care that they make the evening fun.",
+      },
+    ],
+    usefulPhrases: [
+      'makes themselves at home',
+      'arrive roughly on time',
+      'offer to help clear the table',
+      "they're good company",
+      'join in the conversation',
+    ],
+  },
+  {
+    id: 'sp-616',
+    topic: 'Friends & Social Life',
+    difficulty: 'hard',
+    question: 'Can you stay close friends with someone you rarely see?',
+    sampleAnswers: [
+      {
+        label: 'Distance and Closeness',
+        answer:
+          "I believe you can, but it takes effort from both sides. One of my closest friends lives far away, and we only see each other once a year. What keeps us close is that we're honest with each other and we check in when something important happens. Closeness isn't really about how often you meet — it's about whether you can pick up where you left off without any awkwardness.",
+      },
+    ],
+    usefulPhrases: [
+      'it takes effort from both sides',
+      'what keeps us close is...',
+      'we check in when...',
+      "closeness isn't really about...",
+      'pick up where you left off',
+    ],
+  },
+  {
+    id: 'sp-617',
+    topic: 'Friends & Social Life',
+    difficulty: 'hard',
+    question: "How much should friends get involved in each other's big life decisions?",
+    sampleAnswers: [
+      {
+        label: 'Advice, Not Orders',
+        answer:
+          "I think a good friend should give an honest opinion when you ask for it, and maybe even when you don't, if they see you heading for trouble. But in the end, it's your life. A friend who pushes too hard can damage the friendship. The best friends I have are the ones who say what they think once, clearly, and then support me whatever I decide — even if they disagree.",
+      },
+    ],
+    usefulPhrases: [
+      'give an honest opinion',
+      'heading for trouble',
+      "in the end, it's your life",
+      'pushes too hard',
+      'support me whatever I decide',
+    ],
+  },
+  {
+    id: 'sp-618',
+    topic: 'Friends & Social Life',
+    difficulty: 'hard',
+    question: 'Do friends need to share the same interests to stay close?',
+    sampleAnswers: [
+      {
+        label: 'Shared Values Matter More',
+        answer:
+          "Shared interests definitely help at the start — they give you an easy reason to spend time together. But I don't think they're what keeps a friendship going. One of my closest friends loves football, and I have zero interest in it. What we share is a similar sense of humour and similar values about how to treat people. Interests change over the years; values tend to stay.",
+      },
+    ],
+    usefulPhrases: [
+      'definitely help at the start',
+      'an easy reason to...',
+      'what keeps a friendship going',
+      'I have zero interest in it',
+      'values tend to stay',
     ],
   },
 
@@ -2709,6 +3938,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       "every now and then it's worth stepping back",
     ],
   },
+  {
+    id: 'sp-619',
+    topic: 'Daily Life',
+    difficulty: 'easy',
+    question: "What's usually in your bag when you leave the house?",
+    sampleAnswers: [
+      {
+        label: 'The Essentials',
+        answer:
+          "Let me think... my keys, my wallet and a small bottle of water, always. I also carry a little notebook, because I like writing things down when they pop into my head. There's usually a snack in there too, just in case I get hungry. And if the sky looks grey, I'll throw in an umbrella. My bag is a bit heavier than it needs to be, honestly, but I hate being caught without something I need.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Keys, wallet, water and a snack. I like to be ready for anything.',
+      },
+    ],
+    usefulPhrases: [
+      'I always carry...',
+      'just in case...',
+      'pop into my head',
+      'throw in...',
+      'being caught without...',
+    ],
+  },
+  {
+    id: 'sp-620',
+    topic: 'Daily Life',
+    difficulty: 'easy',
+    question: 'What do you usually eat for lunch, and where do you eat it?',
+    sampleAnswers: [
+      {
+        label: 'A Simple Midday Meal',
+        answer:
+          "Most days I keep lunch pretty simple: rice with some vegetables and a bit of meat or egg. If I'm at home, I eat at the kitchen table, sometimes with a book. When I'm out, I'll grab something from a small place near where I am. I try not to eat too much at lunch, because a heavy meal in the middle of the day makes me really sleepy in the afternoon.",
+      },
+    ],
+    usefulPhrases: [
+      'I keep ... pretty simple',
+      'grab something from...',
+      'in the middle of the day',
+      'makes me really sleepy',
+      'I try not to...',
+    ],
+  },
+  {
+    id: 'sp-621',
+    topic: 'Daily Life',
+    difficulty: 'easy',
+    question: 'What do you usually do while you wait in a queue?',
+    sampleAnswers: [
+      {
+        label: 'Passing the Time',
+        answer:
+          "It depends how long the queue is. If it's short, I just stand there and people-watch, which I actually quite enjoy. You notice funny little things about the people around you. If it's a long wait, I'll usually listen to music or go over my shopping list in my head. Sometimes I end up chatting with the person next to me, especially if we're both complaining about how slow it is.",
+      },
+    ],
+    usefulPhrases: [
+      'it depends how long...',
+      'people-watch',
+      'go over ... in my head',
+      'end up chatting with...',
+      'complaining about how slow it is',
+    ],
+  },
+  {
+    id: 'sp-622',
+    topic: 'Daily Life',
+    difficulty: 'medium',
+    question: 'Tell me about a small errand that turned into a much bigger job than you expected.',
+    sampleAnswers: [
+      {
+        label: 'The Never-Ending Errand',
+        answer:
+          "A few months ago I went out just to buy a light bulb. Simple, right? But the shop didn't have the right type, so I went to another one across town. When I finally got home and changed it, the light still didn't work, so it turned out the problem was the switch, not the bulb. In the end I spent the whole afternoon on it. Now, whenever something seems quick, I double the time I expect it to take.",
+      },
+    ],
+    usefulPhrases: [
+      'Simple, right?',
+      'it turned out the problem was...',
+      'in the end I spent...',
+      'the whole afternoon',
+      'I double the time I expect',
+    ],
+  },
+  {
+    id: 'sp-623',
+    topic: 'Daily Life',
+    difficulty: 'medium',
+    question: 'Why do you think some days feel much longer than others, even when you do the same things?',
+    sampleAnswers: [
+      {
+        label: 'Time Feels Stretchy',
+        answer:
+          "I'd say it's mostly about how you feel. When I'm tired or bored, every hour seems to drag on forever. But if I'm in a good mood or doing something I enjoy, the day just flies by. Waiting makes a big difference too: a day spent waiting for news always feels endless. Funnily enough, though, those slow days often feel short when I look back, because nothing memorable happened.",
+      },
+    ],
+    usefulPhrases: [
+      'drag on forever',
+      'the day just flies by',
+      'makes a big difference',
+      'funnily enough',
+      'when I look back',
+    ],
+  },
+  {
+    id: 'sp-624',
+    topic: 'Daily Life',
+    difficulty: 'medium',
+    question: 'Which do you find more tiring: a really busy day, or a day where you do almost nothing? Why?',
+    sampleAnswers: [
+      {
+        label: 'Busy vs. Idle',
+        answer:
+          "Strangely, a day of doing nothing tires me out more. On a busy day I'm moving and focused, so I get to the evening feeling tired but satisfied. When I spend the whole day on the sofa, though, I feel heavy and a bit low, and I can't even sleep properly that night. I think the body and the mind both need something to do. A busy day wears out your legs; a lazy one wears out your mood.",
+      },
+    ],
+    usefulPhrases: [
+      'tires me out',
+      'tired but satisfied',
+      'feel heavy and a bit low',
+      "can't even sleep properly",
+      'wears out your...',
+    ],
+  },
+  {
+    id: 'sp-625',
+    topic: 'Daily Life',
+    difficulty: 'medium',
+    question: "Tell me about a little daily ritual you'd really miss if you had to give it up.",
+    sampleAnswers: [
+      {
+        label: 'My Evening Tea',
+        answer:
+          "Every evening, after dinner, I make a cup of tea and sit by the window for ten minutes. No phone, no music, just tea. I started doing it a couple of years ago during a stressful time, and it stuck. It sounds like nothing, but it's the moment my day officially ends. Once, when I was staying with relatives, I couldn't do it for a week, and I honestly felt a bit lost.",
+      },
+    ],
+    usefulPhrases: [
+      'every evening, after dinner...',
+      'and it stuck',
+      'It sounds like nothing, but...',
+      'my day officially ends',
+      'I felt a bit lost',
+    ],
+  },
+  {
+    id: 'sp-626',
+    topic: 'Daily Life',
+    difficulty: 'hard',
+    question: 'Is being busy all the time something to be proud of, or a warning sign?',
+    sampleAnswers: [
+      {
+        label: 'Busy Is Not a Badge',
+        answer:
+          "Well, I used to think being busy meant I was doing well. Lately I've started to see it differently. Constant busyness can be a way of avoiding things, like rest, difficult feelings, or even asking whether we're doing the right things at all. Some busy periods are unavoidable, of course. But if someone is always rushing and never has an empty evening, I'd gently ask whether they're choosing that life or just stuck in it.",
+      },
+    ],
+    usefulPhrases: [
+      'I used to think...',
+      "Lately I've started to see it differently",
+      'a way of avoiding...',
+      'of course',
+      'choosing that life or just stuck in it',
+    ],
+  },
+  {
+    id: 'sp-627',
+    topic: 'Daily Life',
+    difficulty: 'hard',
+    question: 'If you could remove one everyday task from your life forever, which would you choose, and what might you lose by not doing it?',
+    sampleAnswers: [
+      {
+        label: 'Goodbye, Washing Up',
+        answer:
+          "Washing the dishes, no question. I find it so boring. But if I'm being fair, I'd probably lose something too. It's one of the few times in the day when my hands are busy and my mind can wander, and I've had some of my best ideas standing at the sink. It's also when my family chats after dinner. So maybe the task itself isn't the problem, it's just my attitude towards it.",
+      },
+    ],
+    usefulPhrases: [
+      'no question',
+      "if I'm being fair",
+      'my mind can wander',
+      "the task itself isn't the problem",
+      'my attitude towards it',
+    ],
+  },
+  {
+    id: 'sp-628',
+    topic: 'Daily Life',
+    difficulty: 'hard',
+    question: 'Do small daily choices matter more than big life decisions in shaping who we become?',
+    sampleAnswers: [
+      {
+        label: 'Small Steps Add Up',
+        answer:
+          "I tend to believe the small choices matter more, even though they don't feel important. Big decisions happen a few times in a lifetime, but what you eat, how you speak to people, whether you go for a walk: those happen every day, thousands of times. Over the years, they quietly add up to a personality. That said, a big decision can change which small choices are even available to you, so they're connected.",
+      },
+    ],
+    usefulPhrases: [
+      'I tend to believe...',
+      "they don't feel important",
+      'quietly add up to...',
+      'That said,...',
+      'even available to you',
+    ],
+  },
 
   // ── Home & Neighborhood ───────────────────────────────
   {
@@ -3032,6 +4466,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       "can't afford to...",
       'give people somewhere to...',
       'the answer is smarter planning',
+    ],
+  },
+  {
+    id: 'sp-629',
+    topic: 'Home & Neighborhood',
+    difficulty: 'easy',
+    question: "What's the first thing you do when you get home?",
+    sampleAnswers: [
+      {
+        label: 'Shoes Off, Kettle On',
+        answer:
+          "The very first thing is taking my shoes off at the door. Then I usually wash my hands and put the kettle on. After that, I like to change into comfortable clothes, because it makes me feel like I've really arrived home. If I've been out all day, I might just lie on the sofa for a few minutes before I do anything else.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'I take my shoes off and make a hot drink. Then I relax for a bit.',
+      },
+    ],
+    usefulPhrases: [
+      'the very first thing is...',
+      'put the kettle on',
+      'change into comfortable clothes',
+      "I've really arrived home",
+      'before I do anything else',
+    ],
+  },
+  {
+    id: 'sp-630',
+    topic: 'Home & Neighborhood',
+    difficulty: 'easy',
+    question: 'What sounds can you hear at home in the evening?',
+    sampleAnswers: [
+      {
+        label: 'Evening Soundtrack',
+        answer:
+          "Quite a lot, actually. There's usually traffic in the distance, and sometimes a dog barking a few houses away. My neighbours often cook at the same time as us, so I can hear pans and voices through the wall. Later on it gets quieter, and I mostly just hear the fridge humming and the odd motorbike going past. I find those sounds kind of comforting, to be honest.",
+      },
+    ],
+    usefulPhrases: [
+      'in the distance',
+      'a few houses away',
+      'through the wall',
+      'the odd ... going past',
+      'I find ... kind of comforting',
+    ],
+  },
+  {
+    id: 'sp-631',
+    topic: 'Home & Neighborhood',
+    difficulty: 'easy',
+    question: 'Which piece of furniture in your home do you use the most?',
+    sampleAnswers: [
+      {
+        label: 'The Trusty Sofa',
+        answer:
+          "Definitely the sofa. I eat there, read there, chat with friends there, and, if I'm honest, I sometimes fall asleep there too. It's not new or fancy, and one of the cushions is a bit flat, but it's incredibly comfortable. We've talked about replacing it, but nobody really wants to, because it feels like part of the family now.",
+      },
+    ],
+    usefulPhrases: [
+      'Definitely the...',
+      "if I'm honest",
+      "it's not new or fancy",
+      "We've talked about replacing it",
+      'feels like part of the family',
+    ],
+  },
+  {
+    id: 'sp-632',
+    topic: 'Home & Neighborhood',
+    difficulty: 'medium',
+    question: 'Tell me about a time you moved house. What was the hardest part?',
+    sampleAnswers: [
+      {
+        label: 'Moving Day',
+        answer:
+          "The last time I moved, I thought packing would be the hardest part, but it was actually deciding what to throw away. Every drawer had something I'd forgotten about: old letters, photos, birthday cards. I kept stopping to read them, so it took twice as long. The move itself went fine, thanks to a couple of friends with a van. But that first night in the new place felt strange and a bit lonely.",
+      },
+    ],
+    usefulPhrases: [
+      'I thought ... would be the hardest part',
+      'it was actually...',
+      'I kept stopping to...',
+      'it took twice as long',
+      'felt strange and a bit lonely',
+    ],
+  },
+  {
+    id: 'sp-633',
+    topic: 'Home & Neighborhood',
+    difficulty: 'medium',
+    question: "What's something you'd always check before choosing a new place to live? Why?",
+    sampleAnswers: [
+      {
+        label: 'Light and Noise',
+        answer:
+          "I'd always check how much natural light it gets and how noisy it is at night. I once rented a room that looked lovely in the photos, but it was dark all day and right next to a busy road. I was tired and grumpy the whole time I lived there. So now I visit at different times of day before deciding. A nice kitchen is great, but sleep is more important.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd always check...",
+      'looked lovely in the photos',
+      'right next to...',
+      'tired and grumpy',
+      'at different times of day',
+    ],
+  },
+  {
+    id: 'sp-634',
+    topic: 'Home & Neighborhood',
+    difficulty: 'medium',
+    question: 'What house rules do you have with the people you live with, and why?',
+    sampleAnswers: [
+      {
+        label: 'Keeping the Peace',
+        answer:
+          "We don't have many, but the ones we have really matter. Whoever cooks doesn't wash up, which feels fair. We also keep things quiet after eleven, because we all get up at different times. And if you finish something in the fridge, you write it on the list. These might sound small, but most arguments at home start with exactly those little things, so having clear rules saves a lot of tension.",
+      },
+    ],
+    usefulPhrases: [
+      'the ones we have really matter',
+      'which feels fair',
+      'These might sound small, but...',
+      'start with exactly those little things',
+      'saves a lot of tension',
+    ],
+  },
+  {
+    id: 'sp-635',
+    topic: 'Home & Neighborhood',
+    difficulty: 'medium',
+    question: 'Is your neighborhood better during the day or at night? Why?',
+    sampleAnswers: [
+      {
+        label: 'Two Different Places',
+        answer:
+          "It's almost like two different places. During the day it's busy and a bit chaotic, with people rushing around and shops open. At night, though, it calms down and becomes much friendlier in a way. Families come out for a walk, people sit outside and chat, and the street food stalls set up. Personally, I prefer the evenings. The daytime is useful, but the nighttime has more character.",
+      },
+    ],
+    usefulPhrases: [
+      "It's almost like two different places",
+      'a bit chaotic',
+      'calms down',
+      'in a way',
+      'has more character',
+    ],
+  },
+  {
+    id: 'sp-636',
+    topic: 'Home & Neighborhood',
+    difficulty: 'hard',
+    question: 'Some people say owning a home is the key to feeling settled. Do you agree, or can renting feel just as much like home?',
+    sampleAnswers: [
+      {
+        label: 'Home Is Not a Deed',
+        answer:
+          "I can see why people say that. Owning a place means nobody can ask you to leave, and you can paint the walls whatever colour you like. That security really matters. But I don't think a piece of paper makes somewhere feel like home. I've rented places that felt warmer than houses some friends own, because of the people and routines inside them. Feeling settled is more about stability than ownership, I'd argue.",
+      },
+    ],
+    usefulPhrases: [
+      'I can see why people say that',
+      'That security really matters',
+      "I don't think ... makes somewhere feel like...",
+      'felt warmer than...',
+      "I'd argue",
+    ],
+  },
+  {
+    id: 'sp-637',
+    topic: 'Home & Neighborhood',
+    difficulty: 'hard',
+    question: 'How much does where you live affect how happy you are day to day?',
+    sampleAnswers: [
+      {
+        label: 'More Than I Expected',
+        answer:
+          'More than I used to think. I always believed happiness came from inside, and partly it does. But when I moved somewhere with a small park nearby and friendly shopkeepers, my mood genuinely improved. Little things, like a quiet street or a short walk to buy bread, shape dozens of moments every day. You can be happy anywhere, I suppose, but some places make it a lot easier.',
+      },
+    ],
+    usefulPhrases: [
+      'More than I used to think',
+      'and partly it does',
+      'my mood genuinely improved',
+      'shape dozens of moments',
+      'some places make it a lot easier',
+    ],
+  },
+  {
+    id: 'sp-638',
+    topic: 'Home & Neighborhood',
+    difficulty: 'hard',
+    question: 'Do the things we keep in our homes say more about our past or about who we want to be?',
+    sampleAnswers: [
+      {
+        label: 'Objects and Identity',
+        answer:
+          "Probably both, but in different rooms! If you look in my cupboards, you'll find old gifts and things I can't bring myself to throw away. That's my past. But the things on display, like the books on the shelf or the plants by the window, are more about the person I'd like to be. We arrange our homes a bit like we tell our own story: some of it true, some of it hopeful.",
+      },
+    ],
+    usefulPhrases: [
+      "can't bring myself to throw away",
+      'on display',
+      "the person I'd like to be",
+      'a bit like...',
+      'some of it true, some of it hopeful',
     ],
   },
 
@@ -3472,6 +5111,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'a push from ...',
     ],
   },
+  {
+    id: 'sp-639',
+    topic: 'Food & Culture',
+    difficulty: 'easy',
+    question: "What do you usually eat when you're in a hurry?",
+    sampleAnswers: [
+      {
+        label: 'Quick Fixes',
+        answer:
+          "When I'm short on time, I go for something quick and filling, like a sandwich or a bowl of noodles. If I have five minutes at home, I'll fry an egg and have it with bread. I know it's not the most balanced meal, but it does the job. I always try to keep some fruit around too, so I can grab a banana on my way out the door.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Usually a sandwich or some noodles. Something fast and filling.',
+      },
+    ],
+    usefulPhrases: [
+      "When I'm short on time",
+      'quick and filling',
+      'it does the job',
+      'keep ... around',
+      'on my way out the door',
+    ],
+  },
+  {
+    id: 'sp-640',
+    topic: 'Food & Culture',
+    difficulty: 'easy',
+    question: "What's your go-to order when you get takeaway food?",
+    sampleAnswers: [
+      {
+        label: 'My Usual',
+        answer:
+          "I'm quite predictable, actually. Nine times out of ten I order fried rice with chicken and a side of vegetables. It's cheap, it travels well, and it still tastes good even if it's a bit late. Every now and then I tell myself I'll try something new, but when I'm hungry and tired, I always go back to my usual.",
+      },
+    ],
+    usefulPhrases: [
+      "I'm quite predictable",
+      'nine times out of ten',
+      'it travels well',
+      'every now and then',
+      'go back to my usual',
+    ],
+  },
+  {
+    id: 'sp-641',
+    topic: 'Food & Culture',
+    difficulty: 'easy',
+    question: "What's a fruit or vegetable you eat almost every week?",
+    sampleAnswers: [
+      {
+        label: 'Weekly Greens',
+        answer:
+          "Tomatoes, for sure. I put them in almost everything: salads, soups, eggs, even sandwiches. They're cheap, they last a few days, and they make any meal look a bit fresher. I also eat a lot of bananas, but tomatoes are the one thing I always have in the kitchen. If I run out, I feel like something's missing.",
+      },
+    ],
+    usefulPhrases: [
+      'for sure',
+      'I put them in almost everything',
+      'they make any meal look...',
+      'I always have ... in the kitchen',
+      "I feel like something's missing",
+    ],
+  },
+  {
+    id: 'sp-642',
+    topic: 'Food & Culture',
+    difficulty: 'medium',
+    question: 'Tell me about the first time you cooked a meal for other people.',
+    sampleAnswers: [
+      {
+        label: 'Nervous Chef',
+        answer:
+          'I was about sixteen and I decided to cook dinner for my family as a surprise. I chose a recipe that was far too ambitious, with about four different sauces. Of course, I burned one, forgot the salt in another, and dinner was an hour late. But everyone ate it and said nice things. Looking back, they were just being kind, but it gave me the confidence to keep trying.',
+      },
+    ],
+    usefulPhrases: [
+      'far too ambitious',
+      'Of course,...',
+      'said nice things',
+      'they were just being kind',
+      'gave me the confidence to...',
+    ],
+  },
+  {
+    id: 'sp-643',
+    topic: 'Food & Culture',
+    difficulty: 'medium',
+    question: 'Why do you think certain foods become comfort food for people?',
+    sampleAnswers: [
+      {
+        label: 'Food and Feelings',
+        answer:
+          "I'd say it's mostly about memory. My comfort food is a simple soup my grandmother used to make when I was ill, so when I eat it now, I feel looked after. It's not really the taste, it's the feeling that comes with it. Comfort food also tends to be warm, soft and easy to eat, which probably calms us down physically too. It takes us back to a safer time.",
+      },
+    ],
+    usefulPhrases: [
+      'used to make when...',
+      'I feel looked after',
+      "It's not really the ..., it's the...",
+      'tends to be...',
+      'takes us back to...',
+    ],
+  },
+  {
+    id: 'sp-644',
+    topic: 'Food & Culture',
+    difficulty: 'medium',
+    question: "Have you ever had to eat something you didn't like just to be polite? What happened?",
+    sampleAnswers: [
+      {
+        label: 'Smile and Swallow',
+        answer:
+          "Oh yes. A friend's mother once made a dish with a lot of liver, which I really can't stand. She was so proud of it, and she kept watching me to see if I liked it. So I smiled, ate slowly, and drank a lot of water. Then she gave me a second helping! I learned that day that eating too politely can backfire. Now I take smaller portions when I'm not sure.",
+      },
+    ],
+    usefulPhrases: [
+      "I really can't stand...",
+      'she was so proud of it',
+      'a second helping',
+      'can backfire',
+      "when I'm not sure",
+    ],
+  },
+  {
+    id: 'sp-645',
+    topic: 'Food & Culture',
+    difficulty: 'medium',
+    question: 'Do you prefer eating at a street stall or in a restaurant? Why?',
+    sampleAnswers: [
+      {
+        label: 'Street Over Smart',
+        answer:
+          "Most of the time I'd pick a street stall. The food is often fresher because they cook one or two things all day and they're really good at them. It's also cheaper, and I love the atmosphere, sitting on a little stool and watching everything happen around you. Restaurants are nice for special occasions, when you want to sit for hours and talk, but for everyday eating, the street wins.",
+      },
+    ],
+    usefulPhrases: [
+      "Most of the time I'd pick...",
+      "they're really good at them",
+      'I love the atmosphere',
+      'for special occasions',
+      'the ... wins',
+    ],
+  },
+  {
+    id: 'sp-646',
+    topic: 'Food & Culture',
+    difficulty: 'hard',
+    question: 'Is eating alone becoming more normal, and is that a good or bad thing?',
+    sampleAnswers: [
+      {
+        label: 'A Table for One',
+        answer:
+          "I think it is becoming more normal, and there are good and bad sides. On the plus side, people no longer feel embarrassed to sit alone in a café, which is freeing. Some meals alone are actually peaceful. But if most of someone's meals are eaten alone, in front of a screen, that worries me a little. Sharing food is one of the oldest ways people connect, and I'd hate to see that disappear.",
+      },
+    ],
+    usefulPhrases: [
+      'there are good and bad sides',
+      'On the plus side,...',
+      'which is freeing',
+      'that worries me a little',
+      "I'd hate to see that disappear",
+    ],
+  },
+  {
+    id: 'sp-647',
+    topic: 'Food & Culture',
+    difficulty: 'hard',
+    question: 'Should restaurants be judged on how authentic their food is, or just on whether it tastes good?',
+    sampleAnswers: [
+      {
+        label: 'Taste First, Mostly',
+        answer:
+          "In the end, I care most about taste. If a dish is delicious, I'm not going to complain that it's not exactly how it's made in its home country. That said, I think honesty matters. If a restaurant says it serves traditional food, it shouldn't change everything and still use that label. So I'd say: be authentic if you claim to be, otherwise just be good.",
+      },
+    ],
+    usefulPhrases: [
+      'In the end, I care most about...',
+      "I'm not going to complain that...",
+      'That said, I think honesty matters',
+      'use that label',
+      'be ... if you claim to be',
+    ],
+  },
+  {
+    id: 'sp-648',
+    topic: 'Food & Culture',
+    difficulty: 'hard',
+    question: 'Why do you think sharing food is such a strong way for people to bond?',
+    sampleAnswers: [
+      {
+        label: 'Breaking Bread',
+        answer:
+          "There's something very trusting about it. When you share a dish, you're slowing down together, passing plates, making sure everyone gets enough. It's a small act of care. Also, conversation flows more easily when your hands are busy and there's something to talk about right in front of you. Across so many cultures, important moments happen around a table, and I don't think that's an accident.",
+      },
+    ],
+    usefulPhrases: [
+      "There's something very ... about it",
+      'slowing down together',
+      'a small act of care',
+      'conversation flows more easily',
+      "I don't think that's an accident",
+    ],
+  },
 
   // ── Shopping & Fashion ────────────────────────────────
   {
@@ -3796,6 +5640,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       "discover things you weren't looking for",
       'pretty lonely',
       "convenience isn't everything",
+    ],
+  },
+  {
+    id: 'sp-649',
+    topic: 'Shopping & Fashion',
+    difficulty: 'easy',
+    question: 'What do you usually wear when you want to feel comfortable at home?',
+    sampleAnswers: [
+      {
+        label: 'Comfy Clothes',
+        answer:
+          "As soon as I get home, I change into an old T-shirt and loose trousers. The T-shirt is so worn that it's super soft now. In the colder months I add thick socks and a big hoodie. Nobody sees me like this except my family, so I don't worry about how I look. For me, comfy clothes are the signal that it's time to relax.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'An old T-shirt and soft trousers. Comfort is all that matters at home.',
+      },
+    ],
+    usefulPhrases: [
+      'As soon as I get home,...',
+      'so worn that...',
+      'in the colder months',
+      "I don't worry about how I look",
+      'the signal that...',
+    ],
+  },
+  {
+    id: 'sp-650',
+    topic: 'Shopping & Fashion',
+    difficulty: 'easy',
+    question: 'Do you make a shopping list before you go to the shops?',
+    sampleAnswers: [
+      {
+        label: 'List or No List',
+        answer:
+          "I always try to, but I don't always stick to it. I write down the basics, like rice, eggs and soap, so I don't forget anything important. The problem is I see something tasty in the shop and it ends up in my basket anyway. Still, with a list I spend less than without one. Without it, I come home with three snacks and no toothpaste.",
+      },
+    ],
+    usefulPhrases: [
+      "I don't always stick to it",
+      'write down the basics',
+      'ends up in my basket',
+      'Still,...',
+      'I come home with...',
+    ],
+  },
+  {
+    id: 'sp-651',
+    topic: 'Shopping & Fashion',
+    difficulty: 'easy',
+    question: "What's one thing you always seem to run out of and need to buy again?",
+    sampleAnswers: [
+      {
+        label: 'Always Running Out',
+        answer:
+          "Batteries, believe it or not! Every time the remote stops working, I realise I've used the last ones. I also run out of washing-up liquid way faster than I expect. You'd think I'd learn and buy two at a time, but somehow I never do. It's become a bit of a joke at home now.",
+      },
+    ],
+    usefulPhrases: [
+      'believe it or not',
+      "I've used the last ones",
+      'way faster than I expect',
+      "You'd think I'd learn",
+      'a bit of a joke',
+    ],
+  },
+  {
+    id: 'sp-652',
+    topic: 'Shopping & Fashion',
+    difficulty: 'medium',
+    question: 'Tell me about a time you returned something to a shop. How did it go?',
+    sampleAnswers: [
+      {
+        label: 'The Wrong Size',
+        answer:
+          "I once bought a pair of shoes that felt fine in the shop, but after walking around at home, they really hurt. I was nervous about taking them back because I'd already worn them for an hour. I went in, explained politely, and showed the receipt. The assistant was really understanding and let me swap them for a bigger size. Since then, I'm much less afraid of returning things.",
+      },
+    ],
+    usefulPhrases: [
+      'felt fine in the shop',
+      'taking them back',
+      'showed the receipt',
+      'was really understanding',
+      'swap them for...',
+    ],
+  },
+  {
+    id: 'sp-653',
+    topic: 'Shopping & Fashion',
+    difficulty: 'medium',
+    question: 'Do you prefer shopping alone or with a friend? Why?',
+    sampleAnswers: [
+      {
+        label: 'Solo Shopper',
+        answer:
+          "It depends what I'm buying. For everyday things, I'd rather go alone so I can be quick and not waste anyone's time. But for clothes, I like having a friend with me who'll tell me the truth. Mirrors can lie, and shop assistants always say everything looks great! A good friend will say, no, that colour doesn't suit you, and save me from a mistake.",
+      },
+    ],
+    usefulPhrases: [
+      "It depends what I'm buying",
+      "I'd rather go alone",
+      "who'll tell me the truth",
+      "that colour doesn't suit you",
+      'save me from a mistake',
+    ],
+  },
+  {
+    id: 'sp-654',
+    topic: 'Shopping & Fashion',
+    difficulty: 'medium',
+    question: "Why do you think sales and discounts make people buy things they don't need?",
+    sampleAnswers: [
+      {
+        label: 'The Sale Trap',
+        answer:
+          "Because a big red sign saying fifty percent off makes us feel like we're winning something. Our brains focus on what we're saving, not what we're spending. There's also that feeling that the deal won't last, so we rush. I've fallen for it myself: I once bought a jacket just because it was cheap, and I've worn it twice. Now I ask, would I buy this at full price?",
+      },
+    ],
+    usefulPhrases: [
+      "makes us feel like we're...",
+      "won't last",
+      "I've fallen for it myself",
+      'just because it was cheap',
+      'at full price',
+    ],
+  },
+  {
+    id: 'sp-655',
+    topic: 'Shopping & Fashion',
+    difficulty: 'medium',
+    question: "Tell me about an item of clothing you've kept for years. Why haven't you got rid of it?",
+    sampleAnswers: [
+      {
+        label: 'The Old Jumper',
+        answer:
+          "I've got a grey jumper that I've had for nearly ten years. It's faded, and one sleeve is slightly stretched, but I can't throw it away. I wore it on a lot of trips and it reminds me of those times. It's also just really warm. My family keeps telling me to get rid of it, but honestly, it's not just clothing anymore, it's a memory.",
+      },
+    ],
+    usefulPhrases: [
+      "I've had it for nearly...",
+      "I can't throw it away",
+      'it reminds me of...',
+      'keeps telling me to get rid of it',
+      "it's not just ... anymore",
+    ],
+  },
+  {
+    id: 'sp-656',
+    topic: 'Shopping & Fashion',
+    difficulty: 'hard',
+    question: 'Are dress codes for events like weddings a sign of respect, or just an outdated rule?',
+    sampleAnswers: [
+      {
+        label: 'Dressing for the Occasion',
+        answer:
+          "I see them mostly as a sign of respect. When you dress up for someone's wedding, you're showing that the day matters to you, not just to them. That said, some dress codes go too far, especially when they're expensive or very strict. I think the spirit behind them is good: make an effort. But the details should be flexible enough that nobody feels left out because of money.",
+      },
+    ],
+    usefulPhrases: [
+      'I see them mostly as...',
+      "you're showing that...",
+      'go too far',
+      'the spirit behind them',
+      'nobody feels left out',
+    ],
+  },
+  {
+    id: 'sp-657',
+    topic: 'Shopping & Fashion',
+    difficulty: 'hard',
+    question: 'If you could only buy clothes once a year, how would it change the way you shop?',
+    sampleAnswers: [
+      {
+        label: 'One Shopping Day',
+        answer:
+          "I think I'd become much more careful. I'd probably make a list of what I actually wear and what's worn out, instead of buying things on a whim. I'd choose better quality too, since everything would need to last a full year. Honestly, it might be a good thing. Most of my regrets come from quick, emotional purchases, and that rule would make them impossible.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd become much more careful",
+      'on a whim',
+      'need to last...',
+      'it might be a good thing',
+      'my regrets come from...',
+    ],
+  },
+  {
+    id: 'sp-658',
+    topic: 'Shopping & Fashion',
+    difficulty: 'hard',
+    question: 'Is bargaining over prices a skill everyone should learn, or does it feel unfair to sellers?',
+    sampleAnswers: [
+      {
+        label: 'The Art of Haggling',
+        answer:
+          "It's a useful skill, for sure, and in many markets it's simply expected. Sellers often start high because they know you'll negotiate. But I think there's a line. Bargaining hard with a big shop is one thing; pushing a small street seller down to almost nothing feels a bit mean to me. A good bargain should leave both people feeling okay, not one person feeling they've lost.",
+      },
+    ],
+    usefulPhrases: [
+      "it's simply expected",
+      'start high',
+      "there's a line",
+      '... is one thing; ... feels a bit mean',
+      'leave both people feeling okay',
     ],
   },
 
@@ -4208,6 +6257,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       "we'd all be better off if ...",
     ],
   },
+  {
+    id: 'sp-659',
+    topic: 'Money & Finance',
+    difficulty: 'easy',
+    question: 'Do you usually compare prices before you buy something?',
+    sampleAnswers: [
+      {
+        label: 'Price Checker',
+        answer:
+          "For bigger things, always. If I'm buying a new pair of shoes or a kettle, I'll look in a few different shops first. For small things like snacks or a coffee, I don't really bother, because the difference is tiny and my time matters too. I'd say I'm careful, but not obsessive about it. A few extra minutes of checking can easily save me enough for a nice dinner.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "Yes, for expensive things. For small things, I don't bother.",
+      },
+    ],
+    usefulPhrases: [
+      'For bigger things, always',
+      'look in a few different shops first',
+      "I don't really bother",
+      'the difference is tiny',
+      'careful, but not obsessive',
+    ],
+  },
+  {
+    id: 'sp-660',
+    topic: 'Money & Finance',
+    difficulty: 'easy',
+    question: "What's the most expensive thing you own?",
+    sampleAnswers: [
+      {
+        label: 'My Big Purchase',
+        answer:
+          "Probably my motorbike. I saved for quite a while to buy it, and I use it almost every day, so it's been worth every penny. I look after it really carefully, maybe more carefully than anything else I own. Apart from that, I don't really have expensive things. Most of what I own is pretty ordinary.",
+      },
+    ],
+    usefulPhrases: [
+      'I saved for quite a while',
+      "it's been worth every penny",
+      'I look after it really carefully',
+      'Apart from that,...',
+      'pretty ordinary',
+    ],
+  },
+  {
+    id: 'sp-661',
+    topic: 'Money & Finance',
+    difficulty: 'easy',
+    question: 'How do you usually split the bill when you eat out with friends?',
+    sampleAnswers: [
+      {
+        label: 'Splitting the Bill',
+        answer:
+          "Most of the time we just split it evenly; it's quicker and nobody has to do maths at the table. But if someone only had a drink while everyone else had a big meal, we'll let them pay less. Sometimes we take turns, so one person pays this time and another pays next time. It works well as long as everyone remembers whose turn it is!",
+      },
+    ],
+    usefulPhrases: [
+      'split it evenly',
+      'do maths at the table',
+      'take turns',
+      'this time ... next time',
+      'as long as everyone remembers...',
+    ],
+  },
+  {
+    id: 'sp-662',
+    topic: 'Money & Finance',
+    difficulty: 'medium',
+    question: 'Tell me about a time you found a really good bargain.',
+    sampleAnswers: [
+      {
+        label: 'Lucky Find',
+        answer:
+          'Last year I found a solid wooden bookshelf at a second-hand market for almost nothing. The seller was moving abroad and just wanted it gone. It needed a bit of cleaning and one new screw, but now it looks great in my living room. A new one would have cost ten times more. What made it feel special was the luck of being there at exactly the right moment.',
+      },
+    ],
+    usefulPhrases: [
+      'for almost nothing',
+      'just wanted it gone',
+      'would have cost ten times more',
+      'What made it feel special was...',
+      'at exactly the right moment',
+    ],
+  },
+  {
+    id: 'sp-663',
+    topic: 'Money & Finance',
+    difficulty: 'medium',
+    question: "What's something you used to spend a lot on but don't anymore? Why did you stop?",
+    sampleAnswers: [
+      {
+        label: 'Cutting Back on Coffee',
+        answer:
+          'I used to buy a coffee from a café every single day, sometimes twice. One month I added it all up, and I was shocked by the total. So I bought a decent coffee maker and started making it at home. Now café coffee is a treat, maybe once a week, and I actually enjoy it more because it feels special again. I save money and appreciate it more. Win-win.',
+      },
+    ],
+    usefulPhrases: [
+      'I added it all up',
+      'I was shocked by the total',
+      'is a treat',
+      'it feels special again',
+      'Win-win',
+    ],
+  },
+  {
+    id: 'sp-664',
+    topic: 'Money & Finance',
+    difficulty: 'medium',
+    question: 'What do you think is a fair amount to spend on a birthday present for a friend?',
+    sampleAnswers: [
+      {
+        label: "It's the Thought",
+        answer:
+          "I don't think there's a fixed number. It depends on how close you are and what you can afford. For me, the thought matters much more than the price. A friend once gave me a cheap notebook with a funny message written inside, and I loved it more than many expensive gifts. I'd say spend what's comfortable for you, and put the extra effort into making it personal.",
+      },
+    ],
+    usefulPhrases: [
+      "there's no fixed number",
+      'what you can afford',
+      'the thought matters more than the price',
+      "spend what's comfortable for you",
+      'making it personal',
+    ],
+  },
+  {
+    id: 'sp-665',
+    topic: 'Money & Finance',
+    difficulty: 'medium',
+    question: 'How do you decide whether something is worth the price?',
+    sampleAnswers: [
+      {
+        label: 'Cost Per Use',
+        answer:
+          "I try to think about how often I'll use it. A pair of good shoes that I wear every day for two years is worth a lot more than a cheap pair that falls apart in two months. So I sort of divide the price by the number of times I'll use it. I also ask myself whether I'd still want it in a week. If the answer's no, it's not worth it at any price.",
+      },
+    ],
+    usefulPhrases: [
+      "how often I'll use it",
+      'falls apart',
+      'I sort of...',
+      "whether I'd still want it in a week",
+      'not worth it at any price',
+    ],
+  },
+  {
+    id: 'sp-666',
+    topic: 'Money & Finance',
+    difficulty: 'hard',
+    question: 'Is tipping a fair way to reward good service, or should prices simply include everything?',
+    sampleAnswers: [
+      {
+        label: 'Tips or Fair Prices',
+        answer:
+          "I'm a bit torn on this. I like the idea of thanking someone who's been especially kind or helpful. But when tips become expected, it puts pressure on customers and leaves workers unsure of what they'll earn. Personally, I'd prefer prices that already include fair pay, with tipping as an optional extra for truly great service. That feels more honest for everyone involved.",
+      },
+    ],
+    usefulPhrases: [
+      "I'm a bit torn on this",
+      'I like the idea of...',
+      'puts pressure on...',
+      'an optional extra',
+      'more honest for everyone involved',
+    ],
+  },
+  {
+    id: 'sp-667',
+    topic: 'Money & Finance',
+    difficulty: 'hard',
+    question: 'Is it wise to buy things on credit, or should you only spend money you already have?',
+    sampleAnswers: [
+      {
+        label: 'Borrowing Carefully',
+        answer:
+          "Generally, I'd rather only spend money I already have. Buying on credit makes things feel cheaper than they are, and the interest quietly adds up. That said, I don't think it's always wrong. For something essential, like a home or something you need to get around, borrowing can make sense if you have a clear plan to pay it back. The danger is using credit for things you just want right now.",
+      },
+    ],
+    usefulPhrases: [
+      "Generally, I'd rather...",
+      'feel cheaper than they are',
+      'quietly adds up',
+      'can make sense if...',
+      'things you just want right now',
+    ],
+  },
+  {
+    id: 'sp-668',
+    topic: 'Money & Finance',
+    difficulty: 'hard',
+    question: 'Can having too much money make life harder in some ways?',
+    sampleAnswers: [
+      {
+        label: 'The Weight of Wealth',
+        answer:
+          "Oddly enough, I think it can. With a lot of money, you might start wondering whether people like you for yourself or for what you have. You could also lose the joy of saving up for something and finally getting it. And endless choice can be tiring. Of course, I'm not saying being poor is better; money solves real problems. But beyond a certain point, more of it doesn't seem to bring more peace.",
+      },
+    ],
+    usefulPhrases: [
+      'Oddly enough,...',
+      'like you for yourself',
+      'the joy of saving up for...',
+      "I'm not saying ... is better",
+      'beyond a certain point',
+    ],
+  },
 
   // ── Health & Wellness ─────────────────────────────────
   {
@@ -4600,6 +6854,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'dealt a bad hand',
     ],
   },
+  {
+    id: 'sp-669',
+    topic: 'Health & Wellness',
+    difficulty: 'easy',
+    question: 'How often do you go for a walk just for the sake of it?',
+    sampleAnswers: [
+      {
+        label: 'Walking for Fun',
+        answer:
+          "A few times a week, usually in the evening. I don't go anywhere in particular; I just walk around the neighbourhood for half an hour. It helps me clear my head after a long day, and I always sleep better afterwards. If the weather's nice at the weekend, I'll go for a longer walk in the park.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'A few times a week. It helps me relax and sleep better.',
+      },
+    ],
+    usefulPhrases: [
+      'just for the sake of it',
+      "I don't go anywhere in particular",
+      'clear my head',
+      'I always sleep better afterwards',
+      "If the weather's nice...",
+    ],
+  },
+  {
+    id: 'sp-670',
+    topic: 'Health & Wellness',
+    difficulty: 'easy',
+    question: 'What do you keep in your first-aid kit at home?',
+    sampleAnswers: [
+      {
+        label: 'Just in Case',
+        answer:
+          "Nothing fancy: plasters, some bandages, painkillers, and a cream for insect bites. I also keep a thermometer and some medicine for an upset stomach. I check it every few months to make sure nothing's out of date. I hope I never need most of it, but it's good to know it's there if something happens late at night.",
+      },
+    ],
+    usefulPhrases: [
+      'Nothing fancy',
+      'an upset stomach',
+      "make sure nothing's out of date",
+      'I hope I never need...',
+      "it's good to know it's there",
+    ],
+  },
+  {
+    id: 'sp-671',
+    topic: 'Health & Wellness',
+    difficulty: 'easy',
+    question: 'Do you ever take naps? When?',
+    sampleAnswers: [
+      {
+        label: 'Power Naps',
+        answer:
+          "Yes, I'm a big fan of short naps. On weekends I often lie down for twenty minutes after lunch, and I wake up feeling much fresher. The trick is not to sleep too long, though. If I nap for more than half an hour, I wake up groggy and grumpy, and then I can't fall asleep at night.",
+      },
+    ],
+    usefulPhrases: [
+      "I'm a big fan of...",
+      'lie down for twenty minutes',
+      'feeling much fresher',
+      'The trick is...',
+      'groggy and grumpy',
+    ],
+  },
+  {
+    id: 'sp-672',
+    topic: 'Health & Wellness',
+    difficulty: 'medium',
+    question: 'Tell me about a time you tried a new diet or health trend. How did it go?',
+    sampleAnswers: [
+      {
+        label: 'The Juice Week',
+        answer:
+          "A couple of years ago, a friend convinced me to try drinking only fruit and vegetable juice for a few days. Day one was fine. By day two I was hungry, cold, and really irritable. I gave up halfway through day three and had the best bowl of rice of my life! It taught me that extreme plans don't suit me. Small, steady changes work much better for me.",
+      },
+    ],
+    usefulPhrases: [
+      'convinced me to try...',
+      'really irritable',
+      'I gave up halfway through',
+      "... don't suit me",
+      'small, steady changes',
+    ],
+  },
+  {
+    id: 'sp-673',
+    topic: 'Health & Wellness',
+    difficulty: 'medium',
+    question: 'Why do you think people often ignore small health problems until they get worse?',
+    sampleAnswers: [
+      {
+        label: 'It Will Pass',
+        answer:
+          "Partly because we're busy, and partly because we're a bit scared. It's easier to tell yourself it'll go away on its own than to book an appointment and maybe hear bad news. I'm guilty of this too. I had a sore knee for months before I finally saw someone, and it turned out to be easy to fix. If I'd gone earlier, I'd have saved myself a lot of pain.",
+      },
+    ],
+    usefulPhrases: [
+      "it'll go away on its own",
+      "I'm guilty of this too",
+      'I finally saw someone',
+      'turned out to be easy to fix',
+      "I'd have saved myself...",
+    ],
+  },
+  {
+    id: 'sp-674',
+    topic: 'Health & Wellness',
+    difficulty: 'medium',
+    question: 'Tell me about someone who inspired you to take better care of yourself.',
+    sampleAnswers: [
+      {
+        label: 'My Active Aunt',
+        answer:
+          "My aunt is in her late sixties, and she still swims three mornings a week and grows her own vegetables. She's never been obsessed with health; she just enjoys moving and eating fresh food. Seeing how lively and happy she is made me realise that the habits I build now will shape how I feel at her age. So I've started cooking more and taking the stairs.",
+      },
+    ],
+    usefulPhrases: [
+      'in her late sixties',
+      'never been obsessed with...',
+      'made me realise that...',
+      'shape how I feel at her age',
+      "I've started...",
+    ],
+  },
+  {
+    id: 'sp-675',
+    topic: 'Health & Wellness',
+    difficulty: 'medium',
+    question: 'What helps you feel better on a day when you have no energy at all?',
+    sampleAnswers: [
+      {
+        label: 'Low-Battery Days',
+        answer:
+          'First, I try not to fight it too much. I lower my expectations and pick just one or two things to get done. Then I go outside, even for ten minutes, because fresh air and a bit of sunlight really help. A proper meal and a big glass of water make a difference too. And if I still feel flat, I go to bed early and accept that tomorrow will probably be better.',
+      },
+    ],
+    usefulPhrases: [
+      'I try not to fight it',
+      'lower my expectations',
+      'make a difference',
+      'feel flat',
+      'accept that tomorrow will...',
+    ],
+  },
+  {
+    id: 'sp-676',
+    topic: 'Health & Wellness',
+    difficulty: 'hard',
+    question: 'Is it possible to care too much about being healthy?',
+    sampleAnswers: [
+      {
+        label: 'Healthy Balance',
+        answer:
+          "I believe it is. Looking after your body is great, but if every meal becomes a calculation and missing one workout ruins your day, that's not really wellness anymore. It turns into stress, which isn't healthy either. I know people who won't go out with friends because the restaurant doesn't fit their plan. To me, health should make your life bigger, not smaller.",
+      },
+    ],
+    usefulPhrases: [
+      'becomes a calculation',
+      "that's not really ... anymore",
+      'It turns into stress',
+      "doesn't fit their plan",
+      'make your life bigger, not smaller',
+    ],
+  },
+  {
+    id: 'sp-677',
+    topic: 'Health & Wellness',
+    difficulty: 'hard',
+    question: 'Should you tell a friend that one of their habits is bad for their health, or is it none of your business?',
+    sampleAnswers: [
+      {
+        label: 'Caring Without Lecturing',
+        answer:
+          "I think real friends should say something, but the way you say it matters enormously. If you lecture someone, they'll get defensive and probably do it more. But if you mention it once, gently, because you care, most people will at least listen. After that, though, it's their choice. You can't live someone else's life for them, and constant reminders can damage a friendship.",
+      },
+    ],
+    usefulPhrases: [
+      'the way you say it matters enormously',
+      'get defensive',
+      'mention it once, gently',
+      "it's their choice",
+      "You can't live someone else's life for them",
+    ],
+  },
+  {
+    id: 'sp-678',
+    topic: 'Health & Wellness',
+    difficulty: 'hard',
+    question: 'Is happiness a cause of good health, or a result of it?',
+    sampleAnswers: [
+      {
+        label: 'A Two-Way Street',
+        answer:
+          "I'd say it's a two-way street. When I'm healthy and sleeping well, I'm obviously in a better mood. But it works the other way too: when I'm happy, I take better care of myself, I move more, and I recover from colds faster, or at least it feels that way. So rather than asking which comes first, maybe it's more useful to see them as feeding each other.",
+      },
+    ],
+    usefulPhrases: [
+      "it's a two-way street",
+      'it works the other way too',
+      'or at least it feels that way',
+      'which comes first',
+      'feeding each other',
+    ],
+  },
 
   // ── Manners & Etiquette ───────────────────────────────
   {
@@ -4905,6 +7364,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'people would get hurt constantly',
       'being honest gently',
       'tell the truth without being cruel',
+    ],
+  },
+  {
+    id: 'sp-679',
+    topic: 'Manners & Etiquette',
+    difficulty: 'easy',
+    question: 'Do you hold the door open for people behind you?',
+    sampleAnswers: [
+      {
+        label: 'Holding the Door',
+        answer:
+          "Yes, nearly always. If someone's a few steps behind me, I'll wait and hold it for them. It only takes a second and it's a nice way to be friendly to strangers. It does get a bit awkward when the person is quite far away and starts hurrying so I don't have to wait. Then we both end up laughing about it.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "Yes, usually. It's a small, kind thing to do.",
+      },
+    ],
+    usefulPhrases: [
+      'nearly always',
+      'a few steps behind me',
+      'It only takes a second',
+      'It does get a bit awkward when...',
+      'we both end up laughing',
+    ],
+  },
+  {
+    id: 'sp-680',
+    topic: 'Manners & Etiquette',
+    difficulty: 'easy',
+    question: 'What do you say when you accidentally bump into someone?',
+    sampleAnswers: [
+      {
+        label: 'Oops, Sorry',
+        answer:
+          "I say sorry straight away, almost automatically. Sometimes it's just a quick sorry, but if I've really knocked into them, I'll stop and ask if they're okay. Funnily enough, I sometimes say sorry even when the other person bumped into me! I think it's just a habit to keep things friendly. A quick apology costs nothing, and it stops a tiny accident from turning into a bad moment.",
+      },
+    ],
+    usefulPhrases: [
+      'straight away',
+      'almost automatically',
+      'knocked into...',
+      "ask if they're okay",
+      'to keep things friendly',
+    ],
+  },
+  {
+    id: 'sp-681',
+    topic: 'Manners & Etiquette',
+    difficulty: 'easy',
+    question: 'Do people take their shoes off indoors where you live?',
+    sampleAnswers: [
+      {
+        label: 'Shoes at the Door',
+        answer:
+          "Yes, in most homes around here, you take your shoes off at the door. Many families even keep a few pairs of slippers for guests. It keeps the floors clean and it just feels more relaxed. If I visit someone and forget, I feel embarrassed straight away. It's one of the first things I'd tell a visitor about.",
+      },
+    ],
+    usefulPhrases: [
+      'in most homes around here',
+      'keep ... for guests',
+      'it just feels more relaxed',
+      'I feel embarrassed straight away',
+      "It's one of the first things I'd tell...",
+    ],
+  },
+  {
+    id: 'sp-682',
+    topic: 'Manners & Etiquette',
+    difficulty: 'medium',
+    question: "Tell me about a time you weren't sure what the polite thing to do was.",
+    sampleAnswers: [
+      {
+        label: 'The Bill Dilemma',
+        answer:
+          "Once I was invited to dinner by a friend's older relative, and when the bill came, I didn't know whether to offer to pay. I didn't want to seem rude by not offering, but I also didn't want to insult him. In the end, I offered once, he refused firmly, and I thanked him warmly. Later my friend told me that was exactly right. I was so relieved!",
+      },
+    ],
+    usefulPhrases: [
+      "I didn't know whether to...",
+      "I didn't want to seem rude",
+      'offered once',
+      'refused firmly',
+      'I was so relieved',
+    ],
+  },
+  {
+    id: 'sp-683',
+    topic: 'Manners & Etiquette',
+    difficulty: 'medium',
+    question: "How do you politely end a conversation that's going on too long?",
+    sampleAnswers: [
+      {
+        label: 'A Graceful Exit',
+        answer:
+          "I usually start by summing up, something like, well, it was really lovely to catch up. That signals that we're wrapping up. Then I give a gentle reason, like needing to get home or meet someone. The key is to sound warm, not rushed, so the other person doesn't feel pushed away. If it's someone I like, I'll add, let's continue this next time.",
+      },
+    ],
+    usefulPhrases: [
+      'it was really lovely to catch up',
+      "we're wrapping up",
+      'a gentle reason',
+      'sound warm, not rushed',
+      "let's continue this next time",
+    ],
+  },
+  {
+    id: 'sp-684',
+    topic: 'Manners & Etiquette',
+    difficulty: 'medium',
+    question: 'Why do you think people are sometimes ruder to strangers than to people they know?',
+    sampleAnswers: [
+      {
+        label: 'No Consequences',
+        answer:
+          "Mainly because there are no consequences. With friends or family, you know you'll see them again, so you're careful. With a stranger, it's easy to forget there's a real person there with their own bad day. I've noticed people are especially rude when they're in a hurry or hidden behind a car window. Distance makes it easier to be unkind, I think.",
+      },
+    ],
+    usefulPhrases: [
+      'there are no consequences',
+      "you know you'll see them again",
+      'their own bad day',
+      "I've noticed people are...",
+      'Distance makes it easier to...',
+    ],
+  },
+  {
+    id: 'sp-685',
+    topic: 'Manners & Etiquette',
+    difficulty: 'medium',
+    question: 'How do you react when someone pushes in front of you in a queue?',
+    sampleAnswers: [
+      {
+        label: 'Queue Jumpers',
+        answer:
+          "It depends on my mood, honestly! Usually I'll say something polite but clear, like, excuse me, I think the queue starts back there. Most people apologise, because they genuinely didn't notice. If someone does it on purpose and refuses to move, I'll let it go, because arguing over two minutes isn't worth spoiling my day. But it definitely annoys me inside.",
+      },
+    ],
+    usefulPhrases: [
+      'polite but clear',
+      'the queue starts back there',
+      "they genuinely didn't notice",
+      "I'll let it go",
+      "isn't worth spoiling my day",
+    ],
+  },
+  {
+    id: 'sp-686',
+    topic: 'Manners & Etiquette',
+    difficulty: 'hard',
+    question: 'Are good manners mostly about kindness, or mostly about following rules?',
+    sampleAnswers: [
+      {
+        label: 'Rules Serve Kindness',
+        answer:
+          "In my view, the rules exist to serve kindness. Things like waiting your turn or saying thank you are just agreed ways of showing respect, so people don't have to guess. But if you follow every rule perfectly while making someone feel small, you haven't really been polite. And sometimes the kind thing is to break a rule, like ignoring a guest's mistake at the table. Kindness is the point; rules are the tool.",
+      },
+    ],
+    usefulPhrases: [
+      'In my view,...',
+      'agreed ways of showing respect',
+      'making someone feel small',
+      'the kind thing is to...',
+      '... is the point; ... is the tool',
+    ],
+  },
+  {
+    id: 'sp-687',
+    topic: 'Manners & Etiquette',
+    difficulty: 'hard',
+    question: "When you're a guest, should you adapt to your hosts' customs, or should hosts make allowances for you?",
+    sampleAnswers: [
+      {
+        label: 'Meeting in the Middle',
+        answer:
+          "Ideally, both sides meet in the middle. As a guest, I think it's my job to make an effort: watch what others do, ask if I'm unsure, and follow the basic customs. But good hosts also understand that guests won't get everything right, and they forgive small mistakes. Problems start when either side expects the other to do all the adjusting. Hospitality works best with a bit of give and take.",
+      },
+    ],
+    usefulPhrases: [
+      'meet in the middle',
+      "it's my job to...",
+      "won't get everything right",
+      'do all the adjusting',
+      'a bit of give and take',
+    ],
+  },
+  {
+    id: 'sp-688',
+    topic: 'Manners & Etiquette',
+    difficulty: 'hard',
+    question: 'Can good manners really be taught to adults, or do they have to be learned when you are young?',
+    sampleAnswers: [
+      {
+        label: 'Never Too Late',
+        answer:
+          "It's definitely easier when you're young, because the habits become automatic. But I don't believe it's ever too late. Adults change their manners all the time when they move somewhere new or join a different social circle. What matters is whether they want to. If someone sees that a small change makes people more comfortable around them, they'll usually pick it up quite quickly.",
+      },
+    ],
+    usefulPhrases: [
+      'become automatic',
+      "it's ever too late",
+      'join a different social circle',
+      'What matters is whether...',
+      'pick it up quite quickly',
     ],
   },
 
@@ -5349,6 +8013,209 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'protecting longer blocks of time',
     ],
   },
+  {
+    id: 'sp-689',
+    topic: 'Hobbies & Interests',
+    difficulty: 'easy',
+    question: 'Do you have a hobby you can do in just ten minutes?',
+    sampleAnswers: [
+      {
+        label: 'Quick Little Escapes',
+        answer:
+          "Yeah, I do a quick sketch or a word puzzle whenever I've got a spare ten minutes. It sounds tiny, but it really resets my mood. I usually do it while the kettle's boiling or when I'm waiting for someone. I like that there's no pressure to finish anything big. Sometimes those ten minutes turn into half an hour, which is a nice surprise, but even if they don't, I still feel a bit calmer afterwards.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Yes, I do a quick puzzle or a little drawing. It helps me relax.',
+      },
+    ],
+    usefulPhrases: [
+      "whenever I've got a spare ... minutes",
+      'it really resets my mood',
+      "there's no pressure to ...",
+      'turn into half an hour',
+    ],
+  },
+  {
+    id: 'sp-690',
+    topic: 'Hobbies & Interests',
+    difficulty: 'easy',
+    question: 'Do you enjoy going for long walks just for fun?',
+    sampleAnswers: [
+      {
+        label: 'Walking With No Plan',
+        answer:
+          "I love it, actually. On a free afternoon I'll just pick a direction and walk for an hour or two with no real plan. I notice things I'd normally rush past, like little cafés, old doors or someone's garden full of flowers. Sometimes I listen to music, but more often I just let my mind wander. It's cheap, it's good for me, and I always come home in a better mood than when I left.",
+      },
+    ],
+    usefulPhrases: [
+      'pick a direction and walk',
+      'with no real plan',
+      "things I'd normally rush past",
+      'let my mind wander',
+      'come home in a better mood',
+    ],
+  },
+  {
+    id: 'sp-691',
+    topic: 'Hobbies & Interests',
+    difficulty: 'easy',
+    question: 'Do you have a favourite place where you go to do your hobby?',
+    sampleAnswers: [
+      {
+        label: 'My Little Corner',
+        answer:
+          "Yes, there's a corner of my room by the window that's basically my hobby spot. I've got a comfy chair, a small table and a lamp, and that's where I read, draw or do puzzles. The light's lovely in the afternoon. When I sit there, my brain sort of switches into relaxing mode. It's funny how much one little space can change the way you feel.",
+      },
+    ],
+    usefulPhrases: [
+      "that's basically my ... spot",
+      "the light's lovely in the ...",
+      'switches into relaxing mode',
+      "it's funny how much ...",
+    ],
+  },
+  {
+    id: 'sp-692',
+    topic: 'Hobbies & Interests',
+    difficulty: 'medium',
+    question: 'Is a hobby more fun when you share it with someone, or when it is just yours?',
+    sampleAnswers: [
+      {
+        label: 'Some for Me, Some to Share',
+        answer:
+          "It depends on the hobby, I'd say. Something like reading feels very private to me. I don't want anyone asking me how far I've got. But with things like hiking or board games, sharing it makes it way better, because half the fun is laughing together and talking about it afterwards. So I try to keep a balance. I've got a couple of hobbies that are just mine, and a couple that I do with friends, and I think I need both.",
+      },
+    ],
+    usefulPhrases: [
+      "it depends on the ..., I'd say",
+      'feels very private to me',
+      'half the fun is ...',
+      'I try to keep a balance',
+      'I think I need both',
+    ],
+  },
+  {
+    id: 'sp-693',
+    topic: 'Hobbies & Interests',
+    difficulty: 'medium',
+    question: 'Tell me about the first time you tried a hobby and were terrible at it.',
+    sampleAnswers: [
+      {
+        label: 'My Disaster on Skates',
+        answer:
+          "The first time I tried roller skating, I was a complete disaster. I spent most of the afternoon holding onto a railing while little kids zoomed past me. I fell over at least five times, and one time I took my friend down with me. We couldn't stop laughing. I was sore for days afterwards, but I went back the next weekend, and slowly it got easier. Now I'm not amazing, but I can actually skate without clinging to anything.",
+      },
+    ],
+    usefulPhrases: [
+      'I was a complete disaster',
+      'spent most of the afternoon ...ing',
+      'took ... down with me',
+      "we couldn't stop laughing",
+      'slowly it got easier',
+    ],
+  },
+  {
+    id: 'sp-694',
+    topic: 'Hobbies & Interests',
+    difficulty: 'medium',
+    question: 'Why do you think some hobbies suddenly become really popular and then disappear?',
+    sampleAnswers: [
+      {
+        label: 'Here Today, Gone Tomorrow',
+        answer:
+          "I think it's mostly about novelty. Something new appears, a few people start doing it, and suddenly everyone wants to join in because they don't want to miss out. Shops sell the equipment, everyone talks about it, and then after a few months the excitement wears off. The people who really loved it keep going, but most people move on to the next thing. Honestly, I've done it myself. I've got a drawer full of stuff from hobbies I tried for about three weeks.",
+      },
+    ],
+    usefulPhrases: [
+      "it's mostly about novelty",
+      "they don't want to miss out",
+      'the excitement wears off',
+      'move on to the next thing',
+      "I've done it myself",
+    ],
+  },
+  {
+    id: 'sp-695',
+    topic: 'Hobbies & Interests',
+    difficulty: 'medium',
+    question: 'How do you make time for your hobbies when life gets busy?',
+    sampleAnswers: [
+      {
+        label: 'Small Pockets of Time',
+        answer:
+          "When things get busy, my hobbies are usually the first thing to go, which isn't great. What helps me is thinking small. Instead of waiting for a free afternoon that never comes, I'll read for fifteen minutes before bed or do a bit of drawing on Sunday morning. I also try to treat it like an appointment with myself. If I write it down, I'm much more likely to actually do it. It's not perfect, but it keeps the hobby alive.",
+      },
+    ],
+    usefulPhrases: [
+      '... are usually the first thing to go',
+      'what helps me is ...',
+      'a free afternoon that never comes',
+      'treat it like an appointment with myself',
+      'keeps the ... alive',
+    ],
+  },
+  {
+    id: 'sp-696',
+    topic: 'Hobbies & Interests',
+    difficulty: 'hard',
+    question: 'Should a hobby ever turn into a way of making money, or does that spoil it?',
+    sampleAnswers: [
+      {
+        label: 'Money Changes Things',
+        answer:
+          "I'm a bit torn on this. On one hand, if you're good at something and people want to pay for it, why not? It could be a lovely bonus. On the other hand, I think the moment money comes in, you start worrying about deadlines, customers and whether it's worth your time. The thing that used to relax you becomes another source of stress. So my feeling is it can work, but only if you keep part of it just for yourself, with no price tag attached.",
+      },
+    ],
+    usefulPhrases: [
+      "I'm a bit torn on this",
+      'on one hand ... on the other hand ...',
+      'the moment money comes in',
+      'becomes another source of stress',
+      'with no price tag attached',
+    ],
+  },
+  {
+    id: 'sp-697',
+    topic: 'Hobbies & Interests',
+    difficulty: 'hard',
+    question: "What do you think someone's hobbies say about their personality?",
+    sampleAnswers: [
+      {
+        label: 'Clues, Not Proof',
+        answer:
+          "I'd say hobbies give you clues, but you have to be careful not to read too much into them. Someone who loves gardening is probably patient, and someone who does rock climbing might enjoy a bit of risk. But people are more complicated than that. A really shy person might love performing in a choir because it lets them be someone else for a while. So for me, hobbies show you what a person needs, maybe more than who they are.",
+      },
+    ],
+    usefulPhrases: [
+      'give you clues',
+      'read too much into ...',
+      'people are more complicated than that',
+      'be someone else for a while',
+      'what a person needs',
+    ],
+  },
+  {
+    id: 'sp-698',
+    topic: 'Hobbies & Interests',
+    difficulty: 'hard',
+    question: "Is it a waste of time to spend hours on something you'll never be very good at?",
+    sampleAnswers: [
+      {
+        label: 'Good Enough Is Fine',
+        answer:
+          "Not at all, in my opinion. I think we've got this strange idea that everything we do has to lead somewhere, like we need to be experts or win prizes. But the point of a hobby is how it makes you feel while you're doing it. I play the guitar really badly, and I probably always will, but those hours are some of the happiest in my week. If something brings you joy and doesn't hurt anyone, I can't see how that's ever wasted.",
+      },
+    ],
+    usefulPhrases: [
+      'not at all, in my opinion',
+      'everything we do has to lead somewhere',
+      'the point of ... is ...',
+      'I probably always will',
+      "I can't see how that's ever wasted",
+    ],
+  },
 
   // ── Movies, Music & Books ─────────────────────────────
   {
@@ -5675,6 +8542,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'more valuable than ...',
     ],
   },
+  {
+    id: 'sp-699',
+    topic: 'Movies, Music & Books',
+    difficulty: 'easy',
+    question: 'Who do you usually watch films with?',
+    sampleAnswers: [
+      {
+        label: 'Movie Nights at Home',
+        answer:
+          "Mostly with my family or my partner, usually on a Friday or Saturday night. We make some snacks, turn the lights down and argue for about twenty minutes about what to watch. That's kind of part of the tradition now. Every now and then I watch something on my own, especially if it's a film nobody else is interested in. But generally, I prefer having someone to talk to about it afterwards.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Usually with my family. We have movie nights at the weekend.',
+      },
+    ],
+    usefulPhrases: [
+      'turn the lights down',
+      'argue for ages about what to ...',
+      "that's kind of part of the tradition",
+      'every now and then',
+      'someone to talk to about it afterwards',
+    ],
+  },
+  {
+    id: 'sp-700',
+    topic: 'Movies, Music & Books',
+    difficulty: 'easy',
+    question: 'Do you have a favourite place to read?',
+    sampleAnswers: [
+      {
+        label: 'Bed, Every Time',
+        answer:
+          "Definitely my bed. I know it's not very exciting, but there's nothing better than getting under the blanket with a good book at the end of the day. The only problem is I often fall asleep after a few pages. On weekends I sometimes read in a café, too. I like the background noise, as long as it's not too loud. And on holiday, reading by the water is just perfect.",
+      },
+    ],
+    usefulPhrases: [
+      "there's nothing better than ...",
+      'at the end of the day',
+      'the only problem is ...',
+      "as long as it's not too ...",
+      'just perfect',
+    ],
+  },
+  {
+    id: 'sp-701',
+    topic: 'Movies, Music & Books',
+    difficulty: 'easy',
+    question: 'Do you sing along to songs, or do you just listen?',
+    sampleAnswers: [
+      {
+        label: 'Loud and Off-Key',
+        answer:
+          "Oh, I sing along all the time, especially in the car or when I'm cooking. I'm not a good singer at all, but I don't care when nobody's listening. Sometimes I get the words completely wrong and only find out years later, which is pretty embarrassing. With some songs, though, I just want to listen, especially slow ones where the lyrics really mean something.",
+      },
+    ],
+    usefulPhrases: [
+      'I sing along all the time',
+      "I'm not a good ... at all",
+      'get the words completely wrong',
+      'only find out years later',
+      'which is pretty embarrassing',
+    ],
+  },
+  {
+    id: 'sp-702',
+    topic: 'Movies, Music & Books',
+    difficulty: 'medium',
+    question: 'How do you usually choose what to watch or read next?',
+    sampleAnswers: [
+      {
+        label: 'Friends Know Best',
+        answer:
+          'Mostly through recommendations from friends. If someone I trust says, "You have to read this," I usually give it a go. I also look at the first few pages or the trailer to see if it grabs me. I used to read every review before deciding, but I found it made me expect too much. Now I prefer going in with very little information. That way I\'m more likely to be pleasantly surprised.',
+      },
+    ],
+    usefulPhrases: [
+      'through recommendations from friends',
+      'I usually give it a go',
+      'see if it grabs me',
+      'it made me expect too much',
+      'going in with very little information',
+    ],
+  },
+  {
+    id: 'sp-703',
+    topic: 'Movies, Music & Books',
+    difficulty: 'medium',
+    question: 'Do you prefer films with happy endings or ones that leave you thinking?',
+    sampleAnswers: [
+      {
+        label: 'It Depends on My Mood',
+        answer:
+          "It really depends on my mood. After a tiring week, I want a happy ending, no question. I want everything tied up nicely so I can go to bed feeling good. But the films I remember for years are usually the ones with open endings, where you walk out still arguing about what happened. Those stay with me much longer. So I'd say happy endings are comfort food, and the thinking ones are a proper meal.",
+      },
+    ],
+    usefulPhrases: [
+      'it really depends on my mood',
+      'no question',
+      'everything tied up nicely',
+      'those stay with me much longer',
+      '... are comfort food',
+    ],
+  },
+  {
+    id: 'sp-704',
+    topic: 'Movies, Music & Books',
+    difficulty: 'medium',
+    question: 'Tell me about a song that reminds you of a particular time in your life.',
+    sampleAnswers: [
+      {
+        label: 'The Summer Song',
+        answer:
+          "There's one song that takes me straight back to a summer trip with my friends years ago. We played it again and again in the car, singing at the top of our voices with the windows down. Whenever I hear it now, I can almost smell the sea air. It's funny, because it's not even a song I'd choose to listen to normally. It's just completely tied to that memory, and it makes me smile every single time.",
+      },
+    ],
+    usefulPhrases: [
+      'takes me straight back to ...',
+      'at the top of our voices',
+      'I can almost smell the ...',
+      "it's completely tied to that memory",
+      'makes me smile every single time',
+    ],
+  },
+  {
+    id: 'sp-705',
+    topic: 'Movies, Music & Books',
+    difficulty: 'medium',
+    question: 'Have you ever loved a film that everyone else seemed to hate, or the other way round?',
+    sampleAnswers: [
+      {
+        label: 'Going Against the Crowd',
+        answer:
+          "Yes, more than once. There was a film a few years ago that got terrible reviews, and my friends all said it was boring. I went anyway and absolutely loved it. It was slow, but I found it really beautiful and calming. The opposite happens too. Everyone told me a certain comedy was hilarious, and I sat there without laughing once. I've learned that taste is so personal, and it's fine not to agree with the crowd.",
+      },
+    ],
+    usefulPhrases: [
+      'more than once',
+      'got terrible reviews',
+      'the opposite happens too',
+      'without laughing once',
+      'taste is so personal',
+    ],
+  },
+  {
+    id: 'sp-706',
+    topic: 'Movies, Music & Books',
+    difficulty: 'hard',
+    question: 'Do you think knowing the ending really ruins a story?',
+    sampleAnswers: [
+      {
+        label: 'Spoilers Are Overrated',
+        answer:
+          "Funnily enough, I don't think it does, at least not for good stories. If a film or book only works because of a surprise at the end, maybe it wasn't that strong to begin with. The best stories are about how you get there, not just where you end up. Think about how people happily rewatch their favourite films. They know exactly what happens, and they still enjoy every minute. That said, I'd still be annoyed if someone spoiled a mystery for me!",
+      },
+    ],
+    usefulPhrases: [
+      'funnily enough',
+      "maybe it wasn't that strong to begin with",
+      'about how you get there',
+      'they still enjoy every minute',
+      "that said, I'd still be annoyed if ...",
+    ],
+  },
+  {
+    id: 'sp-707',
+    topic: 'Movies, Music & Books',
+    difficulty: 'hard',
+    question: 'Why do old stories, like fairy tales and myths, keep being retold?',
+    sampleAnswers: [
+      {
+        label: 'Stories That Never Age',
+        answer:
+          "I think it's because they deal with things that never really change, like jealousy, love, fear and courage. The settings might feel old-fashioned, but the feelings underneath are the same ones we have today. Each generation retells them in its own way, adding its own worries and values. It's almost like a conversation across centuries. And there's something comforting about a story you already half-know. You can relax into it and notice what's different this time.",
+      },
+    ],
+    usefulPhrases: [
+      'they deal with things that never really change',
+      'the feelings underneath',
+      'in its own way',
+      'a conversation across centuries',
+      'relax into it',
+    ],
+  },
+  {
+    id: 'sp-708',
+    topic: 'Movies, Music & Books',
+    difficulty: 'hard',
+    question: 'Can you still enjoy a book or film if you strongly dislike the person who made it?',
+    sampleAnswers: [
+      {
+        label: 'Separating the Work',
+        answer:
+          "That's a tough one. In theory, I'd like to say the work stands on its own, and once it's out in the world it belongs to the audience. But in practice, it's not that simple. If I find out something awful about a writer, it does change how I read their book. I start noticing things I didn't before. I suppose I try to judge case by case. If the creator's views are all over the work, I'd rather leave it. If not, I might still enjoy it, just a bit more quietly.",
+      },
+    ],
+    usefulPhrases: [
+      "that's a tough one",
+      'in theory ... but in practice ...',
+      'it belongs to the audience',
+      'judge case by case',
+      "I'd rather leave it",
+    ],
+  },
 
   // ── Sports & Games ────────────────────────────────────
   {
@@ -5994,6 +9066,210 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'I can see why ...',
       'the whole point of ... is ...',
       "I'd much rather ... than ...",
+    ],
+  },
+  {
+    id: 'sp-709',
+    topic: 'Sports & Games',
+    difficulty: 'easy',
+    question: 'Do you like playing games at parties or family gatherings?',
+    sampleAnswers: [
+      {
+        label: 'Game Time at Gatherings',
+        answer:
+          "Yes, I really do. At family gatherings we usually end up playing cards or some kind of guessing game after dinner. It gets really loud, especially when my uncle starts accusing everyone of cheating. Even people who say they don't want to play end up joining in. I think games are a great way to get everyone talking, especially if some people don't know each other very well.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "Yes! We often play cards after dinner. It's noisy but really fun.",
+      },
+    ],
+    usefulPhrases: [
+      'we usually end up ...ing',
+      'it gets really loud',
+      'accusing everyone of cheating',
+      'end up joining in',
+      'a great way to get everyone talking',
+    ],
+  },
+  {
+    id: 'sp-710',
+    topic: 'Sports & Games',
+    difficulty: 'easy',
+    question: 'What sport is most popular where you live?',
+    sampleAnswers: [
+      {
+        label: 'Everyone Loves Football',
+        answer:
+          "Football, without a doubt. You see kids kicking a ball around in every park and car park. When there's a big match on, cafés are packed and you can hear people cheering from down the street. Badminton is pretty popular too, especially with older people in the early morning. I'm not a huge football fan myself, but it's hard not to get caught up in the excitement during a big tournament.",
+      },
+    ],
+    usefulPhrases: [
+      '..., without a doubt',
+      'kicking a ball around',
+      "when there's a big match on",
+      "I'm not a huge ... fan myself",
+      'get caught up in the excitement',
+    ],
+  },
+  {
+    id: 'sp-711',
+    topic: 'Sports & Games',
+    difficulty: 'easy',
+    question: 'What games do you like to play on a long journey or while waiting?',
+    sampleAnswers: [
+      {
+        label: 'Passing the Time',
+        answer:
+          "On long journeys I love simple word games, like when one person thinks of a thing and everyone else asks yes-or-no questions to guess it. It's great because you don't need anything at all. If I'm waiting on my own, I usually do a crossword or a little number puzzle. It makes the time go so much faster. I'd much rather do that than just stare at the wall.",
+      },
+    ],
+    usefulPhrases: [
+      "you don't need anything at all",
+      'makes the time go so much faster',
+      "I'd much rather ... than ...",
+      'yes-or-no questions',
+    ],
+  },
+  {
+    id: 'sp-712',
+    topic: 'Sports & Games',
+    difficulty: 'medium',
+    question: 'Are you very competitive when you play games with friends?',
+    sampleAnswers: [
+      {
+        label: 'Friendly but Fierce',
+        answer:
+          "I'd love to say no, but honestly, I'm a bit too competitive. I start off relaxed, and then halfway through I'm suddenly counting points and checking the rules. My friends tease me about it all the time. I've got better over the years, though. I've realised that if I care too much about winning, the game stops being fun for everyone. So now I try to remind myself it's just a game, even if I still secretly want to win.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd love to say no, but ...",
+      'my friends tease me about it',
+      "I've got better over the years",
+      'stops being fun for everyone',
+      "it's just a game",
+    ],
+  },
+  {
+    id: 'sp-713',
+    topic: 'Sports & Games',
+    difficulty: 'medium',
+    question: 'Tell me about a time you learned the rules of a new game.',
+    sampleAnswers: [
+      {
+        label: 'Learning by Losing',
+        answer:
+          "Last year a friend taught me a strategy board game that looked impossible at first. The box was full of tiny pieces and cards, and the rulebook was about thirty pages long. My friend explained it for twenty minutes, and I understood maybe half. In the end we just started playing, and I learned by making mistakes. I lost badly that first time, but by the third game everything clicked, and now it's one of my favourites.",
+      },
+    ],
+    usefulPhrases: [
+      'looked impossible at first',
+      'I understood maybe half',
+      'learned by making mistakes',
+      'I lost badly',
+      'everything clicked',
+    ],
+  },
+  {
+    id: 'sp-714',
+    topic: 'Sports & Games',
+    difficulty: 'medium',
+    question: 'Why do you think people get so emotional watching sport?',
+    sampleAnswers: [
+      {
+        label: 'More Than a Game',
+        answer:
+          "I think it's because sport is real drama with no script. Nobody knows what's going to happen, and anything can change in a second. People also attach a lot of their identity to a team, especially if their family has supported it for generations. So when the team wins, it feels like you've won, and when they lose, it really hurts. It's also one of the few places where adults are allowed to shout, hug strangers and even cry in public.",
+      },
+    ],
+    usefulPhrases: [
+      'real drama with no script',
+      'anything can change in a second',
+      'attach a lot of their identity to ...',
+      "it feels like you've won",
+      'one of the few places where ...',
+    ],
+  },
+  {
+    id: 'sp-715',
+    topic: 'Sports & Games',
+    difficulty: 'medium',
+    question: 'Would you rather be on a team that takes things seriously, or one that just plays for fun?',
+    sampleAnswers: [
+      {
+        label: 'Fun First, Mostly',
+        answer:
+          'For me, a team that plays for fun, definitely. I tried being on a more serious team once, and the pressure took all the joy out of it. People got annoyed over small mistakes, and training felt like homework. In a casual team, you can relax, laugh when things go wrong, and go for a drink afterwards. Having said that, I like it when people at least try. A team where nobody cares at all can be a bit frustrating too.',
+      },
+    ],
+    usefulPhrases: [
+      'took all the joy out of it',
+      'felt like homework',
+      'laugh when things go wrong',
+      'having said that, ...',
+      'can be a bit frustrating too',
+    ],
+  },
+  {
+    id: 'sp-716',
+    topic: 'Sports & Games',
+    difficulty: 'hard',
+    question: 'Is it fair that some athletes are born with natural physical advantages?',
+    sampleAnswers: [
+      {
+        label: 'The Lottery of Talent',
+        answer:
+          "It's an interesting question, because sport is never completely fair. Some people are born taller, faster or with bigger lungs, and there's nothing anyone can do about that. But I'd argue that's just part of it, the same way some people are naturally good at music. Talent only gets you so far, anyway. Without years of hard training, those advantages don't mean much. What matters more to me is that everyone gets the same rules and the same chance to try.",
+      },
+    ],
+    usefulPhrases: [
+      "it's an interesting question, because ...",
+      "there's nothing anyone can do about that",
+      "I'd argue that ...",
+      '... only gets you so far',
+      'what matters more to me is ...',
+    ],
+  },
+  {
+    id: 'sp-717',
+    topic: 'Sports & Games',
+    difficulty: 'hard',
+    question: 'What can losing teach you that winning never can?',
+    sampleAnswers: [
+      {
+        label: 'Lessons From Losing',
+        answer:
+          "I'd say losing teaches you how to deal with disappointment, which is a skill you definitely need in life. When you win, you don't really ask why. You just celebrate. But when you lose, you're forced to look honestly at what went wrong and what you could do better. It also teaches you humility and respect for the other side. Some of the people I admire most are the ones who can lose gracefully and come back stronger.",
+      },
+    ],
+    usefulPhrases: [
+      'how to deal with disappointment',
+      "you're forced to look honestly at ...",
+      'what went wrong',
+      'lose gracefully',
+      'come back stronger',
+    ],
+  },
+  {
+    id: 'sp-718',
+    topic: 'Sports & Games',
+    difficulty: 'hard',
+    question: 'Should dangerous sports like boxing or extreme climbing be allowed?',
+    sampleAnswers: [
+      {
+        label: 'Their Choice, With Limits',
+        answer:
+          "Generally, I think adults should be free to take risks with their own bodies, as long as they understand them. People do all kinds of dangerous things, and banning sports would probably just push them underground. That said, I think there should be strict safety rules and proper medical support. And for young people, I'd be much more careful. A teenager might not fully understand what long-term injuries could mean for the rest of their life.",
+      },
+    ],
+    usefulPhrases: [
+      'free to take risks with ...',
+      'push them underground',
+      'strict safety rules',
+      "I'd be much more careful",
+      'for the rest of their life',
     ],
   },
 
@@ -6322,6 +9598,210 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'the more responsible choice',
     ],
   },
+  {
+    id: 'sp-719',
+    topic: 'Animals & Pets',
+    difficulty: 'easy',
+    question: 'Do you like feeding birds or other animals outside?',
+    sampleAnswers: [
+      {
+        label: 'Breakfast for the Birds',
+        answer:
+          "Yes, I put a few seeds out on my balcony most mornings, and now I've got regular visitors. There are a couple of little birds that come every day around the same time. I've kind of given them names, which is a bit silly. It's a really peaceful way to start the day, just drinking my coffee and watching them. I try not to give them bread, though, because I've heard it's not good for them.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Yes, I put seeds out for birds. I love watching them in the morning.',
+      },
+    ],
+    usefulPhrases: [
+      "I've got regular visitors",
+      'around the same time',
+      'which is a bit silly',
+      'a really peaceful way to start the day',
+      "I've heard it's not good for ...",
+    ],
+  },
+  {
+    id: 'sp-720',
+    topic: 'Animals & Pets',
+    difficulty: 'easy',
+    question: 'If you got a pet, what would you name it?',
+    sampleAnswers: [
+      {
+        label: 'A Name With a Smile',
+        answer:
+          "I've always thought it's funny when pets have very human names, so I'd probably call a dog something like Gary or Susan. Something that makes people smile when you shout it in the park. If it were a cat, I might name it after a food, like Noodle or Biscuit. Those names just suit cats somehow. I'd definitely want a name that's short and easy to call, though.",
+      },
+    ],
+    usefulPhrases: [
+      "I've always thought it's funny when ...",
+      'name it after ...',
+      'those names just suit ... somehow',
+      'short and easy to ...',
+    ],
+  },
+  {
+    id: 'sp-721',
+    topic: 'Animals & Pets',
+    difficulty: 'easy',
+    question: "Have you ever looked after someone else's pet?",
+    sampleAnswers: [
+      {
+        label: 'Cat-Sitting Duty',
+        answer:
+          "Yes, I looked after my neighbour's cat for a week while they were away. I had to go over twice a day to feed her and clean the litter box. For the first few days she hid under the bed and wouldn't come near me. By the end of the week, though, she was sitting on my lap and following me around. I was actually a bit sad to hand her back!",
+      },
+    ],
+    usefulPhrases: [
+      'while they were away',
+      'twice a day',
+      "wouldn't come near me",
+      'following me around',
+      'a bit sad to hand ... back',
+    ],
+  },
+  {
+    id: 'sp-722',
+    topic: 'Animals & Pets',
+    difficulty: 'medium',
+    question: 'Which animal do you think deserves more love than it gets?',
+    sampleAnswers: [
+      {
+        label: 'Justice for Pigeons',
+        answer:
+          "Honestly, I'd say pigeons. Everyone treats them like pests, but they're actually really clever. They can find their way home from hundreds of kilometres away, and people used them to carry messages for centuries. They've just adapted brilliantly to living with us, and somehow we punish them for it. Bats are another one. People think they're scary, but they eat loads of insects and help plants grow. I think we judge animals far too much by how they look.",
+      },
+    ],
+    usefulPhrases: [
+      'everyone treats them like ...',
+      "they're actually really clever",
+      'adapted brilliantly to ...',
+      '... is another one',
+      'judge ... too much by how they look',
+    ],
+  },
+  {
+    id: 'sp-723',
+    topic: 'Animals & Pets',
+    difficulty: 'medium',
+    question: 'How is life for a pet in a city different from life in the countryside?',
+    sampleAnswers: [
+      {
+        label: 'City Dog, Country Dog',
+        answer:
+          "There's a big difference, I think. In the countryside, a dog can run around freely, explore fields and meet other animals. In the city, everything's more controlled. Pets live in smaller spaces, they're on a lead most of the time, and there's a lot of noise and traffic. But city pets often get more attention, because their owners are around more. So I wouldn't say one's better. City owners just have to work harder to give their pets enough exercise and stimulation.",
+      },
+    ],
+    usefulPhrases: [
+      "there's a big difference, I think",
+      'run around freely',
+      'on a lead most of the time',
+      "I wouldn't say one's better",
+      'have to work harder to ...',
+    ],
+  },
+  {
+    id: 'sp-724',
+    topic: 'Animals & Pets',
+    difficulty: 'medium',
+    question: 'Why do you think people love watching funny animal clips so much?',
+    sampleAnswers: [
+      {
+        label: 'Instant Happiness',
+        answer:
+          "I think they're just pure, simple happiness. Animals don't try to be funny, which makes it even funnier when a cat falls off a sofa or a dog gets stuck in a door. There's no meanness in it, either. You're not laughing at someone being embarrassed. Also, they're short, so you can watch one in thirty seconds when you're tired or stressed. I'll admit I've lost whole evenings to them, and I don't regret a thing.",
+      },
+    ],
+    usefulPhrases: [
+      'pure, simple happiness',
+      'which makes it even funnier when ...',
+      "there's no meanness in it",
+      "I'll admit I've lost whole evenings to ...",
+      "I don't regret a thing",
+    ],
+  },
+  {
+    id: 'sp-725',
+    topic: 'Animals & Pets',
+    difficulty: 'medium',
+    question: 'Would you prefer a small, quiet pet or a big, energetic one?',
+    sampleAnswers: [
+      {
+        label: 'Small and Calm for Now',
+        answer:
+          "Right now, a small, quiet one, for sure. My home isn't very big, and I'm out quite a lot, so it wouldn't be fair to have a huge dog stuck inside all day. Something like a rabbit or a cat would suit my lifestyle better. But one day, if I had a house with a garden, I'd love a big, goofy dog to go hiking with. I think the right pet really depends on how you live, not just what you like.",
+      },
+    ],
+    usefulPhrases: [
+      '..., for sure',
+      "it wouldn't be fair to ...",
+      'would suit my lifestyle better',
+      "one day, if I had ..., I'd love ...",
+      'really depends on how you live',
+    ],
+  },
+  {
+    id: 'sp-726',
+    topic: 'Animals & Pets',
+    difficulty: 'hard',
+    question: 'Do humans have a responsibility to protect animals that are close to disappearing?',
+    sampleAnswers: [
+      {
+        label: 'We Owe Them That',
+        answer:
+          "I really believe we do, mostly because we're the main reason so many of them are in danger. We've cut down their forests, polluted their rivers and hunted them. So it'd be strange to just shrug and say it's nature. And it's not only about kindness. Every species plays a role, and when one disappears, it can affect a whole chain of others, including us. Once an animal is gone, it's gone forever. That's a pretty serious thing to be responsible for.",
+      },
+    ],
+    usefulPhrases: [
+      'I really believe we do',
+      "we're the main reason ...",
+      'just shrug and say ...',
+      'plays a role',
+      "once ... is gone, it's gone forever",
+    ],
+  },
+  {
+    id: 'sp-727',
+    topic: 'Animals & Pets',
+    difficulty: 'hard',
+    question: 'Should people have to show they are ready before they are allowed to get a pet?',
+    sampleAnswers: [
+      {
+        label: 'Ready or Not',
+        answer:
+          "Part of me thinks yes. Too many animals end up abandoned because someone bought a cute puppy without thinking about the vet bills, the time or the mess. A short course or a simple check could prevent a lot of that. But I can also see the problems. It might make pets something only wealthier people can have, and it'd be hard to enforce. Maybe a middle ground would work, like shelters and sellers giving honest advice before anyone takes an animal home.",
+      },
+    ],
+    usefulPhrases: [
+      'part of me thinks yes',
+      'end up abandoned',
+      'I can also see the problems',
+      'hard to enforce',
+      'maybe a middle ground would work',
+    ],
+  },
+  {
+    id: 'sp-728',
+    topic: 'Animals & Pets',
+    difficulty: 'hard',
+    question: "What do you think animals notice about people that we don't notice about ourselves?",
+    sampleAnswers: [
+      {
+        label: 'They Read Us Better',
+        answer:
+          "I think animals are incredibly good at reading our moods, sometimes better than we are. My friend's dog always comes and sits next to her when she's upset, even before she's said anything. They notice tiny things, like our tone of voice, how we move, maybe even how we smell when we're nervous. We're so busy with words that we forget how much we give away without them. In a way, animals see a more honest version of us.",
+      },
+    ],
+    usefulPhrases: [
+      'incredibly good at reading ...',
+      "even before she's said anything",
+      'how much we give away without ...',
+      'in a way, ...',
+      'a more honest version of ...',
+    ],
+  },
 
   // ── Celebrations & Holidays ───────────────────────────
   {
@@ -6643,6 +10123,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'remind people that they belong',
     ],
   },
+  {
+    id: 'sp-729',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'easy',
+    question: 'Do you send cards or messages to people on special days?',
+    sampleAnswers: [
+      {
+        label: 'A Few Kind Words',
+        answer:
+          "Yes, I try to. For close friends and family, I like writing a proper card by hand, because I think it means more than a quick message. I keep the ones I get in a box, too. For everyone else, I usually send a short message on their birthday. I'm not always great at remembering dates, though, so sometimes my wishes arrive a day late!",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Yes, I write cards for my family and send messages to friends.',
+      },
+    ],
+    usefulPhrases: [
+      'I try to',
+      'a proper card by hand',
+      'it means more than ...',
+      "I'm not always great at ...",
+      'arrive a day late',
+    ],
+  },
+  {
+    id: 'sp-730',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'easy',
+    question: 'What do you usually wear to a celebration?',
+    sampleAnswers: [
+      {
+        label: 'Smart but Comfy',
+        answer:
+          "It depends on the event, but I usually go for something smart but comfortable. For a wedding I'll wear a nice outfit and proper shoes, even if my feet hate me by the end of the night. For family parties, I keep it simple, maybe a nice shirt and jeans. I like dressing up a bit for special days. It makes them feel different from an ordinary weekend.",
+      },
+    ],
+    usefulPhrases: [
+      'I usually go for something ...',
+      'my feet hate me by the end of the night',
+      'I keep it simple',
+      'I like dressing up a bit',
+      'feel different from an ordinary ...',
+    ],
+  },
+  {
+    id: 'sp-731',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'easy',
+    question: 'Do you like fireworks?',
+    sampleAnswers: [
+      {
+        label: 'Still Amazed Every Time',
+        answer:
+          "I love them. Even as an adult, I still stop and stare like a little kid whenever I see a big fireworks display. There's something magical about everyone looking up at the sky at the same moment. I'm not a fan of the loud bangs late at night when people set them off at home, though, and I always feel a bit sorry for dogs. But a proper show over the water at New Year is just beautiful.",
+      },
+    ],
+    usefulPhrases: [
+      'stop and stare like a little kid',
+      "there's something magical about ...",
+      "I'm not a fan of ...",
+      'I always feel a bit sorry for ...',
+      'is just beautiful',
+    ],
+  },
+  {
+    id: 'sp-732',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'medium',
+    question: 'What makes the difference between a good party and a really great one?',
+    sampleAnswers: [
+      {
+        label: 'The Secret Ingredient',
+        answer:
+          "For me, it's never the decorations or how much money was spent. A good party has nice food and music, but a great one has the right mix of people and a relaxed feeling where everyone can be themselves. The best parties I've been to had a host who made sure nobody was left standing alone. And usually something unplanned happens, like everyone dancing in the kitchen at midnight. You can't really plan that magic. You just create the space for it.",
+      },
+    ],
+    usefulPhrases: [
+      "it's never the ...",
+      'the right mix of people',
+      'nobody was left standing alone',
+      'something unplanned happens',
+      'create the space for it',
+    ],
+  },
+  {
+    id: 'sp-733',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'medium',
+    question: 'Tell me about a celebration you joined from a culture different from your own.',
+    sampleAnswers: [
+      {
+        label: 'A Welcome I Still Remember',
+        answer:
+          "A few years ago a friend invited me to her family's harvest festival. I was nervous because I didn't know any of the customs, and I was worried I'd do something rude. But everyone was so welcoming. Her grandmother kept filling my plate and explaining what each dish meant. There was music, and they pulled me into a dance I definitely didn't know. I felt like a guest at first, but by the end of the night I felt like part of the family.",
+      },
+    ],
+    usefulPhrases: [
+      "I didn't know any of the customs",
+      "I was worried I'd do something rude",
+      'everyone was so welcoming',
+      'kept filling my plate',
+      'felt like part of the family',
+    ],
+  },
+  {
+    id: 'sp-734',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'medium',
+    question: 'Do you enjoy the build-up to a holiday more than the day itself?',
+    sampleAnswers: [
+      {
+        label: 'Counting Down',
+        answer:
+          "Honestly, yes, I think I do. The weeks before are full of excitement: planning food, buying little presents, seeing the streets decorated. There's this lovely feeling that something good is coming. The day itself is great, but it goes by so fast, and there's often a lot of stress, cooking and cleaning. By the evening I'm exhausted. So in a way, looking forward to it is the best part. It's like the anticipation is a gift in itself.",
+      },
+    ],
+    usefulPhrases: [
+      'the weeks before are full of ...',
+      'something good is coming',
+      'it goes by so fast',
+      'looking forward to it is the best part',
+      'a gift in itself',
+    ],
+  },
+  {
+    id: 'sp-735',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'medium',
+    question: 'How do you celebrate small achievements in your everyday life?',
+    sampleAnswers: [
+      {
+        label: 'Little Treats',
+        answer:
+          "I'm a big believer in celebrating small wins. If I finish something difficult, I'll treat myself to a nice dessert or an evening off doing whatever I want. Sometimes I just tell a friend, and they get excited with me, which is enough. I used to only celebrate big things, like birthdays or passing exams, but I realised that big things don't happen very often. If you wait for them, you miss a lot of chances to feel good.",
+      },
+    ],
+    usefulPhrases: [
+      "I'm a big believer in ...",
+      'treat myself to ...',
+      'they get excited with me',
+      "big things don't happen very often",
+      'miss a lot of chances to ...',
+    ],
+  },
+  {
+    id: 'sp-736',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'hard',
+    question: 'Do celebrations put too much pressure on people to be happy?',
+    sampleAnswers: [
+      {
+        label: 'The Pressure to Smile',
+        answer:
+          "I think they can, yes. There's this expectation that holidays should be perfect and everyone should be smiling. But real life doesn't stop for a celebration. Someone might be grieving, worried about money, or just tired. Then the pressure to look happy makes them feel even worse, like they're failing at something. I'd love it if we were more relaxed about it. A celebration should be an invitation to enjoy yourself, not a test you have to pass.",
+      },
+    ],
+    usefulPhrases: [
+      "there's this expectation that ...",
+      "real life doesn't stop for ...",
+      'makes them feel even worse',
+      "I'd love it if we were more relaxed about it",
+      'an invitation to ..., not a test',
+    ],
+  },
+  {
+    id: 'sp-737',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'hard',
+    question: 'Is it better for a holiday to be celebrated exactly the same way every year, or to change a little each time?',
+    sampleAnswers: [
+      {
+        label: 'Same Roots, New Branches',
+        answer:
+          "I'd say a bit of both. Repetition is what makes a tradition feel special. Doing the same things every year connects you to your past and to the people you've shared it with. But if nothing ever changes, it can start to feel like a duty. I like keeping the core the same, like the meal or the people, and adding something new each time, maybe a game or a new recipe. That way it grows with the family instead of feeling stuck.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd say a bit of both",
+      'what makes a tradition feel special',
+      'start to feel like a duty',
+      'keeping the core the same',
+      'grows with ... instead of feeling stuck',
+    ],
+  },
+  {
+    id: 'sp-738',
+    topic: 'Celebrations & Holidays',
+    difficulty: 'hard',
+    question: 'Why do some people feel lonely during holidays, and what could help?',
+    sampleAnswers: [
+      {
+        label: 'Lonely in a Crowd',
+        answer:
+          "Holidays shine a really bright light on who you're with and who you're not. If you're far from family, or you've lost someone, everyone else's happiness can make the gap feel bigger. Even people surrounded by others can feel lonely if they don't really connect. I think small gestures help a lot, like inviting a neighbour for a meal or just sending a message to someone who might be alone. It doesn't take much to make someone feel included.",
+      },
+    ],
+    usefulPhrases: [
+      'shine a really bright light on ...',
+      'make the gap feel bigger',
+      'surrounded by others',
+      'small gestures help a lot',
+      "it doesn't take much to ...",
+    ],
+  },
 
   // ── Art & Creativity ──────────────────────────────────
   {
@@ -6948,6 +10633,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'being willing to make mistakes',
       'the fear of looking silly',
       'surprise themselves',
+    ],
+  },
+  {
+    id: 'sp-739',
+    topic: 'Art & Creativity',
+    difficulty: 'easy',
+    question: "Do you ever doodle when you're bored or thinking?",
+    sampleAnswers: [
+      {
+        label: 'Margins Full of Shapes',
+        answer:
+          "All the time! If I've got a pen in my hand, the edges of my notebook end up covered in little spirals, stars and strange faces. I don't even notice I'm doing it most of the time. It actually helps me concentrate, especially when I'm listening to someone talk for a long time. Some of my old notebooks are funnier to look at for the doodles than for the actual notes.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Yes, I draw little shapes in my notebook. It helps me focus.',
+      },
+    ],
+    usefulPhrases: [
+      'all the time!',
+      'end up covered in ...',
+      "I don't even notice I'm doing it",
+      'it actually helps me concentrate',
+      'funnier to look at for ... than for ...',
+    ],
+  },
+  {
+    id: 'sp-740',
+    topic: 'Art & Creativity',
+    difficulty: 'easy',
+    question: 'Do you like decorating or rearranging your room?',
+    sampleAnswers: [
+      {
+        label: 'A Fresh Look',
+        answer:
+          "I love it. Every few months I get restless and move my furniture around, or add a new plant or picture. It's amazing how a small change can make a room feel completely new. I don't spend much money. I mostly use things I already have, like old fabric or photos. My family thinks I'm a bit obsessed, but for me it's a creative outlet, and it makes me happier to be at home.",
+      },
+    ],
+    usefulPhrases: [
+      'every few months I get restless',
+      'move my furniture around',
+      "it's amazing how a small change can ...",
+      'a bit obsessed',
+      'a creative outlet',
+    ],
+  },
+  {
+    id: 'sp-741',
+    topic: 'Art & Creativity',
+    difficulty: 'easy',
+    question: 'Do you enjoy watching street performers?',
+    sampleAnswers: [
+      {
+        label: 'Magic on the Pavement',
+        answer:
+          "Yes, I always stop if there's someone playing music or doing tricks in the street. It's such a nice surprise in the middle of an ordinary day. I really admire them, because it takes a lot of courage to perform for strangers who could just walk past. If I enjoy it, I always try to drop a few coins in their hat. Some of the best music I've ever heard was on a street corner.",
+      },
+    ],
+    usefulPhrases: [
+      'I always stop if ...',
+      'a nice surprise in the middle of ...',
+      'it takes a lot of courage to ...',
+      'drop a few coins in ...',
+      "some of the best ... I've ever ...",
+    ],
+  },
+  {
+    id: 'sp-742',
+    topic: 'Art & Creativity',
+    difficulty: 'medium',
+    question: 'Where do you usually get your best ideas?',
+    sampleAnswers: [
+      {
+        label: 'Ideas in the Shower',
+        answer:
+          "Weirdly, never when I'm sitting down trying to think of one. My best ideas come in the shower, on a walk, or just as I'm falling asleep. I think it's because my mind is relaxed and wandering instead of forcing things. The annoying part is I can never write them down at those moments. So now I keep a little notebook next to my bed. Half of what I write there is nonsense in the morning, but every now and then there's a gem.",
+      },
+    ],
+    usefulPhrases: [
+      'weirdly, ...',
+      'my mind is relaxed and wandering',
+      'instead of forcing things',
+      'the annoying part is ...',
+      "every now and then there's a gem",
+    ],
+  },
+  {
+    id: 'sp-743',
+    topic: 'Art & Creativity',
+    difficulty: 'medium',
+    question: 'Tell me about a painting, sculpture or other artwork that stayed in your mind.',
+    sampleAnswers: [
+      {
+        label: 'The Statue in the Square',
+        answer:
+          "There's a sculpture in a park I used to walk through. It's just a simple figure of a woman sitting on a bench, looking out at the trees, and it's life-size, so at first I thought she was real. Every time I passed, I noticed something new, like the expression on her face or the way her hands were resting. I never found out who made it, but it always made me slow down. It felt like she was reminding me to stop and look around.",
+      },
+    ],
+    usefulPhrases: [
+      'at first I thought ... was real',
+      'every time I passed',
+      'I noticed something new',
+      'it always made me slow down',
+      'reminding me to stop and look around',
+    ],
+  },
+  {
+    id: 'sp-744',
+    topic: 'Art & Creativity',
+    difficulty: 'medium',
+    question: 'Why do you think people often value handmade things more than ones from a shop?',
+    sampleAnswers: [
+      {
+        label: 'You Can Feel the Effort',
+        answer:
+          "I think it's because you can feel the time and care that went into it. A handmade scarf might have a few wobbly stitches, but those little mistakes make it personal. You know someone sat there for hours thinking about you. Something from a shop can be beautiful, but thousands of people have the exact same one. Handmade things also have a story. Every time you use it, you remember who made it and why.",
+      },
+    ],
+    usefulPhrases: [
+      'the time and care that went into it',
+      'those little mistakes make it personal',
+      'thousands of people have the exact same one',
+      'handmade things also have a story',
+      'you remember who made it and why',
+    ],
+  },
+  {
+    id: 'sp-745',
+    topic: 'Art & Creativity',
+    difficulty: 'medium',
+    question: 'Do you prefer creative tasks with clear instructions or total freedom?',
+    sampleAnswers: [
+      {
+        label: 'Give Me a Starting Point',
+        answer:
+          'I used to think total freedom would be best, but actually a blank page scares me a bit. If someone says, "Draw anything," my mind goes completely empty. If they say, "Draw your breakfast using only three colours," suddenly I\'ve got loads of ideas. So I like a few rules to get started, and then the freedom to go my own way. I think a little bit of structure gives your creativity something to push against.',
+      },
+    ],
+    usefulPhrases: [
+      'a blank page scares me a bit',
+      'my mind goes completely empty',
+      "suddenly I've got loads of ideas",
+      'go my own way',
+      'something to push against',
+    ],
+  },
+  {
+    id: 'sp-746',
+    topic: 'Art & Creativity',
+    difficulty: 'hard',
+    question: "Is copying other people's work a good way to become creative?",
+    sampleAnswers: [
+      {
+        label: 'Copy First, Then Create',
+        answer:
+          "In the beginning, I think it really is. Most artists and musicians learned by copying the people they admired. It teaches you the techniques and helps you understand why something works. The important thing is not to stop there, and obviously not to pretend it's your own. At some point you start mixing different influences, changing bits, and adding your own experiences, and that's where your own style begins. So copying is like training wheels. Useful, but you're meant to take them off eventually.",
+      },
+    ],
+    usefulPhrases: [
+      'in the beginning, I think it really is',
+      'learned by copying ...',
+      'the important thing is not to stop there',
+      "that's where ... begins",
+      'like training wheels',
+    ],
+  },
+  {
+    id: 'sp-747',
+    topic: 'Art & Creativity',
+    difficulty: 'hard',
+    question: 'Can anything be truly original when so much has already been made?',
+    sampleAnswers: [
+      {
+        label: 'Old Pieces, New Pictures',
+        answer:
+          "I don't think anything is completely original. Everything builds on something that came before. But I don't see that as a problem. Originality isn't about creating something from nothing. It's about putting familiar pieces together in a way nobody else would, because nobody else has your exact life and point of view. Two people can paint the same tree and end up with totally different pictures. That personal angle is what makes something feel fresh, even if the ingredients are old.",
+      },
+    ],
+    usefulPhrases: [
+      'everything builds on something that came before',
+      "I don't see that as a problem",
+      'putting familiar pieces together',
+      'your exact ... and point of view',
+      'even if the ingredients are old',
+    ],
+  },
+  {
+    id: 'sp-748',
+    topic: 'Art & Creativity',
+    difficulty: 'hard',
+    question: 'Would you rather be remembered for one great work or for lots of good ones?',
+    sampleAnswers: [
+      {
+        label: 'Quality or Quantity',
+        answer:
+          "Hmm, that's a hard choice. One great work sounds romantic, the idea that you made something perfect that people talk about forever. But I think I'd choose lots of good ones. It would mean I kept creating my whole life, trying things, failing and improving. That sounds more satisfying to me than one big moment. Also, with lots of work, different people could find the piece that speaks to them. I like the idea of leaving behind a whole world instead of a single window.",
+      },
+    ],
+    usefulPhrases: [
+      "that's a hard choice",
+      '... sounds romantic',
+      'I kept creating my whole life',
+      'the piece that speaks to them',
+      'leaving behind ... instead of ...',
     ],
   },
 
@@ -7481,6 +11371,205 @@ export const speakingQuestions: SpeakingQuestion[] = [
       "it's ... first, and ... second",
     ],
   },
+  {
+    id: 'sp-749',
+    topic: 'Hometown & Travel',
+    difficulty: 'easy',
+    question: "What's a souvenir you've brought back from a trip?",
+    sampleAnswers: [
+      {
+        label: 'A Small Reminder',
+        answer:
+          "The one I like most is a little hand-painted bowl I bought at a market by the sea. It wasn't expensive at all, but the woman who made it was sitting right there, painting another one while we chatted. I keep it on my desk and use it for keys and coins. Every time I drop something into it, I'm reminded of that warm afternoon and the smell of salt in the air. I'd say small, useful souvenirs are the best kind.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'I brought back a small painted bowl from a seaside market. I use it every day for my keys.',
+      },
+    ],
+    usefulPhrases: [
+      'the one I like most is...',
+      "it wasn't expensive at all, but...",
+      "every time I..., I'm reminded of...",
+      "I'd say ... are the best kind",
+    ],
+  },
+  {
+    id: 'sp-750',
+    topic: 'Hometown & Travel',
+    difficulty: 'easy',
+    question: 'What is the main street or square in your hometown like?',
+    sampleAnswers: [
+      {
+        label: 'The Heart of Town',
+        answer:
+          "There's one long street that runs right through the middle of my hometown, and it's where everything happens. It's lined with small shops, a couple of old cafés and a bakery that's been there for as long as I can remember. In the evenings it gets pretty lively — families out for a walk, kids on bikes, older people sitting on benches watching the world go by. It's not fancy, but it feels like the heart of the place.",
+      },
+    ],
+    usefulPhrases: [
+      'it runs right through the middle of...',
+      "it's lined with...",
+      'for as long as I can remember',
+      'watching the world go by',
+      "it's not fancy, but...",
+    ],
+  },
+  {
+    id: 'sp-751',
+    topic: 'Hometown & Travel',
+    difficulty: 'easy',
+    question: 'How do you usually choose a place to stay when you travel?',
+    sampleAnswers: [
+      {
+        label: 'Location First',
+        answer:
+          "For me, location comes first. I'd rather have a tiny room in a good area than a big, comfortable one that's miles from everything. I usually read a few reviews, check that it's clean and quiet, and then look at the price. If I'm travelling with friends, we sometimes rent a small apartment so we can cook breakfast together. I'm not too picky, though — as long as the bed is comfortable, I'm happy.",
+      },
+    ],
+    usefulPhrases: [
+      '... comes first',
+      "I'd rather ... than...",
+      "it's miles from everything",
+      "I'm not too picky, though",
+      "as long as ..., I'm happy",
+    ],
+  },
+  {
+    id: 'sp-752',
+    topic: 'Hometown & Travel',
+    difficulty: 'medium',
+    question: 'Have you ever felt homesick while you were away? What did you miss most?',
+    sampleAnswers: [
+      {
+        label: 'Missing the Small Things',
+        answer:
+          "Yes, the first time I spent a few weeks away from home, it hit me harder than I expected. Funnily enough, it wasn't the big things I missed. It was my mum's cooking, the noise from the street outside my window, even the way our neighbours shouted greetings to each other. Everything around me was new and exciting, but by the second week I just wanted something familiar. Calling home helped a lot, and so did finding a little restaurant that served food a bit like ours.",
+      },
+    ],
+    usefulPhrases: [
+      'it hit me harder than I expected',
+      "funnily enough, it wasn't ... I missed",
+      'I just wanted something familiar',
+      '... helped a lot, and so did...',
+    ],
+  },
+  {
+    id: 'sp-753',
+    topic: 'Hometown & Travel',
+    difficulty: 'medium',
+    question: 'When you visit a new place, do you prefer seeing the famous sights or wandering through ordinary neighbourhoods? Why?',
+    sampleAnswers: [
+      {
+        label: 'Off the Main Road',
+        answer:
+          "I'll usually see one or two of the famous sights, just so I can say I've been, but what I really love is getting a bit lost in ordinary streets. That's where you see how people actually live — washing hanging from balconies, kids playing football, old men arguing over a game of cards. The big landmarks are often crowded and look exactly like the photos anyway. A random back street, on the other hand, can surprise you.",
+      },
+    ],
+    usefulPhrases: [
+      "just so I can say I've been",
+      'what I really love is...',
+      "that's where you see how people actually live",
+      '..., on the other hand, can surprise you',
+    ],
+  },
+  {
+    id: 'sp-754',
+    topic: 'Hometown & Travel',
+    difficulty: 'medium',
+    question: "Tell me about something you did on a trip that you'd never do at home.",
+    sampleAnswers: [
+      {
+        label: 'Braver Away From Home',
+        answer:
+          "On a trip to the coast a few years ago, I joined a group of strangers for a sunrise swim. At home I'd never do that — I'm quite shy and I hate cold water! But somehow, when you're travelling, you feel like a slightly different person. Nobody knows you, so you worry less about looking silly. The water was freezing, but afterwards we all sat on the sand drinking hot tea, laughing. It's still one of my favourite travel memories.",
+      },
+    ],
+    usefulPhrases: [
+      "at home I'd never do that",
+      "somehow, when you're travelling, you feel like...",
+      'you worry less about looking silly',
+      "it's still one of my favourite...",
+    ],
+  },
+  {
+    id: 'sp-755',
+    topic: 'Hometown & Travel',
+    difficulty: 'medium',
+    question: 'How do local people describe your hometown compared with how visitors see it?',
+    sampleAnswers: [
+      {
+        label: 'Two Different Pictures',
+        answer:
+          "It's funny, because locals and visitors almost seem to be talking about two different places. People who live there tend to complain — it's too quiet, there's nothing to do, the roads are always being dug up. Visitors, meanwhile, fall in love with how relaxed it is and how cheap the food is. I think both are true, really. When you live somewhere, you notice the problems; when you visit, you notice the charm.",
+      },
+    ],
+    usefulPhrases: [
+      'almost seem to be talking about two different...',
+      'people who live there tend to...',
+      '..., meanwhile, fall in love with...',
+      'I think both are true, really',
+    ],
+  },
+  {
+    id: 'sp-756',
+    topic: 'Hometown & Travel',
+    difficulty: 'hard',
+    question: 'Is it better to visit many places briefly or to spend a long time in just one?',
+    sampleAnswers: [
+      {
+        label: 'Slow Travel Wins',
+        answer:
+          "I used to try to squeeze as many cities as possible into one trip, and honestly, I came home exhausted with a blur of train stations in my head. These days I'd much rather stay in one place for a week or two. You start to recognise faces at the market, you find a favourite café, and the place stops feeling like a postcard and starts feeling real. That said, I can see the appeal of a quick tour when you're young and just want a taste of everything.",
+      },
+    ],
+    usefulPhrases: [
+      'I used to try to squeeze ... into...',
+      'a blur of...',
+      "these days I'd much rather...",
+      'stops feeling like ... and starts feeling...',
+      'I can see the appeal of...',
+    ],
+  },
+  {
+    id: 'sp-757',
+    topic: 'Hometown & Travel',
+    difficulty: 'hard',
+    question: 'Do photos help us remember a trip, or do they stop us from really experiencing it?',
+    sampleAnswers: [
+      {
+        label: 'Fewer, Better Photos',
+        answer:
+          "I think it depends on how you take them. If you spend the whole trip behind a camera, trying to get the perfect shot, you end up remembering the photo rather than the moment itself. But a handful of pictures can be really precious years later — they bring back details you'd completely forgotten. So I try to take a few photos at the start and then put the camera away and just look. It's a balance, and I don't always get it right.",
+      },
+    ],
+    usefulPhrases: [
+      'it depends on how you...',
+      'you end up remembering ... rather than...',
+      "they bring back details you'd completely forgotten",
+      "it's a balance, and I don't always get it right",
+    ],
+  },
+  {
+    id: 'sp-758',
+    topic: 'Hometown & Travel',
+    difficulty: 'hard',
+    question: "Can a place you weren't born in ever truly feel like home?",
+    sampleAnswers: [
+      {
+        label: 'Home Is Built',
+        answer:
+          "I'd say yes, but it takes time and a bit of effort. Home isn't just where you were born — it's where you have routines, people who'd notice if you disappeared, a corner shop where they know your order. You can build all of that somewhere new. What you probably can't recreate is the childhood layer: the memories attached to every street. So a new place can become home, just a different kind of home — one you chose rather than one you were given.",
+      },
+    ],
+    usefulPhrases: [
+      'it takes time and a bit of effort',
+      "home isn't just where...",
+      "people who'd notice if you disappeared",
+      "what you probably can't recreate is...",
+      'one you chose rather than one you were given',
+    ],
+  },
 
   // ── Environment & Nature ──────────────────────────────
   {
@@ -7847,6 +11936,203 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'eventually turns into ...',
     ],
   },
+  {
+    id: 'sp-759',
+    topic: 'Environment & Nature',
+    difficulty: 'easy',
+    question: 'Is there a park or green space you like to visit?',
+    sampleAnswers: [
+      {
+        label: 'A Small Riverside Park',
+        answer:
+          "Yes, there's a small park by the river about ten minutes from my home. It isn't fancy — just some big old trees, a path, and a few benches — but in the early morning it's lovely and quiet. I like to walk a couple of laps, then sit and watch people doing their exercises. It's my little escape from the traffic.",
+      },
+    ],
+    usefulPhrases: [
+      "It isn't fancy, but...",
+      'in the early morning',
+      'walk a couple of laps',
+      'my little escape from...',
+    ],
+  },
+  {
+    id: 'sp-760',
+    topic: 'Environment & Nature',
+    difficulty: 'easy',
+    question: 'Do you carry a reusable bottle or bag when you go out?',
+    sampleAnswers: [
+      {
+        label: 'Mostly Remembered',
+        answer:
+          "Yes, I always have a water bottle in my bag — it's become a habit, like taking my keys. Bags are a different story, though. I've got a whole drawer full of cloth bags at home, and I still forget them half the time! When that happens, I try to carry things in my hands if it's only a few items. It's a small thing, but I like knowing I'm not adding another plastic bottle to the pile every day.",
+      },
+    ],
+    usefulPhrases: [
+      "it's become a habit, like...",
+      '... is a different story, though',
+      'I still forget them half the time',
+      "it's a small thing, but I like knowing...",
+    ],
+  },
+  {
+    id: 'sp-761',
+    topic: 'Environment & Nature',
+    difficulty: 'easy',
+    question: 'Is there a river, lake or sea near where you live?',
+    sampleAnswers: [
+      {
+        label: 'By the River',
+        answer:
+          "Yes, there's a river about ten minutes' walk from my home. There's a path along one side where people go jogging or walk their dogs, and in the late afternoon it's full of people just sitting and watching the water. I go there when I need to clear my head. The water isn't very clean, unfortunately, so nobody swims in it, but it's still lovely to look at, especially when the sun's going down.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "Yes, there's a river near my home. I like to walk along it in the evening.",
+      },
+    ],
+    usefulPhrases: [
+      "about ten minutes' walk from...",
+      'I go there when I need to clear my head',
+      '..., unfortunately, so nobody...',
+      "it's still lovely to look at, especially when...",
+    ],
+  },
+  {
+    id: 'sp-762',
+    topic: 'Environment & Nature',
+    difficulty: 'medium',
+    question: 'Tell me about a time you went camping or slept outdoors.',
+    sampleAnswers: [
+      {
+        label: 'A Night Under the Stars',
+        answer:
+          "A few summers ago, some friends and I camped by a lake in the hills. We weren't very well prepared — one of the tents had a broken pole, so four of us squeezed into one tent meant for two. It was cold and uncomfortable, and I hardly slept. But at about two in the morning I went outside, and the sky was absolutely full of stars. I'd never seen anything like it. That moment made the whole sore-back experience worth it.",
+      },
+    ],
+    usefulPhrases: [
+      "we weren't very well prepared",
+      'squeezed into...',
+      "I'd never seen anything like it",
+      'that moment made the whole ... worth it',
+    ],
+  },
+  {
+    id: 'sp-763',
+    topic: 'Environment & Nature',
+    difficulty: 'medium',
+    question: 'How has the amount of litter or pollution in your area changed since you were younger?',
+    sampleAnswers: [
+      {
+        label: 'Better and Worse',
+        answer:
+          "It's a mixed picture, really. The streets are definitely cleaner than when I was a kid — there are more bins now, and people seem a bit more embarrassed to drop things on the ground. On the other hand, the air feels worse. There are so many more cars and motorbikes, and on some days you can actually see a grey haze over the city. So I'd say we've improved what we can see up close, but not the bigger problem.",
+      },
+    ],
+    usefulPhrases: [
+      "it's a mixed picture, really",
+      '... are definitely cleaner than when I was a kid',
+      'people seem a bit more embarrassed to...',
+      "we've improved ..., but not...",
+    ],
+  },
+  {
+    id: 'sp-764',
+    topic: 'Environment & Nature',
+    difficulty: 'medium',
+    question: 'Why do you think noise pollution gets less attention than air or water pollution?',
+    sampleAnswers: [
+      {
+        label: 'The Invisible Problem',
+        answer:
+          "I suppose it's because noise doesn't leave any visible damage. Dirty water or smog looks frightening, so people react. Noise just becomes background, and we tell ourselves we've got used to it. But I don't think we really have — constant traffic and construction wear you down, mess with your sleep, make you snappy. It's only when you go somewhere truly quiet that you realise how loud your normal life is.",
+      },
+    ],
+    usefulPhrases: [
+      "I suppose it's because...",
+      'just becomes background',
+      "we tell ourselves we've got used to it",
+      'wear you down',
+      "it's only when ... that you realise...",
+    ],
+  },
+  {
+    id: 'sp-765',
+    topic: 'Environment & Nature',
+    difficulty: 'medium',
+    question: 'Tell me about a walk or hike that turned out harder than you expected.',
+    sampleAnswers: [
+      {
+        label: 'Not an Easy Stroll',
+        answer:
+          "A friend promised me it was 'an easy two-hour walk' up to a waterfall. Four hours later, we were still climbing over rocks, completely soaked in sweat, with only half a bottle of water between us. I was so annoyed with her! But when we finally reached the top and felt the cool spray from the waterfall, I forgave her immediately. Now I always check the route myself — and I bring twice as much water as I think I'll need.",
+      },
+    ],
+    usefulPhrases: [
+      'a friend promised me it was...',
+      'four hours later, we were still...',
+      'I forgave her immediately',
+      "I bring twice as much ... as I think I'll need",
+    ],
+  },
+  {
+    id: 'sp-766',
+    topic: 'Environment & Nature',
+    difficulty: 'hard',
+    question: 'Do you think living in a city makes people lose touch with nature?',
+    sampleAnswers: [
+      {
+        label: 'Nature Takes Effort',
+        answer:
+          "To some extent, yes. In a city you can go weeks without touching soil or seeing a proper horizon, and I think that slowly changes how you feel about the natural world — it becomes something on a screen rather than something you belong to. But I don't think the connection disappears completely. People still crowd into parks on the weekend and fill their balconies with plants. It's more that, in a city, staying close to nature takes deliberate effort instead of happening by itself.",
+      },
+    ],
+    usefulPhrases: [
+      'to some extent, yes',
+      'you can go weeks without...',
+      'something ... rather than something you belong to',
+      'takes deliberate effort instead of happening by itself',
+    ],
+  },
+  {
+    id: 'sp-767',
+    topic: 'Environment & Nature',
+    difficulty: 'hard',
+    question: 'If single-use plastic were banned in your area tomorrow, how would daily life change?',
+    sampleAnswers: [
+      {
+        label: 'Messy at First',
+        answer:
+          "The first few weeks would be chaos, I imagine. Think about street food — so much of it comes in plastic bags and boxes. Vendors would have to find alternatives quickly, prices might go up a little, and people would grumble. But I suspect we'd adapt faster than we think. Our grandparents managed with banana leaves, glass jars and cloth bags. After a year or so, I bet most people wouldn't even remember what the fuss was about.",
+      },
+    ],
+    usefulPhrases: [
+      'the first few weeks would be chaos, I imagine',
+      'people would grumble',
+      "I suspect we'd adapt faster than we think",
+      "I bet most people wouldn't even remember what the fuss was about",
+    ],
+  },
+  {
+    id: 'sp-768',
+    topic: 'Environment & Nature',
+    difficulty: 'hard',
+    question: 'Is it fair to ask poorer countries to protect forests that richer countries cut down long ago?',
+    sampleAnswers: [
+      {
+        label: 'Shared Cost, Shared Duty',
+        answer:
+          "It's a really uncomfortable question. On one hand, the forests matter to everyone, so it makes sense to protect what's left. On the other hand, it does feel hypocritical for wealthy nations — which grew rich partly by clearing their own land — to tell others not to do the same. I think it's only fair if the richer countries help pay for it. If protecting a forest means local people lose income, someone has to make up for that, not just give advice.",
+      },
+    ],
+    usefulPhrases: [
+      "it's a really uncomfortable question",
+      'on one hand, ... On the other hand, ...',
+      'it does feel hypocritical for ... to...',
+      "it's only fair if...",
+      'someone has to make up for that',
+    ],
+  },
 
   // ── Weather & Seasons ─────────────────────────────────
   {
@@ -8154,6 +12440,206 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'move on to something more personal',
     ],
   },
+  {
+    id: 'sp-769',
+    topic: 'Weather & Seasons',
+    difficulty: 'easy',
+    question: "What's your favourite thing to eat or drink when it's cold outside?",
+    sampleAnswers: [
+      {
+        label: 'Something Warm',
+        answer:
+          "Nothing beats a big bowl of hot soup when it's cold — the kind with noodles and lots of fresh herbs. I also drink much more tea in the colder months, usually with a bit of ginger in it. There's something really comforting about holding a warm cup in both hands while it's grey and windy outside. It makes me feel like I'm wrapped up in a blanket, even when I'm not.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "I love hot soup and ginger tea when it's cold. They warm me up straight away.",
+      },
+    ],
+    usefulPhrases: [
+      "nothing beats ... when it's cold",
+      'in the colder months',
+      "there's something really comforting about...",
+      'it makes me feel like...',
+    ],
+  },
+  {
+    id: 'sp-770',
+    topic: 'Weather & Seasons',
+    difficulty: 'easy',
+    question: 'Do you like the sound of rain or thunder?',
+    sampleAnswers: [
+      {
+        label: 'Rain Yes, Thunder Maybe',
+        answer:
+          "I absolutely love the sound of rain, especially at night when I'm in bed. It's so relaxing that I sometimes fall asleep within minutes. Thunder is a bit different — a far-off rumble is nice, but when it's right overhead and the windows shake, I jump every single time. My cat hates it even more than I do and hides under the sofa until it's over.",
+      },
+    ],
+    usefulPhrases: [
+      'I absolutely love the sound of...',
+      'I sometimes fall asleep within minutes',
+      'is a bit different',
+      'I jump every single time',
+      "until it's over",
+    ],
+  },
+  {
+    id: 'sp-771',
+    topic: 'Weather & Seasons',
+    difficulty: 'easy',
+    question: 'What does your street look like after heavy rain?',
+    sampleAnswers: [
+      {
+        label: 'A Small River',
+        answer:
+          "Honestly, it turns into a small river! The drains can't keep up, so the water rises over the pavement and people have to roll up their trousers or wait it out in a doorway. Motorbikes push through, sending waves onto the shops. Once the rain stops, though, everything looks freshly washed, the air smells clean, and the kids come out to splash in the puddles.",
+      },
+    ],
+    usefulPhrases: [
+      'it turns into...',
+      "the drains can't keep up",
+      'wait it out',
+      'once the rain stops, though, ...',
+      'everything looks freshly washed',
+    ],
+  },
+  {
+    id: 'sp-772',
+    topic: 'Weather & Seasons',
+    difficulty: 'medium',
+    question: 'Which season do you find hardest to get through, and why?',
+    sampleAnswers: [
+      {
+        label: 'The Long Grey Months',
+        answer:
+          "For me, it's the wet season. It's not that the rain itself is so terrible — it's that it goes on and on. Your clothes never quite dry, your shoes are always damp, and every plan comes with a 'maybe, if the weather's okay'. By the end of it I feel a bit trapped indoors. I deal with it by making the house cosy and planning small things to look forward to, like a weekend trip once it's over.",
+      },
+    ],
+    usefulPhrases: [
+      "it's not that ... — it's that...",
+      'it goes on and on',
+      'never quite dry',
+      'I feel a bit trapped indoors',
+      'small things to look forward to',
+    ],
+  },
+  {
+    id: 'sp-773',
+    topic: 'Weather & Seasons',
+    difficulty: 'medium',
+    question: 'Tell me about a day when the weather was absolutely perfect.',
+    sampleAnswers: [
+      {
+        label: 'One Perfect Afternoon',
+        answer:
+          'I remember one day in early autumn when everything just felt right. The sky was completely clear, there was a soft breeze, and it was warm enough for a T-shirt but not sticky at all. A few friends and I had a picnic in the park and stayed until it got dark. Nothing special happened, really — we just talked and ate — but I still think of it as my idea of a perfect day. Weather like that makes everyone a bit kinder, I think.',
+      },
+    ],
+    usefulPhrases: [
+      'everything just felt right',
+      'warm enough for ... but not...',
+      'nothing special happened, really',
+      'I still think of it as my idea of...',
+      'weather like that makes everyone...',
+    ],
+  },
+  {
+    id: 'sp-774',
+    topic: 'Weather & Seasons',
+    difficulty: 'medium',
+    question: 'How do people in your area prepare for the hottest or wettest time of the year?',
+    sampleAnswers: [
+      {
+        label: 'Getting Ready',
+        answer:
+          "Before the rainy season, people check their roofs, clear the drains and move anything valuable off the ground floor, just in case it floods. Shops start selling raincoats and plastic covers for motorbikes everywhere. For the hot months, it's more about changing routines — getting up earlier, doing errands in the morning and staying inside during the afternoon. Older people especially have it all down to a fine art; they've been doing it for decades.",
+      },
+    ],
+    usefulPhrases: [
+      'just in case it floods',
+      "it's more about changing routines",
+      'doing errands in the morning',
+      'have it all down to a fine art',
+    ],
+  },
+  {
+    id: 'sp-775',
+    topic: 'Weather & Seasons',
+    difficulty: 'medium',
+    question: 'Why do you think some people feel low when the days get shorter?',
+    sampleAnswers: [
+      {
+        label: 'Missing the Light',
+        answer:
+          "I think a lot of it is simply light. When it's already dark by the time you get home, it feels like the day has been stolen from you. You spend less time outside, see fewer people, and it's easy to slip into just going home, eating and sleeping. Our bodies probably notice it too — less sunshine seems to affect sleep and energy. I find it helps to get outside at lunchtime, even for ten minutes.",
+      },
+    ],
+    usefulPhrases: [
+      'a lot of it is simply...',
+      'it feels like ... has been stolen from you',
+      "it's easy to slip into...",
+      'I find it helps to..., even for ten minutes',
+    ],
+  },
+  {
+    id: 'sp-776',
+    topic: 'Weather & Seasons',
+    difficulty: 'hard',
+    question: 'If humans could control the weather, would life be better? What might go wrong?',
+    sampleAnswers: [
+      {
+        label: 'Be Careful What You Wish For',
+        answer:
+          "At first it sounds wonderful — no more floods, no ruined holidays, rain only when the farmers need it. But I can't imagine people agreeing on anything. One town wants sun for a festival, the next one needs rain for its crops. Who decides? I suspect it would cause more arguments than it solved, and maybe even conflicts between countries. There's also something humbling about weather being beyond our control. I'd almost miss that.",
+      },
+    ],
+    usefulPhrases: [
+      'at first it sounds wonderful',
+      "I can't imagine people agreeing on...",
+      'who decides?',
+      'it would cause more ... than it solved',
+      "there's something humbling about...",
+    ],
+  },
+  {
+    id: 'sp-777',
+    topic: 'Weather & Seasons',
+    difficulty: 'hard',
+    question: 'Do the seasons still give our lives a natural rhythm, or has modern life made them less important?',
+    sampleAnswers: [
+      {
+        label: 'Rhythm Under the Surface',
+        answer:
+          "In some ways they matter less than they used to. We've got air conditioning and heating, and you can buy the same fruit all year round, so the seasons don't control us the way they controlled our grandparents. But I don't think the rhythm has disappeared. People still feel restless in spring, slow down when it's hot, and get nostalgic as the year ends. Maybe the seasons have moved from our calendars into our moods.",
+      },
+    ],
+    usefulPhrases: [
+      'in some ways they matter less than they used to',
+      "don't control us the way they...",
+      "I don't think ... has disappeared",
+      'maybe ... have moved from ... into...',
+    ],
+  },
+  {
+    id: 'sp-778',
+    topic: 'Weather & Seasons',
+    difficulty: 'hard',
+    question: 'Should towns change daily routines, like school or shop hours, during extreme heat?',
+    sampleAnswers: [
+      {
+        label: 'Adapt the Clock',
+        answer:
+          "I think they should, and in a lot of hot places they already do, informally. It just doesn't make sense to send children to sit in a boiling classroom at two in the afternoon. Starting earlier and taking a long break in the hottest hours is healthier and probably more productive. The tricky part is fairness — families with young kids or people who rely on fixed hours might struggle. So any change needs to be planned, not just announced overnight.",
+      },
+    ],
+    usefulPhrases: [
+      'in a lot of ... they already do, informally',
+      "it just doesn't make sense to...",
+      'the tricky part is...',
+      'needs to be planned, not just announced overnight',
+    ],
+  },
 
   // ── Getting Around ────────────────────────────────────
   {
@@ -8459,6 +12945,208 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'genuinely wonderful',
       'without thinking twice',
       "as long as we don't ...",
+    ],
+  },
+  {
+    id: 'sp-779',
+    topic: 'Getting Around',
+    difficulty: 'easy',
+    question: 'Do you prefer a window seat or an aisle seat? Why?',
+    sampleAnswers: [
+      {
+        label: 'Window, Always',
+        answer:
+          "Window, definitely. I love watching the scenery go by, whether it's fields from a train or clouds from a plane. It also means I've got something to lean against if I want to nap. The only downside is having to squeeze past people when I need to get up, so on really long journeys I sometimes change my mind and go for the aisle.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'I prefer the window. I like looking outside and sleeping against it.',
+      },
+    ],
+    usefulPhrases: [
+      '..., definitely',
+      'watching the scenery go by',
+      'the only downside is...',
+      'I sometimes change my mind and go for...',
+    ],
+  },
+  {
+    id: 'sp-780',
+    topic: 'Getting Around',
+    difficulty: 'easy',
+    question: 'Have you ever travelled by boat or ferry?',
+    sampleAnswers: [
+      {
+        label: 'A Choppy Crossing',
+        answer:
+          "Yes, a few times, usually short trips out to islands. I really like the feeling of being on the water, with the wind in your face and the engine humming underneath you. The last one was a bit rough, though — the sea was choppy and half the passengers looked quite pale by the end. Luckily I don't get seasick, so I just stayed up on deck and enjoyed the view.",
+      },
+    ],
+    usefulPhrases: [
+      'a few times, usually...',
+      'the wind in your face',
+      'was a bit rough, though',
+      "luckily I don't get seasick",
+      'stayed up on deck',
+    ],
+  },
+  {
+    id: 'sp-781',
+    topic: 'Getting Around',
+    difficulty: 'easy',
+    question: 'How do you usually pay for buses or trains where you live?',
+    sampleAnswers: [
+      {
+        label: 'Tap and Go',
+        answer:
+          "Most of the time I just tap a card when I get on. It's quick, and I don't have to worry about having the right change. Some of the smaller local buses still only take cash, though, so I always keep a few coins in my pocket just in case. Tourists sometimes get confused by that, and I've helped more than one person who was standing at the door looking lost.",
+      },
+    ],
+    usefulPhrases: [
+      'most of the time I just...',
+      "I don't have to worry about...",
+      'I always keep ... just in case',
+      "I've helped more than one person who...",
+    ],
+  },
+  {
+    id: 'sp-782',
+    topic: 'Getting Around',
+    difficulty: 'medium',
+    question: 'Do you prefer asking people for directions or working it out yourself with a map? Why?',
+    sampleAnswers: [
+      {
+        label: 'Map First, Ask Later',
+        answer:
+          "I'll always try the map first — partly because I'm a bit stubborn and partly because I don't like bothering people. But if I've been going round in circles for ten minutes, I give in and ask someone. And honestly, locals usually know shortcuts that a map would never show you. Once, an old man actually walked me three streets to the right door. So asking isn't just quicker; sometimes it's nicer too.",
+      },
+    ],
+    usefulPhrases: [
+      'partly because ... and partly because...',
+      'going round in circles',
+      'I give in and ask someone',
+      'a map would never show you',
+      "isn't just quicker; sometimes it's nicer too",
+    ],
+  },
+  {
+    id: 'sp-783',
+    topic: 'Getting Around',
+    difficulty: 'medium',
+    question: 'Tell me about a journey that took much longer than it should have.',
+    sampleAnswers: [
+      {
+        label: 'Stuck on the Road',
+        answer:
+          "I once took a bus to visit a friend in another town — it should have been three hours. Halfway there, a lorry had broken down on a narrow mountain road, and we just sat there, not moving, for nearly four hours. At first everyone was annoyed, but eventually people started sharing snacks and chatting. By the time we arrived it was almost midnight. I was exhausted, but I'd made a couple of friends on the way.",
+      },
+    ],
+    usefulPhrases: [
+      'it should have been...',
+      'we just sat there, not moving, for...',
+      'at first everyone was annoyed, but eventually...',
+      'by the time we arrived...',
+      "I'd made a couple of friends on the way",
+    ],
+  },
+  {
+    id: 'sp-784',
+    topic: 'Getting Around',
+    difficulty: 'medium',
+    question: 'How is getting around your city at night different from during the day?',
+    sampleAnswers: [
+      {
+        label: 'After Dark',
+        answer:
+          "During the day it's all traffic jams and noise, so even a short trip can take ages. At night the roads are much emptier, which is lovely, but there are fewer buses and they stop running quite early. That means you either walk, rely on a friend with a motorbike, or pay for a taxi. I also feel a bit less safe walking alone down quiet streets late at night, so I tend to stick to the main roads.",
+      },
+    ],
+    usefulPhrases: [
+      "it's all traffic jams and noise",
+      'can take ages',
+      'they stop running quite early',
+      'rely on a friend with...',
+      'I tend to stick to...',
+    ],
+  },
+  {
+    id: 'sp-785',
+    topic: 'Getting Around',
+    difficulty: 'medium',
+    question: "What's the most memorable view you've seen from a bus, train or car window?",
+    sampleAnswers: [
+      {
+        label: 'Valley at Dawn',
+        answer:
+          "I was on an overnight train once, and I woke up just as the sun was coming up. Outside there was this enormous green valley with mist sitting low over the rice fields and a few farmers already out working. Everyone else in my carriage was still asleep, so it felt like a private show just for me. I didn't take a photo — I just sat and stared until the train went into a tunnel.",
+      },
+    ],
+    usefulPhrases: [
+      'I woke up just as the sun was coming up',
+      'mist sitting low over...',
+      'it felt like a private show just for me',
+      'I just sat and stared until...',
+    ],
+  },
+  {
+    id: 'sp-786',
+    topic: 'Getting Around',
+    difficulty: 'hard',
+    question: 'Should public transport be free for everyone?',
+    sampleAnswers: [
+      {
+        label: 'Free, With Conditions',
+        answer:
+          "I like the idea a lot. Free buses would help people with low incomes, get cars off the road and make the air cleaner. But someone has to pay for it, and if the money comes from taxes without extra investment, services might get worse — more crowded, less frequent. So I'd say free transport only works if it's also good transport. A free bus that never comes isn't much of a gift.",
+      },
+    ],
+    usefulPhrases: [
+      'I like the idea a lot',
+      'get cars off the road',
+      'someone has to pay for it',
+      "... only works if it's also...",
+      "isn't much of a gift",
+    ],
+  },
+  {
+    id: 'sp-787',
+    topic: 'Getting Around',
+    difficulty: 'hard',
+    question: 'Does the way we travel through a place — walking, cycling or driving — change how we understand it?',
+    sampleAnswers: [
+      {
+        label: 'Speed Changes Everything',
+        answer:
+          "Absolutely. When you drive, a city becomes a series of roads and car parks; you see where you're going but not much in between. On a bike you start noticing hills, smells, little shops. And walking is something else entirely — you hear conversations, you see faces, you find the alley with the amazing noodle stall. I'd say the slower you move, the more a place reveals itself. Speed is efficient, but it flattens everything.",
+      },
+    ],
+    usefulPhrases: [
+      'a city becomes a series of...',
+      'you start noticing...',
+      'is something else entirely',
+      'the slower you move, the more...',
+      'it flattens everything',
+    ],
+  },
+  {
+    id: 'sp-788',
+    topic: 'Getting Around',
+    difficulty: 'hard',
+    question: 'If you had to give up either cars or planes for the rest of your life, which would you choose?',
+    sampleAnswers: [
+      {
+        label: 'Grounded by Choice',
+        answer:
+          "That's a tough one, but I think I'd give up planes. Cars are part of everyday life — getting to the doctor, helping family move house, carrying heavy shopping. Planes are mostly for holidays and occasional long trips. Losing them would mean I'd probably never see some parts of the world, which is sad. But I could still travel by train and boat, just more slowly, and maybe I'd appreciate the places nearby a lot more.",
+      },
+    ],
+    usefulPhrases: [
+      "that's a tough one, but...",
+      'are part of everyday life',
+      'losing them would mean...',
+      'just more slowly',
+      "maybe I'd appreciate ... a lot more",
     ],
   },
 
@@ -8855,6 +13543,213 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'stick to their values',
     ],
   },
+  {
+    id: 'sp-789',
+    topic: 'Opinions & Ideas',
+    difficulty: 'easy',
+    question: "What's an everyday object you think is really underrated?",
+    sampleAnswers: [
+      {
+        label: 'The Humble Umbrella',
+        answer:
+          "For me, it's got to be the umbrella. Nobody ever talks about it, but it saves my day more often than I'd like to admit. A good one keeps you dry, gives you shade when it's boiling hot, and folds up into a tiny bag. I only notice how much I rely on it when I've forgotten it at home and I'm standing in a doorway waiting for the rain to stop. It's such a simple design, and yet it works perfectly.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "The umbrella. It's simple, but it saves me all the time.",
+      },
+    ],
+    usefulPhrases: [
+      "it's got to be...",
+      "more often than I'd like to admit",
+      'I only notice how much I rely on it when...',
+      "it's such a simple design, and yet...",
+    ],
+  },
+  {
+    id: 'sp-790',
+    topic: 'Opinions & Ideas',
+    difficulty: 'easy',
+    question: 'Do you prefer to follow the news every day or only check it now and then?',
+    sampleAnswers: [
+      {
+        label: 'Once or Twice a Week',
+        answer:
+          "These days I check the news maybe once or twice a week. I used to read it every morning, but I noticed it put me in a bad mood before the day had even started. Now I catch up on the main stories at the weekend, usually with a coffee. I still feel informed, and if something really big happens, someone will tell me about it anyway. It's a much calmer way to live.",
+      },
+    ],
+    usefulPhrases: [
+      'these days I...',
+      'it put me in a bad mood',
+      'I catch up on...',
+      'if something really big happens, someone will tell me',
+    ],
+  },
+  {
+    id: 'sp-791',
+    topic: 'Opinions & Ideas',
+    difficulty: 'easy',
+    question: "Is there a popular trend you just don't understand?",
+    sampleAnswers: [
+      {
+        label: 'Queueing for Hours',
+        answer:
+          "Oh, definitely — I don't understand people queueing for hours to try a new dessert or drink. I see these long lines outside a shop and think, is it really that good? I'm sure it's tasty, but nothing is worth standing in the sun for two hours. Maybe I'm missing the fun of it, though. For some people, the waiting is part of the experience, and they get to share it with friends.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "Waiting in long lines for food. I don't think anything is worth two hours.",
+      },
+    ],
+    usefulPhrases: [
+      "I don't understand people...",
+      'is it really that good?',
+      'nothing is worth...',
+      "maybe I'm missing the fun of it",
+      'part of the experience',
+    ],
+  },
+  {
+    id: 'sp-792',
+    topic: 'Opinions & Ideas',
+    difficulty: 'medium',
+    question: 'Why do you think some people love a good argument while others avoid one at all costs?',
+    sampleAnswers: [
+      {
+        label: 'It Comes Down to Upbringing',
+        answer:
+          "I'd say a lot of it comes down to how you grew up. In some families, arguing at the dinner table is basically a sport — nobody takes it personally, and it's how you show you care about an idea. In other homes, any disagreement feels like a threat, so people learn to keep the peace. I'm somewhere in the middle. I enjoy a friendly debate, but as soon as it gets personal, I'd rather drop it.",
+      },
+    ],
+    usefulPhrases: [
+      'a lot of it comes down to...',
+      'nobody takes it personally',
+      'keep the peace',
+      "I'm somewhere in the middle",
+      "I'd rather drop it",
+    ],
+  },
+  {
+    id: 'sp-793',
+    topic: 'Opinions & Ideas',
+    difficulty: 'medium',
+    question: 'Should compliments be given often, or only when they are really earned?',
+    sampleAnswers: [
+      {
+        label: 'Often, But Honest',
+        answer:
+          "I lean towards giving them often, as long as they're genuine. A small compliment costs nothing, and it can completely change someone's day. I remember a stranger once told me I had a lovely laugh, and I smiled for hours. That said, if you praise everything, your words start to lose their value. So I try to be specific — instead of just saying 'nice', I mention exactly what I liked.",
+      },
+    ],
+    usefulPhrases: [
+      'I lean towards...',
+      "as long as they're genuine",
+      'it costs nothing',
+      'that said,...',
+      'your words start to lose their value',
+    ],
+  },
+  {
+    id: 'sp-794',
+    topic: 'Opinions & Ideas',
+    difficulty: 'medium',
+    question: 'Tell me about an opinion you have that most people around you disagree with.',
+    sampleAnswers: [
+      {
+        label: 'Winter Over Summer',
+        answer:
+          "This might sound minor, but I genuinely prefer cold weather holidays to beach ones, and almost everyone I know thinks I'm strange. Last year my friends all went to the coast, and I went to the mountains on my own. I spent the week walking in the snow, drinking hot chocolate and reading by a fire. They came back sunburnt and tired, and I came back completely relaxed. I haven't changed my mind since.",
+      },
+    ],
+    usefulPhrases: [
+      'this might sound minor, but...',
+      "everyone I know thinks I'm strange",
+      'I came back completely relaxed',
+      "I haven't changed my mind since",
+    ],
+  },
+  {
+    id: 'sp-795',
+    topic: 'Opinions & Ideas',
+    difficulty: 'medium',
+    question: 'Is it fair to judge someone by the people they spend time with?',
+    sampleAnswers: [
+      {
+        label: 'A Little, Not Completely',
+        answer:
+          "To a certain extent, yes. The people we spend time with do rub off on us — our habits, the way we talk, even what we find funny. So if someone's friends are always rude to waiters, it does make me wonder. But I don't think it's fair to judge someone completely that way. People sometimes stay loyal to old friends who've changed, or they're kind to people others have given up on, and that actually says something good about them.",
+      },
+    ],
+    usefulPhrases: [
+      'to a certain extent',
+      'rub off on us',
+      'it does make me wonder',
+      'stay loyal to...',
+      'that says something good about them',
+    ],
+  },
+  {
+    id: 'sp-796',
+    topic: 'Opinions & Ideas',
+    difficulty: 'hard',
+    question: 'Is it possible for anyone to be completely objective?',
+    sampleAnswers: [
+      {
+        label: 'We Can Only Try',
+        answer:
+          "In my view, complete objectivity is more of an ideal than something we can actually reach. Everything we notice is filtered through our experiences, our mood, even what we had for breakfast. Two people can watch the same event and describe it in totally different ways, and both be honest. What we can do is be aware of our own biases and actively look for opinions that challenge ours. That won't make us perfectly objective, but it gets us closer.",
+      },
+    ],
+    usefulPhrases: [
+      'in my view,...',
+      'more of an ideal than...',
+      'filtered through...',
+      'be aware of our own biases',
+      'it gets us closer',
+    ],
+  },
+  {
+    id: 'sp-797',
+    topic: 'Opinions & Ideas',
+    difficulty: 'hard',
+    question: 'What matters more — what someone intended, or what actually happened because of their actions?',
+    sampleAnswers: [
+      {
+        label: 'Both, But Results Count',
+        answer:
+          "It's a tricky one. When it comes to judging a person, I think intentions matter a lot — someone who meant well but got it wrong deserves more patience than someone who meant harm. But when it comes to the situation itself, results are what people have to live with. If my friend accidentally breaks my vase, I forgive her, but the vase is still broken. So I'd say intentions shape how we feel about someone, while results shape what needs to be fixed.",
+      },
+    ],
+    usefulPhrases: [
+      "it's a tricky one",
+      'when it comes to...',
+      'meant well but got it wrong',
+      'deserves more patience',
+      'shape how we feel about...',
+    ],
+  },
+  {
+    id: 'sp-798',
+    topic: 'Opinions & Ideas',
+    difficulty: 'hard',
+    question: 'Should people always stick to their principles, even when it costs them something?',
+    sampleAnswers: [
+      {
+        label: 'Mostly, With Flexibility',
+        answer:
+          "I'd like to say yes without hesitation, but real life is messier than that. Principles only mean something if you keep them when it's inconvenient — otherwise they're just preferences. At the same time, I've seen people hold on to a principle so tightly that they hurt the very people it was meant to protect. So my rule is: be firm about the big things, like honesty and fairness, and stay open-minded about the details.",
+      },
+    ],
+    usefulPhrases: [
+      'without hesitation',
+      'real life is messier than that',
+      "otherwise they're just...",
+      'hold on to... so tightly',
+      'stay open-minded about the details',
+    ],
+  },
 
   // ── Education & Learning ──────────────────────────────
   {
@@ -9239,6 +14134,209 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'affect their lives more than...',
     ],
   },
+  {
+    id: 'sp-799',
+    topic: 'Education & Learning',
+    difficulty: 'easy',
+    question: 'Do you prefer studying in silence or with some background noise?',
+    sampleAnswers: [
+      {
+        label: 'A Bit of Noise Helps',
+        answer:
+          "I actually work better with a little background noise. Total silence makes me notice every tiny sound, like the clock ticking or someone's footsteps outside. So I usually put on some soft instrumental music, or I study in a café where there's a gentle hum of conversation. As long as nobody's talking directly to me, I can focus for ages. Lyrics are a problem, though — I start singing along.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'A bit of noise. Soft music helps me focus, but no lyrics.',
+      },
+    ],
+    usefulPhrases: [
+      'I actually work better with...',
+      'a gentle hum of conversation',
+      'I can focus for ages',
+      "as long as nobody's...",
+      'I start singing along',
+    ],
+  },
+  {
+    id: 'sp-800',
+    topic: 'Education & Learning',
+    difficulty: 'easy',
+    question: 'What time of day do you find it easiest to concentrate?',
+    sampleAnswers: [
+      {
+        label: 'Early Morning',
+        answer:
+          "Definitely early in the morning. My brain feels fresh, the house is quiet, and nothing has distracted me yet. If I need to read something difficult or memorise vocabulary, I try to do it before eight o'clock. By the afternoon I get sleepy and my mind starts wandering, so I save easier tasks, like reviewing notes, for later in the day.",
+      },
+    ],
+    usefulPhrases: [
+      'my brain feels fresh',
+      'nothing has distracted me yet',
+      'my mind starts wandering',
+      'I save easier tasks for...',
+    ],
+  },
+  {
+    id: 'sp-801',
+    topic: 'Education & Learning',
+    difficulty: 'easy',
+    question: 'Are you good at remembering facts, like dates and names?',
+    sampleAnswers: [
+      {
+        label: 'Not Really',
+        answer:
+          "Not really, to be honest. I can remember stories and how something made me feel, but dates and names just slip out of my head. At school, history tests were a nightmare for me. These days I've got a few tricks — I link a date to something personal, like a birthday, or I make up a silly sentence. It doesn't always work, but it's better than nothing.",
+      },
+    ],
+    usefulPhrases: [
+      'slip out of my head',
+      'a nightmare for me',
+      "I've got a few tricks",
+      'I link... to...',
+      "it's better than nothing",
+    ],
+  },
+  {
+    id: 'sp-802',
+    topic: 'Education & Learning',
+    difficulty: 'medium',
+    question: 'Tell me about a time you learned something just by watching someone else.',
+    sampleAnswers: [
+      {
+        label: 'Learning to Cook Rice',
+        answer:
+          "When I was about twelve, I learned to cook rice properly by watching my grandmother. She never measured anything — she just used her finger to check the water level. I asked her to explain, but she just said, 'Watch.' So I stood next to her every evening for a couple of weeks, and eventually I could do it without thinking. I still use her finger trick today, and it's never failed me.",
+      },
+    ],
+    usefulPhrases: [
+      'I learned to... by watching...',
+      'she never measured anything',
+      'eventually I could do it without thinking',
+      "it's never failed me",
+    ],
+  },
+  {
+    id: 'sp-803',
+    topic: 'Education & Learning',
+    difficulty: 'medium',
+    question: 'Why do you think some students are afraid to ask questions in class?',
+    sampleAnswers: [
+      {
+        label: 'Fear of Looking Silly',
+        answer:
+          "Mostly, I think it's the fear of looking silly in front of everyone. When you're young, what your classmates think matters enormously, and nobody wants to be the one who 'didn't get it'. Some teachers also react with a sigh, and that's enough to put you off for the whole year. The irony is that if one person is confused, half the class probably is too. A teacher who welcomes questions can change that completely.",
+      },
+    ],
+    usefulPhrases: [
+      'the fear of looking silly',
+      'matters enormously',
+      "that's enough to put you off",
+      'the irony is that...',
+      'half the class probably is too',
+    ],
+  },
+  {
+    id: 'sp-804',
+    topic: 'Education & Learning',
+    difficulty: 'medium',
+    question: 'Is homework useful, or should children have more free time after school?',
+    sampleAnswers: [
+      {
+        label: 'A Little, Not Hours',
+        answer:
+          "I think a small amount is useful, but not the hours some children get. A short task can help you practise what you learned that day, and it teaches you to organise yourself. But kids also need time to play, be bored, and spend time with their families — that's learning too, just a different kind. When I was a kid, I had so much homework that I barely went outside, and I don't think it made me any smarter.",
+      },
+    ],
+    usefulPhrases: [
+      'a small amount is useful',
+      'it teaches you to...',
+      "that's learning too, just a different kind",
+      'I barely went outside',
+      "I don't think it made me any smarter",
+    ],
+  },
+  {
+    id: 'sp-805',
+    topic: 'Education & Learning',
+    difficulty: 'medium',
+    question: 'Do you learn better with a strict teacher or a relaxed one?',
+    sampleAnswers: [
+      {
+        label: 'Somewhere in Between',
+        answer:
+          "Honestly, the best teacher I ever had was a mix of both. She had clear rules and high expectations, but she also joked with us and never made us feel stupid. A purely strict teacher made me nervous, so I just memorised things to avoid trouble. A purely relaxed one, on the other hand, made me lazy. What really works for me is someone who's kind but still pushes me a little.",
+      },
+    ],
+    usefulPhrases: [
+      'a mix of both',
+      'high expectations',
+      'to avoid trouble',
+      'on the other hand,...',
+      'kind but still pushes me',
+    ],
+  },
+  {
+    id: 'sp-806',
+    topic: 'Education & Learning',
+    difficulty: 'hard',
+    question: 'Do you think school encourages curiosity, or does it sometimes kill it?',
+    sampleAnswers: [
+      {
+        label: 'It Can Go Either Way',
+        answer:
+          "I'd say it can go either way, depending on the teacher and the system. Small children are naturally full of questions, but if school is mostly about getting the right answer for a test, they slowly learn that questions are a waste of time. On the other hand, one great teacher can spark an interest that lasts a lifetime. Ideally, schools would reward students for asking good questions, not just for giving correct answers.",
+      },
+    ],
+    usefulPhrases: [
+      'it can go either way',
+      'naturally full of questions',
+      'a waste of time',
+      'spark an interest that lasts a lifetime',
+      'reward... for...',
+    ],
+  },
+  {
+    id: 'sp-807',
+    topic: 'Education & Learning',
+    difficulty: 'hard',
+    question: 'Does competition between students help them learn or hold them back?',
+    sampleAnswers: [
+      {
+        label: 'A Double-Edged Sword',
+        answer:
+          "It's a bit of a double-edged sword. A little friendly competition can be motivating — I definitely studied harder when my friend and I compared test scores. But when everything becomes a ranking, students start seeing each other as rivals rather than people to learn from. They stop sharing notes and helping each other. I think competition works best when it's about beating your own previous result, not beating the person next to you.",
+      },
+    ],
+    usefulPhrases: [
+      'a double-edged sword',
+      'friendly competition can be motivating',
+      'seeing each other as rivals',
+      'works best when...',
+      'beating your own previous result',
+    ],
+  },
+  {
+    id: 'sp-808',
+    topic: 'Education & Learning',
+    difficulty: 'hard',
+    question: "What do you think it really means to be an 'educated' person?",
+    sampleAnswers: [
+      {
+        label: 'More Than Qualifications',
+        answer:
+          "For me, being educated isn't about how many certificates you have. I've met people with very little formal schooling who are wise, curious and great at thinking for themselves. To me, an educated person knows how to find information, question what they hear, and change their mind when the evidence changes. They also know the limits of what they know. That kind of humility is rarer than a degree, and probably more valuable.",
+      },
+    ],
+    usefulPhrases: [
+      "isn't about how many...",
+      'thinking for themselves',
+      'change their mind when the evidence changes',
+      'the limits of what they know',
+      'rarer than..., and probably more valuable',
+    ],
+  },
 
   // ── Problem Solving ───────────────────────────────────
   {
@@ -9595,6 +14693,211 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'the cost to... is bigger than the reward',
       'has a bad reputation',
       "sometimes it's the brave choice",
+    ],
+  },
+  {
+    id: 'sp-809',
+    topic: 'Problem Solving',
+    difficulty: 'easy',
+    question: 'What do you do when something you bought turns out to be broken?',
+    sampleAnswers: [
+      {
+        label: 'Take It Straight Back',
+        answer:
+          "I take it back as soon as possible, usually the same day if I can. I keep the receipt and the box, just in case, and I check everything before I throw the packaging away. When I go back to the shop, I stay calm and polite, and explain exactly what's wrong. Most of the time they're happy to swap it. If they aren't, I ask to speak to someone else.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'I take it back to the shop with the receipt and ask for a new one.',
+      },
+    ],
+    usefulPhrases: [
+      'I take it back as soon as possible',
+      'just in case',
+      'I stay calm and polite',
+      "explain exactly what's wrong",
+      "they're happy to swap it",
+    ],
+  },
+  {
+    id: 'sp-810',
+    topic: 'Problem Solving',
+    difficulty: 'easy',
+    question: "What do you do when you're running late?",
+    sampleAnswers: [
+      {
+        label: 'Message First, Then Hurry',
+        answer:
+          "The first thing I do is send a quick message to say I'm running late and roughly when I'll arrive. I hate keeping people waiting without knowing. Then I try to find the fastest way there, even if it costs a bit more. I've also learned not to rush so much that I make things worse — like forgetting my keys on the way out the door.",
+      },
+    ],
+    usefulPhrases: [
+      'the first thing I do is...',
+      "I'm running late",
+      'I hate keeping people waiting',
+      'even if it costs a bit more',
+      'make things worse',
+    ],
+  },
+  {
+    id: 'sp-811',
+    topic: 'Problem Solving',
+    difficulty: 'easy',
+    question: 'What do you do when you get a song stuck in your head?',
+    sampleAnswers: [
+      {
+        label: 'Listen to the Whole Thing',
+        answer:
+          "Funnily enough, the thing that works best for me is listening to the whole song from start to finish. Usually it's only one line repeating over and over, and once I hear the ending, it finally goes away. If that doesn't work, I chew gum or put on a completely different song. The worst thing you can do is try not to think about it — that only makes it louder!",
+      },
+    ],
+    usefulPhrases: [
+      'funnily enough,...',
+      'from start to finish',
+      'over and over',
+      'it finally goes away',
+      'the worst thing you can do is...',
+    ],
+  },
+  {
+    id: 'sp-812',
+    topic: 'Problem Solving',
+    difficulty: 'medium',
+    question: 'Tell me about a time you had to come up with a creative solution with very few resources.',
+    sampleAnswers: [
+      {
+        label: 'The Picnic Without a Knife',
+        answer:
+          "A few summers ago, my friends and I went on a picnic and realised we'd forgotten a knife — and we had a whole watermelon. Everyone just stared at it. In the end, I used the edge of a metal spoon to make a line around it, and then we dropped it carefully on a clean rock so it split in half. It was messy, but it worked, and it's still the story everyone tells about that day.",
+      },
+    ],
+    usefulPhrases: [
+      "we realised we'd forgotten...",
+      'everyone just stared at it',
+      'in the end,...',
+      'it was messy, but it worked',
+      'the story everyone tells',
+    ],
+  },
+  {
+    id: 'sp-813',
+    topic: 'Problem Solving',
+    difficulty: 'medium',
+    question: "Why is it often easier to solve other people's problems than your own?",
+    sampleAnswers: [
+      {
+        label: 'Distance Helps',
+        answer:
+          "I think it's because we're not emotionally involved. When a friend tells me about a problem, I can see the situation clearly, almost from above. But when it's my own problem, I'm full of worries and 'what ifs', and I can't see the obvious answer. Recently I've started asking myself, 'What would I tell a friend in this situation?' It sounds simple, but it really helps me step back.",
+      },
+    ],
+    usefulPhrases: [
+      "we're not emotionally involved",
+      'see the situation clearly',
+      "I can't see the obvious answer",
+      'what would I tell a friend...?',
+      'step back',
+    ],
+  },
+  {
+    id: 'sp-814',
+    topic: 'Problem Solving',
+    difficulty: 'medium',
+    question: 'How do you share chores or costs fairly when you live with other people?',
+    sampleAnswers: [
+      {
+        label: 'Write It Down Early',
+        answer:
+          'From experience, the key is to agree on everything early, before anyone gets annoyed. When I shared a flat with two friends, we made a simple chart on the fridge — who cleans the bathroom, who takes out the rubbish — and we rotated it every week. For shared shopping, we put money into a jar at the start of the month. It sounds a bit formal, but it saved us from so many silly arguments.',
+      },
+    ],
+    usefulPhrases: [
+      'from experience,...',
+      'the key is to...',
+      'before anyone gets annoyed',
+      'we rotated it every week',
+      'it saved us from...',
+    ],
+  },
+  {
+    id: 'sp-815',
+    topic: 'Problem Solving',
+    difficulty: 'medium',
+    question: 'Tell me about a time you made a small mistake and managed to fix it quickly.',
+    sampleAnswers: [
+      {
+        label: 'The Wrong Date',
+        answer:
+          'Last year I invited some friends over for dinner and accidentally told half of them Friday and the other half Saturday. I only noticed on Thursday night when someone asked what to bring. I panicked for a minute, then just sent everyone a group message admitting my mistake and asking which day suited them best. They found it hilarious, we picked Saturday, and it turned into a really fun evening.',
+      },
+    ],
+    usefulPhrases: [
+      'I only noticed when...',
+      'I panicked for a minute',
+      'admitting my mistake',
+      'which day suited them best',
+      'it turned into...',
+    ],
+  },
+  {
+    id: 'sp-816',
+    topic: 'Problem Solving',
+    difficulty: 'hard',
+    question: 'Is talking about a problem actually helpful, or is it better to just take action?',
+    sampleAnswers: [
+      {
+        label: 'Talk First, Briefly',
+        answer:
+          'I think talking helps, but only up to a point. Explaining a problem out loud often makes it clearer — sometimes I find the answer halfway through a sentence. Talking also makes you feel less alone. The danger is when talking becomes a way of avoiding action. I know people who discuss the same problem for months and never change anything. So my approach is to talk it through once or twice, then decide on one small step and actually do it.',
+      },
+    ],
+    usefulPhrases: [
+      'only up to a point',
+      'out loud',
+      'halfway through a sentence',
+      'a way of avoiding action',
+      'talk it through',
+    ],
+  },
+  {
+    id: 'sp-817',
+    topic: 'Problem Solving',
+    difficulty: 'hard',
+    question: 'When time is short, is it better to deal with the cause of a problem or just fix the symptoms?',
+    sampleAnswers: [
+      {
+        label: 'Patch It, Then Return',
+        answer:
+          "In an ideal world, you'd always go for the cause. But in real life, sometimes you just need to stop the leak before you can work out why the pipe broke. I think a quick fix is fine as long as you're honest that it's temporary. The real mistake is patching something and then forgetting about it, because the same problem will come back, usually at the worst possible moment.",
+      },
+    ],
+    usefulPhrases: [
+      'in an ideal world,...',
+      'in real life,...',
+      "as long as you're honest that...",
+      'patching something',
+      'at the worst possible moment',
+    ],
+  },
+  {
+    id: 'sp-818',
+    topic: 'Problem Solving',
+    difficulty: 'hard',
+    question: "How much should you trust your gut when you face a problem you've never seen before?",
+    sampleAnswers: [
+      {
+        label: 'Listen, But Check',
+        answer:
+          "I'd say your gut is worth listening to, but not blindly. A gut feeling is often your brain noticing patterns you haven't consciously put into words yet. With something completely new, though, you don't have much experience for it to draw on, so it might just be fear or excitement talking. What I try to do is notice the feeling, then ask myself what's behind it before I decide.",
+      },
+    ],
+    usefulPhrases: [
+      'worth listening to, but not blindly',
+      'put into words',
+      'draw on',
+      '... talking',
+      "what's behind it",
     ],
   },
 
@@ -9976,6 +15279,210 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'only matters if...',
     ],
   },
+  {
+    id: 'sp-819',
+    topic: 'What If',
+    difficulty: 'easy',
+    question: 'If an extra day were added to every week, how would you spend it?',
+    sampleAnswers: [
+      {
+        label: 'A Day for Nothing',
+        answer:
+          "I'd make it an official 'do nothing' day. No plans, no chores, no alarm clock. I'd sleep in, make a slow breakfast, maybe go for a long walk, and read in the afternoon. The normal weekend always fills up with errands, so having one more day just for resting would be amazing. I think I'd be a much nicer person by Monday!",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "I'd do nothing at all. Just sleep, eat and read.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd make it...",
+      'sleep in',
+      'fills up with errands',
+      'just for resting',
+      "I'd be a much nicer person",
+    ],
+  },
+  {
+    id: 'sp-820',
+    topic: 'What If',
+    difficulty: 'easy',
+    question: 'If you could have any view from your bedroom window, what would it be?',
+    sampleAnswers: [
+      {
+        label: 'Ocean at Sunrise',
+        answer:
+          "I'd love to wake up to a view of the sea. I imagine opening the curtains and seeing the waves and the sun coming up over the water. Even on a grey day, the sea always looks different, so I'd never get bored of it. And at night I could fall asleep listening to the sound of the waves. That sounds like a dream to me.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd love to wake up to...",
+      'I imagine opening the curtains',
+      "I'd never get bored of it",
+      'fall asleep listening to...',
+      'that sounds like a dream',
+    ],
+  },
+  {
+    id: 'sp-821',
+    topic: 'What If',
+    difficulty: 'easy',
+    question: 'If you could shrink to the size of an ant for an hour, what would you do?',
+    sampleAnswers: [
+      {
+        label: 'Explore a Garden',
+        answer:
+          "I'd explore a garden. Everything would look enormous — a flower would be like a tree, and a raindrop would be like a swimming pool. I'd love to ride on a butterfly or climb up a blade of grass. I'd have to be careful not to get stepped on, though! It would be like visiting a completely new world in my own backyard.",
+      },
+    ],
+    usefulPhrases: [
+      'everything would look enormous',
+      "I'd love to...",
+      "I'd have to be careful not to...",
+      'like visiting a completely new world',
+    ],
+  },
+  {
+    id: 'sp-822',
+    topic: 'What If',
+    difficulty: 'medium',
+    question: 'If you swapped lives with a close friend for a week, what do you think would surprise you most?',
+    sampleAnswers: [
+      {
+        label: 'How Tired I Would Be',
+        answer:
+          "If I swapped with my best friend, I think I'd be shocked by how busy she is. She makes it look easy, but she has two kids, a dog and an elderly parent to look after. I'd probably be exhausted by Tuesday. I suspect she'd be surprised by how quiet my life is — maybe even a bit bored. It would definitely make me appreciate her more.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd be shocked by how...",
+      'she makes it look easy',
+      "I'd probably be exhausted by...",
+      'I suspect...',
+      'make me appreciate... more',
+    ],
+  },
+  {
+    id: 'sp-823',
+    topic: 'What If',
+    difficulty: 'medium',
+    question: 'If you had to move somewhere completely new and start over, how would you make it feel like home?',
+    sampleAnswers: [
+      {
+        label: 'Routine and People',
+        answer:
+          "The first thing I'd do is build a little routine — find a café I like, a place to walk, a market for groceries. Familiar habits make a strange place feel safer. Then I'd try to meet people, maybe by joining a class or a sports club. I'd also bring a few things from my old home, like photos and my favourite mug. Small things like that make a big difference on lonely evenings.",
+      },
+    ],
+    usefulPhrases: [
+      "the first thing I'd do is...",
+      'build a little routine',
+      'feel safer',
+      'make a big difference',
+      'on lonely evenings',
+    ],
+  },
+  {
+    id: 'sp-824',
+    topic: 'What If',
+    difficulty: 'medium',
+    question: 'If you could bring back one thing from the past that has mostly disappeared, what would it be?',
+    sampleAnswers: [
+      {
+        label: 'Handwritten Letters',
+        answer:
+          "I'd bring back writing letters to each other. My grandparents kept boxes of letters, and reading them now is so moving — you can see their handwriting, the little drawings in the corners, even the coffee stains. A letter takes time and effort, and that's exactly why it means so much. I'd love to get one in the post instead of just bills.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd bring back...",
+      'so moving',
+      'takes time and effort',
+      "that's exactly why it means so much",
+      'in the post',
+    ],
+  },
+  {
+    id: 'sp-825',
+    topic: 'What If',
+    difficulty: 'medium',
+    question: 'If you had to spend a month without spending any money, how would you get by?',
+    sampleAnswers: [
+      {
+        label: 'Swaps and Favours',
+        answer:
+          "First, I'd stock up on rice, beans and vegetables beforehand — I'm not brave enough to start with an empty cupboard! Then I'd walk everywhere and cook every meal at home. For fun, I'd go to free places like parks and museums on free days. I'd probably swap things with neighbours too, like baking bread in exchange for fresh herbs. It would be hard, but I think I'd learn a lot about what I really need.",
+      },
+    ],
+    usefulPhrases: [
+      'stock up on...',
+      "I'm not brave enough to...",
+      'in exchange for...',
+      'it would be hard, but...',
+      'what I really need',
+    ],
+  },
+  {
+    id: 'sp-826',
+    topic: 'What If',
+    difficulty: 'hard',
+    question: 'If people could only remember the last year of their lives, how would relationships change?',
+    sampleAnswers: [
+      {
+        label: 'Love Would Need Renewing',
+        answer:
+          "That's a fascinating idea. I think relationships would become much more about the present. You couldn't rely on shared history or old favours — you'd have to earn someone's trust again and again. In a way, that could be beautiful, because people would make more effort with each other. But it would also be very sad. So much of what makes old friendships special is the memories you build together over decades.",
+      },
+    ],
+    usefulPhrases: [
+      "that's a fascinating idea",
+      'rely on shared history',
+      "earn someone's trust again and again",
+      'in a way, that could be...',
+      'build together over decades',
+    ],
+  },
+  {
+    id: 'sp-827',
+    topic: 'What If',
+    difficulty: 'hard',
+    question: "If money didn't exist, what do you think would motivate people to do things?",
+    sampleAnswers: [
+      {
+        label: 'Pride and Belonging',
+        answer:
+          "I'd like to believe people would still do plenty — just for different reasons. Some would do things because they enjoy them, others because they want respect or to feel useful. Think about how many people volunteer, cook for their families or help strangers without being paid. The hard part would be the boring but necessary jobs, like cleaning streets. Society would need to find a way to make those feel valued, or share them out fairly.",
+      },
+    ],
+    usefulPhrases: [
+      "I'd like to believe...",
+      'for different reasons',
+      'to feel useful',
+      'boring but necessary',
+      'share them out fairly',
+    ],
+  },
+  {
+    id: 'sp-828',
+    topic: 'What If',
+    difficulty: 'hard',
+    question: 'If you could see how every decision you made would turn out, would life still feel meaningful?',
+    sampleAnswers: [
+      {
+        label: 'It Would Lose Its Spark',
+        answer:
+          "I suspect it would feel a lot flatter. Part of what makes life exciting is not knowing — taking a chance and seeing what happens. If I could see every outcome in advance, I'd always pick the 'best' option, and I'd never be surprised. I'd also miss out on the good things that come from mistakes. Some of my happiest moments came from decisions that looked wrong at the time.",
+      },
+    ],
+    usefulPhrases: [
+      'I suspect it would...',
+      'part of what makes life exciting is...',
+      'taking a chance',
+      'in advance',
+      'looked wrong at the time',
+    ],
+  },
 
   // ── Society & Community ───────────────────────────────
   {
@@ -10275,6 +15782,210 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'still matters',
       'problems start when...',
       'hold on to traditions',
+    ],
+  },
+  {
+    id: 'sp-829',
+    topic: 'Society & Community',
+    difficulty: 'easy',
+    question: 'Is there a local shop or café where people know you?',
+    sampleAnswers: [
+      {
+        label: 'My Corner Café',
+        answer:
+          "Yes, there's a little café at the end of my street. I go there almost every morning, so the owner knows my order before I even say it. Sometimes she asks how my weekend was or tells me about her grandchildren. It's a small thing, but it makes me feel like I belong in the area. I'd really miss it if it ever closed.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          'Yes, a small café near my home. The owner knows my usual order.',
+      },
+    ],
+    usefulPhrases: [
+      'at the end of my street',
+      'knows my order before I even say it',
+      "it's a small thing, but...",
+      'I belong in the area',
+      "I'd really miss it if...",
+    ],
+  },
+  {
+    id: 'sp-830',
+    topic: 'Society & Community',
+    difficulty: 'easy',
+    question: 'Do you ever chat with strangers while you are waiting somewhere?',
+    sampleAnswers: [
+      {
+        label: 'Sometimes, If They Start',
+        answer:
+          "Sometimes, yes — usually if the other person starts it. Waiting in a long queue or at a bus stop is the perfect time for a little chat about the weather or how slow everything is. I've had some lovely conversations that way, and once an older man gave me a great recipe while we waited at the post office. I wouldn't start a conversation with someone wearing headphones, though.",
+      },
+    ],
+    usefulPhrases: [
+      'if the other person starts it',
+      'the perfect time for...',
+      "I've had some lovely conversations that way",
+      'while we waited at...',
+      "I wouldn't... though",
+    ],
+  },
+  {
+    id: 'sp-831',
+    topic: 'Society & Community',
+    difficulty: 'easy',
+    question: 'How do people keep the streets clean where you live?',
+    sampleAnswers: [
+      {
+        label: 'Everyone Does a Little',
+        answer:
+          "Where I live, there are bins on most corners, and a street cleaner comes by early every morning. Most people are pretty good about not dropping litter. Some neighbours also sweep the pavement in front of their houses, which I really like. Once a month, a few families organise a clean-up in the local park, and anyone can join. It's nice to see people taking care of the place.",
+      },
+    ],
+    usefulPhrases: [
+      'comes by early every morning',
+      'pretty good about...',
+      'organise a clean-up',
+      'anyone can join',
+      'taking care of the place',
+    ],
+  },
+  {
+    id: 'sp-832',
+    topic: 'Society & Community',
+    difficulty: 'medium',
+    question: 'Tell me about a time a group of people came together to help someone.',
+    sampleAnswers: [
+      {
+        label: 'The Flooded Shop',
+        answer:
+          'A couple of years ago, heavy rain flooded a small bakery on my street. The next morning, people just started turning up — neighbours, regular customers, even kids from the school nearby. Some brought buckets and mops, others carried the soaked flour bags outside. By the afternoon, the place was almost dry. The owner cried and gave everyone free bread for a week. It reminded me how kind people can be when it matters.',
+      },
+    ],
+    usefulPhrases: [
+      'people just started turning up',
+      'by the afternoon,...',
+      'it reminded me how...',
+      'when it matters',
+    ],
+  },
+  {
+    id: 'sp-833',
+    topic: 'Society & Community',
+    difficulty: 'medium',
+    question: 'Why do you think some people volunteer much more than others?',
+    sampleAnswers: [
+      {
+        label: 'Time and Example',
+        answer:
+          "Partly, it's about time — not everyone can spare a free Saturday, especially if they're looking after family. But I think example matters a lot too. People who grew up seeing their parents help out tend to do it naturally, as if it's just part of life. Others would love to help, but they don't know where to start. Sometimes all it takes is a friend saying, 'Come with me this weekend.'",
+      },
+    ],
+    usefulPhrases: [
+      "partly, it's about...",
+      'spare a free Saturday',
+      'tend to do it naturally',
+      "they don't know where to start",
+      'all it takes is...',
+    ],
+  },
+  {
+    id: 'sp-834',
+    topic: 'Society & Community',
+    difficulty: 'medium',
+    question: 'How is life different for young people and older people in your community?',
+    sampleAnswers: [
+      {
+        label: 'Different Rhythms',
+        answer:
+          "The biggest difference is probably the pace. Young people where I live are always rushing — studying, going out, moving around. Older people have a slower rhythm; you'll see them in the park in the early morning or chatting outside their homes in the evening. What's a shame is that the two groups don't mix much. When they do, like at local festivals, both sides seem to really enjoy it.",
+      },
+    ],
+    usefulPhrases: [
+      'the biggest difference is probably...',
+      'a slower rhythm',
+      "what's a shame is that...",
+      "don't mix much",
+      'both sides seem to...',
+    ],
+  },
+  {
+    id: 'sp-835',
+    topic: 'Society & Community',
+    difficulty: 'medium',
+    question: 'Should people be expected to help with community projects, or should it always be a free choice?',
+    sampleAnswers: [
+      {
+        label: 'Encouraged, Not Forced',
+        answer:
+          'I think it should be strongly encouraged, but not forced. When people are made to help, they often do the bare minimum and feel resentful. When they choose to, they bring energy and ideas. That said, a community can make helping easier and more fun — short tasks, snacks, a bit of music. In my area, the clean-up days are basically a social event now, and almost everyone turns up.',
+      },
+    ],
+    usefulPhrases: [
+      'strongly encouraged, but not forced',
+      'do the bare minimum',
+      'feel resentful',
+      'basically a social event',
+      'almost everyone turns up',
+    ],
+  },
+  {
+    id: 'sp-836',
+    topic: 'Society & Community',
+    difficulty: 'hard',
+    question: 'What makes someone a good role model in a community?',
+    sampleAnswers: [
+      {
+        label: 'Consistency Over Fame',
+        answer:
+          "For me, a good role model isn't necessarily someone famous or successful. It's someone who behaves well consistently, even when nobody's watching. Think of the neighbour who always checks on the elderly lady next door, or the shopkeeper who's fair to every customer. Young people notice those things more than we realise. Role models teach through what they do every day, not through big speeches.",
+      },
+    ],
+    usefulPhrases: [
+      "isn't necessarily someone...",
+      "even when nobody's watching",
+      'checks on...',
+      'more than we realise',
+      'not through big speeches',
+    ],
+  },
+  {
+    id: 'sp-837',
+    topic: 'Society & Community',
+    difficulty: 'hard',
+    question: 'Is it fairer to treat everyone exactly the same, or to give extra help to those who need it?',
+    sampleAnswers: [
+      {
+        label: 'Fair Is Not Always Equal',
+        answer:
+          "I used to think fairness meant treating everyone the same, but I've changed my mind. Imagine giving everyone the same pair of shoes — it's equal, but it only fits a few people. If someone starts with fewer advantages, a little extra support helps them reach the same starting line. The challenge is doing it in a way that feels transparent, so others don't feel it's unjust. Getting that balance right is really hard.",
+      },
+    ],
+    usefulPhrases: [
+      "I've changed my mind",
+      'imagine...',
+      'reach the same starting line',
+      'in a way that feels transparent',
+      'getting that balance right',
+    ],
+  },
+  {
+    id: 'sp-838',
+    topic: 'Society & Community',
+    difficulty: 'hard',
+    question: 'Can small acts of kindness really change a society, or are bigger changes needed?',
+    sampleAnswers: [
+      {
+        label: 'Both Matter',
+        answer:
+          "I believe we need both, but I wouldn't underestimate small acts. They shape the everyday mood of a place — whether people feel safe, trusted, and willing to help. Kindness is also contagious; when someone holds a door for me, I'm more likely to do it for the next person. Still, kindness alone can't fix things like poor housing or unfair systems. Those need bigger, organised changes, ideally driven by people who already care about each other.",
+      },
+    ],
+    usefulPhrases: [
+      "I wouldn't underestimate...",
+      'the everyday mood of a place',
+      'kindness is contagious',
+      "I'm more likely to...",
+      "... alone can't fix...",
     ],
   },
 
@@ -10581,6 +16292,210 @@ export const speakingQuestions: SpeakingQuestion[] = [
       'what really matters is...',
       "I'll work on those sounds",
       'nobody thinks less of them',
+    ],
+  },
+  {
+    id: 'sp-839',
+    topic: 'Languages & Communication',
+    difficulty: 'easy',
+    question: 'Which English sounds are the hardest for you to pronounce?',
+    sampleAnswers: [
+      {
+        label: "The 'th' Sound",
+        answer:
+          "For me, it's definitely the 'th' sound, like in 'think' and 'this'. I have to remember to put my tongue between my teeth, and when I'm speaking fast I forget completely. 'Three' sometimes comes out as 'tree', which can be confusing! I practise by reading short sentences out loud slowly, and I think I'm getting better.",
+      },
+      {
+        label: 'Short & Simple',
+        answer:
+          "The 'th' sound. 'Three' sometimes sounds like 'tree' when I say it.",
+      },
+    ],
+    usefulPhrases: [
+      "for me, it's definitely...",
+      "when I'm speaking fast",
+      'comes out as...',
+      'out loud',
+      "I think I'm getting better",
+    ],
+  },
+  {
+    id: 'sp-840',
+    topic: 'Languages & Communication',
+    difficulty: 'easy',
+    question: 'Do you ever talk to yourself?',
+    sampleAnswers: [
+      {
+        label: 'All the Time',
+        answer:
+          "All the time, actually! Mostly in my head, but sometimes out loud when I'm alone at home. I talk myself through things like cooking or looking for my keys — 'Okay, where did I put them?' It helps me stay organised. My family laughs at me when they catch me doing it, but I've read that it's completely normal and can even help you think more clearly.",
+      },
+    ],
+    usefulPhrases: [
+      'all the time, actually',
+      'I talk myself through...',
+      'it helps me stay...',
+      'when they catch me doing it',
+      "it's completely normal",
+    ],
+  },
+  {
+    id: 'sp-841',
+    topic: 'Languages & Communication',
+    difficulty: 'easy',
+    question: 'Do you like sending handwritten cards or notes?',
+    sampleAnswers: [
+      {
+        label: 'For Special Occasions',
+        answer:
+          "Yes, I love it, especially for birthdays. I keep a little box of cards at home so I always have one ready. Writing by hand feels more personal than a quick message, and people often keep cards for years. My handwriting isn't very neat, but I don't think anyone minds. It's the thought that counts.",
+      },
+    ],
+    usefulPhrases: [
+      'I keep... so I always have one ready',
+      'feels more personal than...',
+      'keep cards for years',
+      "it's the thought that counts",
+    ],
+  },
+  {
+    id: 'sp-842',
+    topic: 'Languages & Communication',
+    difficulty: 'medium',
+    question: 'Why do you think jokes are so hard to understand in another language?',
+    sampleAnswers: [
+      {
+        label: 'Culture Hides in Jokes',
+        answer:
+          'Jokes depend on so much more than vocabulary. A lot of humour is based on wordplay, or on shared cultural knowledge — a famous TV show, a local habit, a stereotype everyone knows. You can understand every word and still have no idea why people are laughing. I remember sitting at a dinner where everyone burst out laughing, and I just smiled and nodded. Now, understanding a joke feels like a real milestone for me.',
+      },
+    ],
+    usefulPhrases: [
+      'depend on so much more than...',
+      'shared cultural knowledge',
+      'still have no idea why...',
+      'smiled and nodded',
+      'a real milestone',
+    ],
+  },
+  {
+    id: 'sp-843',
+    topic: 'Languages & Communication',
+    difficulty: 'medium',
+    question: 'How does the way you speak change depending on who you are talking to?',
+    sampleAnswers: [
+      {
+        label: 'Like Switching Channels',
+        answer:
+          "Quite a lot, now that I think about it. With small children, I speak more slowly and use simple words and a cheerful voice. With my close friends, I'm much more relaxed — I use slang, interrupt, and finish their sentences. With older people or someone I've just met, I'm more polite and careful. It's almost like switching channels, and I do it without even noticing.",
+      },
+    ],
+    usefulPhrases: [
+      'now that I think about it',
+      "I'm much more relaxed",
+      'finish their sentences',
+      "it's almost like...",
+      'without even noticing',
+    ],
+  },
+  {
+    id: 'sp-844',
+    topic: 'Languages & Communication',
+    difficulty: 'medium',
+    question: 'Is it better to learn grammar rules first, or just start speaking?',
+    sampleAnswers: [
+      {
+        label: 'Speak First, Polish Later',
+        answer:
+          "From my own experience, starting to speak early worked much better for me. When I focused only on grammar, I knew all the rules but froze when someone actually spoke to me. Once I started chatting, even badly, my confidence grew much faster. That said, grammar isn't useless — it helps you understand why you keep making the same mistakes. So I'd say speak first, then use grammar to polish what you say.",
+      },
+    ],
+    usefulPhrases: [
+      'from my own experience,...',
+      'froze when...',
+      'my confidence grew',
+      "grammar isn't useless",
+      'polish what you say',
+    ],
+  },
+  {
+    id: 'sp-845',
+    topic: 'Languages & Communication',
+    difficulty: 'medium',
+    question: 'Why do you think silence feels so uncomfortable in a conversation?',
+    sampleAnswers: [
+      {
+        label: 'We Fill the Gap',
+        answer:
+          "I think silence makes us worry that something's gone wrong — that the other person is bored, or that we've said something odd. So we rush to fill the gap with small talk. Interestingly, it's different with close friends; I can sit in silence with my best friend for ages and it feels totally natural. Maybe comfortable silence is actually a sign of a strong relationship.",
+      },
+    ],
+    usefulPhrases: [
+      "something's gone wrong",
+      'fill the gap',
+      'interestingly,...',
+      'sit in silence',
+      'a sign of a strong relationship',
+    ],
+  },
+  {
+    id: 'sp-846',
+    topic: 'Languages & Communication',
+    difficulty: 'hard',
+    question: 'Can you ever fully understand a culture without speaking its language?',
+    sampleAnswers: [
+      {
+        label: 'Only Up to a Point',
+        answer:
+          "You can understand a lot — the food, the customs, the history — but I believe there's a layer you'll always miss. Some words carry feelings or ideas that don't really exist in other languages, and translation flattens them. Also, the way people joke, argue or show affection is tied up with the language itself. Without it, you're watching the culture through a window rather than stepping inside.",
+      },
+    ],
+    usefulPhrases: [
+      "there's a layer you'll always miss",
+      'carry feelings or ideas',
+      'translation flattens them',
+      'tied up with...',
+      'through a window rather than stepping inside',
+    ],
+  },
+  {
+    id: 'sp-847',
+    topic: 'Languages & Communication',
+    difficulty: 'hard',
+    question: 'Why do misunderstandings happen even between people who speak the same language?',
+    sampleAnswers: [
+      {
+        label: 'We Hear What We Expect',
+        answer:
+          "Because words are only part of the message. We all bring our own mood, history and assumptions to a conversation, so we often hear what we expect rather than what's actually said. A simple 'fine' can mean happy, annoyed or exhausted, depending on the tone. On top of that, people rarely check what the other person meant — they just react. Asking 'Do you mean...?' more often would probably prevent half the arguments in the world.",
+      },
+    ],
+    usefulPhrases: [
+      'words are only part of the message',
+      'hear what we expect',
+      'depending on the tone',
+      'on top of that,...',
+      'prevent half the...',
+    ],
+  },
+  {
+    id: 'sp-848',
+    topic: 'Languages & Communication',
+    difficulty: 'hard',
+    question: 'Is being a good listener a skill you can learn, or is it mostly personality?',
+    sampleAnswers: [
+      {
+        label: 'Definitely Learnable',
+        answer:
+          "Personality probably gives some people a head start, but I'm convinced listening can be learned. I used to be terrible at it — I'd be planning my reply while the other person was still talking. What helped was a simple habit: before answering, I repeat back what I think they said. It felt awkward at first, but people noticed, and conversations became much deeper. So yes, it takes practice, but anyone can get better.",
+      },
+    ],
+    usefulPhrases: [
+      'gives some people a head start',
+      "I'm convinced...",
+      'planning my reply',
+      'it felt awkward at first',
+      'anyone can get better',
     ],
   },
 ];
