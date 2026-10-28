@@ -48,6 +48,8 @@ interface PracticeButtonProps {
   label?: string;
   /** `sm` for the compact button used inside expanded cards. */
   size?: 'sm' | 'md';
+  /** Called once a mode is picked and the session actually opens. */
+  onStart?: () => void;
 }
 
 /**
@@ -58,7 +60,7 @@ interface PracticeButtonProps {
  * Every turn of the conversation is a live AI call, so this is Pro-only. The
  * button stays visible as a teaser; the `ai` function re-checks Pro server-side.
  */
-export function PracticeButton({ topic, focus, label = 'Practice', size = 'md' }: PracticeButtonProps) {
+export function PracticeButton({ topic, focus, label = 'Practice', size = 'md', onStart }: PracticeButtonProps) {
   const startPractice = useFabStore((s) => s.startPractice);
   const { user } = useAuth();
   const { isPro, loading: proLoading } = useIsPro();
@@ -115,6 +117,7 @@ export function PracticeButton({ topic, focus, label = 'Practice', size = 'md' }
   const pick = (mode: PracticeMode) => {
     setMenu(null);
     startPractice({ topicId: 'speaking', mode, context: { label: topic, focus } });
+    onStart?.();
   };
 
   return (

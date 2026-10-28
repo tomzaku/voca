@@ -2,10 +2,9 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import TextareaAutosize from 'react-textarea-autosize';
 import toast from 'react-hot-toast';
-import { speakingQuestions, speakingTopics, type SpeakingDifficulty } from '../data/englishSpeaking';
+import { ShortConversationTab } from './ShortConversationTab';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { dialogues, dialogueTopics } from '../data/englishDialogues';
-import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
 import { Selector } from './Selector';
 import { speakText, stopSpeaking, preloadTts, CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
@@ -150,214 +149,6 @@ function SelectionSpeaker({ containerRef }: { containerRef: React.RefObject<HTML
         </button>
       )}
     </div>
-  );
-}
-
-/* ─── Tab: Short Conversation ────────────────────────────────── */
-const DIFFICULTIES: SpeakingDifficulty[] = ['easy', 'medium', 'hard'];
-const DIFFICULTY_LABEL: Record<SpeakingDifficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
-const difficultyColor = (level: SpeakingDifficulty) => {
-  switch (level) {
-    case 'easy': return 'text-accent-green bg-accent-green/10 border-accent-green/20';
-    case 'medium': return 'text-accent-orange bg-accent-orange/10 border-accent-orange/20';
-    case 'hard': return 'text-accent-red bg-accent-red/10 border-accent-red/20';
-  }
-};
-
-function ConversationTab() {
-  const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
-  const [selectedDifficulty, setSelectedDifficulty] = useState<SpeakingDifficulty | 'all'>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [spinning, setSpinning] = useState(false);
-
-  const filtered = useMemo(
-    () => speakingQuestions.filter((q) => {
-      if (selectedTopic !== 'all' && q.topic !== selectedTopic) return false;
-      if (selectedDifficulty !== 'all' && q.difficulty !== selectedDifficulty) return false;
-      return true;
-    }),
-    [selectedTopic, selectedDifficulty],
-  );
-
-  const topicCounts = useMemo(() => {
-    const map: Record<string, number> = {};
-    speakingQuestions.forEach((q) => { map[q.topic] = (map[q.topic] || 0) + 1; });
-    return map;
-  }, []);
-
-  const difficultyCounts = useMemo(() => {
-    const map: Record<SpeakingDifficulty, number> = { easy: 0, medium: 0, hard: 0 };
-    speakingQuestions.forEach((q) => { map[q.difficulty]++; });
-    return map;
-  }, []);
-
-  const pickRandomTopic = useCallback(() => {
-    const others = speakingTopics.filter((t) => t !== selectedTopic);
-    const pool = others.length > 0 ? others : [...speakingTopics];
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    setSpinning(true);
-    setSelectedTopic(pick);
-    setExpandedId(null);
-    setTimeout(() => setSpinning(false), 500);
-  }, [selectedTopic]);
-
-  return (
-    <>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-text-muted">
-          {selectedTopic === 'all' ? `${speakingQuestions.length} questions` : `${filtered.length} questions · ${selectedTopic}`}
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={pickRandomTopic}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-accent-orange/20 bg-accent-orange/5 text-accent-orange hover:bg-accent-orange/10 transition-all cursor-pointer"
-          >
-            <svg
-              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              className={spinning ? 'animate-spin' : ''}
-            >
-              <polyline points="16 3 21 3 21 8" />
-              <line x1="4" y1="20" x2="21" y2="3" />
-              <polyline points="21 16 21 21 16 21" />
-              <line x1="15" y1="15" x2="21" y2="21" />
-            </svg>
-            Random Topic
-          </button>
-          <PracticeButton
-            topic={selectedTopic === 'all' ? 'Everyday Speaking' : selectedTopic}
-            label={selectedTopic === 'all' ? 'Practice' : 'Practice this topic'}
-          />
-        </div>
-      </div>
-
-      <div className="flex gap-1.5 mb-3">
-        <button
-          onClick={() => { setSelectedDifficulty('all'); setExpandedId(null); }}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-            selectedDifficulty === 'all'
-              ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20'
-              : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-          }`}
-        >
-          All Levels
-        </button>
-        {DIFFICULTIES.map((level) => (
-          <button
-            key={level}
-            onClick={() => { setSelectedDifficulty(level); setExpandedId(null); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-              selectedDifficulty === level
-                ? difficultyColor(level)
-                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-            }`}
-          >
-            {DIFFICULTY_LABEL[level]} <span className="ml-1 opacity-60">{difficultyCounts[level]}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 mb-6">
-        <button
-          onClick={() => { setSelectedTopic('all'); setExpandedId(null); }}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-            selectedTopic === 'all'
-              ? 'bg-accent-green/10 text-accent-green border-accent-green/20'
-              : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-          }`}
-        >
-          All <span className="ml-1 opacity-60">{speakingQuestions.length}</span>
-        </button>
-        {speakingTopics.map((topic) => (
-          <button
-            key={topic}
-            onClick={() => { setSelectedTopic(topic); setExpandedId(null); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-              selectedTopic === topic
-                ? 'bg-accent-green/10 text-accent-green border-accent-green/20'
-                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-            }`}
-          >
-            {topic} <span className="ml-1 opacity-60">{topicCounts[topic] || 0}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {filtered.map((q) => {
-          const isExpanded = expandedId === q.id;
-          return (
-            <div key={q.id} className="rounded-lg border border-border bg-bg-card overflow-hidden transition-all">
-              <button
-                onClick={() => setExpandedId(isExpanded ? null : q.id)}
-                className="w-full text-left px-5 py-4 flex items-start gap-3 cursor-pointer hover:bg-bg-hover/50 transition-colors"
-              >
-                <span className="w-7 h-7 rounded-md bg-accent-green/15 text-accent-green flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                  Q
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-medium text-text-primary leading-relaxed">{q.question}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[11px] text-text-muted">{q.topic}</span>
-                    <span className="text-[10px] text-text-muted">·</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${difficultyColor(q.difficulty)}`}>
-                      {DIFFICULTY_LABEL[q.difficulty]}
-                    </span>
-                  </div>
-                </div>
-                <svg
-                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  className={`text-text-muted shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-
-              {isExpanded && (
-                <div className="border-t border-border animate-fade-in">
-                  <div className="px-5 py-3 flex items-center justify-between gap-3 bg-bg-tertiary/50 border-b border-border">
-                    <span className="text-xs text-text-muted">Answer it yourself with an AI partner</span>
-                    <PracticeButton topic={q.topic} focus={q.question} label="Practice this question" size="sm" />
-                  </div>
-                  <div className="px-5 py-4 space-y-4">
-                    {q.sampleAnswers.map((sa, i) => (
-                      <div key={i}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-accent-cyan">Sample Answer</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted">{sa.label}</span>
-                          </div>
-                          <ReadAloud text={sa.answer} />
-                        </div>
-                        <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{sa.answer}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {q.usefulPhrases && q.usefulPhrases.length > 0 && (
-                    <div className="px-5 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
-                      <p className="text-xs font-semibold text-accent-yellow mb-2">Useful Phrases</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {q.usefulPhrases.map((phrase, i) => (
-                          <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-accent-yellow/10 text-text-secondary border border-accent-yellow/15">
-                            {phrase}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-text-muted">
-          <p className="text-sm">No questions found for this filter.</p>
-        </div>
-      )}
-    </>
   );
 }
 
@@ -1135,7 +926,7 @@ export function EnglishSpeakingPage() {
         <span className="font-bold text-text-primary">{activeMeta.label}</span>
       </h1>
 
-      {activeTab === 'conversation' && <ConversationTab />}
+      {activeTab === 'conversation' && <ShortConversationTab />}
       {activeTab === 'dialogue' && <DialogueTab />}
       {activeTab === 'ielts' && <IeltsTab />}
       {activeTab === 'read' && <ReadAloudTab />}
