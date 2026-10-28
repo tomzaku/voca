@@ -134,7 +134,7 @@ export function QuickReview() {
           Quick review
         </p>
         <div className="flex items-center justify-center gap-2">
-          <h1 className="font-title text-3xl text-accent-cyan">
+          <h1 className="font-title font-black text-3xl text-accent-cyan">
             {wordData.headword || wordData.word}
           </h1>
           <button

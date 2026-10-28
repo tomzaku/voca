@@ -21,7 +21,7 @@ export function SimilarWords({ word, suggestions, onPick }: {
       <div className="card-game p-6 sm:p-8 text-center">
         <div className="text-5xl mb-3 animate-bob">🔍</div>
 
-        <h2 className="font-title text-2xl sm:text-3xl text-text-primary mb-1.5 break-words">
+        <h2 className="font-title font-black text-2xl sm:text-3xl text-text-primary mb-1.5 break-words">
           “{word}”
         </h2>
         <p className="text-sm text-text-muted mb-6">

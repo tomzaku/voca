@@ -101,4 +101,4 @@ export function worldPalette(): WorldPalette {
   };
 }
 
-export const FONT = '"Baloo 2", "Nunito", sans-serif';
+export const FONT = '"Nunito", sans-serif';

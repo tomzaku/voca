@@ -253,19 +253,19 @@ export function DashboardPage() {
         <div className="flex items-center justify-around text-center">
           <div className="flex flex-col items-center gap-1">
             <Icon icon="lucide:flame" className="text-2xl text-accent-orange" />
-            <span className="text-3xl font-title text-accent-orange tabular-nums">{streak}</span>
+            <span className="text-3xl font-title font-black text-accent-orange tabular-nums">{streak}</span>
             <span className="text-xs text-text-muted">day streak</span>
           </div>
           <div className="w-px h-14 bg-border" />
           <div className="flex flex-col items-center gap-1">
             <Icon icon="lucide:trophy" className="text-2xl text-accent-yellow" />
-            <span className="text-3xl font-title text-accent-yellow tabular-nums">{longest}</span>
+            <span className="text-3xl font-title font-black text-accent-yellow tabular-nums">{longest}</span>
             <span className="text-xs text-text-muted">personal best</span>
           </div>
           <div className="w-px h-14 bg-border" />
           <div className="flex flex-col items-center gap-1">
             <Icon icon="lucide:book-open" className="text-2xl text-accent-cyan" />
-            <span className="text-3xl font-title text-accent-cyan tabular-nums">
+            <span className="text-3xl font-title font-black text-accent-cyan tabular-nums">
               {activity.total}
             </span>
             <span className="text-xs text-text-muted">

@@ -223,7 +223,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
         <Icon icon="solar:arrow-left-bold" className="text-xl" />
       </button>
       <div>
-        <h1 className="font-title text-2xl text-accent-purple leading-none">Story Gaps</h1>
+        <h1 className="font-title font-black text-2xl text-accent-purple leading-none">Story Gaps</h1>
         <p className="text-xs text-text-muted font-bold mt-0.5">Drag your words into the blanks</p>
       </div>
     </div>
@@ -350,7 +350,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
           <Confetti />
           <div className="animate-bounce-in">
             <div className="text-6xl mb-3 animate-bob">🎉</div>
-            <h2 className="font-title text-3xl text-accent-green mb-2">Story complete!</h2>
+            <h2 className="font-title font-black text-3xl text-accent-green mb-2">Story complete!</h2>
             <p className="text-sm text-text-secondary font-bold">
               You filled all {cloze?.answers.length} gaps correctly.
             </p>

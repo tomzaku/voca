@@ -175,7 +175,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
               <div className="mx-auto mb-2 w-36 h-36">
                 <CatMascot pose="correct" size={140} />
               </div>
-              <p className="text-accent-green font-title text-3xl">
+              <p className="text-accent-green font-title font-black text-3xl">
                 {streak >= 3 ? `${streak}× COMBO!` : 'Correct!'}
               </p>
               <p className="text-accent-cyan font-display font-extrabold text-base mt-1">+{lastGain} pts</p>

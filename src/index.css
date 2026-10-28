@@ -27,10 +27,15 @@
   /* Shared page container width — keep every page aligned (`max-w-page`). */
   --container-page: 74rem;
 
-  --font-display: "Baloo 2", "Nunito", sans-serif;
+  /* One typeface for the whole app. The other tokens are aliases so the
+     existing `font-display` / `font-title` / `font-code` classes keep working;
+     Titan One's chunky letters were hard to read at word size. */
   --font-body: "Nunito", sans-serif;
-  --font-code: "Nunito", sans-serif;
-  --font-title: "Titan One", "Baloo 2", cursive;
+  --font-sans: var(--font-body);
+  --font-display: var(--font-body);
+  --font-title: var(--font-body);
+  --font-code: var(--font-body);
+  --font-mono: var(--font-body);
 }
 
 :root {

@@ -67,7 +67,7 @@ export function ReviewPage() {
 
   return (
     <div className="max-w-page mx-auto px-4 py-8">
-      <h1 className="font-title text-2xl text-text-primary mb-1">Review</h1>
+      <h1 className="font-title font-black text-2xl text-text-primary mb-1">Review</h1>
       <p className="text-sm text-text-muted mb-6">
         Pick a way to practice — each one lets you choose which list (Recent, Saved, Struggling, …) it draws from.
       </p>
@@ -99,7 +99,7 @@ export function ReviewPage() {
                     </span>
                   )}
                 </div>
-                <h2 className="font-title text-xl text-text-primary mb-1">{tile.label}</h2>
+                <h2 className="font-title font-black text-xl text-text-primary mb-1">{tile.label}</h2>
                 <p className="text-xs text-text-muted leading-relaxed">{tile.blurb}</p>
               </button>
             );
