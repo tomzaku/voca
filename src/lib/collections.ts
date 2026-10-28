@@ -9,7 +9,7 @@
 import type { VocabularyWord } from '../types';
 import { WORD_LIST } from './wordService';
 import { CEFR_WORDS, type CefrLevel } from '../data/cefrWords';
-import { TOPIC_COLLECTIONS, type TopicColor } from '../data/topicWords';
+import { TOPIC_COLLECTIONS } from '../data/topicWords';
 
 type W = { word: string; level: VocabularyWord['level'] };
 
@@ -26,8 +26,6 @@ export interface Collection {
   kind: CollectionKind;
   /** Iconify name — topics only. */
   icon?: string;
-  /** Tint for the topic's tile and header — topics only. */
-  color?: TopicColor;
   words: W[];
 }
 
@@ -38,7 +36,6 @@ export interface CollectionInfo {
   system: boolean;
   kind: CollectionKind;
   icon?: string;
-  color?: TopicColor;
   count: number;
 }
 
@@ -87,7 +84,6 @@ export function getCollections(): Collection[] {
       system: true,
       kind: 'topic',
       icon: t.icon,
-      color: t.color,
       words: t.words.map((word) => {
         const cefr = cefrByWord.get(word);
         return { word, level: cefr ? appLevel(cefr) : 'intermediate' };
@@ -106,8 +102,8 @@ export function getCollection(id: string): Collection {
 export function listCollections(kind?: CollectionKind): CollectionInfo[] {
   return getCollections()
     .filter((c) => !kind || c.kind === kind)
-    .map(({ id, name, description, system, kind, icon, color, words }) => ({
-      id, name, description, system, kind, icon, color, count: words.length,
+    .map(({ id, name, description, system, kind, icon, words }) => ({
+      id, name, description, system, kind, icon, count: words.length,
     }));
 }
 

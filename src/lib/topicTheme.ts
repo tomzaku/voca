@@ -1,28 +1,66 @@
-// Per-topic tinting for topic collections (tile on /collections, header on the
-// detail page). Built from the theme's own accent tokens with `color-mix`, so
-// the same topic reads correctly in light and dark without its own palette.
+// Cover art for topic collections — the tile on /collections and the banner on
+// the detail page. Each topic has a CC0 photo (public/topic-covers/<id>.webp,
+// sources in CREDITS.md there) under a dark scrim, so the white text reads on
+// any photo. The topic's gradient sits behind the photo as its placeholder
+// while it loads (and as the cover if it ever fails); every gradient stop
+// keeps white text at 4.5:1 or better — check any new colour against that.
 
 import type { CSSProperties } from 'react';
-import type { TopicColor } from '../data/topicWords';
 
-const accent = (c: TopicColor) => `var(--color-accent-${c})`;
-const mix = (c: TopicColor, pct: number, base = 'var(--color-bg-card)') =>
-  `color-mix(in srgb, ${accent(c)} ${pct}%, ${base})`;
+const GRADIENTS: Record<string, [string, string, string]> = {
+  'topic-food': ['#c4410c', '#b8400c', '#c2255c'],
+  'topic-cooking': ['#c92a2a', '#a61e4d', '#862e9c'],
+  'topic-home': ['#a65a06', '#9c4f0f', '#7a3e16'],
+  'topic-family': ['#d6336c', '#b02a6f', '#7048e8'],
+  'topic-health': ['#087f5b', '#0a7262', '#1864ab'],
+  'topic-clothes': ['#7048e8', '#9c36b5', '#c2255c'],
+  'topic-travel': ['#0b7285', '#1971c2', '#4c3fd1'],
+  'topic-transport': ['#364fc7', '#1c3faa', '#0b4a6f'],
+  'topic-nature': ['#2b7a38', '#1f7a4d', '#0b7285'],
+  'topic-weather': ['#1971c2', '#3b5bdb', '#5f3dc4'],
+  'topic-animals': ['#c05600', '#a5520b', '#5c7a10'],
+  'topic-sports': ['#087f5b', '#0b7285', '#1864ab'],
+  'topic-shopping': ['#c2255c', '#a61e4d', '#c4410c'],
+  'topic-feelings': ['#862e9c', '#c2255c', '#e03131'],
+  'topic-personality': ['#5f3dc4', '#3b5bdb', '#0b7285'],
+  'topic-school': ['#1864ab', '#364fc7', '#5f3dc4'],
+  'topic-city': ['#343a40', '#3b3f6b', '#5f3dc4'],
+  'topic-entertainment': ['#a61e4d', '#862e9c', '#3b2d8f'],
+  'topic-routine': ['#0b7285', '#087f5b', '#5c7a10'],
+  'topic-celebrations': ['#d6336c', '#a832c2', '#c4410c'],
+};
+const PALETTE = Object.values(GRADIENTS);
 
-/** Card surface: a soft wash of the topic colour fading into the card. */
-export function topicSurface(c: TopicColor, active = false): CSSProperties {
+/** A topic's own gradient; any other id (a user's collection, a level) gets
+ *  one of the same set, picked by a stable hash so it never changes. */
+function gradientFor(id: string): [string, string, string] {
+  if (GRADIENTS[id]) return GRADIENTS[id];
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+/** The gradient cover, plus a drop shadow tinted with its deepest colour. */
+export function topicCover(id: string): CSSProperties {
+  const [from, via, to] = gradientFor(id);
   return {
-    background: `linear-gradient(140deg, ${mix(c, active ? 30 : 18)} 0%, ${mix(c, active ? 12 : 4)} 55%, var(--color-bg-card) 100%)`,
-    borderColor: active ? accent(c) : mix(c, 35, 'var(--color-border)'),
+    backgroundImage: [
+      'radial-gradient(120% 90% at 100% 0%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0) 45%)',
+      'radial-gradient(90% 80% at 0% 100%, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0) 60%)',
+      `linear-gradient(135deg, ${from} 0%, ${via} 50%, ${to} 100%)`,
+    ].join(', '),
+    boxShadow: `0 12px 24px -14px ${to}`,
   };
 }
 
-/** Solid badge behind the topic icon. */
-export function topicBadge(c: TopicColor): CSSProperties {
-  return { background: accent(c), color: 'var(--color-bg-card)' };
+/** The topic's cover photo. Lives in public/, so it isn't part of the bundle
+ *  or the service worker's precache — it loads (lazily) when shown. */
+export function topicPhoto(id: string): string {
+  return `${import.meta.env.BASE_URL}topic-covers/${id}.webp`;
 }
 
-/** Text or decorative-icon colour in the topic accent. */
-export function topicInk(c: TopicColor): CSSProperties {
-  return { color: accent(c) };
-}
+/** Darkens a photo enough for white text: light at the top (for the small
+ *  action buttons), heavy at the bottom where the title sits. */
+export const PHOTO_SCRIM: CSSProperties = {
+  backgroundImage: 'linear-gradient(to top, rgba(0,0,0,0.86) 0%, rgba(0,0,0,0.62) 40%, rgba(0,0,0,0.25) 70%, rgba(0,0,0,0.32) 100%)',
+};

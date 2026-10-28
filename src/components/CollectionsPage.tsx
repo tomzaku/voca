@@ -1,89 +1,358 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCollections, type UserCollection } from '../hooks/useCollections';
-import { listCollections, getCollection } from '../lib/collections';
+import { listCollections, getCollection, isCollectionId, type CollectionInfo } from '../lib/collections';
 import { QuizSetup } from './QuizSetup';
 import { CollectionStats } from './CollectionStats';
 import { MemberAvatars } from './MemberAvatars';
 import { CollectionForm } from './CollectionForm';
+import { CollectionDetail } from './CollectionDetailPage';
 import { completionPct } from '../lib/completion';
-import { topicBadge, topicInk, topicSurface } from '../lib/topicTheme';
+import { PHOTO_SCRIM, topicCover, topicPhoto } from '../lib/topicTheme';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 
-/** Thin progress bar + percent label — used on the system Level collections. */
-function CompletionBar({ pct }: { pct: number }) {
+// CEFR band for each level collection, and its colour on the "ladder". Classes
+// are spelled out — Tailwind only keeps classes it finds as complete strings.
+const LEVEL_META: Record<string, { badge: string; chip: string; bar: string }> = {
+  curated: { badge: '★', chip: 'bg-accent-cyan/15 text-accent-cyan', bar: 'bg-accent-cyan' },
+  'level-1': { badge: 'A1', chip: 'bg-accent-green/15 text-accent-green', bar: 'bg-accent-green' },
+  'level-2': { badge: 'A2', chip: 'bg-accent-cyan/15 text-accent-cyan', bar: 'bg-accent-cyan' },
+  'level-3': { badge: 'B1', chip: 'bg-accent-blue/15 text-accent-blue', bar: 'bg-accent-blue' },
+  'level-4': { badge: 'B2', chip: 'bg-accent-purple/15 text-accent-purple', bar: 'bg-accent-purple' },
+  'level-5': { badge: 'C1', chip: 'bg-accent-orange/15 text-accent-orange', bar: 'bg-accent-orange' },
+  'level-6': { badge: 'C2', chip: 'bg-accent-red/15 text-accent-red', bar: 'bg-accent-red' },
+};
+
+/** Words of a bundled collection, by id. */
+const systemWords = (id: string) => getCollection(id).words.map((w) => w.word);
+
+/** Small square action button. `glass` sits on a photo/gradient cover. */
+function IconAction({ icon, label, onClick, glass }: { icon: string; label: string; onClick: () => void; glass?: boolean }) {
   return (
-    <div className="flex items-center gap-2 mt-1.5">
-      <div className="flex-1 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-accent-green' : 'bg-accent-cyan'}`}
-          style={{ width: `${pct}%` }}
-        />
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      title={label}
+      aria-label={label}
+      className={`relative w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
+        glass
+          ? 'bg-white/15 ring-1 ring-white/25 backdrop-blur-sm text-white hover:bg-white/30'
+          : 'border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-border-light'
+      }`}
+    >
+      <Icon icon={icon} className="text-sm" />
+    </button>
+  );
+}
+
+function SectionHeader({ id, icon, title, subtitle, action }: {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div id={id} className="scroll-mt-24 flex items-end justify-between gap-3 mb-3">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="w-8 h-8 rounded-lg bg-bg-tertiary text-accent-cyan flex items-center justify-center shrink-0">
+          <Icon icon={icon} />
+        </span>
+        <div className="min-w-0">
+          <h2 className="font-display font-bold text-text-primary leading-tight">{title}</h2>
+          <p className="text-[11px] text-text-muted truncate">{subtitle}</p>
+        </div>
       </div>
-      <span className="text-[10px] font-bold text-text-muted shrink-0">{pct}%</span>
+      {action}
     </div>
   );
 }
 
-/** Small eye button that opens a collection's detail page. */
-function DetailsButton({ onClick }: { onClick: () => void }) {
+/** White progress bar for covers. */
+function CoverProgress({ pct, label }: { pct: number; label: string }) {
   return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      title="View collection"
-      className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
-    >
-      <Icon icon="lucide:eye" className="text-sm" />
-    </button>
+    <>
+      <div className="mt-3 h-1.5 rounded-full bg-white/25 overflow-hidden">
+        <div className="h-full rounded-full bg-white transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="text-[10px] font-bold text-white/90 mt-1">{label}</p>
+    </>
   );
 }
 
-/** Small play button that starts a quiz on a collection. */
-function QuizButton({ onClick }: { onClick: () => void }) {
+/** Photo-covered topic tile. */
+function TopicTile({ c, active, pct, onPick, onView, onQuiz }: {
+  c: CollectionInfo;
+  active: boolean;
+  pct: number;
+  onPick: () => void;
+  onView: () => void;
+  onQuiz: () => void;
+}) {
   return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      title="Quiz this collection"
-      className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-green hover:border-accent-green/30 transition-all"
+    <div
+      className={`group relative overflow-hidden flex flex-col min-h-44 rounded-2xl p-3.5 text-white transition-all duration-200 hover:-translate-y-1 ${
+        active ? 'ring-[3px] ring-accent-cyan ring-offset-2 ring-offset-bg-primary' : ''
+      }`}
+      style={topicCover(c.id)}
     >
-      <Icon icon="lucide:play" className="text-sm" />
-    </button>
+      <img
+        src={topicPhoto(c.id)}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="pointer-events-none absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+      />
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
+      {/* The whole cover picks the topic; the two small actions sit above it. */}
+      <button
+        onClick={onPick}
+        aria-pressed={active}
+        aria-label={`Study ${c.name}`}
+        className="absolute inset-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-4"
+      />
+      <div className="relative pointer-events-none flex items-start justify-between gap-2">
+        <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/20 ring-1 ring-white/30 backdrop-blur-sm transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6">
+          <Icon icon={c.icon ?? 'lucide:book-open'} className="text-lg" />
+        </span>
+        <div className="flex gap-1 pointer-events-auto">
+          <IconAction glass icon="lucide:eye" label={`View ${c.name}`} onClick={onView} />
+          <IconAction glass icon="lucide:play" label={`Quiz ${c.name}`} onClick={onQuiz} />
+        </div>
+      </div>
+      <div className="relative pointer-events-none mt-auto pt-4">
+        {active && (
+          <span className="inline-block mb-1.5 text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white text-gray-900">
+            Studying
+          </span>
+        )}
+        <p className="font-display font-extrabold text-[17px] leading-tight [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]">{c.name}</p>
+        <p className="text-[11px] leading-snug text-white/90 mt-0.5 line-clamp-2">{c.description}</p>
+        <CoverProgress pct={pct} label={`${c.count} words · ${pct}% known`} />
+      </div>
+    </div>
   );
 }
 
-/** Small chart button that opens the analytics popup for a collection. */
-function StatsButton({ onClick }: { onClick: () => void }) {
+/** One rung of the level ladder (Curated + CEFR A1–C2). */
+function LevelCard({ c, active, pct, onPick, onView, onStats, onQuiz }: {
+  c: CollectionInfo;
+  active: boolean;
+  pct: number;
+  onPick: () => void;
+  onView: () => void;
+  onStats: () => void;
+  onQuiz: () => void;
+}) {
+  const meta = LEVEL_META[c.id] ?? LEVEL_META.curated;
   return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      title="Progress stats"
-      className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-purple hover:border-accent-purple/30 transition-all"
+    <div
+      className={`group relative flex flex-col rounded-2xl border-2 bg-bg-card p-4 transition-all hover:-translate-y-0.5 ${
+        active ? 'border-accent-cyan ring-2 ring-accent-cyan/25' : 'border-border hover:border-border-light'
+      }`}
     >
-      <Icon icon="lucide:chart-pie" className="text-sm" />
-    </button>
+      <button onClick={onPick} aria-pressed={active} aria-label={`Study ${c.name}`} className="absolute inset-0 rounded-2xl" />
+      <div className="relative pointer-events-none flex items-start justify-between gap-2">
+        <span className={`w-11 h-11 rounded-xl flex items-center justify-center font-display font-extrabold text-base ${meta.chip}`}>
+          {meta.badge}
+        </span>
+        {active && (
+          <span className="text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-accent-cyan text-bg-primary">
+            Studying
+          </span>
+        )}
+      </div>
+      <p className="relative pointer-events-none mt-3 font-display font-bold text-text-primary leading-tight">{c.name}</p>
+      <p className="relative pointer-events-none text-[11px] text-text-muted mt-0.5 line-clamp-1">{c.description}</p>
+      <div className="relative pointer-events-none mt-3 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${meta.bar}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="relative flex items-center gap-1.5 mt-2">
+        <span className="pointer-events-none text-[11px] font-bold text-text-muted mr-auto">
+          {c.count.toLocaleString()} words · {pct}%
+        </span>
+        <IconAction icon="lucide:eye" label={`View ${c.name}`} onClick={onView} />
+        <IconAction icon="lucide:chart-pie" label={`${c.name} progress`} onClick={onStats} />
+        <IconAction icon="lucide:play" label={`Quiz ${c.name}`} onClick={onQuiz} />
+      </div>
+    </div>
   );
 }
 
-/** "N learners" chip for server collections (desktop only — mobile rows are tight,
- *  and the Members button below already carries the count). */
-function Learners({ count }: { count: number }) {
+/** A server collection — yours or one you joined — with a generated cover. */
+function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onView, onStats, onQuiz, onToggleMenu, onCloseMenu, onMembers, onEdit, onShare, onDelete }: {
+  c: UserCollection;
+  active: boolean;
+  pct: number;
+  owned: boolean;
+  menuOpen: boolean;
+  membersSignal: number;
+  onPick: () => void;
+  onView: () => void;
+  onStats: () => void;
+  onQuiz: () => void;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  onMembers: () => void;
+  onEdit: () => void;
+  onShare: () => void;
+  onDelete: () => void;
+}) {
+  const showMembers = !owned || c.isPublic;
   return (
-    <span
-      className="hidden sm:flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-bold shrink-0"
-      title={`${count} learner${count === 1 ? '' : 's'} study this collection`}
+    <div
+      className={`relative flex flex-col rounded-2xl border-2 bg-bg-card transition-all ${
+        active ? 'border-accent-cyan ring-2 ring-accent-cyan/25' : 'border-border hover:border-border-light'
+      }`}
     >
-      <Icon icon="lucide:users" className="text-[11px]" />
-      {count}
-    </span>
+      {/* Cover strip */}
+      <button
+        onClick={onPick}
+        aria-pressed={active}
+        aria-label={`Study ${c.name}`}
+        className="relative h-20 rounded-t-[14px] overflow-hidden text-left text-white px-4 py-3"
+        style={topicCover(c.id)}
+      >
+        <span className="absolute -right-2 -bottom-5 font-display font-extrabold text-6xl text-white/15 select-none" aria-hidden>
+          {c.name.trim().charAt(0).toUpperCase() || '#'}
+        </span>
+        <span className="relative flex items-center gap-1.5 flex-wrap">
+          {active && (
+            <span className="text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white text-gray-900">
+              Studying
+            </span>
+          )}
+          {owned && c.isPublic && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 ring-1 ring-white/25">Public</span>
+          )}
+          {!owned && (
+            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 ring-1 ring-white/25">
+              <Icon icon="lucide:users" className="text-[11px]" /> {c.memberCount}
+            </span>
+          )}
+        </span>
+      </button>
+
+      <div className="flex-1 flex flex-col p-4 pt-3">
+        <button onClick={onPick} className="text-left">
+          <p className="font-display font-bold text-text-primary leading-tight truncate">{c.name}</p>
+          {c.description && <p className="text-[11px] text-text-muted mt-0.5 line-clamp-1">{c.description}</p>}
+        </button>
+        {showMembers && <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal} />}
+        <div className="mt-3 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
+          <div className="h-full rounded-full bg-accent-cyan transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="text-[11px] font-bold text-text-muted mr-auto">{c.words.length} words · {pct}%</span>
+          <IconAction icon="lucide:eye" label={`View ${c.name}`} onClick={onView} />
+          <IconAction icon="lucide:chart-pie" label={`${c.name} progress`} onClick={onStats} />
+          <IconAction icon="lucide:play" label={`Quiz ${c.name}`} onClick={onQuiz} />
+          {(owned || showMembers) && (
+            <div className="relative shrink-0">
+              <IconAction icon="lucide:ellipsis-vertical" label="Options" onClick={onToggleMenu} />
+              {menuOpen && (
+                <>
+                  {/* click-away backdrop */}
+                  <div className="fixed inset-0 z-30" onClick={onCloseMenu} />
+                  <div className="absolute right-0 bottom-10 z-40 w-40 rounded-xl border-2 border-border bg-bg-card shadow-xl overflow-hidden animate-fade-in">
+                    {showMembers && (
+                      <button
+                        onClick={onMembers}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-purple transition-colors"
+                      >
+                        <Icon icon="lucide:users" className="text-sm" /> Learners
+                      </button>
+                    )}
+                    {owned && (
+                      <>
+                        <button
+                          onClick={onEdit}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
+                        >
+                          <Icon icon="lucide:pencil" className="text-sm" /> Edit
+                        </button>
+                        <button
+                          onClick={onShare}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-cyan transition-colors"
+                        >
+                          <Icon icon="lucide:share-2" className="text-sm" /> Share
+                        </button>
+                        <button
+                          onClick={onDelete}
+                          className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-muted hover:bg-accent-red/10 hover:text-accent-red transition-colors"
+                        >
+                          <Icon icon="lucide:trash-2" className="text-sm" /> Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Wide enough for the detail view to sit in a popup; narrower screens get
+ *  the full page, where a modal would only be a cramped copy of it. */
+const DETAIL_POPUP_QUERY = '(min-width: 1024px)';
+
+/**
+ * A collection's detail view in a popup over /collections (desktop only).
+ * Portalled to <body>, and the dimmed backdrop is a sibling of the panel, not
+ * its parent: a filter or transform on an ancestor would trap the detail
+ * view's own fixed-position layers (quiz picker, full-screen quiz) inside it.
+ */
+function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-6 lg:p-10" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
+      <div className="relative w-full max-w-5xl max-h-full overflow-y-auto rounded-3xl border-2 border-border bg-bg-primary shadow-2xl p-6">
+        <div className="sticky top-0 z-10 flex justify-end gap-2 -mt-2 -mr-2 mb-2 h-0">
+          <button
+            onClick={() => navigate(`/collections/${id}`)}
+            title="Open as a page"
+            aria-label="Open as a page"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-bg-card/90 border border-border text-text-muted hover:text-text-primary shadow-sm"
+          >
+            <Icon icon="lucide:maximize-2" />
+          </button>
+          <button
+            onClick={onClose}
+            title="Close"
+            aria-label="Close"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-bg-card/90 border border-border text-text-muted hover:text-text-primary shadow-sm"
+          >
+            <Icon icon="lucide:x" />
+          </button>
+        </div>
+        <CollectionDetail id={id} onClose={onClose} />
+      </div>
+    </div>,
+    document.body,
   );
 }
 
 /**
- * Browse and pick the active vocabulary collection: bundled system collections
- * (themed Topics, Curated + CEFR Levels), your own collections (create / share / delete), and
- * ones you've joined. Each opens on its own page (CollectionDetailPage).
+ * Browse and pick the active vocabulary collection: a hero for what you're
+ * studying now, then your own collections (create / share / delete) and ones
+ * you've joined, themed Topics, and the Curated + CEFR level ladder. A search
+ * filters every section at once. Each opens on its own page
+ * (CollectionDetailPage).
  */
 export function CollectionsPage() {
   const activeId = useCollections((s) => s.activeId);
@@ -101,12 +370,27 @@ export function CollectionsPage() {
     .map((id) => shared[id])
     .filter((c): c is UserCollection => Boolean(c)), [joinedIds, mine, shared]);
   const [searchParams] = useSearchParams();
-  const systemCollections = useMemo(() => listCollections('level'), []);
+  const levelCollections = useMemo(() => listCollections('level'), []);
   const topicCollections = useMemo(() => listCollections('topic'), []);
 
   // Old share links (?c=<id>) land on the detail page now.
   const sharedId = searchParams.get('c');
-  const openDetails = (id: string) => navigate(`/collections/${id}`);
+  // The eye button: a popup on desktop, the full page on smaller screens.
+  const [viewing, setViewing] = useState<string | null>(null);
+  const openDetails = (id: string) => {
+    if (window.matchMedia(DETAIL_POPUP_QUERY).matches) setViewing(id);
+    else navigate(`/collections/${id}`);
+  };
+
+  const [query, setQuery] = useState('');
+  const needle = query.trim().toLowerCase();
+  const matches = (name: string, description?: string | null) =>
+    !needle || name.toLowerCase().includes(needle) || (description ?? '').toLowerCase().includes(needle);
+  const shownMine = mine.filter((c) => matches(c.name, c.description));
+  const shownJoined = joined.filter((c) => matches(c.name, c.description));
+  const shownTopics = topicCollections.filter((c) => matches(c.name, c.description));
+  const shownLevels = levelCollections.filter((c) => matches(c.name, c.description));
+  const nothingFound = needle && !shownMine.length && !shownJoined.length && !shownTopics.length && !shownLevels.length;
 
   // ── Quiz ──
   const [quiz, setQuiz] = useState<{ name: string; words: string[] } | null>(null);
@@ -114,7 +398,7 @@ export function CollectionsPage() {
   // ── Analytics popup ──
   const [stats, setStats] = useState<{ name: string; words: string[] } | null>(null);
 
-  // ── Owner options menu (edit / share / delete live behind ⋯) ──
+  // ── Options menu (edit / share / delete / learners live behind ⋯) ──
   const [menuId, setMenuId] = useState<string | null>(null);
 
   // Per-collection bump counters that open the members modal from a menu item.
@@ -156,6 +440,14 @@ export function CollectionsPage() {
     }
   };
 
+  // What the hero shows — the active collection, wherever it lives.
+  const activeUser = mine.find((c) => c.id === activeId) ?? shared[activeId];
+  const activeSystem = !activeUser && isCollectionId(activeId) ? getCollection(activeId) : null;
+  const activeName = activeUser?.name ?? activeSystem?.name ?? getCollection(activeId).name;
+  const activeWords = activeUser?.words ?? systemWords(activeSystem?.id ?? activeId);
+  const activePct = completionPct(activeWords, progress);
+  const activeIsTopic = activeSystem?.kind === 'topic';
+
   if (sharedId) return <Navigate to={`/collections/${sharedId}`} replace />;
 
   if (quiz) {
@@ -164,286 +456,238 @@ export function CollectionsPage() {
     return <QuizSetup words={quiz.words} recordProgress onBack={() => setQuiz(null)} />;
   }
 
+  const userCard = (c: UserCollection, owned: boolean) => (
+    <UserCard
+      key={c.id}
+      c={c}
+      owned={owned}
+      active={c.id === activeId}
+      pct={completionPct(c.words, progress)}
+      menuOpen={menuId === c.id}
+      membersSignal={membersSignal[c.id] ?? 0}
+      onPick={() => pick(c.id, c.name)}
+      onView={() => openDetails(c.id)}
+      onStats={() => setStats({ name: c.name, words: c.words })}
+      onQuiz={() => setQuiz({ name: c.name, words: c.words })}
+      onToggleMenu={() => setMenuId(menuId === c.id ? null : c.id)}
+      onCloseMenu={() => setMenuId(null)}
+      onMembers={() => openMembers(c.id)}
+      onEdit={() => { setMenuId(null); openEdit(c); }}
+      onShare={() => { setMenuId(null); handleShare(c.id); }}
+      onDelete={() => { setMenuId(null); handleDelete(c); }}
+    />
+  );
+
+  const jumps = [
+    { id: 'yours', label: 'Yours', count: mine.length + joined.length },
+    { id: 'topics', label: 'Topics', count: topicCollections.length },
+    { id: 'levels', label: 'Levels', count: levelCollections.length },
+  ];
+
   return (
     <div className="mx-auto max-w-page px-4 py-8">
-      <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Collections</h1>
-      <p className="text-sm text-text-muted mb-6">
-        Pick the set of words you want to study. Your choice syncs across devices.
-      </p>
-
-      {/* ── My collections ── */}
-      <section className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">My collections</h2>
-          <button
-            onClick={() => (creating ? closeForm() : openCreate())}
-            className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
-          >
-            <Icon icon={creating ? 'lucide:x' : 'lucide:plus'} />
-            {creating ? 'Cancel' : 'New collection'}
-          </button>
+      {/* ── Hero: what you're studying now ── */}
+      <section
+        className="relative overflow-hidden rounded-3xl text-white p-5 sm:p-7 mb-6"
+        style={topicCover(activeId)}
+      >
+        {activeIsTopic && (
+          <img src={topicPhoto(activeId)} alt="" decoding="async" className="pointer-events-none absolute inset-0 w-full h-full object-cover" />
+        )}
+        <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
+        <div className="relative flex flex-col sm:flex-row sm:items-end gap-5">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/80">Now studying</p>
+            <h1 className="mt-1 text-3xl sm:text-4xl font-display font-extrabold leading-tight break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.3)]">
+              {activeName}
+            </h1>
+            <div className="mt-4 max-w-md">
+              <div className="h-2 rounded-full bg-white/25 overflow-hidden">
+                <div className="h-full rounded-full bg-white transition-all" style={{ width: `${activePct}%` }} />
+              </div>
+              <p className="text-xs font-bold text-white/90 mt-1.5">
+                {activePct}% known · {activeWords.length.toLocaleString()} words
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate('/')}
+              className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5"
+            >
+              <Icon icon="lucide:play" /> Continue learning
+            </button>
+            <IconAction glass icon="lucide:eye" label={`View ${activeName}`} onClick={() => openDetails(activeId)} />
+            <IconAction glass icon="lucide:chart-pie" label={`${activeName} progress`} onClick={() => setStats({ name: activeName, words: activeWords })} />
+          </div>
         </div>
-
-        {form && (
-          <div className="mb-3 p-4 rounded-2xl border-2 border-accent-cyan/40 bg-bg-card space-y-3 animate-fade-in">
-            <CollectionForm
-              editingId={form.editingId}
-              initialName={form.name}
-              initialWords={form.words}
-              onDone={closeForm}
-            />
-          </div>
-        )}
-
-        {mine.length === 0 && !creating ? (
-          <p className="text-xs text-text-muted px-1">
-            No collections yet — create one from your own word list and share it with friends.
-          </p>
-        ) : (
-          <div className="grid gap-2 lg:grid-cols-2">
-            {mine.map((c) => {
-              const active = c.id === activeId;
-              return (
-                <div
-                  key={c.id}
-                  className={`flex items-center gap-2 rounded-2xl border-2 p-4 transition-all ${
-                    active ? 'border-accent-cyan bg-accent-cyan/10' : 'border-border bg-bg-card hover:border-border-light'
-                  }`}
-                >
-                  <button onClick={() => pick(c.id, c.name)} className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-display font-bold truncate ${active ? 'text-accent-cyan' : 'text-text-primary'}`}>{c.name}</span>
-                      <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold shrink-0">
-                        {c.words.length} words
-                      </span>
-                      {c.isPublic && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent-green/10 text-accent-green font-bold shrink-0">
-                          Public
-                        </span>
-                      )}
-                    </div>
-                    {c.isPublic && <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal[c.id] ?? 0} />}
-                  </button>
-                  <DetailsButton onClick={() => openDetails(c.id)} />
-                  <StatsButton onClick={() => setStats({ name: c.name, words: c.words })} />
-                  <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
-                  {/* Owner actions tucked behind an options menu */}
-                  <div className="relative shrink-0">
-                    <button
-                      onClick={() => setMenuId(menuId === c.id ? null : c.id)}
-                      title="Options"
-                      className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-border-light transition-all"
-                    >
-                      <Icon icon="lucide:ellipsis-vertical" className="text-sm" />
-                    </button>
-                    {menuId === c.id && (
-                      <>
-                        {/* click-away backdrop */}
-                        <div className="fixed inset-0 z-30" onClick={() => setMenuId(null)} />
-                        <div className="absolute right-0 top-9 z-40 w-40 rounded-xl border-2 border-border bg-bg-card shadow-xl overflow-hidden animate-fade-in">
-                          {c.isPublic && (
-                            <button
-                              onClick={() => openMembers(c.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-purple transition-colors"
-                            >
-                              <Icon icon="lucide:users" className="text-sm" /> Learners
-                            </button>
-                          )}
-                          <button
-                            onClick={() => { setMenuId(null); openEdit(c); }}
-                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
-                          >
-                            <Icon icon="lucide:pencil" className="text-sm" /> Edit
-                          </button>
-                          <button
-                            onClick={() => { setMenuId(null); handleShare(c.id); }}
-                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-cyan transition-colors"
-                          >
-                            <Icon icon="lucide:share-2" className="text-sm" /> Share
-                          </button>
-                          <button
-                            onClick={() => { setMenuId(null); handleDelete(c); }}
-                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-muted hover:bg-accent-red/10 hover:text-accent-red transition-colors"
-                          >
-                            <Icon icon="lucide:trash-2" className="text-sm" /> Delete
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  {active && <Icon icon="lucide:check-circle-2" className="text-xl text-accent-cyan shrink-0" />}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </section>
 
-      {/* ── Joined via share links ── */}
-      {joined.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Joined</h2>
-          <div className="grid gap-2 lg:grid-cols-2">
-            {joined.map((c) => {
-              const active = c.id === activeId;
+      {/* ── Search + jump links ── */}
+      <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] z-[5] mb-8 flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-2xl border border-border bg-bg-card/90 backdrop-blur shadow-sm">
+        <label className="flex-1 min-w-0 flex items-center gap-2 px-3 rounded-xl bg-bg-tertiary focus-within:ring-2 focus-within:ring-accent-cyan/30">
+          <Icon icon="lucide:search" className="text-text-muted shrink-0" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search collections"
+            className="flex-1 min-w-0 py-2 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
+          />
+          {query && (
+            <button onClick={() => setQuery('')} aria-label="Clear search" className="text-text-muted hover:text-text-primary">
+              <Icon icon="lucide:x" />
+            </button>
+          )}
+        </label>
+        <nav className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+          {jumps.map((j) => (
+            <a
+              key={j.id}
+              href={`#${j.id}`}
+              onClick={(e) => { e.preventDefault(); document.getElementById(j.id)?.scrollIntoView({ behavior: 'smooth' }); }}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            >
+              {j.label} <span className="opacity-60">{j.count}</span>
+            </a>
+          ))}
+        </nav>
+      </div>
+
+      {nothingFound && (
+        <div className="text-center py-12 mb-8 rounded-2xl border-2 border-dashed border-border">
+          <Icon icon="lucide:search-x" className="mx-auto text-3xl text-text-muted mb-2" />
+          <p className="text-sm text-text-secondary">No collections match “{query.trim()}”.</p>
+          <button onClick={() => setQuery('')} className="mt-2 text-xs font-bold text-accent-cyan hover:underline">Clear search</button>
+        </div>
+      )}
+
+      {/* ── Your collections (+ joined) ── */}
+      {(!needle || shownMine.length > 0 || shownJoined.length > 0) && (
+        <section className="mb-10">
+          <SectionHeader
+            id="yours"
+            icon="lucide:folder-heart"
+            title="Your collections"
+            subtitle="Make your own word lists and share them with friends"
+            action={
+              <button
+                onClick={() => (creating ? closeForm() : openCreate())}
+                className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline shrink-0"
+              >
+                <Icon icon={creating ? 'lucide:x' : 'lucide:plus'} />
+                {creating ? 'Cancel' : 'New collection'}
+              </button>
+            }
+          />
+
+          {form && (
+            <div className="mb-3 p-4 rounded-2xl border-2 border-accent-cyan/40 bg-bg-card space-y-3 animate-fade-in">
+              <CollectionForm
+                editingId={form.editingId}
+                initialName={form.name}
+                initialWords={form.words}
+                onDone={closeForm}
+              />
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {shownMine.map((c) => userCard(c, true))}
+            {!needle && !creating && (
+              <button
+                onClick={openCreate}
+                className="min-h-40 rounded-2xl border-2 border-dashed border-border hover:border-accent-cyan/60 hover:bg-accent-cyan/5 text-text-muted hover:text-accent-cyan flex flex-col items-center justify-center gap-2 p-4 transition-colors"
+              >
+                <span className="w-10 h-10 rounded-xl bg-bg-tertiary flex items-center justify-center">
+                  <Icon icon="lucide:plus" className="text-lg" />
+                </span>
+                <span className="text-sm font-bold">New collection</span>
+                <span className="text-[11px] text-center max-w-52">
+                  {mine.length === 0 ? 'Build one from your own words and invite friends to study it.' : 'Start another word list.'}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {shownJoined.length > 0 && (
+            <>
+              <p className="mt-6 mb-2 text-[11px] font-bold uppercase tracking-wider text-text-muted">Joined from friends</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {shownJoined.map((c) => userCard(c, false))}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {/* ── Topic collections ── */}
+      {shownTopics.length > 0 && (
+        <section className="mb-10">
+          <SectionHeader id="topics" icon="lucide:layout-grid" title="Topics" subtitle="Everyday themes · 50 words each · tap one to study it" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {shownTopics.map((c) => {
+              const words = systemWords(c.id);
               return (
-                <div
+                <TopicTile
                   key={c.id}
-                  className={`flex items-center gap-2 rounded-2xl border-2 p-4 transition-all ${
-                    active
-                      ? 'border-accent-purple bg-accent-purple/10'
-                      : 'border-border bg-bg-card hover:border-border-light'
-                  }`}
-                >
-                  <button onClick={() => pick(c.id, c.name)} className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center flex-wrap gap-2">
-                      <span className={`font-display font-bold truncate ${active ? 'text-accent-purple' : 'text-text-primary'}`}>{c.name}</span>
-                      <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold shrink-0">
-                        {c.words.length} words
-                      </span>
-                      <Learners count={c.memberCount} />
-                    </div>
-                    {c.description && <p className="text-xs text-text-muted mt-0.5">{c.description}</p>}
-                    <MemberAvatars collectionId={c.id} name={c.name} openSignal={membersSignal[c.id] ?? 0} />
-                  </button>
-                  <DetailsButton onClick={() => openDetails(c.id)} />
-                  <StatsButton onClick={() => setStats({ name: c.name, words: c.words })} />
-                  <QuizButton onClick={() => setQuiz({ name: c.name, words: c.words })} />
-                  <div className="relative shrink-0">
-                    <button
-                      onClick={() => setMenuId(menuId === c.id ? null : c.id)}
-                      title="Options"
-                      className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-text-primary hover:border-border-light transition-all"
-                    >
-                      <Icon icon="lucide:ellipsis-vertical" className="text-sm" />
-                    </button>
-                    {menuId === c.id && (
-                      <>
-                        <div className="fixed inset-0 z-30" onClick={() => setMenuId(null)} />
-                        <div className="absolute right-0 top-9 z-40 w-40 rounded-xl border-2 border-border bg-bg-card shadow-xl overflow-hidden animate-fade-in">
-                          <button
-                            onClick={() => openMembers(c.id)}
-                            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-purple transition-colors"
-                          >
-                            <Icon icon="lucide:users" className="text-sm" /> Learners
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  {active && <Icon icon="lucide:check-circle-2" className="text-xl text-accent-purple shrink-0" />}
-                </div>
+                  c={c}
+                  active={c.id === activeId}
+                  pct={completionPct(words, progress)}
+                  onPick={() => pick(c.id, c.name)}
+                  onView={() => openDetails(c.id)}
+                  onQuiz={() => setQuiz({ name: c.name, words })}
+                />
               );
             })}
           </div>
         </section>
       )}
 
-      {/* ── Topic collections ── */}
-      <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2">
-          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Topics</h2>
-          <span className="text-[11px] text-text-muted">{topicCollections.length} themes · tap one to study it</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-          {topicCollections.map((c) => {
-            const active = c.id === activeId;
-            const words = getCollection(c.id).words.map((w) => w.word);
-            const color = c.color ?? 'cyan';
-            const icon = c.icon ?? 'lucide:book-open';
-            return (
-              <div
-                key={c.id}
-                className={`relative overflow-hidden flex flex-col rounded-2xl border-2 p-3 transition-all hover:-translate-y-0.5 ${active ? 'shadow-md' : ''}`}
-                style={topicSurface(color, active)}
-              >
-                {/* Oversized faded icon — the tile's "background theme". */}
-                <Icon
-                  icon={icon}
-                  aria-hidden
-                  className="pointer-events-none absolute -right-3 -bottom-4 text-[5.5rem] opacity-[0.12]"
-                  style={topicInk(color)}
+      {/* ── Level ladder ── */}
+      {shownLevels.length > 0 && (
+        <section>
+          <SectionHeader id="levels" icon="lucide:signal" title="Levels" subtitle="Curated picks and CEFR bands, from beginner (A1) to proficient (C2)" />
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {shownLevels.map((c) => {
+              const words = systemWords(c.id);
+              return (
+                <LevelCard
+                  key={c.id}
+                  c={c}
+                  active={c.id === activeId}
+                  pct={completionPct(words, progress)}
+                  onPick={() => pick(c.id, c.name)}
+                  onView={() => openDetails(c.id)}
+                  onStats={() => setStats({ name: c.name, words })}
+                  onQuiz={() => setQuiz({ name: c.name, words })}
                 />
-                <button onClick={() => pick(c.id, c.name)} className="relative flex-1 min-w-0 text-left" aria-pressed={active}>
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={topicBadge(color)}>
-                      <Icon icon={icon} className="text-lg" />
-                    </span>
-                    {active && <Icon icon="lucide:check-circle-2" className="text-lg shrink-0" style={topicInk(color)} />}
-                  </div>
-                  <p className="mt-2 font-display font-bold leading-tight text-text-primary">{c.name}</p>
-                  <p className="text-[11px] text-text-muted leading-snug mt-0.5 line-clamp-2">{c.description}</p>
-                  <CompletionBar pct={completionPct(words, progress)} />
-                </button>
-                <div className="relative flex items-center gap-1.5 mt-2 pt-2 border-t border-border/60">
-                  <span className="text-[11px] font-bold text-text-muted mr-auto">{c.count} words</span>
-                  <DetailsButton onClick={() => openDetails(c.id)} />
-                  <QuizButton onClick={() => setQuiz({ name: c.name, words })} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ── Level collections ── */}
-      <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Levels</h2>
-          <button
-            onClick={() => navigate('/level-test')}
-            className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
-          >
-            <Icon icon="lucide:target" />
-            Find my level
-          </button>
-        </div>
-        <div className="grid gap-2 lg:grid-cols-2">
-          {systemCollections.map((c) => {
-            const active = c.id === activeId;
-            return (
-              <div
-                key={c.id}
-                className={`flex items-center gap-2 rounded-2xl border-2 p-4 transition-all ${
-                  active
-                    ? 'border-accent-cyan bg-accent-cyan/10'
-                    : 'border-border bg-bg-card hover:border-border-light'
-                }`}
+              );
+            })}
+            {!needle && (
+              <button
+                onClick={() => navigate('/level-test')}
+                className="rounded-2xl border-2 border-dashed border-accent-cyan/40 bg-accent-cyan/5 hover:bg-accent-cyan/10 p-4 flex flex-col items-start justify-between gap-3 text-left transition-colors"
               >
-                <button onClick={() => pick(c.id, c.name)} className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center gap-2">
-                    <span className={`font-display font-bold ${active ? 'text-accent-cyan' : 'text-text-primary'}`}>{c.name}</span>
-                    <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-muted font-bold">
-                      {c.count} words
-                    </span>
-                  </div>
-                  <p className="text-xs text-text-muted mt-0.5">{c.description}</p>
-                  <CompletionBar pct={completionPct(getCollection(c.id).words.map((w) => w.word), progress)} />
-                </button>
-                <DetailsButton onClick={() => openDetails(c.id)} />
-                <StatsButton onClick={() => setStats({ name: c.name, words: getCollection(c.id).words.map((w) => w.word) })} />
-                <QuizButton onClick={() => setQuiz({ name: c.name, words: getCollection(c.id).words.map((w) => w.word) })} />
-                {active ? (
-                  <Icon icon="lucide:check-circle-2" className="text-xl text-accent-cyan shrink-0" />
-                ) : (
-                  <Icon icon="lucide:circle" className="text-xl text-text-muted/40 shrink-0" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <button
-        onClick={() => navigate('/')}
-        className="btn-3d block w-full sm:w-auto sm:min-w-72 mx-auto mt-6 px-10 py-3 bg-accent-cyan text-bg-primary font-bold"
-      >
-        Start learning
-      </button>
+                <span className="w-11 h-11 rounded-xl bg-accent-cyan/15 text-accent-cyan flex items-center justify-center">
+                  <Icon icon="lucide:target" className="text-xl" />
+                </span>
+                <span>
+                  <span className="block font-display font-bold text-text-primary">Find my level</span>
+                  <span className="block text-[11px] text-text-muted mt-0.5">A short test that picks the right level for you.</span>
+                </span>
+                <span className="text-xs font-bold text-accent-cyan flex items-center gap-1">
+                  Take the test <Icon icon="lucide:arrow-right" />
+                </span>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       {stats && (
         <CollectionStats name={stats.name} words={stats.words} onClose={() => setStats(null)} />
       )}
+      {viewing && <CollectionDetailModal id={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
 }

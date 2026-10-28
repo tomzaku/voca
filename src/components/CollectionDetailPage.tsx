@@ -8,7 +8,7 @@ import { collectionShareUrl, useCollections } from '../hooks/useCollections';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useProgressForWords } from '../hooks/useProgressQuery';
 import { getCollection, isCollectionId } from '../lib/collections';
-import { topicBadge, topicInk, topicSurface } from '../lib/topicTheme';
+import { PHOTO_SCRIM, topicCover, topicPhoto } from '../lib/topicTheme';
 import {
   fetchCollectionDetail,
   fetchMembers,
@@ -282,6 +282,17 @@ function QuizGroupPicker({ counts, initial, onStart, onClose }: {
  */
 export function CollectionDetailPage() {
   const { id = '' } = useParams();
+  return <CollectionDetail id={id} />;
+}
+
+/**
+ * The detail view itself. On its own route it's a full page; given `onClose`
+ * it's the body of the desktop popup on /collections (CollectionDetailModal),
+ * so it drops the back link and page chrome, and opens quiz / mind map as a
+ * full-screen layer over the popup instead of replacing it.
+ */
+export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => void }) {
+  const inModal = !!onClose;
   const { user } = useAuth();
   const { isPro } = useIsPro();
   const navigate = useNavigate();
@@ -293,9 +304,7 @@ export function CollectionDetailPage() {
   const triageWord = useVocabularyStore((s) => s.triageWord);
 
   const system = isCollectionId(id) ? getCollection(id) : null;
-  const topic = system?.kind === 'topic' && system.icon && system.color
-    ? { icon: system.icon, color: system.color }
-    : null;
+  const topic = system?.kind === 'topic' ? { icon: system.icon ?? 'lucide:book-open' } : null;
 
   // The store's copy answers first (and offline); the server's replaces it.
   const [fetched, setFetched] = useState<{ collection: Collection; owner: CollectionOwner } | null>(null);
@@ -427,84 +436,92 @@ export function CollectionDetailPage() {
     }
   };
 
-  if (mode === 'quiz') {
-    return <QuizSetup words={quizWords} recordProgress onBack={() => setMode('detail')} />;
-  }
-  if (mode === 'mindmap') {
-    return <WordMindMap words={words} onBack={() => setMode('detail')} />;
+  if (mode === 'quiz' || mode === 'mindmap') {
+    const view = mode === 'quiz'
+      ? <QuizSetup words={quizWords} recordProgress onBack={() => setMode('detail')} />
+      : <WordMindMap words={words} onBack={() => setMode('detail')} />;
+    // In the popup there's no page to take over, so cover the screen instead.
+    return inModal ? <div className="fixed inset-0 z-[60] overflow-y-auto bg-bg-primary">{view}</div> : view;
   }
 
+  // Page chrome — the popup supplies its own frame and close button. A plain
+  // function, not a component: a component defined in render would remount
+  // the whole view (and drop input focus) on every keystroke.
+  const shell = (children: React.ReactNode) => inModal ? children : (
+    <div className="mx-auto max-w-page px-4 py-8">
+      <Link to="/collections" className="inline-flex items-center gap-1 text-xs font-bold text-text-muted hover:text-text-primary mb-4">
+        <Icon icon="lucide:arrow-left" /> Collections
+      </Link>
+      {children}
+    </div>
+  );
+
   if (!system && !col) {
-    return (
-      <div className="mx-auto max-w-page px-4 py-8">
-        <Link to="/collections" className="inline-flex items-center gap-1 text-xs font-bold text-text-muted hover:text-text-primary mb-4">
-          <Icon icon="lucide:arrow-left" /> Collections
-        </Link>
-        <div className="p-4 rounded-2xl border-2 border-border bg-bg-card text-sm text-text-muted">
-          {missing ? "This collection doesn't exist or isn't public anymore." : 'Loading collection…'}
-        </div>
-      </div>
+    return shell(
+      <div className="p-4 rounded-2xl border-2 border-border bg-bg-card text-sm text-text-muted">
+        {missing ? "This collection doesn't exist or isn't public anymore." : 'Loading collection…'}
+      </div>,
     );
   }
 
   const owner = fetched?.owner;
   const shownBuckets = BUCKET_ORDER.filter((b) => counts[b] > 0);
 
-  return (
-    <div className="mx-auto max-w-page px-4 py-8">
-      <Link to="/collections" className="inline-flex items-center gap-1 text-xs font-bold text-text-muted hover:text-text-primary mb-4">
-        <Icon icon="lucide:arrow-left" /> Collections
-      </Link>
-
-      {/* ── Header ── (topic collections get a banner in the topic's colour) */}
-      <header
-        className={topic ? 'relative overflow-hidden mb-6 rounded-2xl border-2 p-5' : 'mb-6'}
-        style={topic ? topicSurface(topic.color) : undefined}
-      >
-        {topic && (
-          <Icon
-            icon={topic.icon}
-            aria-hidden
-            className="pointer-events-none absolute -right-4 -bottom-6 text-[9rem] opacity-[0.13]"
-            style={topicInk(topic.color)}
-          />
-        )}
-        <div className="relative flex items-start gap-3">
-          {topic && (
-            <span className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm" style={topicBadge(topic.color)}>
-              <Icon icon={topic.icon} className="text-2xl" />
-            </span>
-          )}
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-display font-bold text-text-primary break-words">{name}</h1>
-            <div className="flex items-center flex-wrap gap-2 mt-1.5 text-xs text-text-muted">
-              <span className="px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold">{words.length} words</span>
-              {col && (
-                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-bold">
-                  <Icon icon="lucide:users" className="text-[11px]" />
-                  {col.memberCount} {col.memberCount === 1 ? 'learner' : 'learners'}
-                </span>
-              )}
-              {col && !col.isPublic && (
-                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold">
-                  <Icon icon="lucide:lock" className="text-[11px]" /> Private
-                </span>
-              )}
-              {system && <span className="px-1.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan font-bold">Built-in</span>}
-              {owner?.name && (
-                <span className="flex items-center gap-1.5">
-                  {owner.avatarUrl ? (
-                    <img src={owner.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-5 h-5 rounded-full" />
-                  ) : (
-                    <Icon icon="lucide:user" />
-                  )}
-                  by <span className="font-bold text-text-secondary">{isOwner ? 'you' : owner.name}</span>
-                </span>
-              )}
+  return shell(
+    <>
+      {/* ── Header ── (topic collections open on their gradient cover) */}
+      <header className="mb-6">
+        {topic ? (
+          <div className="relative overflow-hidden rounded-2xl p-5 sm:p-6 pt-20 sm:pt-28 text-white" style={topicCover(id)}>
+            <img src={topicPhoto(id)} alt="" decoding="async" className="pointer-events-none absolute inset-0 w-full h-full object-cover" />
+            <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
+            <div className="relative flex items-center gap-4">
+              <span className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-white/20 ring-1 ring-white/30 backdrop-blur-sm">
+                <Icon icon={topic.icon} className="text-3xl" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-display font-extrabold break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]">{name}</h1>
+                {description && <p className="text-sm text-white/90 mt-0.5">{description}</p>}
+              </div>
             </div>
-            {description && <p className="text-sm text-text-muted mt-2">{description}</p>}
+            <div className="relative flex flex-wrap items-center gap-2 mt-4 text-xs font-bold">
+              <span className="px-2 py-1 rounded-full bg-white/20 ring-1 ring-white/25">{words.length} words</span>
+              <span className="px-2 py-1 rounded-full bg-white/20 ring-1 ring-white/25">Built-in topic</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl font-display font-bold text-text-primary break-words">{name}</h1>
+              <div className="flex items-center flex-wrap gap-2 mt-1.5 text-xs text-text-muted">
+                <span className="px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold">{words.length} words</span>
+                {col && (
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-bold">
+                    <Icon icon="lucide:users" className="text-[11px]" />
+                    {col.memberCount} {col.memberCount === 1 ? 'learner' : 'learners'}
+                  </span>
+                )}
+                {col && !col.isPublic && (
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold">
+                    <Icon icon="lucide:lock" className="text-[11px]" /> Private
+                  </span>
+                )}
+                {system && <span className="px-1.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan font-bold">Built-in</span>}
+                {owner?.name && (
+                  <span className="flex items-center gap-1.5">
+                    {owner.avatarUrl ? (
+                      <img src={owner.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-5 h-5 rounded-full" />
+                    ) : (
+                      <Icon icon="lucide:user" />
+                    )}
+                    by <span className="font-bold text-text-secondary">{isOwner ? 'you' : owner.name}</span>
+                  </span>
+                )}
+              </div>
+              {description && <p className="text-sm text-text-muted mt-2">{description}</p>}
+            </div>
+          </div>
+        )}
 
         <div className="relative flex flex-wrap items-center gap-2 mt-4">
           <button
@@ -650,12 +667,14 @@ export function CollectionDetailPage() {
         )}
       </div>
 
-      <button
-        onClick={() => navigate('/')}
-        className="btn-3d block w-full sm:w-auto sm:min-w-72 mx-auto mt-8 px-10 py-3 bg-accent-cyan text-bg-primary font-bold"
-      >
-        Start learning
-      </button>
+      {!inModal && (
+        <button
+          onClick={() => navigate('/')}
+          className="btn-3d block w-full sm:w-auto sm:min-w-72 mx-auto mt-8 px-10 py-3 bg-accent-cyan text-bg-primary font-bold"
+        >
+          Start learning
+        </button>
+      )}
 
       {pickingQuiz && (
         <QuizGroupPicker
@@ -665,6 +684,6 @@ export function CollectionDetailPage() {
           onClose={() => setPickingQuiz(false)}
         />
       )}
-    </div>
+    </>,
   );
 }

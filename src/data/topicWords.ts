@@ -6,17 +6,13 @@
 // The ids are stored as a user's active collection, so renaming one strands
 // anyone studying it (they fall back to the default collection).
 
-export type TopicColor = 'cyan' | 'green' | 'orange' | 'red' | 'purple' | 'blue' | 'yellow' | 'pink';
-
 export interface TopicCollection {
   id: string;
   name: string;
   description: string;
-  /** Iconify name, shown on the Collections page. */
+  /** Iconify name, shown on the Collections page. Cover colours live in
+   *  src/lib/topicTheme.ts, keyed by id. */
   icon: string;
-  /** Accent the topic's tile and header are tinted with. Neighbours in the
-   *  4-column grid are picked to differ. */
-  color: TopicColor;
   words: string[];
 }
 
@@ -26,7 +22,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Food & Drink',
     description: 'Meals, tastes, and eating out',
     icon: 'lucide:utensils',
-    color: 'orange',
     words: [
       'breakfast', 'lunch', 'dinner', 'snack', 'dessert', 'meal', 'menu', 'waiter', 'bill', 'tip',
       'bread', 'rice', 'noodle', 'soup', 'salad', 'sandwich', 'cheese', 'butter', 'egg', 'meat',
@@ -40,7 +35,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Cooking & Kitchen',
     description: 'Recipes, tools, and ways to cook',
     icon: 'lucide:chef-hat',
-    color: 'red',
     words: [
       'cook', 'bake', 'boil', 'fry', 'grill', 'roast', 'steam', 'stir', 'chop', 'slice',
       'peel', 'mix', 'pour', 'taste', 'recipe', 'ingredient', 'kitchen', 'oven', 'stove', 'pan',
@@ -54,7 +48,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Home & Furniture',
     description: 'Rooms, furniture, and housework',
     icon: 'lucide:house',
-    color: 'yellow',
     words: [
       'house', 'apartment', 'flat', 'room', 'bedroom', 'bathroom', 'hallway', 'garden', 'garage', 'balcony',
       'stairs', 'roof', 'wall', 'floor', 'ceiling', 'window', 'door', 'key', 'table', 'chair',
@@ -68,7 +61,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Family & Relationships',
     description: 'Relatives, friends, and life events',
     icon: 'lucide:heart',
-    color: 'pink',
     words: [
       'family', 'parent', 'mother', 'father', 'brother', 'sister', 'son', 'daughter', 'grandmother', 'grandfather',
       'aunt', 'uncle', 'cousin', 'nephew', 'niece', 'husband', 'wife', 'partner', 'child', 'baby',
@@ -82,7 +74,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Body & Health',
     description: 'The body, illness, and staying well',
     icon: 'lucide:heart-pulse',
-    color: 'red',
     words: [
       'head', 'face', 'eye', 'ear', 'nose', 'mouth', 'tooth', 'neck', 'shoulder', 'arm',
       'hand', 'finger', 'back', 'stomach', 'leg', 'knee', 'foot', 'heart', 'brain', 'skin',
@@ -96,7 +87,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Clothes & Fashion',
     description: 'What we wear and how it looks',
     icon: 'lucide:shirt',
-    color: 'purple',
     words: [
       'clothes', 'shirt', 'trousers', 'jeans', 'dress', 'skirt', 'jacket', 'coat', 'sweater', 'hoodie',
       'shorts', 'suit', 'tie', 'uniform', 'pajamas', 'sock', 'shoe', 'boot', 'sandal', 'trainer',
@@ -110,7 +100,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Travel & Holidays',
     description: 'Trips, hotels, and sightseeing',
     icon: 'lucide:plane',
-    color: 'cyan',
     words: [
       'travel', 'trip', 'journey', 'holiday', 'vacation', 'tourist', 'passport', 'visa', 'ticket', 'luggage',
       'suitcase', 'backpack', 'airport', 'flight', 'departure', 'arrival', 'delay', 'hotel', 'hostel', 'reception',
@@ -124,7 +113,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Transport & Directions',
     description: 'Getting around and finding the way',
     icon: 'lucide:bus',
-    color: 'blue',
     words: [
       'car', 'bus', 'train', 'taxi', 'bike', 'bicycle', 'motorbike', 'plane', 'boat', 'ship',
       'ferry', 'subway', 'tram', 'truck', 'van', 'station', 'stop', 'platform', 'timetable', 'fare',
@@ -138,7 +126,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Nature & Environment',
     description: 'Landscapes, plants, and the planet',
     icon: 'lucide:leaf',
-    color: 'green',
     words: [
       'nature', 'tree', 'flower', 'plant', 'grass', 'leaf', 'forest', 'jungle', 'river', 'lake',
       'sea', 'ocean', 'wave', 'coast', 'hill', 'valley', 'desert', 'field', 'rock', 'sand',
@@ -152,7 +139,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Weather & Seasons',
     description: 'Forecasts, temperature, and the year',
     icon: 'lucide:cloud-sun',
-    color: 'cyan',
     words: [
       'weather', 'sun', 'sunny', 'rain', 'rainy', 'cloud', 'cloudy', 'wind', 'windy', 'snow',
       'snowy', 'fog', 'foggy', 'storm', 'thunder', 'lightning', 'hail', 'ice', 'frost', 'rainbow',
@@ -166,7 +152,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Animals',
     description: 'Pets, farm animals, and wildlife',
     icon: 'lucide:paw-print',
-    color: 'orange',
     words: [
       'animal', 'pet', 'dog', 'cat', 'puppy', 'kitten', 'rabbit', 'hamster', 'fish', 'bird',
       'parrot', 'horse', 'cow', 'pig', 'sheep', 'goat', 'chicken', 'duck', 'mouse', 'rat',
@@ -180,7 +165,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Sports & Fitness',
     description: 'Games, training, and competition',
     icon: 'lucide:trophy',
-    color: 'green',
     words: [
       'sport', 'football', 'basketball', 'tennis', 'badminton', 'volleyball', 'swimming', 'running', 'cycling', 'yoga',
       'gym', 'team', 'player', 'coach', 'referee', 'fan', 'match', 'game', 'score', 'goal',
@@ -194,7 +178,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Shopping & Money',
     description: 'Buying, paying, and saving',
     icon: 'lucide:shopping-bag',
-    color: 'pink',
     words: [
       'shop', 'store', 'market', 'supermarket', 'mall', 'customer', 'cashier', 'price', 'cost', 'cheap',
       'expensive', 'sale', 'discount', 'bargain', 'receipt', 'refund', 'return', 'exchange', 'queue', 'basket',
@@ -208,7 +191,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Feelings & Emotions',
     description: 'Moods and how we feel',
     icon: 'lucide:smile-plus',
-    color: 'purple',
     words: [
       'happy', 'sad', 'angry', 'afraid', 'scared', 'excited', 'bored', 'tired', 'worried', 'nervous',
       'calm', 'relaxed', 'proud', 'ashamed', 'embarrassed', 'jealous', 'lonely', 'grateful', 'hopeful', 'confused',
@@ -222,7 +204,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Personality & Character',
     description: 'Describing people and what they are like',
     icon: 'lucide:user-round',
-    color: 'yellow',
     words: [
       'kind', 'friendly', 'polite', 'rude', 'funny', 'serious', 'honest', 'generous', 'selfish', 'patient',
       'lazy', 'hardworking', 'clever', 'smart', 'brave', 'shy', 'outgoing', 'quiet', 'talkative', 'calm',
@@ -236,7 +217,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'School & Learning',
     description: 'Classes, study, and exams',
     icon: 'lucide:graduation-cap',
-    color: 'blue',
     words: [
       'school', 'class', 'classroom', 'lesson', 'teacher', 'student', 'pupil', 'subject', 'math', 'science',
       'history', 'geography', 'art', 'music', 'language', 'homework', 'exam', 'test', 'quiz', 'grade',
@@ -250,7 +230,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'City & Places',
     description: 'Buildings and places around town',
     icon: 'lucide:building-2',
-    color: 'purple',
     words: [
       'city', 'town', 'village', 'capital', 'center', 'suburb', 'neighborhood', 'street', 'square', 'park',
       'museum', 'gallery', 'library', 'cinema', 'theater', 'restaurant', 'cafe', 'bakery', 'pharmacy', 'bank',
@@ -264,7 +243,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Movies, Music & Books',
     description: 'Stories, songs, and shows',
     icon: 'lucide:clapperboard',
-    color: 'red',
     words: [
       'movie', 'film', 'cinema', 'actor', 'actress', 'director', 'scene', 'plot', 'character', 'hero',
       'villain', 'comedy', 'drama', 'horror', 'thriller', 'romance', 'documentary', 'cartoon', 'series', 'episode',
@@ -278,7 +256,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Daily Routine & Time',
     description: 'Everyday habits and telling time',
     icon: 'lucide:clock',
-    color: 'cyan',
     words: [
       'morning', 'afternoon', 'evening', 'night', 'midnight', 'noon', 'today', 'tomorrow', 'yesterday', 'weekend',
       'weekday', 'hour', 'minute', 'second', 'clock', 'alarm', 'early', 'late', 'wake', 'shower',
@@ -292,7 +269,6 @@ export const TOPIC_COLLECTIONS: TopicCollection[] = [
     name: 'Celebrations & Events',
     description: 'Parties, holidays, and special days',
     icon: 'lucide:party-popper',
-    color: 'pink',
     words: [
       'party', 'birthday', 'wedding', 'anniversary', 'festival', 'holiday', 'celebrate', 'celebration', 'ceremony', 'tradition',
       'custom', 'gift', 'present', 'card', 'cake', 'candle', 'balloon', 'decoration', 'fireworks', 'parade',
