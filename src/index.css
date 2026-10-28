@@ -41,14 +41,14 @@
 }
 
 /* Light theme · "Candy Day" — the colour lives in the accents; surfaces are
-   a quiet, near-neutral blue-grey so the page behind the cards stays calm. */
+   a flat, Facebook-style light grey so the page behind the cards stays calm. */
 [data-theme="light"] {
-  --color-bg-primary: #e6ebf3;
-  --color-bg-secondary: #f4f6fa;
-  --color-bg-tertiary: #eef1f7;
+  --color-bg-primary: #f0f2f5;
+  --color-bg-secondary: #f7f8fa;
+  --color-bg-tertiary: #f0f2f5;
   --color-bg-card: #ffffff;
-  --color-bg-hover: #f4f6fa;
-  --color-border: #c6cfe2;
+  --color-bg-hover: #f2f3f5;
+  --color-border: #dddfe2;
   --color-border-light: #8ea6e6;
   --color-text-primary: #262357;
   --color-text-secondary: #5c5a8c;
@@ -64,7 +64,7 @@
 
   --shadow-game: rgba(48, 52, 130, 0.22);
   --btn-lip: rgba(30, 34, 90, 0.24);
-  --bg-gradient: linear-gradient(180deg, #eef1f7 0%, #e6ebf3 100%);
+  --bg-gradient: #f0f2f5;
 }
 
 * {
