@@ -22,19 +22,13 @@
 // Signing in isn't required: a visitor without an account simply has no progress
 // rows, so every word reads as never-answered and they get the same selection
 // the client would make on its own. Nothing here is generated or billed — it's
-// a sort over a list the caller already sent. It is, though, narrowed to words
-// already in the shared word cache: `word` won't generate a new one for a
-// visitor, so picking an uncached word would hand them a sign-in error instead
-// of a card. If none of the list is cached, the whole list is used as before.
+// a sort over a list the caller already sent.
 //
 // Deploy: `supabase functions deploy pick`
 
-import { corsHeaders, jsonResponse, optionalUser, serviceClient } from '../_shared/ai.ts';
+import { corsHeaders, jsonResponse, optionalUser } from '../_shared/ai.ts';
 
 const MAX_WORDS = 1000;
-// Words per `word_cache` lookup — keeps each `in.(…)` filter's URL well short of
-// what proxies will pass.
-const CACHE_CHUNK = 200;
 const MAX_EXCLUDE = 100;
 const MAX_COUNT = 20;
 
@@ -185,24 +179,6 @@ function sampleQuizWords(
   return sampled;
 }
 
-/**
- * The subset of `words` that `word` can serve without generating — what a
- * visitor without an account is limited to. Keys in `word_cache` are lowercase.
- * Null when the cache can't be read, so the caller keeps the full list.
- */
-async function cachedSubset(words: string[]): Promise<string[] | null> {
-  const svc = serviceClient();
-  if (!svc) return null;
-  const keys = [...new Set(words.map((w) => w.toLowerCase()))];
-  const cached = new Set<string>();
-  for (let i = 0; i < keys.length; i += CACHE_CHUNK) {
-    const { data, error } = await svc.from('word_cache').select('word').in('word', keys.slice(i, i + CACHE_CHUNK));
-    if (error) return null;
-    for (const r of data ?? []) cached.add(String(r.word));
-  }
-  return words.filter((w) => cached.has(w.toLowerCase()));
-}
-
 /** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -217,12 +193,8 @@ export default async function handler(req: Request): Promise<Response> {
     return jsonResponse(400, { error: 'Invalid JSON body.' });
   }
 
-  let words = asWords(params.words, MAX_WORDS);
+  const words = asWords(params.words, MAX_WORDS);
   if (words.length === 0) return jsonResponse(400, { error: '"words" must be a non-empty array.' });
-  if (!auth.user) {
-    const cached = await cachedSubset(words);
-    if (cached?.length) words = cached;
-  }
   const exclude = new Set(asWords(params.exclude, MAX_EXCLUDE).map((w) => w.toLowerCase()));
   const count = Math.min(MAX_COUNT, Math.max(1, Number(params.count) || 1));
   const mode = params.mode === 'quiz' ? 'quiz' : 'learn';

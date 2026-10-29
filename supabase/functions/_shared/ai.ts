@@ -120,6 +120,36 @@ export async function underRateLimit(supabase: SupabaseClient): Promise<boolean>
   return !(allowed === false && !error);
 }
 
+/**
+ * Rate limit for a caller without an account (see the anon_rate_limit
+ * migration). Two budgets, both must have room: one per client IP — hashed, so
+ * no address is stored — and one shared by every visitor per day, so cost is
+ * bounded however many IPs there are. Fails open on a database error, like
+ * underRateLimit; fails closed with no service client, since then nothing
+ * would be counted at all.
+ */
+export async function underAnonRateLimit(svc: SupabaseClient | null, req: Request): Promise<boolean> {
+  if (!svc) return false;
+  const limit = Number(Deno.env.get('ANON_AI_RATE_LIMIT')) || 20;
+  const win = Number(Deno.env.get('ANON_AI_RATE_WINDOW_SECONDS')) || 600;
+  const daily = Number(Deno.env.get('ANON_AI_DAILY_LIMIT')) || 1000;
+
+  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip));
+  const ipKey = 'ip:' + Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+
+  const check = async (key: string, max: number, seconds: number) => {
+    const { data: allowed, error } = await svc.rpc('check_anon_rate_limit', {
+      p_key: key,
+      p_limit: max,
+      p_window_seconds: seconds,
+    });
+    return !(allowed === false && !error);
+  };
+  // Per-IP first: a single noisy visitor shouldn't eat into the shared budget.
+  return await check(ipKey, limit, win) && await check('all-visitors', daily, 86400);
+}
+
 // ─── Provider call ──────────────────────────────────────────────────
 
 /** Call the configured AI provider. Throws on missing key or provider error. */

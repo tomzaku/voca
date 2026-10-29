@@ -41,12 +41,14 @@
 // word for everyone, so a per-request level could only ever apply to whoever
 // happened to search it first.
 //
-// **Signing in is not required to READ.** The cache is shared by everyone, so a
-// visitor without an account sees any word already in it — that's the flash card
-// working before you sign up. Only generation is gated: producing a word nobody
-// has looked up costs tokens, and the rate limit budgets per user id, so an
-// anonymous caller could neither be billed nor throttled. They get a 401 asking
-// them to sign in, and only for words the cache has never seen.
+// **Signing in is not required.** The cache is shared by everyone, so a visitor
+// without an account sees any word already in it, and a word nobody has looked
+// up yet is generated for them too — studying a topic is the app's basic
+// feature, and it shouldn't stop at whichever words happen to be cached.
+// Generation costs tokens, so a visitor is throttled separately from users
+// (underAnonRateLimit: per hashed IP, plus a daily cap shared by all visitors);
+// running out of that answers 429 with a nudge to sign in. A visitor never gets
+// a fresh translate call for a cached word, though — see hitResponse.
 //
 // Storage lives in cache.ts / rejects.ts / family.ts / idioms.ts; prompts and
 // provider calls in generate.ts; shapes in types.ts, with sanitize.ts turning
@@ -61,6 +63,7 @@ import {
   reqStr,
   optionalUser,
   serviceClient,
+  underAnonRateLimit,
   underRateLimit,
 } from '../_shared/ai.ts';
 import { buildTranslations, type CachedWord, mergeTranslations, readByTranslation, readWord, storeWord, translationFor } from './cache.ts';
@@ -137,12 +140,13 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   // ── 3. None of the above — ask the AI, and remember whatever it says ──
-  // The only step that costs anything, and the only one that needs an account.
+  // The only step that costs anything, so the only one that's rate-limited.
   if (!auth.user) {
-    console.log(`[word] cache MISS "${wordKey}" — anonymous, not generating`);
-    return jsonResponse(401, { error: 'Please sign in to look up a new word.' });
-  }
-  if (!await underRateLimit(auth.supabase)) {
+    if (!await underAnonRateLimit(svc, req)) {
+      console.warn(`[word] rate-limited anon word="${wordKey}"`);
+      return jsonResponse(429, { error: "You've looked up a lot of new words — sign in to keep going, it's free." });
+    }
+  } else if (!await underRateLimit(auth.supabase)) {
     console.warn(`[word] rate-limited user=${auth.user.id} word="${wordKey}"`);
     return jsonResponse(429, { error: 'Too many requests — please slow down and try again shortly.' });
   }
