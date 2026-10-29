@@ -1,17 +1,8 @@
-import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { playSelect } from '../lib/sfx';
-import {
-  PHASES,
-  buildPhase,
-  recommendLevel,
-  type PhaseWord,
-} from '../lib/levelTest';
+import { PHASES } from '../lib/levelTest';
+import { useLevelTest, type LevelResult } from '../hooks/useLevelTest';
 
-export interface LevelResult {
-  collectionId: string;
-  label: string;
-}
+export type { LevelResult };
 
 interface Props {
   /** Called with the recommended Level collection when the test ends. */
@@ -21,55 +12,11 @@ interface Props {
 
 /**
  * The shared "tap the words you know" level test (onboarding + Find my level).
- * Three phases of plain word chips — no data loading, so it's instant. Knowing
- * EVERY word in a phase unlocks the next, harder one; otherwise it finishes
- * and recommends the deepest level the user mostly knows.
+ * Three phases of plain word chips — no data loading, so it's instant. The
+ * flow lives in useLevelTest, shared with the world's climb up Ngự Bình.
  */
 export function LevelPicker({ onDone, onBack }: Props) {
-  const [phaseIdx, setPhaseIdx] = useState(0);
-  // Words are sampled once per run; phases appear as the user unlocks them.
-  const phases = useMemo(() => PHASES.map(buildPhase), []);
-  const [known, setKnown] = useState<Set<string>>(new Set());
-
-  const words = phases[phaseIdx];
-  const phase = PHASES[phaseIdx];
-  const allKnown = words.every((w) => known.has(w.word));
-  const lastPhase = phaseIdx === PHASES.length - 1;
-  const advances = allKnown && !lastPhase;
-
-  const toggle = (word: string) => {
-    playSelect();
-    setKnown((prev) => {
-      const next = new Set(prev);
-      if (next.has(word)) next.delete(word); else next.add(word);
-      return next;
-    });
-  };
-
-  const submit = () => {
-    if (advances) {
-      setPhaseIdx((i) => i + 1);
-      return;
-    }
-    // Only the phases actually shown count toward the recommendation.
-    const shown: PhaseWord[] = phases.slice(0, phaseIdx + 1).flat();
-    onDone(recommendLevel(shown, known));
-  };
-
-  // One-tap shortcut: select every chip in this phase and move on immediately
-  // (next round, or straight to the result on the last one).
-  const knowAll = () => {
-    playSelect();
-    const next = new Set(known);
-    for (const w of words) next.add(w.word);
-    setKnown(next);
-    if (!lastPhase) {
-      setPhaseIdx((i) => i + 1);
-    } else {
-      const shown: PhaseWord[] = phases.flat();
-      onDone(recommendLevel(shown, next));
-    }
-  };
+  const { phase, phaseIdx, words, known, allKnown, lastPhase, advances, toggle, submit, knowAll } = useLevelTest(onDone);
 
   return (
     <div>
