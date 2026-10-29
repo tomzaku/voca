@@ -78,21 +78,30 @@ function Confetti() {
   );
 }
 
-function ModePill({ g, active, onGameChange }: {
+function ModePill({ g, active, resolved, onGameChange }: {
   g: (typeof GUESS_GAMES)[number];
   active: boolean;
+  /** For Smart/Random: the game it settled on for this word, shown inside the
+   *  segment so it reads as "Smart · Choice" rather than a stray line below. */
+  resolved?: string;
   onGameChange: (id: GuessGameMode) => void;
 }) {
   const intl = useIntl();
   return (
     <button
       onClick={() => { playSelect(); onGameChange(g.id); }}
-      className={`group relative btn-3d flex items-center gap-1 px-3 py-1.5 text-xs ${
-        active ? 'bg-accent-purple text-bg-primary' : 'bg-bg-tertiary text-text-secondary hover:text-text-primary'
+      aria-pressed={active}
+      className={`group relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-display font-bold transition-all ${
+        active
+          ? 'bg-bg-card text-accent-purple shadow-[0_2px_0_0_var(--shadow-game)]'
+          : 'text-text-muted hover:text-text-primary'
       }`}
     >
-      <Icon icon={g.icon} className="text-base" />
+      <Icon icon={g.icon} className="text-sm" />
       <span>{intl.formatMessage({ id: g.labelId })}</span>
+      {resolved && (
+        <span className="font-medium text-text-muted">· {resolved}</span>
+      )}
       {/* Hover/focus tooltip: what this mode does. Sits below the pill so the
           card's overflow-hidden top edge can't clip it. */}
       <span
@@ -201,7 +210,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
 
       <div className="p-3 sm:p-6 space-y-3 sm:space-y-5">
         {/* ── HUD: game picker (left) + score/streak (right) ── */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           {/* Mobile: one compact selector instead of a row of pills. */}
           <div className="flex sm:hidden items-center gap-1.5 min-w-0">
             <Selector
@@ -223,29 +232,31 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
             )}
           </div>
 
-          {/* Desktop: the pill row. */}
-          <div className="hidden sm:flex flex-wrap gap-1.5 min-w-0">
+          {/* Desktop: one segmented control rather than a row of 3D buttons —
+              the picker is a setting, so it shouldn't outshout the game it
+              sets. Smart/Random (which pick a game for you) are split from the
+              games themselves by a divider. */}
+          <div className="hidden sm:flex flex-wrap items-center gap-0.5 p-1 rounded-2xl bg-bg-tertiary border border-border min-w-0">
             {GUESS_GAMES.map((g) => (
               <span key={g.id} className={pillWrapClass(g.id)}>
-                <ModePill g={g} active={game === g.id} onGameChange={onGameChange} />
+                <ModePill
+                  g={g}
+                  active={game === g.id}
+                  resolved={game === g.id && (g.id === 'smart' || g.id === 'random')
+                    ? intl.formatMessage({ id: REAL_GUESS_GAMES.find((r) => r.id === activeGame)!.labelId })
+                    : undefined}
+                  onGameChange={onGameChange}
+                />
+                {g.id === 'random' && <span aria-hidden className="w-px h-4 mx-1 bg-border" />}
               </span>
             ))}
             <button
               onClick={() => setMoreModes((o) => !o)}
-              className="btn-3d flex items-center gap-1 px-3 py-1.5 text-xs bg-bg-tertiary text-text-secondary hover:text-text-primary"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-display font-bold text-text-muted hover:text-text-primary transition-colors"
             >
-              <Icon icon={moreModes ? 'lucide:chevron-up' : 'lucide:ellipsis'} className="text-base" />
+              <Icon icon={moreModes ? 'lucide:chevron-up' : 'lucide:ellipsis'} className="text-sm" />
               <span><FormattedMessage id={moreModes ? 'games.less' : 'games.more'} /></span>
             </button>
-            {game === 'smart' && (
-              <span
-                className="self-center flex items-center gap-1 text-[11px] font-bold text-text-muted"
-                title={intl.formatMessage({ id: 'games.smartPickedTitle' })}
-              >
-                <Icon icon="lucide:arrow-right" />
-                {intl.formatMessage({ id: REAL_GUESS_GAMES.find((g) => g.id === activeGame)!.labelId })}
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
