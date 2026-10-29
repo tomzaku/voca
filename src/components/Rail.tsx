@@ -28,6 +28,10 @@ interface NavGroup {
   id: string;
   labelId: string;
   icon: string;
+  /** Background for the group's panel in the collapsed strip — the only thing
+   *  there that says which icons belong together (full class names, so
+   *  Tailwind sees them). */
+  tint: string;
   items: NavItem[];
 }
 
@@ -36,6 +40,7 @@ interface NavGroup {
 const NAV_GROUPS: NavGroup[] = [
   {
     id: 'vocabulary',
+    tint: 'bg-accent-cyan/10',
     labelId: 'app.navVocabulary',
     icon: 'lucide:book-open',
     items: [
@@ -47,6 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'speak',
+    tint: 'bg-accent-purple/10',
     labelId: 'app.navSpeak',
     icon: 'lucide:mic',
     items: [
@@ -59,6 +65,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'listen',
+    tint: 'bg-accent-orange/10',
     labelId: 'app.navListen',
     icon: 'lucide:headphones',
     items: [
@@ -70,6 +77,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'writing',
+    tint: 'bg-accent-green/10',
     labelId: 'app.navWriting',
     icon: 'lucide:pen-line',
     items: [
@@ -224,7 +232,7 @@ export function Rail() {
     if (!window.matchMedia(DESKTOP_QUERY).matches) setExpanded(false);
   };
 
-  const renderItem = (item: NavItem, opts?: { indent?: boolean }) => {
+  const renderItem = (item: NavItem, opts?: { indent?: boolean; group?: string }) => {
     const href = item.tab ? `${item.to}?tab=${item.tab}` : item.to;
     const active = isItemActive(item);
     // Only nests visually when there's a label to nest under — collapsed
@@ -237,8 +245,9 @@ export function Rail() {
         to={href}
         aria-label={label}
         // The nav scrolls, so a custom tooltip beside the strip would be
-        // clipped by it — the browser's own tooltip isn't.
-        title={wide ? undefined : label}
+        // clipped by it — the browser's own tooltip isn't. It names the group
+        // too, since the strip has no headers to say which one this is.
+        title={wide ? undefined : opts?.group ? `${opts.group} › ${label}` : label}
         onClick={collapseOnMobile}
         className={itemClasses(active, indent)}
       >
@@ -309,11 +318,20 @@ export function Rail() {
             {NAV_GROUPS.map((group) => {
               // Collapsed rail has no room for the toggle, so it always shows every icon.
               const showItems = !wide || openGroups[group.id];
+              const groupLabel = intl.formatMessage({ id: group.labelId });
               return (
-                <div key={group.id}>
+                // Collapsed, the group headers are gone and every icon would
+                // run together in one column — so each group sits on its own
+                // tinted panel, named on hover. -mx-1 gives the panel its
+                // padding without narrowing the icons inside it.
+                <div
+                  key={group.id}
+                  title={wide ? undefined : groupLabel}
+                  className={wide ? '' : `-mx-1 p-1 mb-1.5 rounded-2xl flex flex-col gap-0.5 ${group.tint}`}
+                >
                   <RailGroupToggle
                     icon={group.icon}
-                    label={intl.formatMessage({ id: group.labelId })}
+                    label={groupLabel}
                     expanded={wide}
                     open={openGroups[group.id]}
                     active={group.items.some(isItemActive)}
@@ -321,7 +339,7 @@ export function Rail() {
                     // the menu, so the mobile drawer stays open to pick a page.
                     onClick={() => toggleGroup(group.id)}
                   />
-                  {showItems && group.items.map((item) => renderItem(item, { indent: true }))}
+                  {showItems && group.items.map((item) => renderItem(item, { indent: true, group: groupLabel }))}
                 </div>
               );
             })}
