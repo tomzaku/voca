@@ -281,6 +281,46 @@ body {
 }
 .animate-glow-pulse { animation: glowPulse 3.2s ease-in-out infinite; }
 
+/* Guess game card border: a short cyan→purple light travels around an
+   otherwise plain border — "this is live" without the whole card breathing.
+   Drawn as a conic gradient on the border box under a solid padding box, so it
+   follows the rounded corners (the old top strip was clipped by them).
+   `data-result` settles it: green once solved, red while a miss flashes. */
+@property --ring-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes ringTravel { to { --ring-angle: 360deg; } }
+.game-ring {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--color-bg-card), var(--color-bg-card)) padding-box,
+    conic-gradient(
+      from var(--ring-angle),
+      var(--color-border) 0deg 230deg,
+      var(--color-accent-cyan) 290deg,
+      var(--color-accent-purple) 330deg,
+      var(--color-border) 360deg
+    ) border-box;
+  animation: ringTravel 6s linear infinite;
+}
+.game-ring[data-result='correct'] {
+  animation: none;
+  background:
+    linear-gradient(var(--color-bg-card), var(--color-bg-card)) padding-box,
+    linear-gradient(var(--color-accent-green), var(--color-accent-green)) border-box;
+}
+.game-ring[data-result='wrong'] {
+  animation: none;
+  background:
+    linear-gradient(var(--color-bg-card), var(--color-bg-card)) padding-box,
+    linear-gradient(var(--color-accent-red), var(--color-accent-red)) border-box;
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-ring { animation: none; }
+}
+
 /* Confetti burst on a correct answer */
 @keyframes confettiFall {
   0%   { opacity: 1; transform: translate(0, 0) rotate(0deg); }

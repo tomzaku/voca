@@ -48,8 +48,9 @@ export function GuessView({
     <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-4 sm:gap-5 items-start">
       <div className="flex flex-col gap-3 sm:gap-4">
         {/* Definition clue — surfaced at the top while guessing so the hint sits
-            above the game (key for mobile flow) */}
-        <div className="card-game border-accent-cyan p-3 sm:p-6 animate-bounce-in">
+            above the game (key for mobile flow). A plain border: the game card
+            below carries the highlight, and two cyan frames competed for it. */}
+        <div className="card-game p-3 sm:p-6 animate-bounce-in">
           <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
             <span className="text-lg sm:text-xl leading-none animate-bob">💡</span>
             {/* Just "Guess" on mobile — the long title was pushing the

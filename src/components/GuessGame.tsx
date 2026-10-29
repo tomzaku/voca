@@ -174,9 +174,9 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
   };
 
   return (
-    <div className="relative overflow-hidden card-game border-accent-cyan animate-glow-pulse">
-      {/* Top accent strip */}
-      <div className="h-1 w-full bg-gradient-to-r from-accent-cyan via-accent-purple to-accent-green" />
+    // The border is the card's only motion while you think (see .game-ring),
+    // and it answers back: green when solved, red while a miss flashes.
+    <div className="relative overflow-hidden card-game game-ring" data-result={result ?? undefined}>
 
       {/* Confetti + celebration overlay */}
       {result === 'correct' && (
