@@ -3,80 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { getLearnLanguage, getMotherLanguage } from '../lib/languages';
-import { recentCachedWords } from '../lib/wordService';
+import { normalizeQuery, placeholderExamples } from '../lib/wordSearch';
+import { useTypedExample } from '../hooks/useTypedExample';
 import { CatMascot } from './CatMascot';
-
-// Well-known idioms to show when none of the recent words bring one of their
-// own — English only, since that's the language they're in.
-const FALLBACK_IDIOMS = ['break the ice', 'piece of cake', 'under the weather'];
-
-/**
- * What the placeholder types out: a mix of the learner's own recent words,
- * idioms, and a recent word's meaning in their mother language — so it shows
- * each kind of thing the box takes (a word, a phrase, the other language),
- * not just says so. Picked once, when the box opens.
- */
-function placeholderExamples(): string[] {
-  const recent = recentCachedWords(8).reverse(); // newest first
-  const words = recent.slice(0, 3).map((w) => w.headword || w.word);
-  const idioms = recent.flatMap((w) => w.idioms?.slice(0, 1).map((i) => i.idiom) ?? []).slice(0, 2);
-  if (idioms.length < 2 && getLearnLanguage() === 'English') {
-    idioms.push(...FALLBACK_IDIOMS.filter((i) => !idioms.includes(i)).slice(0, 2 - idioms.length));
-  }
-  // A translation like "không ngừng, liên tục" — the first sense reads as a
-  // search on its own.
-  const meaning = recent.find((w) => w.translation)?.translation?.split(/[,;]/)[0].trim();
-  const out: string[] = [];
-  for (let i = 0; i < 3; i++) {
-    if (words[i]) out.push(words[i]);
-    if (idioms[i]) out.push(idioms[i]);
-    if (i === 0 && meaning) out.push(meaning);
-  }
-  return out;
-}
-
-const TYPE_MS = 70;
-const DELETE_MS = 35;
-const HOLD_MS = 1600;
-const GAP_MS = 350;
-
-/**
- * Types each example out, holds it, deletes it, and moves to the next, for as
- * long as `active`. Returns the text so far — '' between examples — or null
- * before the first one starts. Nothing runs, and null comes back, with no
- * examples or when the reader has asked for reduced motion.
- */
-function useTypedExample(examples: string[], active: boolean): string | null {
-  const [text, setText] = useState<string | null>(null);
-  useEffect(() => {
-    if (!active || examples.length === 0) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let index = 0;
-    let len = 0;
-    let deleting = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const step = () => {
-      const target = examples[index];
-      if (!deleting) {
-        len += 1;
-        setText(target.slice(0, len));
-        if (len < target.length) { timer = setTimeout(step, TYPE_MS); return; }
-        deleting = true;
-        timer = setTimeout(step, HOLD_MS);
-        return;
-      }
-      len -= 1;
-      setText(target.slice(0, len));
-      if (len > 0) { timer = setTimeout(step, DELETE_MS); return; }
-      deleting = false;
-      index = (index + 1) % examples.length;
-      timer = setTimeout(step, GAP_MS);
-    };
-    timer = setTimeout(step, GAP_MS);
-    return () => { clearTimeout(timer); setText(null); };
-  }, [examples, active]);
-  return text;
-}
 
 /**
  * Spotlight-style word lookup, opened from the header's Search button or
@@ -118,9 +47,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Keep the whole phrase — phrasal verbs and idioms ("go on", "give up")
-    // are valid lookups; just collapse stray whitespace.
-    const word = query.trim().toLowerCase().replace(/\s+/g, ' ');
+    const word = normalizeQuery(query);
     if (!word) return;
     navigate('/');          // ensure the flashcard page is mounted
     requestSearch(word);    // FlashCard picks this up and loads the word

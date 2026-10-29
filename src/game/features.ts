@@ -33,4 +33,5 @@ export const WORLD_FEATURES: WorldFeature[] = [
   { id: 'buddy',      nameId: 'world.featureBuddy',      route: '/companion',  emoji: '🐾', icon: 'lucide:paw-print', blurbId: 'world.featureBuddyBlurb' },
   { id: 'review',     nameId: 'world.featureReview',     route: '/review',     emoji: '🪷', icon: 'lucide:repeat',     blurbId: 'world.featureReviewBlurb' },
   { id: 'listening',  nameId: 'world.featureListening',  route: '/listening',  emoji: '🎧', icon: 'lucide:headphones', blurbId: 'world.featureListeningBlurb' },
+  { id: 'search',     nameId: 'world.featureSearch',     route: '/',           emoji: '🔎', icon: 'lucide:search',     blurbId: 'world.featureSearchBlurb' },
 ];

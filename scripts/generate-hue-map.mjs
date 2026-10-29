@@ -24,7 +24,8 @@
 //
 //   NORTH BANK   Thiên Mụ pagoda (Review) · the Citadel, its moat, Kỳ Đài flag
 //                tower and Ngọ Môn gate, with the seven level halls inside ·
-//                Đông Ba market (Learn) · Tịnh Tâm lotus lake · Gia Hội houses
+//                Đông Ba market (Learn) · Tịnh Tâm lotus lake · Gia Hội houses ·
+//                Tàng Thư Lâu, the royal library on its lake island (Search)
 //   RIVER        four bridges, each drawn after its real signature — Nguyễn
 //                Hoàng (one imperial-yellow arch on V piers), Dã Viên (across
 //                Dã Viên islet), Phú Xuân (plain concrete spans and lamps),
@@ -170,10 +171,15 @@ const WALL = { x0: 18, y0: 2, x1: 46, y1: 23 };
 const GATES = [23, 39];                              // left column of each 2-wide south gate
 const BASTION = { x0: 29, x1: 35, y0: 22, y1: 24 };  // Kỳ Đài, in the wall + moat line
 
+// Tàng Thư Lâu: like the real one, the library stands on an island in a
+// square lake, reached by one small bridge.
+const LIBRARY = { lake: { x: 64, y: 3, w: 11, h: 10 }, island: { x: 66, y: 5, w: 7, h: 6 }, bridgeX: 68 };
+
 const LAKES = [
   { kind: 'ellipse', cx: 56 * T, cy: 7.5 * T, rx: 6 * T, ry: 3.2 * T },  // Tịnh Tâm
   { kind: 'rect', x: 23, y: 10, w: 4, h: 3 },                            // palace lotus ponds
   { kind: 'rect', x: 37, y: 10, w: 4, h: 3 },
+  { kind: 'rect', ...LIBRARY.lake },
 ];
 
 const inMoat = (x, y) => {
@@ -183,9 +189,10 @@ const inMoat = (x, y) => {
   const bastion = tx >= BASTION.x0 && tx < BASTION.x1 && ty >= BASTION.y0;
   return outer && !inner && !bastion;
 };
-const inLake = (x, y) => LAKES.some((l) => l.kind === 'ellipse'
+const inTileRect = (x, y, r) => x >= r.x * T && x < (r.x + r.w) * T && y >= r.y * T && y < (r.y + r.h) * T;
+const inLake = (x, y) => !inTileRect(x, y, LIBRARY.island) && LAKES.some((l) => l.kind === 'ellipse'
   ? ((x - l.cx) / l.rx) ** 2 + ((y - l.cy) / l.ry) ** 2 <= 1
-  : x >= l.x * T && x < (l.x + l.w) * T && y >= l.y * T && y < (l.y + l.h) * T);
+  : inTileRect(x, y, l));
 const inRiver = (x, y) => y > northEdge(x) && y < southEdge(x) && !onIslet(x, y);
 const isWater = (x, y) => inRiver(x, y) || inMoat(x, y) || inLake(x, y);
 
@@ -205,6 +212,8 @@ const ROADS = [
   [47, 14, 3, 10, 'dirt'],         // up past the moat to the lake
   [48, 11, 16, 2, 'dirt'],
   [62, 22, 18, 2, 'dirt'],         // Gia Hội lane
+  [68, 13, 2, 9, 'dirt'],          // up to the library
+  [66, 5, 7, 6, 'stone'],          // the library's island courtyard
   // South bank
   [0, 33, 80, 2, 'stone'],         // Lê Lợi riverside promenade
   [14, 42, 66, 2, 'dirt'],         // the inland street
@@ -810,6 +819,33 @@ place(hall({ w: 5, h: 5, roofRows: 3, roofPal: ROOF.dark, wall: [226, 214, 186],
   place(cv, 50, 15, 4);
 }
 
+// Tàng Thư Lâu: two storeys on a raised stone base, glazed green roofs, on
+// its island; a plank bridge crosses the lake to it from the south.
+{
+  const x0 = LIBRARY.bridgeX * T, x1 = x0 + 2 * T;
+  const y0 = (LIBRARY.lake.y + LIBRARY.lake.h - 2) * T - 4, y1 = (LIBRARY.lake.y + LIBRARY.lake.h) * T + 2;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const plank = Math.floor((y - y0) / 3) % 2 === 0;
+      ground.set(x, y, x === x0 || x === x1 - 1 ? [106, 76, 50] : plank ? [160, 118, 78] : [146, 106, 70]);
+    }
+    ground.set(x1, y + 2, P.shadow, 0.3);
+  }
+  mark(deck, LIBRARY.bridgeX, LIBRARY.lake.y + LIBRARY.lake.h - 2, 2, 2);
+
+  const cv = palace({ w: 6, h: 5, roofPal: ROOF.glazed, wall: [134, 56, 42], pillar: [190, 152, 92] });
+  const pw = cv.w, ph = cv.h;
+  // Raised stone base, and latticed windows either side of the door.
+  cv.rect(1, ph - 7, pw - 2, 7, [172, 164, 152]);
+  cv.rect(1, ph - 7, pw - 2, 2, [196, 188, 176]);
+  for (let x = 4; x < pw - 4; x += 6) cv.rect(x, ph - 4, 3, 2, [150, 142, 132]);
+  for (const wx of [12, pw - 24]) {
+    cv.rect(wx, ph - 26, 12, 12, [214, 186, 120]);
+    for (let k = 0; k < 12; k += 3) { cv.rect(wx + k, ph - 26, 1, 12, [120, 84, 52]); cv.rect(wx, ph - 26 + k, 12, 1, [120, 84, 52]); }
+  }
+  place(cv, LIBRARY.island.x, LIBRARY.island.y, 3);
+}
+
 // Gia Hội: three old shophouses, purely scenery.
 [[63, ROOF.dark], [71, ROOF.terra], [75, ROOF.moss]].forEach(([x, pal]) => {
   place(hall({ w: 4, h: 4, roofRows: 2, roofPal: pal, wall: [214, 198, 170], windows: true, windowStep: 9, doorW: 6 }), x, 18, 2);
@@ -1069,6 +1105,7 @@ const FEATURES = [
   ['level-test', 24.5, 43.6, 'Núi Ngự Bình'],
   ['history', 8, 51.5, 'Lăng Khải Định'],
   ['buddy', 53, 49.5, 'Nhà vườn'],
+  ['search', 69, 10.5, 'Tàng Thư Lâu'],
 ];
 FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 

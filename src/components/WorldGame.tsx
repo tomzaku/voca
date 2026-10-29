@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Navigate, useNavigate } from 'react-router-dom';
@@ -14,6 +14,8 @@ import { CollectionForm } from './CollectionForm';
 import { CollectionStats } from './CollectionStats';
 import { QuizSetup } from './QuizSetup';
 import { DongBaStall } from './worldgames/DongBaStall';
+import { LibrarySearch } from './worldgames/LibrarySearch';
+import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
 
 // The world pulls in Phaser (~1 MB) — only load it when the page mounts.
@@ -56,6 +58,20 @@ export function WorldGame() {
   const [form, setForm] = useState<{ editingId: string | null; name: string; words: string[] } | null>(null);
   // The feature building whose page is open over the world (null = none).
   const [feature, setFeature] = useState<WorldFeature | null>(null);
+
+  // Search lives in the library: the header's search (button, ⌘K, "/") opens
+  // it here instead of the app's modal, and "learn it" hands the word to the
+  // Đông Ba stall, which plays it next.
+  useEffect(() => useWordSearch.subscribe((s, prev) => {
+    if (s.openCount === prev.openCount) return;
+    const library = WORLD_FEATURES.find((f) => f.id === 'search');
+    if (library) setFeature(library);
+  }), []);
+  const learnAtDongBa = (word: string) => {
+    useWordSearch.getState().requestSearch(word);
+    const stall = WORLD_FEATURES.find((f) => f.id === 'learn');
+    if (stall) setFeature(stall);
+  };
 
   const study = (s: WorldStation) => {
     setActive(s.id);
@@ -128,6 +144,7 @@ export function WorldGame() {
             feature,
             onClose: () => setFeature(null),
             content: feature.id === 'learn' ? <DongBaStall />
+              : feature.id === 'search' ? <LibrarySearch onLearn={learnAtDongBa} />
               : feature.id === 'quizzes' ? <QuizArena words={wordPool} />
               : <ComingSoon feature={feature} />,
           }}

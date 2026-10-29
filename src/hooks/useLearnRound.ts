@@ -3,6 +3,7 @@ import { useAuth } from './useAuth';
 import { useTeams } from './useTeams';
 import { useVocabularyStore } from './useVocabulary';
 import { recentAccuracy, smartPick, type RealGuessGameMode } from './useGuessGame';
+import { useWordSearch } from './useWordSearch';
 import { generateWordData, pickNextWords } from '../lib/wordService';
 import type { AnswerVia, VocabularyWord } from '../types';
 
@@ -32,9 +33,9 @@ export type LearnPhase = 'loading' | 'guessing' | 'solved' | 'gaveUp' | 'empty';
 /**
  * One Learn round after another, headless: the next word is chosen exactly as
  * the flash card chooses it (pickNextWords — struggling and new words, due
- * reviews), the game by the same smart ladder, and the result recorded by
- * useLearnRecorder. `playable` lists the games the caller can draw; a pick
- * outside it falls back down the ladder.
+ * reviews; a word sent from a search first), the game by the same smart
+ * ladder, and the result recorded by useLearnRecorder. `playable` lists the
+ * games the caller can draw; a pick outside it falls back down the ladder.
  */
 export function useLearnRound(playable: RealGuessGameMode[]) {
   const recorder = useLearnRecorder();
@@ -52,7 +53,11 @@ export function useLearnRound(playable: RealGuessGameMode[]) {
     setMistakes(0);
     mistakesRef.current = 0;
     try {
-      const [picked] = await pickNextWords(new Set(recent.current));
+      // A word sent over from a search ("learn it") goes first; otherwise the
+      // usual pick.
+      const requested = useWordSearch.getState().pending;
+      if (requested) useWordSearch.getState().consume();
+      const [picked] = requested ? [{ word: requested }] : await pickNextWords(new Set(recent.current));
       if (!picked) { setPhase('empty'); return; }
       const data = await generateWordData(picked.word);
       recent.current = [...recent.current, picked.word].slice(-20);

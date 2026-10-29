@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useStreak, localDateString } from '../hooks/useStreak';
@@ -9,6 +9,7 @@ import { useIsPro } from '../hooks/useProStatus';
 import { useRailState } from '../hooks/useRailState';
 import { isApple } from '../lib/device';
 import { SearchModal } from './SearchModal';
+import { useWordSearch } from '../hooks/useWordSearch';
 import { QuickPrefs } from './QuickPrefs';
 
 // Desktop's Rail is always on screen, so this bar is just search + account
@@ -30,9 +31,14 @@ export function Navbar() {
   const countedToday = useStreak((s) => s.lastActiveDay) === localDateString();
 
   const [searchOpen, setSearchOpen] = useState(false);
+  // Inside the world, search is a building (the library) — open that instead
+  // of the app's modal, which would take the learner out of the game.
+  const inWorld = useLocation().pathname === '/world';
+  const requestWorldSearch = useWordSearch((s) => s.requestOpen);
+  const openSearch = () => (inWorld ? requestWorldSearch() : setSearchOpen(true));
   // ⌘K / Ctrl+K from anywhere, and "/" when not already typing.
-  useHotkey('mod+k', () => setSearchOpen(true));
-  useHotkey('/', () => setSearchOpen(true));
+  useHotkey('mod+k', openSearch);
+  useHotkey('/', openSearch);
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
   const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || '';
@@ -76,7 +82,7 @@ export function Navbar() {
             </Link>
 
             <button
-              onClick={() => setSearchOpen(true)}
+              onClick={openSearch}
               className="btn-3d flex items-center gap-1.5 pl-3 pr-3.5 h-9 rounded-full bg-bg-card text-text-secondary hover:text-text-primary shrink-0"
               title={intl.formatMessage({ id: 'navbar.searchTitle' }, { shortcut: isApple() ? '⌘K' : 'Ctrl+K' })}
             >
