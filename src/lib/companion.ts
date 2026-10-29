@@ -101,6 +101,21 @@ export function unlockedSkills(known: number): number {
   return SKILL_THRESHOLDS.filter((n) => known >= n).length;
 }
 
+/**
+ * Where a buddy is in its growth, from how many words are known: its stage,
+ * the next one (null once fully grown), the words still to go, and how far
+ * through the current stage it is (0–100). The companion page and the
+ * world's An Hiên home both draw from this.
+ */
+export function growth(known: number): { stageIdx: number; stage: Stage; next: Stage | null; toNext: number; pct: number } {
+  const stageIdx = stageIndex(known);
+  const stage = STAGES[stageIdx];
+  const next = nextStage(known);
+  const toNext = next ? next.min - known : 0;
+  const pct = next ? Math.min(100, Math.round(((known - stage.min) / (next.min - stage.min)) * 100)) : 100;
+  return { stageIdx, stage, next, toNext, pct };
+}
+
 // ─── Perks (applied by the game score store) ────────────────────────
 
 /** Points a win awards, given the current streak and chosen companion perk. */

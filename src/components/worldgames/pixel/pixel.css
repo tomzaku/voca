@@ -156,6 +156,10 @@
   font-weight: 700; font-size: 13px; line-height: 1;
 }
 
+/* A sprite sheet row, stepped frame by frame (PixelSprite). */
+.px-sprite { image-rendering: pixelated; background-repeat: no-repeat; }
+@keyframes px-sprite { from { background-position-x: 0; } to { background-position-x: var(--sprite-end); } }
+
 @keyframes px-blink { 50% { opacity: 0.25; } }
 .px-blink { animation: px-blink 0.8s steps(1) infinite; }
 
@@ -176,5 +180,5 @@
 .px-in-side { animation: px-in-side 0.2s steps(4) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  .px-blink, .px-hop, .px-rise, .px-shake, .px-in-up, .px-in-down, .px-in-side { animation: none; }
+  .px-blink, .px-hop, .px-rise, .px-shake, .px-in-up, .px-in-down, .px-in-side, .px-sprite { animation: none !important; }
 }

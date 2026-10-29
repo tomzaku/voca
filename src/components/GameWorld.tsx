@@ -4,8 +4,7 @@ import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
 import { MemberAvatars } from './MemberAvatars';
-import { useCompanion } from '../hooks/useCompanion';
-import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useCompanion, useWordsKnown } from '../hooks/useCompanion';
 import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
 import type { BuddyLook } from '../game/textures';
@@ -76,9 +75,7 @@ export function GameWorld({
   const locale = intl.locale;
   const animalId = useCompanion((s) => s.animalId);
   const buddyName = useCompanion((s) => s.name);
-  const known = useVocabularyStore(
-    (s) => Object.values(s.progress).filter((e) => e.status === 'known').length,
-  );
+  const known = useWordsKnown();
   const animal = getAnimal(animalId ?? 'fox');
   const stage = stageIndex(known);
 

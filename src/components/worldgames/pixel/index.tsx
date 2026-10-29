@@ -97,10 +97,11 @@ export function HudSide({ title, footer, children }: { title: ReactNode; footer?
   );
 }
 
-/** Centred, for a match board or a results card. */
-export function HudCenter({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+/** Centred, for a match board or a results card. `besideSide` keeps it
+ *  clear of a HudSide panel on the right. */
+export function HudCenter({ children, wide = false, besideSide = false }: { children: ReactNode; wide?: boolean; besideSide?: boolean }) {
   return (
-    <div className="px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] xl:pt-[4.5rem] pointer-events-none">
+    <div className={`px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] xl:pt-[4.5rem] pointer-events-none ${besideSide ? 'md:pr-[396px]' : ''}`}>
       <div className={`px-notch px-frame w-full ${wide ? 'max-w-[640px]' : 'max-w-[400px]'} max-h-full overflow-y-auto p-5 pointer-events-auto px-in-up`}>
         {children}
       </div>
@@ -228,4 +229,35 @@ export function PixelLetter({ char, state = 'shown', onClick }: {
   return onClick
     ? <button onClick={onClick} disabled={state === 'used'} className={cls}>{char}</button>
     : <span className={cls}>{state === 'blank' ? '·' : char}</span>;
+}
+
+/**
+ * One row of a pixel sprite sheet, playing in place — a buddy idling, say.
+ * `frame` is the source frame size; `scale` blows it up in whole pixels.
+ */
+export function PixelSprite({ src, sheetWidth, frame = 32, frames = 4, row = 0, scale = 4, fps = 6 }: {
+  src: string;
+  sheetWidth: number;
+  frame?: number;
+  frames?: number;
+  row?: number;
+  scale?: number;
+  fps?: number;
+}) {
+  const size = frame * scale;
+  return (
+    <span
+      aria-hidden
+      className="px-sprite inline-block shrink-0"
+      style={{
+        width: size,
+        height: size,
+        backgroundImage: `url(${src})`,
+        backgroundSize: `${sheetWidth * scale}px auto`,
+        backgroundPositionY: -row * size,
+        ['--sprite-end' as string]: `${-frames * size}px`,
+        animation: `px-sprite ${frames / fps}s steps(${frames}) infinite`,
+      }}
+    />
+  );
 }

@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useCompanion } from '../hooks/useCompanion';
-import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useCompanion, useWordsKnown } from '../hooks/useCompanion';
 import { useGameScore } from '../hooks/useGameScore';
 import { getAnimal, SKILL_THRESHOLDS, stageIndex } from '../lib/companion';
 import { AnimalAvatar } from './AnimalAvatar';
@@ -21,9 +20,7 @@ export function BuddyBadge() {
   const intl = useIntl();
   const animalId = useCompanion((s) => s.animalId);
   const name = useCompanion((s) => s.name);
-  const known = useVocabularyStore(
-    (s) => Object.values(s.progress).filter((e) => e.status === 'known').length,
-  );
+  const known = useWordsKnown();
   const points = useGameScore((s) => s.points);
 
   if (!animalId) return null;

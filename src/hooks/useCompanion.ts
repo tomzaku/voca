@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useVocabularyStore } from './useVocabulary';
 import { type AnimalId, isAnimalId } from '../lib/companion';
 import { fetchSettings, saveSettings } from '../lib/settingsApi';
 
@@ -66,4 +67,9 @@ export const useCompanion = create<CompanionState>((set, get) => ({
 function syncCompanion(animalId: AnimalId | null, name: string) {
   if (!animalId) return;
   void saveSettings({ companionAnimal: animalId, companionName: name || null });
+}
+
+/** Words marked known — what a buddy grows on (see lib/companion's growth). */
+export function useWordsKnown(): number {
+  return useVocabularyStore((s) => Object.values(s.progress).filter((e) => e.status === 'known').length);
 }

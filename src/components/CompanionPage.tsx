@@ -1,25 +1,20 @@
 import { useEffect, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useCompanion } from '../hooks/useCompanion';
-import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useCompanion, useWordsKnown } from '../hooks/useCompanion';
 import { useGameScore } from '../hooks/useGameScore';
 import { AnimalAvatar } from './AnimalAvatar';
 import { CatMascot, type CatPose } from './CatMascot';
 import {
   ANIMALS,
   getAnimal,
-  STAGES,
   SKILL_THRESHOLDS,
-  stageIndex,
-  nextStage,
+  growth,
   type AnimalId,
 } from '../lib/companion';
 
 export function CompanionPage() {
   const { animalId, name, choose, rename } = useCompanion();
-  const known = useVocabularyStore(
-    (s) => Object.values(s.progress).filter((e) => e.status === 'known').length,
-  );
+  const known = useWordsKnown();
   const [picking, setPicking] = useState(false);
 
   if (!animalId || picking) {
@@ -104,9 +99,7 @@ function Companion({ animalId, name, known, onRename, onChange }: {
   const intl = useIntl();
   const a = getAnimal(animalId);
   const { points, best, winId } = useGameScore();
-  const idx = stageIndex(known);
-  const stage = STAGES[idx];
-  const next = nextStage(known);
+  const { stage, next, toNext, pct: progress } = growth(known);
 
   // The real cat mascot cheers with a trophy on every game win, then settles
   // back to its idle pose (see src/assets/lottie/cat — only the cat has real
@@ -118,11 +111,6 @@ function Companion({ animalId, name, known, onRename, onChange }: {
     const t = setTimeout(() => setPose('idle'), 1200);
     return () => clearTimeout(t);
   }, [winId]);
-
-  const toNext = next ? next.min - known : 0;
-  const progress = next
-    ? Math.min(100, Math.round(((known - stage.min) / (next.min - stage.min)) * 100))
-    : 100;
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
