@@ -104,7 +104,7 @@ export function QuickPrefs() {
         title={label}
         className="btn-3d flex items-center gap-1 h-9 pl-2.5 pr-3 rounded-full bg-bg-card text-text-secondary hover:text-text-primary"
       >
-        <Icon icon="lucide:languages" className="text-base" />
+        <Icon icon={LOCALES.find((l) => l.id === locale)?.flag ?? 'lucide:languages'} className="text-base" />
         <span className="text-xs font-extrabold uppercase">{locale}</span>
       </button>
 
@@ -127,10 +127,11 @@ export function QuickPrefs() {
                   lang={l.id}
                   aria-pressed={on}
                   onClick={() => setLocale(l.id)}
-                  className={`px-2 py-1.5 rounded-lg border-2 text-xs font-bold transition-colors ${
+                  className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg border-2 text-xs font-bold transition-colors ${
                     on ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border text-text-secondary hover:border-border-light'
                   }`}
                 >
+                  <Icon icon={l.flag} className="text-base shrink-0" />
                   {l.label}
                 </button>
               );

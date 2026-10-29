@@ -7,11 +7,12 @@ import { loadMessages } from './catalogs';
 
 export type Locale = 'en' | 'vi';
 
-export const LOCALES: { id: Locale; label: string }[] = [
+export const LOCALES: { id: Locale; label: string; flag: string }[] = [
   // Each language is named in itself, so a user who can't read the current UI
-  // can still find their own.
-  { id: 'en', label: 'English' },
-  { id: 'vi', label: 'Tiếng Việt' },
+  // can still find their own. Flags are Iconify icons rather than emoji, which
+  // Windows renders as bare letters ("VN").
+  { id: 'en', label: 'English', flag: 'circle-flags:us' },
+  { id: 'vi', label: 'Tiếng Việt', flag: 'circle-flags:vn' },
 ];
 
 const LOCALE_KEY = 'voca-ui-lang';

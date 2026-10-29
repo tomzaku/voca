@@ -8,7 +8,7 @@ import { speakText, stopSpeaking } from '../lib/tts';
 import { isSfxEnabled, setSfxEnabled, playCorrect } from '../lib/sfx';
 import { ToggleSwitch } from './ToggleSwitch';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useLocale, LOCALES, type Locale } from '../i18n/locale';
+import { useLocale, LOCALES } from '../i18n/locale';
 import {
   LANGUAGES,
   getLearnLanguage,
@@ -218,13 +218,27 @@ export function SettingsPage() {
             <label className="text-xs font-medium text-text-secondary block mb-1.5">
               <FormattedMessage id="settings.uiLanguage" />
             </label>
-            <select
-              value={locale}
-              onChange={(e) => setLocale(e.target.value as Locale)}
-              className="select-field w-full bg-bg-card border border-border rounded-lg pl-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
-            >
-              {LOCALES.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
-            </select>
+            {/* Buttons rather than a <select>: an option can't show a flag. */}
+            <div className="grid grid-cols-2 gap-2">
+              {LOCALES.map((l) => {
+                const on = locale === l.id;
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    lang={l.id}
+                    aria-pressed={on}
+                    onClick={() => setLocale(l.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      on ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border bg-bg-card text-text-primary hover:border-border-light'
+                    }`}
+                  >
+                    <Icon icon={l.flag} className="text-lg shrink-0" />
+                    {l.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div>
             <label className="text-xs font-medium text-text-secondary block mb-1.5"><FormattedMessage id="settings.learnLanguage" /></label>
