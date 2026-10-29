@@ -15,6 +15,7 @@ import { CollectionStats } from './CollectionStats';
 import { QuizSetup } from './QuizSetup';
 import { DongBaStall } from './worldgames/DongBaStall';
 import { LibrarySearch } from './worldgames/LibrarySearch';
+import { ThienMuReview } from './worldgames/ThienMuReview';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
 
@@ -67,10 +68,13 @@ export function WorldGame() {
     const library = WORLD_FEATURES.find((f) => f.id === 'search');
     if (library) setFeature(library);
   }), []);
-  const learnAtDongBa = (word: string) => {
-    useWordSearch.getState().requestSearch(word);
+  const openStall = () => {
     const stall = WORLD_FEATURES.find((f) => f.id === 'learn');
     if (stall) setFeature(stall);
+  };
+  const learnAtDongBa = (word: string) => {
+    useWordSearch.getState().requestSearch(word);
+    openStall();
   };
 
   const study = (s: WorldStation) => {
@@ -145,6 +149,7 @@ export function WorldGame() {
             onClose: () => setFeature(null),
             content: feature.id === 'learn' ? <DongBaStall />
               : feature.id === 'search' ? <LibrarySearch onLearn={learnAtDongBa} />
+              : feature.id === 'review' ? <ThienMuReview onLearnMore={openStall} />
               : feature.id === 'quizzes' ? <QuizArena words={wordPool} />
               : <ComingSoon feature={feature} />,
           }}

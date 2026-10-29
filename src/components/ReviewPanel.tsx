@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import type { WordProgress } from '../types';
 import { useVocabularyStore } from '../hooks/useVocabulary';
-import { isDue } from '../lib/spacedRepetition';
+import { dueWords as listDueWords } from '../lib/spacedRepetition';
 import { whyLine } from '../lib/progress';
 import { MIN_QUIZ_WORDS } from '../lib/quizConfig';
 
@@ -52,7 +52,7 @@ export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) 
   const learning = entries.filter((p) => p.dueAt && !p.mastered);
   const masteredWords = entries.filter((p) => p.mastered);
   const now = Date.now();
-  const dueWords = entries.filter((p) => isDue(p, now)).sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? ''));
+  const dueWords = listDueWords(progress, now);
 
   const empty = learning.length === 0 && masteredWords.length === 0;
 

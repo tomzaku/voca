@@ -14,6 +14,8 @@ import {
   DEFAULT_EASE,
   MASTER_INTERVAL,
   dueTime,
+  dueWords,
+  nextDueAt,
   gradeReview,
   inReview,
   isDue,
@@ -216,5 +218,25 @@ describe('reviewsUntilMastered', () => {
     const weak = reviewsUntilMastered(reviewed({ stability: 1 }));
     const strong = reviewsUntilMastered(reviewed({ stability: 15 }));
     expect(strong).toBeLessThanOrEqual(weak);
+  });
+});
+
+describe('dueWords', () => {
+  const at = (iso: string) => new Date(iso).getTime();
+  const p = (word: string, extra: Partial<WordProgress>): WordProgress => ({ word, seenAt: '2026-01-01T00:00:00Z', ...extra });
+  const progress: Record<string, WordProgress> = {
+    late: p('late', { dueAt: '2026-01-01T00:00:00Z' }),
+    later: p('later', { dueAt: '2026-01-05T00:00:00Z' }),
+    future: p('future', { dueAt: '2026-03-01T00:00:00Z' }),
+    done: p('done', { dueAt: '2026-01-01T00:00:00Z', mastered: true }),
+    gone: p('gone', { dueAt: '2026-01-01T00:00:00Z', status: 'dismissed' }),
+    fresh: p('fresh', {}),
+  };
+  it('lists only words in review and past due, most overdue first', () => {
+    expect(dueWords(progress, at('2026-02-01T00:00:00Z')).map((w) => w.word)).toEqual(['late', 'later']);
+  });
+  it('finds the next review still to come', () => {
+    expect(nextDueAt({ future: progress.future, done: progress.done })).toBe(at('2026-03-01T00:00:00Z'));
+    expect(nextDueAt({ fresh: progress.fresh })).toBeNull();
   });
 });

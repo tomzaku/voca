@@ -172,3 +172,25 @@ export function reviewsUntilMastered(p: WordProgress | undefined): number {
   }
   return steps;
 }
+
+/**
+ * The words due for review now, most overdue first. Dismissed words (skipped
+ * for good) are out of rotation. The History review panel lists these and the
+ * world's Thiên Mụ session works through them.
+ */
+export function dueWords(progress: Record<string, WordProgress>, now = Date.now()): WordProgress[] {
+  return Object.values(progress)
+    .filter((p) => p.status !== 'dismissed' && isDue(p, now))
+    .sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? ''));
+}
+
+/** When the next review falls due (ms), or null with nothing scheduled. */
+export function nextDueAt(progress: Record<string, WordProgress>): number | null {
+  let soonest: number | null = null;
+  for (const p of Object.values(progress)) {
+    if (p.status === 'dismissed' || !inReview(p) || p.mastered) continue;
+    const t = dueTime(p);
+    if (soonest === null || t < soonest) soonest = t;
+  }
+  return soonest;
+}

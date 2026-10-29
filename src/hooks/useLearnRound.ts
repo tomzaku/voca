@@ -36,8 +36,11 @@ export type LearnPhase = 'loading' | 'guessing' | 'solved' | 'gaveUp' | 'empty';
  * reviews; a word sent from a search first), the game by the same smart
  * ladder, and the result recorded by useLearnRecorder. `playable` lists the
  * games the caller can draw; a pick outside it falls back down the ladder.
+ *
+ * `pickWord` replaces the picking with a fixed queue (Thiên Mụ's due words):
+ * it returns the next word, or null when the queue is done ('empty').
  */
-export function useLearnRound(playable: RealGuessGameMode[]) {
+export function useLearnRound(playable: RealGuessGameMode[], pickWord?: () => string | null) {
   const recorder = useLearnRecorder();
   const [phase, setPhase] = useState<LearnPhase>('loading');
   const [wordData, setWordData] = useState<VocabularyWord | null>(null);
@@ -47,17 +50,29 @@ export function useLearnRound(playable: RealGuessGameMode[]) {
   // Words from this sitting, so the next pick doesn't hand one straight back.
   const recent = useRef<string[]>([]);
   const playableKey = playable.join(',');
+  // One load at a time: a second call while a word is loading (React's dev
+  // double-mount, or Enter pressed twice) would otherwise take a second word
+  // off a queue and skip the first.
+  const loading = useRef(false);
 
   const next = useCallback(async () => {
+    if (loading.current) return;
+    loading.current = true;
     setPhase('loading');
     setMistakes(0);
     mistakesRef.current = 0;
     try {
-      // A word sent over from a search ("learn it") goes first; otherwise the
-      // usual pick.
-      const requested = useWordSearch.getState().pending;
-      if (requested) useWordSearch.getState().consume();
-      const [picked] = requested ? [{ word: requested }] : await pickNextWords(new Set(recent.current));
+      let picked: { word: string } | undefined;
+      if (pickWord) {
+        const w = pickWord();
+        picked = w ? { word: w } : undefined;
+      } else {
+        // A word sent over from a search ("learn it") goes first; otherwise
+        // the usual pick.
+        const requested = useWordSearch.getState().pending;
+        if (requested) useWordSearch.getState().consume();
+        [picked] = requested ? [{ word: requested }] : await pickNextWords(new Set(recent.current));
+      }
       if (!picked) { setPhase('empty'); return; }
       const data = await generateWordData(picked.word);
       recent.current = [...recent.current, picked.word].slice(-20);
@@ -70,6 +85,8 @@ export function useLearnRound(playable: RealGuessGameMode[]) {
       setPhase('guessing');
     } catch {
       setPhase('empty');
+    } finally {
+      loading.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playableKey]);
