@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useTheme, type Theme } from '../hooks/useTheme';
@@ -109,9 +109,10 @@ function RailTooltip({ label, show }: { label: string; show: boolean }) {
 // Styled as a peer of every other nav item — same icon-plus-text row, one
 // click target for the whole thing (a real button, not a link split from a
 // chevron — a slim separate hit target for the chevron turned out too easy
-// to miss). What a click does depends on where you already are, decided by
-// the caller: already on the group's first item, it just folds the group
-// away; anywhere else, it navigates there and leaves the group open.
+// to miss). A click only folds or unfolds the group — it never navigates.
+// It used to jump to the group's first page when you weren't already there,
+// so opening a group to reach one of its other pages took you somewhere
+// first; the pages are the items underneath.
 //
 // `active` only paints the header itself while collapsed — once expanded,
 // the current item's own highlight below already says so, and painting both
@@ -154,7 +155,6 @@ export function Rail() {
   const setExpanded = useRailState((s) => s.setExpanded);
   const toggle = useRailState((s) => s.toggle);
   const location = useLocation();
-  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const gameEnabled = useGameMode((s) => s.enabled);
   const tabParam = new URLSearchParams(location.search).get('tab');
@@ -260,19 +260,6 @@ export function Rail() {
             {NAV_GROUPS.map((group) => {
               // Collapsed rail has no room for the toggle, so it always shows every icon.
               const showItems = !expanded || openGroups[group.id];
-              const first = group.items[0];
-              const href = first.tab ? `${first.to}?tab=${first.tab}` : first.to;
-              const onFirst = isItemActive(first);
-              const handleClick = () => {
-                if (onFirst) {
-                  // Already there — the click can only mean fold/unfold.
-                  toggleGroup(group.id);
-                } else {
-                  navigate(href);
-                  setOpenGroups((s) => ({ ...s, [group.id]: true }));
-                }
-                collapseOnMobile();
-              };
               return (
                 <div key={group.id}>
                   <RailGroupToggle
@@ -281,7 +268,9 @@ export function Rail() {
                     expanded={expanded}
                     open={openGroups[group.id]}
                     active={group.items.some(isItemActive)}
-                    onClick={handleClick}
+                    // No collapseOnMobile here: folding a group isn't leaving
+                    // the menu, so the mobile drawer stays open to pick a page.
+                    onClick={() => toggleGroup(group.id)}
                   />
                   {showItems && group.items.map((item) => renderItem(item, { indent: true }))}
                 </div>
