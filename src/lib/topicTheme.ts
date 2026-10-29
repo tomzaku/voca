@@ -31,10 +31,24 @@ const GRADIENTS: Record<string, [string, string, string]> = {
 };
 const PALETTE = Object.values(GRADIENTS);
 
-/** A topic's own gradient; any other id (a user's collection, a level) gets
- *  one of the same set, picked by a stable hash so it never changes. */
+// Levels wear their band's hue from the ladder on /collections (A1 green, B1
+// blue, …), in shades deep enough for white text. Kept out of PALETTE so
+// adding them didn't reshuffle the hashed covers of users' collections.
+const LEVEL_GRADIENTS: Record<string, [string, string, string]> = {
+  curated: ['#0b7285', '#0a6b7c', '#1864ab'],
+  'level-1': ['#087f5b', '#2b7a38', '#0b6e4f'],
+  'level-2': ['#0b7285', '#0a6b7c', '#1864ab'],
+  'level-3': ['#1c3faa', '#1864ab', '#364fc7'],
+  'level-4': ['#5f3dc4', '#6741d9', '#862e9c'],
+  'level-5': ['#c4410c', '#b8400c', '#a65a06'],
+  'level-6': ['#c92a2a', '#a61e4d', '#c2255c'],
+};
+
+/** A topic's or level's own gradient; any other id (a user's collection) gets
+ *  one of the topic set, picked by a stable hash so it never changes. */
 function gradientFor(id: string): [string, string, string] {
   if (GRADIENTS[id]) return GRADIENTS[id];
+  if (LEVEL_GRADIENTS[id]) return LEVEL_GRADIENTS[id];
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return PALETTE[h % PALETTE.length];

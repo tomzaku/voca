@@ -11,6 +11,7 @@ import { CollectionStats } from './CollectionStats';
 import { MemberAvatars } from './MemberAvatars';
 import { CollectionForm } from './CollectionForm';
 import { CollectionDetail } from './CollectionDetailPage';
+import { LevelTest } from './LevelTestPage';
 import { completionPct } from '../lib/completion';
 import { PHOTO_SCRIM, topicCover, topicPhoto } from '../lib/topicTheme';
 import { useVocabularyStore } from '../hooks/useVocabulary';
@@ -18,14 +19,16 @@ import { useAuth } from '../hooks/useAuth';
 
 // CEFR band for each level collection, and its colour on the "ladder". Classes
 // are spelled out — Tailwind only keeps classes it finds as complete strings.
-const LEVEL_META: Record<string, { badge: string; chip: string; bar: string }> = {
-  curated: { badge: '★', chip: 'bg-accent-cyan/15 text-accent-cyan', bar: 'bg-accent-cyan' },
-  'level-1': { badge: 'A1', chip: 'bg-accent-green/15 text-accent-green', bar: 'bg-accent-green' },
-  'level-2': { badge: 'A2', chip: 'bg-accent-cyan/15 text-accent-cyan', bar: 'bg-accent-cyan' },
-  'level-3': { badge: 'B1', chip: 'bg-accent-blue/15 text-accent-blue', bar: 'bg-accent-blue' },
-  'level-4': { badge: 'B2', chip: 'bg-accent-purple/15 text-accent-purple', bar: 'bg-accent-purple' },
-  'level-5': { badge: 'C1', chip: 'bg-accent-orange/15 text-accent-orange', bar: 'bg-accent-orange' },
-  'level-6': { badge: 'C2', chip: 'bg-accent-red/15 text-accent-red', bar: 'bg-accent-red' },
+// `tint` washes the card in its band's colour: a plain stand-in for the photo
+// and gradient covers the other cards on this page have.
+const LEVEL_META: Record<string, { badge: string; chip: string; bar: string; tint: string }> = {
+  curated: { badge: '★', chip: 'bg-accent-cyan/15 text-accent-cyan', bar: 'bg-accent-cyan', tint: 'from-accent-cyan/10' },
+  'level-1': { badge: 'A1', chip: 'bg-accent-green/15 text-accent-green', bar: 'bg-accent-green', tint: 'from-accent-green/10' },
+  'level-2': { badge: 'A2', chip: 'bg-accent-cyan/15 text-accent-cyan', bar: 'bg-accent-cyan', tint: 'from-accent-cyan/10' },
+  'level-3': { badge: 'B1', chip: 'bg-accent-blue/15 text-accent-blue', bar: 'bg-accent-blue', tint: 'from-accent-blue/10' },
+  'level-4': { badge: 'B2', chip: 'bg-accent-purple/15 text-accent-purple', bar: 'bg-accent-purple', tint: 'from-accent-purple/10' },
+  'level-5': { badge: 'C1', chip: 'bg-accent-orange/15 text-accent-orange', bar: 'bg-accent-orange', tint: 'from-accent-orange/10' },
+  'level-6': { badge: 'C2', chip: 'bg-accent-red/15 text-accent-red', bar: 'bg-accent-red', tint: 'from-accent-red/10' },
 };
 
 /** Words of a bundled collection, by id. */
@@ -153,7 +156,7 @@ function LevelCard({ c, active, pct, onPick, onView, onStats, onQuiz }: {
   const meta = LEVEL_META[c.id] ?? LEVEL_META.curated;
   return (
     <div
-      className={`group relative flex flex-col rounded-2xl border-2 bg-bg-card p-4 transition-all hover:-translate-y-0.5 ${
+      className={`group relative flex flex-col rounded-2xl border-2 bg-bg-card bg-linear-to-br ${meta.tint} to-transparent p-4 transition-all hover:-translate-y-0.5 ${
         active ? 'border-accent-cyan ring-2 ring-accent-cyan/25' : 'border-border hover:border-border-light'
       }`}
     >
@@ -310,14 +313,18 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
 const DETAIL_POPUP_QUERY = '(min-width: 1024px)';
 
 /**
- * A collection's detail view in a popup over /collections (desktop only).
- * Portalled to <body>, and the dimmed backdrop is a sibling of the panel, not
- * its parent: a filter or transform on an ancestor would trap the detail
- * view's own fixed-position layers (quiz picker, full-screen quiz) inside it.
+ * A dimmed popup over /collections (desktop only). Portalled to <body>, and
+ * the backdrop is a sibling of the panel, not its parent: a filter or
+ * transform on an ancestor would trap the content's own fixed-position layers
+ * (quiz picker, full-screen quiz) inside it.
  */
-function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
+function Popup({ width, actions, onClose, children }: {
+  width: string;
+  actions?: React.ReactNode;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
   const intl = useIntl();
-  const navigate = useNavigate();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
@@ -329,16 +336,9 @@ function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => voi
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center p-6 lg:p-10" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-5xl max-h-full overflow-y-auto rounded-3xl border-2 border-border bg-bg-primary shadow-2xl p-6">
+      <div className={`relative w-full ${width} max-h-full overflow-y-auto rounded-3xl border-2 border-border bg-bg-primary shadow-2xl p-6`}>
         <div className="sticky top-0 z-10 flex justify-end gap-2 -mt-2 -mr-2 mb-2 h-0">
-          <button
-            onClick={() => navigate(`/collections/${id}`)}
-            title={intl.formatMessage({ id: 'collections.openAsPage' })}
-            aria-label={intl.formatMessage({ id: 'collections.openAsPage' })}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-bg-card/90 border border-border text-text-muted hover:text-text-primary shadow-sm"
-          >
-            <Icon icon="lucide:maximize-2" />
-          </button>
+          {actions}
           <button
             onClick={onClose}
             title={intl.formatMessage({ id: 'collections.close' })}
@@ -348,10 +348,34 @@ function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => voi
             <Icon icon="lucide:x" />
           </button>
         </div>
-        <CollectionDetail id={id} onClose={onClose} />
+        {children}
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** A collection's detail view in a popup. */
+function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const intl = useIntl();
+  const navigate = useNavigate();
+  return (
+    <Popup
+      width="max-w-5xl"
+      onClose={onClose}
+      actions={
+        <button
+          onClick={() => navigate(`/collections/${id}`)}
+          title={intl.formatMessage({ id: 'collections.openAsPage' })}
+          aria-label={intl.formatMessage({ id: 'collections.openAsPage' })}
+          className="w-9 h-9 rounded-full flex items-center justify-center bg-bg-card/90 border border-border text-text-muted hover:text-text-primary shadow-sm"
+        >
+          <Icon icon="lucide:maximize-2" />
+        </button>
+      }
+    >
+      <CollectionDetail id={id} onClose={onClose} />
+    </Popup>
   );
 }
 
@@ -393,6 +417,13 @@ export function CollectionsPage() {
   const openDetails = (id: string) => {
     if (window.matchMedia(DETAIL_POPUP_QUERY).matches) setViewing(id);
     else navigate(`/collections/${id}`);
+  };
+  // "Find my level": the same split. Picking the result stays here, where
+  // the hero and ladder show the new level straight away.
+  const [testingLevel, setTestingLevel] = useState(false);
+  const openLevelTest = () => {
+    if (window.matchMedia(DETAIL_POPUP_QUERY).matches) setTestingLevel(true);
+    else navigate('/level-test');
   };
 
   const [query, setQuery] = useState('');
@@ -598,7 +629,7 @@ export function CollectionsPage() {
             })}
             {!needle && (
               <button
-                onClick={() => navigate('/level-test')}
+                onClick={openLevelTest}
                 className="rounded-2xl border-2 border-dashed border-accent-cyan/40 bg-accent-cyan/5 hover:bg-accent-cyan/10 p-4 flex flex-col items-start justify-between gap-3 text-left transition-colors"
               >
                 <span className="w-11 h-11 rounded-xl bg-accent-cyan/15 text-accent-cyan flex items-center justify-center">
@@ -703,6 +734,11 @@ export function CollectionsPage() {
         <CollectionStats name={stats.name} words={stats.words} onClose={() => setStats(null)} />
       )}
       {viewing && <CollectionDetailModal id={viewing} onClose={() => setViewing(null)} />}
+      {testingLevel && (
+        <Popup width="max-w-lg" onClose={() => setTestingLevel(false)}>
+          <LevelTest onBack={() => setTestingLevel(false)} onStudy={() => setTestingLevel(false)} />
+        </Popup>
+      )}
     </div>
   );
 }
