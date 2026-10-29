@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Phaser from 'phaser';
-import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
-import { MemberAvatars } from './MemberAvatars';
 import { useCompanion, useWordsKnown } from '../hooks/useCompanion';
 import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
@@ -13,7 +11,7 @@ import {
   type WorldArea, type WorldSnapshot, type WorldStation,
 } from '../game/types';
 import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../game/features';
-import { PixelButton, PixelIcon } from './worldgames/pixel';
+import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 
 export type { WorldStation } from '../game/types';
 
@@ -43,21 +41,49 @@ interface Props {
 const MIN_H = 440; // viewport height floor
 const MINIMAP_W = 96; // px
 
-/** Minimap dot colour per node kind. */
+/** Minimap dot colour per node kind — the pixel kit's palette. */
 const DOT: Record<string, string> = {
-  mine: 'var(--color-accent-cyan)',
-  joined: 'var(--color-accent-purple)',
-  level: 'var(--color-accent-green)',
-  feature: 'var(--color-accent-yellow)',
-  create: 'var(--color-text-muted)',
+  mine: '#4f8fe0',
+  joined: '#a77bf0',
+  level: '#5fd068',
+  feature: '#f0c050',
+  create: '#b8a88e',
 };
 
 // labelId: the kind on a station card; groupId: its heading in the fast-travel list.
-const KIND_META: Record<WorldStation['kind'], { labelId: string; groupId: string; icon: string; color: string }> = {
-  mine:   { labelId: 'world.kindMine',   groupId: 'world.groupMine',   icon: 'lucide:user',           color: 'var(--color-accent-cyan)' },
-  joined: { labelId: 'world.kindJoined', groupId: 'world.groupJoined', icon: 'lucide:users',          color: 'var(--color-accent-purple)' },
-  level:  { labelId: 'world.kindLevel',  groupId: 'world.groupLevel',  icon: 'lucide:graduation-cap', color: 'var(--color-accent-green)' },
+const KIND_META: Record<WorldStation['kind'], { labelId: string; groupId: string; icon: PixelIconName; color: string }> = {
+  mine:   { labelId: 'world.kindMine',   groupId: 'world.groupMine',   icon: 'person', color: '#4f8fe0' },
+  joined: { labelId: 'world.kindJoined', groupId: 'world.groupJoined', icon: 'people', color: '#a77bf0' },
+  level:  { labelId: 'world.kindLevel',  groupId: 'world.groupLevel',  icon: 'cap',    color: '#5fd068' },
 };
+
+/** The card at the bottom when the buddy reaches a building, a plot or a
+ *  collection — the world's version of a dialogue box. */
+function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, children }: {
+  emoji?: string;
+  icon?: PixelIconName;
+  color?: string;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="px absolute bottom-2 left-1/2 -translate-x-1/2 z-20 w-[min(94%,420px)] px-in-up">
+      <div className="px-notch px-frame p-3.5">
+        <div className="flex items-center gap-2.5 mb-3">
+          <span className="px-inset px-notch w-10 h-10 shrink-0 flex items-center justify-center" style={{ color }}>
+            {emoji ? <span className="text-[18px] leading-none">{emoji}</span> : icon && <PixelIcon name={icon} size={2} />}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="px-title !text-[16px] truncate" style={{ color }}>{title}</p>
+            {subtitle && <p className="text-[13px] text-[var(--px-muted)] leading-snug">{subtitle}</p>}
+          </div>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /**
  * The standalone world game. The world itself (movement, camera, stations,
@@ -265,100 +291,95 @@ export function GameWorld({
     >
       {/* Phaser mounts its canvas here (fills the frame via Scale.RESIZE). */}
 
-      {/* ── HUD (DOM, on top of the canvas) ── */}
-      {/* The world's own controls step aside while a building's HUD is up. */}
+      {/* ── HUD (DOM, on top of the canvas) ── the world's own controls, in the
+             same pixel kit as the buildings' screens, stepping aside while a
+             building's HUD is up. ── */}
       {!panel && (
-        <>
-      <div className="absolute top-3 left-3 flex items-center gap-1.5 text-[11px] font-bold text-text-muted bg-bg-card/85 border border-border rounded-full px-2.5 py-1 pointer-events-none">
-        <Icon icon="lucide:gamepad-2" className="text-accent-yellow" />
-        <span className="hidden sm:inline"><FormattedMessage id="world.hintWalkDesktop" /></span>
-        <span className="sm:hidden"><FormattedMessage id="world.hintWalkMobile" /></span>
-      </div>
-      <div className="absolute top-3 right-3 flex items-center gap-2">
-        {!animalId && (
-          <Link
-            to="/companion"
-            className="flex items-center gap-1.5 text-[11px] font-bold text-accent-orange bg-bg-card/85 border border-accent-orange/40 rounded-full px-2.5 py-1"
+        <div className="px absolute top-2 left-2 z-20 pointer-events-none">
+          <span className="px-notch px-frame px-title !text-[12px] text-[var(--px-muted)] inline-block px-3 py-2">
+            <span className="hidden sm:inline"><FormattedMessage id="world.hintWalkDesktop" /></span>
+            <span className="sm:hidden"><FormattedMessage id="world.hintWalkMobile" /></span>
+          </span>
+        </div>
+      )}
+      {!panel && (
+        <div className="px absolute top-2 right-2 z-20 flex items-center gap-2">
+          {!animalId && (
+            <Link to="/companion" className="px-btn px-notch px-title !text-[13px] px-3 py-2 inline-flex items-center gap-1.5" data-tone="gold">
+              <PixelIcon name="paw" size={2} /> <FormattedMessage id="world.chooseBuddy" />
+            </Link>
+          )}
+          <PixelButton
+            tone={drawerOpen ? 'gold' : 'paper'}
+            onClick={() => setDrawerOpen((o) => !o)}
+            title={intl.formatMessage({ id: 'world.fastTravel' })}
+            aria-label={intl.formatMessage({ id: 'world.fastTravel' })}
+            className="!px-3 !py-2"
           >
-            <Icon icon="lucide:paw-print" />
-            <FormattedMessage id="world.chooseBuddy" />
-          </Link>
-        )}
-        <button
-          onClick={() => setDrawerOpen((o) => !o)}
-          title={intl.formatMessage({ id: 'world.fastTravel' })}
-          className={`flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-1.5 border transition-all ${
-            drawerOpen
-              ? 'bg-accent-cyan text-bg-primary border-accent-cyan'
-              : 'bg-bg-card/85 text-text-primary border-border hover:border-accent-cyan/60'
-          }`}
-        >
-          <Icon icon="lucide:compass" className="text-sm" />
-          <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
-        </button>
-      </div>
-        </>
+            <PixelIcon name="compass" size={2} />
+            <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
+          </PixelButton>
+        </div>
       )}
 
       {/* ── Zoom ── wheel/pinch work on the canvas; these are the discoverable
           version of the same thing, and show where you are in the range. */}
       {!panel && (
-      <div className="absolute bottom-3 right-3 z-20 flex flex-col items-center rounded-xl border-2 border-border bg-bg-card/85 backdrop-blur-sm shadow-lg overflow-hidden">
-        <button
-          onClick={() => zoomBy(1)}
-          disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
-          title={intl.formatMessage({ id: 'world.zoomIn' })}
-          className="w-8 h-8 flex items-center justify-center text-text-primary hover:bg-bg-tertiary disabled:opacity-35 disabled:hover:bg-transparent"
-        >
-          <Icon icon="lucide:plus" className="text-sm" />
-        </button>
-        <button
-          onClick={resetZoom}
-          title={intl.formatMessage({ id: 'world.zoomReset' })}
-          className="w-8 py-0.5 text-[10px] font-bold text-text-muted hover:text-text-primary hover:bg-bg-tertiary border-y border-border"
-        >
-          {zoom}×
-        </button>
-        <button
-          onClick={() => zoomBy(-1)}
-          disabled={zoom <= ZOOM_STEPS[0]}
-          title={intl.formatMessage({ id: 'world.zoomOut' })}
-          className="w-8 h-8 flex items-center justify-center text-text-primary hover:bg-bg-tertiary disabled:opacity-35 disabled:hover:bg-transparent"
-        >
-          <Icon icon="lucide:minus" className="text-sm" />
-        </button>
-      </div>
+        <div className="px absolute bottom-2 right-2 z-20 px-notch px-frame p-1.5 flex flex-col items-center gap-1">
+          <PixelButton
+            tone="paper"
+            onClick={() => zoomBy(1)}
+            disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+            title={intl.formatMessage({ id: 'world.zoomIn' })}
+            aria-label={intl.formatMessage({ id: 'world.zoomIn' })}
+            className="!w-9 !h-9 !p-0"
+          >
+            <PixelIcon name="plus" size={2} />
+          </PixelButton>
+          <button
+            onClick={resetZoom}
+            title={intl.formatMessage({ id: 'world.zoomReset' })}
+            className="px-num text-[14px] text-[var(--px-muted)] hover:text-[var(--px-text)] py-0.5"
+          >
+            {zoom}×
+          </button>
+          <PixelButton
+            tone="paper"
+            onClick={() => zoomBy(-1)}
+            disabled={zoom <= ZOOM_STEPS[0]}
+            title={intl.formatMessage({ id: 'world.zoomOut' })}
+            aria-label={intl.formatMessage({ id: 'world.zoomOut' })}
+            className="!w-9 !h-9 !p-0"
+          >
+            <PixelIcon name="minus" size={2} />
+          </PixelButton>
+        </div>
       )}
 
-      {/* ── Fast-travel drawer ── */}
+      {/* ── Fast-travel list ── */}
       {drawerOpen && (
         <>
           <div className="absolute inset-0 z-10" onClick={() => setDrawerOpen(false)} />
-          <div className="absolute top-12 right-3 bottom-3 z-20 w-[min(78%,260px)] flex flex-col rounded-2xl border-2 border-border bg-bg-card/95 backdrop-blur-sm shadow-2xl animate-fade-in overflow-hidden">
-            <div className="flex items-center justify-between px-3 pt-3 pb-2">
-              <span className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="world.fastTravel" /></span>
-              <button
-                onClick={() => { setDrawerOpen(false); onCreate(); }}
-                className="flex items-center gap-1 text-[11px] font-bold text-accent-cyan hover:underline"
-              >
-                <Icon icon="lucide:plus" /> <FormattedMessage id="world.new" />
-              </button>
+          <div className="px absolute top-14 right-2 bottom-2 z-20 w-[min(80%,280px)] px-notch px-frame flex flex-col px-in-side">
+            <div className="flex items-center justify-between px-3.5 pt-3 pb-2">
+              <span className="px-title text-[var(--px-gold)]"><FormattedMessage id="world.fastTravel" /></span>
+              <PixelButton tone="jade" onClick={() => { setDrawerOpen(false); onCreate(); }} className="!px-2.5 !py-1.5 !text-[12px]">
+                <PixelIcon name="plus" size={1} /> <FormattedMessage id="world.new" />
+              </PixelButton>
             </div>
-            <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+            <div className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-3">
               {/* App pages first, then collections by kind. */}
               {features.length > 0 && (
                 <div>
-                  <p className="px-1.5 pt-2 pb-1 text-[10px] font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="world.places" /></p>
-                  {features.map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => travelTo(featureNodeId(f))}
-                      className="w-full flex items-center gap-2 px-1.5 py-1.5 rounded-lg text-left hover:bg-bg-tertiary transition-colors"
-                    >
-                      <Icon icon={f.icon} className="shrink-0 text-sm" style={{ color: 'var(--color-accent-yellow)' }} />
-                      <span className="flex-1 min-w-0 text-xs font-bold text-text-primary truncate">{intl.formatMessage({ id: f.nameId })}</span>
-                    </button>
-                  ))}
+                  <p className="px-title !text-[11px] text-[var(--px-muted)] px-1 pb-1"><FormattedMessage id="world.places" /></p>
+                  <div className="space-y-1">
+                    {features.map((f) => (
+                      <button key={f.id} onClick={() => travelTo(featureNodeId(f))} className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left">
+                        <span className="text-[14px] leading-none">{f.emoji}</span>
+                        <span className="flex-1 min-w-0 truncate text-[15px] font-bold">{intl.formatMessage({ id: f.nameId })}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {(['mine', 'joined', 'level'] as const).map((kind) => {
@@ -366,27 +387,16 @@ export function GameWorld({
                 if (group.length === 0) return null;
                 return (
                   <div key={kind}>
-                    <p className="px-1.5 pt-2 pb-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                      <FormattedMessage id={KIND_META[kind].groupId} />
-                    </p>
-                    {group.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => travelTo(s.id)}
-                        className="w-full flex items-center gap-2 px-1.5 py-1.5 rounded-lg text-left hover:bg-bg-tertiary transition-colors"
-                      >
-                        <Icon
-                          icon={KIND_META[s.kind].icon}
-                          className="shrink-0 text-sm"
-                          style={{ color: KIND_META[s.kind].color }}
-                        />
-                        <span className="flex-1 min-w-0 text-xs font-bold text-text-primary truncate">
-                          {s.name}
-                        </span>
-                        {s.active && <Icon icon="lucide:check" className="shrink-0 text-xs text-accent-green" />}
-                        <span className="shrink-0 text-[10px] font-bold text-text-muted">{s.pct}%</span>
-                      </button>
-                    ))}
+                    <p className="px-title !text-[11px] text-[var(--px-muted)] px-1 pb-1"><FormattedMessage id={KIND_META[kind].groupId} /></p>
+                    <div className="space-y-1">
+                      {group.map((s) => (
+                        <button key={s.id} onClick={() => travelTo(s.id)} data-on={s.active} className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left">
+                          <PixelIcon name={KIND_META[s.kind].icon} size={2} className="shrink-0" />
+                          <span className="flex-1 min-w-0 truncate text-[15px] font-bold">{s.name}</span>
+                          <span className="shrink-0 px-num text-[13px] text-[var(--px-muted)]">{s.pct}%</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
@@ -403,193 +413,142 @@ export function GameWorld({
         const height = Math.max(28, Math.round((MINIMAP_W * h) / snap.worldW));
         const here = snap.nodes.filter((n) => n.y >= area.top && n.y < area.bottom);
         return (
-          <div className="absolute top-12 left-3 z-20 rounded-xl border-2 border-border bg-bg-card/85 backdrop-blur-sm p-1.5 shadow-lg pointer-events-none">
+          <div className="px absolute top-14 left-2 z-20 px-notch px-frame p-2 pointer-events-none">
             <svg
               width={MINIMAP_W}
               height={height}
               viewBox={`0 ${area.top} ${snap.worldW} ${h}`}
               preserveAspectRatio="none"
-              className="block rounded"
-              style={{ background: 'var(--color-bg-tertiary)' }}
+              shapeRendering="crispEdges"
+              className="block"
+              style={{ background: '#2f5a3a' }}
             >
               {here.map((n) => (
-                <circle key={n.id} cx={n.x} cy={n.y} r={38} fill={DOT[n.kind] ?? DOT.create} />
+                <rect key={n.id} x={n.x - 40} y={n.y - 40} width={80} height={80} fill={DOT[n.kind] ?? DOT.create} />
               ))}
-              <circle cx={pos.x} cy={pos.y} r={52} fill="var(--color-accent-pink)" stroke="white" strokeWidth={16} />
+              <rect x={pos.x - 60} y={pos.y - 60} width={120} height={120} fill="#f05a4f" stroke="#fff" strokeWidth={20} />
             </svg>
-            <p className="mt-1 text-center text-[9px] font-bold uppercase tracking-wider text-text-muted leading-none">
-              {area.name}
-            </p>
+            <p className="mt-1 text-center px-title !text-[10px] text-[var(--px-muted)]">{area.name}</p>
           </div>
         );
       })()}
 
       {/* ── Gate arrival card ── */}
       {arrival && (
-        <div key={arrival.key} className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
-          <div className="px-6 py-3 rounded-2xl border-2 border-accent-yellow bg-bg-card/90 backdrop-blur-sm shadow-2xl animate-pop-in">
-            <p className="font-display font-bold text-lg text-text-primary tracking-wide text-center">
-              {arrival.name}
-            </p>
+        <div key={arrival.key} className="px absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
+          <div className="px-notch px-frame px-6 py-3 px-in-up">
+            <p className="px-title !text-[20px] text-[var(--px-gold)]">{arrival.name}</p>
           </div>
         </div>
       )}
 
       {/* ── Feature building card (the buddy reached an app page) ── */}
       {!panel && nearestFeature && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 border-accent-yellow bg-bg-card shadow-2xl p-3 animate-fade-in">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-accent-yellow/15 text-accent-yellow">
-              <Icon icon={nearestFeature.icon} />
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="font-display font-bold text-text-primary text-sm">{intl.formatMessage({ id: nearestFeature.nameId })}</p>
-              <p className="text-[10px] font-bold text-text-muted">{intl.formatMessage({ id: nearestFeature.blurbId })}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => onOpenFeature(nearestFeature)}
-            className="btn-3d w-full py-2 text-xs font-bold text-bg-primary bg-accent-yellow"
-          >
-            <FormattedMessage id="world.enter" />
-            <span className="hidden sm:inline opacity-70"> · Enter ↵</span>
-          </button>
-        </div>
+        <WorldCard
+          emoji={nearestFeature.emoji}
+          title={intl.formatMessage({ id: nearestFeature.nameId })}
+          subtitle={intl.formatMessage({ id: nearestFeature.blurbId })}
+        >
+          <PixelButton tone="gold" block onClick={() => onOpenFeature(nearestFeature)}>
+            <FormattedMessage id="world.enter" /> <span className="hidden sm:inline opacity-70">↵</span>
+          </PixelButton>
+        </WorldCard>
       )}
 
       {/* ── Build card (the buddy reached the empty plot) ── */}
       {!panel && atBuildSpot && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 border-accent-cyan bg-bg-card shadow-2xl p-3 animate-fade-in">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center bg-accent-cyan/15 text-accent-cyan">
-              <Icon icon="lucide:hammer" />
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="font-display font-bold text-text-primary text-sm"><FormattedMessage id="world.emptyPlot" /></p>
-              <p className="text-[10px] font-bold text-text-muted">
-                <FormattedMessage id="world.emptyPlotBlurb" />
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onCreate}
-            className="btn-3d w-full py-2 text-xs font-bold text-bg-primary bg-accent-cyan"
-          >
-            <Icon icon="lucide:plus" className="inline -mt-0.5 mr-1" />
-            <FormattedMessage id="world.newCollection" />
-          </button>
-        </div>
+        <WorldCard
+          icon="plus"
+          color="var(--px-jade)"
+          title={intl.formatMessage({ id: 'world.emptyPlot' })}
+          subtitle={intl.formatMessage({ id: 'world.emptyPlotBlurb' })}
+        >
+          <PixelButton tone="jade" block onClick={onCreate}>
+            <PixelIcon name="plus" size={2} /> <FormattedMessage id="world.newCollection" />
+          </PixelButton>
+        </WorldCard>
       )}
 
       {/* ── Station card (opens when the buddy is close to a collection) ── */}
       {!panel && nearest && (
-        <div
-          className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[min(94%,380px)] rounded-2xl border-2 bg-bg-card shadow-2xl p-3 animate-fade-in"
-          style={{ borderColor: KIND_META[nearest.kind].color }}
+        <WorldCard
+          icon={KIND_META[nearest.kind].icon}
+          color={KIND_META[nearest.kind].color}
+          title={nearest.name}
+          subtitle={
+            <>
+              <FormattedMessage
+                id="world.stationMeta"
+                values={{
+                  kind: intl.formatMessage({ id: KIND_META[nearest.kind].labelId }),
+                  count: nearest.words.length,
+                  pct: nearest.pct,
+                }}
+              />
+              {(nearest.learners ?? 0) > 0 && (
+                <> · <FormattedMessage id="world.learners" values={{ count: nearest.learners }} /></>
+              )}
+            </>
+          }
         >
-          <div className="flex items-center gap-2 mb-2">
-            <span
-              className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center"
-              style={{
-                background: `color-mix(in srgb, ${KIND_META[nearest.kind].color} 18%, transparent)`,
-                color: KIND_META[nearest.kind].color,
-              }}
-            >
-              <Icon icon={KIND_META[nearest.kind].icon} />
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="font-display font-bold text-text-primary text-sm truncate">{nearest.name}</p>
-              <p className="text-[10px] font-bold text-text-muted">
-                <FormattedMessage
-                  id="world.stationMeta"
-                  values={{
-                    kind: intl.formatMessage({ id: KIND_META[nearest.kind].labelId }),
-                    count: nearest.words.length,
-                    pct: nearest.pct,
-                  }}
-                />
-                {(nearest.learners ?? 0) > 0 && (
-                  <> · <FormattedMessage id="world.learners" values={{ count: nearest.learners }} /></>
-                )}
-              </p>
-            </div>
-          </div>
-          {/* Who else studies here — public/joined collections only. */}
-          {nearest.kind !== 'level' && (
-            <div className="-mt-1 mb-2">
-              <MemberAvatars collectionId={nearest.id} name={nearest.name} />
-            </div>
-          )}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onStudy(nearest)}
-              className="btn-3d flex-1 py-2 text-xs font-bold text-bg-primary"
-              style={{ background: KIND_META[nearest.kind].color }}
-            >
+            <PixelButton tone={nearest.active ? 'jade' : 'gold'} className="flex-1" onClick={() => onStudy(nearest)}>
               <FormattedMessage id={nearest.active ? 'world.studying' : 'world.studyThis'} />
-              <span className="hidden sm:inline opacity-70"> · Enter ↵</span>
-            </button>
-            <button
-              onClick={() => onPreview(nearest)}
-              title={intl.formatMessage({ id: 'world.previewWords' })}
-              className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan transition-all"
-            >
-              <Icon icon="lucide:eye" className="text-sm" />
-            </button>
-            <button
-              onClick={() => onQuiz(nearest)}
-              title={intl.formatMessage({ id: 'world.quizCollection' })}
-              className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-green transition-all"
-            >
-              <Icon icon="lucide:play" className="text-sm" />
-            </button>
-            <button
-              onClick={() => onStats(nearest)}
-              title={intl.formatMessage({ id: 'world.progressStats' })}
-              className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-purple transition-all"
-            >
-              <Icon icon="lucide:chart-pie" className="text-sm" />
-            </button>
+              <span className="hidden sm:inline opacity-70">↵</span>
+            </PixelButton>
+            {([
+              ['eye', 'world.previewWords', () => onPreview(nearest)],
+              ['play', 'world.quizCollection', () => onQuiz(nearest)],
+              ['chart', 'world.progressStats', () => onStats(nearest)],
+            ] as const).map(([icon, label, act]) => (
+              <PixelButton
+                key={icon}
+                tone="paper"
+                onClick={act}
+                title={intl.formatMessage({ id: label })}
+                aria-label={intl.formatMessage({ id: label })}
+                className="!w-10 !h-11 !p-0"
+              >
+                <PixelIcon name={icon} size={2} />
+              </PixelButton>
+            ))}
             {/* Owner actions tucked behind an options menu, same as List view */}
             {nearest.kind === 'mine' && (
               <div className="relative shrink-0">
-                <button
+                <PixelButton
+                  tone={menuOpen ? 'gold' : 'paper'}
                   onClick={() => setMenuOpen((o) => !o)}
                   title={intl.formatMessage({ id: 'world.options' })}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-text-primary transition-all"
+                  aria-label={intl.formatMessage({ id: 'world.options' })}
+                  className="!w-10 !h-11 !p-0"
                 >
-                  <Icon icon="lucide:ellipsis-vertical" className="text-sm" />
-                </button>
+                  <PixelIcon name="dots" size={2} />
+                </PixelButton>
                 {menuOpen && (
                   <>
                     {/* click-away backdrop */}
                     <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
-                    <div className="absolute right-0 bottom-11 z-40 w-36 rounded-xl border-2 border-border bg-bg-card shadow-xl overflow-hidden animate-fade-in">
-                      <button
-                        onClick={() => { setMenuOpen(false); onEdit(nearest); }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
-                      >
-                        <Icon icon="lucide:pencil" className="text-sm" /> <FormattedMessage id="world.edit" />
-                      </button>
-                      <button
-                        onClick={() => { setMenuOpen(false); onShare(nearest); }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-cyan transition-colors"
-                      >
-                        <Icon icon="lucide:share-2" className="text-sm" /> <FormattedMessage id="world.share" />
-                      </button>
-                      <button
-                        onClick={() => { setMenuOpen(false); onDelete(nearest); }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-muted hover:bg-accent-red/10 hover:text-accent-red transition-colors"
-                      >
-                        <Icon icon="lucide:trash-2" className="text-sm" /> <FormattedMessage id="world.delete" />
-                      </button>
+                    <div className="absolute right-0 bottom-14 z-40 w-40 px-notch px-frame p-2 space-y-1">
+                      {([
+                        ['pencil', 'world.edit', () => onEdit(nearest), false],
+                        ['share', 'world.share', () => onShare(nearest), false],
+                        ['trash', 'world.delete', () => onDelete(nearest), true],
+                      ] as const).map(([icon, label, act, danger]) => (
+                        <button
+                          key={icon}
+                          onClick={() => { setMenuOpen(false); act(); }}
+                          className={`px-pick px-notch w-full flex items-center gap-2 px-2.5 py-2 text-left text-[15px] font-bold ${danger ? 'text-[var(--px-bad)]' : ''}`}
+                        >
+                          <PixelIcon name={icon} size={2} /> <FormattedMessage id={label} />
+                        </button>
+                      ))}
                     </div>
                   </>
                 )}
               </div>
             )}
           </div>
-        </div>
+        </WorldCard>
       )}
 
       {/* ── Inside a building: its game is a HUD docked around the map, which

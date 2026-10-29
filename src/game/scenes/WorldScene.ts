@@ -332,6 +332,17 @@ export class WorldScene extends Phaser.Scene {
 
     this.cameras.main.startFollow(this.buddy, true, 0.12, 0.12);
     this.ready = true;
+
+    // Map tags use the HUD's web font, which may still be loading when the
+    // scene first draws; redraw every text once it has landed.
+    void document.fonts?.load(`700 12px ${FONT}`).then(() => {
+      if (!this.sys.isActive()) return;
+      const redraw = (objs: Phaser.GameObjects.GameObject[]) => objs.forEach((o) => {
+        if (o instanceof Phaser.GameObjects.Text) o.setFontFamily(FONT);
+        else if (o instanceof Phaser.GameObjects.Container) redraw(o.list);
+      });
+      redraw(this.children.list);
+    });
   }
 
   // ── React-facing API ──

@@ -87,11 +87,13 @@ export function worldPalette(): WorldPalette {
           },
     },
     card: hex(card),
-    cardCss: card,
+    // Name tags on the map are HUD, not app: dark plates with light text in
+    // both themes, matching the pixel kit (src/components/worldgames/pixel).
+    cardCss: 'rgba(20, 16, 13, 0.9)',
     border: hex(cssVar('--color-border', light ? '#dddfe2' : '#46528c')),
     track: hex(cssVar('--color-bg-tertiary', light ? '#f0f2f5' : '#242c4c')),
-    textCss: cssVar('--color-text-primary', light ? '#262357' : '#ffffff'),
-    mutedCss: cssVar('--color-text-muted', light ? '#8d8bb4' : '#a3acce'),
+    textCss: '#f6ecd6',
+    mutedCss: '#b8a88e',
     kind: {
       mine: { color: hex(cyan), css: cyan },
       joined: { color: hex(purple), css: purple },
@@ -101,4 +103,5 @@ export function worldPalette(): WorldPalette {
   };
 }
 
-export const FONT = '"Nunito", sans-serif';
+/** The HUD's condensed face, so map tags read like the pixel kit. */
+export const FONT = '"Barlow Condensed", sans-serif';
