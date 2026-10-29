@@ -74,6 +74,8 @@ export default {
   'world.steleNoChanges': 'Nothing to fix — well written!',
   'world.steleCorrecting': 'The scholar is reading…',
   'world.stelePro': 'See Pro',
+  'world.progressFlag': '{count, plural, one {# day} other {# days}} · the flag on Kỳ Đài',
+  'world.progressLanterns': '{count, plural, one {# lantern} other {# lanterns}} · words mastered',
   'world.areaFallback': 'Area {n}',
   'world.wordCount': '{count, plural, one {# word} other {# words}}',
   'world.studyingBadge': 'STUDYING',

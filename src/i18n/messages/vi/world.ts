@@ -74,6 +74,8 @@ export default {
   'world.steleNoChanges': 'Không có gì cần sửa — viết rất tốt!',
   'world.steleCorrecting': 'Thầy đồ đang đọc…',
   'world.stelePro': 'Xem gói Pro',
+  'world.progressFlag': '{count} ngày · cờ trên Kỳ Đài',
+  'world.progressLanterns': '{count} đèn lồng · từ đã thuộc',
   'world.areaFallback': 'Khu {n}',
   'world.wordCount': '{count} từ',
   'world.studyingBadge': 'ĐANG HỌC',

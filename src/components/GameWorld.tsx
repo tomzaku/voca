@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Phaser from 'phaser';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
 import { useCompanion, useWordsKnown } from '../hooks/useCompanion';
+import { useStreak } from '../hooks/useStreak';
+import { useProgressCounts } from '../hooks/useProgressQuery';
 import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
 import type { BuddyLook } from '../game/textures';
@@ -102,6 +104,10 @@ export function GameWorld({
   const animalId = useCompanion((s) => s.animalId);
   const buddyName = useCompanion((s) => s.name);
   const known = useWordsKnown();
+  // What the city shows of progress: the streak flag and the river lanterns.
+  const streak = useStreak((s) => s.count);
+  const mastered = useProgressCounts().counts.mastered;
+  const progress = useMemo(() => ({ streak, mastered }), [streak, mastered]);
   const animal = getAnimal(animalId ?? 'fox');
   const stage = stageIndex(known);
 
@@ -151,8 +157,8 @@ export function GameWorld({
     (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.resetZoom();
 
   // Latest props for stable event/keyboard handlers.
-  const live = useRef({ stations, onStudy, features, onOpenFeature, nearestId, paused });
-  live.current = { stations, onStudy, features, onOpenFeature, nearestId, paused };
+  const live = useRef({ stations, onStudy, features, onOpenFeature, nearestId, paused, progress });
+  live.current = { stations, onStudy, features, onOpenFeature, nearestId, paused, progress };
 
   // Freeze the world's own keyboard while a panel covers it, so Phaser doesn't
   // preventDefault space/arrows the panel's inputs need.
@@ -193,6 +199,7 @@ export function GameWorld({
       stage,
       buddyName: buddyName || animal.name,
       dpr,
+      progress: live.current.progress,
     };
     const game = new Phaser.Game({
       type: Phaser.AUTO,
@@ -234,6 +241,10 @@ export function GameWorld({
   }, [animal.id, animal.name, stage, buddyName, locale]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
+
+  // Progress changes (an answer, a new day of study) re-hoist the flag and
+  // refloat the lanterns in the running scene.
+  useEffect(() => { scene()?.setProgress(progress); }, [progress]);
 
   // Push station-data changes into the running scene, then re-read the minimap.
   useEffect(() => {
@@ -296,9 +307,21 @@ export function GameWorld({
              building's HUD is up. ── */}
       {!panel && (
         <div className="px absolute top-2 left-2 z-20 pointer-events-none">
-          <span className="px-notch px-frame px-title !text-[12px] text-[var(--px-muted)] inline-block px-3 py-2">
-            <span className="hidden sm:inline"><FormattedMessage id="world.hintWalkDesktop" /></span>
-            <span className="sm:hidden"><FormattedMessage id="world.hintWalkMobile" /></span>
+          <span className="px-notch px-frame inline-block px-3 py-2">
+            <span className="px-title !text-[12px] text-[var(--px-muted)] block">
+              <span className="hidden sm:inline"><FormattedMessage id="world.hintWalkDesktop" /></span>
+              <span className="sm:hidden"><FormattedMessage id="world.hintWalkMobile" /></span>
+            </span>
+            {/* What the flag and the lanterns mean — they're progress, not scenery. */}
+            <span className="flex items-center gap-3 mt-1 text-[13px] font-bold">
+              <span className="flex items-center gap-1 text-[var(--px-gold)]">
+                <PixelIcon name="flame" size={2} />
+                <FormattedMessage id="world.progressFlag" values={{ count: streak }} />
+              </span>
+              <span className="text-[var(--px-text)]">
+                🏮 <FormattedMessage id="world.progressLanterns" values={{ count: mastered }} />
+              </span>
+            </span>
           </span>
         </div>
       )}

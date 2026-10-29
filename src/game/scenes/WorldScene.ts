@@ -24,7 +24,20 @@ export interface WorldSceneData {
   /** Device pixel ratio: the canvas renders at native res, the camera zooms by
    *  this factor, and text rasterizes at this resolution — all to stay sharp. */
   dpr: number;
+  /** What the city shows of the learner's progress (see buildProgress). */
+  progress: WorldProgress;
 }
+
+/** The learner's progress, as the city shows it: the streak hoists the flag
+ *  on Kỳ Đài (full mast at FULL_MAST days), and every mastered word floats a
+ *  lantern on the river. */
+export interface WorldProgress {
+  streak: number;
+  mastered: number;
+}
+
+/** Streak days that bring the flag to the top of its pole. */
+const FULL_MAST = 7;
 
 const SPEED = 360;      // buddy speed, px/s
 const REACH = 110;      // distance at which a building "opens"
@@ -88,6 +101,10 @@ interface MapMeta {
   windmills: { x: number; y: number }[];
   animals: { x: number; y: number; kind: string }[];
   slots: Record<'public' | 'system' | 'feature', MapSlot[]>;
+  /** Where the streak flag flies at full mast, and how far it can drop. */
+  flag: { x: number; y: number; drop: number } | null;
+  /** Lantern spots on the water, in the order they fill. */
+  lanterns: { x: number; y: number }[];
 }
 
 interface MapSlot {
@@ -153,6 +170,8 @@ export class WorldScene extends Phaser.Scene {
   /** Rebuilt whenever collections change: stations, features, the build plot.
    *  Everything else the world draws is built once and left alone. */
   private stationLayer?: Phaser.GameObjects.Container;
+  /** The flag and the lanterns — rebuilt whenever progress changes. */
+  private progressLayer?: Phaser.GameObjects.Container;
   /** Dims the day-lit tile art in dark mode, in place of a per-layer tint
    *  (GPU tilemap layers have none) — a multiply veil over the map bounds. */
   private nightVeil?: Phaser.GameObjects.Rectangle;
@@ -316,6 +335,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.buildTerrain();
     this.buildStations();
+    this.buildProgress();
     this.createBuddy();
     this.targetMark = this.add
       .circle(0, 0, 8)
@@ -349,6 +369,13 @@ export class WorldScene extends Phaser.Scene {
 
   /** Swap the station data (progress ticked, collection created…) in place.
    *  Only the station markers are rebuilt — the terrain is untouched. */
+  /** Swap in fresh progress (an answer landed, a day was studied). */
+  setProgress(progress: WorldProgress) {
+    const prev = this.args.progress;
+    this.args.progress = progress;
+    if (this.ready && (prev.streak !== progress.streak || prev.mastered !== progress.mastered)) this.buildProgress();
+  }
+
   setStations(stations: WorldStation[]) {
     this.args.stations = stations;
     if (this.ready) this.buildStations();
@@ -705,6 +732,51 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * The city's picture of the learner's progress: the flag on Kỳ Đài sits
+   * as high up its pole as the streak reaches (full mast at FULL_MAST days,
+   * at the foot with none), and a paper lantern floats on the river for
+   * each mastered word, as many as the map has spots for. Both move gently —
+   * the flag waves, the lanterns bob — and glow through the night veil.
+   */
+  private buildProgress() {
+    this.progressLayer?.destroy();
+    const layer = this.add.container(0, 0);
+    this.progressLayer = layer;
+    const { streak, mastered } = this.args.progress;
+
+    const flag = this.meta.flag;
+    if (flag) {
+      const lift = Math.min(1, streak / FULL_MAST);
+      const g = this.add.graphics();
+      // Drawn at source pixels × SCALE, from the pole outwards (origin left).
+      g.fillStyle(0xcc2a26, 1).fillRect(0, 0, 22 * SCALE, 14 * SCALE);
+      g.fillStyle(0x9e1f1c, 1).fillRect(0, 12 * SCALE, 22 * SCALE, 2 * SCALE);
+      g.fillStyle(0xfad646, 1);
+      const star = [[11, 3], [10, 4], [11, 4], [12, 4], [8, 5], [9, 5], [10, 5], [11, 5], [12, 5], [13, 5], [14, 5],
+        [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [10, 7], [11, 7], [12, 7], [9, 8], [10, 8], [12, 8], [13, 8]];
+      for (const [sx, sy] of star) g.fillRect(sx * SCALE, sy * SCALE, SCALE, SCALE);
+      const banner = this.add.container(flag.x, flag.y + (1 - lift) * flag.drop, [g]).setDepth(DEPTH_OVER + 1);
+      this.tweens.add({ targets: banner, scaleX: { from: 1, to: 0.9 }, duration: 900, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+      layer.add(banner);
+    }
+
+    const count = Math.min(mastered, this.meta.lanterns.length);
+    for (let i = 0; i < count; i++) {
+      const { x, y } = this.meta.lanterns[i];
+      const g = this.add.graphics();
+      g.fillStyle(0xffc070, 0.28).fillCircle(0, 0, 14);
+      g.fillStyle(0x3a2a20, 1).fillRect(-5, -9, 10, 2).fillRect(-5, 7, 10, 2);
+      g.fillStyle(0xe8553f, 1).fillRect(-6, -7, 12, 14);
+      g.fillStyle(0xffd27a, 1).fillRect(-2, -4, 4, 8);
+      const lantern = this.add.container(x, y, [g]).setDepth(DEPTH_LIGHTS + 1);
+      // Each bobs and drifts on its own clock, so the river never moves in step.
+      this.tweens.add({ targets: lantern, y: y - 3, duration: 1800 + (i * 137) % 900, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+      this.tweens.add({ targets: lantern, x: x + 8 - (i % 3) * 8, duration: 7000 + (i * 389) % 4000, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+      layer.add(lantern);
+    }
+  }
+
   /** Pull the loose scenery sprites out of the map's `props` object layer. */
   private readProps(map: Phaser.Tilemaps.Tilemap): PropDef[] {
     type TiledProp = { name: string; value: unknown };
@@ -770,7 +842,10 @@ export class WorldScene extends Phaser.Scene {
       windmills: [],
       animals: [],
       slots: { public: [], system: [], feature: [] },
+      flag: null,
+      lanterns: [],
     };
+    const lanterns: { x: number; y: number; order: number }[] = [];
     type TiledProp = { name: string; value: unknown };
     const objects = map.getObjectLayer('meta')?.objects ?? [];
     for (const obj of objects) {
@@ -787,6 +862,12 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'windmill':
           meta.windmills.push({ x, y });
+          break;
+        case 'flag':
+          meta.flag = { x, y, drop: Number(get('drop') ?? 0) * SCALE };
+          break;
+        case 'lantern':
+          lanterns.push({ x, y, order: Number(get('order') ?? lanterns.length) });
           break;
         case 'animal':
           meta.animals.push({ x, y, kind: String(get('kind') ?? 'chicken') });
@@ -818,6 +899,7 @@ export class WorldScene extends Phaser.Scene {
     meta.slots.public.sort((a, b) => a.slot - b.slot);
     meta.slots.system.sort((a, b) => a.slot - b.slot);
     meta.slots.feature.sort((a, b) => a.slot - b.slot);
+    meta.lanterns = lanterns.sort((a, b) => a.order - b.order).map(({ x, y }) => ({ x, y }));
     return meta;
   }
 
@@ -882,6 +964,26 @@ export class WorldScene extends Phaser.Scene {
       bar.fillRoundedRect(-28, 49, Math.max(56 * (p.pct / 100), 5), 4, 2);
     }
     root.add(bar);
+
+    // A level hall lights a lantern over its door for every quarter of the
+    // level learned, and wears a gold star once it's all done.
+    if (p.kind === 'level') {
+      const lamps = this.add.graphics();
+      for (let i = 0; i < 4; i++) {
+        const lit = p.pct >= (i + 1) * 25;
+        const lx = -21 + i * 14;
+        // Hung on a cord under the eave; unlit ones are dim paper, not dark.
+        lamps.fillStyle(0x2a1d16, 1).fillRect(lx - 0.5, -78, 1, 6);
+        if (lit) lamps.fillStyle(0xffc070, 0.4).fillCircle(lx, -66, 8);
+        lamps.fillStyle(0x2a1d16, 1).fillRect(lx - 4, -73, 8, 2).fillRect(lx - 4, -60, 8, 2);
+        lamps.fillStyle(lit ? 0xe8553f : 0x8a5a48, lit ? 1 : 0.85).fillRect(lx - 5, -71, 10, 11);
+        lamps.fillStyle(lit ? 0xffd27a : 0xa87a64, 1).fillRect(lx - 1, -69, 2, 7);
+      }
+      root.add(lamps);
+      if (p.pct >= 100) {
+        root.add(this.add.star(0, -86, 5, 5, 11, 0xf0c050).setStrokeStyle(2, 0x241703));
+      }
+    }
 
     if (p.active) {
       root.add(

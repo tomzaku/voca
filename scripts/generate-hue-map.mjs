@@ -801,8 +801,9 @@ for (const g of SOUTH_GATES) {
   place(cv, NGO_MON.x, NGO_MON.y, 3, { gaps: [54, 55] });
 }
 
-// Kỳ Đài: a three-tier brick bastion in the front wall with the flag on a
-// tall pole. Drawn after Ngọ Môn because it stands in front of it.
+// Kỳ Đài: a three-tier brick bastion in the front wall with a tall flagpole.
+// Drawn after Ngọ Môn because it stands in front of it.
+const FLAG = { x: 0, y: 0, drop: 0 };
 {
   const bw = (BASTION.x1 - BASTION.x0) * T;
   const baseRows = BASTION.y1 - BASTION.y0;
@@ -818,11 +819,14 @@ for (const g of SOUTH_GATES) {
   const poleX = bw / 2 - 1;
   cv.rect(poleX, 4, 2, baseY + 16, [214, 214, 210]);
   cv.set(poleX, 3, [236, 200, 90]); cv.set(poleX + 1, 3, [236, 200, 90]);
-  // The flag: red with a yellow star, on the east side of the pole.
-  cv.rect(poleX + 2, 6, 22, 14, [204, 42, 38]);
-  const star = [[11, 9], [12, 9], [13, 9], [10, 10], [11, 10], [12, 10], [13, 10], [14, 10], [11, 11], [12, 11], [13, 11], [11, 12], [13, 12], [12, 8], [10, 12], [14, 12]];
-  for (const [sx, sy] of star) cv.set(poleX + 2 + sx, 6 + sy - 2, [250, 214, 70]);
   place(cv, BASTION.x0, BASTION.y0 - 7, baseRows);
+  // The flag itself isn't painted: WorldScene hoists it up this pole as the
+  // learner's streak grows (the `flag` meta point: where it flies at the top,
+  // and how far it can drop).
+  const top = (BASTION.y0 - 7) * T + 6;
+  FLAG.x = BASTION.x0 + (poleX + 2) / T;
+  FLAG.y = top / T;
+  FLAG.drop = baseY - 16 - 6;
 }
 
 // Thái Hòa palace — the curated collection — and the six CEFR halls.
@@ -1235,6 +1239,37 @@ point('label', 4, 4.5, { text: 'Kim Long', theme: 'forest' });
 point('label', 86, 5, { text: 'Gia Hội', theme: 'forest' });
 point('label', 108, 54, { text: 'Vỹ Dạ', theme: 'forest' });
 point('label', 52, 84.6, { text: 'Ngự Bình', theme: 'forest' });
+
+// Progress the city shows (WorldScene): the streak flag on Kỳ Đài, and spots
+// on the Hương where a lantern floats for each mastered word. The spots are
+// shuffled so the first few lanterns spread along the river, not bunch up.
+point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
+{
+  const BRIDGE_COLS = [[19, 23], [32, 35], [48, 51], [66, 69]];
+  const spots = [];
+  for (let s = 3 * T; s < RIVER.length; s += 2.6 * T) {
+    const g = RIVER.segs.find((seg) => s >= seg.s0 && s < seg.s0 + seg.len);
+    if (!g) continue;
+    const t = (s - g.s0) / g.len;
+    const cx = g.ax + (g.bx - g.ax) * t, cy = g.ay + (g.by - g.ay) * t;
+    const nx = -(g.by - g.ay) / g.len, ny = (g.bx - g.ax) / g.len;
+    const off = (rand() * 2 - 1) * Math.max(0, riverHalfWidth(s) - 1.4 * T);
+    const x = cx + nx * off, y = cy + ny * off;
+    const tx = x / T, ty = y / T;
+    if (tx < 2 || tx > W - 2 || ty < 2) continue;
+    if (BRIDGE_COLS.some(([a, b]) => tx > a - 1.5 && tx < b + 1.5 && ty > 48 && ty < 59)) continue;
+    if (tx > 49 && tx < 61 && ty > 50) continue;                 // the wharf and the boat
+    if (tx > 100 && tx < 109 && ty > 37 && ty < 43) continue;    // the Cồn Hến footbridge
+    if (onIslet(x, y) || ISLETS.some((i) => isletE(i, x, y) < 1.8)) continue;
+    if (![[0, 0], [T, 0], [-T, 0], [0, T], [0, -T]].every(([dx, dy]) => isWater(x + dx, y + dy))) continue;
+    spots.push([tx, ty]);
+  }
+  for (let i = spots.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [spots[i], spots[j]] = [spots[j], spots[i]];
+  }
+  spots.slice(0, 60).forEach(([x, y], i) => point('lantern', x, y, { order: i }));
+}
 
 // Levels: Thái Hòa holds the curated list, then A1 → C2 through the halls.
 point('station', 55, 30.5, { region: 'system', slot: 0 });
