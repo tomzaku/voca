@@ -413,6 +413,27 @@ async function fetchAndCacheWord(word: string): Promise<VocabularyWord> {
   return data;
 }
 
+/**
+ * A search's own text is no identity: "brigde", or a meaning typed in the
+ * mother language like "cây cầu", both mean "bridge". With English as the
+ * learn language, the headword the server returns is that real word — so
+ * re-key the data under it (and cache it there), and the view, save and
+ * progress from the search land on "bridge" rather than on what was typed.
+ *
+ * Only for searches. A collection's word goes the other way on purpose: its
+ * seed is the identity the list matches on (see fetchAndCacheWord), and with
+ * another learn language the headword is a translation, not the real seed.
+ */
+export function keyBySearchResult(data: VocabularyWord): VocabularyWord {
+  const real = data.headword?.trim();
+  if (getLearnLanguage() !== 'English' || !real || real.toLowerCase() === data.word.toLowerCase()) return data;
+  const existing = getCachedWord(real);
+  if (existing) return existing;
+  const rekeyed: VocabularyWord = { ...data, word: real, headword: undefined };
+  cacheWord(rekeyed);
+  return rekeyed;
+}
+
 // ─── Cloze paragraph (drag-and-drop fill-the-gap game) ──────────────
 
 export interface ClozeSegment {

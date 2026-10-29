@@ -10,6 +10,7 @@ import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
 import {
   generateWordData,
+  keyBySearchResult,
   pickNextWords,
   recentCachedWords,
   UnknownWordError,
@@ -280,7 +281,9 @@ export function FlashCard() {
 
   // `reveal: false` opens the word in guess mode (the `?w=` encoded link);
   // everything else — a header search, a `?word=` link — shows it outright.
-  const loadSpecificWord = useCallback(async (word: string, reveal = true) => {
+  // `fromSearch`: the word was typed into a search, so it's keyed by the real
+  // word it turned out to be (keyBySearchResult) rather than by what was typed.
+  const loadSpecificWord = useCallback(async (word: string, reveal = true, fromSearch = false) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -294,14 +297,15 @@ export function FlashCard() {
     setLoadError(null);
     setIsGenerating(true);
     try {
-      const data = await generateWordData(word, ctrl.signal);
+      const loaded = await generateWordData(word, ctrl.signal);
+      const data = fromSearch ? keyBySearchResult(loaded) : loaded;
       // A newer load superseded this one while we awaited (e.g. the StrictMode
       // dev remount) — its result is already on screen, don't push a duplicate.
       if (ctrl.signal.aborted) return;
       pushWord(data);
       setWordData(data);
       setPhase(reveal ? 'revealed' : 'introduce');
-      store.recordView(word, user?.id);
+      store.recordView(data.word, user?.id);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       // Not a real word — offer what they probably meant instead of a dead end.
@@ -369,7 +373,7 @@ export function FlashCard() {
     // would otherwise supersede the searched word once the card goes away.
     didInit.current = true;
     setSkipStart(true);
-    loadSpecificWord(pendingSearch);
+    loadSpecificWord(pendingSearch, true, true);
   }, [pendingSearch, loadSpecificWord]);
 
   // Abort any in-flight work on unmount.

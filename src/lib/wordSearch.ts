@@ -3,7 +3,7 @@
 // SearchModal and the world's library (Tàng Thư Lâu) both search through this.
 
 import { getLearnLanguage } from './languages';
-import { generateWordData, recentCachedWords, UnknownWordError } from './wordService';
+import { generateWordData, keyBySearchResult, recentCachedWords, UnknownWordError } from './wordService';
 import type { VocabularyWord } from '../types';
 
 /** Keep the whole phrase — phrasal verbs and idioms ("go on", "give up") are
@@ -17,13 +17,14 @@ export type LookupResult =
   | { kind: 'unknown'; word: string; suggestions: string[] };
 
 /**
- * Look a query up (cache-first, generated when new). Not a real word comes
- * back as 'unknown' with what the learner probably meant; anything else
- * (offline, network) throws.
+ * Look a query up (cache-first, generated when new), keyed by the real word
+ * it turned out to be (keyBySearchResult). Not a real word comes back as
+ * 'unknown' with what the learner probably meant; anything else (offline,
+ * network) throws.
  */
 export async function lookupWord(query: string, signal?: AbortSignal): Promise<LookupResult> {
   try {
-    return { kind: 'found', data: await generateWordData(query, signal) };
+    return { kind: 'found', data: keyBySearchResult(await generateWordData(query, signal)) };
   } catch (err) {
     if (err instanceof UnknownWordError) return { kind: 'unknown', word: err.word, suggestions: err.suggestions };
     throw err;
