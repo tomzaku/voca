@@ -1,0 +1,130 @@
+// Pixel icons for the world UI, drawn from character grids ('#' = a pixel) so
+// they share the map's square-pixel look instead of the app's smooth icon set.
+// They paint in currentColor; `size` is the pixel scale.
+
+const GRIDS = {
+  heart: [
+    '.##.##.',
+    '#######',
+    '#######',
+    '.#####.',
+    '..###..',
+    '...#...',
+  ],
+  heartEmpty: [
+    '.##.##.',
+    '#..#..#',
+    '#.....#',
+    '.#...#.',
+    '..#.#..',
+    '...#...',
+  ],
+  flame: [
+    '...#...',
+    '..##...',
+    '.####..',
+    '.#####.',
+    '###.##.',
+    '##...##',
+    '.#####.',
+  ],
+  star: [
+    '...#...',
+    '..###..',
+    '#######',
+    '.#####.',
+    '..###..',
+    '.##.##.',
+    '##...##',
+  ],
+  speaker: [
+    '...#...',
+    '..##..#',
+    '####.#.',
+    '####.#.',
+    '####.#.',
+    '..##..#',
+    '...#...',
+  ],
+  close: [
+    '##....##',
+    '###..###',
+    '.######.',
+    '..####..',
+    '..####..',
+    '.######.',
+    '###..###',
+    '##....##',
+  ],
+  check: [
+    '.......#',
+    '......##',
+    '#....##.',
+    '##..##..',
+    '.####...',
+    '..##....',
+  ],
+  sword: [
+    '......##',
+    '.....###',
+    '....###.',
+    '#..###..',
+    '.####...',
+    '..##....',
+    '.#.##...',
+    '#...#...',
+  ],
+  retry: [
+    '.####.#',
+    '#....##',
+    '#...###',
+    '#......',
+    '#.....#',
+    '.#...#.',
+    '..###..',
+  ],
+  sliders: [
+    '.#.....',
+    '#######',
+    '.#.....',
+    '.....#.',
+    '#######',
+    '.....#.',
+  ],
+  hourglass: [
+    '#######',
+    '.#...#.',
+    '..#.#..',
+    '...#...',
+    '..#.#..',
+    '.#.#.#.',
+    '#######',
+  ],
+  percent: [
+    '##...#',
+    '##..#.',
+    '...#..',
+    '..#...',
+    '.#..##',
+    '#...##',
+  ],
+} as const;
+
+export type PixelIconName = keyof typeof GRIDS;
+
+export function PixelIcon({ name, size = 2, className = '' }: { name: PixelIconName; size?: number; className?: string }) {
+  const rows = GRIDS[name];
+  const w = Math.max(...rows.map((r) => r.length));
+  return (
+    <svg
+      width={w * size}
+      height={rows.length * size}
+      viewBox={`0 0 ${w} ${rows.length}`}
+      shapeRendering="crispEdges"
+      className={`inline-block shrink-0 ${className}`}
+      aria-hidden
+    >
+      {rows.flatMap((row, y) => [...row].map((c, x) => (c === '#' ? <rect key={`${x},${y}`} x={x} y={y} width={1} height={1} fill="currentColor" /> : null)))}
+    </svg>
+  );
+}

@@ -14,6 +14,7 @@ import {
   type WorldArea, type WorldSnapshot, type WorldStation,
 } from '../game/types';
 import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../game/features';
+import { PixelPanel } from './worldgames/pixel';
 
 export type { WorldStation } from '../game/types';
 
@@ -587,26 +588,18 @@ export function GameWorld({
         </div>
       )}
 
-      {/* ── Inside a building: its game plays in a popup over the map, in the
-             same card style as the world's other cards. ── */}
+      {/* ── Inside a building: its game plays in a pixel window over the map,
+             drawn with the world's own kit rather than the app's cards. ── */}
       {panel && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center p-3 bg-bg-primary/70 backdrop-blur-[2px] animate-fade-in">
-          <div className="w-full max-w-sm max-h-full flex flex-col rounded-2xl border-2 border-accent-yellow bg-bg-card shadow-2xl overflow-hidden">
-            <div className="flex items-center gap-2 px-3 py-2 border-b-2 border-border shrink-0">
-              <span className="text-lg leading-none">{panel.feature.emoji}</span>
-              <span className="flex-1 min-w-0 truncate font-display font-bold text-sm text-text-primary">
-                {intl.formatMessage({ id: panel.feature.nameId })}
-              </span>
-              <button
-                onClick={panel.onClose}
-                title={intl.formatMessage({ id: 'world.leaveBuilding' })}
-                className="w-7 h-7 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary transition-colors"
-              >
-                <Icon icon="lucide:x" className="text-sm" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3">{panel.content}</div>
-          </div>
+        <div className="absolute inset-0 z-30 flex items-center justify-center p-3 bg-black/55 animate-fade-in">
+          <PixelPanel
+            title={intl.formatMessage({ id: panel.feature.nameId })}
+            emoji={panel.feature.emoji}
+            onClose={panel.onClose}
+            closeLabel={intl.formatMessage({ id: 'world.leaveBuilding' })}
+          >
+            {panel.content}
+          </PixelPanel>
         </div>
       )}
     </div>

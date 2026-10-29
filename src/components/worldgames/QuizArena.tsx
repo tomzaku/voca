@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { speakText, stopSpeaking } from '../../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../../lib/sfx';
@@ -11,15 +10,18 @@ import {
   buildQuiz, gradeMatch, gradeMcq, loadQuizData, recordResults,
   type Question, type WordResult,
 } from '../../lib/quizEngine';
-import { MatchBoard } from '../MatchBoard';
+import {
+  PixelButton, PixelCells, PixelChip, PixelHeading, PixelHearts, PixelIcon, PixelLoader, PixelOption, PixelStat,
+} from './pixel';
+import { PixelMatchBoard } from './pixel/PixelMatchBoard';
 import { useVocabularyStore } from '../../hooks/useVocabulary';
 import { useAuth } from '../../hooks/useAuth';
-import { useQuestionAccent } from '../../hooks/useQuestionAccent';
 
-// The Quizzes building. Same setup options as the full Quiz page
+// The Quizzes building (Quốc Học). Same setup options as the full Quiz page
 // (src/components/QuizSetup.tsx) — question types, when answers show, a time
-// limit and which words — but laid out for the world popup and played as an
-// arena run: lives, a combo multiplier and a score. Answers feed the real SRS.
+// limit and which words — and the same rules (src/lib/quizEngine.ts), but
+// drawn with the world's pixel kit and played as an arena run: lives, a combo
+// multiplier and a score. Answers feed the real SRS.
 
 const MIN_WORDS = 2;
 const LIVES = 3;
@@ -102,9 +104,6 @@ export function QuizArena({ words }: { words: string[] }) {
 
   const question = questions[index];
   const total = questions.length;
-  // Sketch of a "game theme" — a decorative accent that cycles every question,
-  // scoped to touchpoints that never mean "right" or "wrong" (see the hook).
-  const accent = useQuestionAccent(index);
 
   const finish = useCallback((outOfLives = false) => {
     if (doneRef.current) return;
@@ -182,15 +181,17 @@ export function QuizArena({ words }: { words: string[] }) {
   if (phase.name === 'setup') {
     return (
       <div className="space-y-4">
-        <Section
-          title={intl.formatMessage({ id: 'games.arenaQuestionTypes' })}
-          aside={qTypes.size === QUESTION_TYPES.length
-            ? intl.formatMessage({ id: 'games.arenaRandomMix' })
-            : intl.formatMessage({ id: 'games.arenaSelected' }, { count: qTypes.size })}
-        >
+        <section>
+          <PixelHeading
+            aside={qTypes.size === QUESTION_TYPES.length
+              ? intl.formatMessage({ id: 'games.arenaRandomMix' })
+              : intl.formatMessage({ id: 'games.arenaSelected' }, { count: qTypes.size })}
+          >
+            <FormattedMessage id="games.arenaQuestionTypes" />
+          </PixelHeading>
           <div className="grid grid-cols-2 gap-1.5">
             {QUESTION_TYPES.map((t) => (
-              <Choice
+              <PixelOption
                 key={t}
                 on={qTypes.has(t)}
                 onClick={() => toggleType(t)}
@@ -199,112 +200,95 @@ export function QuizArena({ words }: { words: string[] }) {
               />
             ))}
           </div>
-        </Section>
+        </section>
 
-        <Section title={intl.formatMessage({ id: 'games.arenaShowAnswers' })}>
+        <section>
+          <PixelHeading><FormattedMessage id="games.arenaShowAnswers" /></PixelHeading>
           <div className="grid grid-cols-2 gap-1.5">
-            <Choice
+            <PixelOption
               on={reveal === 'each'}
               onClick={() => setReveal('each')}
               label={intl.formatMessage({ id: 'games.arenaAfterEach' })}
               hint={intl.formatMessage({ id: 'games.arenaAfterEachHint' })}
             />
-            <Choice
+            <PixelOption
               on={reveal === 'end'}
               onClick={() => setReveal('end')}
               label={intl.formatMessage({ id: 'games.arenaAtEnd' })}
               hint={intl.formatMessage({ id: 'games.arenaAtEndHint' })}
             />
           </div>
-        </Section>
+        </section>
 
-        <Section
-          title={intl.formatMessage({ id: 'games.arenaTimeLimit' })}
-          aside={
-            <button
-              onClick={() => setAutoTime(true)}
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
-                autoTime ? 'bg-accent-cyan/15 border-accent-cyan/30 text-accent-cyan' : 'bg-bg-card border-border text-text-muted hover:text-text-primary'
-              }`}
-            >
-              <FormattedMessage id="games.arenaAutoTime" values={{ sec: SECONDS_PER_WORD }} />
-            </button>
-          }
-        >
+        <section>
+          <PixelHeading
+            aside={
+              <PixelChip on={autoTime} onClick={() => setAutoTime(true)}>
+                <FormattedMessage id="games.arenaAutoTime" values={{ sec: SECONDS_PER_WORD }} />
+              </PixelChip>
+            }
+          >
+            <FormattedMessage id="games.arenaTimeLimit" />
+          </PixelHeading>
           <div className="flex items-center gap-2">
+            <PixelIcon name="hourglass" size={2} className="text-[var(--px-gold)]" />
             <input
               type="number"
               min={0}
               value={durationSec}
               onChange={(e) => { setAutoTime(false); setDurationSec(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
-              className="w-24 bg-bg-tertiary border-2 border-border rounded-lg px-2.5 py-1.5 text-sm text-text-primary font-code font-bold focus:outline-none focus:border-accent-cyan"
+              className="px-inset px-notch w-20 px-2 py-0.5 text-[20px] text-[var(--px-text)] focus:outline-none"
             />
-            <span className="text-xs text-text-muted font-bold"><FormattedMessage id="games.arenaSec" /></span>
-            <span className="text-[11px] text-text-muted ml-auto">
+            <span className="text-[18px] text-[var(--px-muted)]"><FormattedMessage id="games.arenaSec" /></span>
+            <span className="text-[18px] text-[var(--px-muted)] ml-auto">
               {durationSec === 0 ? intl.formatMessage({ id: 'games.arenaNoLimit' }) : `≈ ${fmtTime(durationSec)}`}
             </span>
           </div>
-        </Section>
+        </section>
 
-        <Section
-          title={intl.formatMessage({ id: 'games.arenaWords' }, { chosen: chosen.size, total: words.length })}
-          aside={
-            <span className="flex gap-2">
-              <button onClick={() => setChosen(new Set(words))} className="text-[11px] font-bold text-text-muted hover:text-text-primary"><FormattedMessage id="games.all" /></button>
-              <button onClick={() => setChosen(new Set())} className="text-[11px] font-bold text-text-muted hover:text-text-primary"><FormattedMessage id="games.none" /></button>
-            </span>
-          }
-        >
-          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-            {words.map((w) => {
-              const on = chosen.has(w);
-              return (
-                <button
-                  key={w}
-                  onClick={() => toggleWord(w)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-bold border-2 transition-all ${
-                    on ? 'bg-accent-cyan text-bg-primary border-accent-cyan' : 'bg-bg-tertiary text-text-secondary border-border'
-                  }`}
-                >
-                  {w}
-                </button>
-              );
-            })}
+        <section>
+          <PixelHeading
+            aside={
+              <span className="flex gap-1.5">
+                <PixelChip on={chosen.size === words.length} onClick={() => setChosen(new Set(words))}><FormattedMessage id="games.all" /></PixelChip>
+                <PixelChip on={chosen.size === 0} onClick={() => setChosen(new Set())}><FormattedMessage id="games.none" /></PixelChip>
+              </span>
+            }
+          >
+            <FormattedMessage id="games.arenaWords" values={{ chosen: chosen.size, total: words.length }} />
+          </PixelHeading>
+          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-0.5">
+            {words.map((w) => (
+              <PixelChip key={w} on={chosen.has(w)} onClick={() => toggleWord(w)}>{w}</PixelChip>
+            ))}
           </div>
-        </Section>
+        </section>
 
-        <button
-          onClick={start}
-          disabled={chosen.size < MIN_WORDS}
-          className="btn-3d w-full py-2.5 text-sm bg-accent-purple text-bg-primary font-bold disabled:opacity-40"
-        >
-          <Icon icon="lucide:swords" className="inline -mt-0.5 mr-1.5" />
+        <PixelButton tone="red" block onClick={start} disabled={chosen.size < MIN_WORDS}>
+          <PixelIcon name="sword" size={2} />
           <FormattedMessage id="games.arenaEnter" />
-        </button>
+        </PixelButton>
         {chosen.size < MIN_WORDS && (
-          <p className="text-[11px] text-text-muted text-center"><FormattedMessage id="games.arenaPickAtLeast" values={{ count: MIN_WORDS }} /></p>
+          <p className="text-[17px] text-[var(--px-muted)] text-center">
+            <FormattedMessage id="games.arenaPickAtLeast" values={{ count: MIN_WORDS }} />
+          </p>
         )}
       </div>
     );
   }
 
   if (phase.name === 'loading') {
-    return (
-      <div className="py-10 flex flex-col items-center gap-4">
-        <div className="w-10 h-10 rounded-full border-2 border-accent-purple/30 border-t-accent-purple animate-spin" />
-        <p className="text-sm font-bold text-text-muted"><FormattedMessage id="games.arenaEntering" /></p>
-      </div>
-    );
+    return <PixelLoader label={<FormattedMessage id="games.arenaEntering" />} />;
   }
 
   if (phase.name === 'error') {
     return (
       <div className="py-6 text-center">
-        <div className="text-4xl mb-3">🥲</div>
-        <p className="text-sm text-text-muted mb-4"><FormattedMessage id="games.arenaLoadFailed" /></p>
-        <button onClick={() => setPhase({ name: 'setup' })} className="btn-3d px-4 py-2 text-sm bg-accent-purple text-bg-primary font-bold">
+        <PixelIcon name="heartEmpty" size={5} className="text-[var(--px-bad)] mb-3" />
+        <p className="text-[20px] text-[var(--px-muted)] mb-4"><FormattedMessage id="games.arenaLoadFailed" /></p>
+        <PixelButton onClick={() => setPhase({ name: 'setup' })}>
           <FormattedMessage id="games.arenaBackToSetup" />
-        </button>
+        </PixelButton>
       </div>
     );
   }
@@ -315,28 +299,34 @@ export function QuizArena({ words }: { words: string[] }) {
     const pct = tot ? Math.round((correct / tot) * 100) : 0;
     const msgId = outOfLives ? 'games.arenaOutOfLives' : pct >= 100 ? 'games.arenaFlawless' : pct >= 75 ? 'games.arenaGreatRun' : pct >= 50 ? 'games.arenaNotBad' : 'games.arenaKeepTraining';
     return (
-      <div className="text-center animate-pop-in">
-        <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1">
+      <div className="text-center">
+        <p className={`px-title mb-2 ${outOfLives ? 'text-[var(--px-bad)]' : 'text-[var(--px-accent)]'}`}>
           <FormattedMessage id={outOfLives ? 'games.arenaDefeated' : 'games.arenaCleared'} />
         </p>
-        <div className="text-5xl font-display font-bold text-text-primary leading-none mb-1">{sc}</div>
-        <p className="text-sm font-bold text-text-muted mb-4"><FormattedMessage id="games.arenaPointsMsg" values={{ msg: intl.formatMessage({ id: msgId }) }} /></p>
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <PixelIcon name="star" size={4} className="text-[var(--px-gold)]" />
+          <span className="text-[56px] leading-none tabular-nums">{sc}</span>
+        </div>
+        <p className="text-[20px] text-[var(--px-muted)] mb-4">
+          <FormattedMessage id="games.arenaPointsMsg" values={{ msg: intl.formatMessage({ id: msgId }) }} />
+        </p>
         <div className="grid grid-cols-3 gap-2 mb-5">
-          <Stat icon="lucide:target" label={intl.formatMessage({ id: 'games.statCorrect' })} value={`${correct}/${tot}`} color="text-accent-green" />
-          <Stat icon="lucide:flame" label={intl.formatMessage({ id: 'games.statCombo' })} value={`×${bc}`} color="text-accent-orange" />
-          <Stat icon="lucide:percent" label={intl.formatMessage({ id: 'games.statAccuracy' })} value={`${pct}%`} color="text-accent-cyan" />
+          <PixelStat icon="check" label={intl.formatMessage({ id: 'games.statCorrect' })} value={`${correct}/${tot}`} color="text-[var(--px-good)]" />
+          <PixelStat icon="flame" label={intl.formatMessage({ id: 'games.statCombo' })} value={`×${bc}`} color="text-[var(--px-gold)]" />
+          <PixelStat icon="percent" label={intl.formatMessage({ id: 'games.statAccuracy' })} value={`${pct}%`} color="text-[var(--px-sky)]" />
         </div>
         <div className="flex gap-2">
-          <button onClick={start} className="btn-3d flex-1 py-2.5 text-sm bg-accent-purple text-bg-primary font-bold">
-            <Icon icon="lucide:rotate-ccw" className="inline -mt-0.5 mr-1" /> <FormattedMessage id="games.again" />
-          </button>
-          <button
+          <PixelButton tone="red" className="flex-1" onClick={start}>
+            <PixelIcon name="retry" size={2} /> <FormattedMessage id="games.again" />
+          </PixelButton>
+          <PixelButton
+            tone="paper"
             onClick={() => setPhase({ name: 'setup' })}
-            className="btn-3d px-3 py-2.5 text-sm bg-bg-tertiary text-text-secondary font-bold"
             title={intl.formatMessage({ id: 'games.changeSettings' })}
+            aria-label={intl.formatMessage({ id: 'games.changeSettings' })}
           >
-            <Icon icon="lucide:sliders-horizontal" />
-          </button>
+            <PixelIcon name="sliders" size={2} />
+          </PixelButton>
         </div>
       </div>
     );
@@ -350,62 +340,53 @@ export function QuizArena({ words }: { words: string[] }) {
 
   return (
     <div>
-      {/* Lives · score · combo */}
+      {/* Lives · combo · score */}
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-0.5">
-          {Array.from({ length: LIVES }).map((_, i) => (
-            <Icon key={i} icon={i < lives ? 'lucide:heart' : 'lucide:heart-crack'} className={i < lives ? 'text-accent-red' : 'text-text-muted/40'} />
-          ))}
-        </div>
+        <PixelHearts lives={lives} max={LIVES} />
         <div className="relative flex items-center gap-2">
           {combo >= 2 && (
-            <span className="flex items-center gap-0.5 text-xs font-bold text-accent-orange animate-pop-in">
-              <Icon icon="lucide:flame" />×{combo}
+            <span className="flex items-center gap-1 text-[20px] text-[var(--px-gold)]">
+              <PixelIcon name="flame" size={2} />×{combo}
             </span>
           )}
-          <span className="font-display font-bold text-text-primary tabular-nums">{score}</span>
-          {gain != null && <span className="absolute -top-5 right-0 text-sm font-bold text-accent-green animate-float-up">+{gain}</span>}
+          <span className="flex items-center gap-1 text-[26px] leading-none tabular-nums">
+            <PixelIcon name="star" size={2} className="text-[var(--px-gold)]" />{score}
+          </span>
+          {gain != null && <span className="absolute -top-5 right-0 text-[20px] text-[var(--px-good)] px-rise">+{gain}</span>}
         </div>
       </div>
 
-      {/* Time bar (only when a limit is set) */}
+      {/* Time, as a row of cells (only when a limit is set) */}
       {timed && (
         <div className="flex items-center gap-2 mb-3">
-          <div className="flex-1 h-2 rounded-full bg-bg-tertiary overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-[width] duration-200 ease-linear ${low ? 'bg-accent-red' : 'bg-accent-cyan'}`}
-              style={{ width: `${timePct}%` }}
-            />
-          </div>
-          <span className={`text-[11px] font-bold tabular-nums ${low ? 'text-accent-red' : 'text-text-muted'}`}>{fmtTime(remaining)}</span>
+          <PixelIcon name="hourglass" size={2} className={low ? 'text-[var(--px-bad)] px-blink' : 'text-[var(--px-muted)]'} />
+          <PixelCells pct={timePct} color={low ? 'var(--px-bad)' : 'var(--px-jade)'} />
+          <span className={`text-[18px] tabular-nums ${low ? 'text-[var(--px-bad)]' : 'text-[var(--px-muted)]'}`}>{fmtTime(remaining)}</span>
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="px-title text-[var(--px-accent)]">
           {intl.formatMessage({ id: question.kind === 'match' ? QUESTION_TYPE_META.match.askId : QUESTION_TYPE_META[question.type].askId })}
         </span>
-        <span className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted">
-          {/* Ticks over every question, purely decorative — the run's actual
-              progress is the number next to it. */}
-          <span key={index} className={`w-1.5 h-1.5 rounded-full animate-pop-in ${accent.dot}`} />
-          {index + 1}/{total}
-        </span>
+        <span className="text-[18px] text-[var(--px-muted)] tabular-nums">{index + 1}/{total}</span>
       </div>
 
       {question.kind === 'match' ? (
-        <MatchBoard key={index} pairs={question.pairs} reveal={reveal === 'each'} onComplete={completeMatch} />
+        <PixelMatchBoard key={index} pairs={question.pairs} reveal={reveal === 'each'} onComplete={completeMatch} />
       ) : (
         <>
           {question.type === 'listen' ? (
-            <button
+            <PixelButton
+              tone="sky"
+              block
+              className="mb-3 !py-4"
               onClick={() => { stopSpeaking(); speakText(question.word); }}
-              className={`btn-3d w-full py-4 mb-3 bg-bg-tertiary font-bold flex items-center justify-center gap-2 ${accent.text}`}
             >
-              <Icon icon="lucide:volume-2" className="text-xl" /> <FormattedMessage id="games.replaySound" />
-            </button>
+              <PixelIcon name="speaker" size={3} /> <FormattedMessage id="games.replaySound" />
+            </PixelButton>
           ) : (
-            <p className="text-base font-display font-bold text-text-primary mb-3 min-h-[3rem]">{question.prompt}</p>
+            <p className="px-inset px-notch text-[22px] leading-[1] px-3 py-2.5 mb-3 min-h-[3.5rem]">{question.prompt}</p>
           )}
 
           <div className="grid grid-cols-1 gap-2">
@@ -413,66 +394,25 @@ export function QuizArena({ words }: { words: string[] }) {
               const decided = picked !== null;
               const show = decided && reveal === 'each';
               const isAnswer = opt === question.word;
-              const style = !show
-                ? decided ? 'bg-bg-tertiary text-text-muted/60' : `bg-bg-tertiary text-text-primary ${accent.hoverBgSoft}`
-                : isAnswer
-                  ? 'bg-accent-green/20 text-accent-green border-accent-green'
-                  : picked === opt
-                    ? 'bg-accent-red/20 text-accent-red border-accent-red'
-                    : 'bg-bg-tertiary text-text-muted/50';
+              // Feedback shows on the buttons themselves: green for the answer,
+              // red (with a shake) for a wrong pick, everything else greyed.
+              const tone = !show ? 'paper' : isAnswer ? 'good' : picked === opt ? 'bad' : 'paper';
               return (
-                <button
+                <PixelButton
                   key={opt}
+                  tone={tone}
+                  block
                   onClick={() => { if (!decided) { playSelect(); answerMcq(opt); } }}
-                  disabled={decided}
-                  className={`btn-3d py-2.5 px-3 rounded-xl text-sm font-bold border-2 border-transparent transition-colors ${style}`}
+                  disabled={decided && tone === 'paper'}
+                  className={`!justify-start !normal-case !font-['VT323'] !text-[22px] !tracking-normal ${show && picked === opt && !isAnswer ? 'px-shake' : ''}`}
                 >
                   {opt}
-                </button>
+                </PixelButton>
               );
             })}
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-function Section({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <h3 className="text-[11px] font-bold text-text-muted uppercase tracking-wider">{title}</h3>
-        {typeof aside === 'string' ? <span className="text-[11px] font-bold text-text-muted">{aside}</span> : aside}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Choice({ on, onClick, label, hint }: { on: boolean; onClick: () => void; label: string; hint: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left px-2.5 py-2 rounded-xl border-2 transition-all ${
-        on ? 'bg-accent-cyan/10 border-accent-cyan text-text-primary' : 'bg-bg-tertiary border-border text-text-muted'
-      }`}
-    >
-      <div className="flex items-center gap-1 font-display font-bold text-xs">
-        <Icon icon={on ? 'solar:check-circle-bold' : 'lucide:circle'} className={on ? 'text-accent-cyan' : 'text-text-muted'} />
-        {label}
-      </div>
-      <p className="text-[10px] text-text-muted mt-0.5 leading-tight">{hint}</p>
-    </button>
-  );
-}
-
-function Stat({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-bg-tertiary/50 p-2">
-      <Icon icon={icon} className={`text-lg ${color}`} />
-      <div className="text-sm font-display font-bold text-text-primary mt-0.5">{value}</div>
-      <div className="text-[10px] font-bold text-text-muted uppercase tracking-wide">{label}</div>
     </div>
   );
 }

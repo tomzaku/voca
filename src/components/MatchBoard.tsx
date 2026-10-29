@@ -1,7 +1,7 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage } from 'react-intl';
-import { playSelect, playWin, playWrong } from '../lib/sfx';
+import { useMatchBoard } from '../hooks/useMatchBoard';
 
 export interface MatchPair {
   word: string;
@@ -15,10 +15,6 @@ interface LineCoords {
   rightWord: string;
   x1: number; y1: number;
   x2: number; y2: number;
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
 }
 
 /** Small deterministic PRNG seeded from a string, so a connection's wobble is
@@ -71,21 +67,13 @@ export function MatchBoard({ pairs, reveal = true, onComplete }: {
   reveal?: boolean;
   onComplete: (mistakes: number, links: Record<string, string>) => void;
 }) {
-  const [active, setActive] = useState<{ side: 'L' | 'R'; word: string } | null>(null);
-  // left word → the right definition's word it's linked to (one-to-one).
-  const [links, setLinks] = useState<Record<string, string>>({});
-  const [revealed, setRevealed] = useState(false);
-  const [done, setDone] = useState(false);
+  const { links, rightPairs, linkedCount, allLinked, mistakes, revealed, done, tap, submit, finish, cardState } =
+    useMatchBoard(pairs, reveal, onComplete);
   const [lines, setLines] = useState<LineCoords[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const leftRefs = useRef<Map<string, HTMLElement>>(new Map());
   const rightRefs = useRef<Map<string, HTMLElement>>(new Map());
-
-  const rightPairs = useMemo(() => shuffle(pairs), [pairs]);
-
-  const allLinked = Object.keys(links).length === pairs.length;
-  const mistakes = Object.entries(links).filter(([l, r]) => l !== r).length;
 
   // ── Recompute connector endpoints from the DOM ──
   const recomputeLines = useCallback(() => {
@@ -114,61 +102,6 @@ export function MatchBoard({ pairs, reveal = true, onComplete }: {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [recomputeLines]);
-
-  const tap = (side: 'L' | 'R', word: string) => {
-    if (revealed) return;
-    playSelect();
-
-    if (!active || active.side === side) {
-      setActive({ side, word }); // first pick, or switch on the same side
-      return;
-    }
-
-    const leftWord = side === 'L' ? word : active.word;
-    const rightWord = side === 'R' ? word : active.word;
-    setActive(null);
-
-    // Link left→right, keeping it one-to-one: drop any prior use of either endpoint.
-    setLinks((prev) => {
-      const next: Record<string, string> = {};
-      for (const [l, r] of Object.entries(prev)) {
-        if (l === leftWord || r === rightWord) continue;
-        next[l] = r;
-      }
-      next[leftWord] = rightWord;
-      return next;
-    });
-  };
-
-  const finish = () => {
-    if (done) return;
-    setDone(true);
-    onComplete(mistakes, links);
-  };
-
-  // Submit: reveal right/wrong in place, or (deferred mode) just hand back.
-  const submit = () => {
-    if (reveal) {
-      setRevealed(true);
-      if (mistakes === 0) playWin(); else playWrong();
-    } else {
-      finish();
-    }
-  };
-
-  // Colour of a card while connecting, and once answers are revealed.
-  const cardState = (side: 'L' | 'R', word: string): 'default' | 'active' | 'linked' | 'correct' | 'wrong' => {
-    const isLinked = side === 'L' ? word in links : Object.values(links).includes(word);
-    if (revealed && isLinked) {
-      const ok = side === 'L'
-        ? links[word] === word
-        : Object.entries(links).find(([, r]) => r === word)?.[0] === word;
-      return ok ? 'correct' : 'wrong';
-    }
-    if (active?.side === side && active.word === word) return 'active';
-    if (isLinked) return 'linked';
-    return 'default';
-  };
 
   const cardClass = (state: ReturnType<typeof cardState>) =>
     `w-full text-left px-4 py-3 rounded-xl border-2 font-semibold transition-all ${
@@ -253,7 +186,7 @@ export function MatchBoard({ pairs, reveal = true, onComplete }: {
           >
             <Icon icon="solar:check-read-bold" className="text-lg" />
             {!allLinked
-              ? <FormattedMessage id="quiz.match.connectAll" values={{ linked: Object.keys(links).length, total: pairs.length }} />
+              ? <FormattedMessage id="quiz.match.connectAll" values={{ linked: linkedCount, total: pairs.length }} />
               : <FormattedMessage id={reveal ? 'quiz.match.checkAnswers' : 'quiz.match.submit'} />}
           </button>
         ) : (
