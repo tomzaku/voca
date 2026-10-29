@@ -14,7 +14,7 @@ import {
   type WorldArea, type WorldSnapshot, type WorldStation,
 } from '../game/types';
 import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../game/features';
-import { PixelPanel } from './worldgames/pixel';
+import { PixelButton, PixelIcon } from './worldgames/pixel';
 
 export type { WorldStation } from '../game/types';
 
@@ -269,6 +269,9 @@ export function GameWorld({
       {/* Phaser mounts its canvas here (fills the frame via Scale.RESIZE). */}
 
       {/* ── HUD (DOM, on top of the canvas) ── */}
+      {/* The world's own controls step aside while a building's HUD is up. */}
+      {!panel && (
+        <>
       <div className="absolute top-3 left-3 flex items-center gap-1.5 text-[11px] font-bold text-text-muted bg-bg-card/85 border border-border rounded-full px-2.5 py-1 pointer-events-none">
         <Icon icon="lucide:gamepad-2" className="text-accent-yellow" />
         <span className="hidden sm:inline"><FormattedMessage id="world.hintWalkDesktop" /></span>
@@ -297,9 +300,12 @@ export function GameWorld({
           <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
         </button>
       </div>
+        </>
+      )}
 
       {/* ── Zoom ── wheel/pinch work on the canvas; these are the discoverable
           version of the same thing, and show where you are in the range. */}
+      {!panel && (
       <div className="absolute bottom-3 right-3 z-20 flex flex-col items-center rounded-xl border-2 border-border bg-bg-card/85 backdrop-blur-sm shadow-lg overflow-hidden">
         <button
           onClick={() => zoomBy(1)}
@@ -325,6 +331,7 @@ export function GameWorld({
           <Icon icon="lucide:minus" className="text-sm" />
         </button>
       </div>
+      )}
 
       {/* ── Fast-travel drawer ── */}
       {drawerOpen && (
@@ -588,18 +595,21 @@ export function GameWorld({
         </div>
       )}
 
-      {/* ── Inside a building: its game plays in a pixel window over the map,
-             drawn with the world's own kit rather than the app's cards. ── */}
+      {/* ── Inside a building: its game is a HUD docked around the map, which
+             stays visible (dimmed a touch) in the middle. ── */}
       {panel && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center p-3 bg-black/55 animate-fade-in">
-          <PixelPanel
-            title={intl.formatMessage({ id: panel.feature.nameId })}
-            emoji={panel.feature.emoji}
-            onClose={panel.onClose}
-            closeLabel={intl.formatMessage({ id: 'world.leaveBuilding' })}
-          >
-            {panel.content}
-          </PixelPanel>
+        <div className="absolute inset-0 z-30 bg-black/30 animate-fade-in pointer-events-none">
+          <div className="px absolute top-2 left-2 flex items-center gap-2 pointer-events-auto">
+            <span className="px-notch px-frame px-title flex items-center gap-2 pl-3 pr-4 py-2.5">
+              <span className="text-base leading-none">{panel.feature.emoji}</span>
+              {intl.formatMessage({ id: panel.feature.nameId })}
+            </span>
+            <PixelButton tone="paper" onClick={panel.onClose} className="!px-3 !py-2.5">
+              <PixelIcon name="close" size={2} />
+              {intl.formatMessage({ id: 'world.leaveBuilding' })}
+            </PixelButton>
+          </div>
+          {panel.content}
         </div>
       )}
     </div>

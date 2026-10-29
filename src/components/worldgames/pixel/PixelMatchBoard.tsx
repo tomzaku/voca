@@ -33,7 +33,7 @@ export function PixelMatchBoard({ pairs, reveal, onComplete }: {
         onClick={() => tap(side, word)}
         disabled={revealed}
         data-on={state === 'active'}
-        className={`px-pick px-notch w-full text-left px-2 py-1.5 flex items-start gap-1.5 ${state === 'wrong' ? 'px-shake' : ''}`}
+        className={`px-pick px-notch w-full text-left px-3 py-2.5 flex items-start gap-2 ${state === 'wrong' ? 'px-shake' : ''}`}
         style={ring ? { boxShadow: `inset 0 0 0 2px var(--px-ink), inset 0 0 0 4px ${ring}` } : undefined}
       >
         <span
@@ -45,7 +45,7 @@ export function PixelMatchBoard({ pairs, reveal, onComplete }: {
         >
           {seal >= 0 ? seal + 1 : ''}
         </span>
-        <span className={side === 'L' ? 'text-[20px] leading-none' : 'text-[16px] leading-[0.95]'}>{text}</span>
+        <span className={side === 'L' ? 'px-title !text-[16px]' : 'text-[14px] leading-snug'}>{text}</span>
       </button>
     );
   };
@@ -66,7 +66,7 @@ export function PixelMatchBoard({ pairs, reveal, onComplete }: {
           </PixelButton>
         ) : (
           <div className="text-center">
-            <p className={`text-[20px] mb-2 flex items-center justify-center gap-1.5 ${mistakes === 0 ? 'text-[var(--px-good)]' : 'text-[var(--px-bad)]'}`}>
+            <p className={`px-title mb-3 flex items-center justify-center gap-1.5 ${mistakes === 0 ? 'text-[var(--px-good)]' : 'text-[var(--px-bad)]'}`}>
               <PixelIcon name={mistakes === 0 ? 'check' : 'close'} size={2} />
               {mistakes === 0
                 ? <FormattedMessage id="quiz.match.allCorrect" />

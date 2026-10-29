@@ -1,132 +1,180 @@
-/* The world's own UI kit — a pixel game, not the app. Everything inside the
-   Huế world is drawn from these classes (via the components in ./index.tsx)
-   so it looks like it belongs to the map: square pixels, notched corners,
-   hard shadows, Huế lacquer and gold, and two pixel fonts with Vietnamese.
+/* The world's own UI kit — a game HUD, not the app. Everything inside the Huế
+   world is drawn from these classes (via the components in ./index.tsx).
 
-   Night (the app's dark theme) is the default, as in the rest of the app;
-   day overrides it under [data-theme="light"]. */
+   Built to read over a busy map, the way strategy-game HUDs do:
+   - panels are dark and near-opaque in day AND night — the map changes, the
+     HUD doesn't, so contrast never depends on the theme;
+   - text is bold condensed lettering with a black outline;
+   - numbers are big, state is colour-coded bars (green life, blue time,
+     gold score);
+   - activities dock to the edges (top bar, bottom action bar, side panel) so
+     the city stays visible in the middle.
+   Pixel art stays where it belongs — notched corners and pixel icons. */
 
 .px {
-  --px-ink: #120d0b;          /* outlines */
-  --px-paper: #2b231e;        /* panel body */
-  --px-paper-2: #3a2f27;      /* insets, idle cards */
-  --px-text: #f4e7c6;
-  --px-muted: #b9a888;
-  --px-lacquer: #a8342a;      /* title bars, danger */
-  --px-gold: #e2b240;
-  --px-jade: #4f9c86;
-  --px-sky: #5b8fd6;
-  --px-wood: #6b4a32;
-  --px-good: #5cb85c;
-  --px-bad: #d9534f;
-  --px-accent: #e2b240;       /* headings and labels that need to stand out */
-  --px-select: #e2b240;       /* the outline of whatever is picked */
+  --px-ink: #050403;
+  --px-paper: rgba(20, 16, 13, 0.94);   /* panel body */
+  --px-paper-2: #2a221c;                /* slots, inputs, idle cards */
+  --px-paper-3: #3a2f27;                /* hover */
+  --px-trim: #9c7438;                   /* bronze edge */
+  --px-trim-hi: #d9b066;
+  --px-text: #f6ecd6;
+  --px-muted: #b8a88e;
+  --px-lacquer: #a8342a;
+  --px-gold: #f0c050;
+  --px-jade: #4fae8e;
+  --px-sky: #4f8fe0;
+  --px-good: #5fd068;
+  --px-bad: #f05a4f;
+  --px-accent: #f0c050;
+  --px-select: #f0c050;
 
-  font-family: 'VT323', ui-monospace, monospace;
-  font-size: 20px;
-  line-height: 1.05;
+  font-family: 'Barlow', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.25;
   color: var(--px-text);
-  -webkit-font-smoothing: none;
-  -moz-osx-font-smoothing: unset;
-  image-rendering: pixelated;
-}
-[data-theme="light"] .px {
-  --px-ink: #3b2a20;
-  --px-paper: #f4e7c6;
-  --px-paper-2: #e8d6aa;
-  --px-text: #2e211a;
-  --px-muted: #7b6750;
-  /* Gold vanishes on parchment by day — headings go amber, picks lacquer. */
-  --px-accent: #94520f;
-  --px-select: #b5452f;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.6);
 }
 
-/* Small capitals for titles, labels and buttons. */
+/* Labels, buttons and numbers: condensed capitals. */
 .px-title {
-  font-family: 'Tiny5', ui-monospace, monospace;
-  font-size: 12px;
-  line-height: 1.2;
-  letter-spacing: 0.04em;
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.px-num {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 #000, 0 0 4px rgba(0, 0, 0, 0.8);
+}
 
-/* A stepped 4px corner — the pixel version of a rounded box. */
+/* A stepped corner — the pixel version of a rounded box. */
 .px-notch {
   clip-path: polygon(
-    0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-    4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+    0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
+    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px)
   );
 }
 
+/* HUD panel: dark body, black outline, bronze trim with a lit top edge. */
 .px-frame {
   background: var(--px-paper);
-  box-shadow: inset 0 0 0 3px var(--px-ink), inset 0 0 0 6px var(--px-wood);
+  box-shadow:
+    inset 0 0 0 2px var(--px-ink),
+    inset 0 0 0 4px var(--px-trim),
+    inset 0 6px 0 -2px var(--px-trim-hi),
+    inset 0 0 0 5px var(--px-ink);
 }
 
 .px-inset {
   background: var(--px-paper-2);
-  box-shadow: inset 0 0 0 2px var(--px-ink), inset 2px 2px 0 2px rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 3px 0 0 rgba(0, 0, 0, 0.35);
 }
 
-/* Buttons: a flat fill, a light top edge, a dark lip that collapses on press. */
+/* Buttons: a solid fill, a light top edge, a dark lip that collapses on press. */
 .px-btn {
   --tone: var(--px-gold);
-  --tone-ink: #2a1c08;
+  --tone-ink: #241703;
   position: relative;
   background: var(--tone);
   color: var(--tone-ink);
+  text-shadow: none;
   box-shadow:
-    inset 0 0 0 3px var(--px-ink),
-    inset 0 -6px 0 0 rgba(0, 0, 0, 0.28),
-    inset 0 5px 0 -2px rgba(255, 255, 255, 0.35);
+    inset 0 0 0 2px var(--px-ink),
+    inset 0 -5px 0 0 rgba(0, 0, 0, 0.3),
+    inset 0 4px 0 -1px rgba(255, 255, 255, 0.35);
   transition: transform 60ms steps(1), filter 60ms steps(1);
   cursor: pointer;
 }
-.px-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.px-btn:hover:not(:disabled) { filter: brightness(1.1); }
 .px-btn:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: inset 0 0 0 3px var(--px-ink), inset 0 -3px 0 0 rgba(0, 0, 0, 0.28);
+  transform: translateY(2px);
+  box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 -2px 0 0 rgba(0, 0, 0, 0.3);
 }
-.px-btn:disabled { filter: grayscale(0.7) brightness(0.8); cursor: not-allowed; }
-.px-btn:focus-visible { outline: 3px dashed var(--px-gold); outline-offset: 2px; }
-.px-btn[data-tone="red"] { --tone: var(--px-lacquer); --tone-ink: #fff3dc; }
-.px-btn[data-tone="jade"] { --tone: var(--px-jade); --tone-ink: #0d1f1a; }
-.px-btn[data-tone="sky"] { --tone: var(--px-sky); --tone-ink: #0b1528; }
+.px-btn:disabled { filter: grayscale(0.8) brightness(0.65); cursor: not-allowed; }
+.px-btn:focus-visible { outline: 2px solid var(--px-gold); outline-offset: 2px; }
+.px-btn[data-tone="red"] { --tone: #c0392b; --tone-ink: #fff4e6; }
+.px-btn[data-tone="jade"] { --tone: var(--px-jade); --tone-ink: #06170f; }
+.px-btn[data-tone="sky"] { --tone: var(--px-sky); --tone-ink: #06111f; }
 .px-btn[data-tone="paper"] { --tone: var(--px-paper-2); --tone-ink: var(--px-text); }
-.px-btn[data-tone="good"] { --tone: var(--px-good); --tone-ink: #0d200d; }
-.px-btn[data-tone="bad"] { --tone: var(--px-bad); --tone-ink: #fff0ee; }
+.px-btn[data-tone="good"] { --tone: var(--px-good); --tone-ink: #062008; }
+.px-btn[data-tone="bad"] { --tone: var(--px-bad); --tone-ink: #fff2ef; }
 
-/* Selectable cards and chips share one "on" look: gold outline, raised. */
+/* An ability slot: what an answer looks like in the bottom action bar. */
+.px-slot {
+  background: var(--px-paper-2);
+  box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 0 0 3px #5a4632, inset 0 -4px 0 0 rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 60ms steps(1);
+}
+.px-slot:hover:not(:disabled) {
+  background: var(--px-paper-3);
+  box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 0 0 3px var(--px-trim-hi), inset 0 -4px 0 0 rgba(0, 0, 0, 0.35);
+}
+.px-slot:active:not(:disabled) { transform: translateY(2px); }
+.px-slot:focus-visible { outline: 2px solid var(--px-gold); outline-offset: 2px; }
+.px-slot[data-state="good"] { background: #1f4a25; box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 0 0 4px var(--px-good); }
+.px-slot[data-state="bad"] { background: #4d1a16; box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 0 0 4px var(--px-bad); }
+.px-slot[data-state="dim"] { opacity: 0.45; cursor: default; }
+
+/* Selectable cards and chips share one "on" look: gold outline. */
 .px-pick {
   background: var(--px-paper-2);
   color: var(--px-text);
-  box-shadow: inset 0 0 0 2px var(--px-ink);
+  box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 0 0 3px #4a3a2b;
   cursor: pointer;
 }
+.px-pick:hover { background: var(--px-paper-3); }
 .px-pick[data-on="true"] {
-  background: color-mix(in srgb, var(--px-select) 18%, var(--px-paper-2));
+  background: #3d3016;
   box-shadow: inset 0 0 0 2px var(--px-ink), inset 0 0 0 4px var(--px-select);
 }
-.px-pick:focus-visible { outline: 3px dashed var(--px-select); outline-offset: 2px; }
+.px-pick:focus-visible { outline: 2px solid var(--px-select); outline-offset: 2px; }
 
-/* A bar made of square cells, filled left to right. */
-.px-cells { display: flex; gap: 2px; }
-.px-cells > span { flex: 1; height: 10px; background: var(--px-paper-2); box-shadow: inset 0 0 0 1px var(--px-ink); }
-.px-cells > span[data-on="true"] { background: var(--cell, var(--px-jade)); }
+/* A Dota-style bar: a dark trough, a coloured fill, the value written on it. */
+.px-bar {
+  position: relative;
+  height: 16px;
+  background: #0d0a08;
+  box-shadow: inset 0 0 0 2px var(--px-ink);
+}
+.px-bar > i {
+  position: absolute; inset: 2px auto 2px 2px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--fill) 75%, #fff) 0 2px, var(--fill) 2px);
+  transition: width 200ms linear;
+}
+.px-bar > span {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-weight: 700; font-size: 13px; line-height: 1;
+}
 
-@keyframes px-blink { 50% { opacity: 0; } }
+@keyframes px-blink { 50% { opacity: 0.25; } }
 .px-blink { animation: px-blink 0.8s steps(1) infinite; }
 
 @keyframes px-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 .px-hop { animation: px-hop 0.6s steps(2) infinite; }
 
-@keyframes px-rise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-18px); opacity: 0; } }
-.px-rise { animation: px-rise 0.7s steps(6) forwards; }
+@keyframes px-rise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-22px); opacity: 0; } }
+.px-rise { animation: px-rise 0.8s steps(8) forwards; }
 
 @keyframes px-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .px-shake { animation: px-shake 0.24s steps(2) 2; }
 
+@keyframes px-in-up { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.px-in-up { animation: px-in-up 0.18s steps(4) both; }
+@keyframes px-in-down { from { transform: translateY(-16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.px-in-down { animation: px-in-down 0.18s steps(4) both; }
+@keyframes px-in-side { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.px-in-side { animation: px-in-side 0.2s steps(4) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .px-blink, .px-hop, .px-rise, .px-shake { animation: none; }
+  .px-blink, .px-hop, .px-rise, .px-shake, .px-in-up, .px-in-down, .px-in-side { animation: none; }
 }

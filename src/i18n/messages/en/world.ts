@@ -66,5 +66,5 @@ export default {
   'world.edit': 'Edit',
   'world.share': 'Share',
   'world.delete': 'Delete',
-  'world.leaveBuilding': 'Leave the building',
+  'world.leaveBuilding': 'Leave',
 } satisfies Catalog;

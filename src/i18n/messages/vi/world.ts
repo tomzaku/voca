@@ -66,5 +66,5 @@ export default {
   'world.edit': 'Sửa',
   'world.share': 'Chia sẻ',
   'world.delete': 'Xoá',
-  'world.leaveBuilding': 'Rời toà nhà',
+  'world.leaveBuilding': 'Rời đi',
 } satisfies Record<keyof typeof en, string>;
