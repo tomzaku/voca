@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocale, LOCALES } from '../i18n/locale';
-import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine, type TtsVoice } from '../hooks/useTtsSettings';
+import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine, type TtsEnginePref, type TtsVoice } from '../hooks/useTtsSettings';
+import { isHeavyFor } from '../lib/deviceTier';
 import { isKokoroSupported, speakText, stopSpeaking } from '../lib/tts';
 
 // The two preferences people change mid-session — what the app speaks in and
@@ -11,7 +12,8 @@ import { isKokoroSupported, speakText, stopSpeaking } from '../lib/tts';
 // the word in front of you doesn't mean a trip to Settings and back. Settings
 // still owns the full set (speed, per-voice previews).
 
-const ENGINES: { id: TtsEngine; labelId: string }[] = [
+const ENGINES: { id: TtsEnginePref; labelId: string }[] = [
+  { id: 'auto', labelId: 'quickPrefs.engineAuto' },
   { id: 'native', labelId: 'quickPrefs.engineNative' },
   { id: 'piper', labelId: 'quickPrefs.enginePiper' },
   { id: 'kokoro', labelId: 'quickPrefs.engineKokoro' },
@@ -24,13 +26,19 @@ const GROUPS: { accent: TtsVoice['accent']; gender: TtsVoice['gender']; labelId:
   { accent: 'British', gender: 'Male', labelId: 'settings.voiceBritishMale' },
 ];
 
+const ENGINE_NAME_ID: Record<TtsEngine, string> = {
+  native: 'quickPrefs.engineNative',
+  piper: 'quickPrefs.enginePiper',
+  kokoro: 'quickPrefs.engineKokoro',
+};
+
 // Learning content, so English in every UI language.
 const SAMPLE = 'The word "serendipity" means happy accident.';
 
 export function QuickPrefs() {
   const intl = useIntl();
   const { locale, setLocale } = useLocale();
-  const { engine, setEngine, voice, setVoice, piperVoice, setPiperVoice } = useTtsSettings();
+  const { enginePref, engine, recommended, setEngine, voice, setVoice, piperVoice, setPiperVoice } = useTtsSettings();
   const [open, setOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -77,7 +85,7 @@ export function QuickPrefs() {
     (isKokoro ? setVoice : setPiperVoice)(id);
   };
 
-  const pickEngine = (id: TtsEngine) => {
+  const pickEngine = (id: TtsEnginePref) => {
     stopSpeaking();
     setPreviewing(false);
     setEngine(id);
@@ -132,27 +140,44 @@ export function QuickPrefs() {
           <h3 className="text-[11px] font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">
             <FormattedMessage id="settings.voice" />
           </h3>
-          <div className="grid grid-cols-3 gap-1.5 mb-2">
+          <div className="grid grid-cols-4 gap-1">
             {ENGINES.map((e) => {
-              const on = engine === e.id;
+              const on = enginePref === e.id;
               const disabled = e.id === 'kokoro' && !kokoroOk;
+              const heavy = e.id !== 'auto' && isHeavyFor(e.id, recommended);
+              const title = disabled
+                ? intl.formatMessage({ id: 'quickPrefs.kokoroUnavailable' })
+                : heavy ? intl.formatMessage({ id: 'quickPrefs.heavy' }) : undefined;
               return (
                 <button
                   key={e.id}
                   type="button"
                   aria-pressed={on}
                   disabled={disabled}
-                  title={disabled ? intl.formatMessage({ id: 'quickPrefs.kokoroUnavailable' }) : undefined}
+                  title={title}
                   onClick={() => pickEngine(e.id)}
-                  className={`px-1.5 py-1.5 rounded-lg border-2 text-[11px] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                  className={`relative px-1 py-1.5 rounded-lg border-2 text-[11px] font-bold truncate transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                     on ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border text-text-secondary hover:border-border-light'
                   }`}
                 >
+                  {e.id === 'auto' && <Icon icon="lucide:sparkles" className="inline text-[10px] mr-0.5 -mt-0.5" />}
                   <FormattedMessage id={e.labelId} />
+                  {heavy && !disabled && (
+                    <Icon icon="lucide:triangle-alert" className="absolute -top-1.5 -right-1.5 text-xs text-accent-orange bg-bg-card rounded-full" />
+                  )}
                 </button>
               );
             })}
           </div>
+          {/* Say what Auto settled on, or why a hand-picked engine may struggle —
+              the whole point is not to discover that by the page freezing. */}
+          <p className={`text-[11px] leading-snug mt-1.5 mb-2 ${enginePref !== 'auto' && isHeavyFor(engine, recommended) ? 'text-accent-orange' : 'text-text-muted'}`}>
+            {enginePref === 'auto' ? (
+              <FormattedMessage id="quickPrefs.autoUsing" values={{ engine: intl.formatMessage({ id: ENGINE_NAME_ID[engine] }) }} />
+            ) : isHeavyFor(engine, recommended) ? (
+              <FormattedMessage id="quickPrefs.heavyWarning" values={{ engine: intl.formatMessage({ id: ENGINE_NAME_ID[recommended] }) }} />
+            ) : null}
+          </p>
 
           <div className="flex items-center gap-1.5">
             {engine === 'native' ? (

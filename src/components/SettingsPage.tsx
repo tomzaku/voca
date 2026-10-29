@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTheme, type Theme } from '../hooks/useTheme';
-import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
+import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine, type TtsEnginePref } from '../hooks/useTtsSettings';
+import { isHeavyFor } from '../lib/deviceTier';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { isSfxEnabled, setSfxEnabled, playCorrect } from '../lib/sfx';
 import { ToggleSwitch } from './ToggleSwitch';
@@ -32,7 +33,8 @@ const THEMES: { id: Theme; labelId: string; descId: string; icon: string }[] = [
   { id: 'dark', labelId: 'settings.themeDark', descId: 'settings.themeDarkDesc', icon: 'lucide:moon' },
 ];
 
-const engines: { id: TtsEngine; labelId: string; descId: string; badgeId?: string }[] = [
+const engines: { id: TtsEnginePref; labelId: string; descId: string; badgeId?: string }[] = [
+  { id: 'auto', labelId: 'settings.engineAuto', descId: 'settings.engineAutoDesc', badgeId: 'settings.badgeRecommended' },
   { id: 'native', labelId: 'settings.engineNative', descId: 'settings.engineNativeDesc', badgeId: 'settings.badgeFast' },
   { id: 'piper', labelId: 'settings.enginePiper', descId: 'settings.enginePiperDesc', badgeId: 'settings.badgeSafari' },
   {
@@ -42,6 +44,12 @@ const engines: { id: TtsEngine; labelId: string; descId: string; badgeId?: strin
     badgeId: isSafari ? 'settings.badgeUnavailable' : 'settings.badgeBestVoice',
   },
 ];
+
+const ENGINE_NAME_ID: Record<TtsEngine, string> = {
+  native: 'settings.engineNative',
+  piper: 'settings.enginePiper',
+  kokoro: 'settings.engineKokoro',
+};
 
 const gradeColor: Record<string, string> = {
   'A': 'text-green-400', 'A-': 'text-green-400',
@@ -54,7 +62,7 @@ const gradeColor: Record<string, string> = {
 export function SettingsPage() {
   const intl = useIntl();
   const { theme, setTheme } = useTheme();
-  const { engine, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed } = useTtsSettings();
+  const { enginePref, engine, recommended, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed } = useTtsSettings();
   const { user, signInWithGoogle, signOut } = useAuth();
   const store = useVocabularyStore();
 
@@ -342,6 +350,8 @@ export function SettingsPage() {
         <div className="space-y-3">
           {engines.map((e) => {
             const disabled = e.id === 'kokoro' && isSafari;
+            const on = enginePref === e.id;
+            const heavy = !disabled && e.id !== 'auto' && isHeavyFor(e.id, recommended);
             return (
               <button
                 key={e.id}
@@ -350,23 +360,34 @@ export function SettingsPage() {
                 className={`w-full text-left p-4 rounded-lg border transition-all ${
                   disabled
                     ? 'opacity-40 cursor-not-allowed bg-bg-card border-border'
-                    : engine === e.id
+                    : on
                       ? 'bg-accent-cyan/5 border-accent-cyan/30 ring-1 ring-accent-cyan/20 cursor-pointer'
                       : 'bg-bg-card border-border hover:border-text-muted/30 cursor-pointer'
                 }`}
               >
                 <div className="flex items-center gap-3 mb-1">
-                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${engine === e.id ? 'border-accent-cyan' : 'border-text-muted/40'}`}>
-                    {engine === e.id && <span className="w-2 h-2 rounded-full bg-accent-cyan" />}
+                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${on ? 'border-accent-cyan' : 'border-text-muted/40'}`}>
+                    {on && <span className="w-2 h-2 rounded-full bg-accent-cyan" />}
                   </span>
-                  <span className={`text-sm font-medium ${engine === e.id ? 'text-accent-cyan' : 'text-text-primary'}`}><FormattedMessage id={e.labelId} /></span>
+                  <span className={`text-sm font-medium ${on ? 'text-accent-cyan' : 'text-text-primary'}`}><FormattedMessage id={e.labelId} /></span>
                   {e.badgeId && (
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${engine === e.id ? 'bg-accent-cyan/15 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${on ? 'bg-accent-cyan/15 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
                       <FormattedMessage id={e.badgeId} />
                     </span>
                   )}
+                  {heavy && (
+                    <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-orange/10 text-accent-orange">
+                      <Icon icon="lucide:triangle-alert" className="text-[11px]" />
+                      <FormattedMessage id="settings.badgeHeavy" />
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-text-muted ml-7"><FormattedMessage id={e.descId} /></p>
+                <p className="text-xs text-text-muted ml-7">
+                  <FormattedMessage
+                    id={e.descId}
+                    values={{ engine: intl.formatMessage({ id: ENGINE_NAME_ID[engine] }) }}
+                  />
+                </p>
               </button>
             );
           })}

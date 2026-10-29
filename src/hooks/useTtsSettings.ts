@@ -1,6 +1,9 @@
 import { create } from 'zustand';
+import { ENGINE_WEIGHT, hasWebGPU, readDeviceSignals, recommendEngine } from '../lib/deviceTier';
 
 export type TtsEngine = 'kokoro' | 'piper' | 'native';
+/** What the user picked: an engine, or `auto` to let the device decide. */
+export type TtsEnginePref = TtsEngine | 'auto';
 
 export interface TtsVoice {
   id: string;
@@ -63,13 +66,38 @@ const ENGINE_KEY = 'voca-tts-engine';
 const VOICE_KEY = 'voca-tts-voice';
 const PIPER_VOICE_KEY = 'voca-tts-piper-voice';
 const SPEED_KEY = 'voca-tts-speed';
+/** Heaviest engine Auto may use here, set when a heavier one proved too slow. */
+const AUTO_CAP_KEY = 'voca-tts-auto-cap';
 
-function getStoredEngine(): TtsEngine {
+// No stored choice means Auto — including everyone who never opened Settings,
+// who used to get native by default.
+function getStoredEnginePref(): TtsEnginePref {
   try {
     const v = localStorage.getItem(ENGINE_KEY);
+    if (v === 'kokoro' || v === 'piper' || v === 'native' || v === 'auto') return v;
+  } catch { /* ignore */ }
+  return 'auto';
+}
+
+function getAutoCap(): TtsEngine | null {
+  try {
+    const v = localStorage.getItem(AUTO_CAP_KEY);
     if (v === 'kokoro' || v === 'piper' || v === 'native') return v;
   } catch { /* ignore */ }
-  return 'native';
+  return null;
+}
+
+// WebGPU needs an async probe, so Auto starts from a guess without it — which
+// can only land on native or Piper — and upgrades once the probe answers.
+let webgpu = false;
+
+/** What Auto picks on this device right now. */
+export function autoEngine(): TtsEngine {
+  return recommendEngine(readDeviceSignals(webgpu), getAutoCap());
+}
+
+function resolve(pref: TtsEnginePref): TtsEngine {
+  return pref === 'auto' ? autoEngine() : pref;
 }
 
 function getStoredVoice(): string {
@@ -97,11 +125,16 @@ function getStoredSpeed(): number {
 }
 
 interface TtsSettingsState {
+  /** The user's choice, possibly `auto`. Highlight this in pickers. */
+  enginePref: TtsEnginePref;
+  /** The engine actually speaking — `enginePref` with Auto resolved. */
   engine: TtsEngine;
+  /** What Auto would pick here; pickers flag anything heavier. */
+  recommended: TtsEngine;
   voice: string;
   piperVoice: string;
   speed: number;
-  setEngine: (e: TtsEngine) => void;
+  setEngine: (e: TtsEnginePref) => void;
   setVoice: (v: string) => void;
   setPiperVoice: (v: string) => void;
   setSpeed: (s: number) => void;
@@ -110,14 +143,23 @@ interface TtsSettingsState {
 // One store rather than per-component state: the header's quick picker and
 // the Settings page can both be on screen, and must agree on the voice.
 // localStorage stays the source tts.ts reads at speak time.
+const initialPref = getStoredEnginePref();
+
 export const useTtsSettings = create<TtsSettingsState>((set) => ({
-  engine: getStoredEngine(),
+  enginePref: initialPref,
+  engine: resolve(initialPref),
+  recommended: autoEngine(),
   voice: getStoredVoice(),
   piperVoice: getStoredPiperVoice(),
   speed: getStoredSpeed(),
   setEngine: (e) => {
-    try { localStorage.setItem(ENGINE_KEY, e); } catch { /* ignore */ }
-    set({ engine: e });
+    try {
+      localStorage.setItem(ENGINE_KEY, e);
+      // Choosing Auto is the way to ask for a fresh look at this device, so
+      // forget any step-down from an earlier slow run.
+      if (e === 'auto') localStorage.removeItem(AUTO_CAP_KEY);
+    } catch { /* ignore */ }
+    set({ enginePref: e, engine: resolve(e), recommended: autoEngine() });
   },
   setVoice: (v) => {
     try { localStorage.setItem(VOICE_KEY, v); } catch { /* ignore */ }
@@ -133,10 +175,39 @@ export const useTtsSettings = create<TtsSettingsState>((set) => ({
   },
 }));
 
-export function getTtsEngine(): TtsEngine { return getStoredEngine(); }
+/** Re-resolve Auto after something it depends on changed. */
+function refreshAuto() {
+  const { enginePref } = useTtsSettings.getState();
+  useTtsSettings.setState({ engine: resolve(enginePref), recommended: autoEngine() });
+}
+
+if (typeof window !== 'undefined') {
+  hasWebGPU().then((ok) => {
+    webgpu = ok;
+    if (ok) refreshAuto();
+  });
+}
+
+/**
+ * Called by tts.ts when the engine Auto chose failed or ran slower than
+ * real time: cap Auto one step lighter on this device for good, and return
+ * the engine it now uses — or null when the user picked the engine by hand
+ * (their choice isn't second-guessed) or there's nothing lighter.
+ */
+export function demoteAutoEngine(from: TtsEngine): TtsEngine | null {
+  const { enginePref, engine } = useTtsSettings.getState();
+  if (enginePref !== 'auto' || engine !== from) return null;
+  const lighter = ENGINE_WEIGHT[ENGINE_WEIGHT.indexOf(from) - 1];
+  if (!lighter) return null;
+  try { localStorage.setItem(AUTO_CAP_KEY, lighter); } catch { /* ignore */ }
+  refreshAuto();
+  return useTtsSettings.getState().engine;
+}
+
+export function getTtsEngine(): TtsEngine { return useTtsSettings.getState().engine; }
 export function getTtsVoice(): string { return getStoredVoice(); }
 
-export function setTtsEngine(e: TtsEngine): void { useTtsSettings.getState().setEngine(e); }
+export function setTtsEngine(e: TtsEnginePref): void { useTtsSettings.getState().setEngine(e); }
 export function setTtsVoice(v: string): void { useTtsSettings.getState().setVoice(v); }
 export function getPiperVoice(): string { return getStoredPiperVoice(); }
 export function getTtsSpeed(): number { return getStoredSpeed(); }

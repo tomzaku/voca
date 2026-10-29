@@ -1,5 +1,6 @@
 import { cleanMarkdown } from './cleanMarkdown';
-import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, PIPER_VOICES } from '../hooks/useTtsSettings';
+import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
+import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
 import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
@@ -20,17 +21,7 @@ export const MODEL_ID = KOKORO_MODEL_ID;
 const TAG = '[tts]';
 const MAX_TTS_CHARS = 5000;
 
-function isLowPowerDevice(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(ua)) return true;
-  const mem = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
-  if (typeof mem === 'number' && mem < 4) return true;
-  if (typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 2) return true;
-  return false;
-}
-
-const lowPower = isLowPowerDevice();
+const lowPower = classifyDevice(readDeviceSignals()) === 'low';
 
 let sessionStart = 0;
 function elapsed(): string {
@@ -40,12 +31,7 @@ function log(...args: unknown[]) {
   console.log(TAG, elapsed(), ...args);
 }
 
-function isSafari(): boolean {
-  const ua = navigator.userAgent;
-  return /Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua);
-}
-
-let kokoroUnavailable = isSafari();
+let kokoroUnavailable = isSafariBrowser();
 
 /**
  * Whether this browser can run the Kokoro AI voice model. Kokoro loads on WASM
@@ -53,20 +39,57 @@ let kokoroUnavailable = isSafari();
  * default voice engine during onboarding.
  */
 export function isKokoroSupported(): boolean {
-  return typeof navigator !== 'undefined' && !isSafari();
+  return typeof navigator !== 'undefined' && !isSafariBrowser();
 }
 
-// Exported for the benchmark page, which needs to know (and report) which
+// Re-exported for the benchmark page, which needs to know (and report) which
 // device a fresh Kokoro load would pick before it picks it.
-export async function hasWebGPU(): Promise<boolean> {
-  try {
-    const gpu = (navigator as unknown as { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
-    if (!gpu) return false;
-    const adapter = await gpu.requestAdapter();
-    return !!adapter;
-  } catch {
-    return false;
-  }
+export { hasWebGPU };
+
+// ─── Auto engine safety net ────────────────────────────────────────
+//
+// Auto picks an engine from device signals (deviceTier.ts), but signals can
+// flatter a machine. If its pick fails to load, or keeps synthesising slower
+// than the audio plays, step Auto down for good on this device — Piper runs
+// on the main thread, so a slow synth there is a frozen page, not just a wait.
+// A hand-picked engine is never changed (demoteAutoEngine returns null).
+
+const ENGINE_NAME_ID: Record<TtsEngine, string> = {
+  native: 'settings.engineNative',
+  piper: 'settings.enginePiper',
+  kokoro: 'settings.engineKokoro',
+};
+
+function demote(from: TtsEngine) {
+  const next = demoteAutoEngine(from);
+  if (!next) return;
+  log(`auto: ${from} too heavy here, now ${next}`);
+  if (from === 'kokoro') shutdownKokoro();
+  toast(t('settings.ttsDemoted', { engine: t(ENGINE_NAME_ID[next]) }), { id: 'tts-demoted', duration: 4000 });
+}
+
+// Roughly 15 characters of English per second of speech.
+const MS_PER_CHAR = 65;
+// Short texts are dominated by fixed overhead, so they can't show a trend.
+const MIN_JUDGED_CHARS = 40;
+const SLOW_RTF = 1.2;
+const STRIKES_TO_DEMOTE = 2;
+const warmed = new Set<string>();
+let strikes = 0;
+
+/**
+ * Report one synthesis. The first per engine+voice is skipped — it carries
+ * shader compilation (WebGPU) or the voice download (Piper) — and it takes
+ * two slow ones in a row to demote, so one hiccup in a busy tab doesn't.
+ */
+function judgeSpeed(engine: TtsEngine, voice: string, text: string, ms: number) {
+  const key = `${engine}:${voice}`;
+  if (!warmed.has(key)) { warmed.add(key); return; }
+  if (text.length < MIN_JUDGED_CHARS) return;
+  const rtf = ms / (text.length * MS_PER_CHAR);
+  if (rtf <= SLOW_RTF) { strikes = 0; return; }
+  log(`slow ${engine} synth: rtf≈${rtf.toFixed(2)}`);
+  if (++strikes >= STRIKES_TO_DEMOTE) { strikes = 0; demote(engine); }
 }
 
 // Kokoro itself runs inside this worker (see ttsWorker.ts) so model loading
@@ -103,6 +126,7 @@ function startWorker(device: 'webgpu' | 'wasm', dtype: string): Promise<void> {
           break;
         case 'load-error':
           kokoroUnavailable = true;
+          demote('kokoro');
           toast.error(t('settings.ttsFailed', { engine: 'Kokoro AI' }), { id: 'tts-loading', duration: 3000 });
           reject(new Error(msg.error));
           break;
@@ -134,6 +158,15 @@ function startWorker(device: 'webgpu' | 'wasm', dtype: string): Promise<void> {
 
   send({ type: 'load', device, dtype });
   return ready;
+}
+
+/** Free the model's memory; anything mid-generation fails rather than hangs. */
+function shutdownKokoro() {
+  ttsWorker?.terminate();
+  ttsWorker = null;
+  workerReadyPromise = null;
+  for (const p of pendingGenerations.values()) p.reject(new Error('kokoro shut down'));
+  pendingGenerations.clear();
 }
 
 export async function getKokoroTTS(): Promise<KokoroTTSInstance> {
@@ -188,6 +221,7 @@ async function getPiperTTS(): Promise<PiperTTSModule> {
   }).catch((err) => {
     piperPromise = null;
     toast.error(t('settings.ttsFailed', { engine: 'Piper AI' }), { id: 'tts-loading', duration: 3000 });
+    demote('piper');
     throw err;
   });
 
@@ -250,14 +284,20 @@ async function speakPiper(text: string, options?: { voice?: string; onStart?: ()
   const chunks = splitIntoChunks(text);
   const rawVoice = options?.voice ?? getPiperVoice();
   const voiceId = PIPER_VOICES.some((v) => v.id === rawVoice) ? rawVoice : getPiperVoice();
-  let nextBlob: Blob | null = await piper.predict({ text: chunks[0], voiceId });
+  const timedPredict = async (text: string) => {
+    const start = performance.now();
+    const blob = await piper.predict({ text, voiceId });
+    judgeSpeed('piper', voiceId, text, performance.now() - start);
+    return blob;
+  };
+  let nextBlob: Blob | null = await timedPredict(chunks[0]);
   if (!nextBlob || cancelled) { options?.onEnd?.(); return; }
   options?.onStart?.();
   for (let i = 0; i < chunks.length; i++) {
     if (cancelled) break;
     const currentBlob = nextBlob!;
     const nextPromise = (i + 1 < chunks.length)
-      ? piper.predict({ text: chunks[i + 1], voiceId }).catch(() => null)
+      ? timedPredict(chunks[i + 1]).catch(() => null)
       : Promise.resolve(null);
     await playBlob(currentBlob);
     nextBlob = await nextPromise;
@@ -316,7 +356,9 @@ async function speakOnce(text: string, voice: string): Promise<void> {
   }
   if (cancelled) return;
 
+  const start = performance.now();
   const result = await tts.generate(clean, { voice: voice as 'af_heart', speed: getTtsSpeed() });
+  judgeSpeed('kokoro', voice, clean, performance.now() - start);
   if (cancelled) return;
   const blob = result.toBlob();
   return playBlob(blob);
@@ -393,19 +435,22 @@ export async function speakText(
 
   const generateChunk = async (i: number): Promise<Blob | null> => {
     if (cancelled || i >= chunks.length) return null;
+    const start = performance.now();
     const result = await tts.generate(chunks[i], { voice, speed });
+    judgeSpeed('kokoro', voice, chunks[i], performance.now() - start);
     if (cancelled) return null;
     return result.toBlob();
   };
 
-  let currentBlob = await generateChunk(0);
+  let currentBlob = await generateChunk(0).catch(() => null);
   if (!currentBlob || cancelled) { options?.onEnd?.(); return; }
 
   options?.onStart?.();
 
   for (let i = 0; i < chunks.length; i++) {
     if (cancelled) break;
-    const nextPromise = (i + 1 < chunks.length) ? generateChunk(i + 1) : null;
+    // A demotion mid-read shuts the worker down; end the read rather than hang.
+    const nextPromise = (i + 1 < chunks.length) ? generateChunk(i + 1).catch(() => null) : null;
     await playBlob(currentBlob!);
     if (!nextPromise) break;
     currentBlob = await nextPromise;
