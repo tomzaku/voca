@@ -27,30 +27,24 @@ export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskW
   const hasAnt = antonyms.length > 0;
   if (!hasSyn && !hasAnt) return null;
 
-  const chip = (accent: 'cyan' | 'red') => {
-    const base = accent === 'cyan'
-      ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20'
-      : 'bg-accent-red/10 text-accent-red border-accent-red/20';
-    const hover = accent === 'cyan'
-      ? 'hover:bg-accent-cyan/20 hover:border-accent-cyan/40'
-      : 'hover:bg-accent-red/20 hover:border-accent-red/40';
-    return `text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border ${base}${maskWord ? '' : ` ${hover} transition-all cursor-pointer`}`;
-  };
+  // Neutral for both lists: the headings already say which is which, and a red
+  // antonym chip read as "wrong answer" next to the answer tally.
+  const chip = `text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border bg-bg-tertiary text-text-secondary border-border${maskWord ? '' : ' hover:text-accent-cyan hover:border-accent-cyan/40 transition-all cursor-pointer'}`;
 
   // Only the first `MOBILE_CHIP_LIMIT` chips show on a phone (`hidden sm:inline-block`
   // brings the rest back from `sm` up) — a full list of 5+ chips wraps to several
   // rows and pushes the game below the fold.
-  const renderChips = (words: string[], accent: 'cyan' | 'red') =>
+  const renderChips = (words: string[]) =>
     words.map((w, i) => {
       const overflow = i >= MOBILE_CHIP_LIMIT ? 'hidden sm:inline-block' : '';
       return maskWord ? (
-        <span key={w} className={`${chip(accent)} ${overflow}`}>{mask(w)}</span>
+        <span key={w} className={`${chip} ${overflow}`}>{mask(w)}</span>
       ) : (
         <button
           key={w}
           onClick={(e) => peekWord(w, e.currentTarget)}
           title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: w })}
-          className={`${chip(accent)} ${overflow}`}
+          className={`${chip} ${overflow}`}
         >
           {w}
         </button>
@@ -62,13 +56,13 @@ export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskW
       {hasSyn && (
         <div>
           <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5"><FormattedMessage id="word.synonyms" /></h4>
-          <div className="flex flex-wrap gap-1.5">{renderChips(synonyms, 'cyan')}</div>
+          <div className="flex flex-wrap gap-1.5">{renderChips(synonyms)}</div>
         </div>
       )}
       {hasAnt && (
         <div>
           <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5"><FormattedMessage id="word.antonyms" /></h4>
-          <div className="flex flex-wrap gap-1.5">{renderChips(antonyms, 'red')}</div>
+          <div className="flex flex-wrap gap-1.5">{renderChips(antonyms)}</div>
         </div>
       )}
     </div>

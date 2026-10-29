@@ -97,13 +97,15 @@ export function AnswerTally({ progress }: { progress: WordProgress | undefined }
         </span>
       </div>
       <div
-        className="flex h-2 rounded-full overflow-hidden bg-bg-tertiary"
+        className="flex h-1.5 rounded-full overflow-hidden bg-bg-tertiary"
         role="img"
         aria-label={intl.formatMessage({ id: 'flashcard.tallyLabel' }, { correct, wrong })}
       >
         {correct > 0 && <div className="bg-accent-green rounded-full" style={{ width: `${(correct / total) * 100}%` }} />}
         {correct > 0 && wrong > 0 && <div className="w-0.5 shrink-0" />}
-        {wrong > 0 && <div className="bg-accent-red rounded-full" style={{ width: `${(wrong / total) * 100}%` }} />}
+        {/* Softer than the green: a word you've missed is something to work
+            on, not an error, and an all-red bar shouted like one. */}
+        {wrong > 0 && <div className="bg-accent-red/50 rounded-full"style={{ width: `${(wrong / total) * 100}%` }} />}
       </div>
 
       {/* Per-answer log, newest first — when each round was answered and how.

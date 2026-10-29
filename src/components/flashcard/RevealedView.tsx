@@ -71,13 +71,20 @@ export function RevealedView({
                 />
               )}
               <div className="min-w-0">
-                <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1">
-                  <h1 className="text-3xl sm:text-5xl font-display font-extrabold leading-tight text-text-primary break-words">
-                    {headword}
-                  </h1>
-                  {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-xs" />}
-                </div>
+                <h1 className="text-3xl sm:text-5xl font-display font-extrabold leading-tight text-text-primary break-words mb-1">
+                  {headword}
+                </h1>
                 <PhoneticList wordData={wordData} />
+                {/* Everything that classifies the word — what it is, how hard,
+                    where the learner stands with it — on one row, rather than
+                    scattered between the headword and the definition header. */}
+                <div className="flex items-center flex-wrap gap-1.5 mt-2.5">
+                  {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[11px]" />}
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
+                    {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
+                  </span>
+                  <BucketTag word={wordData.word} progress={progress} />
+                </div>
               </div>
             </div>
             <button
@@ -111,19 +118,15 @@ export function RevealedView({
               than a second card stacked below it, so the word and its full
               meaning read as one panel instead of two. */}
           <div className="mt-4 pt-4 border-t-2 border-border">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
                 <FormattedMessage id="flashcard.definition" />
               </h3>
-              {/* Where this word stands — and a way into the other words that
-                  stand there with it. */}
-              <BucketTag word={wordData.word} progress={progress} />
-              <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
-                {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
-              </span>
               <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={onToggleFullDef} />
             </div>
-            <p className="text-text-primary leading-relaxed">
+            {/* The meaning is what the learner came for, so it's set larger
+                than the supporting material below it. */}
+            <p className="text-lg sm:text-xl font-medium text-text-primary leading-relaxed">
               <PeekText text={definition} highlight={headword} />
             </p>
             {wordData.translation && (
@@ -143,112 +146,119 @@ export function RevealedView({
               onSpeak={speech.speakExample}
             />
             <SynAnt wordData={wordData} />
+
+            {/* Collocations and family belong to the word itself, so they live
+                in its card — the right column is for going further with it. */}
+            {(wordData.collocations?.length ?? 0) > 0 && (
+              <div className="mt-3 pt-3 border-t border-border/60">
+                <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">
+                  <FormattedMessage id="word.commonPhrases" />
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {wordData.collocations!.map((c) => (
+                    <button
+                      key={c}
+                      onClick={(e) => peekWord(c, e.currentTarget)}
+                      title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: c })}
+                      className={WORD_CHIP}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {(wordData.wordFamily?.length ?? 0) > 0 && (
+              <div className="mt-3 pt-3 border-t border-border/60">
+                <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">
+                  <FormattedMessage id="word.wordFamily" />
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {wordData.wordFamily!.map((f) => (
+                    <button
+                      key={`${f.word}-${f.pos}`}
+                      onClick={(e) => peekWord(f.word, e.currentTarget)}
+                      title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: f.word })}
+                      className={`${WORD_CHIP} flex items-center gap-1.5`}
+                    >
+                      <span className="font-bold text-text-primary">{f.word}</span>
+                      <span className="text-text-muted">{f.pos}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <AnswerTally progress={progress} />
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3">
+        {/* Actions — Next is the one thing almost every visit ends with, so
+            it's the only filled button; the rest are quieter so the eye lands
+            on it first. */}
+        <div className="flex items-stretch gap-2 sm:gap-3">
           <button
-            onClick={onNext}
-            disabled={busy}
-            className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-cyan text-bg-primary"
-            title={intl.formatMessage({ id: 'flashcard.nextTitle' })}
+            onClick={onSkip}
+            className="btn-3d flex items-center justify-center gap-2 px-3.5 sm:px-4 py-3 bg-bg-card text-text-secondary hover:text-accent-red"
+            title={intl.formatMessage({ id: 'flashcard.neverShowTitle' })}
+            aria-label={intl.formatMessage({ id: 'flashcard.neverShow' })}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-            </svg>
-            <span className="text-xs"><FormattedMessage id="flashcard.next" /></span>
+            <Icon icon="solar:eye-closed-bold" className="text-lg shrink-0" />
+            <span className="hidden sm:inline text-sm"><FormattedMessage id="flashcard.neverShow" /></span>
           </button>
           <button
             onClick={onBookmark}
-            className={`btn-3d flex-1 flex flex-col items-center gap-1 py-3 ${isBookmarked
+            className={`btn-3d flex items-center justify-center gap-2 px-3.5 sm:px-4 py-3 ${isBookmarked
                 ? 'bg-accent-yellow text-bg-primary'
                 : 'bg-bg-card text-text-secondary hover:text-accent-yellow'
               }`}
             title={intl.formatMessage({ id: isBookmarked ? 'flashcard.removeBookmark' : 'flashcard.bookmarkWord' })}
+            aria-label={intl.formatMessage({ id: isBookmarked ? 'flashcard.saved' : 'flashcard.save' })}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="shrink-0" width="18" height="18" viewBox="0 0 24 24" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
             </svg>
-            <span className="text-xs"><FormattedMessage id={isBookmarked ? 'flashcard.saved' : 'flashcard.save'} /></span>
+            <span className="hidden sm:inline text-sm"><FormattedMessage id={isBookmarked ? 'flashcard.saved' : 'flashcard.save'} /></span>
           </button>
           {/* "Know it" only makes sense when you actually solved it.
               If you gave up, you don't know it — just move on. */}
           {showKnowIt && (
             <button
               onClick={onKnow}
-              className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-green text-bg-primary"
+              className="btn-3d flex-1 flex items-center justify-center gap-2 py-3 bg-bg-card text-accent-green"
               title={intl.formatMessage({ id: 'flashcard.knowItTitle' })}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span className="text-xs"><FormattedMessage id="flashcard.knowIt" /></span>
+              <span className="text-sm"><FormattedMessage id="flashcard.knowIt" /></span>
             </button>
           )}
           <button
-            onClick={onSkip}
-            className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-bg-card text-text-secondary hover:text-accent-red"
-            title={intl.formatMessage({ id: 'flashcard.neverShowTitle' })}
+            onClick={onNext}
+            disabled={busy}
+            className="btn-3d flex-[1.4] flex items-center justify-center gap-2 py-3 bg-accent-cyan text-bg-primary"
+            title={intl.formatMessage({ id: 'flashcard.nextTitle' })}
           >
-            <Icon icon="solar:eye-closed-bold" className="text-lg" />
-            <span className="text-xs"><FormattedMessage id="flashcard.neverShow" /></span>
+            <span className="text-base"><FormattedMessage id="flashcard.next" /></span>
+            <svg className="shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+            </svg>
           </button>
         </div>
+
+        {/* The learner's standing sits by the buttons that earn it, rather
+            than between the word's phrases and its idioms. */}
+        <BuddyBadge />
       </div>
 
-      {/* ── Right column ── */}
-      <div className="space-y-4">
-        {/* Collocations — natural word pairings */}
-        {(wordData.collocations?.length ?? 0) > 0 && (
-          <div className="card-game p-4 sm:p-5">
-            <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-              <FormattedMessage id="word.commonPhrases" />
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {wordData.collocations!.map((c) => (
-                <button
-                  key={c}
-                  onClick={(e) => peekWord(c, e.currentTarget)}
-                  title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: c })}
-                  className="text-xs px-2.5 py-1 rounded-full bg-accent-purple/10 text-accent-purple border border-accent-purple/20 hover:bg-accent-purple/20 hover:border-accent-purple/40 transition-all cursor-pointer"
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Word family — related forms across parts of speech */}
-        {(wordData.wordFamily?.length ?? 0) > 0 && (
-          <div className="card-game p-4 sm:p-5">
-            <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-              <FormattedMessage id="word.wordFamily" />
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {wordData.wordFamily!.map((f) => (
-                <button
-                  key={`${f.word}-${f.pos}`}
-                  onClick={(e) => peekWord(f.word, e.currentTarget)}
-                  title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: f.word })}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-accent-orange/10 border border-accent-orange/20 hover:bg-accent-orange/20 hover:border-accent-orange/40 transition-all cursor-pointer"
-                >
-                  <span className="font-bold text-accent-orange">{f.word}</span>
-                  <span className="text-text-muted">{f.pos}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
+      {/* ── Right column ── stays in view while the (now taller) word card
+          scrolls past it, so the tools beside the word stay beside it. */}
+      <div className="space-y-4 lg:sticky lg:top-20">
         {/* Idioms — popular fixed expressions containing the word */}
         {(wordData.idioms?.length ?? 0) > 0 && (
           <IdiomsCard key={`${wordData.word}-${wordData.idioms?.[0].idiom}`} idioms={wordData.idioms!} />
         )}
-
-        <BuddyBadge />
 
         {/* Real-world usage — clips of the word in videos and movies */}
         <div className="card-game p-5">
@@ -300,6 +310,11 @@ export function RevealedView({
     </div>
   );
 }
+
+// One look for every word chip on the card (phrases, family). Colour is kept
+// for state — bucket, level, right/wrong — so it still means something.
+const WORD_CHIP =
+  'text-xs px-2.5 py-1 rounded-full bg-bg-tertiary text-text-secondary border border-border hover:text-accent-cyan hover:border-accent-cyan/40 transition-all cursor-pointer';
 
 // Preferred accents to show, with a flag + label per locale.
 const ACCENT_LABELS: { locale: string; label: string; flag: string }[] = [
