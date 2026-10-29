@@ -16,6 +16,7 @@ import { QuizSetup } from './QuizSetup';
 import { DongBaStall } from './worldgames/DongBaStall';
 import { LibrarySearch } from './worldgames/LibrarySearch';
 import { ThienMuReview } from './worldgames/ThienMuReview';
+import { ConHenStall } from './worldgames/ConHenStall';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
 
@@ -150,6 +151,7 @@ export function WorldGame() {
             content: feature.id === 'learn' ? <DongBaStall />
               : feature.id === 'search' ? <LibrarySearch onLearn={learnAtDongBa} />
               : feature.id === 'review' ? <ThienMuReview onLearnMore={openStall} />
+              : feature.id === 'speak' ? <ConHenStall />
               : feature.id === 'quizzes' ? <QuizArena words={wordPool} />
               : <ComingSoon feature={feature} />,
           }}

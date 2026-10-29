@@ -4,33 +4,22 @@
 // pass all of them and still be unable to produce the word out loud, which is
 // the half of vocabulary that actually gets used in conversation.
 //
-// Transcription is Whisper running on-device (see lib/whisperStt), so this costs
-// no AI credits, sends no audio anywhere, and works without a network once the
-// model is cached. That model is a ~40MB first download, which is why the
-// loading state below is explicit rather than a bare spinner.
+// Recording and on-device transcription live in useVoiceRecorder, shared with
+// the world's Cồn Hến stall; this file decides whether what was heard is the
+// word.
 //
 // It lives in its own file rather than inside GuessGame.tsx with the others
 // because microphone permission, model download and async transcription carry
 // far more state than a keyboard-driven round.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { transcribeBlob } from '../lib/whisperStt';
 import { spokenMatch } from '../lib/speechMatch';
-import { stopSpeaking } from '../lib/tts';
+import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 
 /** Hard stop on a recording, so a forgotten tap can't record forever. */
 const MAX_RECORDING_MS = 6000;
-
-type Phase =
-  | 'idle'
-  | 'requesting' // waiting on the microphone permission prompt
-  | 'recording'
-  | 'thinking' // decoding + transcribing (may include the model download)
-  | 'wrong'
-  | 'denied' // permission refused — a dead end we have to explain
-  | 'unsupported';
 
 interface Props {
   word: string;
@@ -43,99 +32,27 @@ interface Props {
 
 export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }: Props) {
   const intl = useIntl();
-  const [phase, setPhase] = useState<Phase>(() =>
-    // Both are needed: Safari gates getUserMedia on a secure context, and
-    // MediaRecorder is absent on some older mobile browsers even when it isn't.
-    typeof MediaRecorder !== 'undefined' && typeof navigator?.mediaDevices !== 'undefined'
-      ? 'idle'
-      : 'unsupported',
-  );
   const [heard, setHeard] = useState('');
-  const [modelProgress, setModelProgress] = useState(0);
+  const [wrong, setWrong] = useState(false);
   const [attempts, setAttempts] = useState(0);
-
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Guards every setState after an await — the parent unmounts this on solve.
-  const aliveRef = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      aliveRef.current = false;
-      if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
-      recorderRef.current?.stream.getTracks().forEach((t) => t.stop());
-    };
-  }, []);
-
-  const handleAudio = useCallback(
-    async (blob: Blob) => {
-      setPhase('thinking');
-      try {
-        const text = await transcribeBlob(blob, (p) => {
-          if (aliveRef.current) setModelProgress(p);
-        });
-        if (!aliveRef.current) return;
-        setHeard(text);
-        if (spokenMatch(text, word, family)) {
-          onSolve();
-        } else {
-          setAttempts((n) => n + 1);
-          setPhase('wrong');
-          onWrong();
-        }
-      } catch (err) {
-        if (!aliveRef.current) return;
-        console.warn('[voca] transcription failed:', err);
-        setHeard('');
-        setPhase('idle');
+  const recorder = useVoiceRecorder({
+    maxMs: MAX_RECORDING_MS,
+    onTranscript: (text) => {
+      setHeard(text);
+      if (text && spokenMatch(text, word, family)) {
+        onSolve();
+      } else if (text) {
+        setAttempts((n) => n + 1);
+        setWrong(true);
+        onWrong();
       }
     },
-    [word, family, onSolve, onWrong],
-  );
-
-  const stopRecording = useCallback(() => {
-    if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
-    stopTimerRef.current = null;
-    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
-  }, []);
-
-  const startRecording = useCallback(async () => {
-    if (disabled) return;
-    // The card reads the word aloud on a win; don't record our own playback.
-    stopSpeaking();
-    setPhase('requesting');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!aliveRef.current) {
-        stream.getTracks().forEach((t) => t.stop());
-        return;
-      }
-      const recorder = new MediaRecorder(stream);
-      recorderRef.current = recorder;
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        // Release the mic immediately — a live indicator lingering after the
-        // round is over is alarming, and rightly so.
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
-        if (blob.size > 0) void handleAudio(blob);
-        else if (aliveRef.current) setPhase('idle');
-      };
-
-      recorder.start();
-      setPhase('recording');
-      stopTimerRef.current = setTimeout(stopRecording, MAX_RECORDING_MS);
-    } catch (err) {
-      if (!aliveRef.current) return;
-      console.warn('[voca] microphone unavailable:', err);
-      setPhase('denied');
-    }
-  }, [disabled, handleAudio, stopRecording]);
+  });
+  const { modelProgress } = recorder;
+  // A miss shows until the next recording starts.
+  const phase = wrong && recorder.phase === 'idle' ? 'wrong' : recorder.phase;
+  const startRecording = () => { if (!disabled) { setWrong(false); void recorder.start(); } };
+  const stopRecording = recorder.stop;
 
   if (phase === 'unsupported') {
     return (
@@ -173,7 +90,7 @@ export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }
       </p>
 
       <button
-        onClick={phase === 'recording' ? stopRecording : () => void startRecording()}
+        onClick={phase === 'recording' ? stopRecording : startRecording}
         disabled={disabled || busy}
         aria-label={intl.formatMessage({ id: phase === 'recording' ? 'games.stopRecording' : 'games.startRecording' })}
         className={`w-24 h-24 rounded-full flex items-center justify-center border-[3px] transition-colors disabled:opacity-60 cursor-pointer ${
