@@ -34,4 +34,6 @@ export const WORLD_FEATURES: WorldFeature[] = [
   { id: 'review',     nameId: 'world.featureReview',     route: '/review',     emoji: '🪷', icon: 'lucide:repeat',     blurbId: 'world.featureReviewBlurb' },
   { id: 'listening',  nameId: 'world.featureListening',  route: '/listening',  emoji: '🎧', icon: 'lucide:headphones', blurbId: 'world.featureListeningBlurb' },
   { id: 'search',     nameId: 'world.featureSearch',     route: '/',           emoji: '🔎', icon: 'lucide:search',     blurbId: 'world.featureSearchBlurb' },
+  { id: 'writing',    nameId: 'world.featureWriting',    route: '/writing/improve', emoji: '✍️', icon: 'lucide:pen-line', blurbId: 'world.featureWritingBlurb' },
+  { id: 'ipa',        nameId: 'world.featureIpa',        route: '/ipa',        emoji: '🎶', icon: 'lucide:audio-lines', blurbId: 'world.featureIpaBlurb' },
 ];

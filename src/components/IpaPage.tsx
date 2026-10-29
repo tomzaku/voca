@@ -16,6 +16,7 @@ import {
   type MinimalPair,
 } from '../data/ipa';
 import { IPA_RECORDINGS, recordingUrl } from '../data/ipaAudio';
+import { pairKey, pairPool, randomRound, type PairRound } from '../lib/ipaRules';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
 import { MouthDiagram, MouthTags } from './MouthDiagram';
@@ -26,10 +27,6 @@ type ListMode = 'all' | 'compare';
 type PracticeMode = 'listen' | 'sentence';
 /** What Practice is currently drilling — no symbols means the full pool. */
 type PracticeTarget = { focus: string[]; mode: PracticeMode };
-
-function pairKey(pair: MinimalPair): string {
-  return `${pair.a.word}-${pair.b.word}`;
-}
 
 // Query-param state rather than component state, so a link to one sound's
 // detail page, the practice tab, or the compare sub-view survives a refresh
@@ -750,24 +747,6 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
   );
 }
 
-interface Round {
-  pair: MinimalPair;
-  correct: 'a' | 'b';
-  order: ['a', 'b'] | ['b', 'a'];
-}
-
-function randomRound(pool: MinimalPair[], avoidKey?: string): Round {
-  let pair: MinimalPair;
-  do {
-    pair = pool[Math.floor(Math.random() * pool.length)];
-  } while (pool.length > 1 && pairKey(pair) === avoidKey);
-  return {
-    pair,
-    correct: Math.random() < 0.5 ? 'a' : 'b',
-    order: Math.random() < 0.5 ? ['a', 'b'] : ['b', 'a'],
-  };
-}
-
 /** Minimal-pairs listening quiz: play one word from a pair the learner often
  *  confuses (ship/sheep, thin/... teethe, etc.), pick which one they heard.
  *  `focusSymbols` narrows the pool to pairs contrasting its first sound,
@@ -778,13 +757,9 @@ function randomRound(pool: MinimalPair[], avoidKey?: string): Round {
 function ListenPracticeView({ focusSymbols, onClearFocus }: { focusSymbols: string[]; onClearFocus: () => void }) {
   const intl = useIntl();
   const focusSymbol = focusSymbols[0] ?? null;
-  const pool = useMemo(() => {
-    if (!focusSymbol) return MINIMAL_PAIRS;
-    const filtered = pairsForSymbol(focusSymbol);
-    return filtered.length > 0 ? filtered : MINIMAL_PAIRS;
-  }, [focusSymbol]);
+  const pool = useMemo(() => pairPool(focusSymbol), [focusSymbol]);
 
-  const [round, setRound] = useState<Round>(() => randomRound(pool));
+  const [round, setRound] = useState<PairRound>(() => randomRound(pool));
   const [picked, setPicked] = useState<'a' | 'b' | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0, streak: 0 });
   const [playing, setPlaying] = useState(false);
@@ -795,7 +770,7 @@ function ListenPracticeView({ focusSymbols, onClearFocus }: { focusSymbols: stri
     setPicked(null);
   }, [pool]);
 
-  const playPrompt = useCallback((r: Round) => {
+  const playPrompt = useCallback((r: PairRound) => {
     stopSpeaking();
     setPlaying(true);
     speakText(r.pair[r.correct].word, { onEnd: () => setPlaying(false) }).catch(() => setPlaying(false));

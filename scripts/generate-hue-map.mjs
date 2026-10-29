@@ -25,11 +25,13 @@
 // Hương River, which runs west → east along it and then bends north-east past
 // Đông Ba. In the city's real places:
 //
-//   KIM LONG (west)   Thiên Mụ pagoda (Review) · garden houses for your
-//                     collections · An Hiên, your home (Buddy)
+//   KIM LONG (west)   Thiên Mụ pagoda (Review) · Văn Miếu and its stelae
+//                     (Writing) · garden houses for your collections ·
+//                     An Hiên, your home (Buddy)
 //   THE CITADEL       moat and walls, Kỳ Đài on the front wall; inside, the
 //                     Imperial City with its own moat, Ngọ Môn and the level
 //                     halls · Tàng Thư Lâu on Học Hải lake (Search) · Tịnh Tâm
+//                     · Duyệt Thị Đường, the royal theatre (IPA sounds)
 //   ĐÔNG BA / GIA HỘI Đông Ba market at the river corner (Learn), Gia Hội
 //                     across the Đông Ba canal
 //   THE RIVER         Nguyễn Hoàng, Dã Viên (over its islet), Phú Xuân and
@@ -254,6 +256,7 @@ const ROADS = [
   // Kim Long
   [2, 12, 26, 2, 'dirt'], [2, 22, 26, 2, 'dirt'], [2, 31, 26, 2, 'dirt'],
   [2, 12, 2, 35, 'dirt'], [26, 8, 2, 39, 'dirt'],
+  [14, 44, 12, 1, 'stone'], [19, 45, 2, 2, 'stone'], // Văn Miếu's forecourt
   [28, WEST_GATE_Y, 7, 2, 'stone'],                 // through the west gate
   // North riverside road, the length of the city
   [0, 47, 97, 2, 'dirt'],
@@ -263,6 +266,7 @@ const ROADS = [
   [35, 30, 2, 11, 'stone'],                         // from the west gate down past the library
   [32, 21, 8, 7, 'stone'],                          // the library's island courtyard
   [69, EAST_GATE_Y, 11, 2, 'stone'], [70, 38, 2, 3, 'stone'],
+  [72, 19, 2, 17, 'stone'],                         // up to Duyệt Thị Đường
   // The Imperial City
   [44, 21, 23, 1, 'stone'], [44, 30, 23, 1, 'stone'],
   [54, 22, 2, 3, 'stone'], [54, 31, 2, 3, 'stone'],
@@ -864,8 +868,19 @@ const HOUSE = (roofPal, wall = [214, 198, 170]) => hall({
   w: 4, h: 4, roofRows: 2, roofPal, wall, windows: true, windowStep: 9, doorW: 6,
 });
 // Kinh Thành neighbourhoods inside the walls.
-for (const [x, y, pal] of [[33, 7, ROOF.dark], [38, 7, ROOF.terra], [67, 7, ROOF.moss], [72, 7, ROOF.dark], [71, 25, ROOF.terra], [71, 30, ROOF.plum]]) {
+for (const [x, y, pal] of [[33, 7, ROOF.dark], [38, 7, ROOF.terra], [67, 7, ROOF.moss], [72, 7, ROOF.dark], [31, 33, ROOF.terra], [38, 33, ROOF.plum]]) {
   place(HOUSE(pal), x, y, 2);
+}
+
+// Duyệt Thị Đường: the royal theatre, where Nhã nhạc court music played —
+// a long red hall under a two-tier roof, drums at its door.
+{
+  const cv = palace({ w: 8, h: 5, roofPal: ROOF.imperial, wall: [120, 36, 30], pillar: [214, 170, 80] });
+  for (const dx of [18, cv.w - 30]) {
+    cv.ellipse(dx + 6, cv.h - 10, 6, 5, [170, 60, 44]);
+    cv.ellipse(dx + 6, cv.h - 12, 5, 3, [236, 214, 170]);
+  }
+  place(cv, 69, 13, 3);
 }
 
 // ── Kim Long: Thiên Mụ, the garden houses, An Hiên ──
@@ -898,6 +913,21 @@ for (const [x, y, pal] of [[33, 7, ROOF.dark], [38, 7, ROOF.terra], [67, 7, ROOF
   place(cv, 4, 37, 2);
 }
 place(hall({ w: 5, h: 5, roofRows: 3, roofPal: ROOF.dark, wall: [226, 214, 186], pillar: [150, 60, 46], pillarStep: 10 }), 9, 42, 2);
+
+// Văn Miếu: the temple of literature, its hall flanked by stele pavilions —
+// the stone tablets that carried the names of the laureates.
+{
+  place(hall({ w: 6, h: 5, roofRows: 3, roofPal: ROOF.dark, wall: [150, 54, 40], pillar: [196, 160, 96], pillarStep: 9, doorW: 10 }), 17, 39, 2);
+  for (const x of [14, 24]) {
+    const cv = new Canvas(2 * T, 3 * T);
+    cv.rect(6, 22, 20, 22, [150, 148, 142]);                // the stele
+    cv.rect(8, 24, 16, 18, [122, 120, 116]);
+    for (let y = 27; y < 40; y += 3) cv.rect(10, y, 12, 1, [168, 166, 160]); // carved lines
+    for (const px of [2, 27]) cv.rect(px, 18, 3, 28, [160, 50, 40]);
+    roof(cv, 2, 8, 28, 10, ROOF.dark, 3);
+    place(cv, x, 41, 1);
+  }
+}
 
 // An Hiên — your home: a bigger garden house with flower beds.
 {
@@ -1154,7 +1184,7 @@ for (let x = 2; x < 96; x += 4) {
   if (x < 28 && canPlant(x, 45)) tree(x, 45, 'lilac');
 }
 // Pines on Ngự Bình and around Thiên Mụ.
-for (const [x, y] of [[53, 79], [56, 78], [59, 79], [51, 82], [61, 82], [55, 83], [58, 84], [1, 36], [1, 41], [14, 38], [15, 43], [8, 36]]) pine(x, y);
+for (const [x, y] of [[53, 79], [56, 78], [59, 79], [51, 82], [61, 82], [55, 83], [58, 84], [1, 36], [1, 41], [8, 36]]) pine(x, y);
 // A few flame trees for a warm accent.
 for (const [x, y] of [[24, 9], [100, 26], [44, 64], [109, 70]]) if (canPlant(x, y)) tree(x, y, 'flame');
 // Scatter broadleaf trees over the remaining open grass, sparsely.
@@ -1222,6 +1252,8 @@ const FEATURES = [
   ['history', 8, 81.5, 'Lăng Khải Định'],
   ['buddy', 13, 12.5, 'Nhà vườn An Hiên'],
   ['search', 36, 26.5, 'Tàng Thư Lâu'],
+  ['writing', 20, 44.5, 'Văn Miếu'],
+  ['ipa', 73, 18.5, 'Duyệt Thị Đường'],
 ];
 FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 

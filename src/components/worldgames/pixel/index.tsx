@@ -44,11 +44,11 @@ export function HudBanner({ label, aside, children }: { label?: ReactNode; aside
   );
 }
 
-/** Bottom centre: the answers, as a row of ability slots. */
-export function HudActionBar({ children }: { children: ReactNode }) {
+/** Bottom centre: the answers, as a row of ability slots (four, or two). */
+export function HudActionBar({ children, pair = false }: { children: ReactNode; pair?: boolean }) {
   return (
-    <div className="px absolute bottom-2 left-1/2 -translate-x-1/2 w-[min(760px,calc(100%-1rem))] pointer-events-auto px-in-up">
-      <div className="px-notch px-frame p-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2">{children}</div>
+    <div className={`px absolute bottom-2 left-1/2 -translate-x-1/2 ${pair ? 'w-[min(480px,calc(100%-1rem))]' : 'w-[min(760px,calc(100%-1rem))]'} pointer-events-auto px-in-up`}>
+      <div className={`px-notch px-frame p-2.5 grid gap-2 ${pair ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>{children}</div>
     </div>
   );
 }

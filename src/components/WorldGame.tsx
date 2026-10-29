@@ -21,6 +21,8 @@ import { DragonBoat } from './worldgames/DragonBoat';
 import { NguBinhClimb } from './worldgames/NguBinhClimb';
 import { KhaiDinhTomb } from './worldgames/KhaiDinhTomb';
 import { AnHienHome } from './worldgames/AnHienHome';
+import { VanMieuStele } from './worldgames/VanMieuStele';
+import { DuyetThiDuong } from './worldgames/DuyetThiDuong';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
 
@@ -160,6 +162,8 @@ export function WorldGame() {
               : feature.id === 'level-test' ? <NguBinhClimb onStudy={openStall} />
               : feature.id === 'history' ? <KhaiDinhTomb onLearn={learnAtDongBa} />
               : feature.id === 'buddy' ? <AnHienHome />
+              : feature.id === 'writing' ? <VanMieuStele />
+              : feature.id === 'ipa' ? <DuyetThiDuong />
               : feature.id === 'quizzes' ? <QuizArena words={wordPool} />
               : <ComingSoon feature={feature} />,
           }}
