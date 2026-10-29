@@ -7,6 +7,7 @@ import {
   comprehensionClips, comprehensionTopics, type ComprehensionQuestion,
   ieltsListeningSections, ieltsListeningTopics,
 } from '../data/englishListening';
+import { gradeDictation, scoreAnswers } from '../lib/listeningRules';
 import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
 import { ReadAloudVoice, PlaySequence } from './EnglishSpeakingPage';
@@ -201,10 +202,7 @@ function QuestionBlock({ questions, tone }: {
   const [answers, setAnswers] = useState<(number | null)[]>(() => questions.map(() => null));
   const [checked, setChecked] = useState(false);
 
-  const score = useMemo(
-    () => answers.reduce<number>((n, a, i) => n + (a === questions[i].correctIndex ? 1 : 0), 0),
-    [answers, questions],
-  );
+  const score = useMemo(() => scoreAnswers(questions, answers), [answers, questions]);
   const allAnswered = answers.every((a) => a !== null);
 
   const check = () => {
@@ -424,12 +422,6 @@ const levelColorDict = (level: DictationSentence['level']) => {
   }
 };
 
-// Strips punctuation and case so "Well done!" typed as "well done" still
-// matches — this is a dictation drill, not a punctuation test.
-function normalizeWords(s: string): string[] {
-  return s.toLowerCase().replace(/[.,!?;:"'()]/g, '').trim().split(/\s+/).filter(Boolean);
-}
-
 function DictationTab() {
   const intl = useIntl();
   const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
@@ -477,21 +469,18 @@ function DictationTab() {
     }
   }, [current, playState]);
 
-  const { correctWords, matches, accuracy } = useMemo(() => {
-    if (!current) return { correctWords: [] as string[], matches: [] as boolean[], accuracy: 0 };
-    const correctW = normalizeWords(current.text);
-    const typedW = normalizeWords(typed);
-    const m = correctW.map((w, i) => w === typedW[i]);
-    const acc = correctW.length ? Math.round((m.filter(Boolean).length / correctW.length) * 100) : 0;
-    return { correctWords: correctW, matches: m, accuracy: acc };
-  }, [current, typed]);
+  // Graded by lib/listeningRules (shared with the world's dragon boat).
+  const { words: gradedWords, accuracy, passed } = useMemo(
+    () => (current ? gradeDictation(current.text, typed) : { words: [], accuracy: 0, passed: false }),
+    [current, typed],
+  );
 
   const check = () => {
     if (!typed.trim() || !current) return;
     stopSpeaking();
     setChecked(true);
-    setSession((s) => ({ attempted: s.attempted + 1, correct: s.correct + (accuracy >= 90 ? 1 : 0) }));
-    (accuracy >= 90 ? playCorrect : playWrong)();
+    setSession((s) => ({ attempted: s.attempted + 1, correct: s.correct + (passed ? 1 : 0) }));
+    (passed ? playCorrect : playWrong)();
   };
 
   const next = () => {
@@ -611,13 +600,13 @@ function DictationTab() {
           {checked && (
             <div className="mt-3 p-3 rounded-lg bg-bg-tertiary/50 border border-border">
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-bold ${accuracy >= 90 ? 'text-accent-green' : accuracy >= 60 ? 'text-accent-orange' : 'text-accent-red'}`}>
+                <span className={`text-sm font-bold ${passed ? 'text-accent-green' : accuracy >= 60 ? 'text-accent-orange' : 'text-accent-red'}`}>
                   <FormattedMessage id="listening.wordAccuracy" values={{ accuracy: accuracy / 100 }} />
                 </span>
               </div>
               <p className="text-sm leading-relaxed">
-                {correctWords.map((w, i) => (
-                  <span key={i} className={matches[i] ? 'text-accent-green' : 'text-accent-red underline decoration-wavy'}>
+                {gradedWords.map(({ word: w, ok }, i) => (
+                  <span key={i} className={ok ? 'text-accent-green' : 'text-accent-red underline decoration-wavy'}>
                     {w}{' '}
                   </span>
                 ))}

@@ -17,6 +17,7 @@ import { DongBaStall } from './worldgames/DongBaStall';
 import { LibrarySearch } from './worldgames/LibrarySearch';
 import { ThienMuReview } from './worldgames/ThienMuReview';
 import { ConHenStall } from './worldgames/ConHenStall';
+import { DragonBoat } from './worldgames/DragonBoat';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
 
@@ -152,6 +153,7 @@ export function WorldGame() {
               : feature.id === 'search' ? <LibrarySearch onLearn={learnAtDongBa} />
               : feature.id === 'review' ? <ThienMuReview onLearnMore={openStall} />
               : feature.id === 'speak' ? <ConHenStall />
+              : feature.id === 'listening' ? <DragonBoat />
               : feature.id === 'quizzes' ? <QuizArena words={wordPool} />
               : <ComingSoon feature={feature} />,
           }}
