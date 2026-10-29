@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { generateWordData, WORD_LIST } from '../../lib/wordService';
 import { speakText, stopSpeaking } from '../../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../../lib/sfx';
 import {
   QUESTION_TYPES, QUESTION_TYPE_META, SECONDS_PER_WORD, makeQuizConfig,
   type QuestionType, type QuizConfig, type RevealMode,
 } from '../../lib/quizConfig';
-import { MatchBoard, type MatchPair } from '../MatchBoard';
+import {
+  buildQuiz, gradeMatch, gradeMcq, loadQuizData, recordResults,
+  type Question, type WordResult,
+} from '../../lib/quizEngine';
+import { MatchBoard } from '../MatchBoard';
 import { useVocabularyStore } from '../../hooks/useVocabulary';
 import { useAuth } from '../../hooks/useAuth';
 import { useQuestionAccent } from '../../hooks/useQuestionAccent';
@@ -22,13 +25,6 @@ const MIN_WORDS = 2;
 const LIVES = 3;
 const BASE = 100;
 
-type McqType = Exclude<QuestionType, 'match'>;
-
-interface McqQuestion { kind: 'mcq'; type: McqType; word: string; prompt: string; options: string[]; }
-interface MatchQuestion { kind: 'match'; pairs: MatchPair[]; }
-type Question = McqQuestion | MatchQuestion;
-
-interface WordInfo { definition: string; examples: string[]; }
 interface Summary { score: number; correct: number; total: number; bestCombo: number; outOfLives: boolean; }
 
 type Phase =
@@ -38,70 +34,8 @@ type Phase =
   | { name: 'playing' }
   | { name: 'over'; summary: Summary };
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 function fmtTime(sec: number): string {
   return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function blankSentence(sentence: string, word: string): string | null {
-  const re = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'i');
-  return re.test(sentence) ? sentence.replace(re, '_____') : null;
-}
-
-/** Map a question type to the answer-log label the progress store understands. */
-function viaFor(type: McqType): 'choice' | 'gap' | 'listen' {
-  return type === 'sentence' ? 'gap' : type === 'listen' ? 'listen' : 'choice';
-}
-
-function buildMcq(type: McqType, word: string, data: WordInfo, wrong: string[]): McqQuestion | null {
-  const base = { kind: 'mcq' as const, word, options: shuffle([word, ...wrong]) };
-  if (type === 'sentence') {
-    for (const ex of data.examples ?? []) {
-      const blanked = blankSentence(ex, word);
-      if (blanked) return { ...base, type, prompt: blanked };
-    }
-    return null; // no usable example — caller falls back to a definition
-  }
-  if (type === 'listen') return { ...base, type, prompt: word };
-  return { ...base, type, prompt: data.definition };
-}
-
-/** Mixed question list from the config — mirrors the shared quiz engine. */
-function buildQuestions(config: QuizConfig, loaded: string[], dataMap: Record<string, WordInfo>): Question[] {
-  const wrongPool = shuffle(WORD_LIST.map((w) => w.word).filter((w) => !loaded.includes(w)));
-  const distractors = (word: string) =>
-    shuffle([...loaded.filter((w) => w !== word), ...wrongPool]).slice(0, 3);
-  const mcqTypes = config.types.filter((t): t is McqType => t !== 'match');
-  const pickMcq = (): McqType => (mcqTypes.length ? mcqTypes[Math.floor(Math.random() * mcqTypes.length)] : 'definition');
-
-  const pool = shuffle([...loaded]);
-  const qs: Question[] = [];
-  while (pool.length) {
-    const t = config.types[Math.floor(Math.random() * config.types.length)];
-    if (t === 'match' && pool.length >= 3) {
-      const n = Math.min(pool.length, 3 + Math.floor(Math.random() * 3)); // 3–5
-      qs.push({ kind: 'match', pairs: pool.splice(0, n).map((w) => ({ word: w, definition: dataMap[w].definition })) });
-    } else {
-      const word = pool.shift()!;
-      const mt = t === 'match' ? pickMcq() : t;
-      const q = buildMcq(mt, word, dataMap[word], distractors(word))
-        ?? buildMcq('definition', word, dataMap[word], distractors(word))!;
-      qs.push(q);
-    }
-  }
-  return qs;
 }
 
 export function QuizArena({ words }: { words: string[] }) {
@@ -155,19 +89,12 @@ export function QuizArena({ words }: { words: string[] }) {
     const cfg = makeQuizConfig([...chosen], QUESTION_TYPES.filter((t) => qTypes.has(t)), reveal, durationSec);
     setConfig(cfg);
     setPhase({ name: 'loading' });
-    const dataMap: Record<string, WordInfo> = {};
-    await Promise.all(cfg.words.map(async (w) => {
-      try {
-        const d = await generateWordData(w);
-        dataMap[w] = { definition: d.definition, examples: d.examples ?? [] };
-      } catch { /* skip words we can't load */ }
-    }));
-    const loaded = cfg.words.filter((w) => dataMap[w]);
+    const { dataMap, loaded } = await loadQuizData(cfg.words);
     if (loaded.length < MIN_WORDS) { setPhase({ name: 'error' }); return; }
 
     correctRef.current = 0; scoreRef.current = 0; bestRef.current = 0;
     livesRef.current = LIVES; doneRef.current = false;
-    setQuestions(buildQuestions(cfg, loaded, dataMap));
+    setQuestions(buildQuiz(cfg, loaded, dataMap));
     setIndex(0); setPicked(null); setScore(0); setCombo(0); setLives(LIVES); setGain(null);
     setRemaining(cfg.durationSec > 0 ? cfg.durationSec : null);
     setPhase({ name: 'playing' });
@@ -190,7 +117,7 @@ export function QuizArena({ words }: { words: string[] }) {
   }, [total]);
 
   /** Shared bookkeeping for a resolved question. */
-  const resolve = useCallback((correct: boolean, wordsAnswered: { word: string; ok: boolean; via: 'choice' | 'gap' | 'listen' }[]) => {
+  const resolve = useCallback((correct: boolean, wordsAnswered: WordResult[]) => {
     if (correct) {
       const points = BASE + combo * 25;
       playCorrect();
@@ -204,7 +131,7 @@ export function QuizArena({ words }: { words: string[] }) {
       livesRef.current -= 1;
       setLives(livesRef.current);
     }
-    for (const a of wordsAnswered) markWord(a.word, a.ok ? 'known' : 'skipped', user?.id, a.ok ? 0 : 1, a.via);
+    recordResults(markWord, wordsAnswered, user?.id);
 
     const dead = !correct && livesRef.current <= 0;
     const last = index + 1 >= total;
@@ -219,16 +146,14 @@ export function QuizArena({ words }: { words: string[] }) {
   const answerMcq = (option: string) => {
     if (phase.name !== 'playing' || picked !== null || question?.kind !== 'mcq') return;
     setPicked(option);
-    const correct = option === question.word;
-    resolve(correct, [{ word: question.word, ok: correct, via: viaFor(question.type) }]);
+    const result = gradeMcq(question, option);
+    resolve(result.ok, [result]);
   };
 
   const completeMatch = (mistakes: number, links: Record<string, string>) => {
     if (phase.name !== 'playing' || question?.kind !== 'match') return;
     setPicked('__match__');
-    resolve(mistakes === 0, question.pairs.map((p) => ({
-      word: p.word, ok: links[p.word] === p.word, via: 'choice' as const,
-    })));
+    resolve(mistakes === 0, gradeMatch(question, links));
   };
 
   // ── Total countdown (0 = untimed), matching the Quiz page's semantics ──

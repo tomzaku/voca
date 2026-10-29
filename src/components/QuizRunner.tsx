@@ -2,34 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { generateWordData, WORD_LIST } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
-import { QUESTION_TYPE_META, type QuestionType, type QuizConfig } from '../lib/quizConfig';
+import { QUESTION_TYPE_META, type QuizConfig } from '../lib/quizConfig';
 import type { MiniWordData } from '../lib/quizShare';
+import {
+  buildQuiz, gradeMatch, gradeMcq, loadQuizData, recordResults,
+  type MatchQuestion, type McqQuestion, type Question,
+} from '../lib/quizEngine';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
-import { MatchBoard, type MatchPair } from './MatchBoard';
-
-/** Single-word question types (everything except the multi-word 'match'). */
-type McqType = Exclude<QuestionType, 'match'>;
-
-interface McqQuestion {
-  kind: 'mcq';
-  type: McqType;
-  word: string;
-  prompt: string;
-  options: string[];
-  synonyms?: string[];
-  antonyms?: string[];
-}
-
-interface MatchQuestion {
-  kind: 'match';
-  pairs: MatchPair[];
-}
-
-type Question = McqQuestion | MatchQuestion;
+import { MatchBoard } from './MatchBoard';
 
 /** A recorded answer — serialized into an attempt and rendered in the review. */
 export type Answer =
@@ -43,74 +26,8 @@ export interface QuizResult {
   durationSec: number;
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function fmtTime(sec: number): string {
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
-}
-
-/** Map a question type to the answer-log label the progress store understands. */
-function viaFor(type: McqType): 'choice' | 'gap' | 'listen' {
-  return type === 'sentence' ? 'gap' : type === 'listen' ? 'listen' : 'choice';
-}
-
-function blankSentence(sentence: string, word: string): string | null {
-  const re = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'i');
-  if (!re.test(sentence)) return null;
-  return sentence.replace(re, '_____');
-}
-
-function buildMcq(type: McqType, word: string, data: MiniWordData, wrong: string[]): McqQuestion | null {
-  const base = {
-    kind: 'mcq' as const,
-    word,
-    options: shuffle([word, ...wrong]),
-    synonyms: data.synonyms,
-    antonyms: data.antonyms,
-  };
-  if (type === 'sentence') {
-    for (const ex of data.examples ?? []) {
-      const blanked = blankSentence(ex, word);
-      if (blanked) return { ...base, type, prompt: blanked };
-    }
-    return null;
-  }
-  if (type === 'listen') return { ...base, type, prompt: word };
-  return { ...base, type, prompt: data.definition };
-}
-
-function buildQuiz(config: QuizConfig, loaded: string[], dataMap: Record<string, MiniWordData>): Question[] {
-  const wrongPool = shuffle(WORD_LIST.map((w) => w.word).filter((w) => !loaded.includes(w)));
-  const distractors = (word: string) =>
-    shuffle([...loaded.filter((w) => w !== word), ...wrongPool]).slice(0, 3);
-
-  const types = config.types;
-  const mcqTypes = types.filter((t): t is McqType => t !== 'match');
-  const pickMcqType = (): McqType => (mcqTypes.length ? mcqTypes[Math.floor(Math.random() * mcqTypes.length)] : 'definition');
-
-  const pool = shuffle([...loaded]);
-  const qs: Question[] = [];
-  while (pool.length) {
-    const t = types[Math.floor(Math.random() * types.length)];
-    if (t === 'match' && pool.length >= 3) {
-      const n = Math.min(pool.length, 3 + Math.floor(Math.random() * 3)); // 3–5
-      const pairs = pool.splice(0, n).map((w) => ({ word: w, definition: dataMap[w].definition }));
-      qs.push({ kind: 'match', pairs });
-    } else {
-      const word = pool.shift()!;
-      const mt = t === 'match' ? pickMcqType() : t;
-      const q = buildMcq(mt, word, dataMap[word], distractors(word))
-        ?? buildMcq('definition', word, dataMap[word], distractors(word))!;
-      qs.push(q);
-    }
-  }
-  return qs;
 }
 
 /**
@@ -154,20 +71,9 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
   useEffect(() => {
     let alive = true;
     (async () => {
-      let dataMap: Record<string, MiniWordData>;
-      if (preloadedData) {
-        // Shared quiz — everything is already snapshotted, no fetching needed.
-        dataMap = preloadedData;
-      } else {
-        dataMap = {};
-        await Promise.all(
-          config.words.map(async (w) => {
-            try { dataMap[w] = await generateWordData(w); } catch { /* skip */ }
-          }),
-        );
-      }
+      // Shared quizzes arrive with their word data snapshotted — no fetching.
+      const { dataMap, loaded } = await loadQuizData(config.words, preloadedData);
       if (!alive) return;
-      const loaded = config.words.filter((w) => dataMap[w]);
       if (loaded.length === 0) {
         toast.error(intl.formatMessage({ id: 'quiz.runner.loadFailed' }));
         onExit();
@@ -237,10 +143,11 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
     const q = questions[current];
     if (q.kind !== 'mcq') return;
     setSelected(option);
-    const correct = option === q.word;
+    const result = gradeMcq(q, option);
+    const correct = result.ok;
     if (correct) setScore((s) => s + 1);
     setAnswers((a) => [...a, { kind: 'mcq', question: q, picked: option, correct }]);
-    if (recordProgress) markWord(q.word, correct ? 'known' : 'skipped', user?.id, 0, viaFor(q.type));
+    if (recordProgress) recordResults(markWord, [result], user?.id);
     if (revealFeedback) {
       correct ? playCorrect() : playWrong();
       setTimeout(goNext, 1400);
@@ -256,12 +163,7 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
     const correct = mistakes === 0;
     if (correct) setScore((s) => s + 1);
     setAnswers((a) => [...a, { kind: 'match', question: q, links, correct }]);
-    if (recordProgress) {
-      // Each pair is graded on its own: a board with one bad link shouldn't
-      // mark the other words wrong. 'meaning' — the learner connected the word
-      // to its definition, same question as the notification review.
-      q.pairs.forEach((p) => markWord(p.word, links[p.word] === p.word ? 'known' : 'skipped', user?.id, 0, 'meaning'));
-    }
+    if (recordProgress) recordResults(markWord, gradeMatch(q, links), user?.id);
     goNext();
   };
 
