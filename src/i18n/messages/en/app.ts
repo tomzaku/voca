@@ -29,4 +29,8 @@ export default {
   'app.expandMenu': 'Expand menu',
   'app.collapse': 'Collapse',
   'app.expand': 'Expand',
+  'app.railMode': 'Sidebar',
+  'app.railExpanded': 'Always open',
+  'app.railCollapsed': 'Collapsed',
+  'app.railAuto': 'Open on hover',
 } satisfies Catalog;

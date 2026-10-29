@@ -29,4 +29,8 @@ export default {
   'app.expandMenu': 'Mở rộng menu',
   'app.collapse': 'Thu gọn',
   'app.expand': 'Mở rộng',
+  'app.railMode': 'Thanh bên',
+  'app.railExpanded': 'Luôn mở',
+  'app.railCollapsed': 'Thu gọn',
+  'app.railAuto': 'Mở khi rê chuột',
 } satisfies Record<keyof typeof en, string>;
