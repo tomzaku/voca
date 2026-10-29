@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -18,6 +18,7 @@ import { IPA_RECORDINGS, recordingUrl } from '../data/ipaAudio';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
 import { MouthDiagram, MouthTags } from './MouthDiagram';
+import { articulationFor, contrast, sameMouth } from '../data/articulation';
 
 type View = 'list' | 'practice' | 'detail';
 type ListMode = 'all' | 'compare';
@@ -336,23 +337,25 @@ function AllSoundsView({ onOpen }: { onOpen: (symbol: string) => void }) {
   );
 }
 
-/** One side of a comparison card: the mouth making the sound, its symbol and
- *  word, and the one-line "how to say it" — so the difference in mouth
- *  position is right there, not a click away. The mouth moves on hover. */
-function CompareSide({ side, onOpen }: { side: MinimalPair['a']; onOpen: (symbol: string) => void }) {
-  const sound = soundFor(side.symbol);
-  const [hover, setHover] = useState(false);
+/** One side of a comparison card: the mouth making the sound with the other
+ *  sound outlined over it, its symbol and word, and what it does differently
+ *  — so the difference is spelled out, not left to spotting a few pixels. */
+function CompareSide({ side, other, animate, onOpen }: {
+  side: MinimalPair['a'];
+  other: MinimalPair['a'];
+  animate: boolean;
+  onOpen: (symbol: string) => void;
+}) {
+  const same = sameMouth(side.symbol, other.symbol);
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={() => onOpen(side.symbol)}
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen(side.symbol); }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
       className="flex-1 min-w-0 flex flex-col p-3 rounded-xl bg-bg-tertiary hover:bg-bg-hover cursor-pointer transition-colors"
     >
-      <MouthDiagram symbol={side.symbol} animate={hover} className="w-full h-20 mb-2" />
+      <MouthDiagram symbol={side.symbol} ghost={same ? undefined : other.symbol} animate={animate} className="w-full h-32 mb-2" />
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <span className="flex items-center gap-1.5">
           <span className={`font-code text-xl font-black ${styleFor(side.symbol).text}`}>/{side.symbol}/</span>
@@ -360,7 +363,110 @@ function CompareSide({ side, onOpen }: { side: MinimalPair['a']; onOpen: (symbol
         </span>
         <WordChip word={side.word} />
       </div>
-      {sound && <p className="text-[11px] text-text-muted leading-snug">{sound.howTo}</p>}
+      <ContrastList symbol={side.symbol} other={other.symbol} />
+    </div>
+  );
+}
+
+/** What one sound does differently from the other, as a short bullet list. */
+function ContrastList({ symbol, other }: { symbol: string; other: string }) {
+  const points = contrast(symbol, other);
+  if (points.length === 0) return null;
+  return (
+    <ul className="space-y-0.5">
+      {points.map((t) => (
+        <li key={t} className="flex items-start gap-1 text-[11px] font-bold text-text-secondary leading-snug">
+          <Icon icon="lucide:chevron-right" className={`shrink-0 mt-px ${styleFor(symbol).text}`} />
+          {t}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Words that differ only by the pair's two sounds, as wrapping "a ⇄ b"
+ *  pills — the headline pair first, the left word always the left side's
+ *  sound. Tap either word to hear it; saying a pill left-to-right is the
+ *  drill. */
+function WordPairs({ pair }: { pair: MinimalPair }) {
+  const rows: [string, string][] = [[pair.a.word, pair.b.word], ...pair.more];
+  return (
+    <div className="mt-3 rounded-xl bg-bg-secondary px-3 py-2.5">
+      <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-text-muted">
+        Word pairs · <span className={`font-code ${styleFor(pair.a.symbol).text}`}>/{pair.a.symbol}/</span>
+        {' ⇄ '}
+        <span className={`font-code ${styleFor(pair.b.symbol).text}`}>/{pair.b.symbol}/</span>
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {rows.map(([a, b]) => <PairPill key={a + b} a={a} b={b} aClass={styleFor(pair.a.symbol).text} bClass={styleFor(pair.b.symbol).text} />)}
+      </div>
+    </div>
+  );
+}
+
+function PairPill({ a, b, aClass, bClass }: { a: string; b: string; aClass: string; bClass: string }) {
+  const { playing, speak } = useSpeak();
+  const word = (w: string, cls: string) => (
+    <button
+      onClick={(e) => { e.stopPropagation(); speak(w); }}
+      title={`Hear “${w}”`}
+      className={`px-1 rounded hover:bg-bg-hover transition-colors ${playing === w ? cls : 'text-text-primary'}`}
+    >
+      {w}
+    </button>
+  );
+  return (
+    <span className="inline-flex items-center gap-0.5 text-xs font-bold pl-1 pr-1 py-0.5 rounded-full bg-bg-card border border-border">
+      {word(a, aClass)}
+      <Icon icon="lucide:arrow-left-right" className="text-[10px] text-text-muted" />
+      {word(b, bClass)}
+    </span>
+  );
+}
+
+/** Both sounds' spellings, each under its own column, one row per letter
+ *  group. Letters that spell *both* sounds come first and share a row — "i"
+ *  is /iː/ in "machine" but /ɪ/ in "sit" — because that's exactly where
+ *  reading a word aloud goes wrong. Below them the rest pack side by side. */
+function SpellingColumns({ a, b }: { a: string; b: string }) {
+  const left = new Map(soundFor(a)?.spellings ?? []);
+  const right = new Map(soundFor(b)?.spellings ?? []);
+  // Shared letters on one row each; the rest just packed side by side, so
+  // neither column runs on alone with gaps opposite it.
+  const shared = [...left.keys()].filter((l) => right.has(l));
+  const onlyLeft = [...left.keys()].filter((l) => !right.has(l));
+  const onlyRight = [...right.keys()].filter((l) => !left.has(l));
+  const rows: [string | undefined, string | undefined][] = [
+    ...shared.map((l) => [l, l] as [string, string]),
+    ...Array.from({ length: Math.max(onlyLeft.length, onlyRight.length) }, (_, i) => [onlyLeft[i], onlyRight[i]] as [string | undefined, string | undefined]),
+  ];
+  if (rows.length === 0) return null;
+
+  const cell = (symbol: string, l: string | undefined, words: string[] | undefined) =>
+    l && words ? (
+      <div className="min-w-0 rounded-xl bg-bg-tertiary p-2.5">
+        <span className={`inline-block mb-1.5 px-2 py-0.5 rounded-lg font-code text-sm font-black ${CATEGORY_STYLE[soundFor(symbol)!.category].chip}`}>
+          {l}
+        </span>
+        <div className="flex flex-wrap gap-1">
+          {words.map((w) => <WordChip key={w} word={w} />)}
+        </div>
+      </div>
+    ) : <div />;
+
+  return (
+    <div className="mt-3">
+      <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-wider text-text-muted">
+        {shared.length > 0 ? 'Spellings · same letters line up' : 'Spellings · no letters in common — the spelling tells you which'}
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        {rows.map(([l, r]) => (
+          <Fragment key={`${l}|${r}`}>
+            {cell(a, l, l ? left.get(l) : undefined)}
+            {cell(b, r, r ? right.get(r) : undefined)}
+          </Fragment>
+        ))}
+      </div>
     </div>
   );
 }
@@ -372,34 +478,78 @@ function CompareSide({ side, onOpen }: { side: MinimalPair['a']; onOpen: (symbol
 function CompareView({ onOpen, onPractice }: { onOpen: (symbol: string) => void; onPractice: (target: PracticeTarget) => void }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {MINIMAL_PAIRS.map((pair) => {
-        const focus = [pair.a.symbol, pair.b.symbol];
-        return (
-          <div key={pairKey(pair)} className="p-3 rounded-2xl border-2 border-border bg-bg-card">
-            <div className="relative flex items-stretch gap-2">
-              <CompareSide side={pair.a} onOpen={onOpen} />
-              <span className="absolute left-1/2 top-10 -translate-x-1/2 w-8 h-8 rounded-full bg-bg-card border-2 border-border flex items-center justify-center text-[10px] font-black text-text-muted pointer-events-none">
-                VS
-              </span>
-              <CompareSide side={pair.b} onOpen={onOpen} />
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <button
-                onClick={() => onPractice({ focus, mode: 'listen' })}
-                className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-accent-cyan/10 text-xs font-extrabold text-accent-cyan hover:bg-accent-cyan/20 transition-colors"
-              >
-                <Icon icon="lucide:headphones" className="text-sm" /> Hear the difference
-              </button>
-              <button
-                onClick={() => onPractice({ focus, mode: 'sentence' })}
-                className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-accent-purple/10 text-xs font-extrabold text-accent-purple hover:bg-accent-purple/20 transition-colors"
-              >
-                <Icon icon="lucide:mic" className="text-sm" /> Say sentences
-              </button>
-            </div>
-          </div>
-        );
-      })}
+      {MINIMAL_PAIRS.map((pair) => (
+        <CompareCard key={pairKey(pair)} pair={pair} onOpen={onOpen} onPractice={onPractice} />
+      ))}
+    </div>
+  );
+}
+
+/** One pair. Both mouths move together while the card is hovered or focused
+ *  — two loops started apart would never line up for comparing. `autoPlay`
+ *  keeps them moving regardless, for a sound's page where there are only a
+ *  card or two rather than a whole grid of loops. */
+function CompareCard({ pair, autoPlay = false, spellings = false, onOpen, onPractice }: {
+  pair: MinimalPair;
+  autoPlay?: boolean;
+  /** Both sounds' spelling groups under their columns (a sound's page). */
+  spellings?: boolean;
+  onOpen: (symbol: string) => void;
+  onPractice: (target: PracticeTarget) => void;
+}) {
+  const [hovered, setActive] = useState(false);
+  const active = autoPlay || hovered;
+  const focus = [pair.a.symbol, pair.b.symbol];
+  const same = sameMouth(pair.a.symbol, pair.b.symbol);
+  const voiced = articulationFor(pair.a.symbol)?.voiced ? pair.a : pair.b;
+  const voiceless = voiced === pair.a ? pair.b : pair.a;
+  return (
+    <div
+      onMouseEnter={() => setActive(true)}
+      onMouseLeave={() => setActive(false)}
+      onFocus={() => setActive(true)}
+      onBlur={() => setActive(false)}
+      className="p-3 rounded-2xl border-2 border-border bg-bg-card"
+    >
+      <div className="relative flex items-stretch gap-2">
+        <CompareSide side={pair.a} other={pair.b} animate={active} onOpen={onOpen} />
+        <span className="absolute left-1/2 top-16 -translate-x-1/2 w-8 h-8 rounded-full bg-bg-card border-2 border-border flex items-center justify-center text-[10px] font-black text-text-muted pointer-events-none">
+          VS
+        </span>
+        <CompareSide side={pair.b} other={pair.a} animate={active} onOpen={onOpen} />
+      </div>
+      <p className="flex items-start gap-1.5 mt-2.5 px-1 text-[11px] text-text-muted leading-snug">
+        {same ? (
+          <>
+            <Icon icon="lucide:hand" className="shrink-0 text-sm text-accent-cyan" />
+            <span>
+              <b className="text-text-secondary">Same mouth shape</b> — only the voice changes. Hand on your throat:
+              /{voiced.symbol}/ buzzes, /{voiceless.symbol}/ is just air.
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="shrink-0 mt-1.5 w-4 border-t-2 border-dashed border-accent-yellow" />
+            <span>Dashed outline is the other sound{autoPlay ? '' : ' — hover to see both move'}.</span>
+          </>
+        )}
+      </p>
+      <WordPairs pair={pair} />
+      {spellings && <SpellingColumns a={pair.a.symbol} b={pair.b.symbol} />}
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        <button
+          onClick={() => onPractice({ focus, mode: 'listen' })}
+          className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-accent-cyan/10 text-xs font-extrabold text-accent-cyan hover:bg-accent-cyan/20 transition-colors"
+        >
+          <Icon icon="lucide:headphones" className="text-sm" /> Hear the difference
+        </button>
+        <button
+          onClick={() => onPractice({ focus, mode: 'sentence' })}
+          className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-accent-purple/10 text-xs font-extrabold text-accent-purple hover:bg-accent-purple/20 transition-colors"
+        >
+          <Icon icon="lucide:mic" className="text-sm" /> Say sentences
+        </button>
+      </div>
     </div>
   );
 }
@@ -416,10 +566,6 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
 }) {
   const sound = soundFor(symbol);
   const pairs = useMemo(() => pairsForSymbol(symbol), [symbol]);
-  const allExamples = useMemo(
-    () => sound ? [...sound.examples, ...sound.moreExamples] : [],
-    [sound],
-  );
   const { playing, speak, speakSound } = useSpeak();
   // Prev/next and "often confused with" swap the sound in place; start each
   // one at the top rather than wherever the last one was scrolled to.
@@ -438,6 +584,17 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
   const index = IPA_SOUNDS.indexOf(sound);
   const prev = IPA_SOUNDS[(index - 1 + IPA_SOUNDS.length) % IPA_SOUNDS.length];
   const next = IPA_SOUNDS[(index + 1) % IPA_SOUNDS.length];
+
+  // The usual mistake — mostly about the sound this one slides into — heads
+  // the confused-with and spellings columns, since it speaks to both.
+  const tip = (
+    <section className="flex items-start gap-2.5 rounded-2xl border-2 border-accent-orange/30 bg-accent-orange/5 px-4 py-3 mb-4">
+      <Icon icon="lucide:triangle-alert" className="shrink-0 mt-0.5 text-accent-orange" />
+      <p className="text-sm text-text-primary leading-relaxed">
+        <b className="text-accent-orange">Watch out · </b>{sound.tip}
+      </p>
+    </section>
+  );
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -496,43 +653,50 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
         </div>
       </div>
 
-      <section className="mb-5">
-        <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 px-1">Example words</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {allExamples.map((w) => <WordChip key={w} word={w} />)}
-        </div>
-      </section>
+      {tip}
 
-      {pairs.length > 0 && (
+      {/* One card per confused pair, the two sounds as columns all the way
+          down: mouths, word pairs, then both sounds' spellings. A sound with
+          no pair just lists its own spellings. */}
+      {pairs.length > 0 ? (
         <section className="mb-5">
-          <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 px-1">Often confused with</h3>
-          <div className="rounded-2xl border-2 border-border bg-bg-card divide-y divide-border overflow-hidden">
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 px-1">
+            Often confused with
+          </h3>
+          <div className="flex flex-col gap-4">
             {pairs.map((pair) => {
-              const mine = pair.a.symbol === symbol ? pair.a : pair.b;
-              const other = pair.a.symbol === symbol ? pair.b : pair.a;
+              // This page's sound always on the left, so every card reads "this vs that".
+              const flip = pair.b.symbol === symbol;
               return (
-                <div key={pairKey(pair)} className="flex items-center gap-3 px-4 py-3 flex-wrap">
-                  <button
-                    onClick={() => onOpen(other.symbol)}
-                    className={`font-code text-xl font-black w-14 text-left hover:underline ${styleFor(other.symbol).text}`}
-                    title={`Open /${other.symbol}/`}
-                  >
-                    /{other.symbol}/
-                  </button>
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <WordChip word={mine.word} />
-                    <span className="text-[10px] font-black text-text-muted">VS</span>
-                    <WordChip word={other.word} />
-                  </div>
-                  <button
-                    onClick={() => onPractice({ focus: [mine.symbol, other.symbol], mode: 'listen' })}
-                    className="flex items-center gap-1 text-xs font-extrabold text-accent-cyan hover:opacity-70 transition-opacity"
-                  >
-                    <Icon icon="lucide:headphones" /> Quiz this pair
-                  </button>
-                </div>
+                <CompareCard
+                  key={pairKey(pair)}
+                  pair={flip ? { a: pair.b, b: pair.a, more: pair.more.map(([x, y]) => [y, x]) } : pair}
+                  autoPlay
+                  spellings
+                  onOpen={onOpen}
+                  onPractice={onPractice}
+                />
               );
             })}
+          </div>
+        </section>
+      ) : (
+        <section className="mb-5">
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 px-1">
+            Spellings{' '}
+            <span className="normal-case tracking-normal font-semibold">
+              · {sound.spellings.reduce((n, [, words]) => n + words.length, 0)} words — tap to hear
+            </span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
+            {sound.spellings.map(([letters, words]) => (
+              <div key={letters} className="rounded-2xl border-2 border-border bg-bg-card p-3">
+                <span className={`inline-block mb-2 px-2 py-0.5 rounded-lg font-code text-base font-black ${style.chip}`}>{letters}</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {words.map((w) => <WordChip key={w} word={w} />)}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -720,13 +884,20 @@ function ListenPracticeView({ focusSymbols, onClearFocus }: { focusSymbols: stri
           <div className="grid grid-cols-2 gap-3">
             {(['a', 'b'] as const).map((side) => {
               const opt = round.pair[side];
+              const other = round.pair[side === 'a' ? 'b' : 'a'];
               return (
                 <div key={side} className="rounded-xl bg-bg-tertiary p-2.5 flex flex-col items-center gap-1.5">
-                  <MouthDiagram symbol={opt.symbol} animate={false} className="w-full h-20" />
+                  <MouthDiagram
+                    symbol={opt.symbol}
+                    ghost={sameMouth(opt.symbol, other.symbol) ? undefined : other.symbol}
+                    animate={false}
+                    className="w-full h-24"
+                  />
                   <div className="flex items-center gap-2">
                     <span className={`font-code font-black ${styleFor(opt.symbol).text}`}>/{opt.symbol}/</span>
                     <WordChip word={opt.word} />
                   </div>
+                  <div className="self-stretch"><ContrastList symbol={opt.symbol} other={other.symbol} /></div>
                 </div>
               );
             })}

@@ -167,3 +167,45 @@ export function articulationFor(symbol: string): Articulation | null {
   }
   return null;
 }
+
+const isVowel = (s: string) => s in V || s in DIPHTHONGS;
+// Said by the voicing line already.
+const VOICE_TAGS = ['Voiced', 'Voiceless', 'Hiss', 'Buzz'];
+
+/** True when two sounds share every mouth pose — /p/ and /b/, /s/ and /z/ —
+ *  so the only thing a learner can change between them is the voice. */
+export function sameMouth(a: string, b: string): boolean {
+  const x = articulationFor(a);
+  const y = articulationFor(b);
+  return !!x && !!y && JSON.stringify(x.poses) === JSON.stringify(y.poses);
+}
+
+/** What `symbol` does differently from `other`, as short phrases ("Tongue
+ *  higher", "Long — hold it"). Vowels are compared on the pose numbers,
+ *  because /iː/ and /ɪ/ share the same coarse tags; consonants on the tags
+ *  that differ, since their place is already named there. */
+export function contrast(symbol: string, other: string): string[] {
+  const a = articulationFor(symbol);
+  const b = articulationFor(other);
+  if (!a || !b) return [];
+  const out: string[] = [];
+  if (isVowel(symbol) && isVowel(other)) {
+    const [pa, pb] = [a.poses[0], b.poses[0]];
+    if (pb.by - pa.by >= 3) out.push('Tongue higher, jaw more closed');
+    else if (pa.by - pb.by >= 3) out.push('Tongue lower, jaw more open');
+    if (pb.bx - pa.bx >= 4) out.push('Tongue further forward');
+    else if (pa.bx - pb.bx >= 4) out.push('Tongue further back');
+    if (pa.round - pb.round >= 0.3) out.push('Lips more rounded');
+    else if (pb.round - pa.round >= 0.3) out.push('Lips less rounded');
+    if (a.poses.length > b.poses.length) out.push('Glides to a second shape');
+    const long = (s: string) => s.includes('ː');
+    if (long(symbol) && !long(other)) out.push('Long — hold it');
+    else if (!long(symbol) && long(other)) out.push('Short and relaxed');
+  } else {
+    out.push(...a.tags.filter((t) => !VOICE_TAGS.includes(t) && !b.tags.includes(t)));
+    // /ʃ/ against /tʃ/: the one difference is the stop it doesn't have.
+    if (a.poses.length < b.poses.length) out.push('No stop — air from the start');
+  }
+  if (a.voiced !== b.voiced) out.push(a.voiced ? 'Voice on — throat buzzes' : 'Voice off — only air');
+  return out;
+}

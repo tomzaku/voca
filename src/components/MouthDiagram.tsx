@@ -7,6 +7,10 @@ import { articulationFor, REST_POSE, type MouthPose } from '../data/articulation
  * rest → sound → rest so the movement is what reads, not just the end
  * position; diphthongs and affricates glide through both of their poses.
  * Static (or under reduced motion) it holds the sound's first pose.
+ *
+ * Given a `ghost`, it also outlines that sound's tongue and lips, dashed,
+ * on the same timeline — the Compare view's pairs differ by a few pixels,
+ * which two separate drawings side by side can't show.
  */
 
 const MOVE_MS = 380;
@@ -25,6 +29,8 @@ const INK = {
   teeth: '#ffffff',
   teethEdge: '#c9cede',
   cue: 'var(--color-accent-cyan)',
+  // Yellow reads on both the dark cavity and the light theme's grey head.
+  ghost: 'var(--color-accent-yellow)',
 };
 
 type Frame = MouthPose & { active: number };
@@ -42,59 +48,54 @@ function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
 
-/** Steps through rest → each pose → rest on a loop, eased between holds. */
-function useMouthFrame(poses: MouthPose[], animate: boolean): Frame {
-  const still: Frame = { ...(poses[0] ?? REST_POSE), active: 1 };
-  const [frame, setFrame] = useState<Frame>(still);
-  const key = JSON.stringify(poses);
+/** Steps through rest → each pose → rest on a loop, eased between holds —
+ *  for several sounds at once, on one timeline, so a ghost moves with the
+ *  sound it's compared to. A shorter script holds its last pose while a
+ *  longer one (an affricate, a diphthong) takes its second step. */
+function useMouthFrames(sets: MouthPose[][], animate: boolean): Frame[] {
+  const stillFrames = () => sets.map((poses) => ({ ...(poses[0] ?? REST_POSE), active: 1 }));
+  const [frames, setFrames] = useState<Frame[]>(stillFrames);
+  const key = JSON.stringify(sets);
 
   useEffect(() => {
-    const target: Frame = { ...(poses[0] ?? REST_POSE), active: 1 };
-    if (!animate || prefersReducedMotion() || poses.length === 0) {
-      setFrame(target);
+    const steps = Math.max(0, ...sets.map((p) => p.length));
+    if (!animate || prefersReducedMotion() || steps === 0) {
+      setFrames(stillFrames());
       return;
     }
-    const keys: Frame[] = [
+    const keys: Frame[][] = sets.map((poses) => [
       { ...REST_POSE, active: 0 },
-      ...poses.map((p) => ({ ...p, active: 1 })),
-    ];
-    // Each step: move into keys[i], then hold it.
-    const steps = keys.map((_, i) => ({ to: i, hold: i === 0 ? REST_HOLD_MS : HOLD_MS }));
-    const cycle = steps.reduce((n, s) => n + MOVE_MS + s.hold, 0);
+      ...Array.from({ length: steps }, (_, i) => ({ ...(poses[Math.min(i, poses.length - 1)] ?? REST_POSE), active: 1 })),
+    ]);
+    const holds = keys[0].map((_, i) => (i === 0 ? REST_HOLD_MS : HOLD_MS));
+    const cycle = holds.reduce((n, h) => n + MOVE_MS + h, 0);
     let raf = 0;
     const start = performance.now();
     const tick = (now: number) => {
       let t = (now - start) % cycle;
-      for (const s of steps) {
-        const from = keys[(s.to - 1 + keys.length) % keys.length];
-        if (t < MOVE_MS) { setFrame(mix(from, keys[s.to], ease(t / MOVE_MS))); break; }
+      for (let i = 0; i < holds.length; i++) {
+        const from = (i - 1 + holds.length) % holds.length;
+        if (t < MOVE_MS) { const e = ease(t / MOVE_MS); setFrames(keys.map((k) => mix(k[from], k[i], e))); break; }
         t -= MOVE_MS;
-        if (t < s.hold) { setFrame(keys[s.to]); break; }
-        t -= s.hold;
+        if (t < holds[i]) { setFrames(keys.map((k) => k[i])); break; }
+        t -= holds[i];
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-    // `key` stands in for `poses`, which is a fresh array on every render.
+    // `key` stands in for `sets`, which is a fresh array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, animate]);
 
-  return frame;
+  return frames;
 }
 
 const PIVOT = { x: 150, y: 58 };
 const MAX_JAW_DEG = 13;
 
-export function MouthDiagram({ symbol, animate = true, className = '' }: {
-  symbol: string;
-  animate?: boolean;
-  className?: string;
-}) {
-  const art = useMemo(() => articulationFor(symbol), [symbol]);
-  const f = useMouthFrame(art?.poses ?? [], animate);
-  if (!art) return null;
-
+/** The moving parts of one frame, as SVG paths and transforms. */
+function shapes(f: Frame) {
   // The lower jaw (teeth, lip, chin, mouth floor) swings open around the jaw
   // joint; anything resting on it — the tongue's floor and root — follows.
   const deg = -f.jaw * MAX_JAW_DEG;
@@ -120,7 +121,30 @@ export function MouthDiagram({ symbol, animate = true, className = '' }: {
 
   const p = f.round * 7;
   const lowerLip = { x: f.labio * 9, y: -f.close * 5 - f.labio * 8 };
-  const velumTip = { x: 156 - f.velum * 10, y: 58 + f.velum * 16 };
+  return {
+    jawTransform,
+    tongue,
+    upperLip: `M48 56 C41 55 ${34 - p} 56 ${32 - p} 61 C${31 - p} 64 ${35 - p} 67 49 67 Z`,
+    lowerLip: `M49 73 C${36 - p} 72 ${32 - p} 75 ${32 - p} 78 C${33 - p} 83 40 85 49 85 Z`,
+    lowerLipTransform: `${jawTransform} translate(${lowerLip.x.toFixed(1)} ${lowerLip.y.toFixed(1)})`,
+    velumTip: { x: 156 - f.velum * 10, y: 58 + f.velum * 16 },
+  };
+}
+
+export function MouthDiagram({ symbol, ghost, animate = true, className = '' }: {
+  symbol: string;
+  /** Another sound to outline on top, for comparing the two. */
+  ghost?: string;
+  animate?: boolean;
+  className?: string;
+}) {
+  const art = useMemo(() => articulationFor(symbol), [symbol]);
+  const ghostArt = useMemo(() => (ghost ? articulationFor(ghost) : null), [ghost]);
+  const [f, gf] = useMouthFrames(ghostArt ? [art?.poses ?? [], ghostArt.poses] : [art?.poses ?? []], animate);
+  if (!art) return null;
+
+  const { jawTransform, tongue, upperLip, lowerLip, lowerLipTransform, velumTip } = shapes(f);
+  const g = gf ? shapes(gf) : null;
 
   return (
     <svg viewBox="0 14 186 146" className={className} role="img" aria-label={`Mouth position for /${symbol}/`}>
@@ -159,12 +183,9 @@ export function MouthDiagram({ symbol, animate = true, className = '' }: {
       />
 
       {/* Lips */}
-      <path
-        d={`M48 56 C41 55 ${34 - p} 56 ${32 - p} 61 C${31 - p} 64 ${35 - p} 67 49 67 Z`}
-        fill={INK.lips}
-      />
-      <g transform={`${jawTransform} translate(${lowerLip.x.toFixed(1)} ${lowerLip.y.toFixed(1)})`}>
-        <path d={`M49 73 C${36 - p} 72 ${32 - p} 75 ${32 - p} 78 C${33 - p} 83 40 85 49 85 Z`} fill={INK.lips} />
+      <path d={upperLip} fill={INK.lips} />
+      <g transform={lowerLipTransform}>
+        <path d={lowerLip} fill={INK.lips} />
       </g>
 
       {/* Profile outline, drawn over the fills so the face reads as one shape */}
@@ -176,11 +197,22 @@ export function MouthDiagram({ symbol, animate = true, className = '' }: {
         strokeLinecap="round"
       />
 
+      {/* The compared sound, outlined */}
+      {g && (
+        <g fill="none" stroke={INK.ghost} strokeWidth="1.6" strokeDasharray="3 2.5" strokeLinejoin="round">
+          <path d={g.tongue} />
+          <path d={g.upperLip} />
+          <g transform={g.lowerLipTransform}>
+            <path d={g.lowerLip} />
+          </g>
+        </g>
+      )}
+
       {/* Cues: buzzing throat, air out of the nose, air out of the mouth */}
       {art.voiced && (
         <g opacity={f.active} className={animate ? 'mouth-buzz' : undefined}>
-          <path d="M168 128 l4 -4 l4 4 l4 -4 l4 4" fill="none" stroke={INK.cue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M168 136 l4 -4 l4 4 l4 -4 l4 4" fill="none" stroke={INK.cue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M168 128 l4 -4 l4 4 l4 -4 l4 4" fill="none" stroke={INK.cue} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M168 136 l4 -4 l4 4 l4 -4 l4 4" fill="none" stroke={INK.cue} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
         </g>
       )}
       {art.nasal && (
