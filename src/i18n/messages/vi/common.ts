@@ -17,6 +17,6 @@ export default {
   'common.noResponse': 'Không nhận được phản hồi.',
   'common.errNotConnected': 'Chưa kết nối.',
   'common.errUnreachable': 'Không thể kết nối máy chủ.',
-  'common.errSignIn': 'Vui lòng đăng nhập.',
+  'common.errSignIn': 'Đăng nhập để dùng tính năng này — miễn phí, và tiến độ được đồng bộ trên mọi thiết bị.',
   'common.errRequestFailed': 'Yêu cầu thất bại ({status}).',
 } satisfies Record<keyof typeof en, string>;

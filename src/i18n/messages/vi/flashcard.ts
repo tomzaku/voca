@@ -72,4 +72,12 @@ export default {
   'flashcard.points': '{count} điểm',
   'flashcard.nextSkill': 'Tiếp theo: {skill}',
   'flashcard.allSkillsUnlocked': 'Đã mở khóa mọi kỹ năng ✨',
+  'flashcard.start.title': 'Bạn muốn học gì?',
+  'flashcard.start.subtitle': 'Chọn điểm bắt đầu — bạn có thể đổi bất cứ lúc nào bằng nút bộ sưu tập phía trên thẻ.',
+  'flashcard.start.findLevel': 'Tìm trình độ của tôi',
+  'flashcard.start.findLevelHint': 'Chạm vào những từ bạn biết · khoảng 1 phút',
+  'flashcard.start.orTopic': 'Hoặc chọn một chủ đề',
+  'flashcard.start.allTopics': 'Xem tất cả bộ sưu tập',
+  'flashcard.start.justStart': 'Bắt đầu với từ thông dụng →',
+  'flashcard.start.studying': 'Đang học “{name}”',
 } satisfies Record<keyof typeof en, string>;

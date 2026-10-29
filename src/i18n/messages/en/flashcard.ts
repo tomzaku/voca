@@ -72,4 +72,12 @@ export default {
   'flashcard.points': '{count} pts',
   'flashcard.nextSkill': 'Next: {skill}',
   'flashcard.allSkillsUnlocked': 'All skills unlocked ✨',
+  'flashcard.start.title': 'What do you want to learn?',
+  'flashcard.start.subtitle': 'Pick a starting point — you can switch any time from the collection button above the card.',
+  'flashcard.start.findLevel': 'Find my level',
+  'flashcard.start.findLevelHint': 'Tap the words you know · about 1 minute',
+  'flashcard.start.orTopic': 'Or pick a topic',
+  'flashcard.start.allTopics': 'See all collections',
+  'flashcard.start.justStart': 'Just start with common words →',
+  'flashcard.start.studying': 'Studying “{name}”',
 } satisfies Catalog;

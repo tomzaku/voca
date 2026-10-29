@@ -36,6 +36,19 @@ function loadActive(): string {
   }
 }
 
+/**
+ * Whether this device has ever had a collection chosen (picked on the start
+ * card, Collections page, level test, or pulled from the server). A brand-new
+ * visitor hasn't, which is what puts the start card in front of them.
+ */
+export function hasChosenCollection(): boolean {
+  try {
+    return localStorage.getItem(KEY) !== null;
+  } catch {
+    return true; // storage blocked — don't nag on every visit
+  }
+}
+
 // Cache of server collections so a picked collection keeps working offline and
 // before the login fetch completes.
 function loadUserCache(): { mine: UserCollection[]; shared: Record<string, UserCollection>; joinedIds: string[] } {

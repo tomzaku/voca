@@ -4,7 +4,7 @@ import { Icon } from '@iconify/react';
 import { FormattedMessage } from 'react-intl';
 import { t } from '../i18n';
 import { useVocabularyStore } from '../hooks/useVocabulary';
-import { useCollections } from '../hooks/useCollections';
+import { useCollections, hasChosenCollection } from '../hooks/useCollections';
 import { useProgressQuery, type Filter } from '../hooks/useProgressQuery';
 import { getCollection } from '../lib/collections';
 import { useAuth } from '../hooks/useAuth';
@@ -14,7 +14,7 @@ import {
   recentCachedWords,
   UnknownWordError,
 } from '../lib/wordService';
-import { dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
+import { clearPrefetchQueue, dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useTeams } from '../hooks/useTeams';
@@ -29,6 +29,7 @@ import { GuessView } from './flashcard/GuessView';
 import { RevealedView } from './flashcard/RevealedView';
 import { HistoryStrip } from './flashcard/HistoryStrip';
 import { LoadErrorDialog } from './flashcard/LoadErrorDialog';
+import { StartPicker } from './flashcard/StartPicker';
 import { useCardSpeech } from './flashcard/useCardSpeech';
 import { FULL_DEF_KEY } from './flashcard/constants';
 import type { AnswerVia, VocabularyWord } from '../types';
@@ -152,6 +153,25 @@ export function FlashCard() {
   const historyIndexRef = useRef(restoredHistory.length - 1);
   const [wordHistory, setWordHistory] = useState<VocabularyWord[]>(restoredHistory);
   const [historyIndex, setHistoryIndex] = useState(restoredHistory.length - 1);
+
+  // First visit: nothing chosen, nothing studied, and not here for a specific
+  // word — show the start card instead of dropping them into a default
+  // collection they don't know they can change. Progress arriving from the
+  // server (a returning user on a new device) hides it on its own.
+  const [skipStart, setSkipStart] = useState(() =>
+    hasChosenCollection()
+    || restoredHistory.length > 0
+    || searchParams.has('w')
+    || searchParams.has('word')
+    || !!useWordSearch.getState().pending);
+  const needsStart = !skipStart && Object.keys(store.progress).length === 0;
+  const setActiveCollection = useCollections((s) => s.setActive);
+  const handleStartPick = (id: string, name: string) => {
+    setActiveCollection(id);
+    clearPrefetchQueue();
+    toast.success(t('flashcard.start.studying', { name }));
+    setSkipStart(true); // the first-word effect below now runs
+  };
 
   // Which list the strip is browsing. "Recent" is the session walk above;
   // anything else is a live slice of progress (see useProgressQuery) — Prev/
@@ -312,7 +332,7 @@ export function FlashCard() {
   // session to load before generating (avoids a spurious "please sign in").
   const didInit = useRef(false);
   useEffect(() => {
-    if (authLoading || didInit.current) return;
+    if (authLoading || needsStart || didInit.current) return;
     didInit.current = true;
     // Two link shapes, two modes: `?w=<base64>` hides the answer and opens the
     // guess game, `?word=<plaintext>` names the word so it opens revealed.
@@ -336,7 +356,7 @@ export function FlashCard() {
     // again instead of leaving the card stuck on the spinner.
     return () => { didInit.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading]);
+  }, [authLoading, needsStart]);
 
   // Load a word requested from the header search (works whether this page was
   // already open or was just navigated to).
@@ -344,6 +364,10 @@ export function FlashCard() {
   useEffect(() => {
     if (!pendingSearch) return;
     useWordSearch.getState().consume();
+    // A search from the start card skips it — and the first-word load, which
+    // would otherwise supersede the searched word once the card goes away.
+    didInit.current = true;
+    setSkipStart(true);
     loadSpecificWord(pendingSearch);
   }, [pendingSearch, loadSpecificWord]);
 
@@ -493,6 +517,12 @@ export function FlashCard() {
 
   // The collection currently being studied — shown on the history header.
   const activeCollectionId = useCollections((s) => s.activeId);
+  // A collection arriving from the server (signed in on another device) is a
+  // choice already made — the start card has nothing to ask.
+  const startActiveId = useRef(activeCollectionId);
+  useEffect(() => {
+    if (activeCollectionId !== startActiveId.current) setSkipStart(true);
+  }, [activeCollectionId]);
   const myCollections = useCollections((s) => s.mine);
   const sharedCollections = useCollections((s) => s.shared);
   const collectionName =
@@ -519,7 +549,9 @@ export function FlashCard() {
         onNext={onRecent ? handleNext : handleFilterNext}
       />
 
-      {phase === 'loading' ? (
+      {needsStart ? (
+        <StartPicker onPick={handleStartPick} />
+      ) : phase === 'loading' ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
           <div className="w-12 h-12 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
           {isGenerating && (

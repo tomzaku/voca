@@ -6,21 +6,21 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
 /**
- * Routes a visitor without an account may see. Everything else is overlaid.
+ * Routes a visitor without an account can't use. Everything else is open.
  *
- * The flash card is here because the word cache is shared: `word` serves any
- * word already in it to anyone, and `pick` needs no progress rows to choose one.
- * So a stranger can try the app before deciding to sign up — they just can't
- * look up a word nobody has generated yet, and nothing they do is saved.
+ * The app works without an account: progress, settings and the active
+ * collection are kept on the device (every API call that reads them is quiet
+ * and falls back to local state), and `word` serves anything already in the
+ * shared cache. So a stranger can try nearly all of it before deciding to sign
+ * up — what needs an account says so when it's used (AI features answer
+ * "Please sign in." from `api.ts`), rather than walling off the whole page.
  *
- * The quiz routes decide for themselves: a share link is meant for students who
- * may have no account, and each quiz carries its own `requireAuth`.
- *
- * /ai-model-benchmark is here because it's self-contained: everything it does
- * (loading TTS models, timing them) runs in the browser and saves nothing
- * server-side, so there's no account-bound state to gate it behind.
+ * What's left here are pages that are nothing *but* account data — a profile,
+ * a cross-device dashboard, the quizzes you've shared — where a visitor would
+ * only see an empty shell. A user collection's share link (UUID id) gets the
+ * invite card instead; built-in collections have slug ids and stay open.
  */
-const PUBLIC_ROUTES = ['/', '/login', '/quiz/:id', '/quiz/:id/results', '/ai-model-benchmark'];
+const PRIVATE_ROUTES = ['/profile', '/dashboard', '/quizzes'];
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -127,22 +127,21 @@ function InviteCard({ id, onSignIn }: { id: string; onSignIn: () => void }) {
 }
 
 /**
- * Blocking sign-in gate. Overlays the app whenever there's no signed-in user and
- * the current route isn't public, so anything that keeps state — history,
- * collections, streaks, the dashboard — requires an account. Hidden while auth is
- * still resolving (including the OAuth redirect) and when there's no backend to
- * sign into.
+ * Sign-in gate. Overlays the app when there's no signed-in user on a route that
+ * can't work without one — see PRIVATE_ROUTES, plus a user collection's share
+ * link, which gets an invite card. Hidden while auth is still resolving
+ * (including the OAuth redirect) and when there's no backend to sign into.
  *
- * On a public route the way in is the sidebar's "Sign in", not this.
+ * Everywhere else the way in is the sidebar's "Sign in", not this.
  */
 export function LoginGate() {
   const { user, loading, signInWithGoogle } = useAuth();
   const { pathname, search } = useLocation();
 
   if (!supabase || loading || user) return null;
-  if (PUBLIC_ROUTES.some((route) => matchPath(route, pathname))) return null;
-
   const invite = inviteId(pathname, search);
+  if (!invite && !PRIVATE_ROUTES.some((route) => matchPath(route, pathname))) return null;
+
   if (invite) {
     return (
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">

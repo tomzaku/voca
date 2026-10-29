@@ -17,6 +17,6 @@ export default {
   'common.noResponse': 'No response received.',
   'common.errNotConnected': 'Not connected.',
   'common.errUnreachable': 'Couldn\'t reach the server.',
-  'common.errSignIn': 'Please sign in.',
+  'common.errSignIn': 'Sign in to use this — it’s free, and your progress syncs across devices.',
   'common.errRequestFailed': 'Request failed ({status}).',
 } satisfies Catalog;

@@ -14,6 +14,7 @@ import { CollectionDetail } from './CollectionDetailPage';
 import { completionPct } from '../lib/completion';
 import { PHOTO_SCRIM, topicCover, topicPhoto } from '../lib/topicTheme';
 import { useVocabularyStore } from '../hooks/useVocabulary';
+import { useAuth } from '../hooks/useAuth';
 
 // CEFR band for each level collection, and its colour on the "ladder". Classes
 // are spelled out — Tailwind only keeps classes it finds as complete strings.
@@ -356,8 +357,9 @@ function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => voi
 
 /**
  * Browse and pick the active vocabulary collection: a hero for what you're
- * studying now, then your own collections (create / share / delete) and ones
- * you've joined, themed Topics, and the Curated + CEFR level ladder. A search
+ * studying now, then the Curated + CEFR level ladder (where a newcomer starts),
+ * themed Topics, and your own collections (create / share / delete) and ones
+ * you've joined. A search
  * filters every section at once. Each opens on its own page
  * (CollectionDetailPage).
  */
@@ -370,6 +372,7 @@ export function CollectionsPage() {
   const joinedIds = useCollections((s) => s.joinedIds);
   const progress = useVocabularyStore((s) => s.progress);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Collections joined via share links (someone else's) — durable across
   // refreshes: hydrated from collection_members on login, cached locally.
@@ -422,7 +425,9 @@ export function CollectionsPage() {
   const [form, setForm] = useState<{ editingId: string | null; name: string; words: string[] } | null>(null);
   const creating = form !== null;
   const closeForm = () => setForm(null);
-  const openCreate = () => setForm({ editingId: null, name: '', words: [] });
+  // Collections of your own live on the server — browsing is open to anyone,
+  // but making one is where signing in comes in.
+  const openCreate = () => (user ? setForm({ editingId: null, name: '', words: [] }) : navigate('/login'));
   const openEdit = (col: UserCollection) => setForm({ editingId: col.id, name: col.name, words: col.words });
 
   const pick = (id: string, label: string) => {
@@ -489,9 +494,9 @@ export function CollectionsPage() {
   );
 
   const jumps = [
-    { id: 'yours', labelId: 'collections.jumpYours', count: mine.length + joined.length },
-    { id: 'topics', labelId: 'collections.topics', count: topicCollections.length },
     { id: 'levels', labelId: 'collections.levels', count: levelCollections.length },
+    { id: 'topics', labelId: 'collections.topics', count: topicCollections.length },
+    { id: 'yours', labelId: 'collections.jumpYours', count: mine.length + joined.length },
   ];
 
   return (
@@ -571,9 +576,73 @@ export function CollectionsPage() {
         </div>
       )}
 
+      {/* ── Level ladder ── */}
+      {shownLevels.length > 0 && (
+        <section className="mb-10">
+          <SectionHeader id="levels" icon="lucide:signal" title={intl.formatMessage({ id: 'collections.levels' })} subtitle={intl.formatMessage({ id: 'collections.levelsSubtitle' })} />
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {shownLevels.map((c) => {
+              const words = systemWords(c.id);
+              return (
+                <LevelCard
+                  key={c.id}
+                  c={c}
+                  active={c.id === activeId}
+                  pct={completionPct(words, progress)}
+                  onPick={() => pick(c.id, c.name)}
+                  onView={() => openDetails(c.id)}
+                  onStats={() => setStats({ name: c.name, words })}
+                  onQuiz={() => setQuiz({ name: c.name, words })}
+                />
+              );
+            })}
+            {!needle && (
+              <button
+                onClick={() => navigate('/level-test')}
+                className="rounded-2xl border-2 border-dashed border-accent-cyan/40 bg-accent-cyan/5 hover:bg-accent-cyan/10 p-4 flex flex-col items-start justify-between gap-3 text-left transition-colors"
+              >
+                <span className="w-11 h-11 rounded-xl bg-accent-cyan/15 text-accent-cyan flex items-center justify-center">
+                  <Icon icon="lucide:target" className="text-xl" />
+                </span>
+                <span>
+                  <span className="block font-display font-bold text-text-primary"><FormattedMessage id="collections.findMyLevel" /></span>
+                  <span className="block text-[11px] text-text-muted mt-0.5"><FormattedMessage id="collections.findMyLevelHint" /></span>
+                </span>
+                <span className="text-xs font-bold text-accent-cyan flex items-center gap-1">
+                  <FormattedMessage id="collections.takeTheTest" /> <Icon icon="lucide:arrow-right" />
+                </span>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── Topic collections ── */}
+      {shownTopics.length > 0 && (
+        <section className="mb-10">
+          <SectionHeader id="topics" icon="lucide:layout-grid" title={intl.formatMessage({ id: 'collections.topics' })} subtitle={intl.formatMessage({ id: 'collections.topicsSubtitle' })} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {shownTopics.map((c) => {
+              const words = systemWords(c.id);
+              return (
+                <TopicTile
+                  key={c.id}
+                  c={c}
+                  active={c.id === activeId}
+                  pct={completionPct(words, progress)}
+                  onPick={() => pick(c.id, c.name)}
+                  onView={() => openDetails(c.id)}
+                  onQuiz={() => setQuiz({ name: c.name, words })}
+                />
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* ── Your collections (+ joined) ── */}
       {(!needle || shownMine.length > 0 || shownJoined.length > 0) && (
-        <section className="mb-10">
+        <section>
           <SectionHeader
             id="yours"
             icon="lucide:folder-heart"
@@ -627,70 +696,6 @@ export function CollectionsPage() {
               </div>
             </>
           )}
-        </section>
-      )}
-
-      {/* ── Topic collections ── */}
-      {shownTopics.length > 0 && (
-        <section className="mb-10">
-          <SectionHeader id="topics" icon="lucide:layout-grid" title={intl.formatMessage({ id: 'collections.topics' })} subtitle={intl.formatMessage({ id: 'collections.topicsSubtitle' })} />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {shownTopics.map((c) => {
-              const words = systemWords(c.id);
-              return (
-                <TopicTile
-                  key={c.id}
-                  c={c}
-                  active={c.id === activeId}
-                  pct={completionPct(words, progress)}
-                  onPick={() => pick(c.id, c.name)}
-                  onView={() => openDetails(c.id)}
-                  onQuiz={() => setQuiz({ name: c.name, words })}
-                />
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ── Level ladder ── */}
-      {shownLevels.length > 0 && (
-        <section>
-          <SectionHeader id="levels" icon="lucide:signal" title={intl.formatMessage({ id: 'collections.levels' })} subtitle={intl.formatMessage({ id: 'collections.levelsSubtitle' })} />
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {shownLevels.map((c) => {
-              const words = systemWords(c.id);
-              return (
-                <LevelCard
-                  key={c.id}
-                  c={c}
-                  active={c.id === activeId}
-                  pct={completionPct(words, progress)}
-                  onPick={() => pick(c.id, c.name)}
-                  onView={() => openDetails(c.id)}
-                  onStats={() => setStats({ name: c.name, words })}
-                  onQuiz={() => setQuiz({ name: c.name, words })}
-                />
-              );
-            })}
-            {!needle && (
-              <button
-                onClick={() => navigate('/level-test')}
-                className="rounded-2xl border-2 border-dashed border-accent-cyan/40 bg-accent-cyan/5 hover:bg-accent-cyan/10 p-4 flex flex-col items-start justify-between gap-3 text-left transition-colors"
-              >
-                <span className="w-11 h-11 rounded-xl bg-accent-cyan/15 text-accent-cyan flex items-center justify-center">
-                  <Icon icon="lucide:target" className="text-xl" />
-                </span>
-                <span>
-                  <span className="block font-display font-bold text-text-primary"><FormattedMessage id="collections.findMyLevel" /></span>
-                  <span className="block text-[11px] text-text-muted mt-0.5"><FormattedMessage id="collections.findMyLevelHint" /></span>
-                </span>
-                <span className="text-xs font-bold text-accent-cyan flex items-center gap-1">
-                  <FormattedMessage id="collections.takeTheTest" /> <Icon icon="lucide:arrow-right" />
-                </span>
-              </button>
-            )}
-          </div>
         </section>
       )}
 
