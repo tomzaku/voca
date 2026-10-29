@@ -11,6 +11,7 @@ import { CatMascot } from './CatMascot';
 import { Selector } from './Selector';
 import { SpeakGame } from './SpeakGame';
 import { familyForms } from '../lib/answerMask';
+import { choiceOptions, freeLetterPositions, guessMatches, isLetter, scrambleTiles, type Tile } from '../lib/learnRules';
 import { getMotherLanguage } from '../lib/languages';
 import type { VocabularyWord } from '../types';
 
@@ -31,15 +32,6 @@ interface Props {
   /** Called on every wrong attempt (typed guess, wrong letter, wrong pick) so
    *  the parent can tally mistakes and record them when the word is revealed. */
   onMistake?: () => void;
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 /** Tactile "keycap" tile shared across every game. */
@@ -337,22 +329,6 @@ interface GameProps {
 }
 
 // ─── Game 1 · Letters ───────────────────────────────────────────────
-/** Share of the letters handed to the player for free. Two letters (first and
- *  last) left most words unguessable; 40% keeps it a puzzle but a solvable one. */
-const LETTERS_REVEAL_RATIO = 0.4;
-
-/** Random positions of the freely-shown letters. Non-letter characters (spaces,
- *  hyphens, apostrophes) aren't part of the puzzle and are always visible, so
- *  they don't take up part of the budget. */
-function freeLetterPositions(word: string): Set<number> {
-  const positions = word
-    .split('')
-    .map((c, i) => (/\p{L}/u.test(c) ? i : -1))
-    .filter((i) => i >= 0);
-  const count = Math.max(1, Math.round(positions.length * LETTERS_REVEAL_RATIO));
-  return new Set(shuffle(positions).slice(0, Math.min(count, positions.length)));
-}
-
 function LettersGame({ word, hint, disabled, onSolve, onGaveUp }: GameProps) {
   const [guess, setGuess] = useState('');
   const [wrong, setWrong] = useState(false);
@@ -361,7 +337,7 @@ function LettersGame({ word, hint, disabled, onSolve, onGaveUp }: GameProps) {
 
   const check = () => {
     if (!guess.trim() || disabled || wrong) return;
-    if (guess.trim().toLowerCase() === word.toLowerCase()) {
+    if (guessMatches(guess, word)) {
       onSolve();
     } else {
       // One wrong guess ends the round — retrying a typed word until it happens
@@ -379,7 +355,7 @@ function LettersGame({ word, hint, disabled, onSolve, onGaveUp }: GameProps) {
           in the whole word so the answer is seen straight away. */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {word.split('').map((char, i) => {
-          const known = !/\p{L}/u.test(char) || given.has(i);
+          const known = !isLetter(char) || given.has(i);
           const shown = known || wrong;
           return (
             <span
@@ -427,17 +403,9 @@ function LettersGame({ word, hint, disabled, onSolve, onGaveUp }: GameProps) {
 }
 
 // ─── Game 2 · Unscramble ────────────────────────────────────────────
-interface Tile { char: string; id: number; }
-
 function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
   const intl = useIntl();
-  const tiles = useMemo<Tile[]>(() => {
-    const base = word.split('').map((char, id) => ({ char, id }));
-    let s = shuffle(base);
-    // Avoid handing back the answer already in order.
-    if (word.length > 1 && s.map((t) => t.char).join('') === word) s = shuffle(base);
-    return s;
-  }, [word]);
+  const tiles = useMemo<Tile[]>(() => scrambleTiles(word), [word]);
 
   const [picked, setPicked] = useState<number[]>([]);
   const [wrong, setWrong] = useState(false);
@@ -453,7 +421,7 @@ function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
       playSelect();
     } else {
       const attempt = next.map((pid) => tiles.find((t) => t.id === pid)!.char).join('');
-      if (attempt.toLowerCase() === word.toLowerCase()) {
+      if (guessMatches(attempt, word)) {
         onSolve();
       } else {
         setWrong(true);
@@ -522,30 +490,14 @@ function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
 
 // ─── Game 3 · Multiple choice ───────────────────────────────────────
 function ChoiceGame({ word, disabled, onSolve, onGaveUp }: GameProps) {
-  const options = useMemo(() => {
-    const answer = word.toLowerCase();
-    const pool = getActiveWordList()
-      .map((w) => w.word)
-      .filter((w) => w.toLowerCase() !== answer);
-    // Prefer distractors of a similar length for a fairer challenge.
-    const sorted = shuffle(pool).sort(
-      (a, b) => Math.abs(a.length - word.length) - Math.abs(b.length - word.length),
-    );
-    const distractors: string[] = [];
-    for (const w of sorted) {
-      if (distractors.some((d) => d.toLowerCase() === w.toLowerCase())) continue;
-      distractors.push(w);
-      if (distractors.length === 3) break;
-    }
-    return shuffle([word, ...distractors]);
-  }, [word]);
+  const options = useMemo(() => choiceOptions(word, getActiveWordList().map((w) => w.word)), [word]);
 
   const [wrongPick, setWrongPick] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
 
   const pick = (opt: string) => {
     if (disabled || locked) return;
-    if (opt.toLowerCase() === word.toLowerCase()) {
+    if (guessMatches(opt, word)) {
       onSolve();
     } else {
       // One wrong pick ends the round — no reselecting. Show the mistake and the
@@ -705,7 +657,7 @@ function ListenGame({ word, disabled, onSolve, onWrong }: GameProps) {
 
   const check = () => {
     if (!guess.trim() || disabled) return;
-    if (guess.trim().toLowerCase() === word.toLowerCase()) {
+    if (guessMatches(guess, word)) {
       stopSpeaking();
       onSolve();
     } else {
@@ -767,7 +719,7 @@ function VowelsGame({ word, disabled, onSolve, onWrong }: GameProps) {
 
   const check = () => {
     if (!guess.trim() || disabled) return;
-    if (guess.trim().toLowerCase() === word.toLowerCase()) {
+    if (guessMatches(guess, word)) {
       onSolve();
     } else {
       setWrong(true);

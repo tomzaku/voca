@@ -13,7 +13,7 @@ import { PreviewModal, sampleWords } from './PreviewModal';
 import { CollectionForm } from './CollectionForm';
 import { CollectionStats } from './CollectionStats';
 import { QuizSetup } from './QuizSetup';
-import { ScrambleMinigame } from './worldgames/ScrambleMinigame';
+import { DongBaStall } from './worldgames/DongBaStall';
 import { QuizArena } from './worldgames/QuizArena';
 
 // The world pulls in Phaser (~1 MB) — only load it when the page mounts.
@@ -127,7 +127,7 @@ export function WorldGame() {
           panel={feature && {
             feature,
             onClose: () => setFeature(null),
-            content: feature.id === 'learn' ? <ScrambleMinigame words={wordPool} />
+            content: feature.id === 'learn' ? <DongBaStall />
               : feature.id === 'quizzes' ? <QuizArena words={wordPool} />
               : <ComingSoon feature={feature} />,
           }}

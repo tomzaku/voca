@@ -53,6 +53,15 @@ export function HudActionBar({ children }: { children: ReactNode }) {
   );
 }
 
+/** Bottom centre, free layout — for inputs and letter tiles rather than slots. */
+export function HudDock({ children }: { children: ReactNode }) {
+  return (
+    <div className="px absolute bottom-2 left-1/2 -translate-x-1/2 w-[min(760px,calc(100%-1rem))] pointer-events-auto px-in-up">
+      <div className="px-notch px-frame p-3.5 space-y-3">{children}</div>
+    </div>
+  );
+}
+
 /** One answer in the action bar, with its hotkey in the corner. */
 export function HudSlot({ hotkey, state = 'idle', onClick, children }: {
   hotkey: string;
@@ -198,4 +207,25 @@ export function PixelStat({ icon, label, value, color }: { icon: PixelIconName; 
       <div className="px-title !text-[12px] text-[var(--px-muted)] mt-1">{label}</div>
     </div>
   );
+}
+
+/** One letter square: a blank to fill, a letter shown, or a tile to tap. */
+export function PixelLetter({ char, state = 'shown', onClick }: {
+  char?: string;
+  state?: 'blank' | 'shown' | 'given' | 'good' | 'bad' | 'tile' | 'used';
+  onClick?: () => void;
+}) {
+  const look: Record<string, string> = {
+    blank: 'bg-[#0d0a08] text-transparent shadow-[inset_0_0_0_2px_var(--px-ink),inset_0_0_0_3px_#4a3a2b]',
+    shown: 'bg-[var(--px-paper-2)] text-[var(--px-text)] shadow-[inset_0_0_0_2px_var(--px-ink),inset_0_0_0_3px_var(--px-trim)]',
+    given: 'bg-[#1d2a2d] text-[#9fe0e8] shadow-[inset_0_0_0_2px_var(--px-ink),inset_0_0_0_3px_#3f7f88]',
+    good: 'bg-[#1f4a25] text-[var(--px-text)] shadow-[inset_0_0_0_2px_var(--px-ink),inset_0_0_0_3px_var(--px-good)]',
+    bad: 'bg-[#4d1a16] text-[var(--px-text)] shadow-[inset_0_0_0_2px_var(--px-ink),inset_0_0_0_3px_var(--px-bad)]',
+    tile: 'px-slot text-[var(--px-text)]',
+    used: 'bg-[#0d0a08] text-transparent opacity-40 shadow-[inset_0_0_0_2px_var(--px-ink)]',
+  };
+  const cls = `px-notch px-num w-10 h-11 flex items-center justify-center text-[24px] uppercase ${look[state]}`;
+  return onClick
+    ? <button onClick={onClick} disabled={state === 'used'} className={cls}>{char}</button>
+    : <span className={cls}>{state === 'blank' ? '·' : char}</span>;
 }

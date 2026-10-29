@@ -17,7 +17,7 @@ import {
 import { clearPrefetchQueue, dequeue, fillPrefetchQueue, getPrefetchedWords } from '../lib/prefetchService';
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
-import { useTeams } from '../hooks/useTeams';
+import { useLearnRecorder } from '../hooks/useLearnRound';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { useWordDoodle } from '../hooks/useWordDoodle';
 import { useIsPro } from '../hooks/useProStatus';
@@ -99,6 +99,7 @@ async function generateWithRetry(
 export function FlashCard() {
   const { user, loading: authLoading } = useAuth();
   const store = useVocabularyStore();
+  const recorder = useLearnRecorder();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [phase, setPhase] = useState<CardPhase>('loading');
@@ -397,7 +398,7 @@ export function FlashCard() {
     if (phase !== 'introduce' || !wordData) return;
     breakStreak(); // gave up without guessing
     // Giving up counts as a lapse; the round's wrong attempts are recorded too.
-    store.markWord(wordData.word, 'skipped', user?.id, roundMistakesRef.current, via);
+    recorder.gaveUp(wordData.word, roundMistakesRef.current, via);
     setGaveUp(true);
     setPhase('revealed');
   };
@@ -407,12 +408,9 @@ export function FlashCard() {
     setGaveUp(false);
     setSolved(true);
     // Solving the guess counts as a successful review (schedules the word);
-    // wrong attempts made along the way are recorded with it.
-    store.markWord(wordData.word, 'known', user?.id, roundMistakesRef.current, playedGame);
-    // The badge that shows the learner's place is on the revealed card they're
-    // about to land on, so the score behind it is brought up to date now rather
-    // than on their next visit.
-    if (user) void useTeams.getState().recordAnswer();
+    // wrong attempts made along the way are recorded with it. The team score
+    // behind the badge on the revealed card is brought up to date now too.
+    recorder.solved(wordData.word, roundMistakesRef.current, playedGame);
     setPhase('revealed');
   };
 
@@ -435,8 +433,7 @@ export function FlashCard() {
 
   const handleKnow = () => {
     if (!wordData) return;
-    store.markWord(wordData.word, 'known', user?.id, 0, 'flashcard');
-    if (user) void useTeams.getState().recordAnswer();
+    recorder.solved(wordData.word, 0, 'flashcard');
     toast.success(t('flashcard.greatMovingOn'));
     loadNextWord(wordData.word);
   };
