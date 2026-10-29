@@ -193,39 +193,43 @@ export function RevealedView({
           </div>
         </div>
 
-        {/* Actions — Next is the one thing almost every visit ends with, so
-            it's the only filled button; the rest are quieter so the eye lands
-            on it first. */}
+        {/* Actions, in two groups. Left: things you do *to* the word (save it,
+            drop it) — small icon buttons, since they're occasional. Right: your
+            answer about it (Know it / Next) — the one you press every time.
+            "Never show" used to sit beside "Know it" in the same white style,
+            and both move on, so one was easily taken for the other; dropping
+            a word for good now lives apart from saying you know it. */}
         <div className="flex items-stretch gap-2 sm:gap-3">
-          <button
-            onClick={onSkip}
-            className="btn-3d flex items-center justify-center gap-2 px-3.5 sm:px-4 py-3 bg-bg-card text-text-secondary hover:text-accent-red"
-            title={intl.formatMessage({ id: 'flashcard.neverShowTitle' })}
-            aria-label={intl.formatMessage({ id: 'flashcard.neverShow' })}
-          >
-            <Icon icon="solar:eye-closed-bold" className="text-lg shrink-0" />
-            <span className="hidden sm:inline text-sm"><FormattedMessage id="flashcard.neverShow" /></span>
-          </button>
-          <button
-            onClick={onBookmark}
-            className={`btn-3d flex items-center justify-center gap-2 px-3.5 sm:px-4 py-3 ${isBookmarked
-                ? 'bg-accent-yellow text-bg-primary'
-                : 'bg-bg-card text-text-secondary hover:text-accent-yellow'
-              }`}
-            title={intl.formatMessage({ id: isBookmarked ? 'flashcard.removeBookmark' : 'flashcard.bookmarkWord' })}
-            aria-label={intl.formatMessage({ id: isBookmarked ? 'flashcard.saved' : 'flashcard.save' })}
-          >
-            <svg className="shrink-0" width="18" height="18" viewBox="0 0 24 24" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-            </svg>
-            <span className="hidden sm:inline text-sm"><FormattedMessage id={isBookmarked ? 'flashcard.saved' : 'flashcard.save'} /></span>
-          </button>
+          <div className="flex items-stretch gap-2 mr-1 sm:mr-3">
+            <button
+              onClick={onBookmark}
+              className={`btn-3d flex items-center justify-center w-12 py-3 bg-bg-card ${isBookmarked
+                  ? 'text-accent-yellow'
+                  : 'text-text-muted hover:text-accent-yellow'
+                }`}
+              title={intl.formatMessage({ id: isBookmarked ? 'flashcard.removeBookmark' : 'flashcard.bookmarkWord' })}
+              aria-label={intl.formatMessage({ id: isBookmarked ? 'flashcard.saved' : 'flashcard.save' })}
+              aria-pressed={isBookmarked}
+            >
+              <svg className="shrink-0" width="18" height="18" viewBox="0 0 24 24" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+            <button
+              onClick={onSkip}
+              className="btn-3d flex items-center justify-center w-12 py-3 bg-bg-card text-text-muted hover:text-accent-red"
+              title={intl.formatMessage({ id: 'flashcard.neverShowTitle' })}
+              aria-label={intl.formatMessage({ id: 'flashcard.neverShow' })}
+            >
+              <Icon icon="solar:eye-closed-bold" className="text-lg shrink-0" />
+            </button>
+          </div>
           {/* "Know it" only makes sense when you actually solved it.
               If you gave up, you don't know it — just move on. */}
           {showKnowIt && (
             <button
               onClick={onKnow}
-              className="btn-3d flex-1 flex items-center justify-center gap-2 py-3 bg-bg-card text-accent-green"
+              className="btn-3d flex-1 flex items-center justify-center gap-2 py-3 bg-accent-green/10 text-accent-green"
               title={intl.formatMessage({ id: 'flashcard.knowItTitle' })}
             >
               <svg className="shrink-0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
