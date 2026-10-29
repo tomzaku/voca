@@ -8,11 +8,23 @@ export type QuestionType = 'definition' | 'sentence' | 'listen' | 'match';
 /** All types, in display order. */
 export const QUESTION_TYPES: QuestionType[] = ['definition', 'sentence', 'listen', 'match'];
 
-export const QUESTION_TYPE_META: Record<QuestionType, { label: string; hint: string; ask: string }> = {
-  definition: { label: 'Definition', hint: 'Match a meaning to its word', ask: 'Which word matches this definition?' },
-  sentence: { label: 'Sentence', hint: 'Fill the blank in a sentence', ask: 'Which word completes this sentence?' },
-  listen: { label: 'Listen', hint: 'Hear a word and pick it', ask: 'Which word did you hear?' },
-  match: { label: 'Match', hint: 'Connect 3–5 words to meanings', ask: 'Connect each word to its meaning' },
+// `labelId`/`hintId`/`askId` are message ids in the `quiz` catalog — format
+// them at render time.
+export const QUESTION_TYPE_META: Record<QuestionType, {
+  labelId: string; hintId: string; askId: string;
+}> = {
+  definition: {
+    labelId: 'quiz.type.definition', hintId: 'quiz.type.definitionHint', askId: 'quiz.type.definitionAsk',
+  },
+  sentence: {
+    labelId: 'quiz.type.sentence', hintId: 'quiz.type.sentenceHint', askId: 'quiz.type.sentenceAsk',
+  },
+  listen: {
+    labelId: 'quiz.type.listen', hintId: 'quiz.type.listenHint', askId: 'quiz.type.listenAsk',
+  },
+  match: {
+    labelId: 'quiz.type.match', hintId: 'quiz.type.matchHint', askId: 'quiz.type.matchAsk',
+  },
 };
 
 /** When correct answers are shown: after each question, or all at the end. */

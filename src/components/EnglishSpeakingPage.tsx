@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import TextareaAutosize from 'react-textarea-autosize';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { ShortConversationTab } from './ShortConversationTab';
 import { DailyDialogueTab } from './DailyDialogueTab';
 import { IeltsSpeakingTab } from './IeltsSpeakingTab';
@@ -18,6 +19,7 @@ function hasSelection() {
 
 /** Floating popup on text selection to read it aloud */
 function SelectionSpeaker({ containerRef }: { containerRef: React.RefObject<HTMLElement | null> }) {
+  const intl = useIntl();
   const [popup, setPopup] = useState<{ x: number; y: number; text: string } | null>(null);
   const [state, setState] = useState<'idle' | 'done' | 'loading' | 'playing'>('idle');
   const mountedRef = useRef(true);
@@ -119,7 +121,7 @@ function SelectionSpeaker({ containerRef }: { containerRef: React.RefObject<HTML
           </svg>
         )}
         <span className="text-xs font-medium">
-          {state === 'playing' ? 'Stop' : state === 'loading' ? 'Loading...' : 'Listen'}
+          {intl.formatMessage({ id: state === 'playing' ? 'speaking.stop' : state === 'loading' ? 'speaking.loading' : 'speaking.listen' })}
         </span>
       </button>
       {(isActive || isDone) && (
@@ -131,7 +133,7 @@ function SelectionSpeaker({ containerRef }: { containerRef: React.RefObject<HTML
             <polyline points="1 4 1 10 7 10" />
             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
           </svg>
-          <span className="text-[11px] font-medium">Repeat</span>
+          <span className="text-[11px] font-medium"><FormattedMessage id="speaking.repeat" /></span>
         </button>
       )}
     </div>
@@ -145,6 +147,7 @@ export function ReadAloudVoice({ text, voice, tone, voiceLabel }: {
   tone: 'orange' | 'cyan';
   voiceLabel: string;
 }) {
+  const intl = useIntl();
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle');
   const mountedRef = useRef(true);
 
@@ -183,7 +186,7 @@ export function ReadAloudVoice({ text, voice, tone, voiceLabel }: {
       className={`w-7 h-7 rounded-md flex items-center justify-center border transition-all cursor-pointer ${
         state === 'playing' ? colorClass.active : state === 'loading' ? colorClass.loading : colorClass.idle
       }`}
-      title={`${state === 'playing' ? 'Stop' : 'Listen'} (${voiceLabel})`}
+      title={intl.formatMessage({ id: state === 'playing' ? 'speaking.stopVoice' : 'speaking.listenVoice' }, { voice: voiceLabel })}
     >
       {state === 'loading' ? (
         <svg width="12" height="12" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -209,6 +212,7 @@ export function PlaySequence({ lines, tone = 'cyan' }: {
   lines: { text: string; voice: string }[];
   tone?: 'green' | 'cyan';
 }) {
+  const intl = useIntl();
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle');
   const [currentIndex, setCurrentIndex] = useState(-1);
   const mountedRef = useRef(true);
@@ -277,7 +281,7 @@ export function PlaySequence({ lines, tone = 'cyan' }: {
                 ? 'bg-accent-cyan/5 text-accent-cyan/60 border-accent-cyan/10'
                 : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
         }`}
-        title={state === 'playing' ? 'Stop conversation' : 'Play full conversation with different voices'}
+        title={intl.formatMessage({ id: state === 'playing' ? 'speaking.stopConversation' : 'speaking.playConversationTitle' })}
       >
         {state === 'loading' ? (
           <svg width="12" height="12" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -292,7 +296,7 @@ export function PlaySequence({ lines, tone = 'cyan' }: {
             <polygon points="5 3 19 12 5 21 5 3" />
           </svg>
         )}
-        {state === 'playing' ? 'Stop' : state === 'loading' ? 'Loading...' : 'Play All'}
+        {intl.formatMessage({ id: state === 'playing' ? 'speaking.stop' : state === 'loading' ? 'speaking.loading' : 'speaking.playAll' })}
       </button>
     </div>
   );
@@ -302,6 +306,7 @@ export function PlaySequence({ lines, tone = 'cyan' }: {
 const MAX_READ_TEXT = 4000;
 
 function ReadAloudTab() {
+  const intl = useIntl();
   const { engine } = useTtsSettings();
   const voices = engine === 'piper' ? PIPER_VOICES : KOKORO_VOICES;
   const [text, setText] = useState('');
@@ -344,20 +349,20 @@ function ReadAloudTab() {
   const copy = async () => {
     if (!text.trim()) return;
     await navigator.clipboard.writeText(text);
-    toast.success('Copied!');
+    toast.success(intl.formatMessage({ id: 'speaking.copied' }));
   };
 
   return (
     <div>
       <p className="text-xs text-text-muted mb-3">
-        Paste a paragraph or a few sentences, listen to a voice read it correctly, then copy it out to practice saying it yourself.
+        <FormattedMessage id="speaking.readAloudHint" />
       </p>
 
       <div className="rounded-xl border-2 border-border bg-bg-card p-4 mb-4">
         <TextareaAutosize
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, MAX_READ_TEXT))}
-          placeholder="Paste or type a paragraph to practice…"
+          placeholder={intl.formatMessage({ id: 'speaking.readAloudPlaceholder' })}
           minRows={4}
           rows={4}
           maxRows={16}
@@ -368,14 +373,14 @@ function ReadAloudTab() {
           <button
             onClick={copy}
             disabled={!text.trim()}
-            title="Copy text"
+            title={intl.formatMessage({ id: 'speaking.copyText' })}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-50 transition-all cursor-pointer"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" />
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
             </svg>
-            Copy
+            <FormattedMessage id="speaking.copy" />
           </button>
         </div>
       </div>
@@ -405,19 +410,19 @@ function ReadAloudTab() {
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
             </svg>
           )}
-          {state === 'playing' ? 'Stop' : state === 'loading' ? 'Loading…' : 'Read Aloud'}
+          {intl.formatMessage({ id: state === 'playing' ? 'speaking.stop' : state === 'loading' ? 'speaking.loading' : 'speaking.readAloud' })}
         </button>
 
         {engine === 'native' ? (
           <span className="text-xs text-text-muted">
-            Using your device's voice — pick an AI voice in Settings to choose one here.
+            <FormattedMessage id="speaking.deviceVoiceHint" />
           </span>
         ) : (
           <Selector
             value={voice}
             options={voices.map((v) => ({ value: v.id, label: `${v.name} · ${v.accent} ${v.gender}` }))}
             onChange={setVoice}
-            ariaLabel="Voice"
+            ariaLabel={intl.formatMessage({ id: 'speaking.voice' })}
           />
         )}
       </div>
@@ -428,11 +433,11 @@ function ReadAloudTab() {
 /* ─── Main Page ──────────────────────────────────────────────── */
 // Sub-page metadata — just enough to resolve `?tab=` and label the
 // breadcrumb. The Rail drawer owns each one's icon/color for navigation.
-const tabs: { key: Tab; label: string }[] = [
-  { key: 'conversation', label: 'Short Conversation' },
-  { key: 'dialogue', label: 'Daily Dialogue' },
-  { key: 'ielts', label: 'IELTS Speaking' },
-  { key: 'read', label: 'Read Aloud' },
+const tabs: { key: Tab; labelId: string }[] = [
+  { key: 'conversation', labelId: 'speaking.tabShortConversation' },
+  { key: 'dialogue', labelId: 'speaking.tabDailyDialogue' },
+  { key: 'ielts', labelId: 'speaking.tabIelts' },
+  { key: 'read', labelId: 'speaking.readAloud' },
 ];
 
 // Which sub-page this is — picked from the Vocabulary-style group in the Rail
@@ -460,10 +465,10 @@ export function EnglishSpeakingPage() {
 
       <h1 className="flex items-center gap-1.5 mb-6 text-base">
         <Link to="/speaking" className="font-medium text-text-muted hover:text-text-secondary transition-colors">
-          Speak
+          <FormattedMessage id="speaking.speak" />
         </Link>
         <span className="text-text-muted/50">/</span>
-        <span className="font-bold text-text-primary">{activeMeta.label}</span>
+        <span className="font-bold text-text-primary"><FormattedMessage id={activeMeta.labelId} /></span>
       </h1>
 
       {activeTab === 'conversation' && <ShortConversationTab />}

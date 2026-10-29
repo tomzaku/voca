@@ -1,3 +1,4 @@
+import { FormattedMessage, useIntl } from 'react-intl';
 import { familyForms, maskAnswer } from '../lib/answerMask';
 import { peekWord } from '../hooks/useWordPeek';
 import type { VocabularyWord } from '../types';
@@ -14,6 +15,7 @@ const MOBILE_CHIP_LIMIT = 2;
  *  they stay inert: the chips are partly blanked out, and looking one up would
  *  hand over the answer the mask exists to protect. */
 export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskWord?: string }) {
+  const intl = useIntl();
   const mask = (s: string) => (maskWord ? maskAnswer(s, maskWord, familyForms(wordData.wordFamily)) : s);
   // A phrase that masks down to nothing but underscores gives the reader
   // nothing — drop it rather than show a useless "____" pill.
@@ -47,7 +49,7 @@ export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskW
         <button
           key={w}
           onClick={(e) => peekWord(w, e.currentTarget)}
-          title={`What does “${w}” mean?`}
+          title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: w })}
           className={`${chip(accent)} ${overflow}`}
         >
           {w}
@@ -59,13 +61,13 @@ export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskW
     <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-2 gap-x-4 gap-y-2.5">
       {hasSyn && (
         <div>
-          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">Synonyms</h4>
+          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5"><FormattedMessage id="word.synonyms" /></h4>
           <div className="flex flex-wrap gap-1.5">{renderChips(synonyms, 'cyan')}</div>
         </div>
       )}
       {hasAnt && (
         <div>
-          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">Antonyms</h4>
+          <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5"><FormattedMessage id="word.antonyms" /></h4>
           <div className="flex flex-wrap gap-1.5">{renderChips(antonyms, 'red')}</div>
         </div>
       )}

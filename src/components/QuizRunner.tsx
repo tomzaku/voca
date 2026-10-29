@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { generateWordData, WORD_LIST } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
@@ -118,7 +119,7 @@ function buildQuiz(config: QuizConfig, loaded: string[], dataMap: Record<string,
  * shared tests. Reports the result once via `onFinish`; navigation on the score
  * screen is driven by the callbacks the parent supplies.
  */
-export function QuizRunner({ config, preloadedData, recordProgress = false, onExit, onReplay, onPickWords, onFinish, finishLabel = 'Done' }: {
+export function QuizRunner({ config, preloadedData, recordProgress = false, onExit, onReplay, onPickWords, onFinish, finishLabel }: {
   config: QuizConfig;
   /** Word data snapshot (shared quizzes). When given, no word-service calls are
    *  made — so anonymous students can take the quiz. Omit for live practice. */
@@ -133,6 +134,7 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
   onFinish?: (r: QuizResult) => void;
   finishLabel?: string;
 }) {
+  const intl = useIntl();
   const markWord = useVocabularyStore((s) => s.markWord);
   const { user } = useAuth();
   const [phase, setPhase] = useState<'loading' | 'playing' | 'finished'>('loading');
@@ -167,7 +169,7 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
       if (!alive) return;
       const loaded = config.words.filter((w) => dataMap[w]);
       if (loaded.length === 0) {
-        toast.error('Could not load the quiz words. Try again.');
+        toast.error(intl.formatMessage({ id: 'quiz.runner.loadFailed' }));
         onExit();
         return;
       }
@@ -274,7 +276,7 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
         <div className="w-10 h-10 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-        <p className="text-sm text-text-muted">Preparing quiz…</p>
+        <p className="text-sm text-text-muted"><FormattedMessage id="quiz.runner.preparing" /></p>
       </div>
     );
   }
@@ -282,7 +284,9 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
   // ── Finished ──
   if (phase === 'finished') {
     const pct = questions.length ? Math.round((score / questions.length) * 100) : 0;
-    const msg = pct === 100 ? 'Perfect!' : pct >= 75 ? 'Great job!' : pct >= 50 ? 'Good effort!' : 'Keep practicing!';
+    const msg = intl.formatMessage({
+      id: pct === 100 ? 'quiz.runner.perfect' : pct >= 75 ? 'quiz.runner.greatJob' : pct >= 50 ? 'quiz.runner.goodEffort' : 'quiz.runner.keepPracticing',
+    });
     const showReview = config.reveal === 'end' && answers.length > 0;
 
     return (
@@ -293,7 +297,9 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
         </div>
         <p className="text-accent-cyan font-display font-bold text-xl mb-1">{msg}</p>
         <p className="text-text-muted text-sm mb-8">
-          {pct}% correct{answers.length < questions.length ? ` · answered ${answers.length}/${questions.length}` : ''}
+          {answers.length < questions.length
+            ? <FormattedMessage id="quiz.runner.pctCorrectPartial" values={{ pct, answered: answers.length, total: questions.length }} />
+            : <FormattedMessage id="quiz.runner.pctCorrect" values={{ pct }} />}
         </p>
 
         <div className="w-full h-2 bg-bg-tertiary rounded-full mb-8 overflow-hidden">
@@ -303,12 +309,12 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
         {showReview && <QuizReview answers={answers} />}
 
         <div className="flex flex-wrap gap-3 justify-center mt-8">
-          <button onClick={onExit} className="px-5 py-2.5 rounded-xl bg-accent-cyan text-bg-primary text-sm font-medium hover:opacity-90 transition-opacity">{finishLabel}</button>
+          <button onClick={onExit} className="px-5 py-2.5 rounded-xl bg-accent-cyan text-bg-primary text-sm font-medium hover:opacity-90 transition-opacity">{finishLabel ?? intl.formatMessage({ id: 'quiz.runner.done' })}</button>
           {onPickWords && (
-            <button onClick={onPickWords} className="px-5 py-2.5 rounded-xl border border-border text-text-muted text-sm hover:border-border-light hover:text-text-primary transition-all">Pick words</button>
+            <button onClick={onPickWords} className="px-5 py-2.5 rounded-xl border border-border text-text-muted text-sm hover:border-border-light hover:text-text-primary transition-all"><FormattedMessage id="quiz.runner.pickWords" /></button>
           )}
           {onReplay && (
-            <button onClick={onReplay} className="px-5 py-2.5 rounded-xl border border-border text-text-muted text-sm hover:border-border-light hover:text-text-primary transition-all">Play again</button>
+            <button onClick={onReplay} className="px-5 py-2.5 rounded-xl border border-border text-text-muted text-sm hover:border-border-light hover:text-text-primary transition-all"><FormattedMessage id="quiz.runner.playAgain" /></button>
           )}
         </div>
       </div>
@@ -325,7 +331,7 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Quit
+          <FormattedMessage id="quiz.runner.quit" />
         </button>
         <div className="flex items-center gap-3 text-sm">
           {remaining !== null && (
@@ -349,8 +355,8 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
       <div className="max-w-2xl mx-auto px-4 py-8 animate-fade-in">
         {topBar}
         <div className="bg-bg-card border border-border rounded-2xl p-4 mb-6 text-center">
-          <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">{QUESTION_TYPE_META.match.ask}</p>
-          <p className="text-[11px] text-text-muted mt-1">Tap a word, then its meaning. Submit when you're done.</p>
+          <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">{intl.formatMessage({ id: QUESTION_TYPE_META.match.askId })}</p>
+          <p className="text-[11px] text-text-muted mt-1"><FormattedMessage id="quiz.runner.matchHelp" /></p>
         </div>
         <MatchBoard key={current} pairs={q.pairs} reveal={revealFeedback} onComplete={handleMatchComplete} />
       </div>
@@ -362,17 +368,17 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
       {topBar}
 
       <div className="bg-bg-card border border-border rounded-2xl p-6 mb-6">
-        <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-4">{QUESTION_TYPE_META[q.type].ask}</p>
+        <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-4">{intl.formatMessage({ id: QUESTION_TYPE_META[q.type].askId })}</p>
         {q.type === 'listen' ? (
           <div className="flex flex-col items-center gap-3 py-2">
             <button
               onClick={() => { stopSpeaking(); speakText(q.word); }}
               className="w-16 h-16 rounded-full bg-accent-cyan text-bg-primary flex items-center justify-center hover:opacity-90 transition-opacity"
-              title="Play again"
+              title={intl.formatMessage({ id: 'quiz.runner.playSound' })}
             >
               <Icon icon="solar:volume-loud-bold" className="text-3xl" />
             </button>
-            <p className="text-xs text-text-muted font-bold">Tap to hear it again</p>
+            <p className="text-xs text-text-muted font-bold"><FormattedMessage id="quiz.runner.tapToHear" /></p>
           </div>
         ) : (
           <p className="text-text-primary leading-relaxed text-base">{q.prompt}</p>
@@ -381,10 +387,10 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
 
       {q.type === 'definition' && ((q.synonyms?.length ?? 0) > 0 || (q.antonyms?.length ?? 0) > 0) && (
         <div className="bg-bg-card border border-border rounded-2xl px-5 py-4 mb-5 space-y-2.5">
-          <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">Hints</p>
+          <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="quiz.runner.hints" /></p>
           {q.synonyms && q.synonyms.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-text-muted shrink-0">Synonyms:</span>
+              <span className="text-xs text-text-muted shrink-0"><FormattedMessage id="quiz.runner.synonyms" /></span>
               {q.synonyms.map((s) => (
                 <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/20">{s}</span>
               ))}
@@ -392,7 +398,7 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
           )}
           {q.antonyms && q.antonyms.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-text-muted shrink-0">Antonyms:</span>
+              <span className="text-xs text-text-muted shrink-0"><FormattedMessage id="quiz.runner.antonyms" /></span>
               {q.antonyms.map((a) => (
                 <span key={a} className="text-xs px-2 py-0.5 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20">{a}</span>
               ))}
@@ -410,7 +416,7 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
               key={i}
               onClick={() => canReveal && revealLetter(i)}
               disabled={!canReveal}
-              title={canReveal ? 'Click to reveal this letter' : undefined}
+              title={canReveal ? intl.formatMessage({ id: 'quiz.runner.revealLetter' }) : undefined}
               className={`w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 transition-all ${
                 isShown
                   ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan cursor-default'
@@ -454,7 +460,9 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
 
       {selected && revealFeedback && (
         <p className={`text-center text-sm mt-5 font-medium animate-fade-in ${selected === q.word ? 'text-accent-green' : 'text-accent-red'}`}>
-          {selected === q.word ? '✓ Correct!' : `✗ The answer is "${q.word}"`}
+          {selected === q.word
+            ? intl.formatMessage({ id: 'quiz.runner.correct' })
+            : intl.formatMessage({ id: 'quiz.runner.theAnswerIs' }, { word: q.word })}
         </p>
       )}
     </div>
@@ -465,7 +473,7 @@ export function QuizRunner({ config, preloadedData, recordProgress = false, onEx
 export function QuizReview({ answers }: { answers: Answer[] }) {
   return (
     <div className="text-left mt-2">
-      <h3 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider mb-3">Review</h3>
+      <h3 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider mb-3"><FormattedMessage id="quiz.runner.review" /></h3>
       <div className="space-y-2">
         {answers.map((a, i) => (a.kind === 'mcq'
           ? <McqReviewRow key={i} a={a} />
@@ -483,14 +491,15 @@ function ResultIcon({ ok }: { ok: boolean }) {
 
 function McqReviewRow({ a }: { a: Extract<Answer, { kind: 'mcq' }> }) {
   const q = a.question;
-  const context = q.type === 'listen' ? 'Heard aloud' : q.prompt;
+  const intl = useIntl();
+  const context = q.type === 'listen' ? intl.formatMessage({ id: 'quiz.runner.heardAloud' }) : q.prompt;
   return (
     <div className="flex gap-2.5 items-start rounded-xl border border-border bg-bg-card p-3">
       <ResultIcon ok={a.correct} />
       <div className="min-w-0">
         <div className="font-display font-bold text-sm text-text-primary">{q.word}</div>
         <div className="text-xs text-text-muted line-clamp-2">{context}</div>
-        {!a.correct && <div className="text-xs text-accent-red mt-0.5">Answered: {a.picked ?? '—'}</div>}
+        {!a.correct && <div className="text-xs text-accent-red mt-0.5"><FormattedMessage id="quiz.runner.answered" values={{ answer: a.picked ?? '—' }} /></div>}
       </div>
     </div>
   );
@@ -503,7 +512,7 @@ function MatchReviewRow({ a }: { a: Extract<Answer, { kind: 'match' }> }) {
     <div className="rounded-xl border border-border bg-bg-card p-3">
       <div className="flex items-center gap-2 mb-2">
         <ResultIcon ok={a.correct} />
-        <span className="font-display font-bold text-sm text-text-primary">Matching · {correctCount}/{pairs.length} correct</span>
+        <span className="font-display font-bold text-sm text-text-primary"><FormattedMessage id="quiz.runner.matchingScore" values={{ correct: correctCount, total: pairs.length }} /></span>
       </div>
       <div className="space-y-1 pl-1">
         {pairs.map((p) => {

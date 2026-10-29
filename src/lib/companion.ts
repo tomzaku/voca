@@ -3,6 +3,8 @@
 // words they've marked "known" — so it can't be gamed and needs no extra
 // storage beyond the chosen animal + its name (see useCompanion).
 
+import { t } from '../i18n';
+
 export type AnimalId = 'fox' | 'owl' | 'cat' | 'turtle';
 
 export interface Skill {
@@ -24,55 +26,35 @@ export interface AnimalInfo {
   skills: Skill[];
 }
 
+// Names and descriptions are getters over the `companion` catalog, so every
+// read is formatted in the language active at that moment — never frozen at
+// import time — while callers keep reading `a.name` / `skill.desc` as before.
+function animal(
+  id: AnimalId,
+  emoji: string,
+  colors: AnimalInfo['colors'],
+  skillIcons: string[],
+): AnimalInfo {
+  const k = `companion.${id}`;
+  return {
+    id, emoji, colors,
+    get name() { return t(`${k}.name`); },
+    get tagline() { return t(`${k}.tagline`); },
+    get perkTitle() { return t(`${k}.perkTitle`); },
+    get perkDesc() { return t(`${k}.perkDesc`); },
+    skills: skillIcons.map((icon, i) => ({
+      icon,
+      get name() { return t(`${k}.skill${i + 1}.name`); },
+      get desc() { return t(`${k}.skill${i + 1}.desc`); },
+    })),
+  };
+}
+
 export const ANIMALS: AnimalInfo[] = [
-  {
-    id: 'fox', name: 'Fox', emoji: '🦊', tagline: 'Clever & quick',
-    perkTitle: 'Cunning', perkDesc: '+25% points on every win',
-    colors: { primary: '#ff9f43', secondary: '#ee7d0f', belly: '#fff3e6' },
-    skills: [
-      { name: 'Pounce', icon: '🎯', desc: 'Leaps on new words the moment they appear.' },
-      { name: 'Dig', icon: '⛏️', desc: 'Unearths the trickiest definitions with ease.' },
-      { name: 'Dash', icon: '💨', desc: 'Answers in a flash to chase streak bonuses.' },
-      { name: 'Trickster', icon: '🎭', desc: 'Sniffs out the sneakiest wrong choices.' },
-      { name: 'Nine Tails', icon: '🔥', desc: 'A legend of the vocabulary forest.' },
-    ],
-  },
-  {
-    id: 'owl', name: 'Owl', emoji: '🦉', tagline: 'Wise & patient',
-    perkTitle: 'Wisdom', perkDesc: 'Double streak-combo bonus',
-    colors: { primary: '#b98bff', secondary: '#8b5cf6', belly: '#efe7ff' },
-    skills: [
-      { name: 'Hoot', icon: '🌙', desc: 'Calls out the right answer with confidence.' },
-      { name: 'Night Sight', icon: '👁️', desc: 'Sees meaning even in the murkiest words.' },
-      { name: 'Silent Wing', icon: '🪶', desc: 'Glides through quizzes without a slip.' },
-      { name: 'Scholar', icon: '📚', desc: 'Remembers every word it has ever met.' },
-      { name: 'Sage', icon: '🧙', desc: 'Wisdom of a thousand words learned.' },
-    ],
-  },
-  {
-    id: 'cat', name: 'Cat', emoji: '🐱', tagline: 'Curious & bold',
-    perkTitle: 'Curiosity', perkDesc: '+5 bonus points per win',
-    colors: { primary: '#94a3b8', secondary: '#64748b', belly: '#f1f5f9' },
-    skills: [
-      { name: 'Pounce', icon: '🐾', desc: 'Snatches up new words in an instant.' },
-      { name: 'Whiskers', icon: '🐈', desc: 'Senses a meaning before you finish reading.' },
-      { name: 'Climb', icon: '🧗', desc: 'Scales harder word packs with ease.' },
-      { name: 'Prowl', icon: '🌘', desc: 'Hunts down every tempting distractor.' },
-      { name: 'Nine Lives', icon: '✨', desc: 'Bounces back from any wrong guess.' },
-    ],
-  },
-  {
-    id: 'turtle', name: 'Turtle', emoji: '🐢', tagline: 'Steady & tough',
-    perkTitle: 'Resilience', perkDesc: "A miss won't reset your streak (once a day)",
-    colors: { primary: '#34e39b', secondary: '#10b981', belly: '#e6fbf1' },
-    skills: [
-      { name: 'Tuck', icon: '🛡️', desc: 'Shrugs off a wrong answer without a scratch.' },
-      { name: 'Shell Up', icon: '🐚', desc: 'Guards your streak from a single slip.' },
-      { name: 'Steady', icon: '🐢', desc: 'Slow and sure wins the vocabulary race.' },
-      { name: 'Ancient', icon: '🗿', desc: 'Centuries of accumulated wordcraft.' },
-      { name: 'Worldturtle', icon: '🌍', desc: 'Carries a whole language on its back.' },
-    ],
-  },
+  animal('fox', '🦊', { primary: '#ff9f43', secondary: '#ee7d0f', belly: '#fff3e6' }, ['🎯', '⛏️', '💨', '🎭', '🔥']),
+  animal('owl', '🦉', { primary: '#b98bff', secondary: '#8b5cf6', belly: '#efe7ff' }, ['🌙', '👁️', '🪶', '📚', '🧙']),
+  animal('cat', '🐱', { primary: '#94a3b8', secondary: '#64748b', belly: '#f1f5f9' }, ['🐾', '🐈', '🧗', '🌘', '✨']),
+  animal('turtle', '🐢', { primary: '#34e39b', secondary: '#10b981', belly: '#e6fbf1' }, ['🛡️', '🐚', '🐢', '🗿', '🌍']),
 ];
 
 export function getAnimal(id: AnimalId): AnimalInfo {
@@ -90,12 +72,16 @@ export interface Stage {
   min: number; // words known to reach this stage
 }
 
+function stage(key: string, min: number): Stage {
+  return { min, get name() { return t(`companion.stage.${key}`); } };
+}
+
 export const STAGES: Stage[] = [
-  { name: 'Baby', min: 0 },
-  { name: 'Young', min: 25 },
-  { name: 'Grown', min: 75 },
-  { name: 'Expert', min: 150 },
-  { name: 'Master', min: 300 },
+  stage('baby', 0),
+  stage('young', 25),
+  stage('grown', 75),
+  stage('expert', 150),
+  stage('master', 300),
 ];
 
 /** Words-known thresholds at which each of the five skills unlocks. */
@@ -112,7 +98,7 @@ export function nextStage(known: number): Stage | null {
 }
 
 export function unlockedSkills(known: number): number {
-  return SKILL_THRESHOLDS.filter((t) => known >= t).length;
+  return SKILL_THRESHOLDS.filter((n) => known >= n).length;
 }
 
 // ─── Perks (applied by the game score store) ────────────────────────

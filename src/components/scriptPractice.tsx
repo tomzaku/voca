@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 
 // Shared pieces for practising a two-person script — Daily Dialogue and IELTS
@@ -111,10 +112,11 @@ export function PlayerBar({ modes, mode, onMode, player, total }: {
   player: ScriptPlayer;
   total: number;
 }) {
+  const intl = useIntl();
   const starting = player.status === 'loading' && player.index === 0;
   return (
     <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] z-[5] mt-3 p-2 rounded-xl border border-border bg-bg-card/90 backdrop-blur shadow-sm flex flex-wrap items-center gap-2">
-      <div className="flex gap-0.5 p-0.5 rounded-lg bg-bg-tertiary overflow-x-auto [scrollbar-width:none]" role="radiogroup" aria-label="How to practice">
+      <div className="flex gap-0.5 p-0.5 rounded-lg bg-bg-tertiary overflow-x-auto [scrollbar-width:none]" role="radiogroup" aria-label={intl.formatMessage({ id: 'speaking.howToPractice' })}>
         {modes.map((m) => (
           <button
             key={m.id}
@@ -144,7 +146,7 @@ export function PlayerBar({ modes, mode, onMode, player, total }: {
             width={13}
             className={starting ? 'animate-spin' : ''}
           />
-          {player.running ? 'Stop' : mode === 'listen' ? 'Play all' : 'Start role-play'}
+          {intl.formatMessage({ id: player.running ? 'speaking.stop' : mode === 'listen' ? 'speaking.playAll' : 'speaking.startRolePlay' })}
         </button>
       </div>
     </div>
@@ -163,6 +165,7 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
   /** Custom body for a line (e.g. a cue card); `null` keeps the plain text. */
   renderText?: (line: ScriptLine, i: number) => React.ReactNode | null;
 }) {
+  const intl = useIntl();
   // Keep the line being spoken (or waited on) in view.
   useEffect(() => {
     if (player.index < 0) return;
@@ -188,7 +191,7 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
             </span>
             <div className={`max-w-[85%] sm:max-w-[78%] flex flex-col ${right ? 'items-end' : 'items-start'}`}>
               <span className={`text-[10px] font-semibold mb-1 px-1 ${tone.name}`}>
-                {name}{mine && ' · you'}
+                {mine ? intl.formatMessage({ id: 'speaking.nameYou' }, { name }) : name}
               </span>
               {hidden ? (
                 <button
@@ -201,13 +204,13 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
                   <span className="text-sm text-text-secondary blur-[5px] select-none line-clamp-3" aria-hidden>{line.text}</span>
                   <span className={`flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold ${waiting ? 'text-accent-yellow' : 'text-text-muted group-hover:text-text-secondary'}`}>
                     <Icon icon={waiting ? 'lucide:mic' : 'lucide:eye'} width={12} />
-                    {waiting ? 'Your turn — say it, then reveal' : 'Tap to reveal'}
+                    {intl.formatMessage({ id: waiting ? 'speaking.yourTurnReveal' : 'speaking.tapToReveal' })}
                   </span>
                 </button>
               ) : (
                 <button
                   onClick={() => player.playLine(i)}
-                  title="Listen to this line"
+                  title={intl.formatMessage({ id: 'speaking.listenLine' })}
                   className={`rounded-2xl border px-3.5 py-2.5 text-left text-sm leading-relaxed text-text-primary whitespace-pre-line transition-all cursor-pointer hover:brightness-[1.03] ${tone.bubble} ${
                     right ? 'rounded-br-md' : 'rounded-bl-md'
                   } ${active ? `ring-2 ${tone.ring} shadow-sm` : ''}`}
@@ -248,7 +251,7 @@ export function YourTurnBar({ title, hint, onContinue, children }: {
         onClick={onContinue}
         className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-accent-yellow text-bg-primary hover:opacity-90 cursor-pointer shrink-0"
       >
-        Reveal & continue <Icon icon="lucide:arrow-right" width={13} />
+        <FormattedMessage id="speaking.revealContinue" /> <Icon icon="lucide:arrow-right" width={13} />
       </button>
     </div>
   );
@@ -261,7 +264,7 @@ export function ProgressCard({ done, total, children }: { done: number; total: n
     <div className="rounded-xl border border-border bg-bg-card p-4">
       <div className="flex items-end justify-between gap-3 mb-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Your progress</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted"><FormattedMessage id="speaking.yourProgress" /></p>
           <p className="text-2xl font-extrabold text-text-primary leading-tight">
             {done}<span className="text-sm font-semibold text-text-muted"> / {total}</span>
           </p>
@@ -278,30 +281,32 @@ export function ProgressCard({ done, total, children }: { done: number; total: n
 
 /** Practiced toggle for a script's header. */
 export function PracticedButton({ done, onToggle }: { done: boolean; onToggle: () => void }) {
+  const intl = useIntl();
   return (
     <button
       onClick={onToggle}
       aria-pressed={done}
-      title={done ? 'Practiced — tap to undo' : 'Mark as practiced'}
+      title={intl.formatMessage({ id: done ? 'speaking.practicedUndo' : 'speaking.markAsPracticed' })}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors cursor-pointer ${
         done ? 'text-accent-green bg-accent-green/10 hover:bg-accent-green/15' : 'bg-accent-green text-bg-primary hover:opacity-90'
       }`}
     >
       <Icon icon={done ? 'lucide:circle-check' : 'lucide:check'} width={14} />
-      {done ? 'Practiced' : 'Mark practiced'}
+      {intl.formatMessage({ id: done ? 'speaking.practiced' : 'speaking.markPracticed' })}
     </button>
   );
 }
 
 /** Tappable phrase chips that read themselves aloud. */
 export function PhraseChips({ phrases, voice }: { phrases: string[]; voice: string }) {
+  const intl = useIntl();
   return (
     <div className="flex flex-wrap gap-1.5">
       {phrases.map((phrase) => (
         <button
           key={phrase}
           onClick={() => speakText(phrase, { voice }).catch(() => {})}
-          title="Listen"
+          title={intl.formatMessage({ id: 'speaking.listen' })}
           className="text-xs px-2.5 py-1 rounded-full bg-accent-yellow/10 text-text-secondary border border-accent-yellow/15 hover:text-text-primary hover:border-accent-yellow/40 transition-colors cursor-pointer"
         >
           {phrase}

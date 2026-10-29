@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection, isCollectionId, type CollectionInfo } from '../lib/collections';
 import { QuizSetup } from './QuizSetup';
@@ -91,6 +92,7 @@ function TopicTile({ c, active, pct, onPick, onView, onQuiz }: {
   onView: () => void;
   onQuiz: () => void;
 }) {
+  const intl = useIntl();
   return (
     <div
       className={`group relative overflow-hidden flex flex-col min-h-44 rounded-2xl p-3.5 text-white transition-all duration-200 hover:-translate-y-1 ${
@@ -110,7 +112,7 @@ function TopicTile({ c, active, pct, onPick, onView, onQuiz }: {
       <button
         onClick={onPick}
         aria-pressed={active}
-        aria-label={`Study ${c.name}`}
+        aria-label={intl.formatMessage({ id: 'collections.studyName' }, { name: c.name })}
         className="absolute inset-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-4"
       />
       <div className="relative pointer-events-none flex items-start justify-between gap-2">
@@ -118,19 +120,19 @@ function TopicTile({ c, active, pct, onPick, onView, onQuiz }: {
           <Icon icon={c.icon ?? 'lucide:book-open'} className="text-lg" />
         </span>
         <div className="flex gap-1 pointer-events-auto">
-          <IconAction glass icon="lucide:eye" label={`View ${c.name}`} onClick={onView} />
-          <IconAction glass icon="lucide:play" label={`Quiz ${c.name}`} onClick={onQuiz} />
+          <IconAction glass icon="lucide:eye" label={intl.formatMessage({ id: 'collections.viewName' }, { name: c.name })} onClick={onView} />
+          <IconAction glass icon="lucide:play" label={intl.formatMessage({ id: 'collections.quizName' }, { name: c.name })} onClick={onQuiz} />
         </div>
       </div>
       <div className="relative pointer-events-none mt-auto pt-4">
         {active && (
           <span className="inline-block mb-1.5 text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white text-gray-900">
-            Studying
+            <FormattedMessage id="collections.studying" />
           </span>
         )}
         <p className="font-display font-extrabold text-[17px] leading-tight [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]">{c.name}</p>
         <p className="text-[11px] leading-snug text-white/90 mt-0.5 line-clamp-2">{c.description}</p>
-        <CoverProgress pct={pct} label={`${c.count} words · ${pct}% known`} />
+        <CoverProgress pct={pct} label={intl.formatMessage({ id: 'collections.wordsPctKnown' }, { count: c.count, pct })} />
       </div>
     </div>
   );
@@ -146,6 +148,7 @@ function LevelCard({ c, active, pct, onPick, onView, onStats, onQuiz }: {
   onStats: () => void;
   onQuiz: () => void;
 }) {
+  const intl = useIntl();
   const meta = LEVEL_META[c.id] ?? LEVEL_META.curated;
   return (
     <div
@@ -153,14 +156,14 @@ function LevelCard({ c, active, pct, onPick, onView, onStats, onQuiz }: {
         active ? 'border-accent-cyan ring-2 ring-accent-cyan/25' : 'border-border hover:border-border-light'
       }`}
     >
-      <button onClick={onPick} aria-pressed={active} aria-label={`Study ${c.name}`} className="absolute inset-0 rounded-2xl" />
+      <button onClick={onPick} aria-pressed={active} aria-label={intl.formatMessage({ id: 'collections.studyName' }, { name: c.name })} className="absolute inset-0 rounded-2xl" />
       <div className="relative pointer-events-none flex items-start justify-between gap-2">
         <span className={`w-11 h-11 rounded-xl flex items-center justify-center font-display font-extrabold text-base ${meta.chip}`}>
           {meta.badge}
         </span>
         {active && (
           <span className="text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-accent-cyan text-bg-primary">
-            Studying
+            <FormattedMessage id="collections.studying" />
           </span>
         )}
       </div>
@@ -171,11 +174,11 @@ function LevelCard({ c, active, pct, onPick, onView, onStats, onQuiz }: {
       </div>
       <div className="relative flex items-center gap-1.5 mt-2">
         <span className="pointer-events-none text-[11px] font-bold text-text-muted mr-auto">
-          {c.count.toLocaleString()} words · {pct}%
+          <FormattedMessage id="collections.wordsPct" values={{ count: c.count, pct }} />
         </span>
-        <IconAction icon="lucide:eye" label={`View ${c.name}`} onClick={onView} />
-        <IconAction icon="lucide:chart-pie" label={`${c.name} progress`} onClick={onStats} />
-        <IconAction icon="lucide:play" label={`Quiz ${c.name}`} onClick={onQuiz} />
+        <IconAction icon="lucide:eye" label={intl.formatMessage({ id: 'collections.viewName' }, { name: c.name })} onClick={onView} />
+        <IconAction icon="lucide:chart-pie" label={intl.formatMessage({ id: 'collections.nameProgress' }, { name: c.name })} onClick={onStats} />
+        <IconAction icon="lucide:play" label={intl.formatMessage({ id: 'collections.quizName' }, { name: c.name })} onClick={onQuiz} />
       </div>
     </div>
   );
@@ -200,6 +203,7 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
   onShare: () => void;
   onDelete: () => void;
 }) {
+  const intl = useIntl();
   const showMembers = !owned || c.isPublic;
   return (
     <div
@@ -211,7 +215,7 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
       <button
         onClick={onPick}
         aria-pressed={active}
-        aria-label={`Study ${c.name}`}
+        aria-label={intl.formatMessage({ id: 'collections.studyName' }, { name: c.name })}
         className="relative h-20 rounded-t-[14px] overflow-hidden text-left text-white px-4 py-3"
         style={topicCover(c.id)}
       >
@@ -221,11 +225,13 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
         <span className="relative flex items-center gap-1.5 flex-wrap">
           {active && (
             <span className="text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white text-gray-900">
-              Studying
+              <FormattedMessage id="collections.studying" />
             </span>
           )}
           {owned && c.isPublic && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 ring-1 ring-white/25">Public</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 ring-1 ring-white/25">
+              <FormattedMessage id="collections.public" />
+            </span>
           )}
           {!owned && (
             <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 ring-1 ring-white/25">
@@ -245,13 +251,13 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
           <div className="h-full rounded-full bg-accent-cyan transition-all" style={{ width: `${pct}%` }} />
         </div>
         <div className="flex items-center gap-1.5 mt-2">
-          <span className="text-[11px] font-bold text-text-muted mr-auto">{c.words.length} words · {pct}%</span>
-          <IconAction icon="lucide:eye" label={`View ${c.name}`} onClick={onView} />
-          <IconAction icon="lucide:chart-pie" label={`${c.name} progress`} onClick={onStats} />
-          <IconAction icon="lucide:play" label={`Quiz ${c.name}`} onClick={onQuiz} />
+          <span className="text-[11px] font-bold text-text-muted mr-auto"><FormattedMessage id="collections.wordsPct" values={{ count: c.words.length, pct }} /></span>
+          <IconAction icon="lucide:eye" label={intl.formatMessage({ id: 'collections.viewName' }, { name: c.name })} onClick={onView} />
+          <IconAction icon="lucide:chart-pie" label={intl.formatMessage({ id: 'collections.nameProgress' }, { name: c.name })} onClick={onStats} />
+          <IconAction icon="lucide:play" label={intl.formatMessage({ id: 'collections.quizName' }, { name: c.name })} onClick={onQuiz} />
           {(owned || showMembers) && (
             <div className="relative shrink-0">
-              <IconAction icon="lucide:ellipsis-vertical" label="Options" onClick={onToggleMenu} />
+              <IconAction icon="lucide:ellipsis-vertical" label={intl.formatMessage({ id: 'collections.options' })} onClick={onToggleMenu} />
               {menuOpen && (
                 <>
                   {/* click-away backdrop */}
@@ -262,7 +268,7 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
                         onClick={onMembers}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-purple transition-colors"
                       >
-                        <Icon icon="lucide:users" className="text-sm" /> Learners
+                        <Icon icon="lucide:users" className="text-sm" /> <FormattedMessage id="collections.learners" />
                       </button>
                     )}
                     {owned && (
@@ -271,19 +277,19 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
                           onClick={onEdit}
                           className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
                         >
-                          <Icon icon="lucide:pencil" className="text-sm" /> Edit
+                          <Icon icon="lucide:pencil" className="text-sm" /> <FormattedMessage id="collections.edit" />
                         </button>
                         <button
                           onClick={onShare}
                           className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-cyan transition-colors"
                         >
-                          <Icon icon="lucide:share-2" className="text-sm" /> Share
+                          <Icon icon="lucide:share-2" className="text-sm" /> <FormattedMessage id="collections.share" />
                         </button>
                         <button
                           onClick={onDelete}
                           className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-muted hover:bg-accent-red/10 hover:text-accent-red transition-colors"
                         >
-                          <Icon icon="lucide:trash-2" className="text-sm" /> Delete
+                          <Icon icon="lucide:trash-2" className="text-sm" /> <FormattedMessage id="collections.delete" />
                         </button>
                       </>
                     )}
@@ -309,6 +315,7 @@ const DETAIL_POPUP_QUERY = '(min-width: 1024px)';
  * view's own fixed-position layers (quiz picker, full-screen quiz) inside it.
  */
 function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const intl = useIntl();
   const navigate = useNavigate();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -325,16 +332,16 @@ function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => voi
         <div className="sticky top-0 z-10 flex justify-end gap-2 -mt-2 -mr-2 mb-2 h-0">
           <button
             onClick={() => navigate(`/collections/${id}`)}
-            title="Open as a page"
-            aria-label="Open as a page"
+            title={intl.formatMessage({ id: 'collections.openAsPage' })}
+            aria-label={intl.formatMessage({ id: 'collections.openAsPage' })}
             className="w-9 h-9 rounded-full flex items-center justify-center bg-bg-card/90 border border-border text-text-muted hover:text-text-primary shadow-sm"
           >
             <Icon icon="lucide:maximize-2" />
           </button>
           <button
             onClick={onClose}
-            title="Close"
-            aria-label="Close"
+            title={intl.formatMessage({ id: 'collections.close' })}
+            aria-label={intl.formatMessage({ id: 'collections.close' })}
             className="w-9 h-9 rounded-full flex items-center justify-center bg-bg-card/90 border border-border text-text-muted hover:text-text-primary shadow-sm"
           >
             <Icon icon="lucide:x" />
@@ -355,6 +362,7 @@ function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => voi
  * (CollectionDetailPage).
  */
 export function CollectionsPage() {
+  const intl = useIntl();
   const activeId = useCollections((s) => s.activeId);
   const setActive = useCollections((s) => s.setActive);
   const mine = useCollections((s) => s.mine);
@@ -370,8 +378,10 @@ export function CollectionsPage() {
     .map((id) => shared[id])
     .filter((c): c is UserCollection => Boolean(c)), [joinedIds, mine, shared]);
   const [searchParams] = useSearchParams();
-  const levelCollections = useMemo(() => listCollections('level'), []);
-  const topicCollections = useMemo(() => listCollections('topic'), []);
+  // Not memoised: the built-ins' names are read in the current language, so a
+  // cached copy would keep the old one after switching. Both lists are tiny.
+  const levelCollections = listCollections('level');
+  const topicCollections = listCollections('topic');
 
   // Old share links (?c=<id>) land on the detail page now.
   const sharedId = searchParams.get('c');
@@ -417,26 +427,26 @@ export function CollectionsPage() {
 
   const pick = (id: string, label: string) => {
     setActive(id);
-    toast.success(`Studying “${label}”`);
+    toast.success(intl.formatMessage({ id: 'collections.toastStudying' }, { name: label }));
   };
 
   const handleShare = async (id: string) => {
     try {
       const url = await useCollections.getState().shareCollection(id);
       await navigator.clipboard.writeText(url);
-      toast.success('Share link copied!');
+      toast.success(intl.formatMessage({ id: 'collections.shareLinkCopied' }));
     } catch (err) {
-      toast.error((err as Error).message || 'Could not share.');
+      toast.error((err as Error).message || intl.formatMessage({ id: 'collections.couldNotShare' }));
     }
   };
 
   const handleDelete = async (col: UserCollection) => {
-    if (!window.confirm(`Delete “${col.name}”? This can't be undone.`)) return;
+    if (!window.confirm(intl.formatMessage({ id: 'collections.confirmDelete' }, { name: col.name }))) return;
     try {
       await useCollections.getState().deleteCollection(col.id);
-      toast.success(`Deleted “${col.name}”`);
+      toast.success(intl.formatMessage({ id: 'collections.deleted' }, { name: col.name }));
     } catch (err) {
-      toast.error((err as Error).message || 'Could not delete.');
+      toast.error((err as Error).message || intl.formatMessage({ id: 'collections.couldNotDelete' }));
     }
   };
 
@@ -479,9 +489,9 @@ export function CollectionsPage() {
   );
 
   const jumps = [
-    { id: 'yours', label: 'Yours', count: mine.length + joined.length },
-    { id: 'topics', label: 'Topics', count: topicCollections.length },
-    { id: 'levels', label: 'Levels', count: levelCollections.length },
+    { id: 'yours', labelId: 'collections.jumpYours', count: mine.length + joined.length },
+    { id: 'topics', labelId: 'collections.topics', count: topicCollections.length },
+    { id: 'levels', labelId: 'collections.levels', count: levelCollections.length },
   ];
 
   return (
@@ -497,7 +507,7 @@ export function CollectionsPage() {
         <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
         <div className="relative flex flex-col sm:flex-row sm:items-end gap-5">
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/80">Now studying</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/80"><FormattedMessage id="collections.nowStudying" /></p>
             <h1 className="mt-1 text-3xl sm:text-4xl font-display font-extrabold leading-tight break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.3)]">
               {activeName}
             </h1>
@@ -506,7 +516,7 @@ export function CollectionsPage() {
                 <div className="h-full rounded-full bg-white transition-all" style={{ width: `${activePct}%` }} />
               </div>
               <p className="text-xs font-bold text-white/90 mt-1.5">
-                {activePct}% known · {activeWords.length.toLocaleString()} words
+                <FormattedMessage id="collections.pctKnownWords" values={{ pct: activePct, count: activeWords.length }} />
               </p>
             </div>
           </div>
@@ -515,10 +525,10 @@ export function CollectionsPage() {
               onClick={() => navigate('/')}
               className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5"
             >
-              <Icon icon="lucide:play" /> Continue learning
+              <Icon icon="lucide:play" /> <FormattedMessage id="collections.continueLearning" />
             </button>
-            <IconAction glass icon="lucide:eye" label={`View ${activeName}`} onClick={() => openDetails(activeId)} />
-            <IconAction glass icon="lucide:chart-pie" label={`${activeName} progress`} onClick={() => setStats({ name: activeName, words: activeWords })} />
+            <IconAction glass icon="lucide:eye" label={intl.formatMessage({ id: 'collections.viewName' }, { name: activeName })} onClick={() => openDetails(activeId)} />
+            <IconAction glass icon="lucide:chart-pie" label={intl.formatMessage({ id: 'collections.nameProgress' }, { name: activeName })} onClick={() => setStats({ name: activeName, words: activeWords })} />
           </div>
         </div>
       </section>
@@ -530,11 +540,11 @@ export function CollectionsPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search collections"
+            placeholder={intl.formatMessage({ id: 'collections.searchPlaceholder' })}
             className="flex-1 min-w-0 py-2 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
           />
           {query && (
-            <button onClick={() => setQuery('')} aria-label="Clear search" className="text-text-muted hover:text-text-primary">
+            <button onClick={() => setQuery('')} aria-label={intl.formatMessage({ id: 'collections.clearSearch' })} className="text-text-muted hover:text-text-primary">
               <Icon icon="lucide:x" />
             </button>
           )}
@@ -547,7 +557,7 @@ export function CollectionsPage() {
               onClick={(e) => { e.preventDefault(); document.getElementById(j.id)?.scrollIntoView({ behavior: 'smooth' }); }}
               className="px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
             >
-              {j.label} <span className="opacity-60">{j.count}</span>
+              <FormattedMessage id={j.labelId} /> <span className="opacity-60">{j.count}</span>
             </a>
           ))}
         </nav>
@@ -556,8 +566,8 @@ export function CollectionsPage() {
       {nothingFound && (
         <div className="text-center py-12 mb-8 rounded-2xl border-2 border-dashed border-border">
           <Icon icon="lucide:search-x" className="mx-auto text-3xl text-text-muted mb-2" />
-          <p className="text-sm text-text-secondary">No collections match “{query.trim()}”.</p>
-          <button onClick={() => setQuery('')} className="mt-2 text-xs font-bold text-accent-cyan hover:underline">Clear search</button>
+          <p className="text-sm text-text-secondary"><FormattedMessage id="collections.noMatch" values={{ query: query.trim() }} /></p>
+          <button onClick={() => setQuery('')} className="mt-2 text-xs font-bold text-accent-cyan hover:underline"><FormattedMessage id="collections.clearSearch" /></button>
         </div>
       )}
 
@@ -567,15 +577,15 @@ export function CollectionsPage() {
           <SectionHeader
             id="yours"
             icon="lucide:folder-heart"
-            title="Your collections"
-            subtitle="Make your own word lists and share them with friends"
+            title={intl.formatMessage({ id: 'collections.yourCollections' })}
+            subtitle={intl.formatMessage({ id: 'collections.yourCollectionsSubtitle' })}
             action={
               <button
                 onClick={() => (creating ? closeForm() : openCreate())}
                 className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline shrink-0"
               >
                 <Icon icon={creating ? 'lucide:x' : 'lucide:plus'} />
-                {creating ? 'Cancel' : 'New collection'}
+                <FormattedMessage id={creating ? 'collections.cancel' : 'collections.newCollection'} />
               </button>
             }
           />
@@ -601,9 +611,9 @@ export function CollectionsPage() {
                 <span className="w-10 h-10 rounded-xl bg-bg-tertiary flex items-center justify-center">
                   <Icon icon="lucide:plus" className="text-lg" />
                 </span>
-                <span className="text-sm font-bold">New collection</span>
+                <span className="text-sm font-bold"><FormattedMessage id="collections.newCollection" /></span>
                 <span className="text-[11px] text-center max-w-52">
-                  {mine.length === 0 ? 'Build one from your own words and invite friends to study it.' : 'Start another word list.'}
+                  <FormattedMessage id={mine.length === 0 ? 'collections.newFirstHint' : 'collections.newAnotherHint'} />
                 </span>
               </button>
             )}
@@ -611,7 +621,7 @@ export function CollectionsPage() {
 
           {shownJoined.length > 0 && (
             <>
-              <p className="mt-6 mb-2 text-[11px] font-bold uppercase tracking-wider text-text-muted">Joined from friends</p>
+              <p className="mt-6 mb-2 text-[11px] font-bold uppercase tracking-wider text-text-muted"><FormattedMessage id="collections.joinedFromFriends" /></p>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {shownJoined.map((c) => userCard(c, false))}
               </div>
@@ -623,7 +633,7 @@ export function CollectionsPage() {
       {/* ── Topic collections ── */}
       {shownTopics.length > 0 && (
         <section className="mb-10">
-          <SectionHeader id="topics" icon="lucide:layout-grid" title="Topics" subtitle="Everyday themes · 50 words each · tap one to study it" />
+          <SectionHeader id="topics" icon="lucide:layout-grid" title={intl.formatMessage({ id: 'collections.topics' })} subtitle={intl.formatMessage({ id: 'collections.topicsSubtitle' })} />
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {shownTopics.map((c) => {
               const words = systemWords(c.id);
@@ -646,7 +656,7 @@ export function CollectionsPage() {
       {/* ── Level ladder ── */}
       {shownLevels.length > 0 && (
         <section>
-          <SectionHeader id="levels" icon="lucide:signal" title="Levels" subtitle="Curated picks and CEFR bands, from beginner (A1) to proficient (C2)" />
+          <SectionHeader id="levels" icon="lucide:signal" title={intl.formatMessage({ id: 'collections.levels' })} subtitle={intl.formatMessage({ id: 'collections.levelsSubtitle' })} />
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {shownLevels.map((c) => {
               const words = systemWords(c.id);
@@ -672,11 +682,11 @@ export function CollectionsPage() {
                   <Icon icon="lucide:target" className="text-xl" />
                 </span>
                 <span>
-                  <span className="block font-display font-bold text-text-primary">Find my level</span>
-                  <span className="block text-[11px] text-text-muted mt-0.5">A short test that picks the right level for you.</span>
+                  <span className="block font-display font-bold text-text-primary"><FormattedMessage id="collections.findMyLevel" /></span>
+                  <span className="block text-[11px] text-text-muted mt-0.5"><FormattedMessage id="collections.findMyLevelHint" /></span>
                 </span>
                 <span className="text-xs font-bold text-accent-cyan flex items-center gap-1">
-                  Take the test <Icon icon="lucide:arrow-right" />
+                  <FormattedMessage id="collections.takeTheTest" /> <Icon icon="lucide:arrow-right" />
                 </span>
               </button>
             )}

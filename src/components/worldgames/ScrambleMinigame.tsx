@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage } from 'react-intl';
 import { playCorrect, playSelect } from '../../lib/sfx';
 import { useVocabularyStore } from '../../hooks/useVocabulary';
 import { useAuth } from '../../hooks/useAuth';
@@ -88,14 +89,14 @@ export function ScrambleMinigame({ words }: { words: string[] }) {
       <div className="flex items-center justify-between gap-2 mb-1">
         <h2 className="font-display font-bold text-text-primary flex items-center gap-2">
           <Icon icon="lucide:shuffle" className="text-accent-cyan" />
-          Word Scramble
+          <FormattedMessage id="games.scrambleTitle" />
         </h2>
         <span className="flex items-center gap-1 text-xs font-bold text-accent-orange bg-accent-orange/10 border border-accent-orange/30 rounded-full px-2.5 py-1">
           <Icon icon="lucide:flame" />
           {streak}
         </span>
       </div>
-      <p className="text-xs text-text-muted mb-4">Tap the letters to spell the hidden word.</p>
+      <p className="text-xs text-text-muted mb-4"><FormattedMessage id="games.scrambleIntro" /></p>
 
       {/* Answer slots */}
       <div className="flex flex-wrap justify-center gap-2 mb-5 min-h-[3.25rem]">
@@ -136,7 +137,7 @@ export function ScrambleMinigame({ words }: { words: string[] }) {
         ))}
         {available.length === 0 && status === 'correct' && (
           <span className="flex items-center gap-1.5 text-accent-green font-display font-bold">
-            <Icon icon="lucide:party-popper" /> Nice!
+            <Icon icon="lucide:party-popper" /> <FormattedMessage id="games.nice" />
           </span>
         )}
       </div>
@@ -148,14 +149,14 @@ export function ScrambleMinigame({ words }: { words: string[] }) {
           disabled={status === 'correct'}
           className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-accent-cyan transition-colors disabled:opacity-40"
         >
-          <Icon icon="lucide:dices" /> New letters
+          <Icon icon="lucide:dices" /> <FormattedMessage id="games.newLetters" />
         </button>
-        <span className="text-xs font-bold text-text-muted">{solved} solved</span>
+        <span className="text-xs font-bold text-text-muted"><FormattedMessage id="games.solvedCount" values={{ count: solved }} /></span>
         <button
           onClick={skip}
           className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-accent-orange transition-colors"
         >
-          Skip <Icon icon="lucide:chevron-right" />
+          <FormattedMessage id="games.skip" /> <Icon icon="lucide:chevron-right" />
         </button>
       </div>
     </div>

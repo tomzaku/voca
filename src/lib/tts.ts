@@ -3,6 +3,7 @@ import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, PIPER_VOICES } f
 import { KOKORO_MODEL_ID } from './ttsModel';
 import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
+import { t } from '../i18n';
 
 type KokoroTTSInstance = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,16 +94,16 @@ function startWorker(device: 'webgpu' | 'wasm', dtype: string): Promise<void> {
       switch (msg.type) {
         case 'progress':
           if (typeof msg.progress === 'number' && msg.progress > 0 && msg.progress % 10 < 1) {
-            toast.loading(`Loading Kokoro AI... ${msg.progress.toFixed(0)}%`, { id: 'tts-loading' });
+            toast.loading(t('settings.ttsLoadingProgress', { engine: 'Kokoro AI', percent: Math.round(msg.progress) }), { id: 'tts-loading' });
           }
           break;
         case 'ready':
-          toast.success('Kokoro AI voice model ready', { id: 'tts-loading', duration: 2000 });
+          toast.success(t('settings.ttsReady', { engine: 'Kokoro AI' }), { id: 'tts-loading', duration: 2000 });
           resolve();
           break;
         case 'load-error':
           kokoroUnavailable = true;
-          toast.error('Kokoro AI failed to load', { id: 'tts-loading', duration: 3000 });
+          toast.error(t('settings.ttsFailed', { engine: 'Kokoro AI' }), { id: 'tts-loading', duration: 3000 });
           reject(new Error(msg.error));
           break;
         case 'generated': {
@@ -141,7 +142,7 @@ export async function getKokoroTTS(): Promise<KokoroTTSInstance> {
     const device = useGPU ? 'webgpu' : 'wasm';
     const dtype = useGPU ? 'fp32' : 'q8';
     log(`starting model download... device=${device} dtype=${dtype}`);
-    toast.loading('Loading Kokoro AI voice model...', { id: 'tts-loading' });
+    toast.loading(t('settings.ttsLoading', { engine: 'Kokoro AI' }), { id: 'tts-loading' });
     workerReadyPromise = startWorker(device, dtype);
   }
 
@@ -179,14 +180,14 @@ async function getPiperTTS(): Promise<PiperTTSModule> {
   if (piperModule) return piperModule;
   if (piperPromise) return piperPromise;
 
-  toast.loading('Loading Piper AI voice model...', { id: 'tts-loading' });
+  toast.loading(t('settings.ttsLoading', { engine: 'Piper AI' }), { id: 'tts-loading' });
   piperPromise = import('@mintplex-labs/piper-tts-web').then((mod) => {
     piperModule = mod as unknown as PiperTTSModule;
-    toast.success('Piper AI voice model ready', { id: 'tts-loading', duration: 2000 });
+    toast.success(t('settings.ttsReady', { engine: 'Piper AI' }), { id: 'tts-loading', duration: 2000 });
     return piperModule;
   }).catch((err) => {
     piperPromise = null;
-    toast.error('Piper AI failed to load', { id: 'tts-loading', duration: 3000 });
+    toast.error(t('settings.ttsFailed', { engine: 'Piper AI' }), { id: 'tts-loading', duration: 3000 });
     throw err;
   });
 

@@ -12,11 +12,12 @@
 
 export type IpaCategory = 'vowel-short' | 'vowel-long' | 'diphthong' | 'consonant';
 
-export const CATEGORY_LABELS: Record<IpaCategory, string> = {
-  'vowel-short': 'Short vowels',
-  'vowel-long': 'Long vowels',
-  diphthong: 'Diphthongs',
-  consonant: 'Consonants',
+// Message ids in the `ipa` catalog — section headings are UI, not content.
+export const CATEGORY_LABEL_IDS: Record<IpaCategory, string> = {
+  'vowel-short': 'ipa.categoryShortVowels',
+  'vowel-long': 'ipa.categoryLongVowels',
+  diphthong: 'ipa.categoryDiphthongs',
+  consonant: 'ipa.categoryConsonants',
 };
 
 // Display order for the chart — vowels simple-to-complex, then consonants.

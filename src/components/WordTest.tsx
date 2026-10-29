@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { callAiAction } from '../lib/aiProviders';
 import { speakConversation, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import type { VocabularyWord } from '../types';
@@ -7,7 +8,9 @@ import type { VocabularyWord } from '../types';
 type Mode = 'sample' | 'chat';
 type MsgRole = 'ai' | 'user';
 
-interface Message { role: MsgRole; text: string }
+// `error` bubbles are app text in the UI language, not part of the tutoring
+// exchange — they're shown but never sent back to the AI or read aloud.
+interface Message { role: MsgRole; text: string; error?: boolean }
 
 interface Props { wordData: VocabularyWord }
 
@@ -49,6 +52,7 @@ function TypingIndicator() {
 // ─── Mode 1: Sample conversations ───────────────────────────────────
 
 function SampleMode({ wordData }: { wordData: VocabularyWord }) {
+  const intl = useIntl();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -73,8 +77,10 @@ function SampleMode({ wordData }: { wordData: VocabularyWord }) {
         }
         setMessages(msgs.length ? msgs : [{ role: 'ai', text: raw.trim() }]);
       })
-      .catch(() => setMessages([{ role: 'ai', text: 'Could not load examples. Check your AI settings.' }]))
+      .catch(() => setMessages([{ role: 'ai', text: intl.formatMessage({ id: 'quiz.wordTest.examplesFailed' }), error: true }]))
       .finally(() => setLoading(false));
+    // intl is read only on the error path; re-fetching on a language switch would be wasteful.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, wordData]);
 
   // Cleanup on unmount
@@ -84,7 +90,7 @@ function SampleMode({ wordData }: { wordData: VocabularyWord }) {
     if (playing || isTtsPlaying()) { stopSpeaking(); return; }
     if (messages.length === 0) return;
 
-    speakConversation(messages, {
+    speakConversation(messages.filter((m) => !m.error), {
       onStart: () => setPlaying(true),
       onEnd: () => setPlaying(false),
     });
@@ -109,7 +115,7 @@ function SampleMode({ wordData }: { wordData: VocabularyWord }) {
             {playing ? (
               <>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                Stop
+                <FormattedMessage id="quiz.wordTest.stop" />
               </>
             ) : (
               <>
@@ -118,7 +124,7 @@ function SampleMode({ wordData }: { wordData: VocabularyWord }) {
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
                   <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
                 </svg>
-                Read aloud
+                <FormattedMessage id="quiz.wordTest.readAloud" />
               </>
             )}
           </button>
@@ -131,6 +137,7 @@ function SampleMode({ wordData }: { wordData: VocabularyWord }) {
 // ─── Mode 2: Real AI chat ────────────────────────────────────────────
 
 function ChatMode({ wordData }: { wordData: VocabularyWord }) {
+  const intl = useIntl();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -149,8 +156,9 @@ function ChatMode({ wordData }: { wordData: VocabularyWord }) {
 
     callAiAction('tutor_start', { word: wordData.word, definition: wordData.definition })
       .then((r) => { setMessages([{ role: 'ai', text: r.trim() }]); setTurn(1); })
-      .catch(() => { setMessages([{ role: 'ai', text: 'Could not start. Check your AI settings.' }]); setDone(true); })
+      .catch(() => { setMessages([{ role: 'ai', text: intl.formatMessage({ id: 'quiz.wordTest.startFailed' }), error: true }]); setDone(true); })
       .finally(() => { setLoading(false); setTimeout(() => inputRef.current?.focus(), 100); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, wordData]);
 
   const send = async () => {
@@ -162,14 +170,14 @@ function ChatMode({ wordData }: { wordData: VocabularyWord }) {
     setLoading(true);
 
     const isLast = turn >= MAX_TURNS;
-    const history = updated.map((m) => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text }));
+    const history = updated.filter((m) => !m.error).map((m) => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text }));
 
     callAiAction('tutor_reply', { word: wordData.word, definition: wordData.definition, history, isLast })
       .then((r) => {
         setMessages([...updated, { role: 'ai', text: r.trim() }]);
         if (isLast) setDone(true); else setTurn((t) => t + 1);
       })
-      .catch(() => setMessages([...updated, { role: 'ai', text: 'Something went wrong.' }]))
+      .catch(() => setMessages([...updated, { role: 'ai', text: intl.formatMessage({ id: 'quiz.wordTest.somethingWrong' }), error: true }]))
       .finally(() => { setLoading(false); setTimeout(() => inputRef.current?.focus(), 100); });
   };
 
@@ -187,7 +195,7 @@ function ChatMode({ wordData }: { wordData: VocabularyWord }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && send()}
-            placeholder="Type your answer…"
+            placeholder={intl.formatMessage({ id: 'quiz.wordTest.typeAnswer' })}
             disabled={loading}
             className="flex-1 bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/40 disabled:opacity-50"
           />
@@ -203,16 +211,16 @@ function ChatMode({ wordData }: { wordData: VocabularyWord }) {
           </button>
         </div>
       )}
-      {done && <p className="text-center text-xs text-accent-green pb-3">Complete ✓</p>}
+      {done && <p className="text-center text-xs text-accent-green pb-3"><FormattedMessage id="quiz.wordTest.complete" /></p>}
     </>
   );
 }
 
 // ─── Main component ──────────────────────────────────────────────────
 
-const MODES: { id: Mode; label: string; icon: string }[] = [
-  { id: 'sample', label: 'Conversations', icon: 'lucide:messages-square' },
-  { id: 'chat',   label: 'Practice',      icon: 'lucide:bot' },
+const MODES: { id: Mode; labelId: string; icon: string }[] = [
+  { id: 'sample', labelId: 'quiz.wordTest.conversations', icon: 'lucide:messages-square' },
+  { id: 'chat',   labelId: 'quiz.wordTest.practice',      icon: 'lucide:bot' },
 ];
 
 export function WordTest({ wordData }: Props) {
@@ -225,11 +233,11 @@ export function WordTest({ wordData }: Props) {
         <div className="flex items-center gap-2 mb-1.5">
           <span className="w-7 h-7 rounded-lg bg-accent-purple/15 border border-accent-purple/20 flex items-center justify-center text-accent-purple text-sm shrink-0">✦</span>
           <h3 className="text-xs font-display font-bold text-accent-purple uppercase tracking-wider">
-            Learn with AI
+            <FormattedMessage id="quiz.wordTest.title" />
           </h3>
         </div>
         <p className="text-sm text-text-secondary leading-relaxed mb-3">
-          See “{wordData.headword || wordData.word}” used in real conversations, or practice using it yourself with an AI tutor.
+          <FormattedMessage id="quiz.wordTest.intro" values={{ word: wordData.headword || wordData.word }} />
         </p>
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -237,14 +245,14 @@ export function WordTest({ wordData }: Props) {
             className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border border-border bg-bg-card text-text-muted hover:border-accent-purple/30 hover:text-accent-purple hover:bg-accent-purple/5 transition-all"
           >
             <Icon icon="lucide:messages-square" className="text-xl" />
-            <span className="text-xs font-medium">See it in action</span>
+            <span className="text-xs font-medium"><FormattedMessage id="quiz.wordTest.seeInAction" /></span>
           </button>
           <button
             onClick={() => setMode('chat')}
             className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border border-border bg-bg-card text-text-muted hover:border-accent-purple/30 hover:text-accent-purple hover:bg-accent-purple/5 transition-all"
           >
             <Icon icon="lucide:bot" className="text-xl" />
-            <span className="text-xs font-medium">Practice with AI</span>
+            <span className="text-xs font-medium"><FormattedMessage id="quiz.wordTest.practiceWithAi" /></span>
           </button>
         </div>
       </div>
@@ -266,7 +274,7 @@ export function WordTest({ wordData }: Props) {
             }`}
           >
             <Icon icon={m.icon} className="text-base" />
-            <span>{m.label}</span>
+            <span><FormattedMessage id={m.labelId} /></span>
           </button>
         ))}
       </div>

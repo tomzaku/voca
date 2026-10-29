@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import TextareaAutosize from 'react-textarea-autosize';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { allTemplates, useWritingTemplates, type AnyWritingTemplate } from '../hooks/useWritingTemplates';
@@ -16,14 +17,24 @@ import {
   type WritingCorrection,
 } from '../lib/improveWritingApi';
 import { diffOption } from '../lib/textDiff';
+import type { DefaultWritingTemplate } from '../lib/writingTemplates';
 
 const MAX_TEXT = 6000;
 const MAX_NAME = 60;
 const MAX_INSTRUCTIONS = 2000;
 const MAX_DESCRIPTION = 200;
 
-function isDefault(t: AnyWritingTemplate): t is AnyWritingTemplate & { isDefault: true } {
+function isDefault(t: AnyWritingTemplate): t is DefaultWritingTemplate {
   return 'isDefault' in t && t.isDefault === true;
+}
+
+/** Built-ins are shown translated; a user's own templates as they typed them. */
+function templateName(intl: IntlShape, t: AnyWritingTemplate): string {
+  return isDefault(t) ? intl.formatMessage({ id: t.nameId }) : t.name;
+}
+
+function templateDescription(intl: IntlShape, t: AnyWritingTemplate): string | null {
+  return isDefault(t) ? intl.formatMessage({ id: t.descriptionId }) : t.description;
 }
 
 /** ChatGPT URL pre-filled with the template + text, for free accounts (no server call). */
@@ -32,11 +43,11 @@ function chatGptImproveWritingUrl(instructions: string, text: string): string {
   return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
 }
 
-/** Section heading + copy for each correction category, in display order. */
+/** Section heading (message id) for each correction category, in display order. */
 const SECTION_TITLES: Record<WritingCorrectionCategory, string> = {
-  grammar: 'Fix Grammar',
-  vocabulary: 'Improve Word Choice',
-  rephrase: 'Rephrase',
+  grammar: 'writing.sectionGrammar',
+  vocabulary: 'writing.sectionVocabulary',
+  rephrase: 'writing.sectionRephrase',
 };
 
 /** A change span that explains itself on hover (desktop) or tap (touch,
@@ -79,9 +90,9 @@ function ChangeSpan({ correction, children }: {
       {open && (
         <span className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-60 max-w-[75vw] rounded-lg border border-border bg-bg-primary shadow-xl p-2.5 text-xs normal-case not-italic animate-fade-in">
           <span className={`flex items-center gap-1 font-bold mb-1 ${config.color}`}>
-            {config.icon} {config.label}
+            {config.icon} <FormattedMessage id={config.labelId} />
           </span>
-          <span className="block text-text-secondary leading-snug">{correction.explanation || 'No explanation given.'}</span>
+          <span className="block text-text-secondary leading-snug">{correction.explanation || <FormattedMessage id="writing.noExplanation" />}</span>
         </span>
       )}
     </span>
@@ -185,7 +196,7 @@ function WhatChanged({ corrections, visibleCategories, sortChanges, sourceText }
   if (cats.length === 0) return null;
   return (
     <div className="space-y-2.5 pt-2.5 border-t border-border">
-      <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider">What changed</p>
+      <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="writing.whatChanged" /></p>
       {cats.map((cat) => {
         const config = CATEGORY_CONFIG[cat];
         const items = corrections.filter((c) => c.category === cat);
@@ -193,7 +204,7 @@ function WhatChanged({ corrections, visibleCategories, sortChanges, sourceText }
         return (
           <div key={cat}>
             <p className={`text-xs font-bold mb-1.5 flex items-center gap-1.5 ${config.color}`}>
-              {config.icon} {SECTION_TITLES[cat]}
+              {config.icon} <FormattedMessage id={SECTION_TITLES[cat]} />
             </p>
             <div className="space-y-2">
               {ordered.map((item, i) => (
@@ -226,41 +237,42 @@ function OptionCard({ option, label, copyLabel, sourceText, visibleCategories, s
   sortChanges: boolean;
   onCopy: () => void;
 }) {
+  const intl = useIntl();
   const [showDiff, setShowDiff] = useState(true);
   return (
     <div className="card-game border-accent-green p-4 space-y-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-text-muted uppercase tracking-wider">{label}</span>
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-tertiary" role="tablist" aria-label={`${copyLabel} view`}>
+          <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-tertiary" role="tablist" aria-label={intl.formatMessage({ id: 'writing.optionViewLabel' }, { label: copyLabel })}>
             <button
               role="tab"
               aria-selected={showDiff}
               onClick={() => setShowDiff(true)}
-              title="Highlighted diff + why each change was made"
+              title={intl.formatMessage({ id: 'writing.diffTitle' })}
               className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${
                 showDiff ? 'bg-accent-green/20 text-accent-green' : 'text-text-muted hover:text-text-primary'
               }`}
             >
-              Diff
+              <FormattedMessage id="writing.diff" />
             </button>
             <button
               role="tab"
               aria-selected={!showDiff}
               onClick={() => setShowDiff(false)}
-              title="Just the revised text, ready to copy"
+              title={intl.formatMessage({ id: 'writing.resultTitle' })}
               className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all ${
                 !showDiff ? 'bg-bg-card text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'
               }`}
             >
-              Result
+              <FormattedMessage id="writing.result" />
             </button>
           </div>
           <button
             onClick={onCopy}
             className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
           >
-            <Icon icon="lucide:copy" /> Copy
+            <Icon icon="lucide:copy" /> <FormattedMessage id="writing.copy" />
           </button>
         </div>
       </div>
@@ -310,26 +322,27 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
   initialDescription?: string;
   onDone: () => void;
 }) {
+  const intl = useIntl();
   const [name, setName] = useState(initialName);
   const [instructions, setInstructions] = useState(initialInstructions);
   const [description, setDescription] = useState(initialDescription);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!name.trim()) { toast.error('Give your template a name.'); return; }
-    if (!instructions.trim()) { toast.error('Add instructions for the AI to follow.'); return; }
+    if (!name.trim()) { toast.error(intl.formatMessage({ id: 'writing.templateNameRequired' })); return; }
+    if (!instructions.trim()) { toast.error(intl.formatMessage({ id: 'writing.templateInstructionsRequired' })); return; }
     setSaving(true);
     try {
       if (editingId) {
         await useWritingTemplates.getState().updateTemplate(editingId, name.trim(), instructions.trim(), description.trim());
-        toast.success(`Updated “${name.trim()}”`);
+        toast.success(intl.formatMessage({ id: 'writing.templateUpdated' }, { name: name.trim() }));
       } else {
         const created = await useWritingTemplates.getState().createTemplate(name.trim(), instructions.trim(), description.trim());
-        toast.success(`Created “${created.name}”`);
+        toast.success(intl.formatMessage({ id: 'writing.templateCreated' }, { name: created.name }));
       }
       onDone();
     } catch (err) {
-      toast.error((err as Error).message || 'Could not save template.');
+      toast.error((err as Error).message || intl.formatMessage({ id: 'writing.templateSaveFailed' }));
     } finally {
       setSaving(false);
     }
@@ -338,26 +351,26 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
   return (
     <div className="card-game border-accent-cyan mb-3 p-4 space-y-3 animate-fade-in">
       {editingId && (
-        <p className="text-xs font-bold text-accent-cyan uppercase tracking-wider">Editing template</p>
+        <p className="text-xs font-bold text-accent-cyan uppercase tracking-wider"><FormattedMessage id="writing.editingTemplate" /></p>
       )}
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Template name (e.g. Standup Update)"
+        placeholder={intl.formatMessage({ id: 'writing.templateNamePlaceholder' })}
         maxLength={MAX_NAME}
         className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-3.5 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60"
       />
       <input
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        placeholder="Short description (optional) — shown when browsing templates"
+        placeholder={intl.formatMessage({ id: 'writing.templateDescriptionPlaceholder' })}
         maxLength={MAX_DESCRIPTION}
         className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-3.5 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60"
       />
       <textarea
         value={instructions}
         onChange={(e) => setInstructions(e.target.value)}
-        placeholder="Instructions for the AI — e.g. 'Rewrite this as a concise, upbeat standup update...'"
+        placeholder={intl.formatMessage({ id: 'writing.templateInstructionsPlaceholder' })}
         rows={4}
         maxLength={MAX_INSTRUCTIONS}
         className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-3.5 py-2.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/60 resize-y leading-relaxed"
@@ -369,14 +382,14 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
             onClick={onDone}
             className="px-3 py-2 text-sm font-bold text-text-muted hover:text-text-primary transition-colors"
           >
-            Cancel
+            <FormattedMessage id="writing.cancel" />
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
             className="btn-3d px-4 py-2 text-sm bg-accent-cyan text-bg-primary font-bold disabled:opacity-60"
           >
-            {saving ? 'Saving…' : editingId ? 'Save changes' : 'Create'}
+            <FormattedMessage id={saving ? 'writing.saving' : editingId ? 'writing.saveChanges' : 'writing.create'} />
           </button>
         </div>
       </div>
@@ -394,6 +407,7 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
  * IeltsWritingPage.
  */
 export function ImproveWritingPage() {
+  const intl = useIntl();
   const { user, loading: authLoading } = useAuth();
   const { isPro, loading: proLoading } = useIsPro();
   const custom = useWritingTemplates((s) => s.custom);
@@ -477,10 +491,10 @@ export function ImproveWritingPage() {
       setSelectedId(match.id);
       setPendingTemplateId(null);
     } else if (customReady) {
-      toast.error(`Unknown template “${pendingTemplateId}” — using the default instead.`);
+      toast.error(intl.formatMessage({ id: 'writing.unknownTemplate' }, { id: pendingTemplateId }));
       setPendingTemplateId(null);
     }
-  }, [pendingTemplateId, templates, customReady]);
+  }, [pendingTemplateId, templates, customReady, intl]);
 
   // ── Template management (create/edit) ──
   const [form, setForm] = useState<{ editingId: string | null; name: string; instructions: string; description: string } | null>(null);
@@ -491,13 +505,13 @@ export function ImproveWritingPage() {
   const [menuId, setMenuId] = useState<string | null>(null);
 
   const handleDelete = async (t: AnyWritingTemplate) => {
-    if (!window.confirm(`Delete “${t.name}”? This can't be undone.`)) return;
+    if (!window.confirm(intl.formatMessage({ id: 'writing.deleteConfirm' }, { name: t.name }))) return;
     try {
       await useWritingTemplates.getState().deleteTemplate(t.id);
       if (selectedId === t.id) setSelectedId('default-general');
-      toast.success(`Deleted “${t.name}”`);
+      toast.success(intl.formatMessage({ id: 'writing.templateDeleted' }, { name: t.name }));
     } catch (err) {
-      toast.error((err as Error).message || 'Could not delete.');
+      toast.error((err as Error).message || intl.formatMessage({ id: 'writing.deleteFailed' }));
     }
   };
 
@@ -506,12 +520,12 @@ export function ImproveWritingPage() {
   const handleSubmit = async () => {
     if (locked) {
       toast(
-        user ? 'Improve Writing is a Pro feature.' : 'Sign in with a Pro account to improve your writing.',
+        intl.formatMessage({ id: user ? 'writing.improveProFeature' : 'writing.improveSignInPro' }),
         { icon: '👑' },
       );
       return;
     }
-    if (!text.trim()) { toast.error('Paste some text to improve first.'); return; }
+    if (!text.trim()) { toast.error(intl.formatMessage({ id: 'writing.pasteFirst' })); return; }
     if (!selected) return;
 
     abortRef.current?.abort();
@@ -532,7 +546,7 @@ export function ImproveWritingPage() {
       setResultSourceText(submittedText);
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
-      else if ((err as Error).name !== 'AbortError') toast.error('Could not reach the AI. Try again.');
+      else if ((err as Error).name !== 'AbortError') toast.error(intl.formatMessage({ id: 'writing.aiUnreachable' }));
     } finally {
       setLoading(false);
     }
@@ -552,32 +566,32 @@ export function ImproveWritingPage() {
   // Free alternative, open to everyone (not just locked accounts) — no server
   // call, so no Pro gate applies here either.
   const handleOpenChatGpt = () => {
-    if (!text.trim()) { toast.error('Paste some text to improve first.'); return; }
+    if (!text.trim()) { toast.error(intl.formatMessage({ id: 'writing.pasteFirst' })); return; }
     if (!selected) return;
     window.open(chatGptImproveWritingUrl(selected.instructions, text.trim()), '_blank', 'noopener,noreferrer');
   };
 
   const handleCopyOption = async (option: string) => {
     await navigator.clipboard.writeText(option);
-    toast.success('Copied!');
+    toast.success(intl.formatMessage({ id: 'writing.copied' }));
   };
 
   return (
     <div>
       <p className="text-sm text-text-muted mb-6">
-        Paste your text, pick a template, and get an AI-revised version — tuned for Slack, email, Jira, or however you write.
+        <FormattedMessage id="writing.improveIntro" />
       </p>
 
       {/* ── Template picker ── */}
       <section className="mb-4">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Template</h2>
+          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="writing.template" /></h2>
           <button
             onClick={() => (form ? closeForm() : openCreate())}
             className="flex items-center gap-1 text-xs font-bold text-accent-cyan hover:underline"
           >
             <Icon icon={form ? 'lucide:x' : 'lucide:plus'} />
-            {form ? 'Cancel' : 'New template'}
+            <FormattedMessage id={form ? 'writing.cancel' : 'writing.newTemplate'} />
           </button>
         </div>
 
@@ -598,14 +612,14 @@ export function ImproveWritingPage() {
               <div key={t.id} className="relative">
                 <button
                   onClick={() => setSelectedId(t.id)}
-                  title={t.description ?? t.name}
+                  title={templateDescription(intl, t) ?? templateName(intl, t)}
                   className={`flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full text-xs font-bold border transition-all ${
                     active
                       ? 'border-accent-cyan bg-accent-cyan/15 text-accent-cyan'
                       : 'border-border bg-bg-card text-text-secondary hover:border-border-light'
                   }`}
                 >
-                  {t.name}
+                  {templateName(intl, t)}
                   {!isDefault(t) && (
                     <span
                       role="button"
@@ -625,13 +639,13 @@ export function ImproveWritingPage() {
                         onClick={() => { setMenuId(null); openEdit(t); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
                       >
-                        <Icon icon="lucide:pencil" className="text-sm" /> Edit
+                        <Icon icon="lucide:pencil" className="text-sm" /> <FormattedMessage id="writing.edit" />
                       </button>
                       <button
                         onClick={() => { setMenuId(null); handleDelete(t); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-muted hover:bg-accent-red/10 hover:text-accent-red transition-colors"
                       >
-                        <Icon icon="lucide:trash-2" className="text-sm" /> Delete
+                        <Icon icon="lucide:trash-2" className="text-sm" /> <FormattedMessage id="writing.delete" />
                       </button>
                     </div>
                   </>
@@ -648,12 +662,12 @@ export function ImproveWritingPage() {
               className="flex items-center gap-1 text-xs font-bold text-text-muted hover:text-text-primary transition-colors"
             >
               <Icon icon={detailOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'} className="text-sm" />
-              {detailOpen ? 'Hide' : 'Show'} template details
+              <FormattedMessage id={detailOpen ? 'writing.hideTemplateDetails' : 'writing.showTemplateDetails'} />
             </button>
             {detailOpen && (
               <div className="mt-2 p-3 rounded-xl bg-bg-tertiary/60 border border-border space-y-1.5 animate-fade-in">
-                {selected.description && (
-                  <p className="text-xs font-bold text-text-secondary">{selected.description}</p>
+                {templateDescription(intl, selected) && (
+                  <p className="text-xs font-bold text-text-secondary">{templateDescription(intl, selected)}</p>
                 )}
                 <p className="text-xs text-text-muted whitespace-pre-wrap leading-relaxed">{selected.instructions}</p>
               </div>
@@ -668,7 +682,7 @@ export function ImproveWritingPage() {
           <TextareaAutosize
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT))}
-            placeholder="Paste the text you want to improve…"
+            placeholder={intl.formatMessage({ id: 'writing.inputPlaceholder' })}
             minRows={2}
             rows={2}
             maxRows={20}
@@ -680,7 +694,7 @@ export function ImproveWritingPage() {
               <button
                 onClick={handleOpenChatGpt}
                 disabled={!text.trim()}
-                title="Open this template + text in ChatGPT — free, no account needed"
+                title={intl.formatMessage({ id: 'writing.chatGptTitle' })}
                 className="btn-3d px-4 py-2.5 text-sm bg-bg-card text-text-secondary font-bold border-2 border-border disabled:opacity-60 flex items-center gap-2"
               >
                 <Icon icon="lucide:external-link" /> ChatGPT
@@ -693,11 +707,11 @@ export function ImproveWritingPage() {
                 >
                   {loading ? (
                     <>
-                      <Icon icon="lucide:loader-2" className="animate-spin" /> Improving…
+                      <Icon icon="lucide:loader-2" className="animate-spin" /> <FormattedMessage id="writing.improving" />
                     </>
                   ) : (
                     <>
-                      <Icon icon="lucide:wand-2" /> Improve
+                      <Icon icon="lucide:wand-2" /> <FormattedMessage id="writing.improve" />
                       {locked && (
                         <span className="text-[9px] px-1 py-px rounded bg-bg-primary/20 font-extrabold uppercase tracking-wider">
                           Pro
@@ -708,8 +722,8 @@ export function ImproveWritingPage() {
                 </button>
                 <button
                   onClick={() => setPrefsOpen((o) => !o)}
-                  title="Display options"
-                  aria-label="Display options"
+                  title={intl.formatMessage({ id: 'writing.displayOptions' })}
+                  aria-label={intl.formatMessage({ id: 'writing.displayOptions' })}
                   className="btn-3d px-3 py-2.5 bg-accent-cyan text-bg-primary disabled:opacity-60 flex items-center justify-center"
                 >
                   <Icon icon="lucide:sliders-horizontal" />
@@ -718,7 +732,7 @@ export function ImproveWritingPage() {
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setPrefsOpen(false)} />
                     <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 rounded-xl border-2 border-border bg-bg-card shadow-xl p-2 space-y-0.5 animate-fade-in">
-                      <p className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">Display</p>
+                      <p className="px-2 py-1 text-[10px] font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="writing.display" /></p>
                       <label className="flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-bold text-text-secondary hover:bg-bg-tertiary cursor-pointer">
                         <input
                           type="checkbox"
@@ -726,7 +740,7 @@ export function ImproveWritingPage() {
                           onChange={(e) => setHideOption2(e.target.checked)}
                           className="accent-accent-cyan"
                         />
-                        Don't show Option 2
+                        <FormattedMessage id="writing.hideOption2" />
                       </label>
                       <label className="flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-bold text-text-secondary hover:bg-bg-tertiary cursor-pointer">
                         <input
@@ -735,10 +749,10 @@ export function ImproveWritingPage() {
                           onChange={(e) => setSortChanges(e.target.checked)}
                           className="accent-accent-cyan"
                         />
-                        Sort changes by position
+                        <FormattedMessage id="writing.sortChanges" />
                       </label>
 
-                      <p className="px-2 py-1 mt-1 text-[10px] font-bold text-text-muted uppercase tracking-wider border-t border-border pt-2">Corrections to include</p>
+                      <p className="px-2 py-1 mt-1 text-[10px] font-bold text-text-muted uppercase tracking-wider border-t border-border pt-2"><FormattedMessage id="writing.correctionsToInclude" /></p>
                       {WRITING_CORRECTION_CATEGORIES.map((cat) => {
                         const config = CATEGORY_CONFIG[cat];
                         return (
@@ -752,7 +766,7 @@ export function ImproveWritingPage() {
                               onChange={() => toggleCategory(cat)}
                               className="accent-accent-cyan"
                             />
-                            <span>{config.icon}</span> {SECTION_TITLES[cat]}
+                            <span>{config.icon}</span> <FormattedMessage id={SECTION_TITLES[cat]} />
                           </label>
                         );
                       })}
@@ -771,20 +785,20 @@ export function ImproveWritingPage() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">
-                {hideOption2 || result.options.length < 2 ? 'Revised' : 'Revised — pick one'}
+                <FormattedMessage id={hideOption2 || result.options.length < 2 ? 'writing.revised' : 'writing.revisedPickOne'} />
               </h2>
               <span className="flex items-center gap-3 text-[10px] font-bold text-text-muted">
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-accent-green/20 border border-accent-green/40" /> Added
+                  <span className="w-2.5 h-2.5 rounded-sm bg-accent-green/20 border border-accent-green/40" /> <FormattedMessage id="writing.added" />
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-accent-red/15 border border-accent-red/40" /> Removed
+                  <span className="w-2.5 h-2.5 rounded-sm bg-accent-red/15 border border-accent-red/40" /> <FormattedMessage id="writing.removed" />
                 </span>
               </span>
             </div>
             <p className="text-[11px] text-text-muted mb-2 flex items-center gap-1">
               <Icon icon="lucide:info" className="text-xs" />
-              Dotted underline? Hover it — or tap on mobile — to see why.
+              <FormattedMessage id="writing.hoverHint" />
             </p>
 
             <div className={`grid gap-3 ${!hideOption2 && result.options.length > 1 ? 'sm:grid-cols-2' : ''}`}>
@@ -792,8 +806,12 @@ export function ImproveWritingPage() {
                 <OptionCard
                   key={i}
                   option={option}
-                  label={hideOption2 || result.options.length < 2 ? 'Revised text' : `Option ${i + 1}`}
-                  copyLabel={hideOption2 || result.options.length < 2 ? 'Revised text' : `Option ${i + 1}`}
+                  label={hideOption2 || result.options.length < 2
+                    ? intl.formatMessage({ id: 'writing.revisedText' })
+                    : intl.formatMessage({ id: 'writing.optionN' }, { n: i + 1 })}
+                  copyLabel={hideOption2 || result.options.length < 2
+                    ? intl.formatMessage({ id: 'writing.revisedText' })
+                    : intl.formatMessage({ id: 'writing.optionN' }, { n: i + 1 })}
                   sourceText={resultSourceText}
                   visibleCategories={visibleCategories}
                   sortChanges={sortChanges}

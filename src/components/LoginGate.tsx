@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { matchPath, useLocation } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { fetchInvite, type CollectionInvite } from '../lib/collectionsApi';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
@@ -53,6 +54,7 @@ function GoogleG() {
  * its button are there either way.
  */
 function InviteCard({ id, onSignIn }: { id: string; onSignIn: () => void }) {
+  const intl = useIntl();
   const [invite, setInvite] = useState<CollectionInvite | null>(null);
 
   useEffect(() => {
@@ -61,7 +63,7 @@ function InviteCard({ id, onSignIn }: { id: string; onSignIn: () => void }) {
     return () => { cancelled = true; };
   }, [id]);
 
-  const owner = invite?.ownerName ?? 'Someone';
+  const owner = invite?.ownerName ?? intl.formatMessage({ id: 'auth.someone' });
 
   return (
     <div className="w-full max-w-sm rounded-2xl border border-border bg-bg-card shadow-2xl p-8 text-center">
@@ -83,14 +85,17 @@ function InviteCard({ id, onSignIn }: { id: string; onSignIn: () => void }) {
       )}
 
       <h2 className="text-xl font-display font-bold text-text-primary mb-2">
-        <span className="text-accent-purple">{owner}</span> invited you to join a vocabulary list collection
+        <FormattedMessage
+          id="auth.invitedYou"
+          values={{ owner, name: (chunks) => <span className="text-accent-purple">{chunks}</span> }}
+        />
       </h2>
       {invite ? (
         <div className="mb-7 rounded-xl border border-border bg-bg-tertiary/40 p-4 text-left">
           <div className="font-display font-bold text-text-primary">{invite.name}</div>
           <div className="text-xs text-text-muted mt-0.5">
-            {invite.wordCount} words
-            {invite.memberCount > 0 && ` · ${invite.memberCount} ${invite.memberCount === 1 ? 'learner' : 'learners'}`}
+            <FormattedMessage id="common.wordCount" values={{ count: invite.wordCount }} />
+            {invite.memberCount > 0 && <> · <FormattedMessage id="auth.learnerCount" values={{ count: invite.memberCount }} /></>}
           </div>
           {invite.description && <p className="text-xs text-text-muted mt-2">{invite.description}</p>}
           {invite.sampleWords.length > 0 && (
@@ -101,7 +106,7 @@ function InviteCard({ id, onSignIn }: { id: string; onSignIn: () => void }) {
                 </span>
               ))}
               {invite.wordCount > invite.sampleWords.length && (
-                <span className="text-[11px] px-1 py-0.5 text-text-muted">+{invite.wordCount - invite.sampleWords.length} more</span>
+                <span className="text-[11px] px-1 py-0.5 text-text-muted"><FormattedMessage id="common.more" values={{ count: invite.wordCount - invite.sampleWords.length }} /></span>
               )}
             </div>
           )}
@@ -115,7 +120,7 @@ function InviteCard({ id, onSignIn }: { id: string; onSignIn: () => void }) {
         className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-xl bg-white text-gray-800 text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
       >
         <GoogleG />
-        Take it
+        <FormattedMessage id="auth.takeIt" />
       </button>
     </div>
   );
@@ -154,10 +159,10 @@ export function LoginGate() {
         </div>
 
         <h2 className="text-xl font-display font-bold text-text-primary mb-2">
-          Sign in to continue
+          <FormattedMessage id="auth.gateTitle" />
         </h2>
         <p className="text-sm text-text-muted mb-7">
-          Sign in to start learning — your progress syncs across all your devices.
+          <FormattedMessage id="auth.gateBody" />
         </p>
 
         <button
@@ -165,7 +170,7 @@ export function LoginGate() {
           className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-xl bg-white text-gray-800 text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
         >
           <GoogleG />
-          Continue with Google
+          <FormattedMessage id="auth.continueGoogle" />
         </button>
       </div>
     </div>

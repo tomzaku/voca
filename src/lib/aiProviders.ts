@@ -15,6 +15,7 @@
 // shares, so it's called directly — see ./improveWritingApi.ts.
 
 import { request } from './api';
+import { t } from '../i18n';
 
 /** Generation is slow; the caller may also cancel with its own signal. */
 export const AI_TIMEOUT_MS = 60_000;
@@ -47,5 +48,5 @@ export async function callAiAction(
     signal: opts.signal,
     timeout: AI_TIMEOUT_MS,
   });
-  return (data.text as string) || 'No response received.';
+  return (data.text as string) || t('common.noResponse');
 }

@@ -1,22 +1,23 @@
 import { Icon } from '@iconify/react';
+import { FormattedMessage } from 'react-intl';
 import { useIsPro } from '../hooks/useProStatus';
 
 // Every row Pro unlocks today — kept in sync with the actual gates:
 // EnglishPractice/PracticeButton (AI conversation), HistoryPage (Story Gaps,
 // Speaking dialogues, Mind Map), FlashCard (word doodles), ImproveWritingPage,
 // and Leaderboard (creating a team). Free rows are what's ungated everywhere
-// else in the app.
-const ROWS: { label: string; detail: string; free: boolean; pro: boolean }[] = [
-  { label: 'Flashcards & vocabulary practice', detail: 'The core learning loop, unlimited.', free: true, pro: true },
-  { label: 'History, quizzes & collections', detail: 'Track progress and build word sets.', free: true, pro: true },
-  { label: 'Join a team', detail: 'Via an invite code or link.', free: true, pro: true },
-  { label: 'AI conversation practice', detail: 'Live spoken/typed practice, corrected turn by turn.', free: false, pro: true },
-  { label: 'Story Gaps', detail: 'A fresh AI-written short story built from your words.', free: false, pro: true },
-  { label: 'Speaking dialogues', detail: 'An AI conversation script that weaves in your words.', free: false, pro: true },
-  { label: 'Interactive Mind Map', detail: 'An in-app word map, drawn and explorable.', free: false, pro: true },
-  { label: 'AI word doodles', detail: 'A generated picture on every flash card.', free: false, pro: true },
-  { label: 'Improve Writing', detail: 'AI feedback and rewrites on your own text.', free: false, pro: true },
-  { label: 'Create a team', detail: 'Start your own leaderboard and invite others.', free: false, pro: true },
+// else in the app. Each row's label/detail are `pro.<key>` / `pro.<key>Detail`.
+const ROWS: { key: string; free: boolean; pro: boolean }[] = [
+  { key: 'rowFlashcards', free: true, pro: true },
+  { key: 'rowHistory', free: true, pro: true },
+  { key: 'rowJoinTeam', free: true, pro: true },
+  { key: 'rowConversation', free: false, pro: true },
+  { key: 'rowStoryGaps', free: false, pro: true },
+  { key: 'rowDialogues', free: false, pro: true },
+  { key: 'rowMindMap', free: false, pro: true },
+  { key: 'rowDoodles', free: false, pro: true },
+  { key: 'rowImproveWriting', free: false, pro: true },
+  { key: 'rowCreateTeam', free: false, pro: true },
 ];
 
 function daysLeft(expiresAt: string): number {
@@ -34,7 +35,10 @@ function StatusBanner() {
       <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-accent-cyan/10 border border-accent-cyan/20 text-sm text-accent-cyan">
         <Icon icon="lucide:sparkles" className="text-base shrink-0" />
         <span>
-          You're on your Pro trial — <span className="font-bold">{left} day{left === 1 ? '' : 's'} left</span>.
+          <FormattedMessage
+            id="pro.trialBanner"
+            values={{ count: left, b: (chunks) => <span className="font-bold">{chunks}</span> }}
+          />
         </span>
       </div>
     );
@@ -44,7 +48,7 @@ function StatusBanner() {
     return (
       <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-accent-green/10 border border-accent-green/20 text-sm text-accent-green">
         <Icon icon="lucide:crown" className="text-base shrink-0" />
-        <span className="font-bold">You have Pro.</span>
+        <span className="font-bold"><FormattedMessage id="pro.youHavePro" /></span>
       </div>
     );
   }
@@ -52,7 +56,7 @@ function StatusBanner() {
   return (
     <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-bg-tertiary border border-border text-sm text-text-secondary">
       <Icon icon="lucide:circle" className="text-base shrink-0" />
-      <span>You're on the Free plan.</span>
+      <span><FormattedMessage id="pro.freePlan" /></span>
     </div>
   );
 }
@@ -72,9 +76,9 @@ export function ProComparisonPage() {
         <span className="w-12 h-12 rounded-full bg-accent-green/15 text-accent-green flex items-center justify-center">
           <Icon icon="lucide:crown" className="text-2xl" />
         </span>
-        <h1 className="text-xl font-display font-bold text-text-primary">Free vs Pro</h1>
+        <h1 className="text-xl font-display font-bold text-text-primary"><FormattedMessage id="pro.title" /></h1>
         <p className="text-sm text-text-muted max-w-sm">
-          Pro adds every AI-powered feature — live practice, generated stories, dialogues, mind maps and more.
+          <FormattedMessage id="pro.subtitle" />
         </p>
       </div>
 
@@ -82,16 +86,16 @@ export function ProComparisonPage() {
 
       <div className="rounded-xl border border-border bg-bg-card overflow-hidden">
         <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-2.5 border-b border-border bg-bg-tertiary text-[11px] font-bold uppercase tracking-wider text-text-muted">
-          <span>Feature</span>
-          <span className="w-10 text-center">Free</span>
+          <span><FormattedMessage id="pro.feature" /></span>
+          <span className="w-10 text-center"><FormattedMessage id="pro.free" /></span>
           <span className="w-10 text-center">Pro</span>
         </div>
         <div className="divide-y divide-border">
           {ROWS.map((row) => (
-            <div key={row.label} className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-3 items-start">
+            <div key={row.key} className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-3 items-start">
               <div>
-                <p className="text-sm text-text-primary font-medium">{row.label}</p>
-                <p className="text-xs text-text-muted mt-0.5">{row.detail}</p>
+                <p className="text-sm text-text-primary font-medium"><FormattedMessage id={`pro.${row.key}`} /></p>
+                <p className="text-xs text-text-muted mt-0.5"><FormattedMessage id={`pro.${row.key}Detail`} /></p>
               </div>
               <span className="w-10 flex justify-center pt-0.5"><Mark on={row.free} /></span>
               <span className="w-10 flex justify-center pt-0.5"><Mark on={row.pro} /></span>

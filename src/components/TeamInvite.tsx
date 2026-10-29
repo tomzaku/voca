@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { previewCode, teamInviteUrl, TeamsError, type Team, type TeamPreview } from '../lib/teamsApi';
 import { useTeams } from '../hooks/useTeams';
 
@@ -46,13 +47,19 @@ export function InvitePanel({ team }: { team: Team }) {
           icon="lucide:chevron-right"
           className={`transition-transform ${open ? 'rotate-90' : ''}`}
         />
-        Invite people
+        <FormattedMessage id="teams.invitePeople" />
       </button>
 
       {!open && (
         <p className="text-[11px] text-text-muted">
-          {team.memberCount} member{team.memberCount === 1 ? '' : 's'} · share a link or the code{' '}
-          <b className="text-text-secondary tracking-widest">{team.inviteCode}</b>
+          <FormattedMessage
+            id="teams.inviteSummary"
+            values={{
+              count: team.memberCount,
+              code: team.inviteCode,
+              b: (c) => <b className="text-text-secondary tracking-widest">{c}</b>,
+            }}
+          />
         </p>
       )}
 
@@ -69,18 +76,20 @@ export function InvitePanel({ team }: { team: Team }) {
               onClick={copy}
               className="btn-3d shrink-0 px-3 py-1.5 text-[11px] font-bold bg-accent-cyan text-bg-primary"
             >
-              {copied ? 'Copied' : 'Copy'}
+              <FormattedMessage id={copied ? 'teams.copied' : 'teams.copy'} />
             </button>
           </div>
           <p className="text-[11px] text-text-muted">
-            Or have them enter the code{' '}
-            <b className="text-text-primary tracking-widest">{team.inviteCode}</b>
+            <FormattedMessage
+              id="teams.orEnterCode"
+              values={{ code: team.inviteCode, b: (c) => <b className="text-text-primary tracking-widest">{c}</b> }}
+            />
           </p>
 
           {/* Rotating invalidates every link already sent, so it asks first. */}
           {confirming ? (
             <p className="text-[11px] text-text-secondary">
-              Every link and code you've shared will stop working.{' '}
+              <FormattedMessage id="teams.rotateWarning" />{' '}
               <button
                 onClick={async () => {
                   await rotateCode(team.id);
@@ -89,14 +98,14 @@ export function InvitePanel({ team }: { team: Team }) {
                 disabled={saving}
                 className="font-bold text-accent-red hover:underline cursor-pointer disabled:opacity-50"
               >
-                {saving ? 'Working…' : 'Do it'}
+                <FormattedMessage id={saving ? 'teams.working' : 'teams.doIt'} />
               </button>
               {' · '}
               <button
                 onClick={() => setConfirming(false)}
                 className="font-bold text-text-muted hover:underline cursor-pointer"
               >
-                Cancel
+                <FormattedMessage id="teams.cancel" />
               </button>
             </p>
           ) : (
@@ -104,7 +113,7 @@ export function InvitePanel({ team }: { team: Team }) {
               onClick={() => setConfirming(true)}
               className="self-start text-[11px] font-bold text-text-muted hover:text-text-primary cursor-pointer"
             >
-              Get a new code
+              <FormattedMessage id="teams.newCode" />
             </button>
           )}
         </>
@@ -130,6 +139,7 @@ export function TeamJoinDialog({
   initialCode?: string;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   const joinWithCode = useTeams((s) => s.joinWithCode);
   const saving = useTeams((s) => s.saving);
   const storeError = useTeams((s) => s.error);
@@ -148,12 +158,12 @@ export function TeamJoinDialog({
     let cancelled = false;
     previewCode(initialCode)
       .then((p) => !cancelled && setPreview(p))
-      .catch((e) => !cancelled && setError(e instanceof TeamsError ? e.message : 'Invite not found.'))
+      .catch((e) => !cancelled && setError(e instanceof TeamsError ? e.message : intl.formatMessage({ id: 'teams.inviteNotFound' })))
       .finally(() => !cancelled && setChecking(false));
     return () => {
       cancelled = true;
     };
-  }, [initialCode]);
+  }, [initialCode, intl]);
 
   const submit = async () => {
     if (!code.trim() || saving) return;
@@ -161,7 +171,7 @@ export function TeamJoinDialog({
     const ok = await joinWithCode(code.trim());
     // Closing straight away would drop the user back at the top of the page
     // with no sign anything happened — the board is far below the fold.
-    if (ok) setJoinedName(preview?.name ?? 'the team');
+    if (ok) setJoinedName(preview?.name ?? intl.formatMessage({ id: 'teams.theTeam' }));
   };
 
   const seeBoard = () => {
@@ -182,11 +192,11 @@ export function TeamJoinDialog({
       >
         <div className="flex items-center justify-between gap-2 mb-4">
           <h3 className="font-display font-bold text-text-primary">
-            {joinedName ? "You're in" : preview ? "You've been invited" : 'Join a team'}
+            <FormattedMessage id={joinedName ? 'teams.youreIn' : preview ? 'teams.invited' : 'teams.joinATeam'} />
           </h3>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={intl.formatMessage({ id: 'teams.close' })}
             className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary cursor-pointer"
           >
             <Icon icon="lucide:x" />
@@ -196,27 +206,29 @@ export function TeamJoinDialog({
         {joinedName ? (
           <>
             <p className="text-xs text-text-secondary leading-relaxed mb-4">
-              You've joined <b className="text-text-primary">{joinedName}</b>. Its board is on your
-              dashboard, under your vocabulary.
+              <FormattedMessage
+                id="teams.joinedMessage"
+                values={{ name: joinedName, b: (c) => <b className="text-text-primary">{c}</b> }}
+              />
             </p>
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={onClose}
                 className="px-3 py-2 text-xs font-bold text-text-muted hover:text-text-primary cursor-pointer"
               >
-                Close
+                <FormattedMessage id="teams.close" />
               </button>
               <button
                 onClick={seeBoard}
                 className="btn-3d px-4 py-2 text-xs font-bold bg-accent-cyan text-bg-primary"
               >
-                See the board
+                <FormattedMessage id="teams.seeBoard" />
               </button>
             </div>
           </>
         ) : (
           <>
-            {checking && <p className="text-xs text-text-muted">Checking the invite…</p>}
+            {checking && <p className="text-xs text-text-muted"><FormattedMessage id="teams.checkingInvite" /></p>}
 
             {preview && (
               <div className="rounded-xl bg-bg-tertiary/50 p-4 mb-4">
@@ -225,7 +237,7 @@ export function TeamJoinDialog({
                   <p className="text-[11px] text-text-secondary mt-0.5">{preview.description}</p>
                 )}
                 <p className="text-[11px] text-text-muted mt-1 tabular-nums">
-                  {preview.memberCount} member{preview.memberCount === 1 ? '' : 's'}
+                  <FormattedMessage id="teams.memberCount" values={{ count: preview.memberCount }} />
                 </p>
               </div>
             )}
@@ -235,7 +247,7 @@ export function TeamJoinDialog({
             {!preview && !checking && (
               <>
                 <label className="block text-xs font-bold text-text-secondary mb-1">
-                  Invite code
+                  <FormattedMessage id="teams.inviteCode" />
                 </label>
                 <input
                   value={code}
@@ -250,14 +262,13 @@ export function TeamJoinDialog({
             )}
 
             {preview?.joined ? (
-              <p className="text-xs text-accent-green mb-4">You're already in this team.</p>
+              <p className="text-xs text-accent-green mb-4"><FormattedMessage id="teams.alreadyIn" /></p>
             ) : (
-              preview?.full && <p className="text-xs text-accent-red mb-4">This team is full.</p>
+              preview?.full && <p className="text-xs text-accent-red mb-4"><FormattedMessage id="teams.full" /></p>
             )}
 
             <p className="text-[11px] text-text-muted leading-relaxed mb-4">
-              Joining shares your name, avatar, score, words learned and streak with this team. You
-              can leave at any time.
+              <FormattedMessage id="teams.joinConsent" />
             </p>
 
             {shown && <p className="text-xs text-accent-red mb-3">{shown}</p>}
@@ -267,7 +278,7 @@ export function TeamJoinDialog({
                 onClick={onClose}
                 className="px-3 py-2 text-xs font-bold text-text-muted hover:text-text-primary cursor-pointer"
               >
-                {preview?.joined ? 'Close' : 'Not now'}
+                <FormattedMessage id={preview?.joined ? 'teams.close' : 'teams.notNow'} />
               </button>
               {!preview?.joined && (
                 <button
@@ -275,7 +286,11 @@ export function TeamJoinDialog({
                   disabled={!code.trim() || saving || checking || preview?.full}
                   className="btn-3d px-4 py-2 text-xs font-bold bg-accent-cyan text-bg-primary disabled:opacity-50"
                 >
-                  {saving ? 'Joining…' : preview ? `Join ${preview.name}` : 'Join'}
+                  {saving
+                    ? <FormattedMessage id="teams.joining" />
+                    : preview
+                      ? <FormattedMessage id="teams.joinName" values={{ name: preview.name }} />
+                      : <FormattedMessage id="teams.join" />}
                 </button>
               )}
             </div>

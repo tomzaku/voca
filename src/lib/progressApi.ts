@@ -28,10 +28,10 @@ export type Filter = 'recent' | 'saved' | BucketTab;
 /** Every filter, in display order — History's row and any other list/game
  *  picker (Quiz, Story Gaps, …) share this one source so the options and
  *  labels never drift apart. */
-export const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'recent', label: 'Recent' },
-  { id: 'saved', label: 'Saved' },
-  ...BUCKET_ORDER.map((b) => ({ id: BUCKET_META[b].tab, label: BUCKET_META[b].label })),
+export const FILTERS: { id: Filter; labelId: string }[] = [
+  { id: 'recent', labelId: 'common.filterRecent' },
+  { id: 'saved', labelId: 'common.filterSaved' },
+  ...BUCKET_ORDER.map((b) => ({ id: BUCKET_META[b].tab, labelId: BUCKET_META[b].labelId })),
 ];
 
 export const isFilter = (s: string): s is Filter => FILTERS.some((f) => f.id === s);

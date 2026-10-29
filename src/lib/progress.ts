@@ -1,19 +1,20 @@
 import type { WordProgress } from '../types';
+import { t } from '../i18n';
 
 const DAY = 86_400_000;
 
 /** Relative "how long ago" label (e.g. "3d ago", "yesterday", "2h ago"). */
 export function agoLabel(iso?: string): string {
-  if (!iso) return 'never';
+  if (!iso) return t('bucket.agoNever');
   const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 0) return 'just now';
+  if (diff < 0) return t('bucket.agoJustNow');
   const days = Math.floor(diff / DAY);
   if (days <= 0) {
     const hrs = Math.floor(diff / 3_600_000);
-    return hrs <= 0 ? 'just now' : `${hrs}h ago`;
+    return hrs <= 0 ? t('bucket.agoJustNow') : t('bucket.agoHours', { count: hrs });
   }
-  if (days === 1) return 'yesterday';
-  return `${days}d ago`;
+  if (days === 1) return t('bucket.agoYesterday');
+  return t('bucket.agoDays', { count: days });
 }
 
 /**
@@ -24,9 +25,8 @@ export function agoLabel(iso?: string): string {
 export function whyLine(p: WordProgress): string {
   const reps = p.reps ?? 0;
   const last = agoLabel(p.lastReviewedAt ?? p.seenAt);
-  if (reps <= 0) return `Learned ${last}`;
-  const times = reps === 1 ? 'once' : reps === 2 ? 'twice' : `${reps} times`;
-  return `Reviewed ${times} · ${last}`;
+  if (reps <= 0) return t('bucket.whyLearned', { ago: last });
+  return t('bucket.whyReviewed', { count: reps, ago: last });
 }
 
 /**
@@ -69,12 +69,15 @@ export type BucketTab = 'not-started' | 'struggling' | 'learning' | 'mastered' |
  * what the learner reads is defined here.
  *
  * Every use pairs the label with `icon`, so state never rides on colour alone.
+ *
+ * Labels are message ids (the `bucket` catalog), formatted at render time so
+ * a language switch reaches them.
  */
 export const BUCKET_META: Record<
   WordBucket,
   {
     /** What the learner sees — the only wording used for this bucket. */
-    label: string;
+    labelId: string;
     icon: string;
     /** Fill colour for bar segments. */
     bar: string;
@@ -83,54 +86,54 @@ export const BUCKET_META: Record<
     /** Text + tint, for pills and chips. */
     chip: string;
     /** One line on why a word lands here. */
-    hint: string;
+    hintId: string;
     /** History's `?tab=` value for this bucket. */
     tab: BucketTab;
   }
 > = {
   pending: {
-    label: 'Not started',
+    labelId: 'bucket.notStarted',
     icon: 'lucide:circle-dashed',
     bar: 'bg-accent-orange',
     text: 'text-accent-orange',
     chip: 'text-accent-orange bg-accent-orange/10',
-    hint: 'Never answered yet — waiting for their first round.',
+    hintId: 'bucket.notStartedHint',
     tab: 'not-started',
   },
   difficult: {
-    label: 'Struggling',
+    labelId: 'bucket.struggling',
     icon: 'lucide:flame',
     bar: 'bg-accent-red',
     text: 'text-accent-red',
     chip: 'text-accent-red bg-accent-red/10',
-    hint: 'Failed the last round, or more wrong answers than correct — these repeat until learned.',
+    hintId: 'bucket.strugglingHint',
     tab: 'struggling',
   },
   learning: {
-    label: 'Learning',
+    labelId: 'bucket.learning',
     icon: 'lucide:refresh-cw',
     bar: 'bg-accent-cyan',
     text: 'text-accent-cyan',
     chip: 'text-accent-cyan bg-accent-cyan/10',
-    hint: 'On the review schedule, coming back at growing intervals.',
+    hintId: 'bucket.learningHint',
     tab: 'learning',
   },
   mastered: {
-    label: 'Mastered',
+    labelId: 'bucket.mastered',
     icon: 'lucide:sparkles',
     bar: 'bg-accent-green',
     text: 'text-accent-green',
     chip: 'text-accent-green bg-accent-green/10',
-    hint: 'Graduated — the review gap passed ~3 weeks.',
+    hintId: 'bucket.masteredHint',
     tab: 'mastered',
   },
   dismissed: {
-    label: 'Skipped',
+    labelId: 'bucket.skipped',
     icon: 'lucide:eye-off',
     bar: 'bg-border-light',
     text: 'text-text-muted',
     chip: 'text-text-muted bg-bg-tertiary',
-    hint: 'Skipped for good — never shown (restore from History).',
+    hintId: 'bucket.skippedHint',
     tab: 'skipped',
   },
 };

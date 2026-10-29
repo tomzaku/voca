@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { generateWordData, WORD_LIST } from '../../lib/wordService';
 import { speakText, stopSpeaking } from '../../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../../lib/sfx';
@@ -104,6 +105,7 @@ function buildQuestions(config: QuizConfig, loaded: string[], dataMap: Record<st
 }
 
 export function QuizArena({ words }: { words: string[] }) {
+  const intl = useIntl();
   const markWord = useVocabularyStore((s) => s.markWord);
   const { user } = useAuth();
 
@@ -255,23 +257,44 @@ export function QuizArena({ words }: { words: string[] }) {
   if (phase.name === 'setup') {
     return (
       <div className="space-y-4">
-        <Section title="Question types" aside={qTypes.size === QUESTION_TYPES.length ? 'Random mix' : `${qTypes.size} selected`}>
+        <Section
+          title={intl.formatMessage({ id: 'games.arenaQuestionTypes' })}
+          aside={qTypes.size === QUESTION_TYPES.length
+            ? intl.formatMessage({ id: 'games.arenaRandomMix' })
+            : intl.formatMessage({ id: 'games.arenaSelected' }, { count: qTypes.size })}
+        >
           <div className="grid grid-cols-2 gap-1.5">
             {QUESTION_TYPES.map((t) => (
-              <Choice key={t} on={qTypes.has(t)} onClick={() => toggleType(t)} label={QUESTION_TYPE_META[t].label} hint={QUESTION_TYPE_META[t].hint} />
+              <Choice
+                key={t}
+                on={qTypes.has(t)}
+                onClick={() => toggleType(t)}
+                label={intl.formatMessage({ id: QUESTION_TYPE_META[t].labelId })}
+                hint={intl.formatMessage({ id: QUESTION_TYPE_META[t].hintId })}
+              />
             ))}
           </div>
         </Section>
 
-        <Section title="Show answers">
+        <Section title={intl.formatMessage({ id: 'games.arenaShowAnswers' })}>
           <div className="grid grid-cols-2 gap-1.5">
-            <Choice on={reveal === 'each'} onClick={() => setReveal('each')} label="After each" hint="Instant right/wrong" />
-            <Choice on={reveal === 'end'} onClick={() => setReveal('end')} label="At the end" hint="All on the results" />
+            <Choice
+              on={reveal === 'each'}
+              onClick={() => setReveal('each')}
+              label={intl.formatMessage({ id: 'games.arenaAfterEach' })}
+              hint={intl.formatMessage({ id: 'games.arenaAfterEachHint' })}
+            />
+            <Choice
+              on={reveal === 'end'}
+              onClick={() => setReveal('end')}
+              label={intl.formatMessage({ id: 'games.arenaAtEnd' })}
+              hint={intl.formatMessage({ id: 'games.arenaAtEndHint' })}
+            />
           </div>
         </Section>
 
         <Section
-          title="Time limit"
+          title={intl.formatMessage({ id: 'games.arenaTimeLimit' })}
           aside={
             <button
               onClick={() => setAutoTime(true)}
@@ -279,7 +302,7 @@ export function QuizArena({ words }: { words: string[] }) {
                 autoTime ? 'bg-accent-cyan/15 border-accent-cyan/30 text-accent-cyan' : 'bg-bg-card border-border text-text-muted hover:text-text-primary'
               }`}
             >
-              Auto · {SECONDS_PER_WORD}s/word
+              <FormattedMessage id="games.arenaAutoTime" values={{ sec: SECONDS_PER_WORD }} />
             </button>
           }
         >
@@ -291,19 +314,19 @@ export function QuizArena({ words }: { words: string[] }) {
               onChange={(e) => { setAutoTime(false); setDurationSec(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
               className="w-24 bg-bg-tertiary border-2 border-border rounded-lg px-2.5 py-1.5 text-sm text-text-primary font-code font-bold focus:outline-none focus:border-accent-cyan"
             />
-            <span className="text-xs text-text-muted font-bold">sec</span>
+            <span className="text-xs text-text-muted font-bold"><FormattedMessage id="games.arenaSec" /></span>
             <span className="text-[11px] text-text-muted ml-auto">
-              {durationSec === 0 ? 'No limit' : `≈ ${fmtTime(durationSec)}`}
+              {durationSec === 0 ? intl.formatMessage({ id: 'games.arenaNoLimit' }) : `≈ ${fmtTime(durationSec)}`}
             </span>
           </div>
         </Section>
 
         <Section
-          title={`Words ${chosen.size}/${words.length}`}
+          title={intl.formatMessage({ id: 'games.arenaWords' }, { chosen: chosen.size, total: words.length })}
           aside={
             <span className="flex gap-2">
-              <button onClick={() => setChosen(new Set(words))} className="text-[11px] font-bold text-text-muted hover:text-text-primary">All</button>
-              <button onClick={() => setChosen(new Set())} className="text-[11px] font-bold text-text-muted hover:text-text-primary">None</button>
+              <button onClick={() => setChosen(new Set(words))} className="text-[11px] font-bold text-text-muted hover:text-text-primary"><FormattedMessage id="games.all" /></button>
+              <button onClick={() => setChosen(new Set())} className="text-[11px] font-bold text-text-muted hover:text-text-primary"><FormattedMessage id="games.none" /></button>
             </span>
           }
         >
@@ -331,10 +354,10 @@ export function QuizArena({ words }: { words: string[] }) {
           className="btn-3d w-full py-2.5 text-sm bg-accent-purple text-bg-primary font-bold disabled:opacity-40"
         >
           <Icon icon="lucide:swords" className="inline -mt-0.5 mr-1.5" />
-          Enter the arena
+          <FormattedMessage id="games.arenaEnter" />
         </button>
         {chosen.size < MIN_WORDS && (
-          <p className="text-[11px] text-text-muted text-center">Pick at least {MIN_WORDS} words.</p>
+          <p className="text-[11px] text-text-muted text-center"><FormattedMessage id="games.arenaPickAtLeast" values={{ count: MIN_WORDS }} /></p>
         )}
       </div>
     );
@@ -344,7 +367,7 @@ export function QuizArena({ words }: { words: string[] }) {
     return (
       <div className="py-10 flex flex-col items-center gap-4">
         <div className="w-10 h-10 rounded-full border-2 border-accent-purple/30 border-t-accent-purple animate-spin" />
-        <p className="text-sm font-bold text-text-muted">Entering the arena…</p>
+        <p className="text-sm font-bold text-text-muted"><FormattedMessage id="games.arenaEntering" /></p>
       </div>
     );
   }
@@ -353,9 +376,9 @@ export function QuizArena({ words }: { words: string[] }) {
     return (
       <div className="py-6 text-center">
         <div className="text-4xl mb-3">🥲</div>
-        <p className="text-sm text-text-muted mb-4">Couldn't load enough of those words. Try picking others.</p>
+        <p className="text-sm text-text-muted mb-4"><FormattedMessage id="games.arenaLoadFailed" /></p>
         <button onClick={() => setPhase({ name: 'setup' })} className="btn-3d px-4 py-2 text-sm bg-accent-purple text-bg-primary font-bold">
-          Back to setup
+          <FormattedMessage id="games.arenaBackToSetup" />
         </button>
       </div>
     );
@@ -365,27 +388,27 @@ export function QuizArena({ words }: { words: string[] }) {
   if (phase.name === 'over') {
     const { score: sc, correct, total: tot, bestCombo: bc, outOfLives } = phase.summary;
     const pct = tot ? Math.round((correct / tot) * 100) : 0;
-    const msg = outOfLives ? 'Out of lives!' : pct >= 100 ? 'Flawless!' : pct >= 75 ? 'Great run!' : pct >= 50 ? 'Not bad!' : 'Keep training!';
+    const msgId = outOfLives ? 'games.arenaOutOfLives' : pct >= 100 ? 'games.arenaFlawless' : pct >= 75 ? 'games.arenaGreatRun' : pct >= 50 ? 'games.arenaNotBad' : 'games.arenaKeepTraining';
     return (
       <div className="text-center animate-pop-in">
         <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1">
-          {outOfLives ? 'Defeated' : 'Arena cleared'}
+          <FormattedMessage id={outOfLives ? 'games.arenaDefeated' : 'games.arenaCleared'} />
         </p>
         <div className="text-5xl font-display font-bold text-text-primary leading-none mb-1">{sc}</div>
-        <p className="text-sm font-bold text-text-muted mb-4">points · {msg}</p>
+        <p className="text-sm font-bold text-text-muted mb-4"><FormattedMessage id="games.arenaPointsMsg" values={{ msg: intl.formatMessage({ id: msgId }) }} /></p>
         <div className="grid grid-cols-3 gap-2 mb-5">
-          <Stat icon="lucide:target" label="Correct" value={`${correct}/${tot}`} color="text-accent-green" />
-          <Stat icon="lucide:flame" label="Combo" value={`×${bc}`} color="text-accent-orange" />
-          <Stat icon="lucide:percent" label="Accuracy" value={`${pct}%`} color="text-accent-cyan" />
+          <Stat icon="lucide:target" label={intl.formatMessage({ id: 'games.statCorrect' })} value={`${correct}/${tot}`} color="text-accent-green" />
+          <Stat icon="lucide:flame" label={intl.formatMessage({ id: 'games.statCombo' })} value={`×${bc}`} color="text-accent-orange" />
+          <Stat icon="lucide:percent" label={intl.formatMessage({ id: 'games.statAccuracy' })} value={`${pct}%`} color="text-accent-cyan" />
         </div>
         <div className="flex gap-2">
           <button onClick={start} className="btn-3d flex-1 py-2.5 text-sm bg-accent-purple text-bg-primary font-bold">
-            <Icon icon="lucide:rotate-ccw" className="inline -mt-0.5 mr-1" /> Again
+            <Icon icon="lucide:rotate-ccw" className="inline -mt-0.5 mr-1" /> <FormattedMessage id="games.again" />
           </button>
           <button
             onClick={() => setPhase({ name: 'setup' })}
             className="btn-3d px-3 py-2.5 text-sm bg-bg-tertiary text-text-secondary font-bold"
-            title="Change settings"
+            title={intl.formatMessage({ id: 'games.changeSettings' })}
           >
             <Icon icon="lucide:sliders-horizontal" />
           </button>
@@ -435,7 +458,7 @@ export function QuizArena({ words }: { words: string[] }) {
 
       <div className="flex items-center justify-between mb-1">
         <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
-          {question.kind === 'match' ? QUESTION_TYPE_META.match.ask : QUESTION_TYPE_META[question.type].ask}
+          {intl.formatMessage({ id: question.kind === 'match' ? QUESTION_TYPE_META.match.askId : QUESTION_TYPE_META[question.type].askId })}
         </span>
         <span className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted">
           {/* Ticks over every question, purely decorative — the run's actual
@@ -454,7 +477,7 @@ export function QuizArena({ words }: { words: string[] }) {
               onClick={() => { stopSpeaking(); speakText(question.word); }}
               className={`btn-3d w-full py-4 mb-3 bg-bg-tertiary font-bold flex items-center justify-center gap-2 ${accent.text}`}
             >
-              <Icon icon="lucide:volume-2" className="text-xl" /> Play again
+              <Icon icon="lucide:volume-2" className="text-xl" /> <FormattedMessage id="games.replaySound" />
             </button>
           ) : (
             <p className="text-base font-display font-bold text-text-primary mb-3 min-h-[3rem]">{question.prompt}</p>

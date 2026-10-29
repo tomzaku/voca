@@ -8,6 +8,7 @@
 import { supabase } from './supabase';
 import { fetchSettings, saveSettings } from './settingsApi';
 import { removePushSubscription, savePushSubscription } from './pushApi';
+import { getIntl, t } from '../i18n';
 
 /**
  * Reminder times are stored as MINUTES SINCE MIDNIGHT (7:30 AM = 450), in
@@ -30,21 +31,15 @@ export const MAX_REMINDER_TIMES = 5;
 /** 0 = Sunday … 6 = Saturday — matches both Date#getDay() and Postgres `dow`. */
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
-/** Single-letter chip labels, indexed by day number. */
-export const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+/**
+ * A weekday's name in the UI language. 2017-01-01 was a Sunday, so day N is
+ * just N days after it. `narrow` is the chip label; `long` is for screen
+ * readers, since narrow initials repeat (S/S, T/T).
+ */
+export function dayName(day: number, weekday: 'narrow' | 'short' | 'long' = 'long'): string {
+  return getIntl().formatDate(new Date(2017, 0, 1 + day), { weekday });
+}
 
-/** Full names — the initials repeat (S/S, T/T), so screen readers need these. */
-export const DAY_NAMES = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-];
-
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAYS = [1, 2, 3, 4, 5];
 const WEEKEND = [0, 6];
 
@@ -68,13 +63,13 @@ const sameDays = (a: number[], b: number[]) =>
  * Naming the common day patterns beats reading seven highlighted letters back.
  */
 export function formatSchedule(times: number[], days: number[]): string {
-  if (days.length === 0 || times.length === 0) return 'No schedule set';
-  const at = `at ${[...times].sort((a, b) => a - b).map(formatTime).join(', ')}`;
-  if (sameDays(days, ALL_DAYS)) return `Every day ${at}`;
-  if (sameDays(days, WEEKDAYS)) return `Weekdays ${at}`;
-  if (sameDays(days, WEEKEND)) return `Weekends ${at}`;
-  const named = [...days].sort().map((d) => DAY_SHORT[d]).join(', ');
-  return `${named} ${at}`;
+  if (days.length === 0 || times.length === 0) return t('profile.noSchedule');
+  const at = getIntl().formatList([...times].sort((a, b) => a - b).map(formatTime));
+  if (sameDays(days, ALL_DAYS)) return t('profile.scheduleEveryDay', { at });
+  if (sameDays(days, WEEKDAYS)) return t('profile.scheduleWeekdays', { at });
+  if (sameDays(days, WEEKEND)) return t('profile.scheduleWeekends', { at });
+  const named = [...days].sort().map((d) => dayName(d, 'short')).join(', ');
+  return t('profile.scheduleDays', { days: named, at });
 }
 
 /** The browser's current IANA zone, e.g. "Asia/Ho_Chi_Minh". */
@@ -86,7 +81,7 @@ export function localTimezone(): string {
 export function formatTime(minutes: number): string {
   const d = new Date();
   d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return getIntl().formatTime(d, { hour: 'numeric', minute: '2-digit' });
 }
 
 /**
@@ -186,7 +181,7 @@ async function readyRegistration(timeoutMs = 10_000): Promise<ServiceWorkerRegis
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new Error('No active service worker — push cannot be set up.')),
+      () => reject(new Error(t('profile.noServiceWorker'))),
       timeoutMs,
     );
   });

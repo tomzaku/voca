@@ -6,6 +6,7 @@
 // so offline there is simply nothing to show.
 
 import { ApiError, request } from './api';
+import { t } from '../i18n';
 
 const TIMEOUT_MS = 8000;
 
@@ -132,7 +133,7 @@ async function call<T>(
   try {
     return await send();
   } catch (err) {
-    throw new TeamsError(err instanceof ApiError ? err.message : 'Something went wrong.');
+    throw new TeamsError(err instanceof ApiError ? err.message : t('teams.somethingWrong'));
   }
 }
 

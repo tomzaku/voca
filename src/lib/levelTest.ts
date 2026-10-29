@@ -8,15 +8,16 @@ import { CEFR_WORDS, type CefrLevel } from '../data/cefrWords';
 import { getCollection } from './collections';
 
 export interface PhaseSpec {
-  name: string;
-  description: string;
+  /** Message ids — formatted at render time so the language can change. */
+  nameId: string;
+  descriptionId: string;
   bands: [CefrLevel, CefrLevel];
 }
 
 export const PHASES: PhaseSpec[] = [
-  { name: 'Simple words',   description: 'Everyday basics · A1–A2',          bands: [1, 2] },
-  { name: 'Everyday words', description: 'Conversation and reading · B1–B2', bands: [3, 4] },
-  { name: 'Advanced words', description: 'Academic and rare words · C1–C2',  bands: [5, 6] },
+  { nameId: 'levelTest.phaseSimple',   descriptionId: 'levelTest.phaseSimpleDesc',   bands: [1, 2] },
+  { nameId: 'levelTest.phaseEveryday', descriptionId: 'levelTest.phaseEverydayDesc', bands: [3, 4] },
+  { nameId: 'levelTest.phaseAdvanced', descriptionId: 'levelTest.phaseAdvancedDesc', bands: [5, 6] },
 ];
 
 export const WORDS_PER_BAND = 5; // 2 bands × 5 = 10 word chips per phase

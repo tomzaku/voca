@@ -7,9 +7,11 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useTeams } from '../hooks/useTeams';
 
 export function TeamForm({ onClose }: { onClose: () => void }) {
+  const intl = useIntl();
   const create = useTeams((s) => s.create);
   const saving = useTeams((s) => s.saving);
   const error = useTeams((s) => s.error);
@@ -34,36 +36,39 @@ export function TeamForm({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2 mb-4">
-          <h3 className="font-display font-bold text-text-primary">New team</h3>
+          <h3 className="font-display font-bold text-text-primary"><FormattedMessage id="teams.newTeam" /></h3>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={intl.formatMessage({ id: 'teams.close' })}
             className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary cursor-pointer"
           >
             <Icon icon="lucide:x" />
           </button>
         </div>
 
-        <label className="block text-xs font-bold text-text-secondary mb-1">Name</label>
+        <label className="block text-xs font-bold text-text-secondary mb-1"><FormattedMessage id="teams.name" /></label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
           maxLength={60}
           autoFocus
-          placeholder="Class 5A"
+          placeholder={intl.formatMessage({ id: 'teams.namePlaceholder' })}
           className="w-full rounded-xl bg-bg-tertiary border-2 border-border px-3 py-2 text-sm text-text-primary mb-3"
         />
 
         <label className="block text-xs font-bold text-text-secondary mb-1">
-          Description <span className="font-normal text-text-muted">(optional)</span>
+          <FormattedMessage
+            id="teams.descriptionOptional"
+            values={{ muted: (c) => <span className="font-normal text-text-muted">{c}</span> }}
+          />
         </label>
         <input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
           maxLength={200}
-          placeholder="Tuesday evening group"
+          placeholder={intl.formatMessage({ id: 'teams.descriptionPlaceholder' })}
           className="w-full rounded-xl bg-bg-tertiary border-2 border-border px-3 py-2 text-sm text-text-primary mb-3"
         />
 
@@ -77,9 +82,9 @@ export function TeamForm({ onClose }: { onClose: () => void }) {
             className="mt-0.5"
           />
           <span>
-            Let anyone find and join this team.
+            <FormattedMessage id="teams.publicLabel" />
             <span className="block text-text-muted">
-              Off: only people you send the invite link to can join.
+              <FormattedMessage id="teams.publicHint" />
             </span>
           </span>
         </label>
@@ -91,14 +96,14 @@ export function TeamForm({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="px-3 py-2 text-xs font-bold text-text-muted hover:text-text-primary cursor-pointer"
           >
-            Cancel
+            <FormattedMessage id="teams.cancel" />
           </button>
           <button
             onClick={submit}
             disabled={!name.trim() || saving}
             className="btn-3d px-4 py-2 text-xs font-bold bg-accent-cyan text-bg-primary disabled:opacity-50"
           >
-            {saving ? 'Creating…' : 'Create team'}
+            <FormattedMessage id={saving ? 'teams.creating' : 'teams.createTeam'} />
           </button>
         </div>
       </div>

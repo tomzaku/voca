@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useFabStore } from '../hooks/useFabStore';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
@@ -13,11 +14,11 @@ const MENU_HEIGHT = 168;
 
 // Chip classes are spelled out, not built from a colour name — Tailwind only
 // keeps the classes it can find as complete strings in the source.
-const MODES: { id: PracticeMode; label: string; desc: string; chip: string; icon: React.ReactNode }[] = [
+const MODES: { id: PracticeMode; labelId: string; descId: string; chip: string; icon: React.ReactNode }[] = [
   {
     id: 'smooth',
-    label: 'Smooth Conversation',
-    desc: 'Natural chat, no interruptions. Feedback at the end.',
+    labelId: 'practice.modeSmooth',
+    descId: 'practice.modeSmoothDesc',
     chip: 'bg-accent-green/15 text-accent-green',
     icon: (
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -27,8 +28,8 @@ const MODES: { id: PracticeMode; label: string; desc: string; chip: string; icon
   },
   {
     id: 'feedback',
-    label: 'Feedback Every Message',
-    desc: 'Corrections after each answer — grammar, words, phrasing.',
+    labelId: 'practice.modeFeedback',
+    descId: 'practice.modeFeedbackDesc',
     chip: 'bg-accent-purple/15 text-accent-purple',
     icon: (
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -60,7 +61,8 @@ interface PracticeButtonProps {
  * Every turn of the conversation is a live AI call, so this is Pro-only. The
  * button stays visible as a teaser; the `ai` function re-checks Pro server-side.
  */
-export function PracticeButton({ topic, focus, label = 'Practice', size = 'md', onStart }: PracticeButtonProps) {
+export function PracticeButton({ topic, focus, label, size = 'md', onStart }: PracticeButtonProps) {
+  const intl = useIntl();
   const startPractice = useFabStore((s) => s.startPractice);
   const { user } = useAuth();
   const { isPro, loading: proLoading } = useIsPro();
@@ -75,7 +77,7 @@ export function PracticeButton({ topic, focus, label = 'Practice', size = 'md', 
   const toggle = useCallback(() => {
     if (locked) {
       toast(
-        user ? 'AI conversation practice is a Pro feature.' : 'Sign in with a Pro account to practice.',
+        intl.formatMessage({ id: user ? 'practice.proFeatureToast' : 'practice.signInProToast' }),
         { icon: '👑' },
       );
       return;
@@ -91,7 +93,7 @@ export function PracticeButton({ topic, focus, label = 'Practice', size = 'md', 
           : below,
       };
     });
-  }, [locked, user]);
+  }, [locked, user, intl]);
 
   useEffect(() => {
     if (!menu) return;
@@ -129,8 +131,10 @@ export function PracticeButton({ topic, focus, label = 'Practice', size = 'md', 
           size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'
         }`}
         title={locked
-          ? 'Pro feature — talk this through with an AI partner'
-          : focus ? `Practise: ${focus}` : `Practise ${topic} with the AI partner`}
+          ? intl.formatMessage({ id: 'practice.lockedTitle' })
+          : focus
+            ? intl.formatMessage({ id: 'practice.focusTitle' }, { focus })
+            : intl.formatMessage({ id: 'practice.topicTitle' }, { topic })}
       >
         <svg width={size === 'sm' ? 11 : 12} height={size === 'sm' ? 11 : 12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           {locked ? (
@@ -147,7 +151,7 @@ export function PracticeButton({ topic, focus, label = 'Practice', size = 'md', 
             </>
           )}
         </svg>
-        {label}
+        {label ?? <FormattedMessage id="practice.button" />}
         {locked && (
           <span className="text-[9px] px-1 py-px rounded bg-accent-green/20 font-extrabold uppercase tracking-wider">
             Pro
@@ -162,7 +166,7 @@ export function PracticeButton({ topic, focus, label = 'Practice', size = 'md', 
           className="fixed z-[60] rounded-lg border border-border bg-bg-card shadow-lg overflow-hidden animate-fade-in"
         >
           <div className="px-3 py-2 border-b border-border">
-            <p className="text-[11px] font-semibold text-text-primary">How would you like to practice?</p>
+            <p className="text-[11px] font-semibold text-text-primary"><FormattedMessage id="practice.howToPractice" /></p>
             <p className="text-[11px] text-text-muted truncate" title={focus || topic}>{focus || topic}</p>
           </div>
           {MODES.map((m) => (
@@ -175,8 +179,8 @@ export function PracticeButton({ topic, focus, label = 'Practice', size = 'md', 
                 {m.icon}
               </span>
               <span className="min-w-0">
-                <span className="block text-xs font-semibold text-text-primary">{m.label}</span>
-                <span className="block text-[11px] text-text-muted leading-snug">{m.desc}</span>
+                <span className="block text-xs font-semibold text-text-primary"><FormattedMessage id={m.labelId} /></span>
+                <span className="block text-[11px] text-text-muted leading-snug"><FormattedMessage id={m.descId} /></span>
               </span>
             </button>
           ))}

@@ -1,3 +1,4 @@
+import { FormattedMessage } from 'react-intl';
 import { mergeSuggestions } from '../lib/spellSuggest';
 
 /**
@@ -25,13 +26,13 @@ export function SimilarWords({ word, suggestions, onPick }: {
           “{word}”
         </h2>
         <p className="text-sm text-text-muted mb-6">
-          We couldn't find that one — it might be a typo.
+          <FormattedMessage id="word.notFound" />
         </p>
 
         {options.length > 0 ? (
           <>
             <p className="text-xs font-extrabold uppercase tracking-wide text-text-secondary mb-3">
-              Did you mean
+              <FormattedMessage id="word.didYouMean" />
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {options.map((s) => (
@@ -47,7 +48,7 @@ export function SimilarWords({ word, suggestions, onPick }: {
           </>
         ) : (
           <p className="text-sm text-text-secondary">
-            No similar words came up. Check the spelling and try again.
+            <FormattedMessage id="word.noSimilar" />
           </p>
         )}
       </div>

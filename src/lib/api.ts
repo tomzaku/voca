@@ -22,6 +22,7 @@
 // a fact about that call, not about the client.
 
 import { supabase } from './supabase';
+import { t } from '../i18n';
 import { useNetworkDebug, truncateBody } from './networkDebug';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
@@ -132,7 +133,7 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
 
   if (!supabase) {
     record(0, false, { error: 'Not connected.' });
-    throw new ApiError(0, 'Not connected.');
+    throw new ApiError(0, t('common.errNotConnected'));
   }
   const client = supabase;
 
@@ -147,12 +148,12 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
       // unreachable-server failure rather than freezing the caller.
       const detail = err instanceof Error && err.name === 'TimeoutError' ? 'Timed out.' : "Couldn't reach the server.";
       record(0, false, { error: detail });
-      throw new ApiError(0, "Couldn't reach the server.");
+      throw new ApiError(0, t('common.errUnreachable'));
     }
     const authenticated = Boolean(session);
     if (!session && !opts.allowAnon) {
       record(401, false, { error: 'Please sign in.', authenticated });
-      throw new ApiError(401, 'Please sign in.');
+      throw new ApiError(401, t('common.errSignIn'));
     }
 
     let response: Response;
@@ -173,7 +174,7 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
       // Offline, DNS, CORS, timeout — nothing came back to read a status from.
       const detail = err instanceof Error && err.name === 'TimeoutError' ? 'Timed out.' : "Couldn't reach the server.";
       record(0, false, { error: detail, authenticated });
-      throw new ApiError(0, "Couldn't reach the server.");
+      throw new ApiError(0, t('common.errUnreachable'));
     }
 
     // Parsed before the status check: an error body carries the message worth
@@ -196,7 +197,7 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
       }
       const message = (data as { error?: string } | null)?.error;
       record(response.status, false, { error: message || `Request failed (${response.status}).`, authenticated, responseBody: data });
-      throw new ApiError(response.status, message || `Request failed (${response.status}).`);
+      throw new ApiError(response.status, message || t('common.errRequestFailed', { status: response.status }));
     }
     record(response.status, true, { authenticated, responseBody: data });
     return data as T;

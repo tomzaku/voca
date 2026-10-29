@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 /** Up to `n` random words from a list, for the preview modal. */
 export function sampleWords(words: string[], n = 20): string[] {
@@ -18,6 +19,7 @@ export function PreviewModal({ name, total, words, onReshuffle, onClose }: {
   onReshuffle: () => void;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -32,13 +34,13 @@ export function PreviewModal({ name, total, words, onReshuffle, onClose }: {
           <button
             onClick={onClose}
             className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary"
-            title="Close"
+            title={intl.formatMessage({ id: 'common.close' })}
           >
             <Icon icon="lucide:x" />
           </button>
         </div>
         <p className="text-xs text-text-muted mb-3">
-          {words.length} of {total} words, picked at random
+          <FormattedMessage id="common.previewSample" values={{ shown: words.length, total }} />
         </p>
         <div className="flex flex-wrap gap-1.5 mb-4">
           {words.map((w) => (
@@ -52,7 +54,7 @@ export function PreviewModal({ name, total, words, onReshuffle, onClose }: {
           className="flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-accent-cyan transition-colors"
         >
           <Icon icon="lucide:shuffle" />
-          Show different words
+          <FormattedMessage id="common.previewReshuffle" />
         </button>
       </div>
     </div>

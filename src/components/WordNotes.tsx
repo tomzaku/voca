@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { deleteNote, fetchNotes, postNote, type Note } from '../lib/wordNotesApi';
 
-function timeAgo(date: string): string {
+function timeAgo(intl: IntlShape, date: string): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
+  if (seconds < 60) return intl.formatMessage({ id: 'bucket.agoJustNow' });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return intl.formatMessage({ id: 'bucket.agoMinutes' }, { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return intl.formatMessage({ id: 'bucket.agoHours' }, { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(date).toLocaleDateString();
+  if (days < 30) return intl.formatMessage({ id: 'bucket.agoDays' }, { count: days });
+  return intl.formatDate(date);
 }
 
 // Consistent color per username
@@ -35,12 +36,14 @@ interface Props {
 }
 
 export function WordNotes({ word }: Props) {
+  const intl = useIntl();
   const { user } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // A message id, so it follows a language switch while on screen.
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,7 +72,7 @@ export function WordNotes({ word }: Props) {
       setInput('');
       setIsPrivate(false);
     } catch {
-      setError('Failed to post note. Try again.');
+      setError('word.notePostFailed');
     }
     setSubmitting(false);
   };
@@ -82,21 +85,21 @@ export function WordNotes({ word }: Props) {
     } catch {
       // Put it back rather than leaving the list lying about what's stored.
       setNotes(previous);
-      setError('Could not delete that note.');
+      setError('word.noteDeleteFailed');
     }
   };
 
   return (
     <div>
       <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-        Notes / Comments
+        <FormattedMessage id="word.notesTitle" />
       </h3>
 
       {/* Notes list */}
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-text-muted py-2">
           <div className="w-3 h-3 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-          Loading notes…
+          <FormattedMessage id="word.loadingNotes" />
         </div>
       ) : notes.length > 0 ? (
         <div className="space-y-2.5 mb-4">
@@ -108,16 +111,16 @@ export function WordNotes({ word }: Props) {
                     {note.userName[0].toUpperCase()}
                   </div>
                   <span className="text-xs font-medium text-text-secondary">{note.userName}</span>
-                  <span className="text-xs text-text-muted">{timeAgo(note.createdAt)}</span>
+                  <span className="text-xs text-text-muted">{timeAgo(intl, note.createdAt)}</span>
                   {note.isPrivate && (
-                    <span className="text-xs text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded">private</span>
+                    <span className="text-xs text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded"><FormattedMessage id="word.notePrivateTag" /></span>
                   )}
                 </div>
                 {user?.id === note.userId && (
                   <button
                     onClick={() => handleDelete(note.id)}
                     className="text-text-muted hover:text-accent-red transition-colors"
-                    title="Delete note"
+                    title={intl.formatMessage({ id: 'word.deleteNote' })}
                   >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
@@ -131,7 +134,7 @@ export function WordNotes({ word }: Props) {
           ))}
         </div>
       ) : (
-        <p className="text-sm text-text-muted mb-4 italic">No notes yet — be the first to add one.</p>
+        <p className="text-sm text-text-muted mb-4 italic"><FormattedMessage id="word.noNotes" /></p>
       )}
 
       {/* Add note */}
@@ -143,11 +146,11 @@ export function WordNotes({ word }: Props) {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit();
             }}
-            placeholder="Share a tip, memory trick, or usage note… (⌘Enter to post)"
+            placeholder={intl.formatMessage({ id: 'word.notePlaceholder' })}
             rows={2}
             className="w-full bg-bg-tertiary border border-border rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent-cyan/40 placeholder:text-text-muted transition-colors resize-none"
           />
-          {error && <p className="text-xs text-accent-red">{error}</p>}
+          {error && <p className="text-xs text-accent-red"><FormattedMessage id={error} /></p>}
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
@@ -156,21 +159,23 @@ export function WordNotes({ word }: Props) {
                 onChange={(e) => setIsPrivate(e.target.checked)}
                 className="w-3.5 h-3.5 accent-accent-cyan"
               />
-              <span className="text-xs text-text-muted">Private</span>
+              <span className="text-xs text-text-muted"><FormattedMessage id="word.notePrivate" /></span>
             </label>
             <button
               onClick={handleSubmit}
               disabled={!input.trim() || submitting}
               className="px-4 py-2 rounded-lg bg-accent-cyan text-bg-primary text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-all"
             >
-              {submitting ? 'Posting…' : 'Post note'}
+              <FormattedMessage id={submitting ? 'word.posting' : 'word.postNote'} />
             </button>
           </div>
         </div>
       ) : (
         <p className="text-xs text-text-muted">
-          <Link to="/login" className="text-accent-cyan hover:underline">Sign in</Link>
-          {' '}to add a note
+          <FormattedMessage
+            id="word.signInToNote"
+            values={{ link: (c) => <Link to="/login" className="text-accent-cyan hover:underline">{c}</Link> }}
+          />
         </p>
       )}
     </div>

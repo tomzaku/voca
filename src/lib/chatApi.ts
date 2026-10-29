@@ -13,6 +13,7 @@
 // the function enforces it. See supabase/functions/chat/index.ts.
 
 import { request } from './api';
+import { t } from '../i18n';
 
 export type ChatAction = 'start' | 'reply' | 'summary';
 
@@ -32,5 +33,5 @@ export async function callChatAction(
     signal: opts.signal,
     timeout: TIMEOUT_MS,
   });
-  return text || 'No response received.';
+  return text || t('conversation.noResponse');
 }

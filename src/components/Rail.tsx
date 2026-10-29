@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { useGameMode } from '../hooks/useGameMode';
 import { useRailState } from '../hooks/useRailState';
@@ -9,7 +10,7 @@ import { useRailState } from '../hooks/useRailState';
 // toggleTheme's own cycling logic lives there and this only needs to preview
 // where one more click lands.
 const THEME_CYCLE: Theme[] = ['light', 'dark'];
-const THEME_LABEL: Record<Theme, string> = { light: 'Light mode', dark: 'Dark mode' };
+const THEME_LABEL_ID: Record<Theme, string> = { light: 'app.themeLight', dark: 'app.themeDark' };
 const THEME_ICON: Record<Theme, string> = { light: 'lucide:sun', dark: 'lucide:moon' };
 function nextTheme(t: Theme): Theme {
   return THEME_CYCLE[(THEME_CYCLE.indexOf(t) + 1) % THEME_CYCLE.length];
@@ -20,11 +21,12 @@ function nextTheme(t: Theme): Theme {
 // itself canonicalizes the param, so this exact pair is always what's in the
 // URL once it has mounted (see useSpeakingTab), which is what makes the
 // `active` check below exact too.
-type NavItem = { to: string; label: string; icon: string; tab?: string };
+// `labelId` is a message id, formatted at render time.
+type NavItem = { to: string; labelId: string; icon: string; tab?: string };
 
 interface NavGroup {
   id: string;
-  label: string;
+  labelId: string;
   icon: string;
   items: NavItem[];
 }
@@ -34,51 +36,51 @@ interface NavGroup {
 const NAV_GROUPS: NavGroup[] = [
   {
     id: 'vocabulary',
-    label: 'Vocabulary',
+    labelId: 'app.navVocabulary',
     icon: 'lucide:book-open',
     items: [
-      { to: '/', label: 'Flashcards', icon: 'lucide:sparkles' },
-      { to: '/review', label: 'Review', icon: 'lucide:swords' },
-      { to: '/history', label: 'History', icon: 'lucide:history' },
-      { to: '/collections', label: 'Collections', icon: 'lucide:library' },
+      { to: '/', labelId: 'app.navFlashcards', icon: 'lucide:sparkles' },
+      { to: '/review', labelId: 'app.navReview', icon: 'lucide:swords' },
+      { to: '/history', labelId: 'app.navHistory', icon: 'lucide:history' },
+      { to: '/collections', labelId: 'app.navCollections', icon: 'lucide:library' },
     ],
   },
   {
     id: 'speak',
-    label: 'Speak',
+    labelId: 'app.navSpeak',
     icon: 'lucide:mic',
     items: [
-      { to: '/speaking', tab: 'conversation', label: 'Conversation', icon: 'lucide:message-square' },
-      { to: '/speaking', tab: 'dialogue', label: 'Dialogue', icon: 'lucide:message-circle' },
-      { to: '/speaking', tab: 'ielts', label: 'IELTS Speaking', icon: 'lucide:users' },
-      { to: '/speaking', tab: 'read', label: 'Read Aloud', icon: 'lucide:align-left' },
-      { to: '/ipa', label: 'IPA Sounds', icon: 'lucide:audio-lines' },
+      { to: '/speaking', tab: 'conversation', labelId: 'app.navConversation', icon: 'lucide:message-square' },
+      { to: '/speaking', tab: 'dialogue', labelId: 'app.navDialogue', icon: 'lucide:message-circle' },
+      { to: '/speaking', tab: 'ielts', labelId: 'app.navIeltsSpeaking', icon: 'lucide:users' },
+      { to: '/speaking', tab: 'read', labelId: 'app.navReadAloud', icon: 'lucide:align-left' },
+      { to: '/ipa', labelId: 'app.navIpaSounds', icon: 'lucide:audio-lines' },
     ],
   },
   {
     id: 'listen',
-    label: 'Listen',
+    labelId: 'app.navListen',
     icon: 'lucide:headphones',
     items: [
-      { to: '/listening', tab: 'podcast', label: 'Podcast', icon: 'lucide:radio' },
-      { to: '/listening', tab: 'comprehension', label: 'Comprehension', icon: 'lucide:ear' },
-      { to: '/listening', tab: 'dictation', label: 'Dictation', icon: 'lucide:text-cursor-input' },
-      { to: '/listening', tab: 'ielts', label: 'IELTS Listening', icon: 'lucide:users' },
+      { to: '/listening', tab: 'podcast', labelId: 'app.navPodcast', icon: 'lucide:radio' },
+      { to: '/listening', tab: 'comprehension', labelId: 'app.navComprehension', icon: 'lucide:ear' },
+      { to: '/listening', tab: 'dictation', labelId: 'app.navDictation', icon: 'lucide:text-cursor-input' },
+      { to: '/listening', tab: 'ielts', labelId: 'app.navIeltsListening', icon: 'lucide:users' },
     ],
   },
   {
     id: 'writing',
-    label: 'Writing',
+    labelId: 'app.navWriting',
     icon: 'lucide:pen-line',
     items: [
-      { to: '/writing/improve', label: 'Improve Writing', icon: 'lucide:wand-2' },
-      { to: '/writing/ielts', label: 'IELTS Writing', icon: 'lucide:users' },
+      { to: '/writing/improve', labelId: 'app.navImproveWriting', icon: 'lucide:wand-2' },
+      { to: '/writing/ielts', labelId: 'app.navIeltsWriting', icon: 'lucide:users' },
     ],
   },
 ];
 
 // The World game tab appears only when it's turned on in Settings.
-const WORLD_ITEM: NavItem = { to: '/world', label: 'World', icon: 'lucide:gamepad-2' };
+const WORLD_ITEM: NavItem = { to: '/world', labelId: 'app.navWorld', icon: 'lucide:gamepad-2' };
 
 // Matches useRailState's own breakpoint — desktop keeps the rail open after a
 // nav click (it's pushing content, not overlaying it); mobile dismisses it.
@@ -147,6 +149,7 @@ function RailGroupToggle({ icon, label, expanded, open, active, onClick }: {
  *  Account actions (profile, sign out) live on the Navbar pill and the
  *  Profile/Settings pages instead of duplicating them here. */
 export function Rail() {
+  const intl = useIntl();
   const expanded = useRailState((s) => s.expanded);
   const setExpanded = useRailState((s) => s.setExpanded);
   const toggle = useRailState((s) => s.toggle);
@@ -191,22 +194,25 @@ export function Rail() {
     // Only nests visually when there's a label to nest under — collapsed
     // rail lines every icon up flush, indent or not.
     const indent = !!opts?.indent && expanded;
+    const label = intl.formatMessage({ id: item.labelId });
     return (
       <Link
         key={href}
         to={href}
-        aria-label={item.label}
+        aria-label={label}
         onClick={collapseOnMobile}
         className={itemClasses(active, indent)}
       >
         <Icon icon={item.icon} className="text-lg shrink-0" />
-        {expanded && <span className="truncate">{item.label}</span>}
-        <RailTooltip label={item.label} show={!expanded} />
+        {expanded && <span className="truncate">{label}</span>}
+        <RailTooltip label={label} show={!expanded} />
       </Link>
     );
   };
 
   const flatItems = gameEnabled ? [WORLD_ITEM] : [];
+  const themeLabel = intl.formatMessage({ id: THEME_LABEL_ID[theme] });
+  const nextThemeLabel = intl.formatMessage({ id: THEME_LABEL_ID[nextTheme(theme)] });
 
   return (
     <>
@@ -271,7 +277,7 @@ export function Rail() {
                 <div key={group.id}>
                   <RailGroupToggle
                     icon={group.icon}
-                    label={group.label}
+                    label={intl.formatMessage({ id: group.labelId })}
                     expanded={expanded}
                     open={openGroups[group.id]}
                     active={group.items.some(isItemActive)}
@@ -287,22 +293,22 @@ export function Rail() {
           <div className="p-2.5 border-t-2 border-border/50 space-y-1 shrink-0">
             <button
               onClick={toggleTheme}
-              aria-label={`Theme: ${THEME_LABEL[theme]} — tap to switch to ${THEME_LABEL[nextTheme(theme)]}`}
-              title={`Switch to ${THEME_LABEL[nextTheme(theme)]}`}
+              aria-label={intl.formatMessage({ id: 'app.themeAria' }, { current: themeLabel, next: nextThemeLabel })}
+              title={intl.formatMessage({ id: 'app.themeSwitchTo' }, { next: nextThemeLabel })}
               className="group relative w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
             >
               <Icon icon={THEME_ICON[theme]} className="text-lg shrink-0" />
-              {expanded && <span>{THEME_LABEL[theme]}</span>}
-              <RailTooltip label={THEME_LABEL[theme]} show={!expanded} />
+              {expanded && <span>{themeLabel}</span>}
+              <RailTooltip label={themeLabel} show={!expanded} />
             </button>
             <button
               onClick={toggle}
-              aria-label={expanded ? 'Collapse menu' : 'Expand menu'}
+              aria-label={intl.formatMessage({ id: expanded ? 'app.collapseMenu' : 'app.expandMenu' })}
               className="group relative w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-sm font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-all"
             >
               <Icon icon={expanded ? 'lucide:panel-left-close' : 'lucide:panel-left-open'} className="text-lg shrink-0" />
-              {expanded && <span>Collapse</span>}
-              <RailTooltip label="Expand" show={!expanded} />
+              {expanded && <span><FormattedMessage id="app.collapse" /></span>}
+              <RailTooltip label={intl.formatMessage({ id: 'app.expand' })} show={!expanded} />
             </button>
           </div>
         </div>

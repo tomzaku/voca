@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { generateWordData } from '../lib/wordService';
 import type { VocabularyWord } from '../types';
 
@@ -21,6 +22,7 @@ interface Props {
 const MAX_ATTEMPTS = 3;
 
 export function SpellingGame({ bookmarks, onBack }: Props) {
+  const intl = useIntl();
   const [phase, setPhase] = useState<GamePhase>('loading');
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [current, setCurrent] = useState(0);
@@ -121,7 +123,7 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
           key={i}
           onClick={() => canReveal && revealLetter(i)}
           disabled={!canReveal}
-          title={canReveal ? 'Click to reveal this letter' : undefined}
+          title={canReveal ? intl.formatMessage({ id: 'games.spellRevealThis' }) : undefined}
           className={`w-9 h-9 rounded-lg flex items-center justify-center font-display font-bold text-sm uppercase border-2 transition-all ${
             revealed
               ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan cursor-default'
@@ -161,7 +163,7 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
         <div className="w-10 h-10 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-        <p className="text-sm text-text-muted">Preparing spelling challenge…</p>
+        <p className="text-sm text-text-muted"><FormattedMessage id="games.spellPreparing" /></p>
       </div>
     );
   }
@@ -170,11 +172,11 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
   if (phase === 'finished') {
     const maxScore = questions.length * 2;
     const pct = Math.round((score / maxScore) * 100);
-    const msg =
-      pct === 100 ? 'Perfect speller!' :
-      pct >= 75   ? 'Great job!' :
-      pct >= 50   ? 'Good effort!' :
-                    'Keep practicing!';
+    const msgId =
+      pct === 100 ? 'games.spellPerfect' :
+      pct >= 75   ? 'games.greatJob' :
+      pct >= 50   ? 'games.goodEffort' :
+                    'games.keepPracticing';
 
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center animate-fade-in">
@@ -182,9 +184,9 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
           {score}
           <span className="text-text-muted text-3xl">/{maxScore}</span>
         </div>
-        <p className="text-xs text-text-muted mb-1">pts</p>
-        <p className="text-accent-cyan font-display font-bold text-xl mb-1">{msg}</p>
-        <p className="text-text-muted text-sm mb-10">{pct}% score</p>
+        <p className="text-xs text-text-muted mb-1"><FormattedMessage id="games.pts" /></p>
+        <p className="text-accent-cyan font-display font-bold text-xl mb-1"><FormattedMessage id={msgId} /></p>
+        <p className="text-text-muted text-sm mb-10"><FormattedMessage id="games.pctScore" values={{ pct }} /></p>
 
         <div className="w-full h-2 bg-bg-tertiary rounded-full mb-10 overflow-hidden">
           <div
@@ -198,13 +200,13 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
             onClick={onBack}
             className="px-5 py-2.5 rounded-xl border border-border text-text-muted text-sm hover:border-border-light hover:text-text-primary transition-all"
           >
-            Back to list
+            <FormattedMessage id="games.backToList" />
           </button>
           <button
             onClick={() => setRestartKey((k) => k + 1)}
             className="px-5 py-2.5 rounded-xl bg-accent-cyan text-bg-primary text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            Play again
+            <FormattedMessage id="games.playAgain" />
           </button>
         </div>
       </div>
@@ -227,14 +229,14 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Quit
+          <FormattedMessage id="games.quit" />
         </button>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-text-muted">
             <span className="text-text-primary font-medium">{current + 1}</span>
             <span>/{questions.length}</span>
           </span>
-          <span className="text-accent-green font-medium">{score} pts</span>
+          <span className="text-accent-green font-medium"><FormattedMessage id="games.ptsCount" values={{ count: score }} /></span>
         </div>
       </div>
 
@@ -249,7 +251,7 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
       {/* Definition card */}
       <div className="bg-bg-card border border-border rounded-2xl p-6 mb-5">
         <p className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-          Spell this word
+          <FormattedMessage id="games.spellThisWord" />
         </p>
         <p className="text-text-primary leading-relaxed text-base mb-3">{q.data.definition}</p>
         {q.data.partOfSpeech && (
@@ -278,13 +280,15 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
       {/* Feedback */}
       {isCorrect === true && (
         <p className="text-center text-accent-green text-sm font-medium mb-4 animate-fade-in">
-          Correct!
+          <FormattedMessage id="games.correct" />
         </p>
       )}
       {isCorrect === false && (
         <p className="text-center text-accent-red text-sm font-medium mb-4 animate-fade-in">
-          The answer was{' '}
-          <span className="font-display font-bold">{word}</span>
+          <FormattedMessage
+            id="games.answerWas"
+            values={{ word, b: (c) => <span className="font-display font-bold">{c}</span> }}
+          />
         </p>
       )}
 
@@ -298,7 +302,7 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-              placeholder="Type the word…"
+              placeholder={intl.formatMessage({ id: 'games.typeTheWord' })}
               className="flex-1 bg-bg-card border border-border rounded-xl px-4 py-3 text-text-primary text-sm font-display focus:outline-none focus:border-accent-cyan/50 placeholder:text-text-muted transition-colors"
               autoComplete="off"
               autoCorrect="off"
@@ -309,7 +313,7 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
               disabled={!input.trim()}
               className="px-5 py-3 rounded-xl bg-accent-cyan text-bg-primary text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all"
             >
-              Check
+              <FormattedMessage id="games.check" />
             </button>
           </div>
 
@@ -327,7 +331,7 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
                 ))}
               </div>
               <span className="text-xs text-text-muted">
-                {attemptsLeft} {attemptsLeft === 1 ? 'attempt' : 'attempts'} left
+                <FormattedMessage id="games.attemptsLeft" values={{ count: attemptsLeft }} />
               </span>
             </div>
 
@@ -337,7 +341,7 @@ export function SpellingGame({ bookmarks, onBack }: Props) {
                 onClick={handleHint}
                 className="text-xs text-text-muted hover:text-accent-cyan border border-border hover:border-accent-cyan/30 rounded-lg px-3 py-1.5 transition-all"
               >
-                Reveal a letter
+                <FormattedMessage id="games.revealLetter" />
               </button>
             )}
           </div>

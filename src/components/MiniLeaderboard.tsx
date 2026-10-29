@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { useTeams } from '../hooks/useTeams';
 
@@ -58,6 +59,7 @@ function useCountUp(value: number): number {
 }
 
 export function MiniLeaderboard() {
+  const intl = useIntl();
   const { user } = useAuth();
   const me = useTeams((s) => s.me);
   const myRank = useTeams((s) => s.myRank);
@@ -103,7 +105,9 @@ export function MiniLeaderboard() {
         className="flex items-center gap-2 px-4 py-2 border-b-2 border-border text-[11px] font-bold text-text-muted hover:text-accent-cyan transition-colors"
       >
         <Icon icon="lucide:trophy" className="text-accent-yellow shrink-0" />
-        <span className="truncate">Join the {team.name.toLowerCase()} leaderboard</span>
+        <span className="truncate">
+          <FormattedMessage id="teams.joinTheLeaderboard" values={{ name: team.name.toLowerCase() }} />
+        </span>
         <Icon icon="lucide:chevron-right" className="ml-auto shrink-0" />
       </Link>
     );
@@ -115,7 +119,7 @@ export function MiniLeaderboard() {
   return (
     <Link
       to="/dashboard#leaderboard"
-      title={`Your place on the ${team.name} leaderboard`}
+      title={intl.formatMessage({ id: 'teams.yourPlaceTitle' }, { name: team.name })}
       className="flex items-center gap-2 px-4 py-2 border-b-2 border-border hover:bg-bg-tertiary/40 transition-colors"
     >
       {/* Place. The key re-mounts the pill on every gain so the pop replays —
@@ -132,7 +136,7 @@ export function MiniLeaderboard() {
       </span>
 
       <span className="min-w-0 flex-1 text-[10px] text-text-muted truncate">
-        {team.name} · {team.memberCount} learner{team.memberCount === 1 ? '' : 's'}
+        <FormattedMessage id="teams.miniTeamLine" values={{ name: team.name, count: team.memberCount }} />
       </span>
 
       {/* Score, with the gain floating off it. `relative` on the wrapper keeps
@@ -148,7 +152,7 @@ export function MiniLeaderboard() {
           >
             {shown}
           </span>
-          <span className="text-[10px] text-text-muted">pts</span>
+          <span className="text-[10px] text-text-muted"><FormattedMessage id="teams.pts" /></span>
           {gain > 0 && (
             <span
               key={`gain-${gainId}`}

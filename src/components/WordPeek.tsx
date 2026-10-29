@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { t } from '../i18n';
 import { useWordPeek, type PeekAnchor } from '../hooks/useWordPeek';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { cachedWordData, generateWordData, UnknownWordError } from '../lib/wordService';
@@ -55,6 +57,7 @@ function PeekCard({ word, anchor, onClose }: {
   // appeared under the finger — and the popup would close the instant it
   // opened. Ignore backdrop clicks that arrive before the finger could
   // plausibly have been lifted deliberately.
+  const intl = useIntl();
   const openedAt = useRef(0);
   useEffect(() => { openedAt.current = Date.now(); }, []);
   const dismiss = () => {
@@ -96,7 +99,7 @@ function PeekCard({ word, anchor, onClose }: {
       .catch((err: unknown) => {
         if (!live || (err as Error).name === 'AbortError') return;
         if (err instanceof UnknownWordError) setSuggestions(mergeSuggestions(word, err.suggestions));
-        else setError((err as Error).message || 'Could not load that word.');
+        else setError((err as Error).message || t('word.peekLoadFailed'));
       });
     return () => {
       live = false;
@@ -183,7 +186,7 @@ function PeekCard({ word, anchor, onClose }: {
         ref={cardRef}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label={`Meaning of ${headword}`}
+        aria-label={intl.formatMessage({ id: 'word.meaningOf' }, { word: headword })}
         style={isPhone ? undefined : { width: PEEK_WIDTH }}
         className={
           isPhone
@@ -201,7 +204,7 @@ function PeekCard({ word, anchor, onClose }: {
           </div>
           <button
             onClick={handleSpeak}
-            title={speaking ? 'Stop' : 'Hear it'}
+            title={intl.formatMessage({ id: speaking ? 'flashcard.stop' : 'word.hearIt' })}
             className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center transition-colors ${
               speaking ? 'bg-accent-cyan text-bg-primary' : 'bg-bg-tertiary text-text-muted hover:text-accent-cyan'
             }`}
@@ -210,7 +213,7 @@ function PeekCard({ word, anchor, onClose }: {
           </button>
           <button
             onClick={onClose}
-            title="Close"
+            title={intl.formatMessage({ id: 'word.close' })}
             className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary"
           >
             <Icon icon="lucide:x" className="text-sm" />
@@ -220,7 +223,7 @@ function PeekCard({ word, anchor, onClose }: {
         {/* Body */}
         {suggestions ? (
           <div className="mt-3">
-            <p className="text-xs text-text-muted mb-2">We couldn't find that one.</p>
+            <p className="text-xs text-text-muted mb-2"><FormattedMessage id="word.peekNotFound" /></p>
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {suggestions.map((s) => (
@@ -242,7 +245,7 @@ function PeekCard({ word, anchor, onClose }: {
               onClick={() => { setError(null); setAttempt((n) => n + 1); }}
               className="mt-2 text-xs font-bold text-text-muted hover:text-accent-cyan transition-colors"
             >
-              Try again
+              <FormattedMessage id="flashcard.tryAgain" />
             </button>
           </div>
         ) : !data ? (
@@ -279,7 +282,7 @@ function PeekCard({ word, anchor, onClose }: {
           onClick={openFull}
           className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-bg-tertiary text-xs font-bold text-text-secondary hover:text-accent-cyan transition-colors"
         >
-          See full details
+          <FormattedMessage id="word.seeFullDetails" />
           <Icon icon="lucide:arrow-right" className="text-sm" />
         </button>
       </div>

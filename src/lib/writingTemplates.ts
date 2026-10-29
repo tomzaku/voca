@@ -9,12 +9,18 @@ export interface DefaultWritingTemplate {
   instructions: string;
   /** Short blurb shown in the picker's detail view — not sent to the AI. */
   description: string;
+  /** Message ids for the translated name/description shown in the picker —
+   *  `name`/`description` above are the English source. */
+  nameId: string;
+  descriptionId: string;
   isDefault: true;
 }
 
 export const DEFAULT_WRITING_TEMPLATES: DefaultWritingTemplate[] = [
   {
     id: 'default-general',
+    nameId: 'writing.templateGeneralName',
+    descriptionId: 'writing.templateGeneralDescription',
     name: 'General Writing',
     isDefault: true,
     description: 'Fix grammar, clarity, and flow — with a short reason for each correction.',
@@ -23,6 +29,8 @@ export const DEFAULT_WRITING_TEMPLATES: DefaultWritingTemplate[] = [
   },
   {
     id: 'default-slack',
+    nameId: 'writing.templateSlackName',
+    descriptionId: 'writing.templateSlackDescription',
     name: 'Slack',
     isDefault: true,
     description: 'Casual, skimmable tone for chat messages.',
@@ -31,6 +39,8 @@ export const DEFAULT_WRITING_TEMPLATES: DefaultWritingTemplate[] = [
   },
   {
     id: 'default-jira',
+    nameId: 'writing.templateJiraName',
+    descriptionId: 'writing.templateJiraDescription',
     name: 'Jira Comment',
     isDefault: true,
     description: 'Structured, professional status updates.',
@@ -39,6 +49,8 @@ export const DEFAULT_WRITING_TEMPLATES: DefaultWritingTemplate[] = [
   },
   {
     id: 'default-mail',
+    nameId: 'writing.templateMailName',
+    descriptionId: 'writing.templateMailDescription',
     name: 'Mail',
     isDefault: true,
     description: 'Polished, professional email with a greeting and sign-off.',
@@ -47,6 +59,8 @@ export const DEFAULT_WRITING_TEMPLATES: DefaultWritingTemplate[] = [
   },
   {
     id: 'default-speaking',
+    nameId: 'writing.templateSpeakingName',
+    descriptionId: 'writing.templateSpeakingDescription',
     name: 'Daily Speaking',
     isDefault: true,
     description: 'Natural spoken-English phrasing for everyday conversation.',

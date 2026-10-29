@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { dialogues, dialogueTopics, type Dialogue } from '../data/englishDialogues';
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
@@ -37,6 +38,10 @@ const LEVEL_CLASS: Record<Level, string> = {
   Easy: 'text-accent-green bg-accent-green/10 border-accent-green/20',
   Medium: 'text-accent-orange bg-accent-orange/10 border-accent-orange/20',
 };
+const LEVEL_LABEL: Record<Level, string> = {
+  Easy: 'conversation.levelEasy',
+  Medium: 'conversation.levelMedium',
+};
 
 /* ─── List ───────────────────────────────────────────────────── */
 function DialogueList({ items, activeId, onSelect }: {
@@ -50,7 +55,7 @@ function DialogueList({ items, activeId, onSelect }: {
     .filter((g) => g.items.length > 0);
 
   if (!groups.length) {
-    return <p className="px-3 py-8 text-center text-sm text-text-muted">No dialogues match this filter.</p>;
+    return <p className="px-3 py-8 text-center text-sm text-text-muted"><FormattedMessage id="conversation.noDialoguesMatch" /></p>;
   }
 
   return (
@@ -84,8 +89,8 @@ function DialogueList({ items, activeId, onSelect }: {
                       {d.title}
                     </span>
                     <span className="flex items-center gap-1.5 mt-1 text-[11px] text-text-muted">
-                      <span className={`text-[10px] px-1.5 rounded border ${LEVEL_CLASS[d.level]}`}>{d.level}</span>
-                      {d.lines.length} lines · {d.duration}
+                      <span className={`text-[10px] px-1.5 rounded border ${LEVEL_CLASS[d.level]}`}><FormattedMessage id={LEVEL_LABEL[d.level]} /></span>
+                      <FormattedMessage id="conversation.lineCount" values={{ count: d.lines.length }} /> · {d.duration}
                     </span>
                   </span>
                 </button>
@@ -104,6 +109,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
   onBack: () => void;
   onNext: () => void;
 }) {
+  const intl = useIntl();
   const progress = useSpeakingProgress((s) => s.questions[dialogue.id]);
   const { markPracticed, clearPracticed } = useSpeakingProgress();
   const done = isPracticed(progress);
@@ -117,8 +123,8 @@ function DialogueView({ dialogue, onBack, onNext }: {
   const finish = useCallback(() => {
     if (mode === 'listen') return;
     markPracticed(dialogue.id);
-    toast.success('Role-play complete — marked as practiced');
-  }, [mode, dialogue.id, markPracticed]);
+    toast.success(intl.formatMessage({ id: 'conversation.rolePlayComplete' }));
+  }, [mode, dialogue.id, markPracticed, intl]);
 
   const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish);
 
@@ -127,9 +133,15 @@ function DialogueView({ dialogue, onBack, onNext }: {
 
   const pickMode = (m: Mode) => { setMode(m); setRevealed(new Set()); };
   const modes: { id: Mode; label: string; icon: string }[] = [
-    { id: 'listen', label: 'Listen', icon: 'lucide:headphones' },
-    { id: 'a', label: `Be the ${dialogue.speakers.a.toLowerCase()}`, icon: 'lucide:drama' },
-    { id: 'b', label: dialogue.speakers.b === 'You' ? 'Be yourself' : `Be the ${dialogue.speakers.b.toLowerCase()}`, icon: 'lucide:drama' },
+    { id: 'listen', label: intl.formatMessage({ id: 'conversation.listen' }), icon: 'lucide:headphones' },
+    { id: 'a', label: intl.formatMessage({ id: 'conversation.beRole' }, { role: dialogue.speakers.a.toLowerCase() }), icon: 'lucide:drama' },
+    {
+      id: 'b',
+      label: dialogue.speakers.b === 'You'
+        ? intl.formatMessage({ id: 'conversation.beYourself' })
+        : intl.formatMessage({ id: 'conversation.beRole' }, { role: dialogue.speakers.b.toLowerCase() }),
+      icon: 'lucide:drama',
+    },
   ];
   const myRole = mode === 'listen' ? null : dialogue.speakers[mode];
   const partner = mode === 'b' ? dialogue.speakers.a : dialogue.speakers.b;
@@ -140,7 +152,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
         onClick={onBack}
         className="lg:hidden flex items-center gap-1 mb-3 text-xs font-semibold text-text-muted hover:text-text-primary cursor-pointer"
       >
-        <Icon icon="lucide:arrow-left" width={14} /> All dialogues
+        <Icon icon="lucide:arrow-left" width={14} /> <FormattedMessage id="conversation.allDialogues" />
       </button>
 
       {/* Header */}
@@ -149,9 +161,9 @@ function DialogueView({ dialogue, onBack, onNext }: {
           <span className="flex items-center gap-1 font-semibold text-text-secondary">
             <Icon icon={topicIcon(dialogue.topic)} width={13} /> {dialogue.topic}
           </span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${LEVEL_CLASS[dialogue.level]}`}>{dialogue.level}</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${LEVEL_CLASS[dialogue.level]}`}><FormattedMessage id={LEVEL_LABEL[dialogue.level]} /></span>
           <span className="flex items-center gap-1"><Icon icon="lucide:clock" width={11} />{dialogue.duration}</span>
-          <span>{dialogue.lines.length} lines</span>
+          <span><FormattedMessage id="conversation.lineCount" values={{ count: dialogue.lines.length }} /></span>
         </div>
         <h2 className="mt-2 text-xl font-extrabold text-text-primary leading-tight">{dialogue.title}</h2>
         <p className="mt-1.5 text-sm text-text-secondary leading-relaxed">{dialogue.situation}</p>
@@ -161,7 +173,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
           <PracticeButton
             topic={`${dialogue.topic} — ${dialogue.title}`}
             focus={`Role-play this situation with me: ${dialogue.situation} You are the ${dialogue.speakers.a.toLowerCase()}, I am the ${dialogue.speakers.b.toLowerCase()}. Start the conversation.`}
-            label="Role-play with AI"
+            label={intl.formatMessage({ id: 'conversation.rolePlayWithAi' })}
             onStart={() => markPracticed(dialogue.id)}
           />
         </div>
@@ -171,9 +183,14 @@ function DialogueView({ dialogue, onBack, onNext }: {
 
       {myRole && (
         <p className="mt-3 px-1 text-xs text-text-muted leading-relaxed">
-          You're the <span className="font-semibold text-text-secondary">{myRole.toLowerCase()}</span>. Your lines are hidden —
-          playback pauses on each one so you can say it out loud before you check.
-          The {partner.toLowerCase()} is read aloud.
+          <FormattedMessage
+            id="conversation.rolePlayHint"
+            values={{
+              role: myRole.toLowerCase(),
+              partner: partner.toLowerCase(),
+              b: (c) => <span className="font-semibold text-text-secondary">{c}</span>,
+            }}
+          />
         </p>
       )}
 
@@ -188,7 +205,11 @@ function DialogueView({ dialogue, onBack, onNext }: {
       />
 
       {player.status === 'waiting' && (
-        <YourTurnBar title="Your turn" hint={`Say the ${myRole?.toLowerCase()}'s line out loud.`} onContinue={continueTurn} />
+        <YourTurnBar
+          title={intl.formatMessage({ id: 'conversation.yourTurn' })}
+          hint={intl.formatMessage({ id: 'conversation.sayLineHint' }, { role: myRole?.toLowerCase() ?? '' })}
+          onContinue={continueTurn}
+        />
       )}
 
       {/* Phrases + notes */}
@@ -197,7 +218,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
           {dialogue.usefulPhrases && dialogue.usefulPhrases.length > 0 && (
             <section className="rounded-xl border border-accent-yellow/15 bg-accent-yellow/5 p-4">
               <p className="flex items-center gap-1.5 text-xs font-bold text-accent-yellow mb-2.5">
-                <Icon icon="lucide:quote" width={13} /> Useful phrases
+                <Icon icon="lucide:quote" width={13} /> <FormattedMessage id="conversation.usefulPhrases" />
               </p>
               <PhraseChips phrases={dialogue.usefulPhrases} voice={CONV_VOICE_A} />
             </section>
@@ -205,7 +226,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
           {dialogue.notes && dialogue.notes.length > 0 && (
             <section className="rounded-xl border border-accent-green/15 bg-accent-green/5 p-4">
               <p className="flex items-center gap-1.5 text-xs font-bold text-accent-green mb-2.5">
-                <Icon icon="lucide:lightbulb" width={13} /> Language notes
+                <Icon icon="lucide:lightbulb" width={13} /> <FormattedMessage id="conversation.languageNotes" />
               </p>
               <ul className="space-y-1.5">
                 {dialogue.notes.map((note) => (
@@ -225,7 +246,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
           onClick={onNext}
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold text-text-secondary bg-bg-tertiary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
         >
-          Next dialogue <Icon icon="lucide:arrow-right" width={14} />
+          <FormattedMessage id="conversation.nextDialogue" /> <Icon icon="lucide:arrow-right" width={14} />
         </button>
       </div>
     </article>
@@ -234,6 +255,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
 
 /* ─── The tab ────────────────────────────────────────────────── */
 export function DailyDialogueTab() {
+  const intl = useIntl();
   const progress = useSpeakingProgress((s) => s.questions);
   const [level, setLevel] = useState<Level | 'all'>('all');
   // The first unpractised dialogue, so desktop never opens on an empty pane.
@@ -278,7 +300,7 @@ export function DailyDialogueTab() {
                     : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
                 }`}
               >
-                {l === 'all' ? 'All levels' : l}
+                {intl.formatMessage({ id: l === 'all' ? 'conversation.allLevels' : LEVEL_LABEL[l] })}
               </button>
             ))}
           </div>
@@ -287,7 +309,7 @@ export function DailyDialogueTab() {
         <PracticeButton
           topic="Everyday Dialogues"
           focus="Role-play a short everyday conversation with me. You start."
-          label="Random role-play with AI"
+          label={intl.formatMessage({ id: 'conversation.randomRolePlayWithAi' })}
         />
 
         <DialogueList items={visible} activeId={activeId} onSelect={select} />

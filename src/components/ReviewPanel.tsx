@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import type { WordProgress } from '../types';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { isDue } from '../lib/spacedRepetition';
@@ -12,22 +13,20 @@ const DAY = 86_400_000;
 /** Which count/bar a popup is showing — drives its plain-language explainer. */
 type PopupKind = 'due' | 'learning' | 'mastered';
 
-/** One-line "why are these here" for each kind of list. */
+/** One-line "why are these here" for each kind of list (message ids). */
 const EXPLAIN: Record<PopupKind, string> = {
-  due: 'You learned these earlier and their review gap has now passed, so they’re back. Reviewing them again — right as you’re about to forget — is what makes them stick.',
-  learning: 'Words on your review schedule. Answer one correctly and it comes back after a longer gap each time (days → weeks), until it graduates to Mastered.',
-  mastered: 'You answered these correctly until their gap passed ~21 days, so they’ve graduated and won’t come back on their own.',
+  due: 'review.explainDue',
+  learning: 'review.explainLearning',
+  mastered: 'review.explainMastered',
 };
 
 /** Relative "when is this due" label for a word in the popup. */
-function dueLabel(p: WordProgress): string {
+function dueLabel(p: WordProgress, intl: IntlShape): string {
   if (!p.dueAt) return '';
   const diff = new Date(p.dueAt).getTime() - Date.now();
-  if (diff <= 0) return 'due now';
-  const days = Math.round(diff / DAY);
-  if (days <= 0) return 'today';
-  if (days === 1) return 'tomorrow';
-  return `in ${days}d`;
+  if (diff <= 0) return intl.formatMessage({ id: 'review.dueNow' });
+  // numeric: 'auto' gives "today" / "tomorrow" for 0 / 1.
+  return intl.formatRelativeTime(Math.round(diff / DAY), 'day', { numeric: 'auto', style: 'narrow' });
 }
 
 /**
@@ -43,6 +42,7 @@ function dueLabel(p: WordProgress): string {
  * straight back into the schedule shown here.
  */
 export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) {
+  const intl = useIntl();
   const progress = useVocabularyStore((s) => s.progress);
   // What the popup is currently showing (null = closed).
   const [popup, setPopup] = useState<{ title: string; kind: PopupKind; words: WordProgress[] } | null>(null);
@@ -71,14 +71,18 @@ export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) 
   const thisWeek = buckets.slice(1).reduce((a, b) => a + b.length, 0);
 
   const weekdayLabel = (offset: number) => {
-    if (offset === 0) return 'Today';
+    if (offset === 0) return intl.formatMessage({ id: 'review.today' });
     const d = new Date(startOfToday.getTime() + offset * DAY);
-    return d.toLocaleDateString(undefined, { weekday: 'short' });
+    return intl.formatDate(d, { weekday: 'short' });
   };
 
   const openBucket = (i: number) => {
     if (buckets[i].length === 0) return;
-    setPopup({ title: `Due ${i === 0 ? 'today' : weekdayLabel(i)}`, kind: 'due', words: buckets[i] });
+    setPopup({
+      title: i === 0 ? intl.formatMessage({ id: 'review.dueToday' }) : intl.formatMessage({ id: 'review.dueOn' }, { day: weekdayLabel(i) }),
+      kind: 'due',
+      words: buckets[i],
+    });
   };
 
   // A list is quizzable only if the host page can run one and it has enough
@@ -90,50 +94,58 @@ export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) 
   return (
     <section className="mb-8">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider">Review</h2>
+        <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="review.panelTitle" /></h2>
         <Link
           to="/"
           className={`text-xs font-bold ${dueWords.length ? 'text-accent-cyan hover:underline' : 'text-text-muted'}`}
         >
-          {dueWords.length ? `Review ${dueWords.length} due →` : empty ? 'Start learning →' : 'All caught up ✓'}
+          {dueWords.length
+            ? <FormattedMessage id="review.reviewDue" values={{ count: dueWords.length }} />
+            : empty ? <FormattedMessage id="review.startLearning" /> : <FormattedMessage id="review.allCaughtUp" />}
         </Link>
       </div>
 
       <div className="rounded-xl border border-border bg-bg-card p-4">
         {empty ? (
           <p className="text-xs text-text-muted leading-relaxed text-center px-2 py-1">
-            Answer words on the <Link to="/" className="text-accent-cyan hover:underline font-medium">Vocabulary</Link> page to
-            start your schedule. Get one right and it comes back later at a longer gap — again and again until it's mastered.
+            <FormattedMessage
+              id="review.emptySchedule"
+              values={{ link: (c) => <Link to="/" className="text-accent-cyan hover:underline font-medium">{c}</Link> }}
+            />
           </p>
         ) : (
           <>
             {/* Plain-language lead — the one line that says what to do now. */}
             <p className="text-sm text-text-secondary leading-snug mb-4">
               {dueToday > 0 ? (
-                <button onClick={() => setPopup({ title: 'Due today', kind: 'due', words: buckets[0] })} className="hover:underline">
-                  <span className="font-display font-extrabold text-accent-orange">{dueToday}</span>{' '}
-                  {dueToday === 1 ? 'word' : 'words'} due today
+                <button onClick={() => setPopup({ title: intl.formatMessage({ id: 'review.dueToday' }), kind: 'due', words: buckets[0] })} className="hover:underline">
+                  <FormattedMessage
+                    id="review.leadDueToday"
+                    values={{ count: dueToday, n: (c) => <span className="font-display font-extrabold text-accent-orange">{c}</span> }}
+                  />
                 </button>
               ) : (
-                <span className="font-medium text-text-primary">Nothing due today</span>
+                <span className="font-medium text-text-primary"><FormattedMessage id="review.nothingDueToday" /></span>
               )}
               {thisWeek > 0 && (
                 <>
                   {' · '}
-                  <span className="font-display font-extrabold text-accent-cyan">{thisWeek}</span>{' '}
-                  more this week
+                  <FormattedMessage
+                    id="review.leadMoreThisWeek"
+                    values={{ count: thisWeek, n: (c) => <span className="font-display font-extrabold text-accent-cyan">{c}</span> }}
+                  />
                 </>
               )}
               .
             </p>
 
             <div className="grid grid-cols-3 gap-2 mb-4">
-              <Stat value={dueWords.length} label="Due now" color="text-accent-orange" title="Words scheduled and ready to review right now — tap to see them."
-                onClick={dueWords.length ? () => setPopup({ title: 'Due now', kind: 'due', words: dueWords }) : undefined} />
-              <Stat value={learning.length} label="Learning" color="text-accent-cyan" title="Words on the review schedule, not yet mastered — tap to see them."
-                onClick={learning.length ? () => setPopup({ title: 'Learning', kind: 'learning', words: [...learning].sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? '')) }) : undefined} />
-              <Stat value={masteredWords.length} label="Mastered" color="text-accent-green" title="Words you got right until their gap passed ~21 days — they graduate and stop coming back. Tap to see them."
-                onClick={masteredWords.length ? () => setPopup({ title: 'Mastered', kind: 'mastered', words: masteredWords }) : undefined} />
+              <Stat value={dueWords.length} label={intl.formatMessage({ id: 'review.statDueNow' })} color="text-accent-orange" title={intl.formatMessage({ id: 'review.statDueNowTitle' })}
+                onClick={dueWords.length ? () => setPopup({ title: intl.formatMessage({ id: 'review.statDueNow' }), kind: 'due', words: dueWords }) : undefined} />
+              <Stat value={learning.length} label={intl.formatMessage({ id: 'review.statLearning' })} color="text-accent-cyan" title={intl.formatMessage({ id: 'review.statLearningTitle' })}
+                onClick={learning.length ? () => setPopup({ title: intl.formatMessage({ id: 'review.statLearning' }), kind: 'learning', words: [...learning].sort((a, b) => (a.dueAt ?? '').localeCompare(b.dueAt ?? '')) }) : undefined} />
+              <Stat value={masteredWords.length} label={intl.formatMessage({ id: 'review.statMastered' })} color="text-accent-green" title={intl.formatMessage({ id: 'review.statMasteredTitle' })}
+                onClick={masteredWords.length ? () => setPopup({ title: intl.formatMessage({ id: 'review.statMastered' }), kind: 'mastered', words: masteredWords }) : undefined} />
             </div>
 
             {/* Test the due words instead of just reading them — the quiz
@@ -143,11 +155,11 @@ export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) 
               <button
                 type="button"
                 onClick={quizDue}
-                title="Take a quiz on the words due right now — your answers count towards your progress."
+                title={intl.formatMessage({ id: 'review.quizDueTitle' })}
                 className="w-full mb-4 py-2.5 rounded-xl bg-accent-orange/10 border border-accent-orange/30 text-accent-orange text-xs font-display font-extrabold flex items-center justify-center gap-1.5 hover:bg-accent-orange/20 transition-colors"
               >
                 <Icon icon="lucide:file-question" className="text-sm" />
-                Quiz {dueWords.length} due
+                <FormattedMessage id="review.quizDue" values={{ count: dueWords.length }} />
               </button>
             )}
 
@@ -162,7 +174,11 @@ export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) 
                     onClick={() => openBucket(i)}
                     disabled={n === 0}
                     className={`flex-1 flex flex-col items-center gap-1 rounded-md px-0.5 py-1 -mx-0.5 transition-colors ${n ? 'hover:bg-bg-tertiary cursor-pointer' : 'cursor-default'}`}
-                    title={n ? `${n} review${n === 1 ? '' : 's'} ${i === 0 ? 'today' : `on ${weekdayLabel(i)}`} — tap to see` : 'Nothing scheduled'}
+                    title={n
+                      ? i === 0
+                        ? intl.formatMessage({ id: 'review.barTitleToday' }, { count: n })
+                        : intl.formatMessage({ id: 'review.barTitleOn' }, { count: n, day: weekdayLabel(i) })
+                      : intl.formatMessage({ id: 'review.nothingScheduled' })}
                   >
                     <span className={`text-[10px] font-bold leading-none ${n ? 'text-text-secondary' : 'text-transparent'}`}>
                       {n || 0}
@@ -184,10 +200,10 @@ export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) 
             {/* Legend — which colour means what. */}
             <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-text-muted">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-accent-orange/70" /> Due
+                <span className="w-2.5 h-2.5 rounded-sm bg-accent-orange/70" /> <FormattedMessage id="review.legendDue" />
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-accent-cyan/60" /> Upcoming
+                <span className="w-2.5 h-2.5 rounded-sm bg-accent-cyan/60" /> <FormattedMessage id="review.legendUpcoming" />
               </span>
             </div>
           </>
@@ -216,6 +232,7 @@ export function ReviewPanel({ onQuiz }: { onQuiz?: (words: string[]) => void }) 
 function WordPopup({ title, kind, words, onQuiz, onClose }: {
   title: string; kind: PopupKind; words: WordProgress[]; onQuiz?: () => void; onClose: () => void;
 }) {
+  const intl = useIntl();
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in"
@@ -232,12 +249,12 @@ function WordPopup({ title, kind, words, onQuiz, onClose }: {
               <span className="ml-2 text-[11px] font-bold text-text-muted">{words.length}</span>
             </h3>
             {/* Why are these words here? */}
-            <p className="mt-1 text-[11px] text-text-muted leading-relaxed">{EXPLAIN[kind]}</p>
+            <p className="mt-1 text-[11px] text-text-muted leading-relaxed"><FormattedMessage id={EXPLAIN[kind]} /></p>
           </div>
           <button
             onClick={onClose}
             className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
-            aria-label="Close"
+            aria-label={intl.formatMessage({ id: 'review.close' })}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -260,7 +277,7 @@ function WordPopup({ title, kind, words, onQuiz, onClose }: {
                 <div className="text-[10px] text-text-muted">{whyLine(p)}</div>
               </div>
               <span className="shrink-0 text-[11px] font-medium text-text-muted whitespace-nowrap">
-                {kind === 'mastered' ? 'mastered' : dueLabel(p)}
+                {kind === 'mastered' ? intl.formatMessage({ id: 'review.masteredTag' }) : dueLabel(p, intl)}
               </span>
             </Link>
           ))}
@@ -275,7 +292,7 @@ function WordPopup({ title, kind, words, onQuiz, onClose }: {
               className="w-full py-2.5 rounded-xl bg-accent-cyan text-bg-primary text-sm font-display font-extrabold flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
             >
               <Icon icon="lucide:file-question" className="text-base" />
-              Quiz these {words.length} words
+              <FormattedMessage id="review.quizThese" values={{ count: words.length }} />
             </button>
           </div>
         )}

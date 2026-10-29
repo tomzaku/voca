@@ -4,6 +4,7 @@ import {
   type ThemeId, type WorldArea, type WorldSnapshot, type WorldStation,
 } from '../types';
 import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../features';
+import { t } from '../../i18n';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
@@ -411,7 +412,7 @@ export class WorldScene extends Phaser.Scene {
       const top = edges[i];
       const bottom = edges[i + 1];
       const label = this.meta.labels.find((l) => l.y >= top && l.y < bottom);
-      areas.push({ name: label?.text ?? `Area ${i + 1}`, theme: label?.theme ?? 'forest', top, bottom });
+      areas.push({ name: label?.text ?? t('world.areaFallback', { n: i + 1 }), theme: label?.theme ?? 'forest', top, bottom });
     }
     return areas;
   }
@@ -796,7 +797,7 @@ export class WorldScene extends Phaser.Scene {
         .setOrigin(0.5, 0),
     );
 
-    const metaLine = `${p.words.length} words${p.learners ? ` · ${p.learners} 👥` : ''}`;
+    const metaLine = `${t('world.wordCount', { count: p.words.length })}${p.learners ? ` · ${p.learners} 👥` : ''}`;
     root.add(
       this.add
         .text(0, 36, metaLine, {
@@ -822,7 +823,7 @@ export class WorldScene extends Phaser.Scene {
     if (p.active) {
       root.add(
         this.add
-          .text(0, 58, 'STUDYING', {
+          .text(0, 58, t('world.studyingBadge'), {
             fontFamily: FONT,
             fontSize: '8px',
             fontStyle: 'bold',
@@ -889,7 +890,7 @@ export class WorldScene extends Phaser.Scene {
 
     root.add(
       this.add
-        .text(0, 12, '🏗️ New collection', {
+        .text(0, 12, `🏗️ ${t('world.newCollection')}`, {
           fontFamily: FONT,
           fontSize: '10px',
           fontStyle: 'bold',
@@ -902,7 +903,7 @@ export class WorldScene extends Phaser.Scene {
     );
 
     const station: PlacedStation = {
-      id: CREATE_STATION_ID, name: 'New collection', kind: 'mine',
+      id: CREATE_STATION_ID, name: t('world.newCollection'), kind: 'mine',
       words: [], pct: 0, active: false, x, y,
     };
     root.setSize(84, 80);
@@ -956,7 +957,7 @@ export class WorldScene extends Phaser.Scene {
 
     root.add(
       this.add
-        .text(0, 10, f.name, {
+        .text(0, 10, t(f.nameId), {
           fontFamily: FONT,
           fontSize: '10px',
           fontStyle: 'bold',
@@ -969,7 +970,7 @@ export class WorldScene extends Phaser.Scene {
     );
 
     const station: PlacedStation = {
-      id: featureNodeId(f), name: f.name, kind: 'mine',
+      id: featureNodeId(f), name: t(f.nameId), kind: 'mine',
       words: [], pct: 0, active: false, x, y,
     };
     root.setSize(84, 84);

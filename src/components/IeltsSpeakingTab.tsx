@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { PracticeButton } from './PracticeButton';
@@ -19,32 +20,32 @@ type Part = IeltsConversation['part'];
 
 // Examiner: British female (Emma), candidate: American male (Michael).
 const VOICE = { examiner: 'bf_emma', candidate: 'am_michael' } as const;
-const NAMES = { a: 'Examiner', b: 'Candidate' };
+const NAME_IDS = { a: 'speaking.ieltsExaminer', b: 'speaking.ieltsCandidate' } as const;
 const TONES = { a: 'orange', b: 'cyan' } as const;
 
 const PARTS: Part[] = ['Part 1', 'Part 2', 'Part 3'];
 // Spelled out in full — Tailwind only keeps classes it finds as whole strings.
-const PART_META: Record<Part, { name: string; blurb: string; aim: string; chip: string; dot: string; turnSeconds: number }> = {
+const PART_META: Record<Part, { nameId: string; blurbId: string; aimId: string; chip: string; dot: string; turnSeconds: number }> = {
   'Part 1': {
-    name: 'Interview',
-    blurb: 'Short questions about you and familiar topics · 4–5 min',
-    aim: 'Answer directly, then add a reason or an example — two to four sentences.',
+    nameId: 'speaking.ieltsPart1Name',
+    blurbId: 'speaking.ieltsPart1Blurb',
+    aimId: 'speaking.ieltsPart1Aim',
     chip: 'text-accent-green bg-accent-green/10 border-accent-green/20',
     dot: 'bg-accent-green',
     turnSeconds: 30,
   },
   'Part 2': {
-    name: 'Long turn',
-    blurb: 'A cue card: 1 min to prepare, then talk for up to 2 min',
-    aim: 'Cover every point on the card and keep going for the full two minutes.',
+    nameId: 'speaking.ieltsPart2Name',
+    blurbId: 'speaking.ieltsPart2Blurb',
+    aimId: 'speaking.ieltsPart2Aim',
     chip: 'text-accent-orange bg-accent-orange/10 border-accent-orange/20',
     dot: 'bg-accent-orange',
     turnSeconds: 120,
   },
   'Part 3': {
-    name: 'Discussion',
-    blurb: 'Abstract questions linked to Part 2 · 4–5 min',
-    aim: 'Give an opinion, explain why, and weigh the other side.',
+    nameId: 'speaking.ieltsPart3Name',
+    blurbId: 'speaking.ieltsPart3Blurb',
+    aimId: 'speaking.ieltsPart3Aim',
     chip: 'text-accent-red bg-accent-red/10 border-accent-red/20',
     dot: 'bg-accent-red',
     turnSeconds: 60,
@@ -97,6 +98,7 @@ const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2,
 /** Counts a candidate turn; Part 2 counts down a minute's prep first. Mounted
  *  per turn, so each one starts from zero. */
 function TurnTimer({ part }: { part: Part }) {
+  const intl = useIntl();
   const prepSeconds = part === 'Part 2' ? 60 : 0;
   const [elapsed, setElapsed] = useState(0);
   const [skippedPrep, setSkippedPrep] = useState(false);
@@ -116,19 +118,19 @@ function TurnTimer({ part }: { part: Part }) {
     return (
       <span className="flex items-center gap-2 shrink-0">
         <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent-orange/10 text-accent-orange text-xs font-bold tabular-nums">
-          <Icon icon="lucide:notebook-pen" width={13} /> Prep {clock(prepSeconds - elapsed)}
+          <Icon icon="lucide:notebook-pen" width={13} /> <FormattedMessage id="speaking.ieltsPrep" values={{ time: clock(prepSeconds - elapsed) }} />
         </span>
         <button
           onClick={() => { setSkippedPrep(true); setElapsed(0); }}
           className="text-[11px] font-semibold text-text-muted hover:text-text-primary underline-offset-2 hover:underline cursor-pointer"
         >
-          Start talking
+          <FormattedMessage id="speaking.ieltsStartTalking" />
         </button>
       </span>
     );
   }
   return (
-    <span className="flex items-center gap-2 shrink-0" title={`Aim for about ${clock(target)}`}>
+    <span className="flex items-center gap-2 shrink-0" title={intl.formatMessage({ id: 'speaking.ieltsAimFor' }, { time: clock(target) })}>
       <span className={`text-xs font-bold tabular-nums ${over ? 'text-accent-green' : 'text-text-primary'}`}>{clock(talking)}</span>
       <span className="w-16 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
         <span className={`block h-full rounded-full transition-all duration-1000 ${over ? 'bg-accent-green' : 'bg-accent-yellow'}`} style={{ width: `${pct}%` }} />
@@ -150,7 +152,7 @@ function ConversationList({ items, activeId, onSelect }: {
     .filter((g) => g.items.length > 0);
 
   if (!groups.length) {
-    return <p className="px-3 py-8 text-center text-sm text-text-muted">Nothing matches these filters.</p>;
+    return <p className="px-3 py-8 text-center text-sm text-text-muted"><FormattedMessage id="speaking.noMatches" /></p>;
   }
 
   return (
@@ -159,7 +161,7 @@ function ConversationList({ items, activeId, onSelect }: {
         <div key={g.part}>
           <p className="flex items-center gap-1.5 px-2.5 mb-1 text-[10px] font-bold uppercase tracking-wider text-text-muted">
             <span className={`w-1.5 h-1.5 rounded-full ${PART_META[g.part].dot}`} />
-            {g.part} · {PART_META[g.part].name}
+            {g.part} · <FormattedMessage id={PART_META[g.part].nameId} />
           </p>
           <div className="space-y-0.5">
             {g.items.map((c) => {
@@ -201,6 +203,7 @@ function ConversationView({ conv, onBack, onNext }: {
   onBack: () => void;
   onNext: () => void;
 }) {
+  const intl = useIntl();
   const progress = useSpeakingProgress((s) => s.questions[conv.id]);
   const { markPracticed, clearPracticed } = useSpeakingProgress();
   const done = isPracticed(progress);
@@ -218,8 +221,8 @@ function ConversationView({ conv, onBack, onNext }: {
   const finish = useCallback(() => {
     if (mode === 'listen') return;
     markPracticed(conv.id);
-    toast.success('Mock test complete — marked as practiced');
-  }, [mode, conv.id, markPracticed]);
+    toast.success(intl.formatMessage({ id: 'speaking.ieltsMockComplete' }));
+  }, [mode, conv.id, markPracticed, intl]);
 
   const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish);
 
@@ -234,7 +237,7 @@ function ConversationView({ conv, onBack, onNext }: {
     return (
       <span className="block whitespace-normal">
         <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-accent-orange mb-1.5">
-          <Icon icon="lucide:id-card" width={12} /> Cue card
+          <Icon icon="lucide:id-card" width={12} /> <FormattedMessage id="speaking.ieltsCueCard" />
         </span>
         <span className="block font-semibold text-text-primary">{card.task}</span>
         <span className="block mt-2 text-xs text-text-muted">You should say:</span>
@@ -246,7 +249,7 @@ function ConversationView({ conv, onBack, onNext }: {
         ))}
         {card.prep && (
           <span className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-border text-[11px] text-text-muted">
-            <Icon icon="lucide:timer" width={12} /> 1 minute to prepare · speak for 1–2 minutes
+            <Icon icon="lucide:timer" width={12} /> <FormattedMessage id="speaking.ieltsCuePrep" />
           </span>
         )}
       </span>
@@ -259,13 +262,13 @@ function ConversationView({ conv, onBack, onNext }: {
         onClick={onBack}
         className="lg:hidden flex items-center gap-1 mb-3 text-xs font-semibold text-text-muted hover:text-text-primary cursor-pointer"
       >
-        <Icon icon="lucide:arrow-left" width={14} /> All conversations
+        <Icon icon="lucide:arrow-left" width={14} /> <FormattedMessage id="speaking.allConversations" />
       </button>
 
       {/* Header */}
       <header className="rounded-xl border border-border bg-bg-card p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
-          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${meta.chip}`}>{conv.part} · {meta.name}</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${meta.chip}`}>{conv.part} · <FormattedMessage id={meta.nameId} /></span>
           <span className="flex items-center gap-1 font-semibold text-text-secondary">
             <Icon icon={topicIcon(conv.topic)} width={13} /> {conv.topic}
           </span>
@@ -275,7 +278,7 @@ function ConversationView({ conv, onBack, onNext }: {
         <p className="mt-1.5 text-sm text-text-secondary leading-relaxed">{conv.description}</p>
         <p className="mt-3 flex items-start gap-2 rounded-lg bg-bg-tertiary/60 px-3 py-2 text-xs text-text-secondary leading-relaxed">
           <Icon icon="lucide:target" width={14} className="text-accent-cyan shrink-0 mt-px" />
-          <span><span className="font-semibold text-text-primary">Aim for: </span>{meta.aim}</span>
+          <span><span className="font-semibold text-text-primary"><FormattedMessage id="speaking.ieltsAimLabel" /> </span><FormattedMessage id={meta.aimId} /></span>
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -283,7 +286,7 @@ function ConversationView({ conv, onBack, onNext }: {
           <PracticeButton
             topic={`IELTS ${conv.part} — ${conv.topic}`}
             focus={ieltsOpener(conv)}
-            label="Mock test with AI"
+            label={intl.formatMessage({ id: 'speaking.ieltsMockWithAi' })}
             onStart={() => markPracticed(conv.id)}
           />
         </div>
@@ -291,8 +294,8 @@ function ConversationView({ conv, onBack, onNext }: {
 
       <PlayerBar
         modes={[
-          { id: 'listen', label: 'Listen', icon: 'lucide:headphones' },
-          { id: 'b', label: 'Be the candidate', icon: 'lucide:mic' },
+          { id: 'listen', label: intl.formatMessage({ id: 'speaking.listen' }), icon: 'lucide:headphones' },
+          { id: 'b', label: intl.formatMessage({ id: 'speaking.ieltsBeCandidate' }), icon: 'lucide:mic' },
         ]}
         mode={mode}
         onMode={pickMode}
@@ -302,14 +305,13 @@ function ConversationView({ conv, onBack, onNext }: {
 
       {mode === 'b' && (
         <p className="mt-3 px-1 text-xs text-text-muted leading-relaxed">
-          The examiner asks each question aloud, then waits. Answer in your own words with the timer running —
-          the model answer stays hidden until you reveal it.
+          <FormattedMessage id="speaking.ieltsCandidateHint" />
         </p>
       )}
 
       <Transcript
         lines={lines}
-        names={NAMES}
+        names={{ a: intl.formatMessage({ id: NAME_IDS.a }), b: intl.formatMessage({ id: NAME_IDS.b }) }}
         tones={TONES}
         mode={mode}
         player={player}
@@ -321,8 +323,8 @@ function ConversationView({ conv, onBack, onNext }: {
       {player.status === 'waiting' && (
         <YourTurnBar
           key={player.index}
-          title="Your answer"
-          hint={conv.part === 'Part 2' ? 'Make notes, then talk through every point.' : 'Answer out loud, then compare with the model.'}
+          title={intl.formatMessage({ id: 'speaking.ieltsYourAnswer' })}
+          hint={intl.formatMessage({ id: conv.part === 'Part 2' ? 'speaking.ieltsHintPart2' : 'speaking.ieltsHintDefault' })}
           onContinue={continueTurn}
         >
           <TurnTimer part={conv.part} />
@@ -335,7 +337,7 @@ function ConversationView({ conv, onBack, onNext }: {
           {conv.tips && conv.tips.length > 0 && (
             <section className="rounded-xl border border-accent-green/15 bg-accent-green/5 p-4">
               <p className="flex items-center gap-1.5 text-xs font-bold text-accent-green mb-2.5">
-                <Icon icon="lucide:lightbulb" width={13} /> Examiner tips
+                <Icon icon="lucide:lightbulb" width={13} /> <FormattedMessage id="speaking.ieltsExaminerTips" />
               </p>
               <ul className="space-y-1.5">
                 {conv.tips.map((tip) => (
@@ -350,7 +352,7 @@ function ConversationView({ conv, onBack, onNext }: {
           {conv.keyPhrases && conv.keyPhrases.length > 0 && (
             <section className="rounded-xl border border-accent-yellow/15 bg-accent-yellow/5 p-4">
               <p className="flex items-center gap-1.5 text-xs font-bold text-accent-yellow mb-2.5">
-                <Icon icon="lucide:quote" width={13} /> Key phrases
+                <Icon icon="lucide:quote" width={13} /> <FormattedMessage id="speaking.keyPhrases" />
               </p>
               <PhraseChips phrases={conv.keyPhrases} voice={VOICE.candidate} />
             </section>
@@ -363,7 +365,7 @@ function ConversationView({ conv, onBack, onNext }: {
           onClick={onNext}
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold text-text-secondary bg-bg-tertiary hover:text-text-primary hover:bg-bg-hover transition-colors cursor-pointer"
         >
-          Next conversation <Icon icon="lucide:arrow-right" width={14} />
+          <FormattedMessage id="speaking.nextConversation" /> <Icon icon="lucide:arrow-right" width={14} />
         </button>
       </div>
     </article>
@@ -372,6 +374,7 @@ function ConversationView({ conv, onBack, onNext }: {
 
 /* ─── The tab ────────────────────────────────────────────────── */
 export function IeltsSpeakingTab() {
+  const intl = useIntl();
   const progress = useSpeakingProgress((s) => s.questions);
   const [part, setPart] = useState<Part | 'all'>('all');
   const [topic, setTopic] = useState<string>('all');
@@ -427,13 +430,13 @@ export function IeltsSpeakingTab() {
                   key={p}
                   onClick={() => { setPart(on ? 'all' : p); setTopic('all'); }}
                   aria-pressed={on}
-                  title={PART_META[p].blurb}
+                  title={intl.formatMessage({ id: PART_META[p].blurbId })}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer ${
                     on ? 'bg-accent-cyan/10' : 'hover:bg-bg-hover/60'
                   }`}
                 >
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${PART_META[p].chip}`}>{p}</span>
-                  <span className={`text-xs flex-1 truncate ${on ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}>{PART_META[p].name}</span>
+                  <span className={`text-xs flex-1 truncate ${on ? 'font-semibold text-text-primary' : 'text-text-secondary'}`}><FormattedMessage id={PART_META[p].nameId} /></span>
                   <span className="w-12 h-1 rounded-full bg-bg-tertiary overflow-hidden shrink-0">
                     <span className={`block h-full rounded-full ${PART_META[p].dot}`} style={{ width: `${s.total ? (s.done / s.total) * 100 : 0}%` }} />
                   </span>
@@ -445,7 +448,7 @@ export function IeltsSpeakingTab() {
         </ProgressCard>
 
         <div>
-          <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">Topic</p>
+          <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-text-muted"><FormattedMessage id="speaking.topic" /></p>
           <div className="flex flex-wrap gap-1">
             {['all', ...topicsInView].map((t) => {
               const on = topic === t;
@@ -459,7 +462,7 @@ export function IeltsSpeakingTab() {
                   }`}
                 >
                   {t !== 'all' && <Icon icon={topicIcon(t)} width={11} />}
-                  {t === 'all' ? 'All topics' : t}
+                  {t === 'all' ? intl.formatMessage({ id: 'speaking.allTopics' }) : t}
                 </button>
               );
             })}
@@ -469,7 +472,9 @@ export function IeltsSpeakingTab() {
         <PracticeButton
           topic={topic === 'all' ? 'IELTS Speaking' : `IELTS Speaking — ${topic}`}
           focus={part === 'all' ? undefined : `Run a mock IELTS Speaking ${part} on this topic.`}
-          label={part === 'all' ? 'Full mock test with AI' : `${part} mock test with AI`}
+          label={part === 'all'
+            ? intl.formatMessage({ id: 'speaking.ieltsFullMockWithAi' })
+            : intl.formatMessage({ id: 'speaking.ieltsPartMockWithAi' }, { part })}
         />
 
         <ConversationList items={visible} activeId={activeId} onSelect={select} />

@@ -18,6 +18,8 @@
 //     toBlob throw — so a subtree with no external references is a hard
 //     requirement, not a nicety.
 
+import { t } from '../i18n';
+
 // Webfonts the poster is drawn in — the same families index.html loads, so
 // the bytes are usually already in the HTTP/service-worker cache.
 //
@@ -93,7 +95,7 @@ async function blobToDataUri(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read font.'));
+    reader.onerror = () => reject(reader.error ?? new Error(t('games.mapExportFontFailed')));
     reader.readAsDataURL(blob);
   });
 }
@@ -341,7 +343,7 @@ export async function mindMapToPngBlob(
   };
   const width = Math.ceil(box.width);
   const height = Math.ceil(box.height);
-  if (!width || !height) throw new Error('The map has nothing to export yet.');
+  if (!width || !height) throw new Error(t('games.mapExportEmpty'));
 
   // Shrink rather than fail if the poster is enormous.
   const ratio = Math.min(PIXEL_RATIO, Math.sqrt(MAX_PIXELS / (width * height)));
@@ -377,7 +379,7 @@ export async function mindMapToPngBlob(
   out.width = Math.round(width * ratio);
   out.height = Math.round(height * ratio);
   const ctx = out.getContext('2d');
-  if (!ctx) throw new Error('This browser cannot render the image.');
+  if (!ctx) throw new Error(t('games.mapExportUnsupported'));
   // The paper is white in both app themes; without this the PNG would carry
   // transparent gaps wherever the map's own background shows through.
   ctx.fillStyle = '#ffffff';
@@ -385,7 +387,7 @@ export async function mindMapToPngBlob(
   ctx.drawImage(img, 0, 0, out.width, out.height);
   return await new Promise<Blob>((resolve, reject) => {
     out.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('Could not encode the image.'))),
+      (blob) => (blob ? resolve(blob) : reject(new Error(t('games.mapExportEncodeFailed')))),
       'image/png',
     );
   });

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { getLearnLanguage, getMotherLanguage } from '../lib/languages';
 import { CatMascot } from './CatMascot';
@@ -12,6 +13,7 @@ import { CatMascot } from './CatMascot';
  * and profile buttons either side of it.
  */
 export function SearchModal({ onClose }: { onClose: () => void }) {
+  const intl = useIntl();
   const navigate = useNavigate();
   const requestSearch = useWordSearch((s) => s.requestSearch);
   const [query, setQuery] = useState('');
@@ -67,7 +69,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search ${getLearnLanguage()} or ${getMotherLanguage()}…`}
+              placeholder={intl.formatMessage({ id: 'common.searchPlaceholder' }, { learn: getLearnLanguage(), mother: getMotherLanguage() })}
               className="w-full bg-transparent px-5 py-5 text-lg text-text-primary font-semibold focus:outline-none placeholder:text-text-muted"
               autoComplete="off"
               autoCorrect="off"
@@ -75,10 +77,12 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
             />
           </div>
           <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-t-2 border-border text-xs text-text-muted font-bold">
-            <span>Enter to look up a word</span>
+            <span><FormattedMessage id="common.searchEnterHint" /></span>
             <span className="flex items-center gap-1.5">
-              <kbd className="px-1.5 py-0.5 rounded bg-bg-tertiary font-mono">Esc</kbd>
-              to close
+              <FormattedMessage
+                id="common.searchEscHint"
+                values={{ kbd: (chunks) => <kbd className="px-1.5 py-0.5 rounded bg-bg-tertiary font-mono">{chunks}</kbd> }}
+              />
             </span>
           </div>
         </form>

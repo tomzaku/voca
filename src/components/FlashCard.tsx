@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { FormattedMessage } from 'react-intl';
+import { t } from '../i18n';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useCollections } from '../hooks/useCollections';
 import { useProgressQuery, type Filter } from '../hooks/useProgressQuery';
@@ -60,7 +62,7 @@ type CardPhase = 'loading' | 'introduce' | 'revealed' | 'unknown' | 'error';
 function loadErrorMessage(err: unknown, offlineText: string, fallback: string): string {
   const msg = (err as Error).message || '';
   if (err instanceof ApiError && err.status === 401) {
-    return msg || 'Please sign in to look up a new word.';
+    return msg || t('flashcard.signInToLookUp');
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return offlineText;
   return msg || fallback;
@@ -218,7 +220,7 @@ export function FlashCard() {
       const [next] = await pickNextWords(exclude);
       if (ctrl.signal.aborted) return; // superseded by a newer load
       if (!next) {
-        toast.error('No words to study in this collection.');
+        toast.error(t('flashcard.noWordsInCollection'));
         return;
       }
       const { word } = next;
@@ -244,8 +246,8 @@ export function FlashCard() {
       setLoadError({
         message: loadErrorMessage(
           err,
-          "You're offline — only words you've already opened are available.",
-          'Failed to generate word data.',
+          t('flashcard.offlineOpenedOnly'),
+          t('flashcard.generateFailed'),
         ),
         retry: () => { loadNextWord(excludeWord); },
       });
@@ -294,8 +296,8 @@ export function FlashCard() {
       setLoadError({
         message: loadErrorMessage(
           err,
-          `You're offline — "${word}" hasn't been downloaded yet.`,
-          `Could not find "${word}"`,
+          t('flashcard.offlineNotDownloaded', { word }),
+          t('flashcard.couldNotFind', { word }),
         ),
         retry: () => { loadSpecificWord(word, reveal); },
       });
@@ -396,7 +398,7 @@ export function FlashCard() {
     // Skip = "don't show me this word again" — it leaves the rotation for good
     // (restorable from History), unlike giving up, which repeats the word.
     store.markWord(wordData.word, 'dismissed', user?.id, roundMistakesRef.current);
-    toast(`"${wordData.headword || wordData.word}" won't be shown again`, { icon: '🙈' });
+    toast(t('flashcard.wontShowAgain', { word: wordData.headword || wordData.word }), { icon: '🙈' });
     loadNextWord(wordData.word);
   };
 
@@ -404,14 +406,14 @@ export function FlashCard() {
     if (!wordData) return;
     const saved = store.isBookmarked(wordData.word);
     store.setBookmarked(wordData.word, !saved, user?.id);
-    toast.success(saved ? 'Removed from bookmarks' : 'Saved to bookmarks!');
+    toast.success(t(saved ? 'flashcard.removedFromBookmarks' : 'flashcard.savedToBookmarks'));
   };
 
   const handleKnow = () => {
     if (!wordData) return;
     store.markWord(wordData.word, 'known', user?.id, 0, 'flashcard');
     if (user) void useTeams.getState().recordAnswer();
-    toast.success('Great! Moving on.');
+    toast.success(t('flashcard.greatMovingOn'));
     loadNextWord(wordData.word);
   };
 
@@ -521,7 +523,7 @@ export function FlashCard() {
         <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
           <div className="w-12 h-12 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
           {isGenerating && (
-            <p className="text-sm text-text-muted animate-fade-in">Generating word data...</p>
+            <p className="text-sm text-text-muted animate-fade-in"><FormattedMessage id="flashcard.generating" /></p>
           )}
         </div>
       ) : phase === 'unknown' && unknown ? (
@@ -535,13 +537,13 @@ export function FlashCard() {
         // just what's left on the page if it gets dismissed instead.
         <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-text-muted">
           <Icon icon="lucide:cloud-off" className="text-3xl" />
-          <p className="text-sm">Couldn't load this word.</p>
+          <p className="text-sm"><FormattedMessage id="flashcard.couldNotLoadWord" /></p>
           {loadError && (
             <button
               onClick={loadError.retry}
               className="text-sm font-bold text-accent-cyan hover:brightness-110"
             >
-              Try again
+              <FormattedMessage id="flashcard.tryAgain" />
             </button>
           )}
         </div>

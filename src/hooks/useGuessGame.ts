@@ -9,22 +9,23 @@ export type RealGuessGameMode = Exclude<GuessGameMode, 'random' | 'smart'>;
 
 export interface GuessGameInfo {
   id: GuessGameMode;
-  label: string;
-  description: string;
+  /** Message ids (games catalog) — format at render time so the language can change. */
+  labelId: string;
+  descriptionId: string;
   icon: string;
 }
 
 // `icon` values are Iconify names (Lucide set) — rendered with <Icon icon=… />.
 export const GUESS_GAMES: GuessGameInfo[] = [
-  { id: 'smart',    label: 'Smart',      icon: 'lucide:brain',         description: 'Difficulty adapts to how well you know each word' },
-  { id: 'random',   label: 'Random',     icon: 'lucide:dices',         description: 'A different game for every word' },
-  { id: 'letters',  label: 'Letters',    icon: 'lucide:type',          description: 'Reveal letters and type the word' },
-  { id: 'scramble', label: 'Unscramble', icon: 'lucide:shuffle',       description: 'Tap the shuffled letters in order' },
-  { id: 'choice',   label: 'Choice',     icon: 'lucide:list-checks',   description: 'Pick the word from its definition' },
-  { id: 'hangman',  label: 'Hangman',    icon: 'lucide:skull',         description: 'Guess letters before your lives run out' },
-  { id: 'listen',   label: 'Listen',     icon: 'lucide:headphones',    description: 'Hear the word and spell it' },
-  { id: 'vowels',   label: 'No Vowels',  icon: 'lucide:circle-dashed', description: 'Fill in the missing vowels' },
-  { id: 'speak',    label: 'Speak',      icon: 'lucide:mic',           description: 'Say the word out loud' },
+  { id: 'smart',    labelId: 'games.modeSmart', icon: 'lucide:brain',         descriptionId: 'games.modeSmartDesc' },
+  { id: 'random',   labelId: 'games.modeRandom', icon: 'lucide:dices',         descriptionId: 'games.modeRandomDesc' },
+  { id: 'letters',  labelId: 'games.modeLetters', icon: 'lucide:type',          descriptionId: 'games.modeLettersDesc' },
+  { id: 'scramble', labelId: 'games.modeScramble', icon: 'lucide:shuffle',       descriptionId: 'games.modeScrambleDesc' },
+  { id: 'choice',   labelId: 'games.modeChoice', icon: 'lucide:list-checks',   descriptionId: 'games.modeChoiceDesc' },
+  { id: 'hangman',  labelId: 'games.modeHangman', icon: 'lucide:skull',         descriptionId: 'games.modeHangmanDesc' },
+  { id: 'listen',   labelId: 'games.modeListen', icon: 'lucide:headphones',    descriptionId: 'games.modeListenDesc' },
+  { id: 'vowels',   labelId: 'games.modeVowels', icon: 'lucide:circle-dashed', descriptionId: 'games.modeVowelsDesc' },
+  { id: 'speak',    labelId: 'games.modeSpeak', icon: 'lucide:mic',           descriptionId: 'games.modeSpeakDesc' },
 ];
 
 export const REAL_GUESS_GAMES = GUESS_GAMES.filter(

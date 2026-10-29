@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useIntl } from 'react-intl';
 import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 
 interface ReadAloudProps {
@@ -6,6 +7,7 @@ interface ReadAloudProps {
 }
 
 export function ReadAloud({ text }: ReadAloudProps) {
+  const intl = useIntl();
   const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle');
   const mountedRef = useRef(true);
 
@@ -63,7 +65,9 @@ export function ReadAloud({ text }: ReadAloudProps) {
             ? 'bg-accent-cyan/5 text-accent-cyan/60 border-accent-cyan/10'
             : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
       }`}
-      title={state === 'playing' ? 'Stop reading' : state === 'loading' ? 'Generating audio...' : 'Read aloud'}
+      title={intl.formatMessage({
+        id: state === 'playing' ? 'word.stopReading' : state === 'loading' ? 'word.generatingAudio' : 'word.readAloud',
+      })}
     >
       {state === 'loading' ? (
         <svg width="12" height="12" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">

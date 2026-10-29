@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
@@ -27,47 +28,44 @@ const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange
  * being used. A rank with no explanation is the first thing anyone asks about.
  */
 function ScoreHelp({ scoring }: { scoring: Scoring }) {
+  const intl = useIntl();
   const { windowDays, points } = scoring;
-  const plural = (n: number) => `${n} point${n === 1 ? '' : 's'}`;
-  const day = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const b = (c: React.ReactNode[]) => <b>{c}</b>;
+  const day = (iso: string) => intl.formatDate(iso, { day: 'numeric', month: 'short' });
 
   // The period is the first thing to state, because it's what makes the score
   // mean something — and it's the team's, not a constant.
   const covers = windowDays !== null
-    ? `Your score covers the last ${windowDays} days`
+    ? intl.formatMessage({ id: 'teams.coversWindow' }, { days: windowDays })
     : scoring.until
-    ? `Your score covers ${day(scoring.since)} to ${day(scoring.until)}`
-    : `Your score covers everything since ${day(scoring.since)}`;
+    ? intl.formatMessage({ id: 'teams.coversRange' }, { from: day(scoring.since), to: day(scoring.until) })
+    : intl.formatMessage({ id: 'teams.coversSince' }, { date: day(scoring.since) });
 
   return (
     <div className="rounded-xl bg-bg-tertiary/50 p-4 text-[11px] text-text-secondary leading-relaxed">
       <p className="font-bold text-text-primary mb-2">{covers}</p>
       <ul className="flex flex-col gap-1">
         <li>
-          <b>{plural(points.correctDay)}</b> for each word you answer correctly — once per word per
-          day, so drilling one word all afternoon counts once.
+          <FormattedMessage id="teams.helpCorrect" values={{ count: points.correctDay, b }} />
         </li>
         <li>
-          <b>{plural(points.mastered)}</b> for each word that reaches Mastered.
+          <FormattedMessage id="teams.helpMastered" values={{ count: points.mastered, b }} />
         </li>
         <li>
-          <b>{plural(points.streakDay)}</b> for every day in a row you practised — counted inside
-          this period, so it starts from zero when the period does.
+          <FormattedMessage id="teams.helpStreak" values={{ count: points.streakDay, b }} />
         </li>
       </ul>
       <p className="mt-2 text-text-muted">
-        {windowDays !== null
-          ? 'Older activity drops out of the window, so a place on the board has to be held — it isn\'t a lifetime total.'
-          : 'Only practice inside the period counts, so everyone started level.'}{' '}
-        Your numbers update when you open this page.
+        <FormattedMessage id={windowDays !== null ? 'teams.helpRolling' : 'teams.helpPeriod'} />{' '}
+        <FormattedMessage id="teams.helpUpdates" />
       </p>
     </div>
   );
 }
 
 function Avatar({ row }: { row: BoardRow }) {
-  const name = row.display_name || 'Learner';
+  const intl = useIntl();
+  const name = row.display_name || intl.formatMessage({ id: 'teams.learner' });
   return (
     <span className="w-9 h-9 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-bg-tertiary">
       {row.avatar_url ? (
@@ -82,6 +80,7 @@ function Avatar({ row }: { row: BoardRow }) {
 }
 
 function Row({ row, isMe }: { row: BoardRow; isMe: boolean }) {
+  const intl = useIntl();
   const medal = row.rank <= 3 ? PODIUM[row.rank - 1] : null;
   return (
     <li
@@ -99,13 +98,13 @@ function Row({ row, isMe }: { row: BoardRow; isMe: boolean }) {
       <Avatar row={row} />
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-bold text-text-primary truncate">
-          {row.display_name || 'Learner'}
-          {isMe && <span className="ml-1.5 text-[11px] font-bold text-accent-cyan">you</span>}
+          {row.display_name || intl.formatMessage({ id: 'teams.learner' })}
+          {isMe && <span className="ml-1.5 text-[11px] font-bold text-accent-cyan"><FormattedMessage id="teams.you" /></span>}
         </span>
         <span className="flex items-center gap-1 text-[11px] text-text-muted">
           <Icon icon="lucide:flame" className="text-accent-orange" />
           <span className="tabular-nums">{row.streak}</span>
-          <span>day streak · best {row.longest}</span>
+          <span><FormattedMessage id="teams.dayStreakBest" values={{ longest: row.longest }} /></span>
         </span>
       </span>
       {/* The score is what the order is built on, so it's the number that gets
@@ -115,7 +114,7 @@ function Row({ row, isMe }: { row: BoardRow; isMe: boolean }) {
           {row.score}
         </span>
         <span className="block text-[10px] text-text-muted tabular-nums">
-          {row.learned} word{row.learned === 1 ? '' : 's'}
+          <FormattedMessage id="teams.wordCount" values={{ count: row.learned }} />
         </span>
       </span>
     </li>
@@ -123,6 +122,7 @@ function Row({ row, isMe }: { row: BoardRow; isMe: boolean }) {
 }
 
 export function Leaderboard() {
+  const intl = useIntl();
   const { user } = useAuth();
   const teams = useTeams((s) => s.teams);
   const activeTeamId = useTeams((s) => s.activeTeamId);
@@ -186,12 +186,14 @@ export function Leaderboard() {
     <div className="flex items-center justify-between gap-3">
       <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
         <Icon icon="lucide:globe" className="text-accent-cyan" />
-        {teams.length > 1 ? 'Leaderboards' : `${team?.name ?? 'Global'} leaderboard`}
+        {teams.length > 1
+          ? <FormattedMessage id="teams.leaderboards" />
+          : <FormattedMessage id="teams.teamLeaderboard" values={{ name: team?.name ?? 'Global' }} />}
         {scoring && (
           <button
             onClick={() => setShowHelp((v) => !v)}
             aria-expanded={showHelp}
-            aria-label="How the score is worked out"
+            aria-label={intl.formatMessage({ id: 'teams.scoreHelpLabel' })}
             className="w-5 h-5 shrink-0 rounded-full bg-bg-tertiary text-text-muted text-[11px] font-bold flex items-center justify-center hover:text-text-primary cursor-pointer"
           >
             ?
@@ -204,7 +206,7 @@ export function Leaderboard() {
           disabled={saving}
           className="text-[11px] font-bold text-text-muted hover:text-accent-red cursor-pointer disabled:opacity-50"
         >
-          Leave
+          <FormattedMessage id="teams.leave" />
         </button>
       )}
     </div>
@@ -217,13 +219,13 @@ export function Leaderboard() {
       <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-3">
         {header}
         <p className="text-xs text-text-muted leading-relaxed">
-          Sign in to compare your progress with learners around the world.
+          <FormattedMessage id="teams.signInPrompt" />
         </p>
         <Link
           to="/login"
           className="btn-3d self-start px-4 py-2 text-xs font-bold bg-accent-cyan text-bg-primary"
         >
-          Sign in
+          <FormattedMessage id="teams.signIn" />
         </Link>
       </section>
     );
@@ -250,7 +252,7 @@ export function Leaderboard() {
           end of it rather than somewhere else on the panel. It always renders:
           the invite button is most needed by someone who has only Global. */}
       <div className="flex flex-wrap gap-1.5">
-        <div role="tablist" aria-label="Leaderboard teams" className="contents">
+        <div role="tablist" aria-label={intl.formatMessage({ id: 'teams.tabsLabel' })} className="contents">
           {teams.map((t) => (
             <button
               key={t.id}
@@ -280,7 +282,7 @@ export function Leaderboard() {
           className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
         >
           <Icon icon="lucide:ticket" className="inline -mt-0.5 mr-1" />
-          Invite code
+          <FormattedMessage id="teams.inviteCode" />
         </button>
 
         {isPro && (
@@ -288,7 +290,7 @@ export function Leaderboard() {
             onClick={() => setCreating(true)}
             className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
           >
-            <Icon icon="lucide:plus" className="inline -mt-0.5" /> New team
+            <Icon icon="lucide:plus" className="inline -mt-0.5" /> <FormattedMessage id="teams.newTeam" />
           </button>
         )}
       </div>
@@ -308,26 +310,26 @@ export function Leaderboard() {
       {team && !team.joined && (
         <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
           <p className="text-xs text-text-secondary leading-relaxed">
-            Your progress is private. Join to appear on this board — the other members will see your
-            name, avatar, words learned and streak. Nothing else is shared, and you can leave at any
-            time.
+            <FormattedMessage id="teams.joinPrompt" />
           </p>
           <button
             onClick={() => setJoined(team.id, true)}
             disabled={saving}
             className="btn-3d self-start px-4 py-2 text-xs font-bold bg-accent-cyan text-bg-primary disabled:opacity-50"
           >
-            {saving ? 'Joining…' : `Join ${team.name.toLowerCase()}`}
+            {saving
+              ? <FormattedMessage id="teams.joining" />
+              : <FormattedMessage id="teams.joinName" values={{ name: team.name.toLowerCase() }} />}
           </button>
         </div>
       )}
 
       {error && <p className="text-xs text-accent-red">{error}</p>}
 
-      {loading && rows.length === 0 && <p className="text-xs text-text-muted">Loading the board…</p>}
+      {loading && rows.length === 0 && <p className="text-xs text-text-muted"><FormattedMessage id="teams.loadingBoard" /></p>}
 
       {!loading && rows.length === 0 && !error && (
-        <p className="text-xs text-text-muted">Nobody has joined yet — be the first name up there.</p>
+        <p className="text-xs text-text-muted"><FormattedMessage id="teams.nobodyJoined" /></p>
       )}
 
       {rows.length > 0 && (
@@ -339,7 +341,7 @@ export function Leaderboard() {
             <>
               <li className="text-center text-text-muted/60 leading-none py-1">···</li>
               <li className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-accent-cyan/10 ring-1 ring-accent-cyan/40 text-xs font-bold text-text-primary">
-                <span>You're #{rankBelow}</span>
+                <span><FormattedMessage id="teams.yourRank" values={{ rank: rankBelow }} /></span>
                 {me && (
                   <span className="font-display font-extrabold tabular-nums text-accent-green">
                     {me.score}
@@ -353,9 +355,9 @@ export function Leaderboard() {
 
       <p className="text-[11px] text-text-muted/70">
         {scoring && scoring.windowDays === null
-          ? 'Ranked by score over this team\'s scoring period.'
-          : `Ranked by score over the last ${scoring?.windowDays ?? 30} days.`}{' '}
-        Only learners who joined are counted.
+          ? <FormattedMessage id="teams.rankedByPeriod" />
+          : <FormattedMessage id="teams.rankedByWindow" values={{ days: scoring?.windowDays ?? 30 }} />}{' '}
+        <FormattedMessage id="teams.onlyJoined" />
       </p>
 
       {creating && <TeamForm onClose={() => setCreating(false)} />}

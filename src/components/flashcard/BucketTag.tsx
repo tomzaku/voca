@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useBucketPeers } from '../../hooks/useProgressQuery';
 import { peekWord, useWordPeek } from '../../hooks/useWordPeek';
 import { BUCKET_META, wordBucket } from '../../lib/progress';
@@ -24,8 +25,12 @@ export function BucketTag({
   word: string;
   progress: WordProgress | undefined;
 }) {
+  const intl = useIntl();
   const bucket = wordBucket(progress);
   const meta = BUCKET_META[bucket];
+  const label = intl.formatMessage({ id: meta.labelId });
+  const hint = intl.formatMessage({ id: meta.hintId });
+  const lower = label.toLocaleLowerCase(intl.locale);
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   // Other words in the same bucket, newest-seen first — what you touched last
@@ -63,11 +68,11 @@ export function BucketTag({
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        title={`${meta.hint} — see other ${meta.label.toLowerCase()} words`}
+        title={intl.formatMessage({ id: 'bucket.tagTitle' }, { hint, bucket: lower })}
         className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap cursor-pointer transition-opacity hover:opacity-80 ${meta.chip}`}
       >
         <Icon icon={meta.icon} className="text-xs" />
-        {meta.label}
+        {label}
         <Icon
           icon="lucide:chevron-down"
           className={`text-xs transition-transform ${open ? 'rotate-180' : ''}`}
@@ -78,12 +83,12 @@ export function BucketTag({
         <div className="absolute left-0 top-full mt-2 z-30 w-64 sm:w-72 rounded-xl border-2 border-border bg-bg-card p-3 shadow-xl animate-fade-in">
           <p className={`text-[11px] font-bold ${meta.text}`}>
             {peers.loading
-              ? `Other ${meta.label.toLowerCase()} words…`
+              ? intl.formatMessage({ id: 'bucket.peersLoading' }, { bucket: lower })
               : peers.total === 0
-              ? `No other ${meta.label.toLowerCase()} words`
-              : `${peers.total} ${meta.label.toLowerCase()} word${peers.total === 1 ? '' : 's'}`}
+              ? intl.formatMessage({ id: 'bucket.peersNone' }, { bucket: lower })
+              : intl.formatMessage({ id: 'bucket.peersCount' }, { count: peers.total, bucket: lower })}
           </p>
-          <p className="text-[10px] text-text-muted mt-0.5 leading-snug">{meta.hint}</p>
+          <p className="text-[10px] text-text-muted mt-0.5 leading-snug">{hint}</p>
 
           {peers.words.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2.5">
@@ -91,7 +96,7 @@ export function BucketTag({
                 <button
                   key={w}
                   onClick={(e) => peekWord(w, e.currentTarget)}
-                  title={`What does “${w}” mean?`}
+                  title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: w })}
                   className="px-2 py-0.5 rounded-full text-[11px] bg-bg-tertiary text-text-secondary hover:text-text-primary border border-border"
                 >
                   {w}
@@ -107,7 +112,9 @@ export function BucketTag({
             onClick={() => setOpen(false)}
             className="mt-3 flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-[11px] font-bold bg-bg-tertiary text-text-secondary hover:text-accent-cyan border border-border transition-colors"
           >
-            {hidden > 0 ? `See all ${peers.total}` : 'See more'}
+            {hidden > 0
+              ? <FormattedMessage id="bucket.seeAll" values={{ count: peers.total }} />
+              : <FormattedMessage id="bucket.seeMore" />}
             <Icon icon="lucide:arrow-right" className="text-xs" />
           </Link>
         </div>

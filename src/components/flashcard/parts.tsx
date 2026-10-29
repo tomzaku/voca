@@ -2,6 +2,7 @@
 // guess view (word hidden) and the revealed view. Anything used by only one of
 // them lives in that view's file instead.
 
+import { FormattedMessage, useIntl } from 'react-intl';
 import { maskAnswer, familyForms } from '../../lib/answerMask';
 import { PeekText } from '../PeekText';
 import type { VocabularyWord } from '../../types';
@@ -52,6 +53,7 @@ export function DefLengthToggle({ show, fullDef, onToggle }: {
   fullDef: boolean;
   onToggle: () => void;
 }) {
+  const intl = useIntl();
   if (!show) return null;
   const setFull = (want: boolean) => {
     if (want !== fullDef) onToggle();
@@ -60,7 +62,7 @@ export function DefLengthToggle({ show, fullDef, onToggle }: {
     <div
       role="switch"
       aria-checked={fullDef}
-      title={fullDef ? 'Showing the full definition' : 'Showing the short definition'}
+      title={intl.formatMessage({ id: fullDef ? 'flashcard.showingFullDef' : 'flashcard.showingShortDef' })}
       className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-border bg-bg-tertiary p-0.5 text-[10px] font-bold select-none"
     >
       <button
@@ -68,14 +70,14 @@ export function DefLengthToggle({ show, fullDef, onToggle }: {
         onClick={() => setFull(false)}
         className={`px-1.5 sm:px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'text-text-muted hover:text-text-secondary' : 'bg-accent-cyan/20 text-accent-cyan'}`}
       >
-        Short
+        <FormattedMessage id="flashcard.defShort" />
       </button>
       <button
         type="button"
         onClick={() => setFull(true)}
         className={`px-1.5 sm:px-2 py-0.5 rounded-full transition-colors ${fullDef ? 'bg-accent-cyan/20 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'}`}
       >
-        Full
+        <FormattedMessage id="flashcard.defFull" />
       </button>
     </div>
   );
@@ -93,12 +95,13 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
   speakingExample: number | null;
   onSpeak: (index: number, text: string) => void;
 }) {
+  const intl = useIntl();
   if (wordData.examples.length === 0) return null;
   const answerWord = wordData.headword || wordData.word;
   const examples = masked ? wordData.examples.slice(0, 2) : wordData.examples;
   return (
     <div className="mt-3 pt-3 border-t border-border/60">
-      <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Examples</h4>
+      <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2"><FormattedMessage id="flashcard.examples" /></h4>
       <ul className="space-y-2">
         {examples.map((ex, i) => {
           const text = masked ? maskAnswer(ex, answerWord, familyForms(wordData.wordFamily)) : ex;
@@ -109,7 +112,7 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
               ) : (
                 <button
                   onClick={() => onSpeak(i, text)}
-                  title="Read aloud"
+                  title={intl.formatMessage({ id: 'word.readAloud' })}
                   className={`shrink-0 w-6 h-6 mt-0.5 rounded-md flex items-center justify-center border transition-all ${
                     speakingExample === i
                       ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'

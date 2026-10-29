@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { generateWordData } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
@@ -16,12 +17,12 @@ import type { VocabularyWord } from '../types';
 // Question formats. "random" mixes the other four, one per question.
 export type QuizMode = 'random' | 'choice' | 'letters' | 'listen' | 'gap';
 
-const MODES: { id: QuizMode; label: string; icon: string; description: string }[] = [
-  { id: 'random',  label: 'Random',   icon: 'lucide:dices',        description: 'A mix of every question type' },
-  { id: 'choice',  label: 'Choice',   icon: 'lucide:list-checks',  description: 'Pick the word from its definition' },
-  { id: 'letters', label: 'Letters',  icon: 'lucide:type',         description: 'Type the word from its definition' },
-  { id: 'listen',  label: 'Listen',   icon: 'lucide:headphones',   description: 'Hear the word and type it' },
-  { id: 'gap',     label: 'Fill gap', icon: 'lucide:text-cursor-input', description: 'Complete the example sentence' },
+const MODES: { id: QuizMode; labelId: string; icon: string; descriptionId: string }[] = [
+  { id: 'random',  labelId: 'collections.modeRandom',  icon: 'lucide:dices',        descriptionId: 'collections.modeRandomDesc' },
+  { id: 'choice',  labelId: 'collections.modeChoice',  icon: 'lucide:list-checks',  descriptionId: 'collections.modeChoiceDesc' },
+  { id: 'letters', labelId: 'collections.modeLetters', icon: 'lucide:type',         descriptionId: 'collections.modeLettersDesc' },
+  { id: 'listen',  labelId: 'collections.modeListen',  icon: 'lucide:headphones',   descriptionId: 'collections.modeListenDesc' },
+  { id: 'gap',     labelId: 'collections.modeGap',     icon: 'lucide:text-cursor-input', descriptionId: 'collections.modeGapDesc' },
 ];
 
 const COUNTS = [5, 10, 15, 20];
@@ -30,11 +31,11 @@ const DEFAULT_COUNT = 10;
 // Word-selection pools (checkboxes on the settings screen, at least one on).
 // 'smart' is exclusive: it picks like the Learn page (difficult/new mix + due
 // reviews), so combining it with the pools would be redundant.
-const SOURCES: { id: keyof QuizSources; label: string; icon: string; description: string }[] = [
-  { id: 'smart',    label: 'Smart',         icon: 'lucide:brain',   description: 'Like the Learn page: difficult and new words first, then due reviews' },
-  { id: 'random',   label: 'Random',        icon: 'lucide:shuffle', description: 'Any word from the collection' },
-  { id: 'unseen',   label: 'Unknown words', icon: 'lucide:eye-off', description: 'Words you have never answered' },
-  { id: 'mistakes', label: 'Often missed',  icon: 'lucide:target',  description: 'Words with more than 30% wrong answers' },
+const SOURCES: { id: keyof QuizSources; labelId: string; icon: string; descriptionId: string }[] = [
+  { id: 'smart',    labelId: 'collections.sourceSmart',    icon: 'lucide:brain',   descriptionId: 'collections.sourceSmartDesc' },
+  { id: 'random',   labelId: 'collections.sourceRandom',   icon: 'lucide:shuffle', descriptionId: 'collections.sourceRandomDesc' },
+  { id: 'unseen',   labelId: 'collections.sourceUnseen',   icon: 'lucide:eye-off', descriptionId: 'collections.sourceUnseenDesc' },
+  { id: 'mistakes', labelId: 'collections.sourceMistakes', icon: 'lucide:target',  descriptionId: 'collections.sourceMistakesDesc' },
 ];
 
 type QuestionType = Exclude<QuizMode, 'random'>;
@@ -129,6 +130,7 @@ interface Props {
  * many questions, default random × 10), then plays through sampled words.
  */
 export function CollectionQuiz({ name, words, onBack }: Props) {
+  const intl = useIntl();
   const { user } = useAuth();
   const markWord = useVocabularyStore((s) => s.markWord);
   const [phase, setPhase] = useState<'settings' | 'loading' | 'playing' | 'finished'>('settings');
@@ -262,12 +264,12 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
     return (
       <div className="max-w-lg mx-auto px-4 py-8">
         <button onClick={onBack} className="flex items-center gap-1 text-xs font-bold text-text-muted hover:text-text-primary mb-4">
-          <Icon icon="lucide:chevron-left" /> Back
+          <Icon icon="lucide:chevron-left" /> <FormattedMessage id="collections.back" />
         </button>
-        <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Quiz — {name}</h1>
-        <p className="text-sm text-text-muted mb-6">Set up your round, then start.</p>
+        <h1 className="text-2xl font-display font-bold text-text-primary mb-1"><FormattedMessage id="collections.quizTitle" values={{ name }} /></h1>
+        <p className="text-sm text-text-muted mb-6"><FormattedMessage id="collections.setUpRound" /></p>
 
-        <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">Question type</h2>
+        <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2"><FormattedMessage id="collections.questionType" /></h2>
         <div className="space-y-1.5 mb-6">
           {MODES.map((m) => {
             const active = mode === m.id;
@@ -281,8 +283,8 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
               >
                 <Icon icon={m.icon} className={`text-lg shrink-0 ${active ? 'text-accent-cyan' : 'text-text-muted'}`} />
                 <span className="flex-1 min-w-0">
-                  <span className={`block text-sm font-bold ${active ? 'text-accent-cyan' : 'text-text-primary'}`}>{m.label}</span>
-                  <span className="block text-xs text-text-muted">{m.description}</span>
+                  <span className={`block text-sm font-bold ${active ? 'text-accent-cyan' : 'text-text-primary'}`}><FormattedMessage id={m.labelId} /></span>
+                  <span className="block text-xs text-text-muted"><FormattedMessage id={m.descriptionId} /></span>
                 </span>
                 {active && <Icon icon="lucide:check" className="text-accent-cyan shrink-0" />}
               </button>
@@ -290,7 +292,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
           })}
         </div>
 
-        <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">Word selection</h2>
+        <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2"><FormattedMessage id="collections.wordSelection" /></h2>
         <div className="space-y-1.5 mb-6">
           {SOURCES.map((s) => {
             const active = sources[s.id];
@@ -304,8 +306,8 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
               >
                 <Icon icon={s.icon} className={`text-lg shrink-0 ${active ? 'text-accent-cyan' : 'text-text-muted'}`} />
                 <span className="flex-1 min-w-0">
-                  <span className={`block text-sm font-bold ${active ? 'text-accent-cyan' : 'text-text-primary'}`}>{s.label}</span>
-                  <span className="block text-xs text-text-muted">{s.description}</span>
+                  <span className={`block text-sm font-bold ${active ? 'text-accent-cyan' : 'text-text-primary'}`}><FormattedMessage id={s.labelId} /></span>
+                  <span className="block text-xs text-text-muted"><FormattedMessage id={s.descriptionId} /></span>
                 </span>
                 <span
                   className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
@@ -319,7 +321,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
           })}
         </div>
 
-        <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">Questions</h2>
+        <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2"><FormattedMessage id="collections.questions" /></h2>
         <div className="flex gap-2 mb-8">
           {COUNTS.map((n) => (
             <button
@@ -336,7 +338,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
         </div>
 
         <button onClick={start} className="btn-3d w-full py-3 bg-accent-green text-bg-primary font-bold">
-          Start quiz
+          <FormattedMessage id="collections.startQuiz" />
         </button>
       </div>
     );
@@ -347,7 +349,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
         <div className="w-12 h-12 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-        <p className="text-sm text-text-muted">Preparing your quiz…</p>
+        <p className="text-sm text-text-muted"><FormattedMessage id="collections.preparingQuiz" /></p>
       </div>
     );
   }
@@ -365,23 +367,23 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
         <h1 className="text-2xl font-display font-bold text-text-primary mb-1">
           {score} / {questions.length}
         </h1>
-        <p className="text-sm text-text-muted mb-8">{pct >= 80 ? 'Outstanding!' : pct >= 50 ? 'Nice work — keep going!' : 'Practice makes perfect.'}</p>
+        <p className="text-sm text-text-muted mb-8"><FormattedMessage id={pct >= 80 ? 'collections.resultGreat' : pct >= 50 ? 'collections.resultGood' : 'collections.resultKeepGoing'} /></p>
 
         {/* Missed words — tap one to open its flash card and study it */}
         {missed.length > 0 && (
           <div className="card-game p-4 sm:p-5 mb-8 text-left">
             <h2 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1">
-              Words to review
+              <FormattedMessage id="collections.wordsToReview" />
             </h2>
             <p className="text-xs text-text-muted mb-3">
-              You missed {missed.length} {missed.length === 1 ? 'word' : 'words'} — tap one to learn more.
+              <FormattedMessage id="collections.youMissed" values={{ count: missed.length }} />
             </p>
             <div className="flex flex-wrap gap-1.5">
               {missed.map((w) => (
                 <Link
                   key={w}
                   to={`/?word=${encodeURIComponent(w)}`}
-                  title={`Open “${w}”`}
+                  title={intl.formatMessage({ id: 'collections.openWord' }, { word: w })}
                   className="flex items-center gap-1 text-sm font-bold px-3 py-1.5 rounded-full bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 hover:border-accent-red/40 transition-all"
                 >
                   {w}
@@ -394,10 +396,10 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
 
         <div className="flex gap-3">
           <button onClick={() => setPhase('settings')} className="btn-3d flex-1 py-3 bg-accent-cyan text-bg-primary font-bold">
-            Play again
+            <FormattedMessage id="collections.playAgain" />
           </button>
           <button onClick={onBack} className="btn-3d flex-1 py-3 bg-bg-card text-text-secondary font-bold">
-            Done
+            <FormattedMessage id="collections.done" />
           </button>
         </div>
       </div>
@@ -417,7 +419,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
       {/* Progress */}
       <div className="flex items-center justify-between mb-2 text-xs font-bold text-text-muted">
         <span>{current + 1} / {questions.length}</span>
-        <span className="flex items-center gap-1"><Icon icon={typeMeta.icon} /> {typeMeta.label}</span>
+        <span className="flex items-center gap-1"><Icon icon={typeMeta.icon} /> <FormattedMessage id={typeMeta.labelId} /></span>
         <span className="text-accent-green">{score} ✓</span>
       </div>
       <div className="h-1.5 rounded-full bg-bg-tertiary overflow-hidden mb-6">
@@ -431,11 +433,11 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
             <button
               onClick={() => { stopSpeaking(); speakText(q.word); }}
               className="btn-3d w-12 h-12 rounded-xl bg-accent-cyan text-bg-primary flex items-center justify-center"
-              title="Play again"
+              title={intl.formatMessage({ id: 'collections.playAgainAudio' })}
             >
               <Icon icon="lucide:volume-2" className="text-xl" />
             </button>
-            <p className="text-sm text-text-muted">Listen and type the word you hear.</p>
+            <p className="text-sm text-text-muted"><FormattedMessage id="collections.listenPrompt" /></p>
           </div>
         ) : q.type === 'gap' ? (
           <ul className="space-y-2">
@@ -473,7 +475,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
                   if (examples.length === 0) return null;
                   return (
                     <div className="mt-3 pt-3 border-t border-border/60">
-                      <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2">Examples</h4>
+                      <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2"><FormattedMessage id="collections.examples" /></h4>
                       <ul className="space-y-2">
                         {examples.map((ex, i) => (
                           <li key={i} className="flex gap-2.5 text-sm text-text-secondary leading-relaxed">
@@ -526,7 +528,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
             onChange={(e) => setTyped(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (answered ? next() : submitTyped())}
             disabled={!!answered}
-            placeholder="Type the word…"
+            placeholder={intl.formatMessage({ id: 'collections.typeTheWord' })}
             autoComplete="off" autoCorrect="off" spellCheck={false}
             className={`flex-1 bg-bg-card border-[3px] rounded-2xl px-4 py-3 font-display font-bold text-text-primary focus:outline-none transition-colors ${
               answered === 'correct' ? 'border-accent-green' : answered === 'wrong' ? 'border-accent-red' : 'border-border focus:border-accent-cyan'
@@ -534,7 +536,7 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
           />
           {!answered && (
             <button onClick={submitTyped} disabled={!typed.trim()} className="btn-3d px-5 bg-accent-cyan text-bg-primary font-bold disabled:opacity-40">
-              Check
+              <FormattedMessage id="collections.check" />
             </button>
           )}
         </div>
@@ -545,11 +547,14 @@ export function CollectionQuiz({ name, words, onBack }: Props) {
         <div className="mt-5 animate-fade-in">
           {answered === 'wrong' && (
             <p className="text-sm text-text-secondary mb-3">
-              Answer: <span className="font-bold text-accent-green">{q.word}</span>
+              <FormattedMessage
+                id="collections.answer"
+                values={{ word: q.word, b: (c) => <span className="font-bold text-accent-green">{c}</span> }}
+              />
             </p>
           )}
           <button onClick={next} className="btn-3d w-full py-3 bg-accent-cyan text-bg-primary font-bold">
-            {current + 1 >= questions.length ? 'See results' : 'Next'}
+            <FormattedMessage id={current + 1 >= questions.length ? 'collections.seeResults' : 'collections.next'} />
           </button>
         </div>
       )}

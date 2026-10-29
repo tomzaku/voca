@@ -5,11 +5,12 @@
 export interface WorldFeature {
   /** Stable id; emitted through WORLD_EVENTS.near as `${FEATURE_ID_PREFIX}${id}`. */
   id: string;
-  name: string;
+  /** Message id (world catalog) — formatted when drawn, so it follows the language. */
+  nameId: string;
   /** react-router path this building opens (see App.tsx routes). */
   route: string;
-  /** One line shown on the building's card. */
-  blurb: string;
+  /** Message id for the one line shown on the building's card. */
+  blurbId: string;
   /** Emoji drawn on the building marker + name pill. */
   emoji: string;
   /** Iconify (Lucide) name for the DOM card and fast-travel list. */
@@ -24,10 +25,10 @@ export const featureNodeId = (f: WorldFeature) => `${FEATURE_ID_PREFIX}${f.id}`;
 
 /** The buildings placed in the world, in a sensible walk order. */
 export const WORLD_FEATURES: WorldFeature[] = [
-  { id: 'learn',      name: 'Learn',      route: '/',           emoji: '📚', icon: 'lucide:sparkles', blurb: 'Flip cards and play guess games' },
-  { id: 'speak',      name: 'Speak',      route: '/speaking',   emoji: '🎤', icon: 'lucide:mic',      blurb: 'Practice speaking out loud' },
-  { id: 'quizzes',    name: 'Quizzes',    route: '/quizzes',    emoji: '📝', icon: 'lucide:file-pen', blurb: 'Take and manage your quizzes' },
-  { id: 'level-test', name: 'Level Test', route: '/level-test', emoji: '🎯', icon: 'lucide:target',   blurb: 'Find your vocabulary level' },
-  { id: 'history',    name: 'History',    route: '/history',    emoji: '📜', icon: 'lucide:history',   blurb: 'Revisit the words you have seen' },
-  { id: 'buddy',      name: 'Buddy',      route: '/companion',  emoji: '🐾', icon: 'lucide:paw-print', blurb: 'Care for your companion' },
+  { id: 'learn',      nameId: 'world.featureLearn',      route: '/',           emoji: '📚', icon: 'lucide:sparkles', blurbId: 'world.featureLearnBlurb' },
+  { id: 'speak',      nameId: 'world.featureSpeak',      route: '/speaking',   emoji: '🎤', icon: 'lucide:mic',      blurbId: 'world.featureSpeakBlurb' },
+  { id: 'quizzes',    nameId: 'world.featureQuizzes',    route: '/quizzes',    emoji: '📝', icon: 'lucide:file-pen', blurbId: 'world.featureQuizzesBlurb' },
+  { id: 'level-test', nameId: 'world.featureLevelTest', route: '/level-test', emoji: '🎯', icon: 'lucide:target',   blurbId: 'world.featureLevelTestBlurb' },
+  { id: 'history',    nameId: 'world.featureHistory',    route: '/history',    emoji: '📜', icon: 'lucide:history',   blurbId: 'world.featureHistoryBlurb' },
+  { id: 'buddy',      nameId: 'world.featureBuddy',      route: '/companion',  emoji: '🐾', icon: 'lucide:paw-print', blurbId: 'world.featureBuddyBlurb' },
 ];

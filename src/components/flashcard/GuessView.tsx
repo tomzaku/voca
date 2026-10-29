@@ -1,8 +1,9 @@
 import { Icon } from '@iconify/react';
+import { FormattedMessage } from 'react-intl';
 import { GuessGame } from '../GuessGame';
 import { SynAnt } from '../SynAnt';
 import { DefLengthToggle, ExampleList, PosChip } from './parts';
-import { LEVEL_COLOR } from './constants';
+import { LEVEL_COLOR, LEVEL_LABEL_ID } from './constants';
 import { familyForms, maskAnswer } from '../../lib/answerMask';
 import type { CardSpeech } from './useCardSpeech';
 import type { GuessGameMode, RealGuessGameMode } from '../../hooks/useGuessGame';
@@ -49,11 +50,12 @@ export function GuessView({
           {/* Just "Guess" on mobile — the long title was pushing the
               Short/Full switch off the card. */}
           <h3 className="text-sm font-display font-extrabold text-accent-cyan uppercase tracking-wide whitespace-nowrap">
-            Guess<span className="hidden sm:inline"> the word</span>
+            <span className="sm:hidden"><FormattedMessage id="flashcard.guessShort" /></span>
+            <span className="hidden sm:inline"><FormattedMessage id="flashcard.guessTheWord" /></span>
           </h3>
           {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[10px]" />}
           <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
-            {wordData.level}
+            {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
           </span>
           <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={onToggleFullDef} />
         </div>
@@ -87,11 +89,11 @@ export function GuessView({
           >
             <span className="flex items-center justify-center gap-2 transition-all duration-300 group-hover:-translate-y-8 group-hover:opacity-0">
               <Icon icon="solar:flag-2-bold" className="text-xl sm:text-2xl" />
-              Give up
+              <FormattedMessage id="flashcard.giveUp" />
             </span>
             <span className="absolute inset-0 flex items-center justify-center gap-2 translate-y-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
               <Icon icon="solar:eye-bold" className="text-xl sm:text-2xl" />
-              Reveal the answer
+              <FormattedMessage id="flashcard.revealAnswer" />
             </span>
           </button>
         </div>

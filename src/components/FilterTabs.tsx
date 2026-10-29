@@ -1,4 +1,5 @@
 import { Icon } from '@iconify/react';
+import { useIntl } from 'react-intl';
 import { FILTERS, type Filter } from '../lib/progressApi';
 import { BUCKET_META, BUCKET_ORDER } from '../lib/progress';
 
@@ -19,6 +20,7 @@ export function FilterTabs({
   counts: Partial<Record<Filter, number>>;
   onSelect: (id: Filter) => void;
 }) {
+  const intl = useIntl();
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {FILTERS.map((f) => {
@@ -32,7 +34,7 @@ export function FilterTabs({
             key={f.id}
             type="button"
             onClick={() => onSelect(f.id)}
-            title={meta?.hint}
+            title={meta ? intl.formatMessage({ id: meta.hintId }) : undefined}
             aria-pressed={on}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-extrabold transition-all ${
               on
@@ -41,7 +43,7 @@ export function FilterTabs({
             }`}
           >
             {meta && <Icon icon={meta.icon} className={on ? '' : meta.text} />}
-            {f.label}
+            {intl.formatMessage({ id: f.labelId })}
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${on ? 'bg-black/15' : 'bg-bg-primary/60 text-text-muted'}`}>
               {count}
             </span>

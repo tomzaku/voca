@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useCollections } from '../hooks/useCollections';
 
 /** ChatGPT URL pre-filled with a prompt that yields a paste-ready word list. */
@@ -37,6 +38,7 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
   initialWords?: string[];
   onDone: () => void;
 }) {
+  const intl = useIntl();
   const [name, setName] = useState(initialName);
   const [wordsInput, setWordsInput] = useState(initialWords.join('\n'));
   const [aiTopic, setAiTopic] = useState('');
@@ -44,20 +46,20 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
 
   const handleSave = async () => {
     const words = parseWords(wordsInput);
-    if (!name.trim()) { toast.error('Give your collection a name.'); return; }
-    if (words.length < 2) { toast.error('Add at least 2 words (one per line).'); return; }
+    if (!name.trim()) { toast.error(intl.formatMessage({ id: 'collections.nameRequired' })); return; }
+    if (words.length < 2) { toast.error(intl.formatMessage({ id: 'collections.minWords' })); return; }
     setSaving(true);
     try {
       if (editingId) {
         await useCollections.getState().updateCollection(editingId, name.trim(), words);
-        toast.success(`Updated “${name.trim()}” (${words.length} words)`);
+        toast.success(intl.formatMessage({ id: 'collections.updated' }, { name: name.trim(), count: words.length }));
       } else {
         const created = await useCollections.getState().createCollection(name.trim(), words);
-        toast.success(`Created “${created.name}” (${words.length} words)`);
+        toast.success(intl.formatMessage({ id: 'collections.created' }, { name: created.name, count: words.length }));
       }
       onDone();
     } catch (err) {
-      toast.error((err as Error).message || 'Could not save collection.');
+      toast.error((err as Error).message || intl.formatMessage({ id: 'collections.couldNotSave' }));
     } finally {
       setSaving(false);
     }
@@ -66,12 +68,12 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
   return (
     <>
       {editingId && (
-        <p className="text-xs font-bold text-accent-cyan uppercase tracking-wider">Editing collection</p>
+        <p className="text-xs font-bold text-accent-cyan uppercase tracking-wider"><FormattedMessage id="collections.editingCollection" /></p>
       )}
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Collection name (e.g. IELTS Essentials)"
+        placeholder={intl.formatMessage({ id: 'collections.namePlaceholder' })}
         maxLength={60}
         className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
       />
@@ -81,13 +83,13 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
       <div className="p-3 rounded-xl bg-bg-tertiary/60 border border-border space-y-2">
         <p className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted uppercase tracking-wider">
           <Icon icon="lucide:sparkles" className="text-accent-purple" />
-          Need words? Ask AI
+          <FormattedMessage id="collections.needWords" />
         </p>
         <div className="flex gap-2">
           <input
             value={aiTopic}
             onChange={(e) => setAiTopic(e.target.value)}
-            placeholder="Topic: family, animals, travel, business… or 200 collocations"
+            placeholder={intl.formatMessage({ id: 'collections.aiTopicPlaceholder' })}
             maxLength={200}
             className="flex-1 min-w-0 bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/50"
           />
@@ -101,29 +103,29 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
             }`}
           >
             <Icon icon="lucide:external-link" className="text-sm" />
-            Ask ChatGPT
+            <FormattedMessage id="collections.askChatGpt" />
           </a>
         </div>
         <p className="text-[11px] text-text-muted">
-          Copy the reply and paste it into the words box below.
+          <FormattedMessage id="collections.pasteHint" />
         </p>
       </div>
 
       <textarea
         value={wordsInput}
         onChange={(e) => setWordsInput(e.target.value)}
-        placeholder={'One word per line (or comma-separated):\nserendipity\nebullient\nmeticulous'}
+        placeholder={intl.formatMessage({ id: 'collections.wordsPlaceholder' }) + '\nserendipity\nebullient\nmeticulous'}
         rows={6}
         className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm font-code text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50 resize-y"
       />
       <div className="flex items-center justify-between">
-        <span className="text-xs text-text-muted">{parseWords(wordsInput).length} words detected</span>
+        <span className="text-xs text-text-muted"><FormattedMessage id="collections.wordsDetected" values={{ count: parseWords(wordsInput).length }} /></span>
         <button
           onClick={handleSave}
           disabled={saving}
           className="btn-3d px-4 py-2 text-sm bg-accent-cyan text-bg-primary font-bold disabled:opacity-60"
         >
-          {saving ? 'Saving…' : editingId ? 'Save changes' : 'Create'}
+          <FormattedMessage id={saving ? 'collections.saving' : editingId ? 'collections.saveChanges' : 'collections.create'} />
         </button>
       </div>
     </>

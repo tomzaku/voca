@@ -9,5 +9,12 @@ export const LEVEL_COLOR: Record<string, string> = {
   advanced: 'text-accent-red bg-accent-red/10',
 };
 
+/** Display label (message id) for each level; the level values themselves are data. */
+export const LEVEL_LABEL_ID: Record<string, string> = {
+  beginner: 'word.levelBeginner',
+  intermediate: 'word.levelIntermediate',
+  advanced: 'word.levelAdvanced',
+};
+
 /** Where the Short/Full definition preference is remembered. */
 export const FULL_DEF_KEY = 'voca-flashcard-full-def';

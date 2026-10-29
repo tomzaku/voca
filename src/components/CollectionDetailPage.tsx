@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { collectionShareUrl, useCollections } from '../hooks/useCollections';
@@ -43,11 +44,12 @@ function CollectionLeaderboard({ members, meId, ownerId, loading }: {
   ownerId: string;
   loading: boolean;
 }) {
+  const intl = useIntl();
   if (loading && members.length === 0) {
-    return <p className="text-xs text-text-muted">Loading the board…</p>;
+    return <p className="text-xs text-text-muted"><FormattedMessage id="collections.loadingBoard" /></p>;
   }
   if (members.length === 0) {
-    return <p className="text-xs text-text-muted">Nobody has joined yet — be the first name up there.</p>;
+    return <p className="text-xs text-text-muted"><FormattedMessage id="collections.nobodyJoined" /></p>;
   }
   return (
     <ol className="flex flex-col gap-1 -mx-1">
@@ -67,15 +69,15 @@ function CollectionLeaderboard({ members, meId, ownerId, loading }: {
             <MemberRing m={m} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-text-primary truncate">{m.displayName || 'Learner'}</span>
+                <span className="text-sm font-bold text-text-primary truncate">{m.displayName || intl.formatMessage({ id: 'collections.learner' })}</span>
                 {isMe && (
                   <span className="text-[9px] px-1 py-px rounded bg-accent-cyan/20 text-accent-cyan font-extrabold uppercase tracking-wider shrink-0">
-                    You
+                    <FormattedMessage id="collections.you" />
                   </span>
                 )}
                 {m.userId === ownerId && (
                   <span className="text-[9px] px-1 py-px rounded bg-accent-purple/20 text-accent-purple font-extrabold uppercase tracking-wider shrink-0">
-                    Owner
+                    <FormattedMessage id="collections.owner" />
                   </span>
                 )}
               </div>
@@ -116,6 +118,7 @@ function WordRow({ word, bucket, p, open, onToggle, onTriage }: {
   /** Mark as known (graduate it out of rotation) or bring it back. */
   onTriage: (known: boolean) => void;
 }) {
+  const intl = useIntl();
   const meta = BUCKET_META[bucket];
   return (
     <li className={`rounded-xl border transition-colors ${open ? 'border-accent-cyan/30' : 'border-border hover:border-border-light'}`}>
@@ -124,41 +127,41 @@ function WordRow({ word, bucket, p, open, onToggle, onTriage }: {
           <button
             onClick={(e) => peekWord(word, e.currentTarget)}
             className="font-display font-bold text-text-primary hover:text-accent-cyan hover:underline text-left break-words"
-            title={`What does “${word}” mean?`}
+            title={intl.formatMessage({ id: 'collections.whatDoesMean' }, { word })}
           >
             {word}
           </button>
-          <div className="text-[10px] text-text-muted mt-0.5">{p ? whyLine(p) : 'Not studied yet'}</div>
+          <div className="text-[10px] text-text-muted mt-0.5">{p ? whyLine(p) : intl.formatMessage({ id: 'collections.notStudiedYet' })}</div>
         </div>
         <span
           className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${meta.chip}`}
-          title={meta.hint}
+          title={intl.formatMessage({ id: meta.hintId })}
         >
           <Icon icon={meta.icon} className="text-xs" />
-          <span className="hidden sm:inline">{meta.label}</span>
+          <span className="hidden sm:inline"><FormattedMessage id={meta.labelId} /></span>
         </span>
         {/* Same one-button triage as the stats popup: a mastered word offers
             to come back, anything else offers to graduate. */}
         {bucket === 'mastered' ? (
           <button
             onClick={() => onTriage(false)}
-            title="Bring it back — practice this word again"
+            title={intl.formatMessage({ id: 'collections.bringBackTitle' })}
             className="shrink-0 text-[11px] font-bold px-2 h-8 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/40 transition-all"
           >
-            Don't know
+            <FormattedMessage id="collections.dontKnow" />
           </button>
         ) : (
           <button
             onClick={() => onTriage(true)}
-            title="I already know this — stop showing it"
+            title={intl.formatMessage({ id: 'collections.knowItTitle' })}
             className="shrink-0 text-[11px] font-bold px-2 h-8 rounded-lg border border-border bg-bg-tertiary text-text-muted hover:text-accent-green hover:border-accent-green/40 transition-all"
           >
-            Know it
+            <FormattedMessage id="collections.knowIt" />
           </button>
         )}
         <button
           onClick={() => void speakText(word)}
-          title="Listen"
+          title={intl.formatMessage({ id: 'collections.listen' })}
           className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
         >
           <Icon icon="lucide:volume-2" className="text-sm" />
@@ -168,7 +171,7 @@ function WordRow({ word, bucket, p, open, onToggle, onTriage }: {
           aria-expanded={open}
           className="flex items-center gap-1 shrink-0 px-2 h-8 rounded-lg text-xs font-bold text-text-muted hover:text-text-primary transition-colors"
         >
-          <span className="hidden sm:inline">{open ? 'Less' : 'More'}</span>
+          <span className="hidden sm:inline"><FormattedMessage id={open ? 'collections.less' : 'collections.more'} /></span>
           <Icon icon="lucide:chevron-down" className={`transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
       </div>
@@ -192,6 +195,7 @@ function QuizGroupPicker({ counts, initial, onStart, onClose }: {
   onStart: (groups: Set<WordBucket>) => void;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   const [picked, setPicked] = useState(initial);
   const groups = BUCKET_ORDER.filter((b) => counts[b] > 0);
   const total = groups.filter((b) => picked.has(b)).reduce((n, b) => n + counts[b], 0);
@@ -213,17 +217,17 @@ function QuizGroupPicker({ counts, initial, onStart, onClose }: {
         <div className="flex items-center justify-between gap-2 mb-1">
           <h3 className="flex items-center gap-2 font-display font-bold text-text-primary">
             <Icon icon="lucide:play" className="text-accent-green" />
-            Quiz these words
+            <FormattedMessage id="collections.quizTheseWords" />
           </h3>
           <button
             onClick={onClose}
             className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary"
-            title="Close"
+            title={intl.formatMessage({ id: 'collections.close' })}
           >
             <Icon icon="lucide:x" />
           </button>
         </div>
-        <p className="text-xs text-text-muted mb-4">Pick the groups to include.</p>
+        <p className="text-xs text-text-muted mb-4"><FormattedMessage id="collections.pickGroups" /></p>
 
         <div className="flex flex-col gap-2 mb-5">
           {groups.map((b) => {
@@ -247,8 +251,8 @@ function QuizGroupPicker({ counts, initial, onStart, onClose }: {
                   <Icon icon={meta.icon} className="text-sm" />
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-bold text-text-primary">{meta.label}</span>
-                  <span className="block text-[11px] text-text-muted leading-snug">{meta.hint}</span>
+                  <span className="block text-sm font-bold text-text-primary"><FormattedMessage id={meta.labelId} /></span>
+                  <span className="block text-[11px] text-text-muted leading-snug"><FormattedMessage id={meta.hintId} /></span>
                 </span>
                 <span className="text-sm font-display font-extrabold tabular-nums text-text-secondary shrink-0">
                   {counts[b]}
@@ -263,7 +267,9 @@ function QuizGroupPicker({ counts, initial, onStart, onClose }: {
           disabled={total === 0}
           className="btn-3d w-full px-4 py-3 text-sm font-bold bg-accent-green text-bg-primary disabled:opacity-50"
         >
-          {total === 0 ? 'Pick a group' : `Quiz ${total} word${total === 1 ? '' : 's'}`}
+          {total === 0
+            ? <FormattedMessage id="collections.pickAGroup" />
+            : <FormattedMessage id="collections.quizCount" values={{ count: total }} />}
         </button>
       </div>
     </div>
@@ -292,6 +298,7 @@ export function CollectionDetailPage() {
  * full-screen layer over the popup instead of replacing it.
  */
 export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => void }) {
+  const intl = useIntl();
   const inModal = !!onClose;
   const { user } = useAuth();
   const { isPro } = useIsPro();
@@ -405,7 +412,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
   const study = async () => {
     if (system) {
       setActive(id);
-      toast.success(`Studying “${name}”`);
+      toast.success(intl.formatMessage({ id: 'collections.toastStudying' }, { name }));
       return;
     }
     setJoining(true);
@@ -414,7 +421,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
       if (!(await useCollections.getState().fetchById(id))) return;
       setActive(id);
       await joinCollection(id);
-      toast.success(joined ? `Studying “${name}”` : `Joined “${name}”`);
+      toast.success(intl.formatMessage({ id: joined ? 'collections.toastStudying' : 'collections.toastJoined' }, { name }));
       await loadMembers();
     } finally {
       setJoining(false);
@@ -427,12 +434,12 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
         ? await useCollections.getState().shareCollection(id)
         : collectionShareUrl(id);
       await navigator.clipboard.writeText(url);
-      toast.success('Share link copied!');
+      toast.success(intl.formatMessage({ id: 'collections.shareLinkCopied' }));
       if (isOwner && fetched && !fetched.collection.isPublic) {
         setFetched({ ...fetched, collection: { ...fetched.collection, isPublic: true } });
       }
     } catch (err) {
-      toast.error((err as Error).message || 'Could not share.');
+      toast.error((err as Error).message || intl.formatMessage({ id: 'collections.couldNotShare' }));
     }
   };
 
@@ -450,7 +457,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
   const shell = (children: React.ReactNode) => inModal ? children : (
     <div className="mx-auto max-w-page px-4 py-8">
       <Link to="/collections" className="inline-flex items-center gap-1 text-xs font-bold text-text-muted hover:text-text-primary mb-4">
-        <Icon icon="lucide:arrow-left" /> Collections
+        <Icon icon="lucide:arrow-left" /> <FormattedMessage id="collections.backToCollections" />
       </Link>
       {children}
     </div>
@@ -459,7 +466,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
   if (!system && !col) {
     return shell(
       <div className="p-4 rounded-2xl border-2 border-border bg-bg-card text-sm text-text-muted">
-        {missing ? "This collection doesn't exist or isn't public anymore." : 'Loading collection…'}
+        <FormattedMessage id={missing ? 'collections.missing' : 'collections.loadingCollection'} />
       </div>,
     );
   }
@@ -485,8 +492,8 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
               </div>
             </div>
             <div className="relative flex flex-wrap items-center gap-2 mt-4 text-xs font-bold">
-              <span className="px-2 py-1 rounded-full bg-white/20 ring-1 ring-white/25">{words.length} words</span>
-              <span className="px-2 py-1 rounded-full bg-white/20 ring-1 ring-white/25">Built-in topic</span>
+              <span className="px-2 py-1 rounded-full bg-white/20 ring-1 ring-white/25"><FormattedMessage id="collections.wordCount" values={{ count: words.length }} /></span>
+              <span className="px-2 py-1 rounded-full bg-white/20 ring-1 ring-white/25"><FormattedMessage id="collections.builtInTopic" /></span>
             </div>
           </div>
         ) : (
@@ -494,19 +501,19 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl font-display font-bold text-text-primary break-words">{name}</h1>
               <div className="flex items-center flex-wrap gap-2 mt-1.5 text-xs text-text-muted">
-                <span className="px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold">{words.length} words</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold"><FormattedMessage id="collections.wordCount" values={{ count: words.length }} /></span>
                 {col && (
                   <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-bold">
                     <Icon icon="lucide:users" className="text-[11px]" />
-                    {col.memberCount} {col.memberCount === 1 ? 'learner' : 'learners'}
+                    <FormattedMessage id="collections.learnerCount" values={{ count: col.memberCount }} />
                   </span>
                 )}
                 {col && !col.isPublic && (
                   <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold">
-                    <Icon icon="lucide:lock" className="text-[11px]" /> Private
+                    <Icon icon="lucide:lock" className="text-[11px]" /> <FormattedMessage id="collections.private" />
                   </span>
                 )}
-                {system && <span className="px-1.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan font-bold">Built-in</span>}
+                {system && <span className="px-1.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan font-bold"><FormattedMessage id="collections.builtIn" /></span>}
                 {owner?.name && (
                   <span className="flex items-center gap-1.5">
                     {owner.avatarUrl ? (
@@ -514,7 +521,10 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
                     ) : (
                       <Icon icon="lucide:user" />
                     )}
-                    by <span className="font-bold text-text-secondary">{isOwner ? 'you' : owner.name}</span>
+                    <FormattedMessage
+                      id={isOwner ? 'collections.byYou' : 'collections.byOwner'}
+                      values={{ name: owner.name, b: (c) => <span className="font-bold text-text-secondary">{c}</span> }}
+                    />
                   </span>
                 )}
               </div>
@@ -531,13 +541,15 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
               joined || system || isOwner ? 'bg-accent-cyan text-bg-primary' : 'bg-accent-purple text-bg-primary'
             }`}
           >
-            {active ? 'Studying ✓' : joining ? 'Joining…' : joined || system || isOwner ? 'Study this' : 'Join & study'}
+            <FormattedMessage
+              id={active ? 'collections.studyingCheck' : joining ? 'collections.joining' : joined || system || isOwner ? 'collections.studyThis' : 'collections.joinAndStudy'}
+            />
           </button>
           <button
             onClick={() => setPickingQuiz(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-tertiary text-text-secondary text-xs font-medium hover:text-accent-green hover:border-accent-green/30 transition-all"
           >
-            <Icon icon="lucide:play" className="text-sm" /> Quiz
+            <Icon icon="lucide:play" className="text-sm" /> <FormattedMessage id="collections.quiz" />
           </button>
           <MindMapButton words={words} isPro={isPro} onOpenInteractive={() => setMode('mindmap')} />
           {col && (isOwner || col.isPublic) && (
@@ -545,7 +557,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
               onClick={share}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-tertiary text-text-secondary text-xs font-medium hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
             >
-              <Icon icon="lucide:share-2" className="text-sm" /> Share
+              <Icon icon="lucide:share-2" className="text-sm" /> <FormattedMessage id="collections.share" />
             </button>
           )}
         </div>
@@ -557,10 +569,10 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
           <div className="flex items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
               <Icon icon="lucide:book-open" className="text-accent-cyan" />
-              Words
+              <FormattedMessage id="collections.words" />
             </h2>
             <span className="text-[11px] text-text-muted">
-              You know {known} of {words.length}
+              <FormattedMessage id="collections.youKnowOf" values={{ known, total: words.length }} />
             </span>
           </div>
 
@@ -569,7 +581,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Find a word"
+              placeholder={intl.formatMessage({ id: 'collections.findAWord' })}
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-border bg-bg-tertiary text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
             />
           </div>
@@ -582,7 +594,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
                 filter === 'all' ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border text-text-muted hover:text-text-primary'
               }`}
             >
-              All <span className="tabular-nums opacity-70">{words.length}</span>
+              <FormattedMessage id="collections.all" /> <span className="tabular-nums opacity-70">{words.length}</span>
             </button>
             {shownBuckets.map((b) => (
               <button
@@ -593,13 +605,13 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
                 }`}
               >
                 <Icon icon={BUCKET_META[b].icon} className="text-[11px]" />
-                {BUCKET_META[b].label} <span className="tabular-nums opacity-70">{counts[b]}</span>
+                <FormattedMessage id={BUCKET_META[b].labelId} /> <span className="tabular-nums opacity-70">{counts[b]}</span>
               </button>
             ))}
           </div>
 
           {shownWords.length === 0 ? (
-            <p className="text-xs text-text-muted">No words match.</p>
+            <p className="text-xs text-text-muted"><FormattedMessage id="collections.noWordsMatch" /></p>
           ) : (
             <>
               <ul className="flex flex-col gap-2">
@@ -621,7 +633,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-border text-sm font-extrabold text-text-secondary hover:border-border-light hover:text-text-primary transition-all"
                 >
                   <Icon icon="lucide:chevron-down" />
-                  Show more words ({shownWords.length - limit} left)
+                  <FormattedMessage id="collections.showMoreWords" values={{ count: shownWords.length - limit }} />
                 </button>
               )}
             </>
@@ -633,27 +645,26 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
           <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4 self-start w-full">
             <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
               <Icon icon="lucide:trophy" className="text-accent-yellow" />
-              Leaderboard
+              <FormattedMessage id="collections.leaderboard" />
             </h2>
 
             {!col.isPublic && isOwner && (
               <p className="text-xs text-text-muted leading-relaxed">
-                This list is private, so the board is just you. Share it and everyone who joins shows up here.
+                <FormattedMessage id="collections.privateBoardHint" />
               </p>
             )}
 
             {!joined && !isOwner && user && (
               <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
                 <p className="text-xs text-text-secondary leading-relaxed">
-                  Join to appear on this board — the other learners will see your name, avatar and how many of
-                  these words you know. Nothing else is shared.
+                  <FormattedMessage id="collections.joinToAppear" />
                 </p>
                 <button
                   onClick={study}
                   disabled={joining}
                   className="btn-3d self-start px-4 py-2 text-xs font-bold bg-accent-purple text-bg-primary disabled:opacity-50"
                 >
-                  {joining ? 'Joining…' : 'Join this collection'}
+                  <FormattedMessage id={joining ? 'collections.joining' : 'collections.joinThisCollection'} />
                 </button>
               </div>
             )}
@@ -661,7 +672,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
             <CollectionLeaderboard members={members} meId={user?.id} ownerId={col.ownerId} loading={membersLoading} />
 
             <p className="text-[11px] text-text-muted/70">
-              Ranked by words known (answered right or mastered). Top 50 learners.
+              <FormattedMessage id="collections.rankedBy" />
             </p>
           </section>
         )}
@@ -672,7 +683,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
           onClick={() => navigate('/')}
           className="btn-3d block w-full sm:w-auto sm:min-w-72 mx-auto mt-8 px-10 py-3 bg-accent-cyan text-bg-primary font-bold"
         >
-          Start learning
+          <FormattedMessage id="collections.startLearning" />
         </button>
       )}
 

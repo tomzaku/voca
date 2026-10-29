@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { LevelPicker, type LevelResult } from './LevelPicker';
 import { useCollections } from '../hooks/useCollections';
 import { playWin } from '../lib/sfx';
@@ -11,6 +12,7 @@ import { playWin } from '../lib/sfx';
  * the recommended Level collection.
  */
 export function LevelTestPage() {
+  const intl = useIntl();
   const navigate = useNavigate();
   const setActive = useCollections((s) => s.setActive);
   const [result, setResult] = useState<LevelResult | null>(null);
@@ -22,27 +24,27 @@ export function LevelTestPage() {
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <div className="text-5xl mb-4">🎯</div>
         <h1 className="text-2xl font-display font-bold text-text-primary mb-1">
-          Your level: {result.label}
+          <FormattedMessage id="levelTest.yourLevel" values={{ level: result.label }} />
         </h1>
         <p className="text-sm text-text-muted mb-8">
-          Start there — the app schedules every word you study and adapts as you answer.
+          <FormattedMessage id="levelTest.startThere" />
         </p>
         <div className="flex gap-3">
           <button
             onClick={() => {
               setActive(result.collectionId);
-              toast.success(`Studying “${result.label}”`);
+              toast.success(intl.formatMessage({ id: 'levelTest.studyingToast' }, { level: result.label }));
               navigate('/');
             }}
             className="btn-3d flex-1 py-3 bg-accent-green text-bg-primary font-bold"
           >
-            Study {result.label}
+            <FormattedMessage id="levelTest.study" values={{ level: result.label }} />
           </button>
           <button
             onClick={() => { setResult(null); setRunId((n) => n + 1); }}
             className="btn-3d flex-1 py-3 bg-bg-card text-text-secondary font-bold"
           >
-            Retake
+            <FormattedMessage id="levelTest.retake" />
           </button>
         </div>
       </div>

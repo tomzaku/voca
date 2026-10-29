@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useVocabularyStore } from '../hooks/useVocabulary';
@@ -38,6 +39,7 @@ function meaningOf(w: VocabularyWord): string {
 }
 
 export function QuickReview() {
+  const intl = useIntl();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -106,10 +108,12 @@ export function QuickReview() {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center flex flex-col items-center gap-4">
         <p className="text-text-muted text-sm">
-          Couldn't load {target ? `“${target}”` : 'that word'}.
+          {target
+            ? <FormattedMessage id="review.quickLoadFailed" values={{ word: target }} />
+            : <FormattedMessage id="review.quickLoadFailedGeneric" />}
         </p>
         <Link to="/" className="btn-3d px-4 py-2 text-sm bg-accent-cyan text-bg-primary">
-          Go to Learn
+          <FormattedMessage id="review.quickGoToLearn" />
         </Link>
       </div>
     );
@@ -131,7 +135,7 @@ export function QuickReview() {
     <div className="max-w-md mx-auto px-4 py-10 flex flex-col gap-6">
       <div className="text-center">
         <p className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">
-          Quick review
+          <FormattedMessage id="review.quickTitle" />
         </p>
         <div className="flex items-center justify-center gap-2">
           <h1 className="font-title font-black text-3xl text-accent-cyan">
@@ -139,14 +143,14 @@ export function QuickReview() {
           </h1>
           <button
             onClick={() => speakText(wordData.headword || wordData.word)}
-            aria-label="Hear the word"
+            aria-label={intl.formatMessage({ id: 'review.quickHearWord' })}
             className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary flex items-center justify-center"
           >
             <Icon icon="lucide:volume-2" />
           </button>
         </div>
         <p className="text-sm text-text-muted mt-2">
-          {answered ? '' : selfCheck ? 'Do you remember what it means?' : 'What does it mean?'}
+          {answered ? '' : intl.formatMessage({ id: selfCheck ? 'review.quickRemember' : 'review.quickWhatMeans' })}
         </p>
       </div>
 
@@ -156,13 +160,13 @@ export function QuickReview() {
             onClick={() => choose(correctMeaning)}
             className="btn-3d py-3 text-sm font-bold bg-accent-green/15 text-accent-green"
           >
-            I know this one
+            <FormattedMessage id="review.quickKnow" />
           </button>
           <button
             onClick={() => choose('__not-known__')}
             className="btn-3d py-3 text-sm font-bold bg-bg-card text-text-secondary"
           >
-            Not sure
+            <FormattedMessage id="review.quickNotSure" />
           </button>
         </div>
       )}
@@ -195,7 +199,7 @@ export function QuickReview() {
               className={`text-3xl ${gotIt ? 'text-accent-green' : 'text-accent-red'}`}
             />
             <p className="text-sm font-bold mt-1 mb-2 text-text-primary">
-              {gotIt ? 'Got it' : "Here's what it means"}
+              <FormattedMessage id={gotIt ? 'review.quickGotIt' : 'review.quickHereMeaning'} />
             </p>
             <p className="text-sm text-text-secondary">{correctMeaning}</p>
           </div>
@@ -209,13 +213,13 @@ export function QuickReview() {
               onClick={() => navigate('/')}
               className="btn-3d py-3 text-sm font-bold bg-accent-cyan text-bg-primary"
             >
-              Keep learning
+              <FormattedMessage id="review.quickKeepLearning" />
             </button>
             <Link
               to={`/?word=${encodeURIComponent(target)}`}
               className="text-center text-xs text-text-muted hover:text-text-primary underline"
             >
-              See the full card for this word
+              <FormattedMessage id="review.quickFullCard" />
             </Link>
           </div>
         </div>

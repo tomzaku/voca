@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useCompanion } from '../hooks/useCompanion';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useGameScore } from '../hooks/useGameScore';
@@ -51,9 +52,9 @@ function Picker({ current, onPick, onCancel }: {
 }) {
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
-      <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Choose your companion</h1>
+      <h1 className="text-2xl font-display font-bold text-text-primary mb-1"><FormattedMessage id="companion.chooseTitle" /></h1>
       <p className="text-sm text-text-muted mb-6">
-        It grows and learns tricks as you master more words. Pick the one whose style fits you.
+        <FormattedMessage id="companion.chooseIntro" />
       </p>
 
       <div className="grid grid-cols-2 gap-3">
@@ -84,7 +85,7 @@ function Picker({ current, onPick, onCancel }: {
 
       {onCancel && (
         <button onClick={onCancel} className="mt-5 w-full text-xs font-bold text-text-muted hover:text-text-primary">
-          Cancel
+          <FormattedMessage id="companion.cancel" />
         </button>
       )}
     </div>
@@ -100,6 +101,7 @@ function Companion({ animalId, name, known, onRename, onChange }: {
   onRename: (n: string) => void;
   onChange: () => void;
 }) {
+  const intl = useIntl();
   const a = getAnimal(animalId);
   const { points, best, winId } = useGameScore();
   const idx = stageIndex(known);
@@ -136,7 +138,7 @@ function Companion({ animalId, name, known, onRename, onChange }: {
         <input
           value={name}
           onChange={(e) => onRename(e.target.value)}
-          placeholder={`Name your ${a.name.toLowerCase()}`}
+          placeholder={intl.formatMessage({ id: 'companion.namePlaceholder' }, { animal: a.name.toLocaleLowerCase(intl.locale) })}
           className="text-center text-xl font-display font-bold text-text-primary bg-transparent border-b-2 border-transparent hover:border-border focus:border-accent-cyan focus:outline-none px-2 py-0.5 max-w-[16rem]"
         />
         <div className="mt-1.5 flex items-center gap-2 text-sm">
@@ -151,7 +153,11 @@ function Companion({ animalId, name, known, onRename, onChange }: {
       <div className="mt-6">
         <div className="flex justify-between text-xs font-bold text-text-muted mb-1.5">
           <span>{stage.name}</span>
-          <span>{next ? `${toNext} word${toNext === 1 ? '' : 's'} to ${next.name}` : 'Fully grown ✨'}</span>
+          <span>
+            {next
+              ? <FormattedMessage id="companion.wordsToNext" values={{ count: toNext, stage: next.name }} />
+              : <FormattedMessage id="companion.fullyGrown" />}
+          </span>
         </div>
         <div className="h-3 rounded-full bg-bg-tertiary overflow-hidden border border-border">
           <div
@@ -163,9 +169,9 @@ function Companion({ animalId, name, known, onRename, onChange }: {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2.5 mt-6">
-        <Stat label="Words learned" value={known} />
-        <Stat label="Points" value={points} />
-        <Stat label="Best streak" value={best} />
+        <Stat label={intl.formatMessage({ id: 'companion.statWordsLearned' })} value={known} />
+        <Stat label={intl.formatMessage({ id: 'companion.statPoints' })} value={points} />
+        <Stat label={intl.formatMessage({ id: 'companion.statBestStreak' })} value={best} />
       </div>
 
       {/* Perk */}
@@ -178,7 +184,7 @@ function Companion({ animalId, name, known, onRename, onChange }: {
       </div>
 
       {/* Skill tree */}
-      <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mt-8 mb-3">Skills</h2>
+      <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mt-8 mb-3"><FormattedMessage id="companion.skills" /></h2>
       <div className="space-y-2">
         {a.skills.map((skill, i) => {
           const need = SKILL_THRESHOLDS[i];
@@ -205,7 +211,7 @@ function Companion({ animalId, name, known, onRename, onChange }: {
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
                       </svg>
-                      {need} words
+                      <FormattedMessage id="companion.skillNeed" values={{ count: need }} />
                     </span>
                   )}
                 </div>
@@ -217,7 +223,7 @@ function Companion({ animalId, name, known, onRename, onChange }: {
       </div>
 
       <button onClick={onChange} className="mt-8 w-full text-xs font-bold text-text-muted hover:text-text-primary">
-        Change companion
+        <FormattedMessage id="companion.change" />
       </button>
     </div>
   );

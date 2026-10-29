@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useNetworkDebug, formatNetworkLog, type NetworkLogEntry } from '../lib/networkDebug';
 import { ToggleSwitch } from './ToggleSwitch';
 
@@ -40,11 +41,11 @@ function LogRow({ entry }: { entry: NetworkLogEntry }) {
 
       {open && (
         <div className="mt-2 ml-[76px] space-y-1.5 text-[11px] font-code">
-          <p className="text-text-muted">{entry.authenticated ? 'signed in' : 'anonymous'}</p>
+          <p className="text-text-muted"><FormattedMessage id={entry.authenticated ? 'debug.signedIn' : 'debug.anonymous'} /></p>
           {entry.error && <p className="text-accent-red">{entry.error}</p>}
           {entry.requestBody && (
             <div>
-              <p className="text-text-muted mb-0.5">request</p>
+              <p className="text-text-muted mb-0.5"><FormattedMessage id="debug.request" /></p>
               <pre className="whitespace-pre-wrap break-words bg-bg-tertiary rounded p-2 overflow-x-auto text-text-secondary">
                 {entry.requestBody}
               </pre>
@@ -52,7 +53,7 @@ function LogRow({ entry }: { entry: NetworkLogEntry }) {
           )}
           {entry.responseBody && (
             <div>
-              <p className="text-text-muted mb-0.5">response</p>
+              <p className="text-text-muted mb-0.5"><FormattedMessage id="debug.response" /></p>
               <pre className="whitespace-pre-wrap break-words bg-bg-tertiary rounded p-2 overflow-x-auto text-text-secondary">
                 {entry.responseBody}
               </pre>
@@ -65,6 +66,7 @@ function LogRow({ entry }: { entry: NetworkLogEntry }) {
 }
 
 export function NetworkDebugPage() {
+  const intl = useIntl();
   const enabled = useNetworkDebug((s) => s.enabled);
   const setEnabled = useNetworkDebug((s) => s.setEnabled);
   const log = useNetworkDebug((s) => s.log);
@@ -75,25 +77,21 @@ export function NetworkDebugPage() {
     try {
       await navigator.clipboard.writeText(formatNetworkLog(log));
       setCopied(true);
-      toast.success('Copied — paste it wherever you need to share it');
+      toast.success(intl.formatMessage({ id: 'debug.copied' }));
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Couldn't copy — your browser blocked clipboard access");
+      toast.error(intl.formatMessage({ id: 'debug.copyFailed' }));
     }
   };
 
   return (
     <div className="max-w-page mx-auto px-4 py-8">
-      <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Network debug</h1>
+      <h1 className="text-2xl font-display font-bold text-text-primary mb-1"><FormattedMessage id="settings.networkDebug" /></h1>
       <p className="text-sm text-text-muted mb-1">
-        A log of every call this device makes to the app's server, kept only here — nothing is sent
-        anywhere unless you copy it. Turn it on, then use the app normally; failures (timeouts, no
-        connection, server errors) show up as they happen. Tap a row for the request/response body.
+        <FormattedMessage id="debug.intro" />
       </p>
       <p className="text-xs text-text-muted/70 mb-8">
-        Bodies are truncated and your session token is never included — but a body can contain
-        whatever you typed (writing, chat), so treat a copied log the way you'd treat a screenshot
-        before pasting it somewhere.
+        <FormattedMessage id="debug.privacy" />
       </p>
 
       <section className="mb-6">
@@ -101,14 +99,14 @@ export function NetworkDebugPage() {
           onClick={() => {
             const next = !enabled;
             setEnabled(next);
-            toast.success(next ? 'Logging on' : 'Logging off');
+            toast.success(intl.formatMessage({ id: next ? 'debug.loggingOn' : 'debug.loggingOff' }));
           }}
           className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all cursor-pointer"
         >
           <div className="flex-1 text-left">
-            <span className="text-sm font-medium text-text-primary block">Log network requests</span>
+            <span className="text-sm font-medium text-text-primary block"><FormattedMessage id="debug.logRequests" /></span>
             <span className="text-xs text-text-muted mt-0.5 block">
-              Keeps the last 200 calls (method, path, status, timing) in memory on this device.
+              <FormattedMessage id="debug.logRequestsHint" values={{ count: 200 }} />
             </span>
           </div>
           <ToggleSwitch checked={enabled} />
@@ -118,7 +116,7 @@ export function NetworkDebugPage() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider">
-            Log ({log.length})
+            <FormattedMessage id="debug.logTitle" values={{ count: log.length }} />
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -127,14 +125,14 @@ export function NetworkDebugPage() {
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-border text-text-secondary hover:border-accent-cyan/30 hover:text-accent-cyan transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               <Icon icon={copied ? 'lucide:check' : 'lucide:copy'} className="text-sm" />
-              Copy
+              <FormattedMessage id="common.copy" />
             </button>
             <button
               onClick={clear}
               disabled={log.length === 0}
               className="text-xs px-3 py-1.5 rounded-lg border border-border text-text-muted hover:text-accent-red hover:border-accent-red/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
-              Clear
+              <FormattedMessage id="common.clear" />
             </button>
           </div>
         </div>
@@ -142,9 +140,7 @@ export function NetworkDebugPage() {
         {log.length === 0 ? (
           <div className="p-6 rounded-lg border border-border bg-bg-card text-center">
             <p className="text-sm text-text-muted">
-              {enabled
-                ? 'No requests yet — go use the app, then come back here.'
-                : 'Turn logging on above, then use the app normally.'}
+              <FormattedMessage id={enabled ? 'debug.emptyOn' : 'debug.emptyOff'} />
             </p>
           </div>
         ) : (

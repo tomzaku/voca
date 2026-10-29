@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { SynAnt } from '../SynAnt';
 import { PeekText } from '../PeekText';
 import { WordTest } from '../WordTest';
@@ -8,7 +9,7 @@ import { BuddyBadge } from '../BuddyBadge';
 import { AnswerTally } from './AnswerTally';
 import { BucketTag } from './BucketTag';
 import { DefLengthToggle, ExampleList, PosChip } from './parts';
-import { LEVEL_COLOR } from './constants';
+import { LEVEL_COLOR, LEVEL_LABEL_ID } from './constants';
 import { peekWord } from '../../hooks/useWordPeek';
 import { getMotherLanguage } from '../../lib/languages';
 import { isKokoroSupported } from '../../lib/tts';
@@ -49,6 +50,7 @@ export function RevealedView({
   /** Drop the word for good — now that the learner has actually seen it. */
   onSkip: () => void;
 }) {
+  const intl = useIntl();
   const headword = wordData.headword || wordData.word;
 
   return (
@@ -64,7 +66,7 @@ export function RevealedView({
               {doodle && (
                 <img
                   src={doodle}
-                  alt={`Doodle showing the meaning of ${wordData.word}`}
+                  alt={intl.formatMessage({ id: 'word.doodleAlt' }, { word: wordData.word })}
                   className="shrink-0 object-contain doodle-ink animate-fade-in w-16 h-16 sm:w-24 sm:h-24"
                 />
               )}
@@ -86,8 +88,8 @@ export function RevealedView({
                 }`}
               title={
                 getTtsEngine() === 'kokoro' && isKokoroSupported()
-                  ? 'Hear pronunciation — click again for another voice'
-                  : speech.isSpeaking ? 'Stop' : 'Hear pronunciation'
+                  ? intl.formatMessage({ id: 'flashcard.hearPronunciationCycle' })
+                  : intl.formatMessage({ id: speech.isSpeaking ? 'flashcard.stop' : 'flashcard.hearPronunciation' })
               }
             >
               {speech.isSpeaking ? (
@@ -111,13 +113,13 @@ export function RevealedView({
           <div className="mt-4 pt-4 border-t-2 border-border">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider">
-                Definition
+                <FormattedMessage id="flashcard.definition" />
               </h3>
               {/* Where this word stands — and a way into the other words that
                   stand there with it. */}
               <BucketTag word={wordData.word} progress={progress} />
               <span className={`ml-auto text-[10px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
-                {wordData.level}
+                {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
               </span>
               <DefLengthToggle show={Boolean(wordData.shortDefinition)} fullDef={fullDef} onToggle={onToggleFullDef} />
             </div>
@@ -151,12 +153,12 @@ export function RevealedView({
             onClick={onNext}
             disabled={busy}
             className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-cyan text-bg-primary"
-            title="Next word — keeps this word saved"
+            title={intl.formatMessage({ id: 'flashcard.nextTitle' })}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
             </svg>
-            <span className="text-xs">Next</span>
+            <span className="text-xs"><FormattedMessage id="flashcard.next" /></span>
           </button>
           <button
             onClick={onBookmark}
@@ -164,12 +166,12 @@ export function RevealedView({
                 ? 'bg-accent-yellow text-bg-primary'
                 : 'bg-bg-card text-text-secondary hover:text-accent-yellow'
               }`}
-            title={isBookmarked ? 'Remove bookmark' : 'Bookmark this word'}
+            title={intl.formatMessage({ id: isBookmarked ? 'flashcard.removeBookmark' : 'flashcard.bookmarkWord' })}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
             </svg>
-            <span className="text-xs">{isBookmarked ? 'Saved' : 'Save'}</span>
+            <span className="text-xs"><FormattedMessage id={isBookmarked ? 'flashcard.saved' : 'flashcard.save'} /></span>
           </button>
           {/* "Know it" only makes sense when you actually solved it.
               If you gave up, you don't know it — just move on. */}
@@ -177,21 +179,21 @@ export function RevealedView({
             <button
               onClick={onKnow}
               className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-accent-green text-bg-primary"
-              title="I know this word!"
+              title={intl.formatMessage({ id: 'flashcard.knowItTitle' })}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span className="text-xs">Know it</span>
+              <span className="text-xs"><FormattedMessage id="flashcard.knowIt" /></span>
             </button>
           )}
           <button
             onClick={onSkip}
             className="btn-3d flex-1 flex flex-col items-center gap-1 py-3 bg-bg-card text-text-secondary hover:text-accent-red"
-            title="Never show this word again — restore it anytime from History"
+            title={intl.formatMessage({ id: 'flashcard.neverShowTitle' })}
           >
             <Icon icon="solar:eye-closed-bold" className="text-lg" />
-            <span className="text-xs">Never show</span>
+            <span className="text-xs"><FormattedMessage id="flashcard.neverShow" /></span>
           </button>
         </div>
       </div>
@@ -202,14 +204,14 @@ export function RevealedView({
         {(wordData.collocations?.length ?? 0) > 0 && (
           <div className="card-game p-4 sm:p-5">
             <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-              Common phrases
+              <FormattedMessage id="word.commonPhrases" />
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {wordData.collocations!.map((c) => (
                 <button
                   key={c}
                   onClick={(e) => peekWord(c, e.currentTarget)}
-                  title={`What does “${c}” mean?`}
+                  title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: c })}
                   className="text-xs px-2.5 py-1 rounded-full bg-accent-purple/10 text-accent-purple border border-accent-purple/20 hover:bg-accent-purple/20 hover:border-accent-purple/40 transition-all cursor-pointer"
                 >
                   {c}
@@ -223,14 +225,14 @@ export function RevealedView({
         {(wordData.wordFamily?.length ?? 0) > 0 && (
           <div className="card-game p-4 sm:p-5">
             <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-              Word family
+              <FormattedMessage id="word.wordFamily" />
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {wordData.wordFamily!.map((f) => (
                 <button
                   key={`${f.word}-${f.pos}`}
                   onClick={(e) => peekWord(f.word, e.currentTarget)}
-                  title={`What does “${f.word}” mean?`}
+                  title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: f.word })}
                   className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-accent-orange/10 border border-accent-orange/20 hover:bg-accent-orange/20 hover:border-accent-orange/40 transition-all cursor-pointer"
                 >
                   <span className="font-bold text-accent-orange">{f.word}</span>
@@ -251,7 +253,7 @@ export function RevealedView({
         {/* Real-world usage — clips of the word in videos and movies */}
         <div className="card-game p-5">
           <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-            See it used
+            <FormattedMessage id="word.seeItUsed" />
           </h3>
           <div className="flex flex-col gap-2">
             <a
@@ -266,8 +268,8 @@ export function RevealedView({
                 </svg>
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-text-primary">Real videos (YouGlish)</p>
-                <p className="text-xs text-text-muted">Hear “{wordData.word}” spoken in real YouTube clips</p>
+                <p className="text-sm font-medium text-text-primary"><FormattedMessage id="word.youglishTitle" /></p>
+                <p className="text-xs text-text-muted"><FormattedMessage id="word.youglishDesc" values={{ word: wordData.word }} /></p>
               </div>
             </a>
             <a
@@ -283,8 +285,8 @@ export function RevealedView({
                 </svg>
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-text-primary">Movie clips (PlayPhrase)</p>
-                <p className="text-xs text-text-muted">Scenes from films using “{wordData.word}”</p>
+                <p className="text-sm font-medium text-text-primary"><FormattedMessage id="word.playphraseTitle" /></p>
+                <p className="text-xs text-text-muted"><FormattedMessage id="word.playphraseDesc" values={{ word: wordData.word }} /></p>
               </div>
             </a>
           </div>
@@ -340,6 +342,7 @@ function PhoneticList({ wordData }: { wordData: VocabularyWord }) {
  * new card.
  */
 function IdiomsCard({ idioms }: { idioms: NonNullable<VocabularyWord['idioms']> }) {
+  const intl = useIntl();
   const [showAll, setShowAll] = useState(false);
   // A word's idiom links accumulate across generations and the backfill, so the
   // same expression can arrive twice under slightly different text ("a piece of
@@ -364,14 +367,14 @@ function IdiomsCard({ idioms }: { idioms: NonNullable<VocabularyWord['idioms']> 
   return (
     <div className="card-game p-4 sm:p-5">
       <h3 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-3">
-        Idioms
+        <FormattedMessage id="word.idioms" />
       </h3>
       <div className="space-y-3">
         {visible.map((i) => (
           <div key={i.idiom}>
             <button
               onClick={(e) => peekWord(i.idiom, e.currentTarget)}
-              title={`What does “${i.idiom}” mean?`}
+              title={intl.formatMessage({ id: 'word.whatDoesMean' }, { word: i.idiom })}
               className="text-sm font-bold text-accent-pink hover:underline text-left cursor-pointer"
             >
               {i.idiom}
@@ -388,7 +391,9 @@ function IdiomsCard({ idioms }: { idioms: NonNullable<VocabularyWord['idioms']> 
           onClick={() => setShowAll(!showAll)}
           className="mt-3 text-xs font-bold text-text-muted hover:text-accent-pink transition-colors cursor-pointer"
         >
-          {showAll ? 'Show less' : `Show ${hidden} more`}
+          {showAll
+            ? <FormattedMessage id="word.showLess" />
+            : <FormattedMessage id="word.showMore" values={{ count: hidden }} />}
         </button>
       )}
     </div>

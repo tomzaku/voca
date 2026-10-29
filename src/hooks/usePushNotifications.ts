@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { t } from '../i18n';
 import { isIos, isStandalone } from '../lib/device';
 import {
   ALL_DAYS,
@@ -97,7 +98,7 @@ export function usePushNotifications(userId: string | undefined) {
 
       const ok = await subscribeDevice();
       if (!ok) {
-        toast.error("Couldn't set up reminders on this device.");
+        toast.error(t('profile.setupFailed'));
         return;
       }
       await saveReminderPrefs({ enabled: true, notifyStreak, notifyReview, times, days });
@@ -106,7 +107,7 @@ export function usePushNotifications(userId: string | undefined) {
       // Never let a rejection escape: an unhandled one leaves the control
       // looking simply broken, with the reason buried in the console.
       console.warn('[voca] enabling reminders failed:', err);
-      toast.error((err as Error).message || "Couldn't enable reminders.");
+      toast.error((err as Error).message || t('profile.enableFailed'));
     } finally {
       setBusy(false);
     }
@@ -125,7 +126,7 @@ export function usePushNotifications(userId: string | undefined) {
       if (next) {
         const ok = await subscribeDevice();
         if (!ok) {
-          toast.error("Couldn't set up reminders on this device.");
+          toast.error(t('profile.setupFailed'));
           return;
         }
       } else {
@@ -135,7 +136,7 @@ export function usePushNotifications(userId: string | undefined) {
       setEnabled(next);
     } catch (err) {
       console.warn('[voca] toggling reminders failed:', err);
-      toast.error((err as Error).message || "Couldn't update reminders.");
+      toast.error((err as Error).message || t('profile.updateFailed'));
     } finally {
       setBusy(false);
     }

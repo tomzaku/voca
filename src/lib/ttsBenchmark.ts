@@ -3,6 +3,7 @@
 // benchmark run should measure a real load, not report ~0ms because some
 // other part of the app already warmed the engine.
 import { MODEL_ID, hasWebGPU } from './tts';
+import { t } from '../i18n';
 import type { KokoroTTS } from 'kokoro-js';
 
 export type BenchmarkEngine = 'kokoro' | 'piper' | 'kitten' | 'native';
@@ -141,7 +142,7 @@ export async function benchmarkKokoro(
   speed = 1,
 ): Promise<BenchmarkResult> {
   if (deviceOverride === 'webgpu' && !(await hasWebGPU())) {
-    throw new Error('WebGPU is not available in this browser — try WASM (CPU) instead');
+    throw new Error(t('debug.errNoWebGpu'));
   }
   const useGPU = deviceOverride === 'auto' ? await hasWebGPU() : deviceOverride === 'webgpu';
   const device: StyleModelDeviceKind = useGPU ? 'webgpu' : 'wasm';
@@ -372,7 +373,7 @@ export async function benchmarkPiper(text: string, voiceId: string, voiceLabel: 
 export function benchmarkNative(text: string, speed = 1): Promise<BenchmarkResult> {
   return new Promise((resolve, reject) => {
     if (typeof speechSynthesis === 'undefined') {
-      reject(new Error('Speech synthesis is not available in this browser'));
+      reject(new Error(t('debug.errNoSpeech')));
       return;
     }
     const utterance = new SpeechSynthesisUtterance(text);
@@ -387,7 +388,7 @@ export function benchmarkNative(text: string, speed = 1): Promise<BenchmarkResul
       resolve({
         engine: 'native',
         voiceId: 'native',
-        voiceLabel: 'Device voice',
+        voiceLabel: t('debug.deviceVoice'),
         loadMs: null,
         voiceLoadMs: null,
         genMs: startedAt ? startedAt - callStart : 0,
@@ -399,7 +400,7 @@ export function benchmarkNative(text: string, speed = 1): Promise<BenchmarkResul
         speedApplied: speed,
       });
     };
-    utterance.onerror = (e) => reject(new Error(e.error || 'Speech synthesis failed'));
+    utterance.onerror = (e) => reject(new Error(e.error || t('debug.errSpeechFailed')));
 
     speechSynthesis.cancel();
     speechSynthesis.speak(utterance);

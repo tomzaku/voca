@@ -10,13 +10,14 @@
 
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import { useTeams } from '../hooks/useTeams';
 import type { Scoring, Team } from '../lib/teamsApi';
 
 const DAY_MS = 86_400_000;
 
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+function shortDate(intl: IntlShape, iso: string): string {
+  return intl.formatDate(iso, { day: 'numeric', month: 'short' });
 }
 
 /** Whole days from now until `iso`, rounded up — 0 means it lands today. */
@@ -25,9 +26,11 @@ function daysUntil(iso: string): number {
 }
 
 /** "3 days left" — the only part of a deadline anyone reads. */
-function remaining(iso: string): string {
+function remaining(intl: IntlShape, iso: string): string {
   const d = daysUntil(iso);
-  return d === 0 ? 'ends today' : d === 1 ? '1 day left' : `${d} days left`;
+  return d === 0
+    ? intl.formatMessage({ id: 'teams.endsToday' })
+    : intl.formatMessage({ id: 'teams.daysLeft' }, { count: d });
 }
 
 /** `<input type="date">` gives a local YYYY-MM-DD; a period ends at the end of it. */
@@ -45,16 +48,20 @@ function todayPlus(days: number): string {
  * already explains; a line saying "the last 30 days" over every board is noise.
  */
 export function PeriodNote({ scoring }: { scoring: Scoring }) {
+  const intl = useIntl();
   if (scoring.state === 'rolling') return null;
 
   const closed = scoring.state === 'closed';
   const text = closed
-    ? `Final standings. This challenge ended ${shortDate(scoring.until!)}.`
+    ? intl.formatMessage({ id: 'teams.periodClosed' }, { date: shortDate(intl, scoring.until!) })
     : scoring.state === 'upcoming'
-    ? `Starts ${shortDate(scoring.since)} — everyone is on zero until then.`
+    ? intl.formatMessage({ id: 'teams.periodUpcoming' }, { date: shortDate(intl, scoring.since) })
     : scoring.until
-    ? `Challenge to ${shortDate(scoring.until)} · ${remaining(scoring.until)}`
-    : `Scores counted from ${shortDate(scoring.since)}`;
+    ? intl.formatMessage({ id: 'teams.periodChallenge' }, {
+        date: shortDate(intl, scoring.until),
+        remaining: remaining(intl, scoring.until),
+      })
+    : intl.formatMessage({ id: 'teams.periodSince' }, { date: shortDate(intl, scoring.since) });
 
   return (
     <p
@@ -74,6 +81,7 @@ export function PeriodNote({ scoring }: { scoring: Scoring }) {
  * down the page.
  */
 export function ScoringPanel({ team }: { team: Team }) {
+  const intl = useIntl();
   const setScoring = useTeams((s) => s.setScoring);
   const saving = useTeams((s) => s.saving);
   const [open, setOpen] = useState(false);
@@ -96,10 +104,10 @@ export function ScoringPanel({ team }: { team: Team }) {
   };
 
   const summary = team.scoredUntil
-    ? `Challenge to ${shortDate(team.scoredUntil)}`
+    ? intl.formatMessage({ id: 'teams.summaryChallenge' }, { date: shortDate(intl, team.scoredUntil) })
     : team.scoredSince
-    ? `Counting from ${shortDate(team.scoredSince)}`
-    : 'Rolling 30 days';
+    ? intl.formatMessage({ id: 'teams.summarySince' }, { date: shortDate(intl, team.scoredSince) })
+    : intl.formatMessage({ id: 'teams.summaryRolling' });
 
   return (
     <div className="rounded-xl bg-bg-tertiary/50 px-4 py-3 flex flex-col gap-2">
@@ -112,16 +120,14 @@ export function ScoringPanel({ team }: { team: Team }) {
           icon="lucide:chevron-right"
           className={`transition-transform ${open ? 'rotate-90' : ''}`}
         />
-        Scoring period
+        <FormattedMessage id="teams.scoringPeriod" />
         <span className="font-normal text-text-muted">· {summary}</span>
       </button>
 
       {open && (
         <>
           <p className="text-[11px] text-text-muted leading-relaxed">
-            Scores are worked out from each member's own practice over this period, every time the
-            board loads. Changing it re-counts — it never deletes anyone's progress, and putting the
-            period back puts every score back with it.
+            <FormattedMessage id="teams.scoringExplainer" />
           </p>
 
           {pending === null && (
@@ -131,21 +137,21 @@ export function ScoringPanel({ team }: { team: Team }) {
                 className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
               >
                 <Icon icon="lucide:rotate-ccw" className="inline -mt-0.5 mr-1" />
-                Reset to zero
+                <FormattedMessage id="teams.resetToZero" />
               </button>
               <button
                 onClick={() => setPending('challenge')}
                 className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
               >
                 <Icon icon="lucide:flag" className="inline -mt-0.5 mr-1" />
-                Run a challenge
+                <FormattedMessage id="teams.runChallenge" />
               </button>
               {(team.scoredSince || team.scoredUntil) && (
                 <button
                   onClick={() => setPending('rolling')}
                   className="btn-3d px-3 py-1.5 text-[11px] font-bold bg-bg-tertiary text-text-secondary"
                 >
-                  Back to rolling 30 days
+                  <FormattedMessage id="teams.backToRolling" />
                 </button>
               )}
             </div>
@@ -156,7 +162,7 @@ export function ScoringPanel({ team }: { team: Team }) {
           {pending === 'challenge' && (
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 text-[11px] font-bold text-text-secondary">
-                Ends after
+                <FormattedMessage id="teams.endsAfter" />
                 <input
                   type="date"
                   value={endsOn}
@@ -167,8 +173,7 @@ export function ScoringPanel({ team }: { team: Team }) {
                 />
               </label>
               <p className="text-[11px] text-text-muted">
-                Everyone starts on zero now. When the date passes the board stops moving and the
-                standings are final.
+                <FormattedMessage id="teams.challengeHint" />
               </p>
             </div>
           )}
@@ -176,23 +181,23 @@ export function ScoringPanel({ team }: { team: Team }) {
           {pending !== null && (
             <p className="text-[11px] text-text-secondary">
               {pending === 'rolling'
-                ? 'Scores go back to counting the last 30 days, rolling.'
+                ? intl.formatMessage({ id: 'teams.confirmRolling' })
                 : pending === 'now'
-                ? `All ${team.memberCount} members go to zero and start counting from now.`
+                ? intl.formatMessage({ id: 'teams.confirmReset' }, { count: team.memberCount })
                 : ''}{' '}
               <button
                 onClick={() => apply(pending)}
                 disabled={saving || (pending === 'challenge' && !endsOn)}
                 className="font-bold text-accent-red hover:underline cursor-pointer disabled:opacity-50"
               >
-                {saving ? 'Working…' : 'Do it'}
+                <FormattedMessage id={saving ? 'teams.working' : 'teams.doIt'} />
               </button>
               {' · '}
               <button
                 onClick={() => setPending(null)}
                 className="font-bold text-text-muted hover:underline cursor-pointer"
               >
-                Cancel
+                <FormattedMessage id="teams.cancel" />
               </button>
             </p>
           )}

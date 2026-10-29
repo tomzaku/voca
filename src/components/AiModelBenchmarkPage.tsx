@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import toast from 'react-hot-toast';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Selector } from './Selector';
 import { KOKORO_VOICES, PIPER_VOICES } from '../hooks/useTtsSettings';
 import {
@@ -42,11 +43,12 @@ const DEFAULT_TEXT =
 
 const ENGINES: BenchmarkEngine[] = ['kokoro', 'piper', 'kitten', 'native'];
 
-const ENGINE_META: Record<BenchmarkEngine, { label: string; icon: string; description: string }> = {
-  kokoro: { label: 'Kokoro', icon: 'lucide:cpu', description: 'ONNX model, WASM/WebGPU — downloads on first run' },
-  piper: { label: 'Piper', icon: 'lucide:speaker', description: 'ONNX model, WASM — cached to OPFS on first run' },
-  kitten: { label: 'KittenTTS', icon: 'lucide:cat', description: '~23MB ONNX model — built for CPU/mobile' },
-  native: { label: 'Native', icon: 'lucide:smartphone', description: "Browser's built-in voice — no model, plays live" },
+// `descriptionId` is a message id; labels are engine names and stay as-is.
+const ENGINE_META: Record<BenchmarkEngine, { label: string; icon: string; descriptionId: string }> = {
+  kokoro: { label: 'Kokoro', icon: 'lucide:cpu', descriptionId: 'debug.engineKokoroDesc' },
+  piper: { label: 'Piper', icon: 'lucide:speaker', descriptionId: 'debug.enginePiperDesc' },
+  kitten: { label: 'KittenTTS', icon: 'lucide:cat', descriptionId: 'debug.engineKittenDesc' },
+  native: { label: 'Native', icon: 'lucide:smartphone', descriptionId: 'debug.engineNativeDesc' },
 };
 
 const SPEED_MIN = 0.5;
@@ -92,25 +94,17 @@ function formatScore(score: number | null): string {
 // rather than the `title` attribute, which shows only after a long,
 // inconsistent browser delay (see RailTooltip in Rail.tsx for the same
 // pattern elsewhere in the app).
-const COLUMN_HINTS: Record<string, string> = {
-  Engine: 'Which read-aloud engine (and voice) this row benchmarks.',
-  Score: '100 ÷ Real-time factor, rounded. 100 = exactly real-time. 400 means this run synthesized speech 4× faster than it takes to play back; 50 means half real-time speed. Depends only on Synthesize (actual inference) — not on network/disk (Load) or model file size — so it\'s the number to compare across machines or chips (e.g. an M1 vs an M5). "—" for Native, whose timing reflects the OS speech engine, not this device\'s own compute.',
-  'Model size': "Total bytes of the model this engine needs. Fixed per model, not per text length. Kokoro's one model serves all 26 voices, so this excludes the small per-voice style file — see Voice load.",
-  Load: "Time spent fetching + initializing the model. Reads ~0 once it's cached from an earlier run — use Clear model caches to force a cold number.",
-  'Voice load': "Kokoro and KittenTTS only: time to fetch this specific voice's small style file, separated out so it doesn't inflate Synthesize the first time a voice is used. Piper's equivalent is already part of Load (each voice is its own model); Native has no voice file at all.",
-  Synthesize: 'Time to turn the text into audio, with the model and voice already loaded — the number that reflects raw per-word throughput.',
-  'Audio length': 'Duration of the resulting speech clip.',
-  'Real-time factor': 'Synthesize time ÷ audio length. Under 1× is faster than real-time playback, and it stays roughly constant across text lengths — the basis for Score.',
-};
+// Each column's header and hint are `debug.col<Key>` / `debug.col<Key>Hint`.
+type Column = 'Engine' | 'Score' | 'ModelSize' | 'Load' | 'VoiceLoad' | 'Synthesize' | 'AudioLength' | 'Rtf';
 
-function Th({ children }: { children: string }) {
+function Th({ col }: { col: Column }) {
   return (
     <th className="px-4 py-2.5 text-xs font-bold text-text-muted whitespace-nowrap">
       <span className="group relative inline-flex items-center gap-1 cursor-help">
-        {children}
+        <FormattedMessage id={`debug.col${col}`} />
         <Icon icon="lucide:info" className="text-[13px] text-text-muted/70" />
         <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-64 -translate-x-1/2 whitespace-normal rounded-lg border border-border bg-bg-primary px-3 py-2 text-[11px] font-normal normal-case leading-relaxed text-text-primary opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
-          {COLUMN_HINTS[children]}
+          <FormattedMessage id={`debug.col${col}Hint`} />
         </span>
       </span>
     </th>
@@ -118,8 +112,10 @@ function Th({ children }: { children: string }) {
 }
 
 function SpeedControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const intl = useIntl();
+  const speedLabel = intl.formatMessage({ id: 'debug.speed' });
   return (
-    <div className="flex items-center gap-2 shrink-0" title="Speed">
+    <div className="flex items-center gap-2 shrink-0" title={speedLabel}>
       <Icon icon="lucide:gauge" className="text-sm text-text-muted shrink-0" />
       <input
         type="range"
@@ -129,7 +125,7 @@ function SpeedControl({ value, onChange }: { value: number; onChange: (v: number
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
         className="w-24 accent-accent-orange cursor-pointer"
-        aria-label="Speed"
+        aria-label={speedLabel}
       />
       <span className="text-xs font-mono text-accent-orange w-9 text-right shrink-0">{value.toFixed(1)}×</span>
     </div>
@@ -183,6 +179,7 @@ function playResult(row: Row, text: string, speed: number) {
 }
 
 export function AiModelBenchmarkPage() {
+  const intl = useIntl();
   const [text, setText] = useState(DEFAULT_TEXT);
   // Native plays the text out loud for the whole run (no way to synthesize
   // silently) and its Score is always "—" anyway, so it's opt-in.
@@ -208,7 +205,7 @@ export function AiModelBenchmarkPage() {
     if (running || !text.trim()) return;
     const engines = ENGINES.filter((e) => selected[e]);
     if (engines.length === 0) {
-      toast.error('Pick at least one engine');
+      toast.error(intl.formatMessage({ id: 'debug.pickEngine' }));
       return;
     }
 
@@ -241,9 +238,9 @@ export function AiModelBenchmarkPage() {
     setClearing(true);
     try {
       await Promise.all([clearKokoroCache(), clearPiperCache(piperVoice), clearKittenVoiceCache()]);
-      toast.success('Model caches cleared — next run downloads fresh');
+      toast.success(intl.formatMessage({ id: 'debug.cachesCleared' }));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to clear caches');
+      toast.error(err instanceof Error ? err.message : intl.formatMessage({ id: 'debug.clearFailed' }));
     } finally {
       setClearing(false);
     }
@@ -251,17 +248,16 @@ export function AiModelBenchmarkPage() {
 
   return (
     <div className="max-w-page mx-auto px-4 py-8">
-      <h1 className="text-lg font-bold text-text-primary mb-1">AI Model Benchmark</h1>
+      <h1 className="text-lg font-bold text-text-primary mb-1"><FormattedMessage id="debug.benchmarkTitle" /></h1>
       <p className="text-xs text-text-muted mb-6">
-        Time how long each read-aloud engine takes to load its model and to synthesize the text below.
-        Not linked anywhere in the app — bookmark the URL.
+        <FormattedMessage id="debug.benchmarkIntro" />
       </p>
 
       <div className="rounded-xl border-2 border-border bg-bg-card p-4 mb-4">
         <TextareaAutosize
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT))}
-          placeholder="Text to synthesize…"
+          placeholder={intl.formatMessage({ id: 'debug.textPlaceholder' })}
           minRows={3}
           maxRows={10}
           className="w-full bg-transparent border-2 border-border rounded-xl px-4 py-3.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-orange/60 resize-none leading-relaxed"
@@ -272,7 +268,7 @@ export function AiModelBenchmarkPage() {
             onClick={() => setText(DEFAULT_TEXT)}
             className="text-xs font-medium text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
           >
-            Reset to default
+            <FormattedMessage id="debug.resetText" />
           </button>
         </div>
       </div>
@@ -291,36 +287,36 @@ export function AiModelBenchmarkPage() {
                 />
                 <Icon icon={meta.icon} className="text-base text-accent-orange shrink-0" />
                 <span className="text-sm font-bold text-text-primary shrink-0">{meta.label}</span>
-                <span className="text-xs text-text-muted truncate">{meta.description}</span>
+                <span className="text-xs text-text-muted truncate"><FormattedMessage id={meta.descriptionId} /></span>
               </label>
               {engine === 'kokoro' && (
                 <>
                   <Selector
                     value={kokoroDevice}
                     options={[
-                      { value: 'auto', label: 'Auto (best available)' },
+                      { value: 'auto', label: intl.formatMessage({ id: 'debug.deviceAuto' }) },
                       { value: 'wasm', label: 'CPU · WASM' },
                       { value: 'webgpu', label: 'GPU · WebGPU' },
                     ]}
                     onChange={setKokoroDevice}
-                    ariaLabel="Kokoro compute backend"
+                    ariaLabel={intl.formatMessage({ id: 'debug.kokoroBackend' })}
                   />
                   {kokoroDevice !== 'wasm' && (
                     <Selector
                       value={kokoroPrecision}
                       options={[
-                        { value: 'fp32', label: 'Precision: fp32 (310MB)' },
-                        { value: 'fp16', label: 'Precision: fp16 (155MB, experimental)' },
+                        { value: 'fp32', label: intl.formatMessage({ id: 'debug.precisionFp32' }) },
+                        { value: 'fp16', label: intl.formatMessage({ id: 'debug.precisionFp16' }) },
                       ]}
                       onChange={setKokoroPrecision}
-                      ariaLabel="Kokoro GPU precision"
+                      ariaLabel={intl.formatMessage({ id: 'debug.kokoroPrecision' })}
                     />
                   )}
                   <Selector
                     value={kokoroVoice}
                     options={KOKORO_VOICES.map((v) => ({ value: v.id, label: `${v.name} · ${v.accent} ${v.gender}` }))}
                     onChange={setKokoroVoice}
-                    ariaLabel="Kokoro voice"
+                    ariaLabel={intl.formatMessage({ id: 'debug.engineVoice' }, { engine: 'Kokoro' })}
                   />
                   <SpeedControl value={speeds.kokoro} onChange={(v) => setSpeedFor('kokoro', v)} />
                 </>
@@ -330,7 +326,7 @@ export function AiModelBenchmarkPage() {
                   value={piperVoice}
                   options={PIPER_VOICES.map((v) => ({ value: v.id, label: `${v.name} · ${v.accent} ${v.gender}` }))}
                   onChange={setPiperVoice}
-                  ariaLabel="Piper voice"
+                  ariaLabel={intl.formatMessage({ id: 'debug.engineVoice' }, { engine: 'Piper' })}
                 />
               )}
               {engine === 'kitten' && (
@@ -339,7 +335,7 @@ export function AiModelBenchmarkPage() {
                     value={kittenVoice}
                     options={KITTEN_VOICES.map((v) => ({ value: v.id, label: `${v.name} · ${v.gender}` }))}
                     onChange={setKittenVoice}
-                    ariaLabel="KittenTTS voice"
+                    ariaLabel={intl.formatMessage({ id: 'debug.engineVoice' }, { engine: 'KittenTTS' })}
                   />
                   <SpeedControl value={speeds.kitten} onChange={(v) => setSpeedFor('kitten', v)} />
                 </>
@@ -359,7 +355,7 @@ export function AiModelBenchmarkPage() {
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border-2 border-accent-red/30 bg-accent-red/10 text-accent-red hover:bg-accent-red/20 transition-all cursor-pointer"
           >
             <Icon icon="lucide:square" className="text-base" />
-            Stop after current
+            <FormattedMessage id="debug.stopAfterCurrent" />
           </button>
         ) : (
           <button
@@ -368,17 +364,17 @@ export function AiModelBenchmarkPage() {
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border-2 border-accent-orange bg-accent-orange text-bg-primary hover:bg-accent-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
             <Icon icon="lucide:play" className="text-base" />
-            Run Benchmark
+            <FormattedMessage id="debug.runBenchmark" />
           </button>
         )}
         <button
           onClick={clearCaches}
           disabled={clearing || running}
-          title="Delete the downloaded Kokoro, Piper, and KittenTTS model files so the next run re-downloads them"
+          title={intl.formatMessage({ id: 'debug.clearCachesTitle' })}
           className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-50 transition-all cursor-pointer"
         >
           <Icon icon="lucide:trash-2" className="text-sm" />
-          {clearing ? 'Clearing…' : 'Clear model caches'}
+          <FormattedMessage id={clearing ? 'debug.clearing' : 'debug.clearCaches'} />
         </button>
       </div>
 
@@ -388,14 +384,14 @@ export function AiModelBenchmarkPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-bg-tertiary/50 text-left">
-                  <Th>Engine</Th>
-                  <Th>Score</Th>
-                  <Th>Model size</Th>
-                  <Th>Load</Th>
-                  <Th>Voice load</Th>
-                  <Th>Synthesize</Th>
-                  <Th>Audio length</Th>
-                  <Th>Real-time factor</Th>
+                  <Th col="Engine" />
+                  <Th col="Score" />
+                  <Th col="ModelSize" />
+                  <Th col="Load" />
+                  <Th col="VoiceLoad" />
+                  <Th col="Synthesize" />
+                  <Th col="AudioLength" />
+                  <Th col="Rtf" />
                   <th className="px-4 py-2.5 text-xs font-bold text-text-muted"></th>
                 </tr>
               </thead>
@@ -415,7 +411,7 @@ export function AiModelBenchmarkPage() {
                               {row.result?.speedApplied != null && (
                                 <>
                                   {` · ${row.result.speedApplied.toFixed(1)}×`}
-                                  {row.engine === 'piper' && ' (fixed)'}
+                                  {row.engine === 'piper' && <> <FormattedMessage id="debug.fixed" /></>}
                                 </>
                               )}
                             </div>
@@ -430,13 +426,13 @@ export function AiModelBenchmarkPage() {
                                 <path d="M12 2a10 10 0 0 1 10 10" />
                               </svg>
                             )}
-                            {row.status === 'loading' ? (row.engine === 'native' ? 'Speaking…' : 'Loading + synthesizing…') : 'Queued…'}
+                            <FormattedMessage id={row.status === 'loading' ? (row.engine === 'native' ? 'debug.speaking' : 'debug.loadingSynth') : 'debug.queued'} />
                           </span>
                         </td>
                       ) : row.status === 'error' ? (
                         <td colSpan={7} className="px-4 py-3 text-accent-red text-xs">{row.error}</td>
                       ) : row.status === 'skipped' ? (
-                        <td colSpan={7} className="px-4 py-3 text-text-muted text-xs">Skipped</td>
+                        <td colSpan={7} className="px-4 py-3 text-text-muted text-xs"><FormattedMessage id="debug.skipped" /></td>
                       ) : result ? (
                         <>
                           <td className="px-4 py-3">
@@ -460,7 +456,7 @@ export function AiModelBenchmarkPage() {
                         {row.status === 'done' && (
                           <button
                             onClick={() => playResult(row, text, row.result?.speedApplied ?? 1)}
-                            title="Play"
+                            title={intl.formatMessage({ id: 'debug.play' })}
                             className="w-7 h-7 rounded-md flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan hover:border-accent-cyan/30 transition-all cursor-pointer ml-auto"
                           >
                             <Icon icon="lucide:play" className="text-sm" />
@@ -477,8 +473,7 @@ export function AiModelBenchmarkPage() {
       )}
 
       <p className="text-[11px] text-text-muted mt-4 leading-relaxed">
-        Hover a column header for what it measures. The browser caches model files, so a second run reads a "warm"
-        Load (and Voice load); use <em>Clear model caches</em> to force a cold one.
+        <FormattedMessage id="debug.footer" values={{ em: (chunks) => <em>{chunks}</em> }} />
       </p>
     </div>
   );

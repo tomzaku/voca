@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
@@ -28,16 +29,21 @@ const LEVEL_COLOR: Record<string, string> = {
   advanced: 'text-accent-red',
 };
 
+/** Display name for a word's level — the stored value stays the English slug. */
+function levelLabel(intl: IntlShape, level: string): string {
+  return intl.formatMessage({ id: `history.level.${level}` });
+}
+
 /** Human label for a `YYYY-MM-DD` key relative to today. */
-function dayLabel(dateStr: string): string {
+function dayLabel(intl: IntlShape, dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const diff = Math.round((today.getTime() - date.getTime()) / 86400000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  if (diff === 0) return intl.formatMessage({ id: 'history.today' });
+  if (diff === 1) return intl.formatMessage({ id: 'history.yesterday' });
+  return intl.formatDate(date, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 /** Local `YYYY-MM-DD` for an ISO timestamp. */
@@ -67,12 +73,13 @@ function groupByDate(items: WordProgress[]): { key: string; items: WordProgress[
   return groups;
 }
 
-function groupLabel(key: string): string {
-  return key === 'unknown' ? 'Earlier' : dayLabel(key);
+function groupLabel(intl: IntlShape, key: string): string {
+  return key === 'unknown' ? intl.formatMessage({ id: 'history.earlier' }) : dayLabel(intl, key);
 }
 
 /** Word-of-the-Day — a big card for today, with previous days tucked behind a toggle. */
 function DailyWords() {
+  const intl = useIntl();
   const days = useMemo(() => getRecentDailyWords(30), []);
   const [showPast, setShowPast] = useState(false);
   if (days.length === 0) return null;
@@ -88,9 +95,9 @@ function DailyWords() {
       >
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-bold text-accent-cyan uppercase tracking-wider">
-            Word of the Day
+            <FormattedMessage id="history.wordOfTheDay" />
           </span>
-          <span className={`text-xs font-medium ${LEVEL_COLOR[today.level]}`}>{today.level}</span>
+          <span className={`text-xs font-medium ${LEVEL_COLOR[today.level]}`}>{levelLabel(intl, today.level)}</span>
         </div>
         <div className="flex items-end justify-between gap-3">
           <span className="font-display font-extrabold text-3xl text-text-primary group-hover:text-accent-cyan transition-colors">
@@ -121,7 +128,9 @@ function DailyWords() {
             >
               <polyline points="9 18 15 12 9 6" />
             </svg>
-            {showPast ? 'Hide previous days' : `Previous days (${past.length})`}
+            {showPast
+              ? <FormattedMessage id="history.hidePreviousDays" />
+              : <FormattedMessage id="history.previousDays" values={{ count: past.length }} />}
           </button>
 
           {showPast && (
@@ -132,11 +141,11 @@ function DailyWords() {
                   to={`/?word=${encodeURIComponent(word)}`}
                   className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-tertiary transition-colors"
                 >
-                  <span className="w-24 shrink-0 text-xs text-text-muted">{dayLabel(date)}</span>
+                  <span className="w-24 shrink-0 text-xs text-text-muted">{dayLabel(intl, date)}</span>
                   <span className="flex-1 min-w-0 font-display font-bold text-accent-cyan truncate hover:underline">
                     {word}
                   </span>
-                  <span className={`text-[11px] font-medium ${LEVEL_COLOR[level]}`}>{level}</span>
+                  <span className={`text-[11px] font-medium ${LEVEL_COLOR[level]}`}>{levelLabel(intl, level)}</span>
                 </Link>
               ))}
             </div>
@@ -205,18 +214,26 @@ function HistoryHeader({ counts }: { counts: Partial<Record<Filter, number>> }) 
   const segments = BUCKET_ORDER.map((b) => ({ ...BUCKET_META[b], count: counts[BUCKET_META[b].tab] ?? 0 }));
   const total = segments.reduce((n, s) => n + s.count, 0);
   const mastered = counts.mastered ?? 0;
+  const intl = useIntl();
 
   return (
     <header className="mb-6">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="font-title font-black text-2xl sm:text-3xl text-text-primary leading-tight">History</h1>
-          <p className="text-sm text-text-muted">Every word you’ve met, newest first.</p>
+          <h1 className="font-title font-black text-2xl sm:text-3xl text-text-primary leading-tight"><FormattedMessage id="history.title" /></h1>
+          <p className="text-sm text-text-muted"><FormattedMessage id="history.subtitle" /></p>
         </div>
         {total > 0 && (
           <p className="text-sm font-bold text-text-secondary">
-            <span className="font-extrabold text-text-primary">{total}</span> words ·{' '}
-            <span className="font-extrabold text-accent-green">{mastered}</span> mastered
+            <FormattedMessage
+              id="history.headerTotals"
+              values={{
+                total,
+                mastered,
+                t: (c) => <span className="font-extrabold text-text-primary">{c}</span>,
+                m: (c) => <span className="font-extrabold text-accent-green">{c}</span>,
+              }}
+            />
           </p>
         )}
       </div>
@@ -229,7 +246,7 @@ function HistoryHeader({ counts }: { counts: Partial<Record<Filter, number>> }) 
                 key={s.tab}
                 className={`h-full ${s.bar}`}
                 style={{ width: `${(s.count / total) * 100}%` }}
-                title={`${s.label}: ${s.count}`}
+                title={`${intl.formatMessage({ id: s.labelId })}: ${s.count}`}
               />
             ))}
           </div>
@@ -237,7 +254,7 @@ function HistoryHeader({ counts }: { counts: Partial<Record<Filter, number>> }) 
             {segments.map((s) => (
               <span key={s.tab} className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted">
                 <span className={`w-2 h-2 rounded-full ${s.bar}`} />
-                {s.label}
+                <FormattedMessage id={s.labelId} />
                 <span className="text-text-secondary">{s.count}</span>
               </span>
             ))}
@@ -249,6 +266,7 @@ function HistoryHeader({ counts }: { counts: Partial<Record<Filter, number>> }) 
 }
 
 export function HistoryPage() {
+  const intl = useIntl();
   const { user } = useAuth();
   const store = useVocabularyStore();
   // Multi-select filters, held in the URL so a link can point at one of them
@@ -313,7 +331,7 @@ export function HistoryPage() {
       setWordCache((c) => ({ ...c, [word]: data }));
     } catch (err) {
       const msg = (err as Error).message || '';
-      toast.error(msg.includes('API key') ? msg : `Could not load "${word}"`);
+      toast.error(msg.includes('API key') ? msg : intl.formatMessage({ id: 'history.loadWordFailed' }, { word }));
     } finally {
       setLoadingWord(null);
     }
@@ -351,8 +369,8 @@ export function HistoryPage() {
     forget(word);
     if (expanded === word) setExpanded(null);
     toast.success(item.status === 'dismissed' && !checked.has('recent')
-      ? `"${word}" will show up again`
-      : `Removed "${word}"`);
+      ? intl.formatMessage({ id: 'history.willShowAgain' }, { word })
+      : intl.formatMessage({ id: 'history.removed' }, { word }));
   };
 
   if (mode === 'quiz') {
@@ -381,14 +399,15 @@ export function HistoryPage() {
     return <SpeakingPractice words={gameWords} onBack={() => setMode('list')} />;
   }
 
-  const emptyCopyByBucket: Record<Filter, { icon: string; title: string; hint: string }> = {
-    recent: { icon: '🕑', title: 'Nothing here yet', hint: 'Words you learn, save, or look up show up here newest-first — your whole history in one place.' },
-    saved: { icon: '★', title: 'No saved words yet', hint: 'Bookmark words while learning to build your personal vocabulary list.' },
-    'not-started': { icon: '◌', title: 'Nothing waiting', hint: 'Words you’ve opened but never answered land here, ready for their first round.' },
-    struggling: { icon: '🔥', title: 'Nothing here yet', hint: 'Words you get wrong more often than right show up here — they keep coming back until you learn them.' },
-    learning: { icon: '🔄', title: 'Nothing in rotation yet', hint: 'Answer a word correctly and it joins the review schedule, coming back at growing intervals.' },
-    mastered: { icon: '✨', title: 'Nothing mastered yet', hint: 'Words graduate here once you keep getting them right over about three weeks.' },
-    skipped: { icon: '🙈', title: 'Nothing skipped yet', hint: 'Words you skip while learning land here and stop appearing. Remove one to bring it back.' },
+  // Message ids, not text — formatted where the empty state renders.
+  const emptyCopyByBucket: Record<Filter, { icon: string; titleId: string; hintId: string }> = {
+    recent: { icon: '🕑', titleId: 'history.emptyTitle', hintId: 'history.emptyRecentHint' },
+    saved: { icon: '★', titleId: 'history.emptySavedTitle', hintId: 'history.emptySavedHint' },
+    'not-started': { icon: '◌', titleId: 'history.emptyNotStartedTitle', hintId: 'history.emptyNotStartedHint' },
+    struggling: { icon: '🔥', titleId: 'history.emptyTitle', hintId: 'history.emptyStrugglingHint' },
+    learning: { icon: '🔄', titleId: 'history.emptyLearningTitle', hintId: 'history.emptyLearningHint' },
+    mastered: { icon: '✨', titleId: 'history.emptyMasteredTitle', hintId: 'history.emptyMasteredHint' },
+    skipped: { icon: '🙈', titleId: 'history.emptySkippedTitle', hintId: 'history.emptySkippedHint' },
   };
   // Day groups, minus the trailing one while more pages are coming: the last
   // group of a page is usually half a day, and its header would claim "12
@@ -402,10 +421,10 @@ export function HistoryPage() {
   const only = checked.size === 1 ? [...checked][0] : null;
   const emptyCopy =
     checked.size === 0
-      ? { icon: '☝️', title: 'No lists selected', hint: 'Check one or more lists above to see their words.' }
+      ? { icon: '☝️', titleId: 'history.emptyNoneSelectedTitle', hintId: 'history.emptyNoneSelectedHint' }
       : only
       ? emptyCopyByBucket[only]
-      : { icon: '🕑', title: 'Nothing here yet', hint: 'The lists you checked don’t have any words yet.' };
+      : { icon: '🕑', titleId: 'history.emptyTitle', hintId: 'history.emptyMixedHint' };
 
   return (
     <div className="max-w-page mx-auto px-4 py-8">
@@ -423,13 +442,13 @@ export function HistoryPage() {
       {initialLoading ? (
         <div className="py-16 flex items-center justify-center gap-2 text-sm text-text-muted">
           <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-          Loading your words…
+          <FormattedMessage id="history.loadingWords" />
         </div>
       ) : list.length === 0 ? (
         <div className="py-16 px-6 text-center rounded-2xl border-2 border-dashed border-border">
           <div className="text-4xl mb-4">{emptyCopy.icon}</div>
-          <h2 className="text-xl font-display font-bold text-text-primary mb-2">{emptyCopy.title}</h2>
-          <p className="text-sm text-text-muted max-w-sm mx-auto">{emptyCopy.hint}</p>
+          <h2 className="text-xl font-display font-bold text-text-primary mb-2"><FormattedMessage id={emptyCopy.titleId} /></h2>
+          <p className="text-sm text-text-muted max-w-sm mx-auto"><FormattedMessage id={emptyCopy.hintId} /></p>
         </div>
       ) : (
         <>
@@ -438,11 +457,11 @@ export function HistoryPage() {
           {gameWords.length >= 2 && (
             <section className="mb-7">
               <h2 className="mb-2 px-1 text-xs font-bold text-text-muted uppercase tracking-wider">
-                Practice these words
+                <FormattedMessage id="history.practiceTheseWords" />
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
                 <button onClick={openQuiz} className={tileClass('cyan')}>
-                  <TileBody icon="lucide:play" label="Quiz" hint="Test yourself" color="cyan" />
+                  <TileBody icon="lucide:play" label={intl.formatMessage({ id: 'history.toolQuiz' })} hint={intl.formatMessage({ id: 'history.toolQuizHint' })} color="cyan" />
                 </button>
                 {/* Pro: Story Gaps writes a fresh AI story every round (always a
                     generative call), so it's gated like the interactive Mind Map.
@@ -450,19 +469,19 @@ export function HistoryPage() {
                 <button
                   onClick={() => {
                     if (!isPro) {
-                      toast('Story Gaps is a Pro feature.', { icon: '👑' });
+                      toast(intl.formatMessage({ id: 'history.proFeature' }, { feature: intl.formatMessage({ id: 'history.toolStoryGaps' }) }), { icon: '👑' });
                       return;
                     }
                     setMode('paragraph');
                   }}
                   title={
                     isPro
-                      ? 'Fill these words into an AI-written short story'
-                      : 'Pro feature — an AI-written story that uses your words'
+                      ? intl.formatMessage({ id: 'history.toolStoryGapsTitle' })
+                      : intl.formatMessage({ id: 'history.toolStoryGapsTitleLocked' })
                   }
                   className={tileClass('green')}
                 >
-                  <TileBody icon={isPro ? 'lucide:book-open' : 'lucide:lock'} label="Story Gaps" hint="Fill an AI story" color="green" pro />
+                  <TileBody icon={isPro ? 'lucide:book-open' : 'lucide:lock'} label={intl.formatMessage({ id: 'history.toolStoryGaps' })} hint={intl.formatMessage({ id: 'history.toolStoryGapsHint' })} color="green" pro />
                 </button>
                 {/* Pro: an AI dialogue script that weaves in these words, stored
                     so replaying it later costs nothing — only "Generate" here
@@ -470,19 +489,19 @@ export function HistoryPage() {
                 <button
                   onClick={() => {
                     if (!isPro) {
-                      toast('Speaking is a Pro feature.', { icon: '👑' });
+                      toast(intl.formatMessage({ id: 'history.proFeature' }, { feature: intl.formatMessage({ id: 'history.toolSpeaking' }) }), { icon: '👑' });
                       return;
                     }
                     setMode('speaking');
                   }}
                   title={
                     isPro
-                      ? 'An AI conversation built from these words'
-                      : 'Pro feature — an AI conversation built from these words'
+                      ? intl.formatMessage({ id: 'history.toolSpeakingTitle' })
+                      : intl.formatMessage({ id: 'history.toolSpeakingTitleLocked' })
                   }
                   className={tileClass('orange')}
                 >
-                  <TileBody icon={isPro ? 'lucide:message-circle' : 'lucide:lock'} label="Speaking" hint="Talk them through" color="orange" pro />
+                  <TileBody icon={isPro ? 'lucide:message-circle' : 'lucide:lock'} label={intl.formatMessage({ id: 'history.toolSpeaking' })} hint={intl.formatMessage({ id: 'history.toolSpeakingHint' })} color="orange" pro />
                 </button>
                 {/* One entry point, two ways to get a map: the Pro interactive
                     board in-app, or a hand-drawn picture from ChatGPT. */}
@@ -492,7 +511,7 @@ export function HistoryPage() {
                   onOpenInteractive={() => setMode('mindmap')}
                   className={tileClass('yellow')}
                 >
-                  <TileBody icon="lucide:git-fork" label="Mind Map" hint="See how they connect" color="yellow" />
+                  <TileBody icon="lucide:git-fork" label={intl.formatMessage({ id: 'history.toolMindMap' })} hint={intl.formatMessage({ id: 'history.toolMindMapHint' })} color="yellow" />
                 </MindMapButton>
               </div>
             </section>
@@ -503,9 +522,9 @@ export function HistoryPage() {
           <section key={group.key}>
             {/* Day header with count so users see how many they learned that day */}
             <div className="flex items-center gap-2 mb-2 px-1">
-              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider">{groupLabel(group.key)}</h3>
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider">{groupLabel(intl, group.key)}</h3>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan">
-                {group.items.length} word{group.items.length === 1 ? '' : 's'}
+                <FormattedMessage id="history.wordCount" values={{ count: group.items.length }} />
               </span>
             </div>
             {/* One card per day; rows are divided rather than boxed so a long
@@ -534,7 +553,7 @@ export function HistoryPage() {
               <div className="flex items-center gap-3 px-4 py-3">
                 <span
                   className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center ${b.chip}`}
-                  title={`${b.label} — ${b.hint}`}
+                  title={`${intl.formatMessage({ id: b.labelId })} — ${intl.formatMessage({ id: b.hintId })}`}
                 >
                   <Icon icon={b.icon} className="text-base" />
                 </span>
@@ -545,7 +564,7 @@ export function HistoryPage() {
                       to={`/?word=${encodeURIComponent(word)}`}
                       onClick={(e) => e.stopPropagation()}
                       className="font-display font-extrabold text-base text-text-primary hover:text-accent-cyan hover:underline transition-colors truncate"
-                      title={`Open "${word}"`}
+                      title={intl.formatMessage({ id: 'history.openWord' }, { word })}
                     >
                       {word}
                     </Link>
@@ -557,13 +576,13 @@ export function HistoryPage() {
                   </div>
                   {/* Why this word is where it is: its review history at a glance. */}
                   <div className="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 min-w-0">
-                    <span className={`shrink-0 font-bold ${b.text}`}>{b.label}</span>
+                    <span className={`shrink-0 font-bold ${b.text}`}><FormattedMessage id={b.labelId} /></span>
                     <span aria-hidden>·</span>
                     <span className="truncate">{whyLine(item)}</span>
                     <span aria-hidden className="hidden sm:inline">·</span>
-                    <span className={`hidden sm:inline shrink-0 font-bold ${LEVEL_COLOR[level]}`}>{level}</span>
+                    <span className={`hidden sm:inline shrink-0 font-bold ${LEVEL_COLOR[level]}`}>{levelLabel(intl, level)}</span>
                     {views > 0 && (
-                      <span className="hidden sm:flex shrink-0 items-center gap-0.5" title={`Seen ${views} time${views === 1 ? '' : 's'}`}>
+                      <span className="hidden sm:flex shrink-0 items-center gap-0.5" title={intl.formatMessage({ id: 'history.seenTimes' }, { count: views })}>
                         <span aria-hidden>·</span>
                         <Icon icon="lucide:eye" className="text-xs" />
                         {views}
@@ -575,7 +594,7 @@ export function HistoryPage() {
                 {/* Speak button */}
                 <button
                   onClick={(e) => handleSpeak(e, word)}
-                  aria-label={isSpeaking ? `Stop reading "${word}"` : `Read "${word}" aloud`}
+                  aria-label={intl.formatMessage({ id: isSpeaking ? 'history.stopReading' : 'history.readAloud' }, { word })}
                   className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
                     isSpeaking
                       ? 'bg-accent-cyan/15 text-accent-cyan'
@@ -590,9 +609,11 @@ export function HistoryPage() {
                   onClick={(e) => handleRemove(e, word, item)}
                   className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors"
                   title={
-                    checked.size === 1 && checked.has('saved') ? 'Remove from saved'
-                    : item.status === 'dismissed' && !checked.has('recent') ? 'Show this word again'
-                    : 'Remove from history'
+                    intl.formatMessage({
+                      id: checked.size === 1 && checked.has('saved') ? 'history.removeFromSaved'
+                        : item.status === 'dismissed' && !checked.has('recent') ? 'history.showAgain'
+                        : 'history.removeFromHistory',
+                    })
                   }
                 >
                   <Icon icon="lucide:x" className="text-base" />
@@ -630,12 +651,12 @@ export function HistoryPage() {
           {loading ? (
             <>
               <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-              Loading…
+              <FormattedMessage id="history.loading" />
             </>
           ) : (
             <>
               <Icon icon="lucide:chevron-down" />
-              Load more
+              <FormattedMessage id="history.loadMore" />
             </>
           )}
         </button>

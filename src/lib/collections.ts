@@ -10,6 +10,7 @@ import type { VocabularyWord } from '../types';
 import { WORD_LIST } from './wordService';
 import { CEFR_WORDS, type CefrLevel } from '../data/cefrWords';
 import { TOPIC_COLLECTIONS } from '../data/topicWords';
+import { t } from '../i18n';
 
 type W = { word: string; level: VocabularyWord['level'] };
 
@@ -48,13 +49,13 @@ function appLevel(cefr: CefrLevel): VocabularyWord['level'] {
   return 'advanced';
 }
 
-const CEFR_META: { level: CefrLevel; name: string; description: string }[] = [
-  { level: 1, name: 'Level 1', description: 'CEFR A1 · beginner essentials' },
-  { level: 2, name: 'Level 2', description: 'CEFR A2 · elementary' },
-  { level: 3, name: 'Level 3', description: 'CEFR B1 · intermediate' },
-  { level: 4, name: 'Level 4', description: 'CEFR B2 · upper-intermediate' },
-  { level: 5, name: 'Level 5', description: 'CEFR C1 · advanced' },
-  { level: 6, name: 'Level 6', description: 'CEFR C2 · proficiency' },
+const CEFR_META: { level: CefrLevel; descriptionId: string }[] = [
+  { level: 1, descriptionId: 'collections.level1Desc' },
+  { level: 2, descriptionId: 'collections.level2Desc' },
+  { level: 3, descriptionId: 'collections.level3Desc' },
+  { level: 4, descriptionId: 'collections.level4Desc' },
+  { level: 5, descriptionId: 'collections.level5Desc' },
+  { level: 6, descriptionId: 'collections.level6Desc' },
 ];
 
 // Built lazily on first access. `collections.ts` sits in an import cycle with
@@ -67,12 +68,21 @@ export function getCollections(): Collection[] {
   // A topic word takes its CEFR band when it has one; the few that don't
   // (e.g. "hoodie", "heatwave") default to intermediate.
   const cefrByWord = new Map(CEFR_WORDS.map((w) => [w.word, w.level]));
+  // Names and descriptions of the built-ins are UI text, so they're getters:
+  // the list is cached for the session, but each read is in today's language.
   cache = [
-    { id: 'curated', name: 'Curated', description: 'Hand-picked vocabulary words', system: true, kind: 'level', words: WORD_LIST },
+    {
+      id: 'curated',
+      get name() { return t('collections.curatedName'); },
+      get description() { return t('collections.curatedDesc'); },
+      system: true,
+      kind: 'level',
+      words: WORD_LIST,
+    },
     ...CEFR_META.map((m): Collection => ({
       id: `level-${m.level}`,
-      name: m.name,
-      description: m.description,
+      get name() { return t('collections.levelName', { level: m.level }); },
+      get description() { return t(m.descriptionId); },
       system: true,
       kind: 'level',
       words: CEFR_WORDS.filter((w) => w.level === m.level).map((w) => ({ word: w.word, level: appLevel(w.level) })),

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useEnglishChat, ENGLISH_TOPICS, topicLabel, type TopicId, type PracticeMode } from '../hooks/useEnglishChat';
 import { useEnglishConversations, type EnglishConversation } from '../hooks/useEnglishConversations';
 import { useLearnings, type LearningCategory } from '../hooks/useLearnings';
@@ -62,6 +63,7 @@ type SetupStep = 'mode' | 'topic';
 type DrawerTab = 'chat' | 'learnings';
 
 export function EnglishPractice() {
+  const intl = useIntl();
   const { panel, closePanel, practiceSeed, clearPracticeSeed } = useFabStore();
   const { user } = useAuth();
   const { isPro, loading: proLoading } = useIsPro();
@@ -123,17 +125,21 @@ export function EnglishPractice() {
         updateConversation(activeConvId, messages);
       } else {
         const label = topicLabel(currentTopic, context);
-        const modeLabel = mode === 'smooth' ? 'Smooth' : 'Feedback';
+        const modeLabel = intl.formatMessage({ id: mode === 'smooth' ? 'practice.modeShortSmooth' : 'practice.modeShortFeedback' });
+        const now = new Date();
         const conv = saveConversation(
           currentTopic, mode, messages,
-          `${label} (${modeLabel}) — ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          intl.formatMessage({ id: 'practice.conversationTitle' }, {
+            label, mode: modeLabel,
+            date: intl.formatDate(now), time: intl.formatTime(now, { hour: '2-digit', minute: '2-digit' }),
+          }),
           context,
         );
         setActiveConvId(conv.id);
       }
     }
     prevMessageCountRef.current = messages.length;
-  }, [messages, isLoading, activeConvId, currentTopic, mode, context, saveConversation, updateConversation]);
+  }, [messages, isLoading, activeConvId, currentTopic, mode, context, saveConversation, updateConversation, intl]);
 
   // A session requested from the /speaking page — start it straight away.
   // Without a signed-in user the setup screen takes over and prompts to sign in.
@@ -439,15 +445,15 @@ export function EnglishPractice() {
     if (setupStep === 'mode') {
       return (
         <div className="p-5">
-          <p className="text-base text-text-secondary mb-1">How would you like to practice?</p>
-          <p className="text-sm text-text-muted mb-5">Choose your conversation style.</p>
+          <p className="text-base text-text-secondary mb-1"><FormattedMessage id="practice.howToPractice" /></p>
+          <p className="text-sm text-text-muted mb-5"><FormattedMessage id="practice.chooseStyle" /></p>
           {!user ? (
             <div className="mb-4 p-3 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-sm text-accent-yellow">
-              Sign in to start practicing — conversations are powered by AI on our server.
+              <FormattedMessage id="practice.signInToStart" />
             </div>
           ) : !isPro && !proLoading ? (
             <div className="mb-4 p-3 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-sm text-accent-yellow">
-              👑 Conversation practice is a Pro feature — every reply is a live AI call.
+              👑 <FormattedMessage id="practice.proRequired" />
             </div>
           ) : null}
           <div className="grid gap-3">
@@ -463,11 +469,11 @@ export function EnglishPractice() {
                   </svg>
                 </span>
                 <span className="text-base font-semibold text-text-primary group-hover:text-accent-green transition-colors">
-                  Smooth Conversation
+                  <FormattedMessage id="practice.modeSmooth" />
                 </span>
               </div>
               <p className="text-sm text-text-muted leading-relaxed">
-                Natural flowing chat — no interruptions. Get a full feedback summary at the end.
+                <FormattedMessage id="practice.modeSmoothLongDesc" />
               </p>
             </button>
             <button
@@ -483,11 +489,11 @@ export function EnglishPractice() {
                   </svg>
                 </span>
                 <span className="text-base font-semibold text-text-primary group-hover:text-accent-purple transition-colors">
-                  Feedback on Every Message
+                  <FormattedMessage id="practice.modeFeedbackLong" />
                 </span>
               </div>
               <p className="text-sm text-text-muted leading-relaxed">
-                Instant corrections after each response — grammar, vocabulary, and rephrasing tips.
+                <FormattedMessage id="practice.modeFeedbackLongDesc" />
               </p>
             </button>
           </div>
@@ -500,6 +506,7 @@ export function EnglishPractice() {
         <div className="flex items-center gap-2 mb-4">
           <button
             onClick={() => setSetupStep('mode')}
+            aria-label={intl.formatMessage({ id: 'practice.back' })}
             className="p-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer rounded"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -507,9 +514,9 @@ export function EnglishPractice() {
             </svg>
           </button>
           <div>
-            <p className="text-base text-text-secondary">Pick a topic</p>
+            <p className="text-base text-text-secondary"><FormattedMessage id="practice.pickTopic" /></p>
             <p className="text-xs text-text-muted">
-              {selectedMode === 'smooth' ? 'Smooth Conversation' : 'Feedback on Every Message'}
+              <FormattedMessage id={selectedMode === 'smooth' ? 'practice.modeSmooth' : 'practice.modeFeedbackLong'} />
             </p>
           </div>
         </div>
@@ -522,9 +529,9 @@ export function EnglishPractice() {
               className="w-full text-left px-4 py-3 rounded-lg border border-border bg-bg-card hover:border-accent-green/40 hover:bg-accent-green/5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed group"
             >
               <span className="text-[15px] font-medium text-text-primary group-hover:text-accent-green transition-colors">
-                {topic.label}
+                <FormattedMessage id={topic.labelId} />
               </span>
-              <span className="text-sm text-text-muted block mt-0.5">{topic.desc}</span>
+              <span className="text-sm text-text-muted block mt-0.5"><FormattedMessage id={topic.descId} /></span>
             </button>
           ))}
         </div>
@@ -537,9 +544,12 @@ export function EnglishPractice() {
     <div className="p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-base font-semibold text-text-primary">My Learnings</p>
+          <p className="text-base font-semibold text-text-primary"><FormattedMessage id="practice.myLearnings" /></p>
           <p className="text-sm text-text-muted">
-            {learnings.length} items{!showAllLearnings && activeConvId ? ' from this conversation' : ' from all conversations'}
+            <FormattedMessage
+              id={!showAllLearnings && activeConvId ? 'practice.itemsThisConversation' : 'practice.itemsAllConversations'}
+              values={{ count: learnings.length }}
+            />
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -549,19 +559,19 @@ export function EnglishPractice() {
                 onClick={() => setShowAllLearnings(false)}
                 className={`text-xs px-2.5 py-1 transition-colors cursor-pointer ${!showAllLearnings ? 'bg-accent-purple/10 text-accent-purple' : 'text-text-muted hover:text-text-secondary'}`}
               >
-                This conv
+                <FormattedMessage id="practice.thisConv" />
               </button>
               <button
                 onClick={() => setShowAllLearnings(true)}
                 className={`text-xs px-2.5 py-1 transition-colors cursor-pointer ${showAllLearnings ? 'bg-accent-purple/10 text-accent-purple' : 'text-text-muted hover:text-text-secondary'}`}
               >
-                All
+                <FormattedMessage id="practice.all" />
               </button>
             </div>
           )}
           {learnings.length > 0 && (
             <button onClick={clearLearnings} className="text-xs text-text-muted hover:text-accent-red transition-colors cursor-pointer">
-              Clear all
+              <FormattedMessage id="practice.clearAll" />
             </button>
           )}
         </div>
@@ -584,7 +594,7 @@ export function EnglishPractice() {
                   : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
               }`}
             >
-              {cat === 'all' ? 'All' : `${config!.icon} ${config!.label}`}
+              {cat === 'all' ? intl.formatMessage({ id: 'practice.all' }) : `${config!.icon} ${intl.formatMessage({ id: config!.labelId })}`}
               <span className="ml-1 opacity-60">{count}</span>
             </button>
           );
@@ -593,8 +603,8 @@ export function EnglishPractice() {
 
       {filteredLearnings.length === 0 ? (
         <div className="text-center py-12 text-text-muted">
-          <p className="text-sm mb-1">No learnings yet</p>
-          <p className="text-xs">Start a conversation with Feedback mode — corrections appear here automatically.</p>
+          <p className="text-sm mb-1"><FormattedMessage id="practice.noLearnings" /></p>
+          <p className="text-xs"><FormattedMessage id="practice.noLearningsHint" /></p>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -604,10 +614,11 @@ export function EnglishPractice() {
               <div key={item.id} className={`rounded-lg border ${config.border} ${config.bg} p-3.5 group`}>
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <span className={`text-xs font-semibold ${config.color} flex items-center gap-1.5`}>
-                    {config.icon} {config.label}
+                    {config.icon} <FormattedMessage id={config.labelId} />
                   </span>
                   <button
                     onClick={() => removeLearning(item.id)}
+                    aria-label={intl.formatMessage({ id: 'practice.remove' })}
                     className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-accent-red transition-all cursor-pointer p-0.5"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -651,12 +662,12 @@ export function EnglishPractice() {
           <div className="flex items-center gap-2">
             <span className="w-8 h-8 rounded-md bg-accent-green/20 text-accent-green flex items-center justify-center text-sm font-bold">EN</span>
             <div>
-              <h2 className="text-base font-display font-bold text-text-primary">English Practice</h2>
+              <h2 className="text-base font-display font-bold text-text-primary"><FormattedMessage id="practice.title" /></h2>
               {currentTopic && (
                 <span className="text-xs text-text-muted">
                   {topicLabel(currentTopic, context)}
-                  {' · '}{mode === 'smooth' ? 'Smooth' : 'Feedback'}
-                  {activeConvId && ' · saved'}
+                  {' · '}<FormattedMessage id={mode === 'smooth' ? 'practice.modeShortSmooth' : 'practice.modeShortFeedback'} />
+                  {activeConvId && <>{' · '}<FormattedMessage id="practice.saved" /></>}
                 </span>
               )}
             </div>
@@ -668,13 +679,13 @@ export function EnglishPractice() {
                   onClick={() => setAutoRead(!autoRead)}
                   className={`text-xs px-2 py-1 rounded transition-colors cursor-pointer ${autoRead ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-muted hover:text-accent-cyan'}`}
                 >
-                  {autoRead ? 'Auto-read on' : 'Auto-read'}
+                  <FormattedMessage id={autoRead ? 'practice.autoReadOn' : 'practice.autoRead'} />
                 </button>
                 <button
                   onClick={handleNewConversation}
                   className="text-xs px-2 py-1 rounded text-text-muted hover:text-accent-green transition-colors cursor-pointer"
                 >
-                  New
+                  <FormattedMessage id="practice.new" />
                 </button>
               </>
             )}
@@ -683,13 +694,13 @@ export function EnglishPractice() {
                 onClick={() => setShowHistory(!showHistory)}
                 className={`text-xs px-2 py-1 rounded transition-colors cursor-pointer ${showHistory ? 'bg-accent-purple/10 text-accent-purple' : 'text-text-muted hover:text-accent-purple'}`}
               >
-                History ({conversations.length})
+                <FormattedMessage id="practice.history" values={{ count: conversations.length }} />
               </button>
             )}
             <button
               onClick={() => setMaximized(!maximized)}
               className="hidden sm:flex p-1.5 text-text-muted hover:text-text-primary transition-colors cursor-pointer rounded"
-              title={maximized ? 'Restore size' : 'Maximize'}
+              title={intl.formatMessage({ id: maximized ? 'practice.restoreSize' : 'practice.maximize' })}
             >
               {maximized ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -703,6 +714,7 @@ export function EnglishPractice() {
             </button>
             <button
               onClick={() => { stopSpeaking(); closePanel(); }}
+              aria-label={intl.formatMessage({ id: 'practice.close' })}
               className="p-1.5 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -719,13 +731,13 @@ export function EnglishPractice() {
               onClick={() => setActiveTab('chat')}
               className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${activeTab === 'chat' ? 'text-accent-green border-b-2 border-accent-green' : 'text-text-muted hover:text-text-secondary'}`}
             >
-              Chat
+              <FormattedMessage id="practice.chat" />
             </button>
             <button
               onClick={() => setActiveTab('learnings')}
               className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${activeTab === 'learnings' ? 'text-accent-purple border-b-2 border-accent-purple' : 'text-text-muted hover:text-text-secondary'}`}
             >
-              My Learnings
+              <FormattedMessage id="practice.myLearnings" />
               {allLearnings.length > 0 && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'learnings' ? 'bg-accent-purple/20 text-accent-purple' : 'bg-bg-tertiary text-text-muted'}`}>
                   {learnings.length}
@@ -746,10 +758,11 @@ export function EnglishPractice() {
                 >
                   <button onClick={() => handleLoadConversation(conv)} className="flex-1 text-left cursor-pointer min-w-0">
                     <div className="text-sm text-text-primary truncate">{conv.title}</div>
-                    <div className="text-xs text-text-muted mt-0.5">{conv.messages.length} messages</div>
+                    <div className="text-xs text-text-muted mt-0.5"><FormattedMessage id="practice.messageCount" values={{ count: conv.messages.length }} /></div>
                   </button>
                   <button
                     onClick={() => handleDeleteConversation(conv.id)}
+                    aria-label={intl.formatMessage({ id: 'practice.deleteConversation' })}
                     className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-accent-red transition-all cursor-pointer p-1 shrink-0"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -768,7 +781,7 @@ export function EnglishPractice() {
             <div className={`p-5 space-y-4 ${maximized ? 'max-w-3xl mx-auto' : ''}`}>
               {context?.focus && (
                 <div className="rounded-lg border border-accent-cyan/20 bg-accent-cyan/5 px-4 py-2.5">
-                  <p className="text-[11px] font-semibold text-accent-cyan mb-0.5">Practising this prompt</p>
+                  <p className="text-[11px] font-semibold text-accent-cyan mb-0.5"><FormattedMessage id="practice.practisingPrompt" /></p>
                   <p className="text-sm text-text-secondary leading-relaxed">{context.focus}</p>
                 </div>
               )}
@@ -806,7 +819,7 @@ export function EnglishPractice() {
                               ) : (
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>
                               )}
-                              {playingVoice === i ? 'Stop' : 'My voice'}
+                              <FormattedMessage id={playingVoice === i ? 'practice.stop' : 'practice.myVoice'} />
                             </button>
                           </div>
                         )}
@@ -839,13 +852,13 @@ export function EnglishPractice() {
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
                     </svg>
-                    <span className="text-sm font-medium text-accent-purple">Feedback Summary</span>
+                    <span className="text-sm font-medium text-accent-purple"><FormattedMessage id="practice.feedbackSummary" /></span>
                   </div>
                   <div className="p-4">
                     {isSummarizing ? (
                       <div className="flex items-center gap-2 text-text-muted text-sm py-3">
                         <span className="w-4 h-4 border-2 border-accent-purple/30 border-t-accent-purple rounded-full animate-spin" />
-                        Analyzing your conversation...
+                        <FormattedMessage id="practice.analyzing" />
                       </div>
                     ) : summaryText ? (
                       <div>{renderMarkdown(summaryText)}</div>
@@ -868,7 +881,7 @@ export function EnglishPractice() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-red opacity-75" />
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent-red" />
                 </span>
-                <span className="text-sm text-accent-red font-medium">Recording...</span>
+                <span className="text-sm text-accent-red font-medium"><FormattedMessage id="practice.recording" /></span>
                 {recordingText && <span className="text-sm text-text-muted italic truncate">{recordingText}</span>}
               </div>
             )}
@@ -877,8 +890,8 @@ export function EnglishPractice() {
                 <span className="w-4 h-4 border-2 border-accent-cyan/30 border-t-accent-cyan rounded-full animate-spin" />
                 <span className="text-sm text-accent-cyan font-medium">
                   {whisperProgress != null && whisperProgress < 100
-                    ? `Loading Whisper... ${Math.round(whisperProgress)}%`
-                    : 'Transcribing...'}
+                    ? intl.formatMessage({ id: 'practice.loadingWhisper' }, { progress: whisperProgress / 100 })
+                    : intl.formatMessage({ id: 'practice.transcribing' })}
                 </span>
               </div>
             )}
@@ -888,7 +901,7 @@ export function EnglishPractice() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isTranscribing ? 'Transcribing...' : isRecording ? 'Listening...' : 'Type or use mic to speak...'}
+                placeholder={intl.formatMessage({ id: isTranscribing ? 'practice.transcribing' : isRecording ? 'practice.listening' : 'practice.inputPlaceholder' })}
                 rows={1}
                 disabled={isLoading || isTranscribing}
                 className="flex-1 bg-bg-primary border border-border rounded-lg px-3 py-2 text-sm text-text-primary resize-none focus:outline-none focus:border-accent-green/50 placeholder:text-text-muted disabled:opacity-50 max-h-[200px] min-h-[2.5rem]"
@@ -901,7 +914,7 @@ export function EnglishPractice() {
                     ? 'bg-accent-red/10 text-accent-red border border-accent-red/30 hover:bg-accent-red/20'
                     : 'bg-bg-tertiary text-text-muted border border-border hover:text-accent-green hover:border-accent-green/30'
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
-                title={isRecording ? 'Stop recording' : 'Voice input'}
+                title={intl.formatMessage({ id: isRecording ? 'practice.stopRecording' : 'practice.voiceInput' })}
               >
                 {isRecording ? (
                   <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1" /></svg>
@@ -919,7 +932,7 @@ export function EnglishPractice() {
                 disabled={!input.trim() || isLoading}
                 className="bg-accent-green text-bg-primary font-medium rounded-lg px-4 py-2 text-sm hover:bg-accent-green/90 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               >
-                Send
+                <FormattedMessage id="practice.send" />
               </button>
             </div>
             {userMessageCount >= 1 && (
@@ -936,12 +949,12 @@ export function EnglishPractice() {
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <polyline points="14 2 14 8 20 8" />
                 </svg>
-                {mode === 'smooth' ? 'Get feedback & corrections' : 'Summarize all feedback'}
+                <FormattedMessage id={mode === 'smooth' ? 'practice.getFeedback' : 'practice.summarizeFeedback'} />
               </button>
             )}
             <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-text-muted">Enter to send · Shift+Enter new line · Mic for voice</span>
-              <span className="text-xs text-text-muted">Powered by AI</span>
+              <span className="text-xs text-text-muted"><FormattedMessage id="practice.inputHint" /></span>
+              <span className="text-xs text-text-muted"><FormattedMessage id="practice.poweredByAi" /></span>
             </div>
           </div>
         )}

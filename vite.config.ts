@@ -60,7 +60,10 @@ export default defineConfig(() => ({
         // of the precache to keep install small and preserve lazy loading.
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         globIgnores: ['**/kokoro*', '**/transformers*', '**/ort*', '**/piper*', '**/voices_static*', '**/ttsWorker*'],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        // The main bundle must fit, or the app shell isn't available offline.
+        // It's ~3.1 MB (mostly src/data/* learning content, plus the English
+        // i18n catalog); splitting that data out is what would bring it down.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
     }),
   ],

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { FormattedMessage } from 'react-intl';
 import { ImproveWritingPage } from './ImproveWritingPage';
 import { IeltsWritingPage } from './IeltsWritingPage';
 
@@ -8,9 +9,9 @@ type Tab = 'improve' | 'ielts';
 // Sub-page metadata — just enough to resolve the `:tab` path segment and
 // label the breadcrumb. The Rail drawer owns each one's icon/color for
 // navigation.
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'improve', label: 'Improve Writing' },
-  { key: 'ielts', label: 'IELTS Writing' },
+const TABS: { key: Tab; labelId: string }[] = [
+  { key: 'improve', labelId: 'writing.tabImprove' },
+  { key: 'ielts', labelId: 'writing.tabIelts' },
 ];
 
 const DEFAULT_TAB: Tab = 'improve';
@@ -53,10 +54,10 @@ export function WritingPage() {
     <div className="mx-auto max-w-page px-4 py-8">
       <h1 className="flex items-center gap-1.5 mb-6 text-base">
         <Link to={`/writing/${DEFAULT_TAB}`} className="font-medium text-text-muted hover:text-text-secondary transition-colors">
-          Writing
+          <FormattedMessage id="writing.title" />
         </Link>
         <span className="text-text-muted/50">/</span>
-        <span className="font-bold text-text-primary">{activeMeta.label}</span>
+        <span className="font-bold text-text-primary"><FormattedMessage id={activeMeta.labelId} /></span>
       </h1>
 
       {activeTab === 'improve' && <ImproveWritingPage />}

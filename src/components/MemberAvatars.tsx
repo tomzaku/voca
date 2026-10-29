@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { fetchMembers, type MemberProgress } from '../lib/collectionsApi';
 
 /** One member avatar wrapped in a conic progress ring; hover shows name + %. */
 export function MemberRing({ m, size = 'w-9 h-9' }: { m: MemberProgress; size?: string }) {
+  const intl = useIntl();
   const pct = m.total > 0 ? Math.round((m.done / m.total) * 100) : 0;
-  const name = m.displayName || 'Learner';
+  const name = m.displayName || intl.formatMessage({ id: 'collections.learner' });
   const deg = pct * 3.6;
   return (
     <div
@@ -40,6 +42,7 @@ export function MemberAvatars({ collectionId, name, openSignal = 0 }: {
   /** Bump to open the full members modal from outside (e.g. a ⋯ menu item). */
   openSignal?: number;
 }) {
+  const intl = useIntl();
   const [members, setMembers] = useState<MemberProgress[]>([]);
   const [showAll, setShowAll] = useState(false);
 
@@ -75,11 +78,11 @@ export function MemberAvatars({ collectionId, name, openSignal = 0 }: {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-2 mb-4">
-              <h3 className="font-display font-bold text-text-primary truncate">Members — {name}</h3>
+              <h3 className="font-display font-bold text-text-primary truncate"><FormattedMessage id="collections.membersTitle" values={{ name }} /></h3>
               <button
                 onClick={() => setShowAll(false)}
                 className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary"
-                title="Close"
+                title={intl.formatMessage({ id: 'collections.close' })}
               >
                 <Icon icon="lucide:x" />
               </button>
@@ -91,7 +94,7 @@ export function MemberAvatars({ collectionId, name, openSignal = 0 }: {
                   <li key={m.userId} className="flex items-center gap-3">
                     <MemberRing m={m} size="w-10 h-10" />
                     <span className="flex-1 min-w-0 text-sm font-bold text-text-primary truncate">
-                      {m.displayName || 'Learner'}
+                      {m.displayName || intl.formatMessage({ id: 'collections.learner' })}
                     </span>
                     <span className={`text-xs font-extrabold shrink-0 ${pct >= 100 ? 'text-accent-green' : 'text-text-muted'}`}>
                       {pct}%

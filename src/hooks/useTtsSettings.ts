@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { create } from 'zustand';
 
 export type TtsEngine = 'kokoro' | 'piper' | 'native';
 
@@ -96,43 +96,47 @@ function getStoredSpeed(): number {
   return 1;
 }
 
-export function useTtsSettings() {
-  const [engine, setEngineState] = useState<TtsEngine>(getStoredEngine);
-  const [voice, setVoiceState] = useState<string>(getStoredVoice);
-  const [piperVoice, setPiperVoiceState] = useState<string>(getStoredPiperVoice);
-  const [speed, setSpeedState] = useState<number>(getStoredSpeed);
-
-  const setEngine = useCallback((e: TtsEngine) => {
-    setEngineState(e);
-    try { localStorage.setItem(ENGINE_KEY, e); } catch { /* ignore */ }
-  }, []);
-
-  const setVoice = useCallback((v: string) => {
-    setVoiceState(v);
-    try { localStorage.setItem(VOICE_KEY, v); } catch { /* ignore */ }
-  }, []);
-
-  const setPiperVoice = useCallback((v: string) => {
-    setPiperVoiceState(v);
-    try { localStorage.setItem(PIPER_VOICE_KEY, v); } catch { /* ignore */ }
-  }, []);
-
-  const setSpeed = useCallback((s: number) => {
-    setSpeedState(s);
-    try { localStorage.setItem(SPEED_KEY, String(s)); } catch { /* ignore */ }
-  }, []);
-
-  return { engine, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed };
+interface TtsSettingsState {
+  engine: TtsEngine;
+  voice: string;
+  piperVoice: string;
+  speed: number;
+  setEngine: (e: TtsEngine) => void;
+  setVoice: (v: string) => void;
+  setPiperVoice: (v: string) => void;
+  setSpeed: (s: number) => void;
 }
+
+// One store rather than per-component state: the header's quick picker and
+// the Settings page can both be on screen, and must agree on the voice.
+// localStorage stays the source tts.ts reads at speak time.
+export const useTtsSettings = create<TtsSettingsState>((set) => ({
+  engine: getStoredEngine(),
+  voice: getStoredVoice(),
+  piperVoice: getStoredPiperVoice(),
+  speed: getStoredSpeed(),
+  setEngine: (e) => {
+    try { localStorage.setItem(ENGINE_KEY, e); } catch { /* ignore */ }
+    set({ engine: e });
+  },
+  setVoice: (v) => {
+    try { localStorage.setItem(VOICE_KEY, v); } catch { /* ignore */ }
+    set({ voice: v });
+  },
+  setPiperVoice: (v) => {
+    try { localStorage.setItem(PIPER_VOICE_KEY, v); } catch { /* ignore */ }
+    set({ piperVoice: v });
+  },
+  setSpeed: (sp) => {
+    try { localStorage.setItem(SPEED_KEY, String(sp)); } catch { /* ignore */ }
+    set({ speed: sp });
+  },
+}));
 
 export function getTtsEngine(): TtsEngine { return getStoredEngine(); }
 export function getTtsVoice(): string { return getStoredVoice(); }
 
-export function setTtsEngine(e: TtsEngine): void {
-  try { localStorage.setItem(ENGINE_KEY, e); } catch { /* ignore */ }
-}
-export function setTtsVoice(v: string): void {
-  try { localStorage.setItem(VOICE_KEY, v); } catch { /* ignore */ }
-}
+export function setTtsEngine(e: TtsEngine): void { useTtsSettings.getState().setEngine(e); }
+export function setTtsVoice(v: string): void { useTtsSettings.getState().setVoice(v); }
 export function getPiperVoice(): string { return getStoredPiperVoice(); }
 export function getTtsSpeed(): number { return getStoredSpeed(); }

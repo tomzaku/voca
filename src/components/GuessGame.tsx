@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { getActiveWordList } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong, playSelect } from '../lib/sfx';
@@ -82,6 +83,7 @@ function ModePill({ g, active, onGameChange }: {
   active: boolean;
   onGameChange: (id: GuessGameMode) => void;
 }) {
+  const intl = useIntl();
   return (
     <button
       onClick={() => { playSelect(); onGameChange(g.id); }}
@@ -90,14 +92,14 @@ function ModePill({ g, active, onGameChange }: {
       }`}
     >
       <Icon icon={g.icon} className="text-base" />
-      <span>{g.label}</span>
+      <span>{intl.formatMessage({ id: g.labelId })}</span>
       {/* Hover/focus tooltip: what this mode does. Sits below the pill so the
           card's overflow-hidden top edge can't clip it. */}
       <span
         role="tooltip"
         className="pointer-events-none absolute left-0 top-full mt-1.5 z-30 w-max max-w-[220px] px-2.5 py-1.5 rounded-lg border border-border bg-bg-card text-left text-[11px] font-bold normal-case text-text-secondary shadow-xl opacity-0 translate-y-0.5 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-y-0"
       >
-        {g.description}
+        {intl.formatMessage({ id: g.descriptionId })}
       </span>
     </button>
   );
@@ -106,6 +108,7 @@ function ModePill({ g, active, onGameChange }: {
 export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, onMistake }: Props) {
   // Guess the learn-language headword when set (falls back to the English word).
   const word = wordData.headword || wordData.word;
+  const intl = useIntl();
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null);
   const [moreModes, setMoreModes] = useState(false);
   const { streak, win, lastGain, winId } = useGameScore();
@@ -176,9 +179,13 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
                 <CatMascot pose="correct" size={140} />
               </div>
               <p className="text-accent-green font-title font-black text-3xl">
-                {streak >= 3 ? `${streak}× COMBO!` : 'Correct!'}
+                {streak >= 3
+                  ? <FormattedMessage id="games.combo" values={{ count: streak }} />
+                  : <FormattedMessage id="games.correct" />}
               </p>
-              <p className="text-accent-cyan font-display font-extrabold text-base mt-1">+{lastGain} pts</p>
+              <p className="text-accent-cyan font-display font-extrabold text-base mt-1">
+                <FormattedMessage id="games.pointsGained" values={{ count: lastGain }} />
+              </p>
             </div>
           </div>
         </>
@@ -200,15 +207,18 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
             <Selector
               value={game}
               options={GUESS_GAMES.map((g) => ({
-                value: g.id, label: g.label, icon: g.icon, description: g.description,
+                value: g.id,
+                label: intl.formatMessage({ id: g.labelId }),
+                icon: g.icon,
+                description: intl.formatMessage({ id: g.descriptionId }),
               }))}
               onChange={(g) => { playSelect(); onGameChange(g); }}
-              ariaLabel="Game mode"
+              ariaLabel={intl.formatMessage({ id: 'games.gameMode' })}
             />
             {(game === 'smart' || game === 'random') && (
               <span className="flex items-center gap-1 text-[11px] font-bold text-text-muted shrink-0">
                 <Icon icon="lucide:arrow-right" />
-                {REAL_GUESS_GAMES.find((g) => g.id === activeGame)?.label}
+                {intl.formatMessage({ id: REAL_GUESS_GAMES.find((g) => g.id === activeGame)!.labelId })}
               </span>
             )}
           </div>
@@ -225,15 +235,15 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
               className="btn-3d flex items-center gap-1 px-3 py-1.5 text-xs bg-bg-tertiary text-text-secondary hover:text-text-primary"
             >
               <Icon icon={moreModes ? 'lucide:chevron-up' : 'lucide:ellipsis'} className="text-base" />
-              <span>{moreModes ? 'Less' : 'More'}</span>
+              <span><FormattedMessage id={moreModes ? 'games.less' : 'games.more'} /></span>
             </button>
             {game === 'smart' && (
               <span
                 className="self-center flex items-center gap-1 text-[11px] font-bold text-text-muted"
-                title="Smart mode picked this game from your history with this word"
+                title={intl.formatMessage({ id: 'games.smartPickedTitle' })}
               >
                 <Icon icon="lucide:arrow-right" />
-                {REAL_GUESS_GAMES.find((g) => g.id === activeGame)?.label}
+                {intl.formatMessage({ id: REAL_GUESS_GAMES.find((g) => g.id === activeGame)!.labelId })}
               </span>
             )}
           </div>
@@ -244,7 +254,7 @@ export function GuessGame({ wordData, game, onGameChange, onSolved, onGaveUp, on
                 {streak > 0 && <span className="animate-flame">🔥</span>}
                 {streak}
               </span>
-              <span className="text-[9px] text-text-muted uppercase tracking-wider">streak</span>
+              <span className="text-[9px] text-text-muted uppercase tracking-wider"><FormattedMessage id="games.streak" /></span>
               {result === 'correct' && (
                 <span key={winId} className="absolute -top-4 left-1/2 -translate-x-1/2 text-xs font-display font-bold text-accent-green animate-float-up whitespace-nowrap">
                   +{lastGain}
@@ -385,7 +395,7 @@ function LettersGame({ word, hint, disabled, onSolve, onGaveUp }: GameProps) {
           <Icon icon="lucide:languages" className="text-accent-cyan text-lg shrink-0" />
           <div className="min-w-0">
             <span className="block text-[10px] font-bold text-accent-cyan/70 uppercase tracking-wider">
-              Hint · {getMotherLanguage()}
+              <FormattedMessage id="games.hintLanguage" values={{ language: getMotherLanguage() }} />
             </span>
             <span className="text-sm font-bold text-accent-cyan">{hint}</span>
           </div>
@@ -400,7 +410,7 @@ function LettersGame({ word, hint, disabled, onSolve, onGaveUp }: GameProps) {
         onChange={setGuess}
         onSubmit={check}
       />
-      <p className="text-xs text-text-muted -mt-2">You get one guess — type the whole word.</p>
+      <p className="text-xs text-text-muted -mt-2"><FormattedMessage id="games.oneGuess" /></p>
     </>
   );
 }
@@ -409,6 +419,7 @@ function LettersGame({ word, hint, disabled, onSolve, onGaveUp }: GameProps) {
 interface Tile { char: string; id: number; }
 
 function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
+  const intl = useIntl();
   const tiles = useMemo<Tile[]>(() => {
     const base = word.split('').map((char, id) => ({ char, id }));
     let s = shuffle(base);
@@ -463,7 +474,7 @@ function ScrambleGame({ word, disabled, onSolve, onWrong }: GameProps) {
         {picked.length > 0 && !disabled && (
           <button
             onClick={() => setPicked((p) => p.slice(0, -1))}
-            title="Remove last letter"
+            title={intl.formatMessage({ id: 'games.removeLastLetter' })}
             className="ml-1 w-10 h-11 rounded-lg flex items-center justify-center border-2 border-border bg-bg-tertiary text-text-muted hover:text-accent-red hover:border-accent-red/40 transition-all active:scale-95"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -629,7 +640,7 @@ function HangmanGame({ word, disabled, onSolve, onWrong }: GameProps) {
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
           </svg>
         ))}
-        {dead && <span className="ml-2 text-xs text-accent-red font-medium">Out of lives — “Give up” to reveal</span>}
+        {dead && <span className="ml-2 text-xs text-accent-red font-medium"><FormattedMessage id="games.outOfLives" /></span>}
       </div>
 
       {/* Keyboard */}
@@ -661,6 +672,7 @@ function HangmanGame({ word, disabled, onSolve, onWrong }: GameProps) {
 
 // ─── Game 5 · Listen & spell ────────────────────────────────────────
 function ListenGame({ word, disabled, onSolve, onWrong }: GameProps) {
+  const intl = useIntl();
   const [guess, setGuess] = useState('');
   const [wrong, setWrong] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -704,7 +716,7 @@ function ListenGame({ word, disabled, onSolve, onWrong }: GameProps) {
               ? 'bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30'
               : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
           }`}
-          title="Hear the word again"
+          title={intl.formatMessage({ id: 'games.hearAgain' })}
         >
           {speaking ? (
             <svg width="20" height="20" viewBox="0 0 10 10" fill="currentColor">
@@ -717,8 +729,8 @@ function ListenGame({ word, disabled, onSolve, onWrong }: GameProps) {
           )}
         </button>
         <div>
-          <p className="text-sm text-text-primary font-medium">Listen and spell the word</p>
-          <p className="text-xs text-text-muted">{word.length} letters · tap to replay</p>
+          <p className="text-sm text-text-primary font-medium"><FormattedMessage id="games.listenAndSpell" /></p>
+          <p className="text-xs text-text-muted"><FormattedMessage id="games.lettersTapReplay" values={{ count: word.length }} /></p>
         </div>
       </div>
 
@@ -773,7 +785,7 @@ function VowelsGame({ word, disabled, onSolve, onWrong }: GameProps) {
           );
         })}
       </div>
-      <p className="text-xs text-text-muted -mt-2">Vowels (a, e, i, o, u) are hidden — type the full word.</p>
+      <p className="text-xs text-text-muted -mt-2"><FormattedMessage id="games.vowelsHidden" /></p>
 
       <GuessInput
         inputRef={inputRef}
@@ -798,6 +810,7 @@ interface GuessInputProps {
 }
 
 function GuessInput({ inputRef, value, wrong, disabled, onChange, onSubmit }: GuessInputProps) {
+  const intl = useIntl();
   return (
     <div className={`flex gap-2 transition-all ${wrong ? 'animate-shake' : ''}`}>
       <input
@@ -806,7 +819,7 @@ function GuessInput({ inputRef, value, wrong, disabled, onChange, onSubmit }: Gu
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
-        placeholder="Type your guess…"
+        placeholder={intl.formatMessage({ id: 'games.typeGuess' })}
         disabled={disabled}
         className={`flex-1 bg-bg-tertiary border-[3px] rounded-2xl px-4 py-3 text-text-primary text-base font-bold font-display focus:outline-none placeholder:text-text-muted placeholder:font-semibold transition-colors ${
           wrong ? 'border-accent-red bg-accent-red/10' : 'border-border focus:border-accent-cyan'
@@ -820,7 +833,7 @@ function GuessInput({ inputRef, value, wrong, disabled, onChange, onSubmit }: Gu
         disabled={!value.trim() || disabled}
         className="btn-3d px-5 py-3 bg-accent-green text-bg-primary text-base"
       >
-        Check ✓
+        <FormattedMessage id="games.check" /> ✓
       </button>
     </div>
   );

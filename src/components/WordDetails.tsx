@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { generateWordData } from '../lib/wordService';
 import type { VocabularyWord } from '../types';
 
@@ -13,12 +14,12 @@ export function WordDetails({ data }: { data: VocabularyWord }) {
     <div className="space-y-4">
       {ipa && <p className="text-sm font-code text-text-muted">{ipa}</p>}
       <div>
-        <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Definition</h4>
+        <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1"><FormattedMessage id="flashcard.definition" /></h4>
         <p className="text-sm text-text-primary leading-relaxed">{data.definition}</p>
       </div>
       {data.examples.length > 0 && (
         <div>
-          <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Examples</h4>
+          <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2"><FormattedMessage id="flashcard.examples" /></h4>
           <ul className="space-y-1.5">
             {data.examples.map((ex, i) => (
               <li key={i} className="flex gap-2 text-sm text-text-secondary">
@@ -47,7 +48,7 @@ export function WordDetailsLoading() {
   return (
     <div className="flex items-center gap-2 text-sm text-text-muted">
       <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-      Loading...
+      <FormattedMessage id="word.loading" />
     </div>
   );
 }
@@ -68,6 +69,6 @@ export function LoadWordDetails({ word }: { word: string }) {
     return () => { live = false; };
   }, [word]);
 
-  if (failed) return <p className="text-sm text-text-muted">Couldn't load “{word}”.</p>;
+  if (failed) return <p className="text-sm text-text-muted"><FormattedMessage id="word.couldNotLoad" values={{ word }} /></p>;
   return data ? <WordDetails data={data} /> : <WordDetailsLoading />;
 }

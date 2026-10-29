@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { playSelect } from '../lib/sfx';
 import {
   PHASES,
@@ -80,21 +81,21 @@ export function LevelPicker({ onDone, onBack }: Props) {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          Back
+          <FormattedMessage id="common.back" />
         </button>
       )}
 
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xl font-display font-bold text-text-primary">Find your level</h2>
+        <h2 className="text-xl font-display font-bold text-text-primary"><FormattedMessage id="levelTest.title" /></h2>
         <span className="text-xs font-bold text-text-muted shrink-0">
-          Round {phaseIdx + 1}/{PHASES.length}
+          <FormattedMessage id="levelTest.round" values={{ current: phaseIdx + 1, total: PHASES.length }} />
         </span>
       </div>
       <p className="text-sm text-text-muted mt-1 mb-1">
-        Tap every word you know.
+        <FormattedMessage id="levelTest.tapKnown" />
       </p>
       <p className="text-xs font-bold text-accent-cyan mb-4">
-        {phase.name} · <span className="font-normal text-text-muted">{phase.description}</span>
+        <FormattedMessage id={phase.nameId} /> · <span className="font-normal text-text-muted"><FormattedMessage id={phase.descriptionId} /></span>
       </p>
 
       <div className="flex flex-wrap gap-2 mb-5">
@@ -122,11 +123,11 @@ export function LevelPicker({ onDone, onBack }: Props) {
           onClick={knowAll}
           className="w-full mb-2 py-2.5 rounded-xl border-2 border-accent-green/40 bg-accent-green/10 text-accent-green text-sm font-bold hover:bg-accent-green/20 transition-all"
         >
-          ✓ I know them all{lastPhase ? '' : ' — harder words →'}
+          <FormattedMessage id={lastPhase ? 'levelTest.knowAll' : 'levelTest.knowAllNext'} />
         </button>
       )}
       <button onClick={submit} className="btn-3d w-full py-3 bg-accent-cyan text-bg-primary font-bold">
-        {advances ? 'Next round: harder words →' : 'See my level'}
+        <FormattedMessage id={advances ? 'levelTest.nextRound' : 'levelTest.seeLevel'} />
       </button>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import toast from 'react-hot-toast';
 import { useIsPro } from '../hooks/useProStatus';
 import { useProgressCounts } from '../hooks/useProgressQuery';
@@ -12,18 +13,18 @@ type Mode = 'hub' | 'quiz' | 'paragraph' | 'mindmap' | 'speaking';
 
 interface Tile {
   mode: Exclude<Mode, 'hub'>;
-  label: string;
-  blurb: string;
+  labelId: string;
+  blurbId: string;
   icon: string;
   color: 'cyan' | 'green' | 'orange' | 'purple';
   pro?: boolean;
 }
 
 const TILES: Tile[] = [
-  { mode: 'quiz', label: 'Quiz', blurb: 'Multiple choice, spelling, listening — test yourself', icon: 'lucide:zap', color: 'cyan' },
-  { mode: 'paragraph', label: 'Story Gaps', blurb: 'An AI story from your words — drag each one into its gap', icon: 'lucide:book-open', color: 'green', pro: true },
-  { mode: 'speaking', label: 'Speaking', blurb: 'An AI conversation built from your words', icon: 'lucide:message-circle', color: 'orange', pro: true },
-  { mode: 'mindmap', label: 'Mind Map', blurb: 'Group your words into themed, illustrated branches', icon: 'lucide:git-branch', color: 'purple', pro: true },
+  { mode: 'quiz', labelId: 'review.tileQuiz', blurbId: 'review.tileQuizBlurb', icon: 'lucide:zap', color: 'cyan' },
+  { mode: 'paragraph', labelId: 'review.tileStoryGaps', blurbId: 'review.tileStoryGapsBlurb', icon: 'lucide:book-open', color: 'green', pro: true },
+  { mode: 'speaking', labelId: 'review.tileSpeaking', blurbId: 'review.tileSpeakingBlurb', icon: 'lucide:message-circle', color: 'orange', pro: true },
+  { mode: 'mindmap', labelId: 'review.tileMindMap', blurbId: 'review.tileMindMapBlurb', icon: 'lucide:git-branch', color: 'purple', pro: true },
 ];
 
 const COLOR_CLASSES: Record<Tile['color'], { bg: string; border: string; text: string }> = {
@@ -47,6 +48,7 @@ const COLOR_CLASSES: Record<Tile['color'], { bg: string; border: string; text: s
  * decide whether to show the tiles or a "come back later" empty state.
  */
 export function ReviewPage() {
+  const intl = useIntl();
   const [mode, setMode] = useState<Mode>('hub');
   const { isPro } = useIsPro();
   const { counts } = useProgressCounts();
@@ -54,7 +56,7 @@ export function ReviewPage() {
 
   const openTile = (tile: Tile) => {
     if (tile.pro && !isPro) {
-      toast(`${tile.label} is a Pro feature.`, { icon: '👑' });
+      toast(intl.formatMessage({ id: 'review.proFeature' }, { feature: intl.formatMessage({ id: tile.labelId }) }), { icon: '👑' });
       return;
     }
     setMode(tile.mode);
@@ -67,16 +69,16 @@ export function ReviewPage() {
 
   return (
     <div className="max-w-page mx-auto px-4 py-8">
-      <h1 className="font-title font-black text-2xl text-text-primary mb-1">Review</h1>
+      <h1 className="font-title font-black text-2xl text-text-primary mb-1"><FormattedMessage id="review.title" /></h1>
       <p className="text-sm text-text-muted mb-6">
-        Pick a way to practice — each one lets you choose which list (Recent, Saved, Struggling, …) it draws from.
+        <FormattedMessage id="review.intro" />
       </p>
 
       {!hasWords ? (
         <div className="py-16 text-center">
           <div className="text-4xl mb-4">☝️</div>
-          <h2 className="text-xl font-display font-bold text-text-primary mb-2">Nothing to review yet</h2>
-          <p className="text-sm text-text-muted">Answer a few words on Flashcards first — these games play with what you've seen.</p>
+          <h2 className="text-xl font-display font-bold text-text-primary mb-2"><FormattedMessage id="review.emptyTitle" /></h2>
+          <p className="text-sm text-text-muted"><FormattedMessage id="review.emptyBody" /></p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -99,8 +101,8 @@ export function ReviewPage() {
                     </span>
                   )}
                 </div>
-                <h2 className="font-title font-black text-xl text-text-primary mb-1">{tile.label}</h2>
-                <p className="text-xs text-text-muted leading-relaxed">{tile.blurb}</p>
+                <h2 className="font-title font-black text-xl text-text-primary mb-1"><FormattedMessage id={tile.labelId} /></h2>
+                <p className="text-xs text-text-muted leading-relaxed"><FormattedMessage id={tile.blurbId} /></p>
               </button>
             );
           })}

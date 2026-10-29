@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useIntl } from 'react-intl';
 import { articulationFor, REST_POSE, type MouthPose } from '../data/articulation';
 
 /**
@@ -138,6 +139,7 @@ export function MouthDiagram({ symbol, ghost, animate = true, className = '' }: 
   animate?: boolean;
   className?: string;
 }) {
+  const intl = useIntl();
   const art = useMemo(() => articulationFor(symbol), [symbol]);
   const ghostArt = useMemo(() => (ghost ? articulationFor(ghost) : null), [ghost]);
   const [f, gf] = useMouthFrames(ghostArt ? [art?.poses ?? [], ghostArt.poses] : [art?.poses ?? []], animate);
@@ -147,7 +149,7 @@ export function MouthDiagram({ symbol, ghost, animate = true, className = '' }: 
   const g = gf ? shapes(gf) : null;
 
   return (
-    <svg viewBox="0 14 186 146" className={className} role="img" aria-label={`Mouth position for /${symbol}/`}>
+    <svg viewBox="0 14 186 146" className={className} role="img" aria-label={intl.formatMessage({ id: 'ipa.mouthPositionFor' }, { symbol })}>
       {/* Head */}
       <path
         d="M200 0 L80 0 C74 14 60 28 36 40 Q24 45 30 51 L40 54 L47 57 L47 70 L62 70 L62 150 L200 160 Z"

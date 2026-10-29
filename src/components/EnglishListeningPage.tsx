@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   podcasts, podcastTopics,
   dictationSentences, dictationTopics, type DictationSentence,
@@ -16,6 +17,7 @@ type Tab = 'podcast' | 'comprehension' | 'dictation' | 'ielts';
 
 /* ─── Tab: Podcast ───────────────────────────────────────────── */
 function PodcastTab() {
+  const intl = useIntl();
   const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -43,11 +45,13 @@ function PodcastTab() {
     <>
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-text-muted">
-          {selectedTopic === 'all' ? `${podcasts.length} episodes` : `${filtered.length} episodes · ${selectedTopic}`}
+          {selectedTopic === 'all'
+            ? intl.formatMessage({ id: 'listening.episodeCount' }, { count: podcasts.length })
+            : `${intl.formatMessage({ id: 'listening.episodeCount' }, { count: filtered.length })} · ${selectedTopic}`}
         </span>
         <PracticeButton
           topic={selectedTopic === 'all' ? 'Podcast Topics' : selectedTopic}
-          label={selectedTopic === 'all' ? 'Practice' : 'Practice this topic'}
+          label={selectedTopic === 'all' ? undefined : intl.formatMessage({ id: 'listening.practiceThisTopic' })}
         />
       </div>
 
@@ -60,7 +64,7 @@ function PodcastTab() {
               : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
           }`}
         >
-          All <span className="ml-1 opacity-60">{podcasts.length}</span>
+          <FormattedMessage id="listening.all" /> <span className="ml-1 opacity-60">{podcasts.length}</span>
         </button>
         {podcastTopics.map((topic) => (
           <button
@@ -126,12 +130,12 @@ function PodcastTab() {
                       topic={p.topic}
                       focus={p.discussionQuestions?.[0]
                         ?? `What are your thoughts on the podcast "${p.title}"?`}
-                      label="Discuss this episode"
+                      label={intl.formatMessage({ id: 'listening.discussEpisode' })}
                       size="sm"
                     />
                   </div>
                   <div className="px-5 py-3 flex items-center justify-between border-b border-border">
-                    <span className="text-xs font-semibold text-accent-purple">Full Script</span>
+                    <span className="text-xs font-semibold text-accent-purple"><FormattedMessage id="listening.fullScript" /></span>
                     <ReadAloud text={p.script} />
                   </div>
                   <div className="px-5 py-4">
@@ -140,7 +144,7 @@ function PodcastTab() {
 
                   {p.vocabulary && p.vocabulary.length > 0 && (
                     <div className="px-5 py-3 bg-accent-cyan/5 border-t border-accent-cyan/10">
-                      <p className="text-xs font-semibold text-accent-cyan mb-2">Key Vocabulary</p>
+                      <p className="text-xs font-semibold text-accent-cyan mb-2"><FormattedMessage id="listening.keyVocabulary" /></p>
                       <div className="space-y-1.5">
                         {p.vocabulary.map((v, i) => (
                           <div key={i} className="flex items-baseline gap-2">
@@ -154,7 +158,7 @@ function PodcastTab() {
 
                   {p.discussionQuestions && p.discussionQuestions.length > 0 && (
                     <div className="px-5 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
-                      <p className="text-xs font-semibold text-accent-yellow mb-2">Discussion Questions</p>
+                      <p className="text-xs font-semibold text-accent-yellow mb-2"><FormattedMessage id="listening.discussionQuestions" /></p>
                       <ul className="space-y-1">
                         {p.discussionQuestions.map((q, i) => (
                           <li key={i} className="text-xs text-text-secondary flex items-start gap-2">
@@ -174,7 +178,7 @@ function PodcastTab() {
 
       {filtered.length === 0 && (
         <div className="text-center py-12 text-text-muted">
-          <p className="text-sm">No podcasts found for this topic.</p>
+          <p className="text-sm"><FormattedMessage id="listening.noPodcasts" /></p>
         </div>
       )}
     </>
@@ -255,11 +259,11 @@ function QuestionBlock({ questions, tone }: {
             disabled={!allAnswered}
             className={`px-4 py-2 rounded-lg text-sm font-bold border-2 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${toneClass.btn}`}
           >
-            Check Answers
+            <FormattedMessage id="listening.checkAnswers" />
           </button>
         ) : (
           <span className={`text-sm font-bold ${score === questions.length ? 'text-accent-green' : 'text-text-primary'}`}>
-            {score}/{questions.length} correct
+            <FormattedMessage id="listening.scoreCorrect" values={{ score, total: questions.length }} />
           </span>
         )}
       </div>
@@ -269,6 +273,7 @@ function QuestionBlock({ questions, tone }: {
 
 /* ─── Tab: Comprehension — listen, then answer ───────────────── */
 function ComprehensionTab() {
+  const intl = useIntl();
   const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState<Record<string, boolean>>({});
@@ -296,12 +301,14 @@ function ComprehensionTab() {
   return (
     <>
       <p className="text-xs text-text-muted mb-3">
-        Listen to a short clip, then answer the questions from memory — check the transcript afterward if you want to see what you missed.
+        <FormattedMessage id="listening.comprehensionIntro" />
       </p>
 
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-text-muted">
-          {selectedTopic === 'all' ? `${comprehensionClips.length} clips` : `${filtered.length} clips · ${selectedTopic}`}
+          {selectedTopic === 'all'
+            ? intl.formatMessage({ id: 'listening.clipCount' }, { count: comprehensionClips.length })
+            : `${intl.formatMessage({ id: 'listening.clipCount' }, { count: filtered.length })} · ${selectedTopic}`}
         </span>
       </div>
 
@@ -314,7 +321,7 @@ function ComprehensionTab() {
               : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
           }`}
         >
-          All <span className="ml-1 opacity-60">{comprehensionClips.length}</span>
+          <FormattedMessage id="listening.all" /> <span className="ml-1 opacity-60">{comprehensionClips.length}</span>
         </button>
         {comprehensionTopics.map((topic) => (
           <button
@@ -355,7 +362,7 @@ function ComprehensionTab() {
                     <span className="text-[10px] text-text-muted">·</span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded border ${levelColor(c.level)}`}>{c.level}</span>
                     <span className="text-[10px] text-text-muted">·</span>
-                    <span className="text-[11px] text-text-muted">{c.questions.length} questions</span>
+                    <span className="text-[11px] text-text-muted"><FormattedMessage id="listening.questionCount" values={{ count: c.questions.length }} /></span>
                   </div>
                 </div>
                 <svg
@@ -369,7 +376,7 @@ function ComprehensionTab() {
               {isExpanded && (
                 <div className="border-t border-border animate-fade-in">
                   <div className="px-5 py-3 flex items-center justify-between border-b border-border bg-bg-tertiary/50">
-                    <span className="text-xs font-semibold text-accent-cyan">Listen</span>
+                    <span className="text-xs font-semibold text-accent-cyan"><FormattedMessage id="listening.listen" /></span>
                     <ReadAloud text={c.script} />
                   </div>
 
@@ -385,7 +392,7 @@ function ComprehensionTab() {
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showTranscript[c.id] ? 'rotate-90' : ''}`}>
                         <polyline points="9 18 15 12 9 6" />
                       </svg>
-                      {showTranscript[c.id] ? 'Hide transcript' : 'Show transcript'}
+                      <FormattedMessage id={showTranscript[c.id] ? 'listening.hideTranscript' : 'listening.showTranscript'} />
                     </button>
                     {showTranscript[c.id] && (
                       <p className="px-5 pb-4 text-sm text-text-secondary leading-relaxed whitespace-pre-line">{c.script}</p>
@@ -400,7 +407,7 @@ function ComprehensionTab() {
 
       {filtered.length === 0 && (
         <div className="text-center py-12 text-text-muted">
-          <p className="text-sm">No clips found for this topic.</p>
+          <p className="text-sm"><FormattedMessage id="listening.noClips" /></p>
         </div>
       )}
     </>
@@ -424,6 +431,7 @@ function normalizeWords(s: string): string[] {
 }
 
 function DictationTab() {
+  const intl = useIntl();
   const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<DictationSentence['level'] | 'all'>('all');
   const [index, setIndex] = useState(0);
@@ -495,7 +503,7 @@ function DictationTab() {
   if (filtered.length === 0) {
     return (
       <div className="text-center py-12 text-text-muted">
-        <p className="text-sm">No sentences found for this filter.</p>
+        <p className="text-sm"><FormattedMessage id="listening.noSentences" /></p>
       </div>
     );
   }
@@ -503,18 +511,18 @@ function DictationTab() {
   return (
     <>
       <p className="text-xs text-text-muted mb-3">
-        Listen to a sentence and type exactly what you hear. Punctuation and capitalization don't matter — the words do.
+        <FormattedMessage id="listening.dictationIntro" />
       </p>
 
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-text-muted">
-          Sentence {index + 1} of {filtered.length}
+          <FormattedMessage id="listening.sentenceOf" values={{ index: index + 1, total: filtered.length }} />
           {selectedTopic !== 'all' ? ` · ${selectedTopic}` : ''}
           {selectedLevel !== 'all' ? ` · ${selectedLevel}` : ''}
         </span>
         {session.attempted > 0 && (
           <span className="text-xs font-medium text-text-secondary">
-            Session: {session.correct}/{session.attempted} correct
+            <FormattedMessage id="listening.sessionScore" values={{ correct: session.correct, attempted: session.attempted }} />
           </span>
         )}
       </div>
@@ -530,7 +538,7 @@ function DictationTab() {
                 : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
             }`}
           >
-            {level === 'all' ? 'All Levels' : level}
+            {level === 'all' ? intl.formatMessage({ id: 'listening.allLevels' }) : level}
           </button>
         ))}
       </div>
@@ -544,7 +552,7 @@ function DictationTab() {
               : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
           }`}
         >
-          All
+          <FormattedMessage id="listening.all" />
         </button>
         {dictationTopics.map((topic) => (
           <button
@@ -587,7 +595,7 @@ function DictationTab() {
                   <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                 </svg>
               )}
-              {playState === 'playing' ? 'Stop' : playState === 'loading' ? 'Loading…' : 'Play'}
+              <FormattedMessage id={playState === 'playing' ? 'listening.stop' : playState === 'loading' ? 'listening.loading' : 'listening.play'} />
             </button>
           </div>
 
@@ -595,7 +603,7 @@ function DictationTab() {
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             disabled={checked}
-            placeholder="Type what you hear…"
+            placeholder={intl.formatMessage({ id: 'listening.typeWhatYouHear' })}
             rows={2}
             className="w-full bg-transparent border-2 border-border rounded-xl px-4 py-3 text-base text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-green/60 resize-none leading-relaxed disabled:opacity-70"
           />
@@ -604,7 +612,7 @@ function DictationTab() {
             <div className="mt-3 p-3 rounded-lg bg-bg-tertiary/50 border border-border">
               <div className="flex items-center justify-between mb-2">
                 <span className={`text-sm font-bold ${accuracy >= 90 ? 'text-accent-green' : accuracy >= 60 ? 'text-accent-orange' : 'text-accent-red'}`}>
-                  {accuracy}% word accuracy
+                  <FormattedMessage id="listening.wordAccuracy" values={{ accuracy: accuracy / 100 }} />
                 </span>
               </div>
               <p className="text-sm leading-relaxed">
@@ -624,14 +632,14 @@ function DictationTab() {
                 disabled={!typed.trim()}
                 className="px-4 py-2 rounded-lg text-sm font-bold border-2 border-accent-green bg-accent-green text-bg-primary hover:bg-accent-green/90 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Check
+                <FormattedMessage id="listening.check" />
               </button>
             ) : (
               <button
                 onClick={next}
                 className="px-4 py-2 rounded-lg text-sm font-bold border-2 border-accent-green bg-accent-green text-bg-primary hover:bg-accent-green/90 transition-all cursor-pointer"
               >
-                Next Sentence →
+                <FormattedMessage id="listening.nextSentence" />
               </button>
             )}
           </div>
@@ -676,6 +684,7 @@ function speakerAssignments(transcript: { speaker: string }[]) {
 }
 
 function IeltsListeningTab() {
+  const intl = useIntl();
   const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
   const [selectedSection, setSelectedSection] = useState<string | 'all'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -699,7 +708,7 @@ function IeltsListeningTab() {
     <>
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-text-muted">
-          {filtered.length} sections
+          <FormattedMessage id="listening.sectionCount" values={{ count: filtered.length }} />
           {selectedTopic !== 'all' ? ` · ${selectedTopic}` : ''}
           {selectedSection !== 'all' ? ` · ${selectedSection}` : ''}
         </span>
@@ -716,7 +725,7 @@ function IeltsListeningTab() {
                 : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
             }`}
           >
-            {section === 'all' ? 'All Sections' : section}
+            {section === 'all' ? intl.formatMessage({ id: 'listening.allSections' }) : section}
           </button>
         ))}
       </div>
@@ -730,7 +739,7 @@ function IeltsListeningTab() {
               : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
           }`}
         >
-          All <span className="ml-1 opacity-60">{ieltsListeningSections.length}</span>
+          <FormattedMessage id="listening.all" /> <span className="ml-1 opacity-60">{ieltsListeningSections.length}</span>
         </button>
         {ieltsListeningTopics.map((topic) => (
           <button
@@ -773,7 +782,7 @@ function IeltsListeningTab() {
                       {s.duration}
                     </span>
                     <span className="text-[10px] text-text-muted">·</span>
-                    <span className="text-[11px] text-text-muted">{s.questions.length} questions</span>
+                    <span className="text-[11px] text-text-muted"><FormattedMessage id="listening.questionCount" values={{ count: s.questions.length }} /></span>
                   </div>
                 </div>
                 <svg
@@ -827,13 +836,13 @@ function IeltsListeningTab() {
                   </div>
 
                   <div className="px-5 py-4">
-                    <p className="text-xs font-semibold text-accent-pink mb-3">Questions</p>
+                    <p className="text-xs font-semibold text-accent-pink mb-3"><FormattedMessage id="listening.questions" /></p>
                     <QuestionBlock questions={s.questions} tone="pink" />
                   </div>
 
                   {s.tips && s.tips.length > 0 && (
                     <div className="px-5 py-3 bg-accent-green/5 border-t border-accent-green/10">
-                      <p className="text-xs font-semibold text-accent-green mb-2">Tips</p>
+                      <p className="text-xs font-semibold text-accent-green mb-2"><FormattedMessage id="listening.tips" /></p>
                       <ul className="space-y-1">
                         {s.tips.map((tip, i) => (
                           <li key={i} className="text-xs text-text-secondary flex items-start gap-2">
@@ -853,7 +862,7 @@ function IeltsListeningTab() {
 
       {filtered.length === 0 && (
         <div className="text-center py-12 text-text-muted">
-          <p className="text-sm">No sections found for this filter.</p>
+          <p className="text-sm"><FormattedMessage id="listening.noSections" /></p>
         </div>
       )}
     </>
@@ -864,11 +873,11 @@ function IeltsListeningTab() {
 // Sub-page metadata — just enough to resolve `?tab=` and label the
 // breadcrumb. The Rail drawer owns each one's icon/color for navigation —
 // same split as EnglishSpeakingPage.
-const tabs: { key: Tab; label: string }[] = [
-  { key: 'podcast', label: 'Podcast' },
-  { key: 'comprehension', label: 'Comprehension' },
-  { key: 'dictation', label: 'Dictation' },
-  { key: 'ielts', label: 'IELTS Listening' },
+const tabs: { key: Tab; labelId: string }[] = [
+  { key: 'podcast', labelId: 'listening.tabPodcast' },
+  { key: 'comprehension', labelId: 'listening.tabComprehension' },
+  { key: 'dictation', labelId: 'listening.tabDictation' },
+  { key: 'ielts', labelId: 'listening.tabIelts' },
 ];
 
 function useListeningTab(): Tab {
@@ -901,10 +910,10 @@ export function EnglishListeningPage() {
     <div className="max-w-page mx-auto px-4 py-8 relative">
       <h1 className="flex items-center gap-1.5 mb-6 text-base">
         <Link to="/listening" className="font-medium text-text-muted hover:text-text-secondary transition-colors">
-          Listen
+          <FormattedMessage id="listening.breadcrumb" />
         </Link>
         <span className="text-text-muted/50">/</span>
-        <span className="font-bold text-text-primary">{activeMeta.label}</span>
+        <span className="font-bold text-text-primary"><FormattedMessage id={activeMeta.labelId} /></span>
       </h1>
 
       {activeTab === 'podcast' && <PodcastTab />}

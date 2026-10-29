@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { progressLookup } from '../lib/progress';
 import { sampleSmartWords } from '../lib/smartSample';
@@ -41,15 +42,16 @@ const SPEAKING_VOICES = { a: CONV_VOICE_A, b: CONV_VOICE_B } as const;
 /** '' stands for "no preference" — the server asks the model to pick a topic. */
 const TOPIC_OPTIONS = ['', ...dialogueTopics] as const;
 
-function timeAgo(iso: string): string {
+function timeAgo(intl: IntlShape, iso: string): string {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  const rel = { numeric: 'auto', style: 'narrow' } as const;
+  if (mins < 1) return intl.formatRelativeTime(0, 'minute', rel);
+  if (mins < 60) return intl.formatRelativeTime(-mins, 'minute', rel);
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return intl.formatRelativeTime(-hours, 'hour', rel);
   const days = Math.round(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (days < 30) return intl.formatRelativeTime(-days, 'day', rel);
+  return intl.formatDate(iso, { month: 'short', day: 'numeric' });
 }
 
 /** Plain text for TTS — the `[[ ]]` target-word markers stripped. */
@@ -81,6 +83,7 @@ function initialCount(poolSize: number): number {
 }
 
 export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
+  const intl = useIntl();
   const explicit = explicitWords !== undefined;
   const pool = useGameWordPool('recent', !explicit);
   const words = explicit ? explicitWords! : pool.words;
@@ -123,7 +126,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
       const next = new Set(prev);
       if (next.has(word)) next.delete(word);
       else if (next.size < MAX_WORDS) next.add(word);
-      else toast(`Up to ${MAX_WORDS} words per conversation`);
+      else toast(intl.formatMessage({ id: 'speaking.maxWordsToast' }, { max: MAX_WORDS }));
       return next;
     });
   };
@@ -135,7 +138,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
       setHistory((h) => [dialogue, ...(h ?? [])]);
       setActive(dialogue);
     } catch (err) {
-      toast.error((err as Error).message || 'Could not generate a conversation.');
+      toast.error((err as Error).message || intl.formatMessage({ id: 'speaking.generateFailed' }));
     } finally {
       setGenerating(false);
     }
@@ -147,7 +150,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
     try {
       await deleteSpeakingDialogue(id);
     } catch {
-      toast.error('Could not delete — try again.');
+      toast.error(intl.formatMessage({ id: 'speaking.deleteFailed' }));
     }
   };
 
@@ -160,9 +163,11 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
         <Icon icon="lucide:arrow-left" className="text-xl" />
       </button>
       <div>
-        <h1 className="font-display text-2xl font-bold text-text-primary leading-none">Speaking</h1>
+        <h1 className="font-display text-2xl font-bold text-text-primary leading-none">
+          <FormattedMessage id="speaking.practiceTitle" />
+        </h1>
         <p className="text-xs text-text-muted font-medium mt-1">
-          {active ? active.topic : 'AI conversations built from your words'}
+          {active ? active.topic : intl.formatMessage({ id: 'speaking.practiceSubtitle' })}
         </p>
       </div>
     </div>
@@ -186,7 +191,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
               />
               <button
                 onClick={() => remove(active.id)}
-                title="Delete this conversation"
+                title={intl.formatMessage({ id: 'speaking.deleteConversation' })}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors"
               >
                 <Icon icon="lucide:trash-2" />
@@ -230,7 +235,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
 
           {active.words.length > 0 && (
             <div className="px-5 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
-              <p className="text-xs font-semibold text-accent-yellow mb-2">Words practiced</p>
+              <p className="text-xs font-semibold text-accent-yellow mb-2"><FormattedMessage id="speaking.wordsPracticed" /></p>
               <div className="flex flex-wrap gap-1.5">
                 {active.words.map((w) => (
                   <span
@@ -256,11 +261,11 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
       {history === null ? (
         <div className="py-10 flex items-center justify-center gap-2 text-sm text-text-muted">
           <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-          Loading your conversations…
+          <FormattedMessage id="speaking.loadingConversations" />
         </div>
       ) : history.length > 0 ? (
         <div className="space-y-2 mb-8">
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Your conversations</p>
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2"><FormattedMessage id="speaking.yourConversations" /></p>
           {history.map((d) => (
             <button
               key={d.id}
@@ -273,7 +278,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium text-text-primary truncate">{d.title}</span>
                 <span className="block text-[11px] text-text-muted mt-0.5">
-                  {d.topic} · {d.lines.length} lines · {timeAgo(d.createdAt)}
+                  {d.topic} · <FormattedMessage id="speaking.lineCount" values={{ count: d.lines.length }} /> · {timeAgo(intl, d.createdAt)}
                 </span>
               </span>
               <Icon icon="lucide:chevron-right" className="text-text-muted shrink-0" />
@@ -283,7 +288,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
       ) : null}
 
       <div className="rounded-lg border border-border bg-bg-card p-5">
-        <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">New conversation</p>
+        <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3"><FormattedMessage id="speaking.newConversation" /></p>
 
         {/* No explicit list from the caller — pick which words this round draws from. */}
         {!explicit && (
@@ -294,14 +299,21 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
 
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs text-text-muted">
-            Pick up to {MAX_WORDS} words — <span className="text-text-secondary font-medium">{picked.size}</span> selected
+            <FormattedMessage
+              id="speaking.pickWords"
+              values={{
+                max: MAX_WORDS,
+                count: picked.size,
+                b: (c) => <span className="text-text-secondary font-medium">{c}</span>,
+              }}
+            />
           </p>
           <button
             onClick={smartPick}
-            title="Reset to a smart-picked batch"
+            title={intl.formatMessage({ id: 'speaking.smartPickTitle' })}
             className="text-xs px-2.5 py-1 rounded-full border border-border text-text-muted hover:text-text-secondary hover:border-border-light transition-colors flex items-center gap-1"
           >
-            <Icon icon="lucide:shuffle" className="text-[11px]" /> Smart pick
+            <Icon icon="lucide:shuffle" className="text-[11px]" /> <FormattedMessage id="speaking.smartPick" />
           </button>
         </div>
         <div className="flex flex-wrap gap-1.5 mb-4 max-h-40 overflow-y-auto">
@@ -324,7 +336,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
           })}
         </div>
 
-        <p className="text-xs text-text-muted mb-2">Topic</p>
+        <p className="text-xs text-text-muted mb-2"><FormattedMessage id="speaking.topic" /></p>
         <div className="flex flex-wrap gap-1.5 mb-5">
           {TOPIC_OPTIONS.map((t) => (
             <button
@@ -336,7 +348,7 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
                   : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
               }`}
             >
-              {t || '✨ Surprise me'}
+              {t || intl.formatMessage({ id: 'speaking.surpriseMe' })}
             </button>
           ))}
         </div>
@@ -349,12 +361,12 @@ export function SpeakingPractice({ words: explicitWords, onBack }: Props) {
           {generating ? (
             <>
               <div className="w-4 h-4 rounded-full border-2 border-bg-primary/30 border-t-bg-primary animate-spin" />
-              Writing your conversation…
+              <FormattedMessage id="speaking.writingConversation" />
             </>
           ) : (
             <>
               <Icon icon="lucide:sparkles" />
-              Generate conversation
+              <FormattedMessage id="speaking.generateConversation" />
             </>
           )}
         </button>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import TextareaAutosize from 'react-textarea-autosize';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { callAiAction } from '../lib/aiProviders';
@@ -14,9 +15,9 @@ import { IeltsChart } from './IeltsChart';
 
 const MAX_ESSAY = 8000;
 
-const TASK_META: Record<IeltsTask, { label: string; short: string }> = {
-  1: { label: 'Task 1 — Report', short: 'Task 1' },
-  2: { label: 'Task 2 — Essay', short: 'Task 2' },
+const TASK_META: Record<IeltsTask, { labelId: string; shortId: string }> = {
+  1: { labelId: 'writing.ieltsTask1Label', shortId: 'writing.ieltsTask1Short' },
+  2: { labelId: 'writing.ieltsTask2Label', shortId: 'writing.ieltsTask2Short' },
 };
 
 /** Band-score colour, banded to match how examiners talk about scores. */
@@ -43,6 +44,7 @@ function BandChip({ label, value }: { label: string; value: number }) {
  * examiner would — one band per criterion, plus overall.
  */
 export function IeltsWritingPage() {
+  const intl = useIntl();
   const { user } = useAuth();
   const { isPro, loading: proLoading } = useIsPro();
   const locked = !proLoading && !isPro;
@@ -84,13 +86,13 @@ export function IeltsWritingPage() {
   const handleScore = async () => {
     if (locked) {
       toast(
-        user ? 'IELTS band scoring is a Pro feature.' : 'Sign in with a Pro account to get a band score.',
+        intl.formatMessage({ id: user ? 'writing.ieltsProFeature' : 'writing.ieltsSignInPro' }),
         { icon: '👑' },
       );
       return;
     }
     if (!question) return;
-    if (wordCount < 20) { toast.error('Write a bit more before asking for a score.'); return; }
+    if (wordCount < 20) { toast.error(intl.formatMessage({ id: 'writing.ieltsWriteMore' })); return; }
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -109,16 +111,16 @@ export function IeltsWritingPage() {
         { signal: controller.signal },
       );
       const parsed = parseIeltsScoreResult(text);
-      if (!parsed) { toast.error("Couldn't read the examiner's response. Try again."); return; }
+      if (!parsed) { toast.error(intl.formatMessage({ id: 'writing.ieltsParseFailed' })); return; }
       setResult(parsed);
       try {
         await saveIeltsSubmission({ questionId: question.id, essay: essay.trim(), ...parsed });
       } catch {
-        toast('Scored, but saving to your history failed.', { icon: '⚠️' });
+        toast(intl.formatMessage({ id: 'writing.ieltsSaveFailed' }), { icon: '⚠️' });
       }
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
-      else if ((err as Error).name !== 'AbortError') toast.error('Could not reach the AI. Try again.');
+      else if ((err as Error).name !== 'AbortError') toast.error(intl.formatMessage({ id: 'writing.aiUnreachable' }));
     } finally {
       setScoring(false);
     }
@@ -127,9 +129,10 @@ export function IeltsWritingPage() {
   return (
     <div>
       <p className="text-sm text-text-muted mb-5">
-        Practice IELTS Writing Task 1 (a report) or Task 2 (an essay) against a real prompt, then get
-        an examiner-style band score. <span className="font-bold text-text-secondary">Band scoring is a Pro feature</span> —
-        drafting is free for everyone.
+        <FormattedMessage
+          id="writing.ieltsIntro"
+          values={{ b: (c) => <span className="font-bold text-text-secondary">{c}</span> }}
+        />
       </p>
 
       {/* ── Task filter ── */}
@@ -146,7 +149,7 @@ export function IeltsWritingPage() {
                   : 'border-border bg-bg-card text-text-secondary hover:border-border-light'
               }`}
             >
-              {t === undefined ? 'Either task' : TASK_META[t].short}
+              <FormattedMessage id={t === undefined ? 'writing.ieltsEitherTask' : TASK_META[t].shortId} />
             </button>
           );
         })}
@@ -154,7 +157,7 @@ export function IeltsWritingPage() {
           onClick={() => loadQuestion(taskFilter)}
           className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-border bg-bg-card text-text-secondary hover:border-border-light transition-all"
         >
-          <Icon icon="lucide:shuffle" /> New question
+          <Icon icon="lucide:shuffle" /> <FormattedMessage id="writing.ieltsNewQuestion" />
         </button>
       </div>
 
@@ -163,13 +166,16 @@ export function IeltsWritingPage() {
         <div className="card-game border-accent-cyan p-4 sm:p-5 mb-4 space-y-2.5">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent-cyan/15 text-accent-cyan uppercase tracking-wider">
-              {TASK_META[question.task].label}
+              <FormattedMessage id={TASK_META[question.task].labelId} />
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-bg-tertiary text-text-muted uppercase tracking-wider">
               {question.category.replace(/-/g, ' ')}
             </span>
             <span className="text-[11px] text-text-muted ml-auto">
-              ≥{question.minWords} words · {question.timeMinutes} min
+              <FormattedMessage
+                id="writing.ieltsPromptLimits"
+                values={{ minWords: question.minWords, minutes: question.timeMinutes }}
+              />
             </span>
           </div>
           <p className="text-base text-text-primary leading-relaxed">{question.prompt}</p>
@@ -181,7 +187,7 @@ export function IeltsWritingPage() {
           {question.dataDescription && (
             <div className={question.chartData ? '' : 'mt-1 p-3 rounded-lg bg-bg-tertiary/60 border border-border'}>
               {!question.chartData && (
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">Data described</p>
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1"><FormattedMessage id="writing.ieltsDataDescribed" /></p>
               )}
               <p className="text-sm text-text-secondary leading-relaxed">{question.dataDescription}</p>
             </div>
@@ -200,7 +206,7 @@ export function IeltsWritingPage() {
                 : 'border-border bg-bg-card text-text-secondary hover:border-border-light'
             }`}
           >
-            <Icon icon="lucide:lightbulb" /> Tips for a higher band
+            <Icon icon="lucide:lightbulb" /> <FormattedMessage id="writing.ieltsTips" />
           </button>
           <button
             onClick={() => setShowSample((v) => !v)}
@@ -210,7 +216,7 @@ export function IeltsWritingPage() {
                 : 'border-border bg-bg-card text-text-secondary hover:border-border-light'
             }`}
           >
-            <Icon icon="lucide:file-text" /> Model answer
+            <Icon icon="lucide:file-text" /> <FormattedMessage id="writing.ieltsModelAnswer" />
           </button>
         </div>
       )}
@@ -219,7 +225,7 @@ export function IeltsWritingPage() {
         <div className="card-game border-accent-purple p-4 mb-4 space-y-3 animate-fade-in">
           <div>
             <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1.5">
-              {TASK_META[question.task].label}
+              <FormattedMessage id={TASK_META[question.task].labelId} />
             </p>
             <ul className="space-y-1">
               {IELTS_TASK_TIPS[question.task].map((tip, i) => (
@@ -232,7 +238,10 @@ export function IeltsWritingPage() {
           {IELTS_CATEGORY_TIPS[question.category] && (
             <div>
               <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1.5 capitalize">
-                {question.category.replace(/-/g, ' ')} structure
+                <FormattedMessage
+                  id="writing.ieltsCategoryStructure"
+                  values={{ category: question.category.replace(/-/g, ' ') }}
+                />
               </p>
               <ul className="space-y-1">
                 {IELTS_CATEGORY_TIPS[question.category].structure.map((tip, i) => (
@@ -241,7 +250,7 @@ export function IeltsWritingPage() {
                   </li>
                 ))}
               </ul>
-              <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1.5 mt-3">Useful phrases</p>
+              <p className="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1.5 mt-3"><FormattedMessage id="writing.ieltsUsefulPhrases" /></p>
               <div className="flex flex-wrap gap-1.5">
                 {IELTS_CATEGORY_TIPS[question.category].phrases.map((phrase, i) => (
                   <span key={i} className="px-2 py-1 rounded-lg bg-bg-tertiary/60 border border-border text-xs text-text-secondary italic">
@@ -257,7 +266,7 @@ export function IeltsWritingPage() {
       {question && showSample && (
         <div className="card-game border-accent-purple p-4 mb-4 animate-fade-in">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <p className="text-xs font-bold text-accent-purple uppercase tracking-wider">Sample answers by band</p>
+            <p className="text-xs font-bold text-accent-purple uppercase tracking-wider"><FormattedMessage id="writing.ieltsSamplesByBand" /></p>
             <div className="flex items-center gap-1">
               {question.sampleAnswers.map((s, i) => (
                 <button
@@ -269,7 +278,7 @@ export function IeltsWritingPage() {
                       : 'border-border bg-bg-tertiary text-text-muted hover:text-text-secondary'
                   }`}
                 >
-                  Band {s.band}
+                  <FormattedMessage id="writing.ieltsBand" values={{ band: s.band }} />
                 </button>
               ))}
             </div>
@@ -279,7 +288,7 @@ export function IeltsWritingPage() {
           </p>
           <div className="p-3 rounded-lg bg-bg-tertiary/60 border border-border">
             <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1">
-              Why roughly Band {question.sampleAnswers[sampleIndex]?.band}
+              <FormattedMessage id="writing.ieltsWhyBand" values={{ band: question.sampleAnswers[sampleIndex]?.band }} />
             </p>
             <p className="text-xs text-text-secondary leading-relaxed">{question.sampleAnswers[sampleIndex]?.explanation}</p>
           </div>
@@ -291,7 +300,7 @@ export function IeltsWritingPage() {
         <TextareaAutosize
           value={essay}
           onChange={(e) => setEssay(e.target.value.slice(0, MAX_ESSAY))}
-          placeholder="Write your response here…"
+          placeholder={intl.formatMessage({ id: 'writing.ieltsEssayPlaceholder' })}
           minRows={6}
           maxRows={30}
           disabled={!question}
@@ -299,7 +308,9 @@ export function IeltsWritingPage() {
         />
         <div className="flex items-center justify-between mt-2.5">
           <span className={`text-xs font-bold ${question && wordCount < question.minWords ? 'text-accent-orange' : 'text-text-muted'}`}>
-            {wordCount} word{wordCount === 1 ? '' : 's'}{question ? ` (aim for ${question.minWords}+)` : ''}
+            {question
+              ? intl.formatMessage({ id: 'writing.ieltsWordCountAim' }, { count: wordCount, minWords: question.minWords })
+              : intl.formatMessage({ id: 'writing.ieltsWordCount' }, { count: wordCount })}
           </span>
           <button
             onClick={handleScore}
@@ -308,11 +319,11 @@ export function IeltsWritingPage() {
           >
             {scoring ? (
               <>
-                <Icon icon="lucide:loader-2" className="animate-spin" /> Scoring…
+                <Icon icon="lucide:loader-2" className="animate-spin" /> <FormattedMessage id="writing.ieltsScoring" />
               </>
             ) : (
               <>
-                <Icon icon="lucide:award" /> Get my band score
+                <Icon icon="lucide:award" /> <FormattedMessage id="writing.ieltsGetScore" />
                 {locked && (
                   <span className="text-[9px] px-1 py-px rounded bg-bg-primary/20 font-extrabold uppercase tracking-wider">
                     Pro
@@ -333,22 +344,25 @@ export function IeltsWritingPage() {
                 <div className={`text-4xl font-display font-bold tabular-nums ${bandColorClass(result.bandOverall)}`}>
                   {result.bandOverall.toFixed(1)}
                 </div>
-                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wide">Overall band</div>
+                <div className="text-[10px] font-bold text-text-muted uppercase tracking-wide"><FormattedMessage id="writing.ieltsOverallBand" /></div>
               </div>
               <p className="text-sm text-text-secondary leading-relaxed">{result.summary}</p>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-              <BandChip label={question?.task === 1 ? 'Task Achv.' : 'Task Resp.'} value={result.bandTask} />
-              <BandChip label="Coherence" value={result.bandCoherence} />
-              <BandChip label="Lexical" value={result.bandLexical} />
-              <BandChip label="Grammar" value={result.bandGrammar} />
+              <BandChip
+                label={intl.formatMessage({ id: question?.task === 1 ? 'writing.ieltsTaskAchievement' : 'writing.ieltsTaskResponse' })}
+                value={result.bandTask}
+              />
+              <BandChip label={intl.formatMessage({ id: 'writing.ieltsCoherence' })} value={result.bandCoherence} />
+              <BandChip label={intl.formatMessage({ id: 'writing.ieltsLexical' })} value={result.bandLexical} />
+              <BandChip label={intl.formatMessage({ id: 'writing.ieltsGrammar' })} value={result.bandGrammar} />
             </div>
 
             {result.strengths.length > 0 && (
               <div className="mb-3">
                 <p className="text-xs font-bold text-accent-green uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Icon icon="lucide:thumbs-up" /> Strengths
+                  <Icon icon="lucide:thumbs-up" /> <FormattedMessage id="writing.ieltsStrengths" />
                 </p>
                 <ul className="space-y-1">
                   {result.strengths.map((s, i) => (
@@ -363,7 +377,7 @@ export function IeltsWritingPage() {
             {result.improvements.length > 0 && (
               <div>
                 <p className="text-xs font-bold text-accent-orange uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Icon icon="lucide:target" /> To improve
+                  <Icon icon="lucide:target" /> <FormattedMessage id="writing.ieltsToImprove" />
                 </p>
                 <ul className="space-y-1">
                   {result.improvements.map((s, i) => (
@@ -381,18 +395,20 @@ export function IeltsWritingPage() {
       {/* ── Recent scores ── */}
       {history.length > 0 && (
         <section>
-          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Recent scores</h2>
+          <h2 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2"><FormattedMessage id="writing.ieltsRecentScores" /></h2>
           <div className="flex flex-wrap gap-2">
             {history.map((s) => (
               <div
                 key={s.id}
-                title={new Date(s.createdAt).toLocaleString()}
+                title={intl.formatDate(s.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-bg-card"
               >
                 <span className={`text-sm font-display font-bold tabular-nums ${bandColorClass(s.bandOverall)}`}>
                   {s.bandOverall.toFixed(1)}
                 </span>
-                <span className="text-[11px] text-text-muted">{s.wordCount}w</span>
+                <span className="text-[11px] text-text-muted">
+                  <FormattedMessage id="writing.ieltsWordsShort" values={{ count: s.wordCount }} />
+                </span>
               </div>
             ))}
           </div>

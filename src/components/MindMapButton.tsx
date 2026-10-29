@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 // Portalled out of the card (cards clip with overflow-hidden), so the menu is
 // positioned by hand from the button's rect.
@@ -46,6 +47,7 @@ export function MindMapButton({
   className?: string;
   children?: React.ReactNode;
 }) {
+  const intl = useIntl();
   const [menu, setMenu] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -90,7 +92,7 @@ export function MindMapButton({
     // The button stays usable without Pro so the option is discoverable; the
     // server re-checks Pro on the generative call either way.
     if (!isPro) {
-      toast('The interactive Mind Map is a Pro feature.', { icon: '👑' });
+      toast(intl.formatMessage({ id: 'mindmap.proFeature' }), { icon: '👑' });
       return;
     }
     onOpenInteractive();
@@ -103,13 +105,13 @@ export function MindMapButton({
         onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={menu !== null}
-        title="Build a mind map of these words"
+        title={intl.formatMessage({ id: 'mindmap.buttonTitle' })}
         className={className ?? 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-yellow/10 border border-accent-yellow/20 text-accent-yellow text-xs font-medium hover:bg-accent-yellow/20 transition-all cursor-pointer'}
       >
         {children ?? (
           <>
             <Icon icon="lucide:git-fork" className="text-sm" />
-            Mind Map
+            <FormattedMessage id="mindmap.button" />
             <Icon icon="lucide:chevron-down" className="text-[11px] opacity-70" />
           </>
         )}
@@ -123,8 +125,8 @@ export function MindMapButton({
           className="fixed z-[60] rounded-lg border border-border bg-bg-card shadow-lg overflow-hidden animate-fade-in"
         >
           <div className="px-3 py-2 border-b border-border">
-            <p className="text-[11px] font-semibold text-text-primary">How would you like your mind map?</p>
-            <p className="text-[11px] text-text-muted">{words.length} words</p>
+            <p className="text-[11px] font-semibold text-text-primary"><FormattedMessage id="mindmap.chooserTitle" /></p>
+            <p className="text-[11px] text-text-muted"><FormattedMessage id="bucket.wordCount" values={{ count: words.length }} /></p>
           </div>
 
           <button
@@ -137,13 +139,13 @@ export function MindMapButton({
             </span>
             <span className="min-w-0">
               <span className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-text-primary">Interactive Board</span>
+                <span className="text-xs font-semibold text-text-primary"><FormattedMessage id="mindmap.interactiveBoard" /></span>
                 <span className="text-[9px] px-1 py-px rounded bg-accent-yellow/20 text-accent-yellow font-extrabold uppercase tracking-wider">
                   Pro
                 </span>
               </span>
               <span className="block text-[11px] text-text-muted leading-snug">
-                Rearrange it, hear the words, save it as an image.
+                <FormattedMessage id="mindmap.interactiveBoardDesc" />
               </span>
             </span>
           </button>
@@ -161,11 +163,11 @@ export function MindMapButton({
             </span>
             <span className="min-w-0">
               <span className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-text-primary">Drawing in ChatGPT</span>
+                <span className="text-xs font-semibold text-text-primary"><FormattedMessage id="mindmap.chatgptDrawing" /></span>
                 <Icon icon="lucide:external-link" className="text-[11px] text-text-muted" />
               </span>
               <span className="block text-[11px] text-text-muted leading-snug">
-                Opens ChatGPT with a prompt to sketch one by hand.
+                <FormattedMessage id="mindmap.chatgptDrawingDesc" />
               </span>
             </span>
           </a>

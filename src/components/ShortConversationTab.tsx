@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import {
   speakingQuestions,
   speakingTopicGroups,
@@ -21,7 +22,11 @@ type Status = 'all' | 'todo' | 'practiced' | 'saved';
 type TopicFilter = SpeakingTopic | 'all';
 
 const DIFFICULTIES: SpeakingDifficulty[] = ['easy', 'medium', 'hard'];
-const DIFFICULTY_LABEL: Record<SpeakingDifficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const DIFFICULTY_LABEL: Record<SpeakingDifficulty, string> = {
+  easy: 'conversation.levelEasy',
+  medium: 'conversation.levelMedium',
+  hard: 'conversation.levelHard',
+};
 // Spelled out in full — Tailwind only keeps classes it finds as whole strings.
 const DIFFICULTY_CLASS: Record<SpeakingDifficulty, string> = {
   easy: 'text-accent-green bg-accent-green/10 border-accent-green/20',
@@ -61,11 +66,11 @@ const TOPIC_ICON: Record<SpeakingTopic, string> = {
   'Languages & Communication': 'lucide:languages',
 };
 
-const STATUSES: { id: Status; label: string; icon: string }[] = [
-  { id: 'all', label: 'All', icon: 'lucide:layers' },
-  { id: 'todo', label: 'To practice', icon: 'lucide:circle-dashed' },
-  { id: 'practiced', label: 'Practiced', icon: 'lucide:circle-check' },
-  { id: 'saved', label: 'Saved', icon: 'lucide:bookmark' },
+const STATUSES: { id: Status; labelId: string; icon: string }[] = [
+  { id: 'all', labelId: 'conversation.statusAll', icon: 'lucide:layers' },
+  { id: 'todo', labelId: 'conversation.statusTodo', icon: 'lucide:circle-dashed' },
+  { id: 'practiced', labelId: 'conversation.statusPracticed', icon: 'lucide:circle-check' },
+  { id: 'saved', labelId: 'conversation.statusSaved', icon: 'lucide:bookmark' },
 ];
 
 /** Questions shown per topic in the grouped "All topics" view before "Show all". */
@@ -78,12 +83,10 @@ function matchesStatus(status: Status, p: QuestionProgress | undefined): boolean
   return true;
 }
 
-function timeAgo(ms: number): string {
+function timeAgo(intl: IntlShape, ms: number): string {
   const days = Math.floor((Date.now() - ms) / 86_400_000);
-  if (days < 1) return 'today';
-  if (days === 1) return 'yesterday';
-  if (days < 30) return `${days}d ago`;
-  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (days < 30) return intl.formatRelativeTime(-days, 'day', { numeric: 'auto', style: 'narrow' });
+  return intl.formatDate(ms, { month: 'short', day: 'numeric' });
 }
 
 /* ─── Progress bits ──────────────────────────────────────────── */
@@ -102,7 +105,7 @@ function Overview({ practiced, total, saved, thisWeek }: { practiced: number; to
     <div className="rounded-xl border border-border bg-bg-card p-4">
       <div className="flex items-end justify-between gap-3 mb-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">Your progress</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted"><FormattedMessage id="conversation.yourProgress" /></p>
           <p className="text-2xl font-extrabold text-text-primary leading-tight">
             {practiced}<span className="text-sm font-semibold text-text-muted"> / {total}</span>
           </p>
@@ -111,8 +114,8 @@ function Overview({ practiced, total, saved, thisWeek }: { practiced: number; to
       </div>
       <Bar done={practiced} total={total} />
       <div className="flex items-center gap-4 mt-3 text-[11px] text-text-muted">
-        <span className="flex items-center gap-1"><Icon icon="lucide:flame" className="text-accent-orange" />{thisWeek} this week</span>
-        <span className="flex items-center gap-1"><Icon icon="lucide:bookmark" className="text-accent-yellow" />{saved} saved</span>
+        <span className="flex items-center gap-1"><Icon icon="lucide:flame" className="text-accent-orange" /><FormattedMessage id="conversation.thisWeek" values={{ count: thisWeek }} /></span>
+        <span className="flex items-center gap-1"><Icon icon="lucide:bookmark" className="text-accent-yellow" /><FormattedMessage id="conversation.savedCount" values={{ count: saved }} /></span>
       </div>
     </div>
   );
@@ -126,6 +129,7 @@ function TopicNav({ active, stats, total, practicedTotal, onSelect }: {
   practicedTotal: number;
   onSelect: (t: TopicFilter) => void;
 }) {
+  const intl = useIntl();
   const row = (key: TopicFilter, label: string, icon: string, done: number, count: number) => {
     const on = active === key;
     const complete = count > 0 && done === count;
@@ -154,7 +158,7 @@ function TopicNav({ active, stats, total, practicedTotal, onSelect }: {
 
   return (
     <nav className="space-y-4">
-      {row('all', 'All topics', 'lucide:layout-grid', practicedTotal, total)}
+      {row('all', intl.formatMessage({ id: 'conversation.allTopics' }), 'lucide:layout-grid', practicedTotal, total)}
       {speakingTopicGroups.map((g) => (
         <div key={g.label}>
           <p className="px-2.5 mb-1 text-[10px] font-bold uppercase tracking-wider text-text-muted">{g.label}</p>
@@ -168,6 +172,7 @@ function TopicNav({ active, stats, total, practicedTotal, onSelect }: {
 }
 
 function TopicSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+  const intl = useIntl();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -179,12 +184,12 @@ function TopicSheet({ open, onClose, children }: { open: boolean; onClose: () =>
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Choose a topic">
+    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label={intl.formatMessage({ id: 'conversation.chooseTopic' })}>
       <div className="absolute inset-0 bg-black/50 animate-fade-in" onClick={onClose} />
       <div className="absolute inset-x-0 bottom-0 max-h-[85vh] flex flex-col rounded-t-2xl border-t border-border bg-bg-primary animate-fade-in">
         <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
-          <span className="text-sm font-bold text-text-primary">Topics</span>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:bg-bg-hover cursor-pointer" aria-label="Close">
+          <span className="text-sm font-bold text-text-primary"><FormattedMessage id="conversation.topics" /></span>
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:bg-bg-hover cursor-pointer" aria-label={intl.formatMessage({ id: 'conversation.close' })}>
             <Icon icon="lucide:x" width={18} />
           </button>
         </div>
@@ -203,6 +208,7 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
   onToggle: () => void;
   onNext: () => void;
 }) {
+  const intl = useIntl();
   const { markPracticed, clearPracticed, toggleSaved } = useSpeakingProgress();
   const [answerIdx, setAnswerIdx] = useState(0);
   const done = isPracticed(progress);
@@ -224,8 +230,8 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
               : 'border-border text-transparent hover:border-accent-green hover:text-accent-green/60'
           }`}
           aria-pressed={done}
-          aria-label={done ? 'Mark as not practiced' : 'Mark as practiced'}
-          title={done ? 'Practiced — tap to undo' : 'Mark as practiced'}
+          aria-label={intl.formatMessage({ id: done ? 'conversation.markNotPracticed' : 'conversation.markAsPracticed' })}
+          title={intl.formatMessage({ id: done ? 'conversation.practicedUndo' : 'conversation.markAsPracticed' })}
         >
           <Icon icon="lucide:check" width={14} />
         </button>
@@ -236,7 +242,7 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
           </p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
             <span className={`text-[10px] px-1.5 py-0.5 rounded border ${DIFFICULTY_CLASS[q.difficulty]}`}>
-              {DIFFICULTY_LABEL[q.difficulty]}
+              <FormattedMessage id={DIFFICULTY_LABEL[q.difficulty]} />
             </span>
             {showTopic && (
               <span className="flex items-center gap-1 text-[11px] text-text-muted">
@@ -246,7 +252,10 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
             )}
             {done && progress?.practicedAt && (
               <span className="text-[11px] text-accent-green">
-                Practiced{progress.count > 1 ? ` ${progress.count}×` : ''} · {timeAgo(progress.practicedAt)}
+                <FormattedMessage
+                  id="conversation.practicedAgo"
+                  values={{ count: progress.count, when: timeAgo(intl, progress.practicedAt) }}
+                />
               </span>
             )}
           </div>
@@ -258,15 +267,15 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
             progress?.saved ? 'text-accent-yellow' : 'text-text-muted hover:text-accent-yellow hover:bg-bg-hover/60'
           }`}
           aria-pressed={!!progress?.saved}
-          aria-label={progress?.saved ? 'Remove from saved' : 'Save question'}
-          title={progress?.saved ? 'Saved' : 'Save for later'}
+          aria-label={intl.formatMessage({ id: progress?.saved ? 'conversation.removeFromSaved' : 'conversation.saveQuestion' })}
+          title={intl.formatMessage({ id: progress?.saved ? 'conversation.saved' : 'conversation.saveForLater' })}
         >
           <Icon icon={progress?.saved ? 'solar:bookmark-bold' : 'lucide:bookmark'} width={16} />
         </button>
         <button
           onClick={onToggle}
           className="w-8 h-8 rounded-full hidden sm:flex items-center justify-center shrink-0 text-text-muted hover:bg-bg-hover/60 cursor-pointer"
-          aria-label={expanded ? 'Collapse' : 'Expand'}
+          aria-label={intl.formatMessage({ id: expanded ? 'conversation.collapse' : 'conversation.expand' })}
         >
           <Icon icon="lucide:chevron-down" width={16} className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
         </button>
@@ -292,7 +301,7 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
                 </div>
               ) : (
                 <span className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-accent-cyan">Sample answer</span>
+                  <span className="text-xs font-semibold text-accent-cyan"><FormattedMessage id="conversation.sampleAnswer" /></span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted">{answer.label}</span>
                 </span>
               )}
@@ -303,7 +312,7 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
 
           {q.usefulPhrases && q.usefulPhrases.length > 0 && (
             <div className="px-3 sm:px-4 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
-              <p className="text-xs font-semibold text-accent-yellow mb-2">Useful phrases</p>
+              <p className="text-xs font-semibold text-accent-yellow mb-2"><FormattedMessage id="conversation.usefulPhrases" /></p>
               <div className="flex flex-wrap gap-1.5">
                 {q.usefulPhrases.map((phrase, i) => (
                   <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-accent-yellow/10 text-text-secondary border border-accent-yellow/15">
@@ -317,22 +326,22 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
           <div className="px-3 sm:px-4 py-3 border-t border-border bg-bg-tertiary/40 flex flex-wrap items-center gap-2">
             {done ? (
               <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-accent-green bg-accent-green/10">
-                <Icon icon="lucide:circle-check" width={14} /> Practiced
+                <Icon icon="lucide:circle-check" width={14} /> <FormattedMessage id="conversation.statusPracticed" />
               </span>
             ) : (
               <button
                 onClick={() => markPracticed(q.id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-accent-green text-bg-primary hover:opacity-90 transition-opacity cursor-pointer"
               >
-                <Icon icon="lucide:check" width={14} /> I answered it
+                <Icon icon="lucide:check" width={14} /> <FormattedMessage id="conversation.iAnsweredIt" />
               </button>
             )}
-            <PracticeButton topic={q.topic} focus={q.question} label="Practice with AI" onStart={() => markPracticed(q.id)} />
+            <PracticeButton topic={q.topic} focus={q.question} label={intl.formatMessage({ id: 'conversation.practiceWithAi' })} onStart={() => markPracticed(q.id)} />
             <button
               onClick={onNext}
               className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-text-muted hover:text-text-primary hover:bg-bg-hover/60 transition-colors cursor-pointer"
             >
-              Next <Icon icon="lucide:arrow-right" width={14} />
+              <FormattedMessage id="conversation.next" /> <Icon icon="lucide:arrow-right" width={14} />
             </button>
           </div>
         </div>
@@ -343,6 +352,7 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
 
 /* ─── The tab ────────────────────────────────────────────────── */
 export function ShortConversationTab() {
+  const intl = useIntl();
   const progress = useSpeakingProgress((s) => s.questions);
   const [topic, setTopic] = useState<TopicFilter>('all');
   const [status, setStatus] = useState<Status>('all');
@@ -431,10 +441,10 @@ export function ShortConversationTab() {
     const pool = visible.filter((q) => q.id !== expandedId);
     const fresh = pool.filter((q) => !isPracticed(progress[q.id]));
     const from = fresh.length ? fresh : pool;
-    if (!from.length) { toast('Nothing else in this view — try another topic.'); return; }
-    if (!fresh.length) toast('Everything here is practiced — picking one to review.', { icon: '🎉' });
+    if (!from.length) { toast(intl.formatMessage({ id: 'conversation.nothingElse' })); return; }
+    if (!fresh.length) toast(intl.formatMessage({ id: 'conversation.allPracticedReview' }), { icon: '🎉' });
     open(from[Math.floor(Math.random() * from.length)].id);
-  }, [visible, expandedId, progress, open]);
+  }, [visible, expandedId, progress, open, intl]);
 
   const resetFilters = () => { setStatus('all'); setLevel('all'); setQuery(''); setTopic('all'); };
 
@@ -474,7 +484,7 @@ export function ShortConversationTab() {
               <Icon icon={topic === 'all' ? 'lucide:layout-grid' : TOPIC_ICON[topic]} width={18} />
             </span>
             <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-text-primary truncate">{topic === 'all' ? 'All topics' : topic}</span>
+              <span className="block text-sm font-semibold text-text-primary truncate">{topic === 'all' ? intl.formatMessage({ id: 'conversation.allTopics' }) : topic}</span>
               <span className="flex items-center gap-2 mt-1">
                 <Bar done={activeStats.done} total={activeStats.total} className="flex-1" />
                 <span className="text-[11px] tabular-nums text-text-muted">{activeStats.done}/{activeStats.total}</span>
@@ -492,11 +502,11 @@ export function ShortConversationTab() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search questions"
+                placeholder={intl.formatMessage({ id: 'conversation.searchQuestions' })}
                 className="flex-1 min-w-0 py-2 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
               />
               {query && (
-                <button onClick={() => setQuery('')} className="text-text-muted hover:text-text-primary cursor-pointer" aria-label="Clear search">
+                <button onClick={() => setQuery('')} className="text-text-muted hover:text-text-primary cursor-pointer" aria-label={intl.formatMessage({ id: 'conversation.clearSearch' })}>
                   <Icon icon="lucide:x" width={14} />
                 </button>
               )}
@@ -504,11 +514,11 @@ export function ShortConversationTab() {
             <button
               onClick={next}
               className="flex items-center gap-1.5 px-3.5 rounded-full text-xs font-bold bg-accent-green text-bg-primary hover:opacity-90 transition-opacity cursor-pointer shrink-0"
-              title="Open a random question you haven't practiced yet"
+              title={intl.formatMessage({ id: 'conversation.nextQuestionTitle' })}
             >
               <Icon icon="lucide:shuffle" width={14} />
-              <span className="hidden sm:inline">Next question</span>
-              <span className="sm:hidden">Next</span>
+              <span className="hidden sm:inline"><FormattedMessage id="conversation.nextQuestion" /></span>
+              <span className="sm:hidden"><FormattedMessage id="conversation.next" /></span>
             </button>
           </div>
 
@@ -525,7 +535,7 @@ export function ShortConversationTab() {
                   }`}
                 >
                   <Icon icon={s.icon} width={13} />
-                  {s.label}
+                  <FormattedMessage id={s.labelId} />
                   <span className={`text-[10px] px-1.5 rounded-full ${on ? 'bg-black/15' : 'bg-bg-primary/60'}`}>{statusCounts[s.id]}</span>
                 </button>
               );
@@ -542,7 +552,7 @@ export function ShortConversationTab() {
                     on ? DIFFICULTY_CLASS[d] : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
                   }`}
                 >
-                  {DIFFICULTY_LABEL[d]}
+                  <FormattedMessage id={DIFFICULTY_LABEL[d]} />
                 </button>
               );
             })}
@@ -555,9 +565,11 @@ export function ShortConversationTab() {
             <div className="flex items-center gap-2 min-w-0">
               <Icon icon={TOPIC_ICON[topic]} className="text-accent-green shrink-0" width={18} />
               <h2 className="text-base font-bold text-text-primary truncate">{topic}</h2>
-              <span className="text-xs text-text-muted shrink-0">{visible.length} questions</span>
+              <span className="text-xs text-text-muted shrink-0">
+                <FormattedMessage id="conversation.questionCount" values={{ count: visible.length }} />
+              </span>
             </div>
-            <PracticeButton topic={topic} label="Free talk on this topic" />
+            <PracticeButton topic={topic} label={intl.formatMessage({ id: 'conversation.freeTalk' })} />
           </div>
         )}
 
@@ -566,12 +578,14 @@ export function ShortConversationTab() {
           <div className="text-center py-16 rounded-xl border border-dashed border-border">
             <Icon icon={status === 'saved' ? 'lucide:bookmark' : status === 'practiced' ? 'lucide:circle-check' : 'lucide:search-x'} width={28} className="mx-auto text-text-muted mb-2" />
             <p className="text-sm text-text-secondary">
-              {status === 'saved' ? 'No saved questions here yet — tap the bookmark on any question.'
-                : status === 'practiced' ? 'Nothing practiced here yet. Open a question and answer it out loud.'
-                : status === 'todo' ? 'You’ve practiced everything here. Nice work!'
-                : 'No questions match these filters.'}
+              {intl.formatMessage({
+                id: status === 'saved' ? 'conversation.emptySaved'
+                  : status === 'practiced' ? 'conversation.emptyPracticed'
+                  : status === 'todo' ? 'conversation.emptyTodo'
+                  : 'conversation.emptyFilters',
+              })}
             </p>
-            <button onClick={resetFilters} className="mt-3 text-xs font-semibold text-accent-cyan hover:underline cursor-pointer">Reset filters</button>
+            <button onClick={resetFilters} className="mt-3 text-xs font-semibold text-accent-cyan hover:underline cursor-pointer"><FormattedMessage id="conversation.resetFilters" /></button>
           </div>
         ) : sections ? (
           <div className="space-y-6">
@@ -600,7 +614,9 @@ export function ShortConversationTab() {
                       })}
                       className="mt-2 w-full py-2 rounded-lg text-xs font-semibold text-text-muted hover:text-text-primary hover:bg-bg-hover/50 transition-colors cursor-pointer"
                     >
-                      {isOpen ? 'Show less' : `Show all ${items.length}`}
+                      {isOpen
+                        ? intl.formatMessage({ id: 'conversation.showLess' })
+                        : intl.formatMessage({ id: 'conversation.showAll' }, { count: items.length })}
                     </button>
                   )}
                 </section>

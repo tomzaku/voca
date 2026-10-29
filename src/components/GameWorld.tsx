@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Phaser from 'phaser';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
 import { MemberAvatars } from './MemberAvatars';
 import { useCompanion } from '../hooks/useCompanion';
@@ -51,10 +52,11 @@ const DOT: Record<string, string> = {
   create: 'var(--color-text-muted)',
 };
 
-const KIND_META: Record<WorldStation['kind'], { label: string; icon: string; color: string }> = {
-  mine:   { label: 'My collection', icon: 'lucide:user',           color: 'var(--color-accent-cyan)' },
-  joined: { label: 'Joined',        icon: 'lucide:users',          color: 'var(--color-accent-purple)' },
-  level:  { label: 'Level',         icon: 'lucide:graduation-cap', color: 'var(--color-accent-green)' },
+// labelId: the kind on a station card; groupId: its heading in the fast-travel list.
+const KIND_META: Record<WorldStation['kind'], { labelId: string; groupId: string; icon: string; color: string }> = {
+  mine:   { labelId: 'world.kindMine',   groupId: 'world.groupMine',   icon: 'lucide:user',           color: 'var(--color-accent-cyan)' },
+  joined: { labelId: 'world.kindJoined', groupId: 'world.groupJoined', icon: 'lucide:users',          color: 'var(--color-accent-purple)' },
+  level:  { labelId: 'world.kindLevel',  groupId: 'world.groupLevel',  icon: 'lucide:graduation-cap', color: 'var(--color-accent-green)' },
 };
 
 /**
@@ -68,6 +70,9 @@ export function GameWorld({
   stations, features, onOpenFeature, paused = false, panel = null,
   onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
 }: Props) {
+  const intl = useIntl();
+  // Phaser text is drawn once, so a language switch rebuilds the scene.
+  const locale = intl.locale;
   const animalId = useCompanion((s) => s.animalId);
   const buddyName = useCompanion((s) => s.name);
   const known = useVocabularyStore(
@@ -202,7 +207,7 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.zoom, onZoom);
       game.destroy(true);
     };
-  }, [animal.id, animal.name, stage, buddyName]);
+  }, [animal.id, animal.name, stage, buddyName, locale]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
 
@@ -265,8 +270,8 @@ export function GameWorld({
       {/* ── HUD (DOM, on top of the canvas) ── */}
       <div className="absolute top-3 left-3 flex items-center gap-1.5 text-[11px] font-bold text-text-muted bg-bg-card/85 border border-border rounded-full px-2.5 py-1 pointer-events-none">
         <Icon icon="lucide:gamepad-2" className="text-accent-yellow" />
-        <span className="hidden sm:inline">Walk with WASD / arrows, or tap the ground</span>
-        <span className="sm:hidden">Tap the ground to walk</span>
+        <span className="hidden sm:inline"><FormattedMessage id="world.hintWalkDesktop" /></span>
+        <span className="sm:hidden"><FormattedMessage id="world.hintWalkMobile" /></span>
       </div>
       <div className="absolute top-3 right-3 flex items-center gap-2">
         {!animalId && (
@@ -275,12 +280,12 @@ export function GameWorld({
             className="flex items-center gap-1.5 text-[11px] font-bold text-accent-orange bg-bg-card/85 border border-accent-orange/40 rounded-full px-2.5 py-1"
           >
             <Icon icon="lucide:paw-print" />
-            Choose your buddy
+            <FormattedMessage id="world.chooseBuddy" />
           </Link>
         )}
         <button
           onClick={() => setDrawerOpen((o) => !o)}
-          title="Fast travel"
+          title={intl.formatMessage({ id: 'world.fastTravel' })}
           className={`flex items-center gap-1.5 text-[11px] font-bold rounded-full px-2.5 py-1.5 border transition-all ${
             drawerOpen
               ? 'bg-accent-cyan text-bg-primary border-accent-cyan'
@@ -288,7 +293,7 @@ export function GameWorld({
           }`}
         >
           <Icon icon="lucide:compass" className="text-sm" />
-          <span className="hidden sm:inline">Travel</span>
+          <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
         </button>
       </div>
 
@@ -298,14 +303,14 @@ export function GameWorld({
         <button
           onClick={() => zoomBy(1)}
           disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
-          title="Zoom in (+)"
+          title={intl.formatMessage({ id: 'world.zoomIn' })}
           className="w-8 h-8 flex items-center justify-center text-text-primary hover:bg-bg-tertiary disabled:opacity-35 disabled:hover:bg-transparent"
         >
           <Icon icon="lucide:plus" className="text-sm" />
         </button>
         <button
           onClick={resetZoom}
-          title="Reset zoom (0)"
+          title={intl.formatMessage({ id: 'world.zoomReset' })}
           className="w-8 py-0.5 text-[10px] font-bold text-text-muted hover:text-text-primary hover:bg-bg-tertiary border-y border-border"
         >
           {zoom}×
@@ -313,7 +318,7 @@ export function GameWorld({
         <button
           onClick={() => zoomBy(-1)}
           disabled={zoom <= ZOOM_STEPS[0]}
-          title="Zoom out (−)"
+          title={intl.formatMessage({ id: 'world.zoomOut' })}
           className="w-8 h-8 flex items-center justify-center text-text-primary hover:bg-bg-tertiary disabled:opacity-35 disabled:hover:bg-transparent"
         >
           <Icon icon="lucide:minus" className="text-sm" />
@@ -326,19 +331,19 @@ export function GameWorld({
           <div className="absolute inset-0 z-10" onClick={() => setDrawerOpen(false)} />
           <div className="absolute top-12 right-3 bottom-3 z-20 w-[min(78%,260px)] flex flex-col rounded-2xl border-2 border-border bg-bg-card/95 backdrop-blur-sm shadow-2xl animate-fade-in overflow-hidden">
             <div className="flex items-center justify-between px-3 pt-3 pb-2">
-              <span className="text-xs font-bold text-text-muted uppercase tracking-wider">Fast travel</span>
+              <span className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="world.fastTravel" /></span>
               <button
                 onClick={() => { setDrawerOpen(false); onCreate(); }}
                 className="flex items-center gap-1 text-[11px] font-bold text-accent-cyan hover:underline"
               >
-                <Icon icon="lucide:plus" /> New
+                <Icon icon="lucide:plus" /> <FormattedMessage id="world.new" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
               {/* App pages first, then collections by kind. */}
               {features.length > 0 && (
                 <div>
-                  <p className="px-1.5 pt-2 pb-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">Places</p>
+                  <p className="px-1.5 pt-2 pb-1 text-[10px] font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="world.places" /></p>
                   {features.map((f) => (
                     <button
                       key={f.id}
@@ -346,7 +351,7 @@ export function GameWorld({
                       className="w-full flex items-center gap-2 px-1.5 py-1.5 rounded-lg text-left hover:bg-bg-tertiary transition-colors"
                     >
                       <Icon icon={f.icon} className="shrink-0 text-sm" style={{ color: 'var(--color-accent-yellow)' }} />
-                      <span className="flex-1 min-w-0 text-xs font-bold text-text-primary truncate">{f.name}</span>
+                      <span className="flex-1 min-w-0 text-xs font-bold text-text-primary truncate">{intl.formatMessage({ id: f.nameId })}</span>
                     </button>
                   ))}
                 </div>
@@ -357,8 +362,7 @@ export function GameWorld({
                 return (
                   <div key={kind}>
                     <p className="px-1.5 pt-2 pb-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                      {KIND_META[kind].label}
-                      {kind !== 'joined' && 's'}
+                      <FormattedMessage id={KIND_META[kind].groupId} />
                     </p>
                     {group.map((s) => (
                       <button
@@ -434,15 +438,15 @@ export function GameWorld({
               <Icon icon={nearestFeature.icon} />
             </span>
             <div className="flex-1 min-w-0">
-              <p className="font-display font-bold text-text-primary text-sm">{nearestFeature.name}</p>
-              <p className="text-[10px] font-bold text-text-muted">{nearestFeature.blurb}</p>
+              <p className="font-display font-bold text-text-primary text-sm">{intl.formatMessage({ id: nearestFeature.nameId })}</p>
+              <p className="text-[10px] font-bold text-text-muted">{intl.formatMessage({ id: nearestFeature.blurbId })}</p>
             </div>
           </div>
           <button
             onClick={() => onOpenFeature(nearestFeature)}
             className="btn-3d w-full py-2 text-xs font-bold text-bg-primary bg-accent-yellow"
           >
-            Enter
+            <FormattedMessage id="world.enter" />
             <span className="hidden sm:inline opacity-70"> · Enter ↵</span>
           </button>
         </div>
@@ -456,9 +460,9 @@ export function GameWorld({
               <Icon icon="lucide:hammer" />
             </span>
             <div className="flex-1 min-w-0">
-              <p className="font-display font-bold text-text-primary text-sm">Empty plot</p>
+              <p className="font-display font-bold text-text-primary text-sm"><FormattedMessage id="world.emptyPlot" /></p>
               <p className="text-[10px] font-bold text-text-muted">
-                Build a new collection from your own word list
+                <FormattedMessage id="world.emptyPlotBlurb" />
               </p>
             </div>
           </div>
@@ -467,7 +471,7 @@ export function GameWorld({
             className="btn-3d w-full py-2 text-xs font-bold text-bg-primary bg-accent-cyan"
           >
             <Icon icon="lucide:plus" className="inline -mt-0.5 mr-1" />
-            New collection
+            <FormattedMessage id="world.newCollection" />
           </button>
         </div>
       )}
@@ -491,8 +495,17 @@ export function GameWorld({
             <div className="flex-1 min-w-0">
               <p className="font-display font-bold text-text-primary text-sm truncate">{nearest.name}</p>
               <p className="text-[10px] font-bold text-text-muted">
-                {KIND_META[nearest.kind].label} · {nearest.words.length} words · {nearest.pct}% done
-                {(nearest.learners ?? 0) > 0 && ` · ${nearest.learners} learner${nearest.learners === 1 ? '' : 's'}`}
+                <FormattedMessage
+                  id="world.stationMeta"
+                  values={{
+                    kind: intl.formatMessage({ id: KIND_META[nearest.kind].labelId }),
+                    count: nearest.words.length,
+                    pct: nearest.pct,
+                  }}
+                />
+                {(nearest.learners ?? 0) > 0 && (
+                  <> · <FormattedMessage id="world.learners" values={{ count: nearest.learners }} /></>
+                )}
               </p>
             </div>
           </div>
@@ -508,26 +521,26 @@ export function GameWorld({
               className="btn-3d flex-1 py-2 text-xs font-bold text-bg-primary"
               style={{ background: KIND_META[nearest.kind].color }}
             >
-              {nearest.active ? 'Studying ✓' : 'Study this'}
+              <FormattedMessage id={nearest.active ? 'world.studying' : 'world.studyThis'} />
               <span className="hidden sm:inline opacity-70"> · Enter ↵</span>
             </button>
             <button
               onClick={() => onPreview(nearest)}
-              title="Preview words"
+              title={intl.formatMessage({ id: 'world.previewWords' })}
               className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-cyan transition-all"
             >
               <Icon icon="lucide:eye" className="text-sm" />
             </button>
             <button
               onClick={() => onQuiz(nearest)}
-              title="Quiz this collection"
+              title={intl.formatMessage({ id: 'world.quizCollection' })}
               className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-green transition-all"
             >
               <Icon icon="lucide:play" className="text-sm" />
             </button>
             <button
               onClick={() => onStats(nearest)}
-              title="Progress stats"
+              title={intl.formatMessage({ id: 'world.progressStats' })}
               className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-accent-purple transition-all"
             >
               <Icon icon="lucide:chart-pie" className="text-sm" />
@@ -537,7 +550,7 @@ export function GameWorld({
               <div className="relative shrink-0">
                 <button
                   onClick={() => setMenuOpen((o) => !o)}
-                  title="Options"
+                  title={intl.formatMessage({ id: 'world.options' })}
                   className="w-9 h-9 rounded-lg flex items-center justify-center border border-border bg-bg-tertiary text-text-muted hover:text-text-primary transition-all"
                 >
                   <Icon icon="lucide:ellipsis-vertical" className="text-sm" />
@@ -551,19 +564,19 @@ export function GameWorld({
                         onClick={() => { setMenuOpen(false); onEdit(nearest); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-text-primary transition-colors"
                       >
-                        <Icon icon="lucide:pencil" className="text-sm" /> Edit
+                        <Icon icon="lucide:pencil" className="text-sm" /> <FormattedMessage id="world.edit" />
                       </button>
                       <button
                         onClick={() => { setMenuOpen(false); onShare(nearest); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-secondary hover:bg-bg-tertiary hover:text-accent-cyan transition-colors"
                       >
-                        <Icon icon="lucide:share-2" className="text-sm" /> Share
+                        <Icon icon="lucide:share-2" className="text-sm" /> <FormattedMessage id="world.share" />
                       </button>
                       <button
                         onClick={() => { setMenuOpen(false); onDelete(nearest); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-text-muted hover:bg-accent-red/10 hover:text-accent-red transition-colors"
                       >
-                        <Icon icon="lucide:trash-2" className="text-sm" /> Delete
+                        <Icon icon="lucide:trash-2" className="text-sm" /> <FormattedMessage id="world.delete" />
                       </button>
                     </div>
                   </>
@@ -582,11 +595,11 @@ export function GameWorld({
             <div className="flex items-center gap-2 px-3 py-2 border-b-2 border-border shrink-0">
               <span className="text-lg leading-none">{panel.feature.emoji}</span>
               <span className="flex-1 min-w-0 truncate font-display font-bold text-sm text-text-primary">
-                {panel.feature.name}
+                {intl.formatMessage({ id: panel.feature.nameId })}
               </span>
               <button
                 onClick={panel.onClose}
-                title="Leave the building"
+                title={intl.formatMessage({ id: 'world.leaveBuilding' })}
                 className="w-7 h-7 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary transition-colors"
               >
                 <Icon icon="lucide:x" className="text-sm" />

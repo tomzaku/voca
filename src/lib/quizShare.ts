@@ -7,6 +7,7 @@
 // the link, and the row-level policies decide what an anonymous visitor may do.
 
 import { request } from './api';
+import { t } from '../i18n';
 import { generateWordData } from './wordService';
 import type { QuizConfig } from './quizConfig';
 
@@ -79,7 +80,7 @@ export async function createSharedQuiz(
   );
   // Only keep words we actually captured data for.
   const words = config.words.filter((w) => wordData[w]);
-  if (words.length < 2) throw new Error('Could not prepare enough words for this quiz.');
+  if (words.length < 2) throw new Error(t('quiz.share.notEnoughWords'));
 
   const { quiz } = await request.post<{ quiz: SharedQuiz }>('/quizzes', {
     title,

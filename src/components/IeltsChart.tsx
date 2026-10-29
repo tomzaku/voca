@@ -11,6 +11,8 @@
 // feedback elsewhere in the app, and a chart series turning "red" would read
 // as a wrong answer.
 
+import { useIntl } from 'react-intl';
+
 export type IeltsChartData =
   | { kind: 'line'; xLabels: string[]; unit?: string; series: { name: string; values: number[] }[] }
   | { kind: 'bar'; categories: string[]; unit?: string; series: { name: string; values: number[] }[] }
@@ -53,10 +55,11 @@ function LineChart({ data }: { data: Extract<IeltsChartData, { kind: 'line' }> }
   const yFor = (v: number) => PAD.top + plotH - ((v - min) / (max - min || 1)) * plotH;
   const xFor = (i: number) => PAD.left + i * xStep;
   const gridLines = 4;
+  const intl = useIntl();
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Line chart">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={intl.formatMessage({ id: 'review.chartLine' })}>
         {/* Recessive horizontal gridlines */}
         {Array.from({ length: gridLines + 1 }).map((_, i) => {
           const y = PAD.top + (plotH / gridLines) * i;
@@ -98,10 +101,11 @@ function BarChart({ data }: { data: Extract<IeltsChartData, { kind: 'bar' }> }) 
   const barW = (groupW - barGap * (data.series.length + 1)) / data.series.length;
   const yFor = (v: number) => PAD.top + plotH - (v / (max || 1)) * plotH;
   const gridLines = 4;
+  const intl = useIntl();
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Bar chart">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={intl.formatMessage({ id: 'review.chartBar' })}>
         {Array.from({ length: gridLines + 1 }).map((_, i) => {
           const y = PAD.top + (plotH / gridLines) * i;
           return <line key={i} x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="var(--color-border)" strokeWidth={1} opacity={0.4} />;
@@ -131,6 +135,7 @@ function BarChart({ data }: { data: Extract<IeltsChartData, { kind: 'bar' }> }) 
 }
 
 function Pie({ title, slices }: { title: string; slices: { name: string; value: number }[] }) {
+  const intl = useIntl();
   const total = slices.reduce((sum, s) => sum + s.value, 0) || 1;
   const r = 60;
   const cx = 70;
@@ -156,7 +161,7 @@ function Pie({ title, slices }: { title: string; slices: { name: string; value: 
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 140 140" className="w-32 h-32" role="img" aria-label={`Pie chart: ${title}`}>
+      <svg viewBox="0 0 140 140" className="w-32 h-32" role="img" aria-label={intl.formatMessage({ id: 'review.chartPie' }, { title })}>
         {paths.map((p) => (
           <path key={p.name} d={p.d} fill={p.color} stroke="var(--color-bg-card)" strokeWidth={2}>
             <title>{`${p.name}: ${p.value}%`}</title>

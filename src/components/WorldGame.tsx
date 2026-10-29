@@ -1,7 +1,9 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Navigate, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { t } from '../i18n';
 import { useCollections } from '../hooks/useCollections';
 import { useGameMode } from '../hooks/useGameMode';
 import { useWorldStations } from '../hooks/useWorldStations';
@@ -22,7 +24,7 @@ function ComingSoon({ feature }: { feature: WorldFeature }) {
   return (
     <div className="py-6 text-center">
       <div className="text-4xl mb-3">{feature.emoji}</div>
-      <p className="text-sm text-text-muted">This building's game is still under construction.</p>
+      <p className="text-sm text-text-muted"><FormattedMessage id="world.comingSoon" /></p>
     </div>
   );
 }
@@ -33,6 +35,7 @@ function ComingSoon({ feature }: { feature: WorldFeature }) {
  * configured from Settings only — visiting while off bounces to Collections.
  */
 export function WorldGame() {
+  const intl = useIntl();
   const enabled = useGameMode((s) => s.enabled);
   const setActive = useCollections((s) => s.setActive);
   const navigate = useNavigate();
@@ -56,7 +59,7 @@ export function WorldGame() {
 
   const study = (s: WorldStation) => {
     setActive(s.id);
-    toast.success(`Studying “${s.name}”`);
+    toast.success(t('world.toastStudying', { name: s.name }));
   };
 
   const openEdit = (s: WorldStation) => {
@@ -68,19 +71,19 @@ export function WorldGame() {
     try {
       const url = await useCollections.getState().shareCollection(s.id);
       await navigator.clipboard.writeText(url);
-      toast.success('Share link copied!');
+      toast.success(t('world.toastShareCopied'));
     } catch (err) {
-      toast.error((err as Error).message || 'Could not share.');
+      toast.error((err as Error).message || t('world.toastShareFailed'));
     }
   };
 
   const remove = async (s: WorldStation) => {
-    if (!window.confirm(`Delete “${s.name}”? This can't be undone.`)) return;
+    if (!window.confirm(t('world.confirmDelete', { name: s.name }))) return;
     try {
       await useCollections.getState().deleteCollection(s.id);
-      toast.success(`Deleted “${s.name}”`);
+      toast.success(t('world.toastDeleted', { name: s.name }));
     } catch (err) {
-      toast.error((err as Error).message || 'Could not delete.');
+      toast.error((err as Error).message || t('world.toastDeleteFailed'));
     }
   };
 
@@ -96,23 +99,23 @@ export function WorldGame() {
     <div className="mx-auto max-w-none px-2 sm:px-4 py-3">
       <div className="flex items-center justify-between gap-3 mb-3 px-1">
         <div>
-          <h1 className="text-2xl font-display font-bold text-text-primary">World</h1>
-          <p className="text-sm text-text-muted">Walk your buddy up to a building to open it.</p>
+          <h1 className="text-2xl font-display font-bold text-text-primary"><FormattedMessage id="world.title" /></h1>
+          <p className="text-sm text-text-muted"><FormattedMessage id="world.subtitle" /></p>
         </div>
         <button
           onClick={() => navigate('/settings')}
-          title="Game settings"
+          title={intl.formatMessage({ id: 'world.gameSettings' })}
           className="flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 border border-border bg-bg-card text-text-secondary hover:text-text-primary transition-all shrink-0"
         >
           <Icon icon="lucide:settings" className="text-sm" />
-          <span className="hidden sm:inline">Settings</span>
+          <span className="hidden sm:inline"><FormattedMessage id="world.settings" /></span>
         </button>
       </div>
 
       <Suspense
         fallback={
           <div className="h-[440px] rounded-2xl border-2 border-border bg-bg-card flex items-center justify-center text-sm font-bold text-text-muted">
-            Loading the world…
+            <FormattedMessage id="world.loading" />
           </div>
         }
       >
@@ -153,12 +156,12 @@ export function WorldGame() {
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-display font-bold text-text-primary">
-                {form.editingId ? 'Edit collection' : 'Build a new collection'}
+                <FormattedMessage id={form.editingId ? 'world.editCollection' : 'world.buildCollection'} />
               </h3>
               <button
                 onClick={() => setForm(null)}
                 className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary"
-                title="Close"
+                title={intl.formatMessage({ id: 'world.close' })}
               >
                 <Icon icon="lucide:x" />
               </button>

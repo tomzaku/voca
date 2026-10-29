@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { callChatAction } from '../lib/chatApi';
+import { t } from '../i18n';
 import { extractLearnings } from './useLearnings';
 import type { Learning } from './useLearnings';
 
@@ -10,18 +11,19 @@ export interface ChatMessage {
 
 export type PracticeMode = 'smooth' | 'feedback';
 
+// Message ids, formatted at render so the picker follows the app language.
 export const ENGLISH_TOPICS = [
-  { id: 'daily-life', label: 'Daily Life', desc: 'Routines, habits, hobbies' },
-  { id: 'travel', label: 'Travel', desc: 'Trips, destinations, experiences' },
-  { id: 'technology', label: 'Technology', desc: 'Tech trends, gadgets, apps' },
-  { id: 'work', label: 'Work & Career', desc: 'Office life, goals, challenges' },
-  { id: 'food', label: 'Food & Cooking', desc: 'Recipes, restaurants, cuisine' },
-  { id: 'health', label: 'Health & Fitness', desc: 'Exercise, wellness, habits' },
-  { id: 'entertainment', label: 'Entertainment', desc: 'Movies, music, books, games' },
-  { id: 'culture', label: 'Culture & Society', desc: 'Traditions, news, opinions' },
-  { id: 'education', label: 'Education', desc: 'Learning, school, skills' },
-  { id: 'environment', label: 'Environment', desc: 'Nature, climate, sustainability' },
-  { id: 'random', label: 'Random', desc: 'Surprise me with anything!' },
+  { id: 'daily-life', labelId: 'conversation.topicDailyLife', descId: 'conversation.topicDailyLifeDesc' },
+  { id: 'travel', labelId: 'conversation.topicTravel', descId: 'conversation.topicTravelDesc' },
+  { id: 'technology', labelId: 'conversation.topicTechnology', descId: 'conversation.topicTechnologyDesc' },
+  { id: 'work', labelId: 'conversation.topicWork', descId: 'conversation.topicWorkDesc' },
+  { id: 'food', labelId: 'conversation.topicFood', descId: 'conversation.topicFoodDesc' },
+  { id: 'health', labelId: 'conversation.topicHealth', descId: 'conversation.topicHealthDesc' },
+  { id: 'entertainment', labelId: 'conversation.topicEntertainment', descId: 'conversation.topicEntertainmentDesc' },
+  { id: 'culture', labelId: 'conversation.topicCulture', descId: 'conversation.topicCultureDesc' },
+  { id: 'education', labelId: 'conversation.topicEducation', descId: 'conversation.topicEducationDesc' },
+  { id: 'environment', labelId: 'conversation.topicEnvironment', descId: 'conversation.topicEnvironmentDesc' },
+  { id: 'random', labelId: 'conversation.topicRandom', descId: 'conversation.topicRandomDesc' },
 ] as const;
 
 /**
@@ -41,7 +43,8 @@ export interface TopicContext {
 /** Header/history label for a session — the context label wins when set. */
 export function topicLabel(topicId: TopicId | null, context?: TopicContext | null): string {
   if (context?.label) return context.label;
-  return ENGLISH_TOPICS.find((t) => t.id === topicId)?.label ?? 'Speaking Practice';
+  const topic = ENGLISH_TOPICS.find((x) => x.id === topicId);
+  return t(topic?.labelId ?? 'conversation.speakingPractice');
 }
 
 export function useEnglishChat() {

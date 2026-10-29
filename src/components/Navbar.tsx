@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useStreak, localDateString } from '../hooks/useStreak';
 import { useHotkey } from '../hooks/useHotkey';
 import { useAuth } from '../hooks/useAuth';
@@ -8,11 +9,13 @@ import { useIsPro } from '../hooks/useProStatus';
 import { useRailState } from '../hooks/useRailState';
 import { isApple } from '../lib/device';
 import { SearchModal } from './SearchModal';
+import { QuickPrefs } from './QuickPrefs';
 
 // Desktop's Rail is always on screen, so this bar is just search + account
 // there, offset to clear its fixed-left column. Mobile hides Rail entirely
 // for full-width content, so this bar also carries the trigger that opens it.
 export function Navbar() {
+  const intl = useIntl();
   const streak = useStreak((s) => s.count);
   const { user } = useAuth();
   const { isPro } = useIsPro();
@@ -50,21 +53,23 @@ export function Navbar() {
               <button
                 onClick={() => setRailExpanded(true)}
                 className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary flex items-center justify-center"
-                title="Open menu"
+                title={intl.formatMessage({ id: 'navbar.openMenu' })}
               >
                 <Icon icon="lucide:menu" className="text-lg" />
               </button>
-              <button onClick={() => setRailExpanded(true)} className="w-9 h-9 shrink-0" title="Open menu">
+              <button onClick={() => setRailExpanded(true)} className="w-9 h-9 shrink-0" title={intl.formatMessage({ id: 'navbar.openMenu' })}>
                 <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="voca" className="w-full h-full rounded-xl" />
               </button>
             </div>
 
             <div className="flex-1" />
 
+            <QuickPrefs />
+
             <Link
               to="/dashboard"
-              aria-label="Dashboard"
-              title="Dashboard"
+              aria-label={intl.formatMessage({ id: 'navbar.dashboard' })}
+              title={intl.formatMessage({ id: 'navbar.dashboard' })}
               className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary hover:text-text-primary flex items-center justify-center shrink-0"
             >
               <Icon icon="lucide:calendar-days" className="text-lg" />
@@ -73,10 +78,10 @@ export function Navbar() {
             <button
               onClick={() => setSearchOpen(true)}
               className="btn-3d flex items-center gap-1.5 pl-3 pr-3.5 h-9 rounded-full bg-bg-card text-text-secondary hover:text-text-primary shrink-0"
-              title={`Search a word (${isApple() ? '⌘K' : 'Ctrl+K'})`}
+              title={intl.formatMessage({ id: 'navbar.searchTitle' }, { shortcut: isApple() ? '⌘K' : 'Ctrl+K' })}
             >
               <Icon icon="lucide:search" className="text-base" />
-              <span className="text-sm font-bold">Search</span>
+              <span className="text-sm font-bold"><FormattedMessage id="navbar.search" /></span>
             </button>
 
             {/* Account (Pro badged on the avatar itself) + streak, merged into
@@ -86,8 +91,10 @@ export function Navbar() {
                 pill hugs the avatar. */}
             <Link
               to={user ? '/profile' : '/login'}
-              aria-label={user ? `View profile — signed in as ${name || 'account'}` : 'Sign in'}
-              title={user ? name : 'Sign in'}
+              aria-label={user
+                ? intl.formatMessage({ id: 'navbar.viewProfile' }, { name: name || intl.formatMessage({ id: 'navbar.account' }) })
+                : intl.formatMessage({ id: 'navbar.signIn' })}
+              title={user ? name : intl.formatMessage({ id: 'navbar.signIn' })}
               className={`btn-3d flex items-center gap-1.5 pl-1 h-9 rounded-full transition-colors shrink-0 ${
                 user && streak === 0 ? 'pr-1' : 'pr-2.5'
               } ${
@@ -119,7 +126,7 @@ export function Navbar() {
                   )}
                 </span>
               ) : (
-                <span className="text-sm font-extrabold text-accent-green">Sign in</span>
+                <span className="text-sm font-extrabold text-accent-green"><FormattedMessage id="navbar.signIn" /></span>
               )}
               {streak > 0 && (
                 <span

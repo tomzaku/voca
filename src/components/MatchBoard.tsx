@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage } from 'react-intl';
 import { playSelect, playWin, playWrong } from '../lib/sfx';
 
 export interface MatchPair {
@@ -252,22 +253,22 @@ export function MatchBoard({ pairs, reveal = true, onComplete }: {
           >
             <Icon icon="solar:check-read-bold" className="text-lg" />
             {!allLinked
-              ? `Connect all (${Object.keys(links).length}/${pairs.length})`
-              : reveal ? 'Check answers' : 'Submit'}
+              ? <FormattedMessage id="quiz.match.connectAll" values={{ linked: Object.keys(links).length, total: pairs.length }} />
+              : <FormattedMessage id={reveal ? 'quiz.match.checkAnswers' : 'quiz.match.submit'} />}
           </button>
         ) : (
           <div className="text-center">
             <p className="text-sm font-bold mb-3">
               {mistakes === 0
-                ? <span className="text-accent-green">All correct! 🎉</span>
-                : <span className="text-accent-red">{mistakes} wrong — the red links are your misses.</span>}
+                ? <span className="text-accent-green"><FormattedMessage id="quiz.match.allCorrect" /></span>
+                : <span className="text-accent-red"><FormattedMessage id="quiz.match.someWrong" values={{ count: mistakes }} /></span>}
             </p>
             <button
               onClick={finish}
               disabled={done}
               className="w-full py-3 rounded-xl bg-accent-cyan text-bg-primary font-display font-extrabold hover:opacity-90 transition-opacity disabled:opacity-40"
             >
-              Continue
+              <FormattedMessage id="quiz.match.continue" />
             </button>
           </div>
         )}

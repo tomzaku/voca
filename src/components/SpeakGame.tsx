@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { transcribeBlob } from '../lib/whisperStt';
 import { spokenMatch } from '../lib/speechMatch';
 import { stopSpeaking } from '../lib/tts';
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }: Props) {
+  const intl = useIntl();
   const [phase, setPhase] = useState<Phase>(() =>
     // Both are needed: Safari gates getUserMedia on a secure context, and
     // MediaRecorder is absent on some older mobile browsers even when it isn't.
@@ -138,7 +140,7 @@ export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }
   if (phase === 'unsupported') {
     return (
       <p className="text-center text-sm text-text-muted py-6">
-        This browser can't record audio, so the speaking round isn't available here.
+        <FormattedMessage id="games.speakUnsupported" />
       </p>
     );
   }
@@ -147,11 +149,10 @@ export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }
     return (
       <div className="text-center py-6 flex flex-col items-center gap-3">
         <p className="text-sm text-text-muted max-w-xs">
-          Voca needs microphone access for the speaking round. Allow it in your browser's site
-          settings, then try again.
+          <FormattedMessage id="games.speakDenied" />
         </p>
         <button onClick={onGaveUp} className="btn-3d px-4 py-2 text-sm bg-bg-tertiary text-text-secondary">
-          Skip this round
+          <FormattedMessage id="games.skipRound" />
         </button>
       </div>
     );
@@ -163,18 +164,18 @@ export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }
     <div className="flex flex-col items-center gap-4 py-4">
       <p className="text-sm text-text-muted text-center">
         {phase === 'recording'
-          ? 'Listening — say the word'
+          ? intl.formatMessage({ id: 'games.speakListening' })
           : phase === 'thinking'
             ? modelProgress > 0 && modelProgress < 100
-              ? `Preparing the speech model… ${Math.round(modelProgress)}%`
-              : 'Checking what you said…'
-            : 'Say the word out loud'}
+              ? intl.formatMessage({ id: 'games.speakPreparingModel' }, { pct: Math.round(modelProgress) })
+              : intl.formatMessage({ id: 'games.speakChecking' })
+            : intl.formatMessage({ id: 'games.speakSayIt' })}
       </p>
 
       <button
         onClick={phase === 'recording' ? stopRecording : () => void startRecording()}
         disabled={disabled || busy}
-        aria-label={phase === 'recording' ? 'Stop recording' : 'Start recording'}
+        aria-label={intl.formatMessage({ id: phase === 'recording' ? 'games.stopRecording' : 'games.startRecording' })}
         className={`w-24 h-24 rounded-full flex items-center justify-center border-[3px] transition-colors disabled:opacity-60 cursor-pointer ${
           phase === 'recording'
             ? 'bg-accent-red text-bg-primary border-accent-red animate-glow-pulse'
@@ -193,9 +194,12 @@ export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }
               arbitrary, and the learner can't tell a pronunciation problem from
               a mishearing. */}
           <p className="text-sm text-text-muted">
-            Heard <span className="font-bold text-accent-red">“{heard}”</span>
+            <FormattedMessage
+              id="games.speakHeard"
+              values={{ heard, b: (c) => <span className="font-bold text-accent-red">{c}</span> }}
+            />
           </p>
-          <p className="text-xs text-text-muted/70 mt-0.5">Tap the mic to try again.</p>
+          <p className="text-xs text-text-muted/70 mt-0.5"><FormattedMessage id="games.speakTryAgain" /></p>
         </div>
       )}
 
@@ -206,7 +210,7 @@ export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }
           onClick={onGaveUp}
           className="text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
         >
-          Show me the word
+          <FormattedMessage id="games.showMeWord" />
         </button>
       )}
     </div>

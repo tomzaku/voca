@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { parseCloze, type ClozeParagraph } from '../lib/wordService';
 import { speakText, stopSpeaking, isTtsPlaying } from '../lib/tts';
 import { playCorrect, playWrong, playSelect, playWin } from '../lib/sfx';
@@ -8,6 +9,7 @@ import { agoLabel } from '../lib/progress';
 import { createStoryGap, deleteStoryGap, fetchStoryGaps, type StoryGap } from '../lib/storyGapsApi';
 import { useGameWordPool } from '../hooks/useGameWordPool';
 import { FilterTabs } from './FilterTabs';
+import { t } from '../i18n';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -62,6 +64,7 @@ function Confetti() {
 }
 
 export function ParagraphGame({ bookmarks, onBack }: Props) {
+  const intl = useIntl();
   const explicitWords = bookmarks !== undefined;
   const pool = useGameWordPool('recent', !explicitWords);
   const words = explicitWords ? bookmarks! : pool.words;
@@ -122,7 +125,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
       const next = new Set(prev);
       if (next.has(word)) next.delete(word);
       else if (next.size < MAX_WORDS) { next.add(word); playSelect(); }
-      else toast(`Up to ${MAX_WORDS} words per paragraph`);
+      else toast(t('games.storyMaxWords', { max: MAX_WORDS }));
       return next;
     });
   };
@@ -136,7 +139,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
       openStory(saved);
     } catch (err) {
       const msg = (err as Error).message || '';
-      toast.error(msg || 'Could not generate a story. Try again.');
+      toast.error(msg || t('games.storyGenerateFailed'));
       setPhase('select');
     }
   };
@@ -154,7 +157,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
     try {
       await deleteStoryGap(id);
     } catch {
-      toast.error('Could not delete — try again.');
+      toast.error(t('games.storyDeleteFailed'));
     }
   };
 
@@ -223,8 +226,8 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
         <Icon icon="solar:arrow-left-bold" className="text-xl" />
       </button>
       <div>
-        <h1 className="font-title font-black text-2xl text-accent-purple leading-none">Story Gaps</h1>
-        <p className="text-xs text-text-muted font-bold mt-0.5">Drag your words into the blanks</p>
+        <h1 className="font-title font-black text-2xl text-accent-purple leading-none"><FormattedMessage id="games.storyTitle" /></h1>
+        <p className="text-xs text-text-muted font-bold mt-0.5"><FormattedMessage id="games.storySubtitle" /></p>
       </div>
     </div>
   );
@@ -239,12 +242,12 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
         {history === null ? (
           <div className="py-6 flex items-center justify-center gap-2 text-sm text-text-muted">
             <div className="w-4 h-4 rounded-full border-2 border-accent-purple/30 border-t-accent-purple animate-spin" />
-            Loading your stories…
+            <FormattedMessage id="games.storyLoadingHistory" />
           </div>
         ) : history.length > 0 ? (
           <div className="space-y-2 mb-6">
             <p className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wide mb-2">
-              Your stories
+              <FormattedMessage id="games.storyYours" />
             </p>
             {history.map((s) => (
               <div
@@ -257,14 +260,14 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-text-primary truncate">
-                      {s.words.slice(0, 4).join(', ')}{s.words.length > 4 ? `, +${s.words.length - 4} more` : ''}
+                      {s.words.slice(0, 4).join(', ')}{s.words.length > 4 ? intl.formatMessage({ id: 'games.storyMoreWords' }, { count: s.words.length - 4 }) : ''}
                     </span>
                     <span className="block text-[11px] text-text-muted mt-0.5">{agoLabel(s.createdAt)}</span>
                   </span>
                 </button>
                 <button
                   onClick={() => removeSaved(s.id)}
-                  title="Delete this story"
+                  title={intl.formatMessage({ id: 'games.storyDelete' })}
                   className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-text-muted hover:text-accent-red hover:bg-accent-red/10 transition-colors"
                 >
                   <Icon icon="lucide:trash-2" className="text-sm" />
@@ -276,8 +279,10 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
 
         <div className="card-game border-accent-purple p-5 mb-5">
           <p className="text-sm font-bold text-text-secondary">
-            Pick <span className="text-accent-purple">2–{MAX_WORDS}</span> words. We'll write a short story
-            using them, then you drag each word into its gap.
+            <FormattedMessage
+              id="games.storyIntro"
+              values={{ max: MAX_WORDS, b: (c) => <span className="text-accent-purple">{c}</span> }}
+            />
           </p>
         </div>
 
@@ -291,7 +296,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
         {!explicitWords && pool.initialLoading ? (
           <div className="py-6 flex items-center justify-center gap-2 text-sm text-text-muted mb-6">
             <div className="w-4 h-4 rounded-full border-2 border-accent-purple/30 border-t-accent-purple animate-spin" />
-            Loading words…
+            <FormattedMessage id="games.loadingWords" />
           </div>
         ) : (
         <div className="flex flex-wrap gap-2 mb-6">
@@ -321,7 +326,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
           className="btn-3d w-full py-3.5 bg-accent-green text-bg-primary text-lg flex items-center justify-center gap-2"
         >
           <Icon icon="solar:magic-stick-3-bold" className="text-xl" />
-          Generate story ({selected.size})
+          <FormattedMessage id="games.storyGenerate" values={{ count: selected.size }} />
         </button>
       </div>
     );
@@ -335,7 +340,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
         <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4">
           <div className="text-5xl animate-bob">✍️</div>
           <div className="w-10 h-10 rounded-full border-[3px] border-accent-purple/30 border-t-accent-purple animate-spin" />
-          <p className="text-sm text-text-muted font-bold animate-fade-in">Writing your story…</p>
+          <p className="text-sm text-text-muted font-bold animate-fade-in"><FormattedMessage id="games.storyWriting" /></p>
         </div>
       </div>
     );
@@ -350,9 +355,9 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
           <Confetti />
           <div className="animate-bounce-in">
             <div className="text-6xl mb-3 animate-bob">🎉</div>
-            <h2 className="font-title font-black text-3xl text-accent-green mb-2">Story complete!</h2>
+            <h2 className="font-title font-black text-3xl text-accent-green mb-2"><FormattedMessage id="games.storyComplete" /></h2>
             <p className="text-sm text-text-secondary font-bold">
-              You filled all {cloze?.answers.length} gaps correctly.
+              <FormattedMessage id="games.storyFilledAll" values={{ count: cloze?.answers.length ?? 0 }} />
             </p>
           </div>
 
@@ -369,7 +374,7 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
             ) : (
               <Icon icon="solar:volume-loud-bold" className="text-xl" />
             )}
-            {isSpeaking ? 'Stop' : 'Listen to the story'}
+            <FormattedMessage id={isSpeaking ? 'games.stop' : 'games.storyListen'} />
           </button>
 
           {/* The finished paragraph */}
@@ -384,10 +389,10 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
           </p>
           <div className="flex gap-2 mt-7">
             <button onClick={reset} className="btn-3d flex-1 py-3 bg-accent-purple text-bg-primary flex items-center justify-center gap-2">
-              <Icon icon="solar:refresh-bold" className="text-lg" /> New story
+              <Icon icon="solar:refresh-bold" className="text-lg" /> <FormattedMessage id="games.storyNew" />
             </button>
             <button onClick={onBack} className="btn-3d flex-1 py-3 bg-bg-card text-text-secondary">
-              Done
+              <FormattedMessage id="games.done" />
             </button>
           </div>
         </div>
@@ -407,10 +412,13 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
       {/* Progress */}
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-extrabold text-text-secondary">
-          <span className="text-accent-green">{filledCount}</span> / {total} filled
+          <FormattedMessage
+            id="games.storyFilled"
+            values={{ filled: filledCount, total, b: (c) => <span className="text-accent-green">{c}</span> }}
+          />
         </span>
         <button onClick={reset} className="btn-3d px-3 py-1.5 bg-bg-card text-text-secondary text-xs flex items-center gap-1.5">
-          <Icon icon="solar:refresh-bold" /> Restart
+          <Icon icon="solar:refresh-bold" /> <FormattedMessage id="games.restart" />
         </button>
       </div>
 
@@ -464,11 +472,11 @@ export function ParagraphGame({ bookmarks, onBack }: Props) {
       {/* Tile bank */}
       <div className="card-game p-4">
         <p className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wide mb-3">
-          {activeTile ? 'Now tap a blank ↑' : 'Drag or tap a word'}
+          <FormattedMessage id={activeTile ? 'games.storyTapBlank' : 'games.storyDragOrTap'} />
         </p>
         <div className="flex flex-wrap gap-2.5">
           {bankTiles.length === 0 ? (
-            <span className="text-sm text-text-muted font-bold py-2">All placed! 🎈</span>
+            <span className="text-sm text-text-muted font-bold py-2"><FormattedMessage id="games.storyAllPlaced" /> 🎈</span>
           ) : (
             bankTiles.map((word, i) => (
               <button

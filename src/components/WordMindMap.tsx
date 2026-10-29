@@ -43,6 +43,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { getIntl, t } from '../i18n';
 import './wordMindMap.css';
 import { callAiAction } from '../lib/aiProviders';
 import {
@@ -63,14 +65,14 @@ import { FilterTabs } from './FilterTabs';
 
 function timeAgo(date: string): string {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
+  if (seconds < 60) return t('bucket.agoJustNow');
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t('bucket.agoMinutes', { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t('bucket.agoHours', { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(date).toLocaleDateString();
+  if (days < 30) return t('bucket.agoDays', { count: days });
+  return getIntl().formatDate(date);
 }
 
 /** Which per-word lines the cards show. Each is a row in the Show menu. */
@@ -114,8 +116,8 @@ function readFields(): MapFields {
 }
 
 // The user asked for this exact title in the center — the AI's generated
-// title is ignored on purpose.
-const ROOT_TOPIC = 'Master English Vocabulary';
+// title is ignored on purpose. A message id, formatted where it's drawn.
+const ROOT_TOPIC_ID = 'mindmap.rootTopic';
 
 // Branch line/border colors. The map canvas is always white paper (whatever
 // the app theme), so these are the deeper accent variants that stay legible
@@ -276,13 +278,13 @@ function parseMindMap(text: string): MindMapNode {
       } catch { /* fall through to the error below */ }
     }
     if (parsed === undefined) {
-      throw new Error('The AI returned an unreadable mind map — try redrawing.');
+      throw new Error(t('mindmap.unreadable'));
     }
   }
   const rootRaw = (parsed as Record<string, unknown>)?.data ?? parsed;
   const root = toNode(rootRaw, 0, 'root');
   if (!root || root.children.length === 0) {
-    throw new Error('The AI returned an empty mind map — try redrawing.');
+    throw new Error(t('mindmap.empty'));
   }
   return root;
 }
@@ -538,6 +540,7 @@ function ThemeCard({
   moving: boolean;
   dragProps: DragProps;
 }) {
+  const intl = useIntl();
   return (
     <div
       ref={innerRef}
@@ -569,12 +572,14 @@ function ThemeCard({
               <span className="mm-emoji">{w.emoji ?? '✏️'}</span>
             )}
             <span className="mm-row-text">
-              <span className="mm-word" title={`Open “${w.topic}”`} onClick={() => onWordClick(w.topic)}>
+              <span className="mm-word" title={intl.formatMessage({ id: 'mindmap.openWord' }, { word: w.topic })} onClick={() => onWordClick(w.topic)}>
                 {w.topic}
               </span>
               <button
                 className={`mm-speak ${isSpeaking ? 'mm-speak-on' : ''}`}
-                title={isSpeaking ? 'Stop' : `Speak “${w.topic}”`}
+                title={isSpeaking
+                  ? intl.formatMessage({ id: 'flashcard.stop' })
+                  : intl.formatMessage({ id: 'mindmap.speakWord' }, { word: w.topic })}
                 onClick={() => onSpeak(w)}
               >
                 <Icon icon={isSpeaking ? 'lucide:square' : 'lucide:volume-2'} />
@@ -596,11 +601,11 @@ function ThemeCard({
 }
 
 /** The rows of the Show menu, in the order they read on a card. */
-const FIELD_ROWS: { id: keyof MapFields; label: string; hint: string; icon: string }[] = [
-  { id: 'definitions', label: 'Definitions', hint: 'A one-line meaning in English', icon: 'lucide:text' },
-  { id: 'translation', label: 'Mother language', hint: '', icon: 'lucide:languages' },
-  { id: 'phonetics', label: 'Phonetics', hint: 'IPA pronunciation', icon: 'lucide:audio-lines' },
-  { id: 'examples', label: 'Examples', hint: 'One sentence using the word', icon: 'lucide:quote' },
+const FIELD_ROWS: { id: keyof MapFields; labelId: string; hintId: string | null; icon: string }[] = [
+  { id: 'definitions', labelId: 'mindmap.fieldDefinitions', hintId: 'mindmap.fieldDefinitionsHint', icon: 'lucide:text' },
+  { id: 'translation', labelId: 'mindmap.fieldTranslation', hintId: null, icon: 'lucide:languages' },
+  { id: 'phonetics', labelId: 'mindmap.fieldPhonetics', hintId: 'mindmap.fieldPhoneticsHint', icon: 'lucide:audio-lines' },
+  { id: 'examples', labelId: 'mindmap.fieldExamples', hintId: 'mindmap.fieldExamplesHint', icon: 'lucide:quote' },
 ];
 
 /**
@@ -617,6 +622,7 @@ function FieldsMenu({
   motherLang: string;
   onChange: (next: MapFields) => void;
 }) {
+  const intl = useIntl();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -642,24 +648,24 @@ function FieldsMenu({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="true"
         aria-expanded={open}
-        title="Choose what each word shows"
+        title={intl.formatMessage({ id: 'mindmap.showTitle' })}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
       >
         <Icon icon="lucide:sliders-horizontal" className="text-sm" />
-        Show
+        <FormattedMessage id="mindmap.show" />
         <span className="text-[10px] opacity-70">{shown}/{FIELD_ROWS.length}</span>
       </button>
 
       {open && (
         <div className="absolute right-0 top-full mt-1.5 z-50 w-60 rounded-lg border border-border bg-bg-card shadow-lg overflow-hidden animate-fade-in">
           <p className="px-3 py-2 border-b border-border text-[11px] font-semibold text-text-primary">
-            Show on each word
+            <FormattedMessage id="mindmap.showOnEachWord" />
           </p>
           {FIELD_ROWS.map((row) => {
             const on = fields[row.id];
             // The mother-tongue row names the actual language, so it's obvious
             // which one you'd be turning on.
-            const hint = row.id === 'translation' ? motherLang : row.hint;
+            const hint = row.id === 'translation' ? motherLang : row.hintId ? intl.formatMessage({ id: row.hintId }) : '';
             return (
               <label
                 key={row.id}
@@ -673,7 +679,7 @@ function FieldsMenu({
                 />
                 <Icon icon={row.icon} className={`text-sm shrink-0 ${on ? 'text-accent-cyan' : 'text-text-muted'}`} />
                 <span className="min-w-0">
-                  <span className="block text-xs font-semibold text-text-primary">{row.label}</span>
+                  <span className="block text-xs font-semibold text-text-primary"><FormattedMessage id={row.labelId} /></span>
                   {hint && <span className="block text-[11px] text-text-muted leading-snug">{hint}</span>}
                 </span>
               </label>
@@ -718,6 +724,7 @@ function RadialMap({
   // component) can trigger it — exporting needs the canvas element.
   exportRef: RefObject<(() => void) | null>;
 }) {
+  const intl = useIntl();
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
@@ -995,7 +1002,7 @@ function RadialMap({
       const canvas = canvasRef.current;
       if (!canvas) return;
       void (async () => {
-        const toastId = toast.loading('Rendering your mind map…');
+        const toastId = toast.loading(t('mindmap.rendering'));
         try {
           const blob = await mindMapToPngBlob(canvas, {
             // The drag handles and speak buttons are things to click, not
@@ -1003,9 +1010,9 @@ function RadialMap({
             hide: ['.mm-grab', '.mm-knob', '.mm-speak'],
           });
           downloadBlob(blob, 'mind-map.png');
-          toast.success('Saved as mind-map.png', { id: toastId });
+          toast.success(t('mindmap.savedPng'), { id: toastId });
         } catch (err) {
-          toast.error(`Couldn't export the image: ${(err as Error).message}`, { id: toastId });
+          toast.error(t('mindmap.exportFailed', { error: (err as Error).message }), { id: toastId });
         }
       })();
     };
@@ -1232,7 +1239,7 @@ function RadialMap({
               onDoubleClick={resetEdit('bends', l.a.id)}
             >
               <path className="mm-grab" d={l.line}>
-                <title>Drag to bend · double-click to reset</title>
+                <title>{intl.formatMessage({ id: 'mindmap.dragToBend' })}</title>
               </path>
               <circle className="mm-knob" cx={l.knob.x} cy={l.knob.y} r={7} fill={l.a.color} />
             </g>
@@ -1249,7 +1256,7 @@ function RadialMap({
               {...dragPropsFor(ROOT_ID)}
             >
               {tree.emoji ? `${tree.emoji} ` : ''}
-              {ROOT_TOPIC}
+              {intl.formatMessage({ id: ROOT_TOPIC_ID })}
             </div>
             <div className="mm-band">{renderCards('bottom')}</div>
           </div>
@@ -1259,13 +1266,13 @@ function RadialMap({
 
       {/* Zoom controls */}
       <div className="mm-zoom absolute bottom-3 right-3 flex flex-col gap-1.5">
-        {([['lucide:plus', () => zoomBy(1.25), 'Zoom in'],
-           ['lucide:minus', () => zoomBy(1 / 1.25), 'Zoom out'],
-           ['lucide:maximize', centerView, 'Fit to screen']] as const).map(([icon, fn, label]) => (
+        {([['lucide:plus', () => zoomBy(1.25), 'mindmap.zoomIn'],
+           ['lucide:minus', () => zoomBy(1 / 1.25), 'mindmap.zoomOut'],
+           ['lucide:maximize', centerView, 'mindmap.fitToScreen']] as const).map(([icon, fn, labelId]) => (
           <button
             key={icon}
             onClick={fn}
-            title={label}
+            title={intl.formatMessage({ id: labelId })}
             className="w-8 h-8 rounded-lg bg-white/90 border border-[#b7c9ef] text-[#262357] flex items-center justify-center hover:bg-white transition-all shadow-sm"
           >
             <Icon icon={icon} className="text-sm" />
@@ -1285,6 +1292,7 @@ export function WordMindMap({
   words?: string[];
   onBack: () => void;
 }) {
+  const intl = useIntl();
   const navigate = useNavigate();
   const explicit = explicitWords !== undefined;
   const pool = useGameWordPool('recent', !explicit);
@@ -1379,7 +1387,7 @@ export function WordMindMap({
         // failed background save shouldn't surface an error to the user.
         void saveMindmap(chosen, motherLang, root).catch(() => {});
       } catch (err) {
-        setError((err as Error).message || 'Could not build the mind map.');
+        setError((err as Error).message || t('mindmap.buildFailed'));
       } finally {
         setLoading(false);
       }
@@ -1559,7 +1567,7 @@ export function WordMindMap({
         } catch (err) {
           console.error(`[mindmap] sheet failed: ${(err as Error).message}`);
           failed.push(...sheet);
-          if (!firstError) firstError = (err as Error).message || 'Unknown error.';
+          if (!firstError) firstError = (err as Error).message || t('mindmap.unknownError');
         }
         done += sheet.length;
         if (!aliveRef.current) return;
@@ -1571,9 +1579,9 @@ export function WordMindMap({
       setUnsketched(failed); // failures stay available for another attempt
       setDoodleTick((t) => t + 1);
       if (succeeded === 0 && firstError) {
-        toast.error(`Doodles couldn't be sketched: ${firstError}`, { duration: 8000 });
+        toast.error(t('mindmap.doodlesFailedAll', { error: firstError }), { duration: 8000 });
       } else if (failed.length > 0) {
-        toast(`${failed.length} doodle(s) failed — try sketching again.`, { icon: '✍️' });
+        toast(t('mindmap.doodlesFailedSome', { count: failed.length }), { icon: '✍️' });
       }
     })();
   };
@@ -1590,7 +1598,7 @@ export function WordMindMap({
 
   const redraw = () => {
     void load(true);
-    toast('Drawing a fresh mind map…', { icon: '✍️' });
+    toast(t('mindmap.redrawing'), { icon: '✍️' });
   };
 
   const togglePick = (word: string) => {
@@ -1599,7 +1607,7 @@ export function WordMindMap({
       if (next.has(word)) {
         next.delete(word);
       } else if (next.size >= MAX_WORDS) {
-        toast(`A mind map fits up to ${MAX_WORDS} words.`, { icon: '✋' });
+        toast(t('mindmap.maxWords', { max: MAX_WORDS }), { icon: '✋' });
         return prev;
       } else {
         next.add(word);
@@ -1622,7 +1630,7 @@ export function WordMindMap({
               <line x1="19" y1="12" x2="5" y2="12" />
               <polyline points="12 19 5 12 12 5" />
             </svg>
-            Back
+            <FormattedMessage id="mindmap.back" />
           </button>
           <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent-yellow/15 text-accent-yellow text-[10px] font-extrabold uppercase tracking-wider">
             <Icon icon="lucide:crown" className="text-xs" />
@@ -1631,11 +1639,11 @@ export function WordMindMap({
         </div>
 
         <h1 className="font-display font-extrabold text-2xl text-text-primary mb-1">
-          Pick words for your mind map
+          <FormattedMessage id="mindmap.pickTitle" />
         </h1>
         <p className="text-sm text-text-muted mb-5">
-          Choose 2–{MAX_WORDS} words to organize into themes.
-          {overflow && ` You have ${words.length} matching words — the first ${MAX_WORDS} are pre-selected.`}
+          <FormattedMessage id="mindmap.pickSubtitle" values={{ max: MAX_WORDS }} />
+          {overflow && <> <FormattedMessage id="mindmap.pickOverflow" values={{ count: words.length, max: MAX_WORDS }} /></>}
         </p>
 
         {/* No explicit list from the caller — pick which words this map draws from. */}
@@ -1648,7 +1656,7 @@ export function WordMindMap({
         {savedMaps.length > 0 && (
           <div className="mb-6">
             <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">
-              Your saved mind maps
+              <FormattedMessage id="mindmap.savedMaps" />
             </h2>
             <div className="flex flex-wrap gap-2">
               {savedMaps.map((m) => (
@@ -1658,7 +1666,7 @@ export function WordMindMap({
                   className="text-left px-3 py-2 rounded-xl border border-border bg-bg-card hover:border-accent-cyan/40 transition-all max-w-[240px]"
                 >
                   <div className="text-sm font-display font-bold text-text-primary">
-                    {m.words.length} words
+                    <FormattedMessage id="bucket.wordCount" values={{ count: m.words.length }} />
                   </div>
                   <div className="text-xs text-text-muted truncate">
                     {m.words.slice(0, 4).join(', ')}{m.words.length > 4 ? '…' : ''}
@@ -1673,7 +1681,7 @@ export function WordMindMap({
         {!explicit && pool.initialLoading ? (
           <div className="py-6 flex items-center justify-center gap-2 text-sm text-text-muted mb-6">
             <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-            Loading words…
+            <FormattedMessage id="mindmap.loadingWords" />
           </div>
         ) : (
         <>
@@ -1682,16 +1690,16 @@ export function WordMindMap({
             onClick={() => setPicked(new Set(words.slice(0, MAX_WORDS)))}
             className="px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
           >
-            Select all
+            <FormattedMessage id="mindmap.selectAll" />
           </button>
           <button
             onClick={() => setPicked(new Set())}
             className="px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
           >
-            Clear
+            <FormattedMessage id="mindmap.clear" />
           </button>
           <span className="ml-auto text-xs font-bold text-accent-cyan">
-            {picked.size}/{Math.min(words.length, MAX_WORDS)} selected
+            <FormattedMessage id="mindmap.selectedCount" values={{ count: picked.size, max: Math.min(words.length, MAX_WORDS) }} />
           </span>
         </div>
 
@@ -1722,7 +1730,7 @@ export function WordMindMap({
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-cyan/15 border-2 border-accent-cyan/40 text-accent-cyan font-display font-extrabold hover:bg-accent-cyan/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Icon icon="lucide:pencil-line" className="text-base" />
-          Build mind map ({picked.size} words)
+          <FormattedMessage id="mindmap.build" values={{ count: picked.size }} />
         </button>
       </div>
     );
@@ -1740,40 +1748,39 @@ export function WordMindMap({
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
-          Back
+          <FormattedMessage id="mindmap.back" />
         </button>
         <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent-yellow/15 text-accent-yellow text-[10px] font-extrabold uppercase tracking-wider">
           <Icon icon="lucide:crown" className="text-xs" />
           Pro
         </span>
         <span className="hidden sm:block text-[11px] text-text-muted">
-          drag paper to pan · scroll to zoom · click a word to study it · drag a card or arrow to
-          rearrange, double-click it to reset
+          <FormattedMessage id="mindmap.controlsHint" />
         </span>
 
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setChosen(null)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
-            title="Pick a different set of words"
+            title={intl.formatMessage({ id: 'mindmap.changeWordsTitle' })}
           >
             <Icon icon="lucide:list-checks" className="text-sm" />
-            Change words
+            <FormattedMessage id="mindmap.changeWords" />
           </button>
           {sketching && (
             <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-xs font-medium">
               <span className="w-3 h-3 rounded-full border-2 border-accent-purple/30 border-t-accent-purple animate-spin" />
-              Sketching doodles {sketching.done}/{sketching.total}
+              <FormattedMessage id="mindmap.sketching" values={{ done: sketching.done, total: sketching.total }} />
             </span>
           )}
           {DOODLE_GENERATION_ENABLED && !sketching && unsketched.length > 0 && (
             <button
               onClick={sketchDoodles}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-purple/10 border border-accent-purple/20 text-accent-purple text-xs font-medium hover:bg-accent-purple/20 transition-all"
-              title={`Generate hand-drawn doodles for ${unsketched.length} word(s) with AI — drawn ${SHEET_SIZE} to a sheet to keep cost low, then cached for everyone forever`}
+              title={intl.formatMessage({ id: 'mindmap.sketchTitle' }, { count: unsketched.length, sheet: SHEET_SIZE })}
             >
               <Icon icon="lucide:paintbrush" className="text-sm" />
-              Sketch doodles ({unsketched.length})
+              <FormattedMessage id="mindmap.sketch" values={{ count: unsketched.length }} />
             </button>
           )}
           {tree && !loading && (
@@ -1783,20 +1790,20 @@ export function WordMindMap({
             <button
               onClick={() => exportRef.current?.()}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-card text-text-muted text-xs font-medium hover:text-text-primary hover:border-border-light transition-all"
-              title="Save the whole map as a PNG image"
+              title={intl.formatMessage({ id: 'mindmap.exportTitle' })}
             >
               <Icon icon="lucide:image-down" className="text-sm" />
-              Export PNG
+              <FormattedMessage id="mindmap.exportPng" />
             </button>
           )}
           <button
             onClick={redraw}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-orange/10 border border-accent-orange/20 text-accent-orange text-xs font-medium hover:bg-accent-orange/20 transition-all disabled:opacity-50"
-            title="Generate a fresh mind map"
+            title={intl.formatMessage({ id: 'mindmap.redrawTitle' })}
           >
             <Icon icon="lucide:refresh-cw" className="text-sm" />
-            Redraw
+            <FormattedMessage id="mindmap.redraw" />
           </button>
         </div>
       </div>
@@ -1806,8 +1813,8 @@ export function WordMindMap({
         <div className="py-24 flex flex-col items-center gap-4 text-center">
           <div className="w-10 h-10 rounded-full border-4 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
           <div>
-            <p className="text-sm font-bold text-text-primary">Drawing your mind map…</p>
-            <p className="text-xs text-text-muted mt-1">Grouping {chosen.length} words into themes</p>
+            <p className="text-sm font-bold text-text-primary"><FormattedMessage id="mindmap.drawing" /></p>
+            <p className="text-xs text-text-muted mt-1"><FormattedMessage id="mindmap.grouping" values={{ count: chosen.length }} /></p>
           </div>
         </div>
       ) : error ? (
@@ -1818,7 +1825,7 @@ export function WordMindMap({
             onClick={() => void load(true)}
             className="mt-2 px-4 py-2 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 text-accent-cyan text-sm font-medium hover:bg-accent-cyan/20 transition-all"
           >
-            Try again
+            <FormattedMessage id="flashcard.tryAgain" />
           </button>
         </div>
       ) : tree ? (

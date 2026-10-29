@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { playSelect } from '../lib/sfx';
 import {
   MIN_QUIZ_WORDS, QUESTION_TYPES, QUESTION_TYPE_META, SECONDS_PER_WORD, makeQuizConfig,
@@ -60,6 +61,7 @@ function initialBatch(words: string[], selectAll: boolean): string[] {
 }
 
 export function QuizSetup({ words: explicitWords, onBack, recordProgress = false, selectAll = false }: Props) {
+  const intl = useIntl();
   const { user } = useAuth();
   const explicit = explicitWords !== undefined;
   const pool = useGameWordPool('recent', !explicit);
@@ -117,7 +119,7 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
     setChosen(new Set(picked));
     playSelect();
     if (picked.length < MIN_WORDS) {
-      toast('You’re all caught up — no words need practice right now.');
+      toast(intl.formatMessage({ id: 'quiz.setup.allCaughtUp' }));
     }
   };
   const smartSelect = () => applySmart(smartN);
@@ -156,7 +158,7 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
         onExit={onBack}
         onPickWords={() => setRunConfig(null)}
         onReplay={() => setRunKey((k) => k + 1)}
-        finishLabel="Back to list"
+        finishLabel={intl.formatMessage({ id: 'quiz.setup.backToList' })}
       />
     );
   }
@@ -173,15 +175,15 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
           </svg>
         </button>
         <div className="flex-1">
-          <h1 className="font-display font-extrabold text-2xl text-accent-cyan leading-none">Quiz</h1>
-          <p className="text-xs text-text-muted font-bold mt-1">Set it up, then start or share</p>
+          <h1 className="font-display font-extrabold text-2xl text-accent-cyan leading-none"><FormattedMessage id="quiz.setup.title" /></h1>
+          <p className="text-xs text-text-muted font-bold mt-1"><FormattedMessage id="quiz.setup.subtitle" /></p>
         </div>
         <Link
           to="/quizzes"
           className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors flex items-center gap-1"
-          title="Quizzes you've shared"
+          title={intl.formatMessage({ id: 'quiz.setup.myQuizzesTitle' })}
         >
-          <Icon icon="lucide:folder" className="text-sm" /> My quizzes
+          <Icon icon="lucide:folder" className="text-sm" /> <FormattedMessage id="quiz.setup.myQuizzes" />
         </Link>
       </div>
 
@@ -195,7 +197,7 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
       {!explicit && pool.initialLoading ? (
         <div className="py-16 flex items-center justify-center gap-2 text-sm text-text-muted">
           <div className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
-          Loading words…
+          <FormattedMessage id="quiz.setup.loadingWords" />
         </div>
       ) : (
       /* Desktop: settings rail on the left, word picker on the right. */
@@ -204,9 +206,11 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
           {/* ── Question types ── */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider">Question types</h2>
+              <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider">{intl.formatMessage({ id: 'quiz.setup.questionTypes' })}</h2>
               <span className="text-[11px] font-bold text-text-muted">
-                {qTypes.size === QUESTION_TYPES.length ? 'Random mix' : `${qTypes.size} selected`}
+                {qTypes.size === QUESTION_TYPES.length
+                  ? intl.formatMessage({ id: 'quiz.setup.randomMix' })
+                  : intl.formatMessage({ id: 'quiz.setup.typesSelected' }, { count: qTypes.size })}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -222,9 +226,9 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
                   >
                     <div className="flex items-center gap-1.5 font-display font-extrabold text-sm">
                       <Icon icon={on ? 'solar:check-circle-bold' : 'lucide:circle'} className={on ? 'text-accent-cyan' : 'text-text-muted'} />
-                      {QUESTION_TYPE_META[t].label}
+                      {intl.formatMessage({ id: QUESTION_TYPE_META[t].labelId })}
                     </div>
-                    <p className="text-[11px] text-text-muted mt-0.5 leading-tight">{QUESTION_TYPE_META[t].hint}</p>
+                    <p className="text-[11px] text-text-muted mt-0.5 leading-tight">{intl.formatMessage({ id: QUESTION_TYPE_META[t].hintId })}</p>
                   </button>
                 );
               })}
@@ -233,12 +237,12 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
 
           {/* ── Show answers ── */}
           <div className="mb-6">
-            <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider mb-2">Show answers</h2>
+            <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider mb-2">{intl.formatMessage({ id: 'quiz.setup.showAnswers' })}</h2>
             <div className="grid grid-cols-2 gap-2">
               {([
-                { v: 'end', label: 'At the end', hint: 'See every answer on the results screen' },
-                { v: 'each', label: 'After each', hint: 'Instant right/wrong per question' },
-              ] as { v: RevealMode; label: string; hint: string }[]).map((o) => {
+                { v: 'end', labelId: 'quiz.setup.revealEnd', hintId: 'quiz.setup.revealEndHint' },
+                { v: 'each', labelId: 'quiz.setup.revealEach', hintId: 'quiz.setup.revealEachHint' },
+              ] as { v: RevealMode; labelId: string; hintId: string }[]).map((o) => {
                 const on = reveal === o.v;
                 return (
                   <button
@@ -250,9 +254,9 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
                   >
                     <div className="flex items-center gap-1.5 font-display font-extrabold text-sm">
                       <Icon icon={on ? 'solar:check-circle-bold' : 'lucide:circle'} className={on ? 'text-accent-cyan' : 'text-text-muted'} />
-                      {o.label}
+                      {intl.formatMessage({ id: o.labelId })}
                     </div>
-                    <p className="text-[11px] text-text-muted mt-0.5 leading-tight">{o.hint}</p>
+                    <p className="text-[11px] text-text-muted mt-0.5 leading-tight">{intl.formatMessage({ id: o.hintId })}</p>
                   </button>
                 );
               })}
@@ -262,15 +266,15 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
           {/* ── Time limit ── */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider">Time limit</h2>
+              <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider">{intl.formatMessage({ id: 'quiz.setup.timeLimit' })}</h2>
               <button
                 onClick={() => setAutoTime(true)}
                 className={`text-[11px] font-bold px-2 py-0.5 rounded-full border transition-all ${
                   autoTime ? 'bg-accent-cyan/15 border-accent-cyan/30 text-accent-cyan' : 'bg-bg-card border-border text-text-muted hover:text-text-primary'
                 }`}
-                title={`Auto: ${SECONDS_PER_WORD}s per word`}
+                title={intl.formatMessage({ id: 'quiz.setup.autoTitle' }, { sec: SECONDS_PER_WORD })}
               >
-                Auto · {SECONDS_PER_WORD}s/word
+                <FormattedMessage id="quiz.setup.auto" values={{ sec: SECONDS_PER_WORD }} />
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -281,9 +285,11 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
                 onChange={(e) => { setAutoTime(false); setDurationSec(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
                 className="w-28 bg-bg-card border-2 border-border rounded-xl px-3 py-2 text-text-primary font-code font-bold focus:outline-none focus:border-accent-cyan transition-colors"
               />
-              <span className="text-sm text-text-muted font-bold">seconds</span>
+              <span className="text-sm text-text-muted font-bold"><FormattedMessage id="quiz.setup.seconds" /></span>
               <span className="text-xs text-text-muted ml-auto">
-                {durationSec === 0 ? 'No limit' : `≈ ${fmtTime(durationSec)} for ${chosen.size} word${chosen.size === 1 ? '' : 's'}`}
+                {durationSec === 0
+                  ? intl.formatMessage({ id: 'quiz.setup.noLimit' })
+                  : intl.formatMessage({ id: 'quiz.setup.timeEstimate' }, { time: fmtTime(durationSec), count: chosen.size })}
               </span>
             </div>
           </div>
@@ -293,15 +299,15 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
           {/* ── Words ── */}
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-display font-extrabold text-text-muted uppercase tracking-wider">
-              Words <span className="text-accent-cyan">{chosen.size}</span><span className="text-text-muted">/{words.length}</span>
+              <FormattedMessage id="quiz.setup.words" /> <span className="text-accent-cyan">{chosen.size}</span><span className="text-text-muted">/{words.length}</span>
             </h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={smartSelect}
                 className="text-xs font-bold text-accent-cyan hover:opacity-80 transition-opacity flex items-center gap-1"
-                title="Pick words like the Learn page: difficult and new first, then due reviews. Click again to reshuffle."
+                title={intl.formatMessage({ id: 'quiz.setup.smartTitle' })}
               >
-                <Icon icon="lucide:brain" className="text-sm" /> Smart
+                <Icon icon="lucide:brain" className="text-sm" /> <FormattedMessage id="quiz.setup.smart" />
               </button>
               <input
                 type="number"
@@ -322,13 +328,13 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
                 }}
                 onKeyDown={(e) => { if (e.key === 'Enter') smartSelect(); }}
                 className="w-12 px-1.5 py-0.5 rounded-md bg-bg-card border border-border text-xs font-bold text-text-primary text-center focus:outline-none focus:border-accent-cyan/50 transition-colors"
-                title="How many words Smart picks"
-                aria-label="Smart batch size"
+                title={intl.formatMessage({ id: 'quiz.setup.smartCountTitle' })}
+                aria-label={intl.formatMessage({ id: 'quiz.setup.smartCountLabel' })}
               />
               <span className="text-border">·</span>
-              <button onClick={() => setChosen(new Set(words))} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors">All</button>
+              <button onClick={() => setChosen(new Set(words))} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors"><FormattedMessage id="quiz.setup.all" /></button>
               <span className="text-border">·</span>
-              <button onClick={() => setChosen(new Set())} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors">None</button>
+              <button onClick={() => setChosen(new Set())} className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors"><FormattedMessage id="quiz.setup.none" /></button>
             </div>
           </div>
 
@@ -357,20 +363,23 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
                   onClick={() => setShown((n) => n + WORDS_SHOWN_STEP)}
                   className="px-4 py-2 rounded-full text-xs font-bold bg-bg-card border border-border text-text-secondary hover:text-text-primary hover:border-border-light transition-colors"
                 >
-                  Show {Math.min(WORDS_SHOWN_STEP, words.length - shown)} more · {words.length - shown} hidden
+                  <FormattedMessage
+                    id="quiz.setup.showMore"
+                    values={{ more: Math.min(WORDS_SHOWN_STEP, words.length - shown), hidden: words.length - shown }}
+                  />
                 </button>
                 <button
                   onClick={() => setShown(words.length)}
                   className="text-xs font-bold text-text-muted hover:text-text-primary transition-colors"
                 >
-                  Show all
+                  <FormattedMessage id="quiz.setup.showAll" />
                 </button>
               </div>
               {(() => {
                 const hiddenChosen = words.slice(shown).filter((w) => chosen.has(w)).length;
                 return hiddenChosen > 0 && (
                   <span className="text-[11px] font-bold text-text-muted">
-                    {hiddenChosen} selected word{hiddenChosen === 1 ? '' : 's'} in the hidden part
+                    <FormattedMessage id="quiz.setup.hiddenSelected" values={{ count: hiddenChosen }} />
                   </span>
                 );
               })()}
@@ -387,20 +396,20 @@ export function QuizSetup({ words: explicitWords, onBack, recordProgress = false
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
-              Start ({chosen.size})
+              <FormattedMessage id="quiz.setup.start" values={{ count: chosen.size }} />
             </button>
             <button
               onClick={() => setShareOpen(true)}
               disabled={chosen.size < MIN_WORDS}
               className="px-5 py-3.5 rounded-xl border-2 border-accent-cyan/40 text-accent-cyan text-sm font-display font-extrabold flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent-cyan/10 transition-all"
-              title="Share this quiz as a test for students"
+              title={intl.formatMessage({ id: 'quiz.setup.shareTitle' })}
             >
               <Icon icon="lucide:share-2" className="text-lg" />
-              Share
+              <FormattedMessage id="quiz.setup.share" />
             </button>
           </div>
           {chosen.size < MIN_WORDS && (
-            <p className="text-center text-xs text-text-muted mt-3">Pick at least {MIN_WORDS} words.</p>
+            <p className="text-center text-xs text-text-muted mt-3"><FormattedMessage id="quiz.setup.pickAtLeast" values={{ count: MIN_WORDS }} /></p>
           )}
         </div>
       </div>
@@ -420,6 +429,7 @@ function ShareDialog({ config, wordCount, signedIn, onClose }: {
   signedIn: boolean;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   const { signInWithGoogle } = useAuth();
   const [title, setTitle] = useState('');
   const [requireAuth, setRequireAuth] = useState(false);
@@ -434,23 +444,23 @@ function ShareDialog({ config, wordCount, signedIn, onClose }: {
       const quiz = await createSharedQuiz(config, title.trim() || null, requireAuth);
       setQuizId(quiz.id);
     } catch (err) {
-      toast.error((err as Error).message || 'Could not create the quiz.');
+      toast.error((err as Error).message || intl.formatMessage({ id: 'quiz.share.createFailed' }));
     } finally {
       setBusy(false);
     }
   };
 
   const copy = async () => {
-    try { await navigator.clipboard.writeText(link); toast.success('Link copied'); }
-    catch { toast.error('Could not copy'); }
+    try { await navigator.clipboard.writeText(link); toast.success(intl.formatMessage({ id: 'quiz.share.linkCopied' })); }
+    catch { toast.error(intl.formatMessage({ id: 'quiz.share.copyFailed' })); }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl border border-border bg-bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="font-display font-extrabold text-text-primary">Share as a test</h3>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors" aria-label="Close">
+          <h3 className="font-display font-extrabold text-text-primary"><FormattedMessage id="quiz.share.heading" /></h3>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors" aria-label={intl.formatMessage({ id: 'quiz.share.close' })}>
             <Icon icon="lucide:x" className="text-lg" />
           </button>
         </div>
@@ -459,40 +469,47 @@ function ShareDialog({ config, wordCount, signedIn, onClose }: {
           {!quizId ? (
             <>
               <p className="text-sm text-text-muted mb-4">
-                {wordCount} words · answers {config.reveal === 'end' ? 'at the end' : 'after each'}
-                {config.durationSec > 0 ? ` · ${fmtTime(config.durationSec)} limit` : ' · no time limit'}
+                <FormattedMessage
+                  id="quiz.share.summary"
+                  values={{
+                    count: wordCount,
+                    reveal: config.reveal,
+                    timed: config.durationSec > 0 ? 'yes' : 'no',
+                    time: fmtTime(config.durationSec),
+                  }}
+                />
               </p>
 
-              <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Title</label>
+              <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1"><FormattedMessage id="quiz.share.titleLabel" /></label>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Unit 3 vocabulary"
+                placeholder={intl.formatMessage({ id: 'quiz.share.titlePlaceholder' })}
                 className="w-full bg-bg-tertiary border-2 border-border rounded-xl px-3 py-2 text-text-primary font-semibold focus:outline-none focus:border-accent-cyan transition-colors mb-4"
               />
 
               <label className="flex items-center gap-2.5 mb-5 cursor-pointer">
                 <input type="checkbox" checked={requireAuth} onChange={(e) => setRequireAuth(e.target.checked)} className="w-4 h-4 accent-accent-cyan" />
-                <span className="text-sm text-text-secondary font-medium">Require students to sign in</span>
+                <span className="text-sm text-text-secondary font-medium"><FormattedMessage id="quiz.share.requireAuth" /></span>
               </label>
 
               {signedIn ? (
                 <button onClick={create} disabled={busy} className="w-full py-3 rounded-xl bg-accent-cyan text-bg-primary font-display font-extrabold hover:opacity-90 transition-opacity disabled:opacity-50">
-                  {busy ? 'Creating…' : 'Create shareable link'}
+                  <FormattedMessage id={busy ? 'quiz.share.creating' : 'quiz.share.create'} />
                 </button>
               ) : (
                 <div className="text-center">
-                  <p className="text-sm text-text-muted mb-3">Sign in to create a trackable quiz.</p>
-                  <button onClick={signInWithGoogle} className="w-full py-3 rounded-xl bg-accent-cyan text-bg-primary font-display font-extrabold hover:opacity-90 transition-opacity">Sign in</button>
+                  <p className="text-sm text-text-muted mb-3"><FormattedMessage id="quiz.share.signInPrompt" /></p>
+                  <button onClick={signInWithGoogle} className="w-full py-3 rounded-xl bg-accent-cyan text-bg-primary font-display font-extrabold hover:opacity-90 transition-opacity"><FormattedMessage id="quiz.share.signIn" /></button>
                 </div>
               )}
             </>
           ) : (
             <>
-              <p className="text-sm font-bold text-accent-green mb-3">Quiz ready! Share this link:</p>
+              <p className="text-sm font-bold text-accent-green mb-3"><FormattedMessage id="quiz.share.ready" /></p>
               <div className="flex gap-2 mb-4">
                 <input readOnly value={link} className="flex-1 min-w-0 bg-bg-tertiary border-2 border-border rounded-xl px-3 py-2 text-text-primary text-sm font-code" />
-                <button onClick={copy} className="px-4 rounded-xl bg-accent-cyan text-bg-primary font-display font-extrabold shrink-0" title="Copy link">
+                <button onClick={copy} className="px-4 rounded-xl bg-accent-cyan text-bg-primary font-display font-extrabold shrink-0" title={intl.formatMessage({ id: 'quiz.share.copyLink' })}>
                   <Icon icon="lucide:copy" />
                 </button>
               </div>
@@ -500,7 +517,7 @@ function ShareDialog({ config, wordCount, signedIn, onClose }: {
                 to={`/quiz/${quizId}/results`}
                 className="block w-full py-3 rounded-xl border-2 border-border text-center text-text-secondary font-display font-extrabold hover:border-border-light hover:text-text-primary transition-all"
               >
-                View results →
+                <FormattedMessage id="quiz.share.viewResults" />
               </Link>
             </>
           )}

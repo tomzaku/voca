@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { getIntl } from '../i18n';
 import type { ChatMessage, TopicId, PracticeMode, TopicContext } from './useEnglishChat';
 
 export interface EnglishConversation {
@@ -22,6 +23,15 @@ function save(data: EnglishConversation[]) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
 }
 
+/** Stored with the row, so it's in whatever language was active when saved. */
+function defaultTitle(now: number): string {
+  const intl = getIntl();
+  return intl.formatMessage(
+    { id: 'conversation.sessionTitle' },
+    { date: intl.formatDate(now), time: intl.formatTime(now, { hour: '2-digit', minute: '2-digit' }) },
+  );
+}
+
 export function useEnglishConversations() {
   const [conversations, setConversations] = useState<EnglishConversation[]>(load);
 
@@ -38,7 +48,7 @@ export function useEnglishConversations() {
         id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
         topicId,
         mode,
-        title: title || `Session ${new Date(now).toLocaleDateString()} ${new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        title: title || defaultTitle(now),
         messages,
         createdAt: now,
         updatedAt: now,

@@ -6,6 +6,8 @@ import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine } from '../
 import { speakText, stopSpeaking } from '../lib/tts';
 import { isSfxEnabled, setSfxEnabled, playCorrect } from '../lib/sfx';
 import { ToggleSwitch } from './ToggleSwitch';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { useLocale, LOCALES, type Locale } from '../i18n/locale';
 import {
   LANGUAGES,
   getLearnLanguage,
@@ -24,21 +26,20 @@ import toast from 'react-hot-toast';
 
 const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
 
-const THEMES: { id: Theme; label: string; desc: string; icon: string }[] = [
-  { id: 'light', label: 'Light', desc: 'Candy Day — soft pastels, easy on the eyes.', icon: 'lucide:sun' },
-  { id: 'dark', label: 'Dark', desc: 'Arcade Night — deep navy, high contrast, low glare.', icon: 'lucide:moon' },
+// Labels are message ids, formatted at render time so the language can change.
+const THEMES: { id: Theme; labelId: string; descId: string; icon: string }[] = [
+  { id: 'light', labelId: 'settings.themeLight', descId: 'settings.themeLightDesc', icon: 'lucide:sun' },
+  { id: 'dark', labelId: 'settings.themeDark', descId: 'settings.themeDarkDesc', icon: 'lucide:moon' },
 ];
 
-const engines: { id: TtsEngine; label: string; desc: string; badge?: string }[] = [
-  { id: 'native', label: 'Browser Native', desc: 'Uses your OS/browser built-in speech synthesis. Instant, no download.', badge: 'Fast' },
-  { id: 'piper', label: 'Piper AI', desc: 'Neural TTS via WASM. Good quality, works on all browsers including Safari.', badge: 'Safari-friendly' },
+const engines: { id: TtsEngine; labelId: string; descId: string; badgeId?: string }[] = [
+  { id: 'native', labelId: 'settings.engineNative', descId: 'settings.engineNativeDesc', badgeId: 'settings.badgeFast' },
+  { id: 'piper', labelId: 'settings.enginePiper', descId: 'settings.enginePiperDesc', badgeId: 'settings.badgeSafari' },
   {
     id: 'kokoro',
-    label: 'Kokoro AI',
-    desc: isSafari
-      ? 'High-quality neural TTS (82M params). Not available on Safari — use Piper AI instead.'
-      : 'High-quality neural TTS (82M params) via WebGPU/WASM. ~160MB download on first use.',
-    badge: isSafari ? 'Unavailable' : 'Best voice',
+    labelId: 'settings.engineKokoro',
+    descId: isSafari ? 'settings.engineKokoroDescSafari' : 'settings.engineKokoroDesc',
+    badgeId: isSafari ? 'settings.badgeUnavailable' : 'settings.badgeBestVoice',
   },
 ];
 
@@ -51,6 +52,7 @@ const gradeColor: Record<string, string> = {
 };
 
 export function SettingsPage() {
+  const intl = useIntl();
   const { theme, setTheme } = useTheme();
   const { engine, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed } = useTtsSettings();
   const { user, signInWithGoogle, signOut } = useAuth();
@@ -66,6 +68,7 @@ export function SettingsPage() {
   const setActiveCollection = useCollections((s) => s.setActive);
   const collections = listCollections('level');
 
+  const { locale, setLocale } = useLocale();
   const [learnLang, setLearnLangState] = useState(getLearnLanguage);
   const [motherLang, setMotherLangState] = useState(getMotherLanguage);
   const [sfxOn, setSfxOn] = useState(isSfxEnabled);
@@ -77,20 +80,20 @@ export function SettingsPage() {
     setLearnLanguage(lang);
     setLearnLangState(lang);
     clearPrefetchQueue(); // upcoming words are generated in the new language
-    toast.success(`Learning ${lang}`);
+    toast.success(intl.formatMessage({ id: 'settings.learningToast' }, { lang }));
   };
 
   const handleMotherLangChange = (lang: string) => {
     setMotherLanguage(lang);
     setMotherLangState(lang);
     clearPrefetchQueue(); // translations are regenerated for the new language
-    toast.success(`Translations in ${lang}`);
+    toast.success(intl.formatMessage({ id: 'settings.translationsToast' }, { lang }));
   };
 
   const handlePackChange = (id: string) => {
     setActiveCollection(id);
     clearPrefetchQueue();
-    toast.success(`Switched to ${getCollection(id).name}`);
+    toast.success(intl.formatMessage({ id: 'settings.switchedToast' }, { name: getCollection(id).name }));
   };
 
   const preview = async (voiceId: string) => {
@@ -110,38 +113,41 @@ export function SettingsPage() {
   const stopPreview = () => { stopSpeaking(); setPreviewState(null); };
 
   const handleResetProgress = () => {
-    if (!confirm('Reset all learning progress? This cannot be undone.')) return;
+    if (!confirm(intl.formatMessage({ id: 'settings.resetConfirm' }))) return;
     localStorage.removeItem('voca-progress');
     window.location.reload();
   };
 
   return (
     <div className="max-w-page mx-auto px-4 py-8">
-      <h1 className="text-2xl font-display font-bold text-text-primary mb-1">Settings</h1>
-      <p className="text-sm text-text-muted mb-8">Configure your learning preferences.</p>
+      <h1 className="text-2xl font-display font-bold text-text-primary mb-1"><FormattedMessage id="settings.title" /></h1>
+      <p className="text-sm text-text-muted mb-8"><FormattedMessage id="settings.subtitle" /></p>
 
       {/* Account */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Account</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3"><FormattedMessage id="settings.account" /></h2>
         {user ? (
           <div className="p-4 rounded-lg border border-border bg-bg-card flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-text-primary">{user.email}</p>
               <p className="text-xs text-text-muted mt-0.5">
-                {store.knownWords().size} words known · {store.bookmarkedWords().length} saved
+                <FormattedMessage
+                  id="settings.accountStats"
+                  values={{ known: store.knownWords().size, saved: store.bookmarkedWords().length }}
+                />
               </p>
             </div>
             <button
               onClick={signOut}
               className="text-xs px-3 py-1.5 rounded-lg border border-border text-text-muted hover:text-accent-red hover:border-accent-red/30 transition-colors"
             >
-              Sign out
+              <FormattedMessage id="settings.signOut" />
             </button>
           </div>
         ) : (
           <div className="p-4 rounded-lg border border-border bg-bg-card">
             <p className="text-sm text-text-secondary mb-3">
-              Sign in to sync your progress across devices.
+              <FormattedMessage id="settings.signInPrompt" />
             </p>
             <button
               onClick={signInWithGoogle}
@@ -153,7 +159,7 @@ export function SettingsPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
-              Continue with Google
+              <FormattedMessage id="auth.continueGoogle" />
             </button>
           </div>
         )}
@@ -161,8 +167,8 @@ export function SettingsPage() {
 
       {/* Theme */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Theme</h2>
-        <p className="text-xs text-text-muted mb-3">How the app looks. Also switchable from the sidebar.</p>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1"><FormattedMessage id="settings.theme" /></h2>
+        <p className="text-xs text-text-muted mb-3"><FormattedMessage id="settings.themeHint" /></p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {THEMES.map((t) => {
             const selected = theme === t.id;
@@ -171,7 +177,7 @@ export function SettingsPage() {
                 key={t.id}
                 onClick={() => {
                   setTheme(t.id);
-                  toast.success(`Theme: ${t.label}`);
+                  toast.success(intl.formatMessage({ id: 'settings.themeToast' }, { theme: intl.formatMessage({ id: t.labelId }) }));
                 }}
                 className={`p-4 rounded-xl border text-left transition-all ${
                   selected
@@ -182,11 +188,11 @@ export function SettingsPage() {
                 <div className="flex items-center justify-between mb-1">
                   <span className={`flex items-center gap-1.5 text-sm font-display font-bold ${selected ? 'text-accent-cyan' : 'text-text-primary'}`}>
                     <Icon icon={t.icon} className="text-base" />
-                    {t.label}
+                    <FormattedMessage id={t.labelId} />
                   </span>
-                  {selected && <span className="text-[10px] text-accent-cyan">✓ Active</span>}
+                  {selected && <span className="text-[10px] text-accent-cyan"><FormattedMessage id="settings.active" /></span>}
                 </div>
-                <p className="text-xs text-text-muted">{t.desc}</p>
+                <p className="text-xs text-text-muted"><FormattedMessage id={t.descId} /></p>
               </button>
             );
           })}
@@ -195,13 +201,25 @@ export function SettingsPage() {
 
       {/* Languages */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Languages</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1"><FormattedMessage id="settings.languages" /></h2>
         <p className="text-xs text-text-muted mb-3">
-          Words are generated in the language you're learning and translated into your mother language.
+          <FormattedMessage id="settings.languagesHint" />
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium text-text-secondary block mb-1.5">
+              <FormattedMessage id="settings.uiLanguage" />
+            </label>
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value as Locale)}
+              className="select-field w-full bg-bg-card border border-border rounded-lg pl-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
+            >
+              {LOCALES.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+            </select>
+          </div>
           <div>
-            <label className="text-xs font-medium text-text-secondary block mb-1.5">Language to learn</label>
+            <label className="text-xs font-medium text-text-secondary block mb-1.5"><FormattedMessage id="settings.learnLanguage" /></label>
             <select
               value={learnLang}
               onChange={(e) => handleLearnLangChange(e.target.value)}
@@ -211,7 +229,7 @@ export function SettingsPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-text-secondary block mb-1.5">Mother language</label>
+            <label className="text-xs font-medium text-text-secondary block mb-1.5"><FormattedMessage id="settings.motherLanguage" /></label>
             <select
               value={motherLang}
               onChange={(e) => handleMotherLangChange(e.target.value)}
@@ -225,8 +243,8 @@ export function SettingsPage() {
 
       {/* Vocabulary Pack */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Collection</h2>
-        <p className="text-xs text-text-muted mb-3">Choose the vocabulary set you want to study.</p>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1"><FormattedMessage id="settings.collection" /></h2>
+        <p className="text-xs text-text-muted mb-3"><FormattedMessage id="settings.collectionHint" /></p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {collections.map((c) => {
             const selected = activeCollection === c.id;
@@ -244,40 +262,42 @@ export function SettingsPage() {
                   <span className={`text-sm font-display font-bold ${selected ? 'text-accent-cyan' : 'text-text-primary'}`}>
                     {c.name}
                   </span>
-                  {selected && <span className="text-[10px] text-accent-cyan">✓ Active</span>}
+                  {selected && <span className="text-[10px] text-accent-cyan"><FormattedMessage id="settings.active" /></span>}
                 </div>
                 <p className="text-xs text-text-muted">{c.description}</p>
-                <p className="text-xs font-code text-text-muted/60 mt-1">{c.count} words</p>
+                <p className="text-xs font-code text-text-muted/60 mt-1"><FormattedMessage id="common.wordCount" values={{ count: c.count }} /></p>
               </button>
             );
           })}
         </div>
         <p className="text-xs text-text-muted mt-3">
           {getCollection(activeCollection).kind === 'topic' && getCollection(activeCollection).id === activeCollection
-            ? <>Studying the <span className="font-bold text-accent-cyan">{getCollection(activeCollection).name}</span> topic. </>
-            : 'Want a theme instead? '}
-          <Link to="/collections" className="font-bold text-accent-cyan hover:underline">Browse topic collections →</Link>
+            ? <><FormattedMessage
+                id="settings.studyingTopic"
+                values={{ name: getCollection(activeCollection).name, b: (chunks) => <span className="font-bold text-accent-cyan">{chunks}</span> }}
+              />{' '}</>
+            : <><FormattedMessage id="settings.wantTopic" />{' '}</>}
+          <Link to="/collections" className="font-bold text-accent-cyan hover:underline"><FormattedMessage id="settings.browseTopics" /></Link>
         </p>
       </section>
 
       {/* World Game */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">World Game</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1"><FormattedMessage id="settings.worldGame" /></h2>
         <p className="text-xs text-text-muted mb-3">
-          Explore the app as a little village — walk your buddy to a building to open Learn, Speak,
-          Quizzes and more, or up to a collection to study it.
+          <FormattedMessage id="settings.worldGameHint" />
         </p>
         <button
           onClick={() => {
             const next = !gameEnabled;
             setGameEnabled(next);
-            toast.success(next ? 'World game on' : 'World game off');
+            toast.success(intl.formatMessage({ id: next ? 'settings.worldGameOn' : 'settings.worldGameOff' }));
           }}
           className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all cursor-pointer"
         >
           <div className="flex-1 text-left">
-            <span className="text-sm font-medium text-text-primary block">Enable world game</span>
-            <span className="text-xs text-text-muted mt-0.5 block">Adds a “World” tab to explore everything as a game.</span>
+            <span className="text-sm font-medium text-text-primary block"><FormattedMessage id="settings.enableWorldGame" /></span>
+            <span className="text-xs text-text-muted mt-0.5 block"><FormattedMessage id="settings.enableWorldGameHint" /></span>
           </div>
           <ToggleSwitch checked={gameEnabled} />
         </button>
@@ -285,8 +305,8 @@ export function SettingsPage() {
 
       {/* Guess Game */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1">Guess Game</h2>
-        <p className="text-xs text-text-muted mb-3">Default game used to guess each word on the home page.</p>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1"><FormattedMessage id="settings.guessGame" /></h2>
+        <p className="text-xs text-text-muted mb-3"><FormattedMessage id="settings.guessGameHint" /></p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {GUESS_GAMES.map((g) => {
             const selected = guessGame === g.id;
@@ -295,7 +315,7 @@ export function SettingsPage() {
                 key={g.id}
                 onClick={() => {
                   setGuessGame(g.id);
-                  toast.success(`Default game: ${g.label}`);
+                  toast.success(intl.formatMessage({ id: 'settings.defaultGameToast' }, { game: intl.formatMessage({ id: g.labelId }) }));
                 }}
                 className={`p-4 rounded-xl border text-left transition-all ${
                   selected
@@ -305,11 +325,11 @@ export function SettingsPage() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-sm font-display font-bold ${selected ? 'text-accent-cyan' : 'text-text-primary'}`}>
-                    {g.label}
+                    <FormattedMessage id={g.labelId} />
                   </span>
-                  {selected && <span className="text-[10px] text-accent-cyan">✓ Active</span>}
+                  {selected && <span className="text-[10px] text-accent-cyan"><FormattedMessage id="settings.active" /></span>}
                 </div>
-                <p className="text-xs text-text-muted">{g.description}</p>
+                <p className="text-xs text-text-muted"><FormattedMessage id={g.descriptionId} /></p>
               </button>
             );
           })}
@@ -318,7 +338,7 @@ export function SettingsPage() {
 
       {/* TTS Engine */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Text-to-Speech Engine</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3"><FormattedMessage id="settings.ttsEngine" /></h2>
         <div className="space-y-3">
           {engines.map((e) => {
             const disabled = e.id === 'kokoro' && isSafari;
@@ -339,14 +359,14 @@ export function SettingsPage() {
                   <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${engine === e.id ? 'border-accent-cyan' : 'border-text-muted/40'}`}>
                     {engine === e.id && <span className="w-2 h-2 rounded-full bg-accent-cyan" />}
                   </span>
-                  <span className={`text-sm font-medium ${engine === e.id ? 'text-accent-cyan' : 'text-text-primary'}`}>{e.label}</span>
-                  {e.badge && (
+                  <span className={`text-sm font-medium ${engine === e.id ? 'text-accent-cyan' : 'text-text-primary'}`}><FormattedMessage id={e.labelId} /></span>
+                  {e.badgeId && (
                     <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${engine === e.id ? 'bg-accent-cyan/15 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
-                      {e.badge}
+                      <FormattedMessage id={e.badgeId} />
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-text-muted ml-7">{e.desc}</p>
+                <p className="text-xs text-text-muted ml-7"><FormattedMessage id={e.descId} /></p>
               </button>
             );
           })}
@@ -355,7 +375,7 @@ export function SettingsPage() {
 
       {/* Speed */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Playback Speed</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3"><FormattedMessage id="settings.playbackSpeed" /></h2>
         <div className="flex items-center gap-4">
           <span className="text-xs text-text-muted w-8 text-right">0.5x</span>
           <input
@@ -375,20 +395,20 @@ export function SettingsPage() {
         const currentVoice = isKokoro ? voice : piperVoice;
         const setCurrentVoice = isKokoro ? setVoice : setPiperVoice;
         const voiceGroups = [
-          { label: 'American Female', voices: voices.filter((v) => v.accent === 'American' && v.gender === 'Female') },
-          { label: 'American Male', voices: voices.filter((v) => v.accent === 'American' && v.gender === 'Male') },
-          { label: 'British Female', voices: voices.filter((v) => v.accent === 'British' && v.gender === 'Female') },
-          { label: 'British Male', voices: voices.filter((v) => v.accent === 'British' && v.gender === 'Male') },
+          { labelId: 'settings.voiceAmericanFemale', voices: voices.filter((v) => v.accent === 'American' && v.gender === 'Female') },
+          { labelId: 'settings.voiceAmericanMale', voices: voices.filter((v) => v.accent === 'American' && v.gender === 'Male') },
+          { labelId: 'settings.voiceBritishFemale', voices: voices.filter((v) => v.accent === 'British' && v.gender === 'Female') },
+          { labelId: 'settings.voiceBritishMale', voices: voices.filter((v) => v.accent === 'British' && v.gender === 'Male') },
         ].filter((g) => g.voices.length > 0);
 
         return (
           <section className="mb-8">
-            <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Voice</h2>
-            <p className="text-xs text-text-muted mb-4">Pick a voice for {isKokoro ? 'Kokoro' : 'Piper'} AI.</p>
+            <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3"><FormattedMessage id="settings.voice" /></h2>
+            <p className="text-xs text-text-muted mb-4"><FormattedMessage id="settings.voiceHint" values={{ engine: isKokoro ? 'Kokoro' : 'Piper' }} /></p>
             <div className="space-y-5">
               {voiceGroups.map((group) => (
-                <div key={group.label}>
-                  <h3 className="text-xs font-medium text-text-muted mb-2">{group.label}</h3>
+                <div key={group.labelId}>
+                  <h3 className="text-xs font-medium text-text-muted mb-2"><FormattedMessage id={group.labelId} /></h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {group.voices.map((v) => {
                       const selected = currentVoice === v.id;
@@ -436,20 +456,20 @@ export function SettingsPage() {
 
       {/* Sound effects toggle */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Sound Effects</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3"><FormattedMessage id="settings.soundEffects" /></h2>
         <button
           onClick={() => {
             const next = !sfxOn;
             setSfxEnabled(next);
             setSfxOn(next);
             if (next) playCorrect(); // preview the sound when turning it on
-            toast.success(next ? 'Sound effects on' : 'Sound effects off');
+            toast.success(intl.formatMessage({ id: next ? 'settings.sfxOn' : 'settings.sfxOff' }));
           }}
           className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all cursor-pointer"
         >
           <div className="flex-1 text-left">
-            <span className="text-sm font-medium text-text-primary block">Game sounds</span>
-            <span className="text-xs text-text-muted mt-0.5 block">Play blips for correct, wrong, and choosing answers.</span>
+            <span className="text-sm font-medium text-text-primary block"><FormattedMessage id="settings.gameSounds" /></span>
+            <span className="text-xs text-text-muted mt-0.5 block"><FormattedMessage id="settings.gameSoundsHint" /></span>
           </div>
           <ToggleSwitch checked={sfxOn} />
         </button>
@@ -457,19 +477,19 @@ export function SettingsPage() {
 
       {/* Auto-speak toggle */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Auto-Speak</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3"><FormattedMessage id="settings.autoSpeak" /></h2>
         <button
           onClick={() => {
             const next = !autoSpeakOn;
             localStorage.setItem('voca-auto-speak', String(next));
             setAutoSpeakOn(next);
-            toast.success(next ? 'Auto-speak enabled' : 'Auto-speak disabled');
+            toast.success(intl.formatMessage({ id: next ? 'settings.autoSpeakOn' : 'settings.autoSpeakOff' }));
           }}
           className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all cursor-pointer"
         >
           <div className="flex-1 text-left">
-            <span className="text-sm font-medium text-text-primary block">Speak word automatically</span>
-            <span className="text-xs text-text-muted mt-0.5 block">Pronounce the word aloud when a new card appears.</span>
+            <span className="text-sm font-medium text-text-primary block"><FormattedMessage id="settings.speakAutomatically" /></span>
+            <span className="text-xs text-text-muted mt-0.5 block"><FormattedMessage id="settings.speakAutomaticallyHint" /></span>
           </div>
           <ToggleSwitch checked={autoSpeakOn} />
         </button>
@@ -477,28 +497,27 @@ export function SettingsPage() {
 
       {/* Danger zone */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Data</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3"><FormattedMessage id="settings.data" /></h2>
         <button
           onClick={handleResetProgress}
           className="w-full p-4 rounded-lg border border-accent-red/20 bg-accent-red/5 text-accent-red text-sm font-medium hover:bg-accent-red/10 transition-colors cursor-pointer text-left"
         >
-          Reset learning progress
-          <span className="block text-xs font-normal text-accent-red/60 mt-0.5">Clears all known words and skipped words locally.</span>
+          <FormattedMessage id="settings.resetProgress" />
+          <span className="block text-xs font-normal text-accent-red/60 mt-0.5"><FormattedMessage id="settings.resetProgressHint" /></span>
         </button>
       </section>
 
       {/* Developer */}
       <section className="mb-8">
-        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3">Developer</h2>
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-3"><FormattedMessage id="settings.developer" /></h2>
         <Link
           to="/debug/network"
           className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all"
         >
           <div className="flex-1 text-left">
-            <span className="text-sm font-medium text-text-primary block">Network debug</span>
+            <span className="text-sm font-medium text-text-primary block"><FormattedMessage id="settings.networkDebug" /></span>
             <span className="text-xs text-text-muted mt-0.5 block">
-              Log API calls on this device to see what's failing — useful for reporting a "loads
-              wrong on my phone" bug.
+              <FormattedMessage id="settings.networkDebugHint" />
             </span>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted shrink-0">

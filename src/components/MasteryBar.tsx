@@ -16,6 +16,7 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useBucketPeers, useProgressCounts } from '../hooks/useProgressQuery';
 import { BUCKET_META, BUCKET_ORDER, type WordBucket } from '../lib/progress';
 
@@ -36,6 +37,7 @@ const BUCKETS = BUCKET_ORDER.filter((b): b is Bucket => b !== 'dismissed').map((
 }));
 
 export function MasteryBar() {
+  const intl = useIntl();
   // Which bucket's words are open. Null = just the bar, as before.
   const [open, setOpen] = useState<Bucket | null>(null);
   const { counts: byTab } = useProgressCounts();
@@ -62,10 +64,10 @@ export function MasteryBar() {
       <div className="flex items-baseline justify-between gap-3 mb-3">
         <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
           <Icon icon="lucide:chart-pie" className="text-accent-purple" />
-          Your vocabulary
+          <FormattedMessage id="bucket.yourVocabulary" />
         </h2>
         <span className="text-xs text-text-muted tabular-nums shrink-0">
-          {total} word{total === 1 ? '' : 's'}
+          <FormattedMessage id="bucket.wordCount" values={{ count: total }} />
         </span>
       </div>
 
@@ -77,7 +79,7 @@ export function MasteryBar() {
             key={b.id}
             className="flex h-full"
             style={{ width: `${(counts[b.id] / total) * 100}%` }}
-            title={`${b.label}: ${counts[b.id]}`}
+            title={`${intl.formatMessage({ id: b.labelId })}: ${counts[b.id]}`}
           >
             {i > 0 && <span className="w-0.5 h-full shrink-0" />}
             <span
@@ -97,13 +99,13 @@ export function MasteryBar() {
             onClick={() => setOpen((cur) => (cur === b.id ? null : b.id))}
             disabled={counts[b.id] === 0}
             aria-expanded={open === b.id}
-            title={b.hint}
+            title={intl.formatMessage({ id: b.hintId })}
             className={`flex items-center gap-1.5 text-xs rounded-lg px-1.5 py-1 -mx-1.5 text-left transition-colors cursor-pointer disabled:cursor-default disabled:opacity-50 ${
               open === b.id ? 'bg-bg-tertiary' : 'hover:bg-bg-hover'
             }`}
           >
             <Icon icon={b.icon} className={`${b.text} text-sm shrink-0`} />
-            <span className="text-text-secondary truncate">{b.label}</span>
+            <span className="text-text-secondary truncate"><FormattedMessage id={b.labelId} /></span>
             <span className={`ml-auto font-display font-extrabold tabular-nums ${b.text}`}>
               {counts[b.id]}
             </span>
@@ -115,14 +117,14 @@ export function MasteryBar() {
         <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-baseline justify-between gap-3 mb-2">
             <p className={`text-xs font-bold ${openBucket.text}`}>
-              {openBucket.label}
-              <span className="ml-2 font-normal text-text-muted">{openBucket.hint}</span>
+              <FormattedMessage id={openBucket.labelId} />
+              <span className="ml-2 font-normal text-text-muted"><FormattedMessage id={openBucket.hintId} /></span>
             </p>
             <button
               onClick={() => setOpen(null)}
               className="text-[11px] font-bold text-text-muted hover:text-text-primary shrink-0 cursor-pointer"
             >
-              Hide
+              <FormattedMessage id="bucket.hide" />
             </button>
           </div>
           {/* Capped height rather than a "show more": a long list is fine to
@@ -146,7 +148,7 @@ export function MasteryBar() {
               to={`/history?tab=${openBucket.tab}`}
               className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-text-muted hover:text-accent-cyan"
             >
-              See all {panel.total} in History
+              <FormattedMessage id="bucket.seeAllInHistory" values={{ count: panel.total }} />
               <Icon icon="lucide:arrow-right" className="text-xs" />
             </Link>
           )}
@@ -155,8 +157,7 @@ export function MasteryBar() {
 
       {dismissed > 0 && (
         <p className="text-[11px] text-text-muted/70 mt-3">
-          {dismissed} word{dismissed === 1 ? '' : 's'} skipped for good and left out of the total —
-          restore them from History.
+          <FormattedMessage id="bucket.dismissedNote" values={{ count: dismissed }} />
         </p>
       )}
     </section>

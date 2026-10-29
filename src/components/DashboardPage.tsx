@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
 import { useActivity } from '../hooks/useActivity';
 import { MasteryBar } from './MasteryBar';
@@ -42,21 +43,15 @@ function uniqueByWord(events: DayEvent[]): DayEvent[] {
   });
 }
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'correct', label: 'Correct' },
-  { id: 'incorrect', label: 'Incorrect' },
+const FILTERS: { id: Filter; labelId: string }[] = [
+  { id: 'all', labelId: 'dashboard.filterAll' },
+  { id: 'correct', labelId: 'dashboard.filterCorrect' },
+  { id: 'incorrect', labelId: 'dashboard.filterIncorrect' },
 ];
 
-const WEEKDAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-/** Spelled out from `sm` up, where there's room — as Google Calendar does. */
-const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_FORMAT = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
-const DAY_FORMAT = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-});
+/** Sunday-first week of real dates, so weekday names come from the locale.
+ *  4 Jan 2026 is a Sunday. */
+const WEEK_DATES = Array.from({ length: 7 }, (_, i) => new Date(2026, 0, 4 + i));
 const DAY_MS = 86_400_000;
 
 /** Local YYYY-MM-DD for an ISO timestamp — days must be the learner's, not UTC's. */
@@ -88,6 +83,7 @@ function useWordsPerCell(): number {
 }
 
 export function DashboardPage() {
+  const intl = useIntl();
   const events = useActivity((s) => s.events);
   const loadingActivity = useActivity((s) => s.loading);
   const ensureActivity = useActivity((s) => s.ensure);
@@ -204,7 +200,7 @@ export function DashboardPage() {
         buckets.push({
           key,
           count: countOn(key),
-          tooltip: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          tooltip: intl.formatDate(d, { month: 'short', day: 'numeric' }),
         });
       }
     } else {
@@ -219,7 +215,7 @@ export function DashboardPage() {
         buckets.push({
           key: localDateString(start),
           count,
-          tooltip: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          tooltip: intl.formatDate(start, { month: 'short', day: 'numeric' }),
         });
       }
     }
@@ -232,7 +228,7 @@ export function DashboardPage() {
       // Rounded to one decimal: "6.4 a day" is honest where "6" implies exactness.
       average: Math.round((total / buckets.length) * 10) / 10,
     };
-  }, [eventsByDay, range]);
+  }, [eventsByDay, range, intl]);
 
   const today = localDateString();
   const selected = selectedDay ? (filteredByDay.get(selectedDay) ?? []) : [];
@@ -254,13 +250,13 @@ export function DashboardPage() {
           <div className="flex flex-col items-center gap-1">
             <Icon icon="lucide:flame" className="text-2xl text-accent-orange" />
             <span className="text-3xl font-title font-black text-accent-orange tabular-nums">{streak}</span>
-            <span className="text-xs text-text-muted">day streak</span>
+            <span className="text-xs text-text-muted"><FormattedMessage id="dashboard.dayStreak" /></span>
           </div>
           <div className="w-px h-14 bg-border" />
           <div className="flex flex-col items-center gap-1">
             <Icon icon="lucide:trophy" className="text-2xl text-accent-yellow" />
             <span className="text-3xl font-title font-black text-accent-yellow tabular-nums">{longest}</span>
-            <span className="text-xs text-text-muted">personal best</span>
+            <span className="text-xs text-text-muted"><FormattedMessage id="dashboard.personalBest" /></span>
           </div>
           <div className="w-px h-14 bg-border" />
           <div className="flex flex-col items-center gap-1">
@@ -269,7 +265,10 @@ export function DashboardPage() {
               {activity.total}
             </span>
             <span className="text-xs text-text-muted">
-              words {range === 'day' ? 'in 14 days' : 'in 12 weeks'}
+              <FormattedMessage
+                id={range === 'day' ? 'dashboard.wordsInDays' : 'dashboard.wordsInWeeks'}
+                values={{ count: range === 'day' ? DAY_BUCKETS : WEEK_BUCKETS }}
+              />
             </span>
           </div>
         </div>
@@ -279,14 +278,14 @@ export function DashboardPage() {
           <div className="flex items-center justify-between gap-3 mb-3">
             <div>
               <p className="text-xs font-bold text-text-secondary">
-                Words per {range === 'day' ? 'day' : 'week'}
+                <FormattedMessage id={range === 'day' ? 'dashboard.wordsPerDay' : 'dashboard.wordsPerWeek'} />
               </p>
               {/* "0 on average" is a claim about the learner; while the feed is
                   still arriving it isn't one we can make yet. */}
               <p className="text-[11px] text-text-muted tabular-nums">
                 {loadingActivity && activity.total === 0
-                  ? 'Loading…'
-                  : `${activity.average} on average · best ${activity.max}`}
+                  ? intl.formatMessage({ id: 'dashboard.loading' })
+                  : intl.formatMessage({ id: 'dashboard.averageBest' }, { average: activity.average, best: activity.max })}
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -299,7 +298,7 @@ export function DashboardPage() {
                     range === r ? 'bg-accent-cyan text-bg-primary' : 'bg-bg-tertiary text-text-secondary'
                   }`}
                 >
-                  {r === 'day' ? 'Daily' : 'Weekly'}
+                  <FormattedMessage id={r === 'day' ? 'dashboard.daily' : 'dashboard.weekly'} />
                 </button>
               ))}
             </div>
@@ -312,7 +311,7 @@ export function DashboardPage() {
             {activity.buckets.map((b) => (
               <div
                 key={b.key}
-                title={`${b.tooltip}: ${b.count} word${b.count === 1 ? '' : 's'}`}
+                title={intl.formatMessage({ id: 'dashboard.barTitle' }, { date: b.tooltip, count: b.count })}
                 className="flex-1 h-full flex items-end min-w-0"
               >
                 <div
@@ -347,18 +346,17 @@ export function DashboardPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b-[3px] border-border">
           <div className="min-w-0">
             <p className="font-display font-bold text-lg text-text-primary truncate">
-              {MONTH_FORMAT.format(month)}
+              {intl.formatDate(month, { month: 'long', year: 'numeric' })}
             </p>
             <p className="text-[11px] text-text-muted">
-              {monthTotals.days} day{monthTotals.days === 1 ? '' : 's'} · {monthTotals.words} word
-              {monthTotals.words === 1 ? '' : 's'}
+              <FormattedMessage id="dashboard.monthTotals" values={{ days: monthTotals.days, words: monthTotals.words }} />
             </p>
           </div>
           {/* Segmented control: mutually exclusive, so radio semantics rather
               than three independent toggle buttons. */}
           <div
             role="radiogroup"
-            aria-label="Filter days by answer"
+            aria-label={intl.formatMessage({ id: 'dashboard.filterLabel' })}
             className="inline-flex items-center rounded-full bg-bg-tertiary p-0.5 order-last sm:order-none w-full sm:w-auto"
           >
             {FILTERS.map((f) => (
@@ -373,7 +371,7 @@ export function DashboardPage() {
                     : 'text-text-muted hover:text-text-secondary'
                 }`}
               >
-                {f.label}
+                <FormattedMessage id={f.labelId} />
               </button>
             ))}
           </div>
@@ -383,18 +381,18 @@ export function DashboardPage() {
               onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
               className="btn-3d px-3 py-1.5 text-xs font-bold bg-bg-tertiary text-text-secondary"
             >
-              Today
+              <FormattedMessage id="dashboard.today" />
             </button>
             <button
               onClick={() => shiftMonth(-1)}
-              aria-label="Previous month"
+              aria-label={intl.formatMessage({ id: 'dashboard.prevMonth' })}
               className="btn-3d w-8 h-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center"
             >
               <Icon icon="lucide:chevron-left" />
             </button>
             <button
               onClick={() => shiftMonth(1)}
-              aria-label="Next month"
+              aria-label={intl.formatMessage({ id: 'dashboard.nextMonth' })}
               className="btn-3d w-8 h-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center"
             >
               <Icon icon="lucide:chevron-right" />
@@ -404,13 +402,14 @@ export function DashboardPage() {
 
         {/* Weekday header */}
         <div className="grid grid-cols-7 border-b border-border">
-          {WEEKDAY_INITIALS.map((w, i) => (
+          {WEEK_DATES.map((d, i) => (
             <div
               key={i}
               className="py-2 text-center text-[10px] font-bold uppercase tracking-wider text-text-muted/70"
             >
-              <span className="sm:hidden">{w}</span>
-              <span className="hidden sm:inline">{WEEKDAY_SHORT[i]}</span>
+              <span className="sm:hidden">{intl.formatDate(d, { weekday: 'narrow' })}</span>
+              {/* Spelled out from `sm` up, where there's room — as Google Calendar does. */}
+              <span className="hidden sm:inline">{intl.formatDate(d, { weekday: 'short' })}</span>
             </div>
           ))}
         </div>
@@ -435,7 +434,7 @@ export function DashboardPage() {
                   setDrawerSide(i % 7 <= 3 ? 'right' : 'left');
                   setSelectedDay((d) => (d === cell.key ? null : cell.key));
                 }}
-                aria-label={`${cell.key}, ${list.length} words`}
+                aria-label={intl.formatMessage({ id: 'dashboard.cellLabel' }, { date: cell.key, count: list.length })}
                 aria-pressed={isSelected}
                 className={`relative ${lastCol ? '' : 'border-r'} ${lastRow ? '' : 'border-b'} border-border min-h-16 sm:min-h-28 lg:min-h-36 p-1 sm:p-1.5 flex flex-col items-center sm:items-stretch gap-1 text-left transition-colors overflow-hidden ${
                   isSelected ? 'bg-accent-cyan/10' : 'hover:bg-bg-hover'
@@ -497,7 +496,7 @@ export function DashboardPage() {
                     ))}
                     {list.length > perCell && (
                       <span className="px-1 text-[11px] leading-tight text-text-muted hover:underline">
-                        {list.length - perCell} more
+                        <FormattedMessage id="dashboard.more" values={{ count: list.length - perCell }} />
                       </span>
                     )}
                   </span>
@@ -527,8 +526,8 @@ export function DashboardPage() {
                 <div className="min-w-0">
                   <h3 className="text-sm font-display font-extrabold text-text-primary">
                     {selectedDay === today
-                      ? 'Today'
-                      : DAY_FORMAT.format(new Date(`${selectedDay}T00:00:00`))}
+                      ? intl.formatMessage({ id: 'dashboard.today' })
+                      : intl.formatDate(new Date(`${selectedDay}T00:00:00`), { weekday: 'short', month: 'short', day: 'numeric' })}
                     {selected.length > 0 && (
                       <span className="ml-2 text-[11px] font-bold text-text-muted">
                         {selected.length}
@@ -537,15 +536,17 @@ export function DashboardPage() {
                   </h3>
                   <p className="mt-1 text-[11px] text-text-muted leading-relaxed">
                     {selected.length === 0
-                      ? filter === 'all'
-                        ? 'Nothing studied on this day.'
-                        : `No ${filter} answers on this day.`
-                      : 'Tap a word to open its card.'}
+                      ? intl.formatMessage({
+                          id: filter === 'all'
+                            ? 'dashboard.dayEmpty'
+                            : filter === 'correct' ? 'dashboard.dayNoCorrect' : 'dashboard.dayNoIncorrect',
+                        })
+                      : intl.formatMessage({ id: 'dashboard.dayHint' })}
                   </p>
                 </div>
                 <button
                   onClick={() => setSelectedDay(null)}
-                  aria-label="Close"
+                  aria-label={intl.formatMessage({ id: 'dashboard.close' })}
                   className="w-8 h-8 shrink-0 rounded-full bg-bg-tertiary text-text-muted flex items-center justify-center hover:text-text-primary cursor-pointer"
                 >
                   <Icon icon="lucide:x" />

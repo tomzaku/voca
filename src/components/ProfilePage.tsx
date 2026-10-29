@@ -1,13 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { useStreak } from '../hooks/useStreak';
 import { useIsPro } from '../hooks/useProStatus';
 import {
-  DAY_INITIALS,
-  DAY_NAMES,
+  ALL_DAYS,
   MAX_REMINDER_TIMES,
+  dayName,
   SLOT_MINUTES,
   formatSchedule,
   formatTime,
@@ -18,6 +19,7 @@ import {
 import { ToggleSwitch } from './ToggleSwitch';
 
 export function ProfilePage() {
+  const intl = useIntl();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const push = usePushNotifications(user?.id);
@@ -31,19 +33,19 @@ export function ProfilePage() {
   };
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
-  const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || 'User';
+  const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || intl.formatMessage({ id: 'profile.defaultName' });
   const email = user?.email || '';
   const initial = name[0]?.toUpperCase() ?? '?';
 
   if (!user) {
     return (
       <div className="max-w-sm mx-auto px-4 py-20 flex flex-col items-center gap-4 text-center">
-        <p className="text-text-muted text-sm">You're not signed in.</p>
+        <p className="text-text-muted text-sm"><FormattedMessage id="profile.notSignedIn" /></p>
         <Link
           to="/login"
           className="px-4 py-2 rounded-lg bg-accent-cyan/10 text-accent-cyan text-sm font-medium hover:bg-accent-cyan/20 transition-colors"
         >
-          Sign in
+          <FormattedMessage id="auth.signIn" />
         </Link>
       </div>
     );
@@ -74,10 +76,10 @@ export function ProfilePage() {
             <div className="flex items-center gap-1.5 text-accent-orange">
               <Icon icon="lucide:flame" className="text-lg" />
               <span className="text-sm font-bold tabular-nums">{streak}</span>
-              <span className="text-sm text-text-muted">day streak</span>
+              <span className="text-sm text-text-muted"><FormattedMessage id="profile.dayStreak" values={{ count: streak }} /></span>
             </div>
             {longest > streak && (
-              <span className="text-xs text-text-muted/70">best {longest}</span>
+              <span className="text-xs text-text-muted/70"><FormattedMessage id="profile.best" values={{ count: longest }} /></span>
             )}
           </Link>
         )}
@@ -91,7 +93,7 @@ export function ProfilePage() {
         >
           <div className="flex items-center gap-3">
             <span className="w-7 h-7 rounded-lg bg-bg-tertiary flex items-center justify-center text-text-muted text-base">👑</span>
-            <span>{isTrial ? 'Pro trial' : isPro ? 'Pro' : 'Free vs Pro'}</span>
+            <span><FormattedMessage id={isTrial ? 'profile.proTrial' : isPro ? 'profile.pro' : 'pro.title'} /></span>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
             <polyline points="9 18 15 12 9 6" />
@@ -103,7 +105,7 @@ export function ProfilePage() {
         >
           <div className="flex items-center gap-3">
             <span className="w-7 h-7 rounded-lg bg-bg-tertiary flex items-center justify-center text-text-muted text-base">🐾</span>
-            <span>Buddy</span>
+            <span><FormattedMessage id="profile.buddy" /></span>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
             <polyline points="9 18 15 12 9 6" />
@@ -115,7 +117,7 @@ export function ProfilePage() {
         >
           <div className="flex items-center gap-3">
             <span className="w-7 h-7 rounded-lg bg-bg-tertiary flex items-center justify-center text-text-muted text-base">⚙</span>
-            <span>Settings</span>
+            <span><FormattedMessage id="settings.title" /></span>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
             <polyline points="9 18 15 12 9 6" />
@@ -133,11 +135,11 @@ export function ProfilePage() {
                 <Icon icon="lucide:bell" className="text-base" />
               </span>
               <div>
-                <p className="text-sm text-text-primary">Notifications</p>
+                <p className="text-sm text-text-primary"><FormattedMessage id="profile.notifications" /></p>
                 <p className="text-xs text-text-muted">
-                  {push.status === 'granted' && push.enabled
-                    ? 'Streak and review reminders'
-                    : 'Nudges to keep your learning going'}
+                  <FormattedMessage
+                    id={push.status === 'granted' && push.enabled ? 'profile.notificationsOn' : 'profile.notificationsOff'}
+                  />
                 </p>
               </div>
             </div>
@@ -146,7 +148,7 @@ export function ProfilePage() {
               <button
                 onClick={() => void push.toggle()}
                 disabled={push.busy}
-                aria-label="Toggle daily reminder"
+                aria-label={intl.formatMessage({ id: 'profile.toggleDaily' })}
                 aria-pressed={push.enabled}
                 className="inline-flex items-center shrink-0 cursor-pointer disabled:opacity-50"
               >
@@ -162,17 +164,17 @@ export function ProfilePage() {
                 <div className="flex items-center gap-2.5">
                   <Icon icon="lucide:flame" className="text-base text-accent-orange shrink-0" />
                   <div>
-                    <p className="text-xs text-text-primary">Streak reminders</p>
+                    <p className="text-xs text-text-primary"><FormattedMessage id="profile.streakReminders" /></p>
                     <p className="text-[11px] text-text-muted">
                       {push.notifyStreak
-                        ? `Only if your streak is at risk, at ${formatTime(Math.max(...push.times))}`
-                        : 'Muted'}
+                        ? intl.formatMessage({ id: 'profile.streakAtRisk' }, { time: formatTime(Math.max(...push.times)) })
+                        : intl.formatMessage({ id: 'profile.muted' })}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => void push.toggleType('streak')}
-                  aria-label="Toggle streak reminders"
+                  aria-label={intl.formatMessage({ id: 'profile.toggleStreak' })}
                   aria-pressed={push.notifyStreak}
                   className="inline-flex items-center shrink-0 cursor-pointer"
                 >
@@ -185,17 +187,17 @@ export function ProfilePage() {
                 <div className="flex items-center gap-2.5">
                   <Icon icon="lucide:repeat" className="text-base text-accent-cyan shrink-0" />
                   <div>
-                    <p className="text-xs text-text-primary">Word review</p>
+                    <p className="text-xs text-text-primary"><FormattedMessage id="profile.wordReview" /></p>
                     <p className="text-[11px] text-text-muted">
                       {push.notifyReview
                         ? formatSchedule(push.times, push.days)
-                        : 'Muted'}
+                        : intl.formatMessage({ id: 'profile.muted' })}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => void push.toggleType('review')}
-                  aria-label="Toggle word review reminders"
+                  aria-label={intl.formatMessage({ id: 'profile.toggleReview' })}
                   aria-pressed={push.notifyReview}
                   className="inline-flex items-center shrink-0 cursor-pointer"
                 >
@@ -212,7 +214,7 @@ export function ProfilePage() {
             <>
               <div className="flex flex-col gap-2 pt-1">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-text-muted">Remind me at</span>
+                  <span className="text-xs text-text-muted"><FormattedMessage id="profile.remindAt" /></span>
                   <span className="text-xs text-text-muted/60">
                     {push.times.length}/{MAX_REMINDER_TIMES}
                   </span>
@@ -238,7 +240,7 @@ export function ProfilePage() {
                           // rather than dropping a reminder by accident.
                           if (next !== null) void push.updateTime(t, next);
                         }}
-                        aria-label={`Reminder time, currently ${formatTime(t)}`}
+                        aria-label={intl.formatMessage({ id: 'profile.reminderTimeAria' }, { time: formatTime(t) })}
                         className="bg-transparent text-accent-cyan text-xs outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute"
                       />
                       {/* The last time can't be removed — an empty schedule
@@ -246,7 +248,7 @@ export function ProfilePage() {
                       {push.times.length > 1 && (
                         <button
                           onClick={() => void push.removeTime(t)}
-                          aria-label={`Remove ${formatTime(t)} reminder`}
+                          aria-label={intl.formatMessage({ id: 'profile.removeReminderAria' }, { time: formatTime(t) })}
                           className="w-4 h-4 rounded-full inline-flex items-center justify-center hover:bg-accent-cyan/20 cursor-pointer"
                         >
                           <Icon icon="lucide:x" className="text-[10px]" />
@@ -261,22 +263,22 @@ export function ProfilePage() {
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border text-text-muted text-xs hover:border-accent-cyan/40 hover:text-accent-cyan transition-colors cursor-pointer"
                     >
                       <Icon icon="lucide:plus" className="text-[10px]" />
-                      Add time
+                      <FormattedMessage id="profile.addTime" />
                     </button>
                   )}
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <span className="text-xs text-text-muted">Repeat on</span>
+                <span className="text-xs text-text-muted"><FormattedMessage id="profile.repeatOn" /></span>
                 <div className="flex items-center justify-between gap-1">
-                  {DAY_INITIALS.map((initial, day) => {
+                  {ALL_DAYS.map((day) => {
                     const on = push.days.includes(day);
                     return (
                       <button
                         key={day}
                         onClick={() => void push.toggleDay(day)}
-                        aria-label={`${DAY_NAMES[day]} reminders`}
+                        aria-label={intl.formatMessage({ id: 'profile.dayRemindersAria' }, { day: dayName(day) })}
                         aria-pressed={on}
                         className={`w-8 h-8 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                           on
@@ -284,7 +286,7 @@ export function ProfilePage() {
                             : 'bg-bg-tertiary text-text-muted border border-transparent hover:bg-bg-hover'
                         }`}
                       >
-                        {initial}
+                        {dayName(day, 'narrow')}
                       </button>
                     );
                   })}
@@ -299,7 +301,7 @@ export function ProfilePage() {
               disabled={push.busy}
               className="btn-3d w-full py-2 text-xs bg-accent-cyan/10 text-accent-cyan disabled:opacity-50"
             >
-              Enable reminders
+              <FormattedMessage id="profile.enableReminders" />
             </button>
           )}
 
@@ -307,15 +309,13 @@ export function ProfilePage() {
               only route back rather than offering a button that can't work. */}
           {push.status === 'denied' && (
             <p className="text-xs text-text-muted/70 leading-relaxed">
-              Notifications are blocked for Voca. To turn them on, open your browser's site
-              settings for this page and allow notifications.
+              <FormattedMessage id="profile.blocked" />
             </p>
           )}
 
           {push.status === 'ios-needs-install' && (
             <p className="text-xs text-text-muted/70 leading-relaxed">
-              On iPhone and iPad, reminders work once Voca is on your Home Screen — tap Share,
-              then "Add to Home Screen", and open it from there.
+              <FormattedMessage id="profile.iosInstall" />
             </p>
           )}
         </div>
@@ -326,7 +326,7 @@ export function ProfilePage() {
         onClick={handleSignOut}
         className="w-full py-3 rounded-xl border border-border bg-bg-card text-sm text-accent-red hover:bg-accent-red/5 hover:border-accent-red/30 transition-colors font-medium"
       >
-        Sign out
+        <FormattedMessage id="settings.signOut" />
       </button>
     </div>
   );

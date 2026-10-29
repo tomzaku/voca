@@ -12,6 +12,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { progressSynced } from './useVocabulary';
+import { t } from '../i18n';
 import {
   boardMe,
   createTeam,
@@ -80,7 +81,7 @@ interface TeamsState {
 }
 
 function message(e: unknown): string {
-  return e instanceof TeamsError ? e.message : 'Something went wrong.';
+  return e instanceof TeamsError ? e.message : t('teams.somethingWrong');
 }
 
 /**
