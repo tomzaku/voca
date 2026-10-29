@@ -50,9 +50,13 @@ const PROPS_KEY = 'world-props';
 const DEPTH_STEP = 10;
 const DEPTH_SCENERY = WORLD_LAYERS.length * DEPTH_STEP;   // legacy meta windmills/animals
 const DEPTH_NIGHT = DEPTH_SCENERY + 5;
+/** Lights that shine through the night veil (still under stations/buddy). */
+const DEPTH_LIGHTS = DEPTH_NIGHT + 1;
 const DEPTH_STATIONS = DEPTH_NIGHT + 10;
 const DEPTH_MARK = DEPTH_STATIONS + 5;
 const DEPTH_BUDDY = DEPTH_STATIONS + 10;
+/** A painted map's upper layer — roofs and crowns the buddy walks behind. */
+const DEPTH_OVER = DEPTH_BUDDY + 5;
 
 /**
  * User zoom steps. All are multiples of 0.5 on purpose: the art is 16px drawn
@@ -80,10 +84,21 @@ interface StationNode {
 interface MapMeta {
   spawn: { x: number; y: number };
   doors: { x: number; y: number }[];
-  labels: { x: number; y: number; text: string; theme: ThemeId }[];
+  labels: { x: number; y: number; text: string; theme: ThemeId; hidden?: boolean }[];
   windmills: { x: number; y: number }[];
   animals: { x: number; y: number; kind: string }[];
-  slots: Record<'public' | 'system' | 'feature', { x: number; y: number; slot: number }[]>;
+  slots: Record<'public' | 'system' | 'feature', MapSlot[]>;
+}
+
+interface MapSlot {
+  x: number;
+  y: number;
+  slot: number;
+  /** Feature slots only: the feature id this building is for. Without it,
+   *  features fill the slots in list order. */
+  feature?: string;
+  /** Feature slots only: the landmark's name, shown under the page's name. */
+  place?: string;
 }
 
 /** One loose scenery sprite the map's `props` object layer places. */
@@ -141,8 +156,10 @@ export class WorldScene extends Phaser.Scene {
   /** Dims the day-lit tile art in dark mode, in place of a per-layer tint
    *  (GPU tilemap layers have none) — a multiply veil over the map bounds. */
   private nightVeil?: Phaser.GameObjects.Rectangle;
+  /** A painted map's lights, shown only in dark mode. */
+  private nightLights?: Phaser.GameObjects.Image;
   /** Scenery that takes the night tint individually (it sits above the veil). */
-  private tinted: Phaser.GameObjects.Sprite[] = [];
+  private tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [];
   /** Area labels, kept so a theme switch can recolor them in place. */
   private labels: { text: Phaser.GameObjects.Text; theme: ThemeId }[] = [];
   private nodes: StationNode[] = [];
@@ -198,7 +215,10 @@ export class WorldScene extends Phaser.Scene {
     this.load.image(`tiles-${src.key}`, src.tilesetUrl);
     this.load.tilemapTiledJSON(`map-${src.key}`, src.tmjUrl);
     // 112 scenery sprites (547 frames) in one atlas — one texture, one bind.
-    this.load.atlas(PROPS_KEY, src.propsAtlasUrl, src.propsAtlasJsonUrl);
+    if (src.propsAtlasUrl && src.propsAtlasJsonUrl) this.load.atlas(PROPS_KEY, src.propsAtlasUrl, src.propsAtlasJsonUrl);
+    if (src.groundUrl) this.load.image(`ground-${src.key}`, src.groundUrl);
+    if (src.overUrl) this.load.image(`over-${src.key}`, src.overUrl);
+    if (src.nightUrl) this.load.image(`night-${src.key}`, src.nightUrl);
     this.load.spritesheet(WINDMILL.key, `${import.meta.env.BASE_URL}${WINDMILL.url}`, {
       frameWidth: WINDMILL.frame, frameHeight: WINDMILL.frame,
     });
@@ -218,8 +238,9 @@ export class WorldScene extends Phaser.Scene {
     // Belt and braces: the pixelArt config flag doesn't reliably reach
     // runtime-loaded sheets, and linear filtering blurs 16px art badly.
     const src = defaultMap();
-    this.textures.get(`tiles-${src.key}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.textures.get(PROPS_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    for (const key of [`tiles-${src.key}`, `ground-${src.key}`, `over-${src.key}`, `night-${src.key}`, PROPS_KEY]) {
+      if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
     this.textures.get(VILLAGERS_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get(WINDMILL.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     for (const [kind, cfg] of Object.entries(ANIMALS)) {
@@ -372,6 +393,7 @@ export class WorldScene extends Phaser.Scene {
   private applyNight() {
     const night = !this.pal.light;
     this.nightVeil?.setVisible(night);
+    this.nightLights?.setVisible(night);
     for (const s of this.tinted) {
       if (night) s.setTint(NIGHT_TINT); else s.clearTint();
     }
@@ -517,10 +539,17 @@ export class WorldScene extends Phaser.Scene {
         this.addProps(props.filter((p) => p.layer === name), depth);
         return;
       }
-      const layer = map.createLayer(name, tiles, undefined, undefined, gpu);
-      if (!layer) return;   // template doesn't paint this one
-      layer.setScale(SCALE).setDepth(depth);
+      if (!map.getLayer(name)) return;   // template doesn't paint this one
+      map.createLayer(name, tiles, undefined, undefined, gpu)?.setScale(SCALE).setDepth(depth);
     });
+    // A painted map: the ground goes under everything, the over layer above
+    // the buddy. It takes the night tint itself, since it sits over the veil.
+    const ground = `ground-${src.key}`;
+    const over = `over-${src.key}`;
+    if (this.textures.exists(ground)) this.add.image(0, 0, ground).setOrigin(0, 0).setScale(SCALE).setDepth(-1);
+    const overImage = this.textures.exists(over)
+      ? this.add.image(0, 0, over).setOrigin(0, 0).setScale(SCALE).setDepth(DEPTH_OVER)
+      : null;
     this.worldW = map.widthInPixels * SCALE;
     this.worldH = map.heightInPixels * SCALE;
     this.tilePx = map.tileWidth * SCALE;
@@ -539,9 +568,21 @@ export class WorldScene extends Phaser.Scene {
       .setDepth(DEPTH_NIGHT)
       .setBlendMode(Phaser.BlendModes.MULTIPLY)
       .setVisible(false);
+    // Bridge lights glow through it, breathing slowly rather than blinking.
+    const lights = `night-${src.key}`;
+    this.nightLights = undefined;
+    if (this.textures.exists(lights)) {
+      this.nightLights = this.add.image(0, 0, lights)
+        .setOrigin(0, 0).setScale(SCALE).setDepth(DEPTH_LIGHTS)
+        .setVisible(false);
+      this.tweens.add({
+        targets: this.nightLights, alpha: { from: 1, to: 0.6 },
+        duration: 2400, yoyo: true, repeat: -1, ease: 'sine.inOut',
+      });
+    }
 
     const layer = this.add.container(0, 0).setDepth(DEPTH_SCENERY);
-    this.tinted = [];
+    this.tinted = overImage ? [overImage] : [];
 
     // Animated scenery: windmills turn where the map placed them (feet at the
     // point, drawn 2× to match the tiles' on-screen size, tinted at night).
@@ -572,6 +613,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.labels = [];
     for (const l of this.meta.labels) {
+      if (l.hidden) continue;   // names the area without a sign on the map
       const text = this.add
         .text(l.x, l.y, l.text, {
           fontFamily: FONT,
@@ -626,10 +668,13 @@ export class WorldScene extends Phaser.Scene {
     bind(pub, this.meta.slots.public);
     bind(sys, this.meta.slots.system);
 
-    // App pages: fixed buildings bound to the template's feature slots.
-    this.args.features.forEach((f, i) => {
-      const slot = this.meta.slots.feature[i];
-      if (slot) this.addFeature(layer, f, slot.x, slot.y, villagerLookFor(villager++));
+    // App pages: fixed buildings bound to the template's feature slots — by
+    // feature id where the map names one, else in list order.
+    const slots = this.meta.slots.feature;
+    const loose = slots.filter((s) => !s.feature);
+    this.args.features.forEach((f) => {
+      const slot = slots.find((s) => s.feature === f.id) ?? loose.shift();
+      if (slot) this.addFeature(layer, f, slot, villagerLookFor(villager++));
     });
 
     // The next empty house up north is a build plot: walk up (or fast travel)
@@ -741,13 +786,20 @@ export class WorldScene extends Phaser.Scene {
             x, y,
             text: String(get('text') ?? ''),
             theme: t === 'desert' ? 'desert' : t === 'snow' ? 'snow' : 'forest',
+            hidden: get('hidden') === true || get('hidden') === 'true',
           });
           break;
         }
         case 'station': {
           const raw = get('region');
           const region = raw === 'system' ? 'system' : raw === 'feature' ? 'feature' : 'public';
-          meta.slots[region].push({ x, y, slot: Number(get('slot') ?? 0) });
+          const feature = get('feature');
+          const place = get('place');
+          meta.slots[region].push({
+            x, y, slot: Number(get('slot') ?? 0),
+            feature: typeof feature === 'string' ? feature : undefined,
+            place: typeof place === 'string' ? place : undefined,
+          });
           break;
         }
       }
@@ -923,7 +975,8 @@ export class WorldScene extends Phaser.Scene {
   /** An app page as a little building: walk up and React opens its card, whose
    *  "Enter" navigates to the page's route. Behaves like a station for
    *  proximity, but carries no words/progress. */
-  private addFeature(layer: Phaser.GameObjects.Container, f: WorldFeature, x: number, y: number, look: VillagerLook) {
+  private addFeature(layer: Phaser.GameObjects.Container, f: WorldFeature, slot: MapSlot, look: VillagerLook) {
+    const { x, y, place } = slot;
     const poi = this.pal.poi;
     const root = this.add.container(x, y);
 
@@ -957,13 +1010,14 @@ export class WorldScene extends Phaser.Scene {
 
     root.add(
       this.add
-        .text(0, 10, t(f.nameId), {
+        .text(0, 10, place ? `${t(f.nameId)}\n${place}` : t(f.nameId), {
           fontFamily: FONT,
           fontSize: '10px',
           fontStyle: 'bold',
           color: this.pal.textCss,
           backgroundColor: this.pal.cardCss,
           padding: { x: 7, y: 3 },
+          align: 'center',
           resolution: this.args.dpr,
         })
         .setOrigin(0.5, 0),
@@ -1059,27 +1113,137 @@ export class WorldScene extends Phaser.Scene {
     return null;
   }
 
-  /** Walk to (x, y), detouring through a door when crossing areas. */
+  /**
+   * Walk to (x, y) along a path around walls and water. The map decides what
+   * a trip involves — a bridge, a gate in the citadel wall, the arch through
+   * Ngọ Môn — so the route is searched, not assumed.
+   */
   private routeTo(x: number, y: number) {
     const target = this.clampToWalkable(x, y);
     if (!target) return;
-    const route: number[][] = [];
-    // Every door whose horizontal wall line separates buddy and target has to
-    // be crossed. Walk them in travel order — with three areas a trip can span
-    // two rivers, and heading for the far door first would run into the near
-    // one's wall.
-    const southbound = target.y > this.buddy.y;
-    const crossed = this.meta.doors
-      .filter((d) => (this.buddy.y < d.y) !== (target.y < d.y))
-      .sort((a, b) => (southbound ? a.y - b.y : b.y - a.y));
-    for (const d of crossed) {
-      const lead = this.tilePx * 2.5; // far enough to land on the banks, not mid-crossing
-      route.push(...(southbound
-        ? [[d.x, d.y - lead], [d.x, d.y + lead]]
-        : [[d.x, d.y + lead], [d.x, d.y - lead]]));
+    const path = this.findPath(this.buddy.x, this.buddy.y, target.x, target.y);
+    if (!path) return;
+    path.push([target.x, target.y]);
+    this.route = this.smoothPath(path);
+  }
+
+  /**
+   * A* over the collision grid: 8-way, without cutting corners. Returns tile
+   * centres in world pixels from just after the start to the goal's tile, or
+   * null when the goal can't be reached.
+   */
+  private findPath(fromX: number, fromY: number, toX: number, toY: number): number[][] | null {
+    const tile = this.tilePx;
+    const rows = this.blocked.length;
+    const cols = this.blocked[0]?.length ?? 0;
+    const sx = Math.floor(fromX / tile), sy = Math.floor(fromY / tile);
+    const gx = Math.floor(toX / tile), gy = Math.floor(toY / tile);
+    if (sx === gx && sy === gy) return [];
+    const free = (tx: number, ty: number) => tx >= 0 && ty >= 0 && tx < cols && ty < rows && !this.blocked[ty][tx];
+    const key = (tx: number, ty: number) => ty * cols + tx;
+    const h = (tx: number, ty: number) => {
+      const dx = Math.abs(tx - gx), dy = Math.abs(ty - gy);
+      return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
+    };
+
+    const cost = new Float64Array(rows * cols).fill(Infinity);
+    const from = new Int32Array(rows * cols).fill(-1);
+    const closed = new Uint8Array(rows * cols);
+    // Binary heap of [f, key].
+    const heap: [number, number][] = [];
+    const push = (f: number, k: number) => {
+      heap.push([f, k]);
+      let i = heap.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (heap[p][0] <= heap[i][0]) break;
+        [heap[p], heap[i]] = [heap[i], heap[p]];
+        i = p;
+      }
+    };
+    const pop = (): number => {
+      const top = heap[0][1];
+      const last = heap.pop()!;
+      if (heap.length > 0) {
+        heap[0] = last;
+        let i = 0;
+        for (;;) {
+          const l = 2 * i + 1, r = l + 1;
+          let m = i;
+          if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+          if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+          if (m === i) break;
+          [heap[m], heap[i]] = [heap[i], heap[m]];
+          i = m;
+        }
+      }
+      return top;
+    };
+
+    const start = key(sx, sy);
+    cost[start] = 0;
+    push(h(sx, sy), start);
+    const goal = key(gx, gy);
+    while (heap.length > 0) {
+      const k = pop();
+      if (k === goal) break;
+      if (closed[k]) continue;
+      closed[k] = 1;
+      const tx = k % cols, ty = (k - tx) / cols;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = tx + dx, ny = ty + dy;
+          if (!free(nx, ny)) continue;
+          if (dx && dy && (!free(tx + dx, ty) || !free(tx, ty + dy))) continue; // no corner cutting
+          const nk = key(nx, ny);
+          const c = cost[k] + (dx && dy ? Math.SQRT2 : 1);
+          if (c < cost[nk]) {
+            cost[nk] = c;
+            from[nk] = k;
+            push(c + h(nx, ny), nk);
+          }
+        }
+      }
     }
-    route.push([target.x, target.y]);
-    this.route = route;
+    if (from[goal] === -1) return null;
+
+    const path: number[][] = [];
+    for (let k = goal; k !== start; k = from[k]) {
+      const tx = k % cols;
+      path.push([(tx + 0.5) * tile, ((k - tx) / cols + 0.5) * tile]);
+    }
+    return path.reverse();
+  }
+
+  /** Drop waypoints the buddy can skip by walking straight, so a route reads
+   *  as a few purposeful legs rather than a staircase of tile centres. */
+  private smoothPath(path: number[][]): number[][] {
+    const out: number[][] = [];
+    let from: number[] = [this.buddy.x, this.buddy.y];
+    let i = 0;
+    while (i < path.length) {
+      let j = path.length - 1;
+      while (j > i && !this.clearLine(from, path[j])) j--;
+      out.push(path[j]);
+      from = path[j];
+      i = j + 1;
+    }
+    return out;
+  }
+
+  /** Can the buddy walk straight from a to b? Samples a little wider than a
+   *  point so legs don't graze wall corners. */
+  private clearLine(a: number[], b: number[]): boolean {
+    const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const steps = Math.ceil(dist / (this.tilePx / 4));
+    const pad = this.tilePx * 0.3;
+    for (let s = 1; s <= steps; s++) {
+      const x = a[0] + ((b[0] - a[0]) * s) / steps;
+      const y = a[1] + ((b[1] - a[1]) * s) / steps;
+      if (!this.canStand(x - pad, y) || !this.canStand(x + pad, y) || !this.canStand(x, y - pad) || !this.canStand(x, y + pad)) return false;
+    }
+    return true;
   }
 
   update(time: number, dtMs: number) {

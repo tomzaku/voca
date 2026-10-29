@@ -18,11 +18,32 @@ export interface WorldMapSource {
   /** The tileset's `name` inside the map document. */
   tilesetName: string;
   /** Atlas of the loose scenery sprites the map's `props` layer places. */
-  propsAtlasUrl: string;
-  propsAtlasJsonUrl: string;
+  propsAtlasUrl?: string;
+  propsAtlasJsonUrl?: string;
+  /** A painted map: one image under the buddy (the whole ground) and one over
+   *  it (roofs and crowns the buddy walks behind), in place of tile layers. */
+  groundUrl?: string;
+  overUrl?: string;
+  /** Lights added over the dimmed map in dark mode only. */
+  nightUrl?: string;
 }
 
+/** Huế, painted by scripts/generate-hue-map.mjs — the default world. */
 export function defaultMap(): WorldMapSource {
+  const base = import.meta.env.BASE_URL;
+  return {
+    key: 'hue',
+    tmjUrl: `${base}game/maps/hue.tmj`,
+    tilesetUrl: `${base}game/maps/hue-tiles.png`,
+    tilesetName: 'hue',
+    groundUrl: `${base}game/maps/hue-ground.png`,
+    overUrl: `${base}game/maps/hue-over.png`,
+    nightUrl: `${base}game/maps/hue-night.png`,
+  };
+}
+
+/** The earlier Sunnyside village, kept as a template that still loads. */
+export function sunnysideMap(): WorldMapSource {
   const base = import.meta.env.BASE_URL;
   return {
     key: 'world',
