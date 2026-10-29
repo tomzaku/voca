@@ -30,6 +30,9 @@ const TOPIC_ICON: Record<(typeof dialogueTopics)[number], string> = {
   'Health': 'lucide:heart-pulse',
   'Making Friends': 'lucide:heart-handshake',
   'Phone & Service': 'lucide:phone',
+  'Home & Neighbours': 'lucide:house',
+  'Money & Banking': 'lucide:wallet',
+  'Hobbies & Free Time': 'lucide:bike',
 };
 const topicIcon = (t: string) => TOPIC_ICON[t as keyof typeof TOPIC_ICON] ?? 'lucide:message-circle';
 
