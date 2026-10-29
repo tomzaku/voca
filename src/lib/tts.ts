@@ -236,12 +236,21 @@ export function preloadPiper() {
   });
 }
 
-let cancelled = false;
+// Every read takes a ticket; starting another read or stopping hands out a
+// new one, and a read whose ticket is no longer current goes quiet. A single
+// shared "cancelled" flag couldn't do this: the next read reset it, so an
+// earlier read still generating audio (React's dev double-mount, or two
+// callers asking at once) carried on and played too — every word read twice.
+let session = 0;
+const stale = (ticket: number) => ticket !== session;
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
 
-function playBlob(blob: Blob): Promise<void> {
+function playBlob(blob: Blob, ticket: number): Promise<void> {
   return new Promise<void>((resolve) => {
+    if (stale(ticket)) { resolve(); return; }
+    // Never two clips at once, whoever started the other one.
+    if (currentAudio) currentAudio.pause();
     if (currentUrl) URL.revokeObjectURL(currentUrl);
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
@@ -278,9 +287,9 @@ function splitIntoChunks(text: string): string[] {
   return chunks.length > 0 ? chunks : [text];
 }
 
-async function speakPiper(text: string, options?: { voice?: string; onStart?: () => void; onEnd?: () => void }): Promise<void> {
+async function speakPiper(text: string, ticket: number, options?: { voice?: string; onStart?: () => void; onEnd?: () => void }): Promise<void> {
   const piper = await getPiperTTS();
-  if (cancelled) return;
+  if (stale(ticket)) return;
   const chunks = splitIntoChunks(text);
   const rawVoice = options?.voice ?? getPiperVoice();
   const voiceId = PIPER_VOICES.some((v) => v.id === rawVoice) ? rawVoice : getPiperVoice();
@@ -291,15 +300,15 @@ async function speakPiper(text: string, options?: { voice?: string; onStart?: ()
     return blob;
   };
   let nextBlob: Blob | null = await timedPredict(chunks[0]);
-  if (!nextBlob || cancelled) { options?.onEnd?.(); return; }
+  if (!nextBlob || stale(ticket)) { options?.onEnd?.(); return; }
   options?.onStart?.();
   for (let i = 0; i < chunks.length; i++) {
-    if (cancelled) break;
+    if (stale(ticket)) break;
     const currentBlob = nextBlob!;
     const nextPromise = (i + 1 < chunks.length)
       ? timedPredict(chunks[i + 1]).catch(() => null)
       : Promise.resolve(null);
-    await playBlob(currentBlob);
+    await playBlob(currentBlob, ticket);
     nextBlob = await nextPromise;
     if (!nextBlob && i + 1 < chunks.length) break;
   }
@@ -319,7 +328,7 @@ function speakNative(text: string, options?: { speed?: number; onStart?: () => v
 }
 
 export function stopSpeaking() {
-  cancelled = true;
+  session++;
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   if (currentUrl) { URL.revokeObjectURL(currentUrl); currentUrl = null; }
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
@@ -334,9 +343,9 @@ export function isTtsPlaying(): boolean {
 export const CONV_VOICE_A = 'af_sarah';   // Speaker A (AI bubble)
 export const CONV_VOICE_B = 'am_michael'; // Speaker B (user bubble)
 
-async function speakOnce(text: string, voice: string): Promise<void> {
+async function speakOnce(text: string, voice: string, ticket: number): Promise<void> {
   const clean = cleanMarkdown(text);
-  if (!clean || cancelled) return;
+  if (!clean || stale(ticket)) return;
 
   const engine = getTtsEngine();
 
@@ -345,7 +354,7 @@ async function speakOnce(text: string, voice: string): Promise<void> {
   }
 
   if (engine === 'piper' || (kokoroUnavailable && engine === 'kokoro')) {
-    return speakPiper(clean, { voice });
+    return speakPiper(clean, ticket, { voice });
   }
 
   let tts: KokoroTTSInstance;
@@ -354,14 +363,14 @@ async function speakOnce(text: string, voice: string): Promise<void> {
   } catch {
     return speakNative(clean, { speed: getTtsSpeed() });
   }
-  if (cancelled) return;
+  if (stale(ticket)) return;
 
   const start = performance.now();
   const result = await tts.generate(clean, { voice: voice as 'af_heart', speed: getTtsSpeed() });
   judgeSpeed('kokoro', voice, clean, performance.now() - start);
-  if (cancelled) return;
+  if (stale(ticket)) return;
   const blob = result.toBlob();
-  return playBlob(blob);
+  return playBlob(blob, ticket);
 }
 
 export async function speakConversation(
@@ -369,14 +378,14 @@ export async function speakConversation(
   options?: { onStart?: () => void; onEnd?: () => void },
 ): Promise<void> {
   stopSpeaking();
-  cancelled = false;
+  const ticket = session;
   sessionStart = performance.now();
   options?.onStart?.();
 
   for (const msg of messages) {
-    if (cancelled) break;
+    if (stale(ticket)) break;
     const voice = msg.role === 'ai' ? CONV_VOICE_A : CONV_VOICE_B;
-    await speakOnce(msg.text, voice);
+    await speakOnce(msg.text, voice, ticket);
   }
 
   options?.onEnd?.();
@@ -387,7 +396,7 @@ export async function speakText(
   options?: { voice?: string; speed?: number; onStart?: () => void; onEnd?: () => void },
 ): Promise<void> {
   stopSpeaking();
-  cancelled = false;
+  const ticket = session;
   sessionStart = performance.now();
 
   let clean = cleanMarkdown(text);
@@ -409,9 +418,10 @@ export async function speakText(
 
   if (engine === 'piper' || (kokoroUnavailable && engine === 'kokoro')) {
     try {
-      await speakPiper(clean, options);
+      await speakPiper(clean, ticket, options);
       options?.onEnd?.();
     } catch (err) {
+      if (stale(ticket)) return;
       console.warn(TAG, 'Piper failed, falling back to native:', err);
       options?.onStart?.();
       await speakNative(clean, options);
@@ -423,38 +433,39 @@ export async function speakText(
   try {
     tts = await getKokoroTTS();
   } catch {
+    if (stale(ticket)) return;
     options?.onStart?.();
     await speakNative(clean, options);
     return;
   }
-  if (cancelled) return;
+  if (stale(ticket)) return;
 
   const chunks = splitIntoChunks(clean);
   const voice = (options?.voice ?? getTtsVoice()) as 'af_heart';
   const speed = options?.speed ?? getTtsSpeed();
 
   const generateChunk = async (i: number): Promise<Blob | null> => {
-    if (cancelled || i >= chunks.length) return null;
+    if (stale(ticket) || i >= chunks.length) return null;
     const start = performance.now();
     const result = await tts.generate(chunks[i], { voice, speed });
     judgeSpeed('kokoro', voice, chunks[i], performance.now() - start);
-    if (cancelled) return null;
+    if (stale(ticket)) return null;
     return result.toBlob();
   };
 
   let currentBlob = await generateChunk(0).catch(() => null);
-  if (!currentBlob || cancelled) { options?.onEnd?.(); return; }
+  if (!currentBlob || stale(ticket)) { options?.onEnd?.(); return; }
 
   options?.onStart?.();
 
   for (let i = 0; i < chunks.length; i++) {
-    if (cancelled) break;
+    if (stale(ticket)) break;
     // A demotion mid-read shuts the worker down; end the read rather than hang.
     const nextPromise = (i + 1 < chunks.length) ? generateChunk(i + 1).catch(() => null) : null;
-    await playBlob(currentBlob!);
+    await playBlob(currentBlob!, ticket);
     if (!nextPromise) break;
     currentBlob = await nextPromise;
-    if (!currentBlob || cancelled) break;
+    if (!currentBlob || stale(ticket)) break;
   }
 
   options?.onEnd?.();
