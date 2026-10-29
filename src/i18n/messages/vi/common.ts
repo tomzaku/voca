@@ -10,6 +10,7 @@ export default {
   'common.previewSample': '{shown} trên {total} từ, chọn ngẫu nhiên',
   'common.previewReshuffle': 'Xem các từ khác',
   'common.searchPlaceholder': 'Tìm bằng {learn} hoặc {mother}…',
+  'common.searchTry': 'Thử “{example}”',
   'common.searchEnterHint': 'Nhấn Enter để tra từ',
   'common.searchEscHint': '<kbd>Esc</kbd> để đóng',
   'common.filterRecent': 'Gần đây',

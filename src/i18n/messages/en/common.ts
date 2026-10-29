@@ -10,6 +10,7 @@ export default {
   'common.previewSample': '{shown} of {total, plural, one {# word} other {# words}}, picked at random',
   'common.previewReshuffle': 'Show different words',
   'common.searchPlaceholder': 'Search {learn} or {mother}…',
+  'common.searchTry': 'Try “{example}”',
   'common.searchEnterHint': 'Enter to look up a word',
   'common.searchEscHint': '<kbd>Esc</kbd> to close',
   'common.filterRecent': 'Recent',
