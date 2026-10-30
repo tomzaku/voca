@@ -29,6 +29,16 @@ export const LABEL_PLACES: Record<string, string> = {
   'Nghênh Lương Đình': 'nghenhLuong',
   'Thế Miếu': 'theMieu',
   'Hiển Lâm Các': 'hienLam',
+  'Chánh Nam Môn': 'chanhNam',
+  'Cửa Quảng Đức': 'quangDuc',
+  'Cửa Ngăn': 'cuaNgan',
+  'Cửa Thượng Tứ': 'thuongTu',
+  'Cửa Đông Ba': 'dongBaGate',
+  'Cửa Kẻ Trài': 'keTrai',
+  'Cửa Hậu': 'cuaHau',
+  'Cửa An Hòa': 'anHoa',
+  'Cửa Chánh Tây': 'chanhTay',
+  'Cửa Hữu': 'cuaHuu',
 };
 
 /** Where each keeper stands — walking up to one tells that place's story.

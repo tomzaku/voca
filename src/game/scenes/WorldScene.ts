@@ -1042,8 +1042,8 @@ export class WorldScene extends Phaser.Scene {
   private spawnTraffic() {
     const lanes: [number, Exclude<Ride, 'walk'>, boolean, number][] = [
       // [road row, ride, carries a passenger, speed px/s]
-      [48.6, 'bike', false, 70],
-      [48.6, 'cyclo', false, 45],
+      [49.6, 'bike', false, 70],
+      [49.6, 'cyclo', false, 45],
       [59.6, 'cyclo', true, 40],
       [59.6, 'bike', false, 85],
     ];

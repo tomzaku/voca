@@ -185,16 +185,16 @@ const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
 
 // The Hương: west → east along the Citadel's front, then the bend north-east
 // past Đông Ba, widest where it wraps around Cồn Hến.
-const RIVER = polyline([[-4, 53.5], [40, 53.3], [80, 53.6], [97, 53.5], [106, 49], [111, 40], [115, 30], [120, 18], [126, 4]]);
+const RIVER = polyline([[-4, 53.8], [40, 53.6], [80, 53.9], [97, 53.8], [106, 49], [111, 40], [115, 30], [120, 18], [126, 4]]);
 const [, , , S3, S4, , S6, S7] = RIVER.vertexS;
 const riverHalfWidth = (s) => {
-  let hw = s < S3 ? 3.5 : s < S4 ? lerp(3.5, 8, (s - S3) / (S4 - S3)) : s < S6 ? 8 : lerp(8, 5.5, (s - S6) / (S7 - S6));
+  let hw = s < S3 ? 3.2 : s < S4 ? lerp(3.2, 8, (s - S3) / (S4 - S3)) : s < S6 ? 8 : lerp(8, 5.5, (s - S6) / (S7 - S6));
   return (hw + 0.25 * Math.sin(s / (7 * T))) * T;
 };
 
 // Islets: Dã Viên (under its bridge) and Cồn Hến (in the bend, lying along
 // the flow).
-const DA_VIEN = { cx: 33.5 * T, cy: 53.4 * T, rx: 4.5 * T, ry: 1.3 * T, angle: 0 };
+const DA_VIEN = { cx: 33.5 * T, cy: 53.7 * T, rx: 4.5 * T, ry: 1.3 * T, angle: 0 };
 const CON_HEN = { cx: 110.5 * T, cy: 41 * T, rx: 6.5 * T, ry: 3.4 * T, angle: Math.atan2(-9, 5) };
 const ISLETS = [DA_VIEN, CON_HEN];
 const isletE = (i, x, y) => {
@@ -213,12 +213,30 @@ const CANAL_HW = 1.3 * T;
 
 // The Citadel (Kinh Thành): a 2-tile moat ring, then the wall ring. Inside
 // it, the Imperial City (Hoàng Thành) with its own 1-tile moat and wall.
-const CITADEL = { moat: { x0: 28, y0: 3, x1: 80, y1: 47 }, wall: { x0: 30, y0: 5, x1: 78, y1: 45 } };
+// The front moat is a row deeper than the rest: Kỳ Đài juts out into it from
+// the wall, and the water still passes in front of it.
+const CITADEL = { moat: { x0: 28, y0: 3, x1: 80, y1: 48 }, wall: { x0: 30, y0: 5, x1: 78, y1: 45 } };
 const IMPERIAL = { moat: { x0: 41, y0: 15, x1: 69, y1: 41 }, wall: { x0: 42, y0: 16, x1: 68, y1: 40 } };
-const BASTION = { x0: 52, x1: 58, y0: 44, y1: 47 };   // Kỳ Đài, in the front wall + moat
-const SOUTH_GATES = [36, 72];                          // left column of each 2-wide gate
-const WEST_GATE_Y = 30;                                // top row of the 2-tall west gate
-const EAST_GATE_Y = 36;
+const BASTION = { x0: 52, x1: 58, y0: 43, y1: 46 };   // Kỳ Đài, out from the front wall
+// The Citadel's ten gates, each 2 tiles wide: `at` is the left column of a
+// north or south gate, the top row of a west or east one. `place` is its
+// story (src/game/mapPlaces.ts); the label is the name Huế calls it by.
+const GATES = [
+  { side: 'south', at: 36, label: 'Chánh Nam Môn', place: 'chanhNam' },
+  { side: 'south', at: 47, label: 'Cửa Quảng Đức', place: 'quangDuc' },
+  { side: 'south', at: 61, label: 'Cửa Ngăn', place: 'cuaNgan' },
+  { side: 'south', at: 72, label: 'Cửa Thượng Tứ', place: 'thuongTu' },
+  { side: 'east', at: 20, label: 'Cửa Kẻ Trài', place: 'keTrai' },
+  { side: 'east', at: 36, label: 'Cửa Đông Ba', place: 'dongBaGate' },
+  { side: 'north', at: 54, label: 'Cửa Hậu', place: 'cuaHau' },
+  { side: 'west', at: 12, label: 'Cửa An Hòa', place: 'anHoa' },
+  { side: 'west', at: 30, label: 'Cửa Chánh Tây', place: 'chanhTay' },
+  { side: 'west', at: 38, label: 'Cửa Hữu', place: 'cuaHuu' },
+];
+const gatesOn = (side) => GATES.filter((g) => g.side === side).map((g) => g.at);
+const SOUTH_GATES = gatesOn('south');
+const WEST_GATE_Y = 30;                                // the gate Kim Long's road runs through
+const EAST_GATE_Y = 36;                                // Đông Ba's, to the market
 const NGO_MON = { x: 49, y: 34, w: 12, h: 6 };         // in the Imperial City's south wall
 
 // Tàng Thư Lâu: like the real one, the library stands on an island in Học
@@ -255,14 +273,14 @@ const isWater = (x, y) => inRiver(x, y) || inCanal(x, y) || inMoat(x, y) || inLa
 const ROADS = [
   // Kim Long
   [2, 12, 26, 2, 'dirt'], [2, 22, 26, 2, 'dirt'], [2, 31, 26, 2, 'dirt'],
-  [2, 12, 2, 35, 'dirt'], [26, 8, 2, 39, 'dirt'],
-  [14, 44, 12, 1, 'stone'], [19, 45, 2, 2, 'stone'], // Văn Miếu's forecourt
+  [2, 12, 2, 36, 'dirt'], [26, 8, 2, 40, 'dirt'],
+  [14, 44, 12, 1, 'stone'], [19, 45, 2, 3, 'stone'], // Văn Miếu's forecourt
   [28, WEST_GATE_Y, 7, 2, 'stone'],                 // through the west gate
   // North riverside road, the length of the city
-  [0, 47, 97, 2, 'dirt'],
+  [0, 48, 97, 2, 'dirt'],
   // Inside the Citadel
   [31, 41, 46, 3, 'stone'],                         // esplanade along the front wall
-  [SOUTH_GATES[0], 44, 2, 3, 'stone'], [SOUTH_GATES[1], 44, 2, 3, 'stone'],
+  ...SOUTH_GATES.map((g) => [g, 44, 2, 4, 'stone']),
   [35, 30, 2, 11, 'stone'],                         // from the west gate down past the library
   [32, 21, 8, 7, 'stone'],                          // the library's island courtyard
   [69, EAST_GATE_Y, 11, 2, 'stone'], [70, 38, 2, 3, 'stone'],
@@ -271,7 +289,7 @@ const ROADS = [
   [44, 21, 23, 1, 'stone'], [44, 30, 23, 1, 'stone'],
   [54, 22, 2, 3, 'stone'], [54, 31, 2, 3, 'stone'],
   // Gia Hội
-  [84, 36, 19, 2, 'dirt'], [97, 38, 2, 9, 'dirt'], [101, 38, 2, 1, 'dirt'],
+  [84, 36, 19, 2, 'dirt'], [97, 38, 2, 10, 'dirt'], [101, 38, 2, 1, 'dirt'],
   // South bank
   [0, 58, 97, 2, 'stone'],                          // Lê Lợi riverside promenade
   [20, 60, 2, 24, 'dirt'], [2, 82, 20, 2, 'dirt'],  // down to the tombs
@@ -565,9 +583,9 @@ function stoneSpan(tx, ty, tw, th) {
   mark(deck, tx, ty, tw, th);
 }
 
-// The river's bridges run from the north road (row 48) to the promenade (58).
-const BRIDGE_Y0 = 48.7 * T, BRIDGE_Y1 = 58.3 * T;
-const BANK_N = 50 * T, BANK_S = 57 * T;
+// The river's bridges run from the north road (row 49) to the promenade (58).
+const BRIDGE_Y0 = 49.7 * T, BRIDGE_Y1 = 58.3 * T;
+const BANK_N = 51 * T, BANK_S = 57 * T;
 
 // Phú Xuân: the plain one — even concrete spans on square piers, sidewalks
 // along both edges and a steady line of lamps.
@@ -681,12 +699,12 @@ plankDeck(101, 39, 7, 2, true);
 // The dragon-boat wharf below the citadel, west of Phu Văn Lâu's landing, and
 // a boat moored alongside it.
 {
-  plankDeck(48, 49, 2, 8);
+  plankDeck(48, 50, 2, 7);
   const x0 = 48 * T, x1 = 50 * T, y0 = 51 * T;
   for (const [px, py] of [[x0, y0], [x1 - 2, y0], [x0, y0 + 40], [x1 - 2, y0 + 40]]) ground.rect(px, py, 2, 3, [96, 66, 44]);
 }
 {
-  const bx = 42.3 * T, by = 52.6 * T, bw = 88, bh = 18;
+  const bx = 42.3 * T, by = 53 * T, bw = 88, bh = 18;
   for (let x = 0; x < bw; x++) {
     const taper = x < 10 ? Math.round((10 - x) * 0.5) : x > bw - 8 ? Math.round((x - (bw - 8)) * 0.6) : 0;
     for (let y = 6 + taper; y < bh; y++) {
@@ -711,7 +729,7 @@ plankDeck(101, 39, 7, 2, true);
 
 // Over the Đông Ba canal: at the east gate and on the riverside road.
 plankDeck(80, EAST_GATE_Y, 5, 2, true);
-stoneSpan(80, 47, 5, 2);
+stoneSpan(80, 48, 5, 2);
 // Over the An Cựu canal, where the south-bank roads meet it.
 for (const [x, w] of [[20, 2], [48, 3], [66, 3]]) stoneSpan(x, 71, w, 4);
 
@@ -745,21 +763,27 @@ function wallRing(b, open) {
 }
 
 const CW = { x0: CITADEL.wall.x0, y0: CITADEL.wall.y0, x1: CITADEL.wall.x1, y1: CITADEL.wall.y1 };
+const inGate = (side, v) => gatesOn(side).some((g) => v === g || v === g + 1);
 wallRing(CW, (tx, ty) =>
-  (ty === CW.y1 - 1 && (SOUTH_GATES.some((g) => tx === g || tx === g + 1) || (tx >= BASTION.x0 && tx < BASTION.x1)))
-  || (tx === CW.x0 && (ty === WEST_GATE_Y || ty === WEST_GATE_Y + 1))
-  || (tx === CW.x1 - 1 && (ty === EAST_GATE_Y || ty === EAST_GATE_Y + 1)));
+  (ty === CW.y1 - 1 && (inGate('south', tx) || (tx >= BASTION.x0 && tx < BASTION.x1)))
+  || (ty === CW.y0 && inGate('north', tx))
+  || (tx === CW.x0 && inGate('west', ty))
+  || (tx === CW.x1 - 1 && inGate('east', ty)));
 const IW = IMPERIAL.wall;
 wallRing(IW, (tx, ty) => ty === IW.y1 - 1 && tx >= NGO_MON.x && tx < NGO_MON.x + NGO_MON.w);
 
 // Causeways over the moats at every gate.
-for (const g of SOUTH_GATES) stoneSpan(g, CITADEL.wall.y1, 2, 2);
-stoneSpan(CITADEL.moat.x0, WEST_GATE_Y, 2, 2);
-stoneSpan(CITADEL.wall.x1, EAST_GATE_Y, 2, 2);
+for (const g of SOUTH_GATES) stoneSpan(g, CITADEL.wall.y1, 2, CITADEL.moat.y1 - CITADEL.wall.y1);
+for (const g of gatesOn('north')) stoneSpan(g, CITADEL.moat.y0, 2, 2);
+for (const g of gatesOn('west')) stoneSpan(CITADEL.moat.x0, g, 2, 2);
+for (const g of gatesOn('east')) stoneSpan(CITADEL.wall.x1, g, 2, 2);
+// Kẻ Trài's lane on over the Đông Ba canal into Gia Hội.
+for (const g of gatesOn('east')) if (g !== EAST_GATE_Y) plankDeck(80, g, 5, 2, true);
 stoneSpan(54, IMPERIAL.wall.y1, 2, 1);                 // Trung Đạo, in front of Ngọ Môn
 
-// Gate houses straddling the front wall: a little yellow roof over each arch.
-for (const g of SOUTH_GATES) {
+// Gate houses: on the front and back walls, a little yellow roof over each
+// arch, its face to the outside...
+const gateHouse = () => {
   const cv = new Canvas(4 * T, 3 * T);
   cv.rect(0, 26, 64, 22, P.wallFace);
   for (let y = 26; y < 48; y += 3) for (let x = 0; x < 64; x++) if ((x + y) % 6 === 0) cv.set(x, y, P.wallLine);
@@ -767,7 +791,20 @@ for (const g of SOUTH_GATES) {
   cv.rect(19, 28, 26, 2, [40, 32, 28]);
   roof(cv, 6, 12, 52, 12, ROOF.imperial, 4);
   cv.rect(10, 22, 44, 4, [160, 50, 40]);
-  place(cv, g - 1, CITADEL.wall.y1 - 3, 1, { gaps: [g, g + 1], shadow: false });
+  return cv;
+};
+for (const g of SOUTH_GATES) place(gateHouse(), g - 1, CITADEL.wall.y1 - 3, 1, { gaps: [g, g + 1], shadow: false });
+for (const g of gatesOn('north')) place(gateHouse(), g - 1, CITADEL.wall.y0 - 2, 1, { gaps: [g, g + 1], shadow: false });
+// ...and on the side walls, where the arch runs across the view, a tower
+// seen from above: its roof over the passage, the buddy walking beneath.
+for (const side of ['west', 'east']) {
+  const wx = side === 'west' ? CITADEL.wall.x0 : CITADEL.wall.x1 - 1;
+  for (const g of gatesOn(side)) {
+    const cv = new Canvas(3 * T, 3 * T);
+    for (const x of [6, 40]) cv.rect(x, 18, 2, 26, [160, 50, 40]);  // the posts either side
+    roof(cv, 4, 6, 40, 14, ROOF.imperial, 4);
+    place(cv, wx - 1, g - 1, 0, { shadow: false });
+  }
 }
 
 // Ngọ Môn: a stone base with three arches under the Five Phoenix pavilion.
@@ -835,7 +872,7 @@ const FLAG = { x: 0, y: 0, drop: 0 };
 // posted, and Nghênh Lương Đình, the little pavilion at the water's edge where
 // the court took the cool air — one behind the other on the axis that runs
 // from the throne hall through Ngọ Môn and Kỳ Đài down to the water.
-stoneSpan(51, 49, 8, 5);
+stoneSpan(51, 50, 8, 5);
 {
   const cv = new Canvas(4 * T, 3 * T);
   const red = [150, 46, 38], col = [196, 70, 52];
@@ -847,7 +884,7 @@ stoneSpan(51, 49, 8, 5);
   cv.rect(16, 12, 32, 8, red);
   for (let x = 18; x < 46; x += 5) cv.rect(x, 12, 2, 8, col);
   roof(cv, 10, 4, 44, 9, ROOF.imperial, 4);
-  place(cv, 53, 49, 1);
+  place(cv, 53, 50, 1);
 }
 {
   const cv = new Canvas(2 * T, 2 * T);
@@ -855,9 +892,9 @@ stoneSpan(51, 49, 8, 5);
   cv.rect(2, 24, 28, 2, [206, 198, 186]);
   for (const x of [5, 15, 25]) cv.rect(x, 13, 2, 11, [196, 70, 52]);
   roof(cv, 1, 4, 30, 10, ROOF.imperial, 4);
-  place(cv, 54, 52, 1);
+  place(cv, 54, 53, 1);
   // Steps down into the river from its landing.
-  for (let i = 0; i < 3; i++) ground.rect(55 * T - 6 + i * 2, 54 * T + i * 3, 14 - i * 4, 3, i % 2 ? P.stoneEdge : P.stone);
+  for (let i = 0; i < 3; i++) ground.rect(55 * T - 6 + i * 2, 55 * T + i * 3, 14 - i * 4, 3, i % 2 ? P.stoneEdge : P.stone);
 }
 
 // ── The Imperial City's details: the way to the throne hall, the dynastic
@@ -1474,7 +1511,7 @@ function bankOk(tx, ty) {
   }
 }
 // Trees on the islets: Dã Viên's park, Cồn Hến's village gardens.
-for (const [x, y] of [[30, 53], [37, 53], [105, 45], [108, 47], [114, 39], [116, 36], [112, 45], [104, 43]]) {
+for (const [x, y] of [[30, 53.3], [37, 53.3], [105, 45], [108, 47], [114, 39], [116, 36], [112, 45], [104, 43]]) {
   if (bankOk(x, y) && onIslet(x * T + 8, y * T + 8)) tree(x, y, 'deep');
 }
 // Areca palms in the garden villages — Vỹ Dạ across the river, Kim Long upriver.
@@ -1542,9 +1579,9 @@ point('spawn', ...SPAWN);
 point('label', 2, 2, { text: 'Huế', theme: 'forest', hidden: 'true' });
 point('label', 4, 54.3, { text: 'Sông Hương', theme: 'forest' });
 point('label', 23.4, 56.4, { text: 'Cầu Nguyễn Hoàng', theme: 'desert' });
-point('label', 35.4, 51.2, { text: 'Cầu Dã Viên', theme: 'desert' });
-point('label', 69.4, 51.2, { text: 'Cầu Phú Xuân', theme: 'desert' });
-point('label', 78.4, 51.2, { text: 'Cầu Trường Tiền', theme: 'desert' });
+point('label', 35.4, 52, { text: 'Cầu Dã Viên', theme: 'desert' });
+point('label', 69.4, 52, { text: 'Cầu Phú Xuân', theme: 'desert' });
+point('label', 78.4, 52, { text: 'Cầu Trường Tiền', theme: 'desert' });
 point('label', 4, 4.5, { text: 'Kim Long', theme: 'forest' });
 point('label', 86, 5, { text: 'Gia Hội', theme: 'forest' });
 point('label', 108, 54, { text: 'Vỹ Dạ', theme: 'forest' });
@@ -1565,10 +1602,17 @@ landmark('Trường Quốc Học', 41, 60.5);
 landmark('Phố đi bộ', 77, 64.5);
 landmark('Cung An Định', 92, 66.5);
 landmark('Lăng Khải Định', 8, 70.5);
-landmark('Phu Văn Lâu', 55, 49);
-landmark('Nghênh Lương Đình', 55, 52);
+landmark('Phu Văn Lâu', 55, 50);
+landmark('Nghênh Lương Đình', 55, 56.2);
 landmark('Thế Miếu', 46, 31);
 landmark('Hiển Lâm Các', 46, 35);
+// The gates, named just outside the wall.
+for (const g of GATES) {
+  if (g.side === 'south') landmark(g.label, g.at + 1, CITADEL.moat.y1 - 0.2);
+  if (g.side === 'north') landmark(g.label, g.at + 1, CITADEL.moat.y0 - 0.4);
+  if (g.side === 'west') landmark(g.label, CITADEL.moat.x0 - 2.5, g.at + 0.4);
+  if (g.side === 'east') landmark(g.label, CITADEL.moat.x1 + 2.5, g.at + 0.4);
+}
 
 // Progress the city shows (WorldScene): the streak flag on Kỳ Đài, and spots
 // on the Hương where a lantern floats for each mastered word. The spots are
