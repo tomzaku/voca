@@ -7,14 +7,14 @@ import { KIND_META } from './collectionKinds';
 
 // The collections' keeper before Điện Thái Hòa: one person for every word
 // list you have — your own, the ones you joined, and the levels — instead of
-// a villager per collection crowding the map. Pick a list, then study it,
+// a villager per collection crowding the map. Topics (themed sets) too. Pick a list, then study it,
 // preview its words, quiz yourself or see your progress; your own lists can
 // be edited, shared and deleted here too. The actions are WorldGame's own
 // (the same modals and store calls the map used).
 
 type Kind = WorldStation['kind'];
 
-const KINDS: Kind[] = ['mine', 'joined', 'level'];
+const KINDS: Kind[] = ['mine', 'joined', 'level', 'topic'];
 
 export interface CollectionActions {
   onStudy: (s: WorldStation) => void;

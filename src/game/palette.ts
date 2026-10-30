@@ -3,7 +3,7 @@
 // world-specific (they don't exist as app variables): each biome has a light
 // (day) and dark (night) look.
 
-import type { StationKind, ThemeId } from './types';
+import type { ThemeId } from './types';
 
 function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -40,8 +40,7 @@ export interface WorldPalette {
   track: number;
   textCss: string;
   mutedCss: string;
-  kind: Record<StationKind, KindColor>;
-  /** Accent for feature buildings (app pages), distinct from the station kinds. */
+  /** Accent for the keepers. */
   poi: KindColor;
 }
 
@@ -49,7 +48,6 @@ export function worldPalette(): WorldPalette {
   const light = document.documentElement.getAttribute('data-theme') === 'light';
   const card = cssVar('--color-bg-card', light ? '#ffffff' : '#1c2340');
   const cyan = cssVar('--color-accent-cyan', '#3dd9f0');
-  const purple = cssVar('--color-accent-purple', '#b9a2ff');
   const green = cssVar('--color-accent-green', '#4ade9b');
   const orange = cssVar('--color-accent-orange', '#ffa94d');
   const yellow = cssVar('--color-accent-yellow', '#ffd54f');
@@ -94,11 +92,6 @@ export function worldPalette(): WorldPalette {
     track: hex(cssVar('--color-bg-tertiary', light ? '#f0f2f5' : '#242c4c')),
     textCss: '#f6ecd6',
     mutedCss: '#b8a88e',
-    kind: {
-      mine: { color: hex(cyan), css: cyan },
-      joined: { color: hex(purple), css: purple },
-      level: { color: hex(green), css: green },
-    },
     poi: { color: hex(yellow), css: yellow },
   };
 }

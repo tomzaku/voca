@@ -443,7 +443,7 @@ export function GameWorld({
                   ))}
                 </DrawerSection>
               ))}
-              {(['mine', 'joined', 'level'] as const).map((kind) => {
+              {(['mine', 'joined', 'level', 'topic'] as const).map((kind) => {
                 const group = stations.filter((s) => s.kind === kind);
                 if (group.length === 0) return null;
                 return (

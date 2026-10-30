@@ -5,7 +5,7 @@ import { listCollections, getCollection } from '../lib/collections';
 import { completionPct } from '../lib/completion';
 import type { WorldStation } from '../game/types';
 
-/** Every collection as a station for the world map: mine → joined → levels.
+/** Every collection as the world lists it: mine → joined → levels → topics.
  *  Extracted so the /world game and any future caller stay in sync. */
 export function useWorldStations(): { stations: WorldStation[]; mine: UserCollection[] } {
   const activeId = useCollections((s) => s.activeId);
@@ -19,8 +19,7 @@ export function useWorldStations(): { stations: WorldStation[]; mine: UserCollec
     .map((id) => shared[id])
     .filter((c): c is UserCollection => Boolean(c)), [joinedIds, mine, shared]);
 
-  // Levels only — the map has a fixed number of system station slots.
-  const systemCollections = useMemo(() => listCollections('level'), []);
+  const systemCollections = useMemo(() => [...listCollections('level'), ...listCollections('topic')], []);
 
   const stations = useMemo<WorldStation[]>(() => [
     ...mine.map((c) => ({
@@ -36,7 +35,7 @@ export function useWorldStations(): { stations: WorldStation[]; mine: UserCollec
     ...systemCollections.map((c) => {
       const words = getCollection(c.id).words.map((w) => w.word);
       return {
-        id: c.id, name: c.name, kind: 'level' as const, words,
+        id: c.id, name: c.name, kind: c.kind, words,
         pct: completionPct(words, progress), active: c.id === activeId,
       };
     }),

@@ -6,7 +6,7 @@
 export interface WorldStation {
   id: string;
   name: string;
-  kind: 'mine' | 'joined' | 'level';
+  kind: 'mine' | 'joined' | 'level' | 'topic';
   words: string[];
   /** Percent of the words the viewer has finished. */
   pct: number;

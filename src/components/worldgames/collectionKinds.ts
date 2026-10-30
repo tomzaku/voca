@@ -9,4 +9,5 @@ export const KIND_META: Record<WorldStation['kind'], { labelId: string; groupId:
   mine:   { labelId: 'world.kindMine',   groupId: 'world.groupMine',   icon: 'person', color: '#4f8fe0' },
   joined: { labelId: 'world.kindJoined', groupId: 'world.groupJoined', icon: 'people', color: '#a77bf0' },
   level:  { labelId: 'world.kindLevel',  groupId: 'world.groupLevel',  icon: 'cap',    color: '#5fd068' },
+  topic:  { labelId: 'world.kindTopic',  groupId: 'world.groupTopic',  icon: 'star',   color: '#f0a050' },
 };
