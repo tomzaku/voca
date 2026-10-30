@@ -19,7 +19,7 @@ export interface RoomSceneData {
   look: BuddyLook;
   stage: number;
   keeperLook: VillagerLook;
-  /** The keeper is talking to you or waiting for your choice. */
+  /** The keeper is talking to you (their message box is up). */
   talking?: boolean;
 }
 
@@ -33,7 +33,11 @@ export class RoomScene extends Phaser.Scene {
   private keeper!: Phaser.GameObjects.Sprite;
   private glow!: Phaser.GameObjects.Rectangle;
   private bubble?: Phaser.GameObjects.Container;
+  /** Your buddy's thought bubble: it's your turn. */
+  private thought?: Phaser.GameObjects.Container;
   private talking = false;
+  /** Set while the buddy reacts to an answer; the thought bubble steps aside. */
+  private hush?: Phaser.Time.TimerEvent;
 
   constructor() {
     super(RoomScene.KEY);
@@ -43,13 +47,23 @@ export class RoomScene extends Phaser.Scene {
     this.args = data;
     this.talking = data.talking ?? false;
     this.bubble = undefined;
+    this.thought = undefined;
+    this.hush = undefined;
   }
 
-  /** Show or hide the speech bubble over the keeper. Safe to call before the
-   *  room has finished loading; it applies once it has. */
+  /** The keeper's speech bubble, while they talk to you. Safe to call before
+   *  the room has finished loading; it applies once it has. */
   setTalking(on: boolean) {
     this.talking = on;
-    this.bubble?.setVisible(on);
+    this.showTurn();
+  }
+
+  /** The keeper's bubble while they talk; your buddy's whenever the room is
+   *  waiting on you — to answer what's asked, or to pick what to do — which
+   *  in a room is always, but for the moment it's reacting to an answer. */
+  private showTurn() {
+    this.bubble?.setVisible(this.talking);
+    this.thought?.setVisible(!this.hush);
   }
 
   private get textureKey() {
@@ -90,7 +104,8 @@ export class RoomScene extends Phaser.Scene {
     this.glow = this.add.rectangle(0, 0, room.w, room.h, 0xffd27a, 0).setOrigin(0).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
 
     this.bubble = this.speechBubble(room.keeper.x + 7, room.keeper.y - keeper.displayHeight - 3);
-    this.bubble.setVisible(this.talking);
+    this.thought = this.thoughtBubble(room.buddy.x - 9, room.buddy.y - buddy.displayHeight - 4);
+    this.showTurn();
 
     const off = onAnswerEvent((e) => this.react(e));
     this.events.once('shutdown', off);
@@ -114,7 +129,7 @@ export class RoomScene extends Phaser.Scene {
   }
 
   /** A white speech bubble with three dots taking turns to bounce — the
-   *  keeper is talking, or waiting on your choice — bobbing over their head. */
+   *  keeper is talking — bobbing over their head. */
   private speechBubble(x: number, y: number) {
     const g = this.add.graphics();
     const ink = 0x2a1a12;
@@ -130,10 +145,34 @@ export class RoomScene extends Phaser.Scene {
     return bubble;
   }
 
+  /** A thought bubble — a round cloud trailing small circles down to your
+   *  buddy — with the same three dots: your turn, to answer or to choose. */
+  private thoughtBubble(x: number, y: number) {
+    const g = this.add.graphics();
+    const ink = 0x2a1a12;
+    // A rounded cloud: ink outline, white fill, corners cut.
+    g.fillStyle(ink, 1).fillRect(-7, -13, 15, 12).fillRect(-8, -12, 17, 10);
+    g.fillStyle(0xffffff, 1).fillRect(-6, -12, 13, 10).fillRect(-7, -11, 15, 8);
+    // Trailing circles, down and to the right towards the buddy's head.
+    g.fillStyle(ink, 1).fillRect(3, 0, 4, 4).fillRect(7, 5, 3, 3);
+    g.fillStyle(0xffffff, 1).fillRect(4, 1, 2, 2).fillRect(8, 6, 1, 1);
+    const dots = [-4, 0, 4].map((dx) => this.add.rectangle(dx, -7, 2, 2, ink));
+    const bubble = this.add.container(x, y, [g, ...dots]).setDepth(4);
+    dots.forEach((d, i) => {
+      this.tweens.add({ targets: d, y: -9, duration: 260, yoyo: true, repeat: -1, repeatDelay: 520, delay: i * 260, ease: 'sine.inOut' });
+    });
+    this.tweens.add({ targets: bubble, y: y - 1.5, duration: 900, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    return bubble;
+  }
+
   // ── Reactions ──
 
   private react(e: AnswerEvent) {
     const { room } = this.args;
+    // The buddy reacts first; its thought bubble comes back for the next one.
+    this.hush?.remove();
+    this.hush = this.time.delayedCall(e.kind === 'done' ? 2200 : 1300, () => { this.hush = undefined; this.showTurn(); });
+    this.showTurn();
     switch (e.kind) {
       case 'correct':
         this.hop(this.buddy, room.buddy.y, 6);
