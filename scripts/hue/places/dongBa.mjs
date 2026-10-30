@@ -53,6 +53,7 @@ export function drawDongBa() {
     cv.rect(12, 20, 8, 10, [96, 70, 50]);
     for (let x = 0; x < 32; x++) cv.rect(x, 8, 1, 6, x % 6 < 3 ? [92, 140, 130] : [236, 232, 220]);
     roof(cv, 2, 3, 28, 5, ROOF.dark, 2);
+    cv.spec = { kind: 'cheStall' };
     place(cv, 110, 38, 1, { shadow: false });
     for (const [sx, sy] of [[109.2, 40.3], [112.4, 40.2]]) ground.rect(sx * T, sy * T, 3, 3, [150, 110, 72]);
   }

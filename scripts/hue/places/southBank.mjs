@@ -31,6 +31,7 @@ export function drawSouthBank() {
     cv.rect(cv.w / 2 - 10, 2, 20, 26, [240, 228, 196]);
     cv.ellipse(cv.w / 2, 12, 5, 5, [250, 246, 236]);
     cv.rect(cv.w / 2, 8, 1, 4, [40, 36, 34]);
+    cv.spec = { kind: 'gaHue' };
     place(cv, 23, 68, 3);
   }
 
@@ -57,6 +58,7 @@ export function drawSouthBank() {
     for (let i = 0; i < 12; i++) cv.rect(px + i * 1.5, bodyY - 4 - i, 36 - i * 3, 1, [240, 236, 226]);
     cv.rect(px - 2, bodyY + 4, 40, 3, [240, 236, 226]);
     cv.rect(pw / 2 - 5, bodyY + 30, 10, 12, [60, 40, 32]);
+    cv.spec = { kind: 'quocHoc' };
     place(cv, 35, 67, 3);
   }
 
@@ -73,6 +75,7 @@ export function drawSouthBank() {
   // Cung An Định: the European-style palace on the An Cựu canal.
   {
     const cv = palace({ w: 8, h: 5, roofPal: ROOF.slate, wall: [234, 220, 190], pillar: [196, 172, 120] });
+    cv.spec = { kind: 'anDinh' };
     place(cv, 88, 73, 3);
   }
 

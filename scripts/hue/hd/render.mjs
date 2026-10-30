@@ -17,11 +17,15 @@ import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
 import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, halfMoon, house, kyDai, lamp, market, parkLamp, tree, truongTienDeck } from './art.mjs';
+import { anDinh, cheStall, gaHue, gardenHouse, gateTower, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
 /** The buildings with detailed art of their own, by the name their canvas
  *  carries (cv.spec.kind); other halls with windows are drawn as houses. */
-const BUILDINGS = { market, kyDai, fountain, halfMoon, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
+const BUILDINGS = {
+  ngoMon, thaiHoa, hienLam, thienMuTower, thienMuHall, vanMieu, stele, tangThuLau,
+  gaHue, quocHoc, anDinh, gateTower, sideGateTower, phuVanLau, nghenhLuong, cheStall,
+  market, kyDai, fountain, halfMoon, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
 
 /** The patches, in tiles: the whole map, in pieces small enough for any
  *  GPU's largest texture (40 × 38 tiles is 1280 × 1216 px). */
@@ -138,7 +142,7 @@ export function renderDetail(write) {
       if (e.type === 'structure') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const spec = e.cv.spec;
-        const art = BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' && spec.windows ? house(spec) : null);
+        const art = BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' ? (spec.windows ? house(spec) : spec.w === 4 && spec.h === 4 ? gardenHouse(spec) : null) : null);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
       } else if (e.type === 'tree') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;

@@ -69,7 +69,7 @@ export function plaster(cv, x, y, w, h, wall) {
 
 /** A window: a light frame, glass catching the sky, a cross of glazing bars,
  *  shutters folded back either side, a sill. */
-function window_(cv, x, y, shutter) {
+export function window_(cv, x, y, shutter) {
   cv.rect(x - 4, y, 4, 13, shutter);
   cv.rect(x + 12, y, 4, 13, shutter);
   for (let j = 1; j < 13; j += 2) { cv.rect(x - 4, y + j, 4, 1, mix(shutter, [0, 0, 0], 0.25)); cv.rect(x + 12, y + j, 4, 1, mix(shutter, [0, 0, 0], 0.25)); }
@@ -82,7 +82,7 @@ function window_(cv, x, y, shutter) {
 }
 
 /** A wooden double door in its frame, a step before it. */
-function door(cv, cx, bottom, w, h) {
+export function door(cv, cx, bottom, w, h) {
   const x = Math.round(cx - w / 2), y = bottom - h;
   cv.rect(x - 2, y - 2, w + 4, h + 2, [86, 54, 34]);
   cv.rect(x, y, w, h, [132, 82, 50]);

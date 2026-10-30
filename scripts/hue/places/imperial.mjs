@@ -64,7 +64,7 @@ export function drawImperialCity() {
       for (let px = x + 1; px < x + w - 1; px += 4) cv.rect(px, y, 1, 10, col);
       roof(cv, x - 3, roofY, w + 6, roofH, ROOF.imperial, 3);
     }
-    place(cv, 45, 35, 1);
+    place(named(cv, 'hienLam'), 45, 35, 1);
   }
 
   // The royal garden in the south-east corner: stone lanterns along its paths
@@ -110,7 +110,7 @@ export function drawImperialCity() {
     // Dragons along the ridge.
     for (const dx of [-1, 1]) { cv.rect(pw / 2 + dx * 30 - 2, hy - 46, 5, 3, [236, 196, 90]); cv.rect(pw / 2 + dx * 34, hy - 48, 2, 3, [236, 196, 90]); }
     cv.rect(pw / 2 - 3, hy - 46, 6, 3, [236, 196, 90]);
-    place(cv, 49, 24, 3);
+    place(named(cv, 'thaiHoa'), 49, 24, 3);
   }
 
   // Tử Cấm Thành, the Purple Forbidden City, behind Thái Hòa: the emperor's own

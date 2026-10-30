@@ -8,6 +8,9 @@ import { ground, place } from '../core/world.mjs';
 import { HOUSE, archBridge, citadelGate, palace, plankDeck, roof, stoneSpan, wallRing } from '../draw/buildings.mjs';
 import { BASTION, CITADEL, EAST_GATE_Y, GATES, IMPERIAL, LIBRARY, NGO_MON, SOUTH_GATES, T, gatesOn } from '../layout.mjs';
 
+/** Name a building's canvas, so the detailed renders (../hd) draw it as itself. */
+const named = (cv, kind) => { cv.spec = { ...cv.spec, kind }; return cv; };
+
 /** Where the flag flies on Kỳ Đài, worked out as it's drawn. */
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
@@ -51,8 +54,8 @@ export function drawCitadel() {
   archBridge(54, IMPERIAL.wall.y1, 2, 1, 'ns');          // Trung Đạo, in front of Ngọ Môn
 
   // Gate houses on the front and back walls, their faces to the outside.
-  for (const g of SOUTH_GATES) place(citadelGate(), g - 1, CITADEL.wall.y1 - 4, 1, { gaps: [g, g + 1], shadow: false });
-  for (const g of gatesOn('north')) place(citadelGate(), g - 1, CITADEL.wall.y0 - 3, 1, { gaps: [g, g + 1], shadow: false });
+  for (const g of SOUTH_GATES) place(named(citadelGate(), 'gateTower'), g - 1, CITADEL.wall.y1 - 4, 1, { gaps: [g, g + 1], shadow: false });
+  for (const g of gatesOn('north')) place(named(citadelGate(), 'gateTower'), g - 1, CITADEL.wall.y0 - 3, 1, { gaps: [g, g + 1], shadow: false });
   // On the side walls, where the passage runs across the view: a tower
   // standing on the wall itself, seen from above — a hipped roof with its ridge
   // along the wall, the tower's south face under the eaves. The road runs
@@ -77,7 +80,7 @@ export function drawCitadel() {
       for (const [x, y] of [[x0 - 2, 4], [x1, 4], [x0 - 2, 42], [x1, 42]]) cv.rect(x, y, 2, 2, pal.ridge); // upturned corners
       cv.rect(mid - 3, 2, 6, 4, pal.ridge);                        // ridge ends
       cv.rect(mid - 3, 42, 6, 3, pal.ridge);
-      place(cv, wx - 1, g - 1, 0, { shadow: false });
+      place(named(cv, 'sideGateTower'), wx - 1, g - 1, 0, { shadow: false });
     }
   }
 
@@ -110,7 +113,7 @@ export function drawCitadel() {
     roof(cv, 58, pavY - 18, pw - 116, 18, ROOF.imperial, 5);
     cv.rect(70, pavY - 26, pw - 140, 8, [150, 46, 38]);
     roof(cv, 64, 8, pw - 128, pavY - 34, ROOF.imperial, 5);
-    place(cv, NGO_MON.x, NGO_MON.y, 3, { gaps: [54, 55] });
+    place(named(cv, 'ngoMon'), NGO_MON.x, NGO_MON.y, 3, { gaps: [54, 55] });
   }
 
   // Kỳ Đài: a three-tier brick bastion in the front wall with a tall flagpole.
@@ -157,7 +160,7 @@ export function drawCitadel() {
     cv.rect(16, 12, 32, 8, red);
     for (let x = 18; x < 46; x += 5) cv.rect(x, 12, 2, 8, col);
     roof(cv, 10, 4, 44, 9, ROOF.imperial, 4);
-    place(cv, 53, 48, 1);
+    place(named(cv, 'phuVanLau'), 53, 48, 1);
   }
   stoneSpan(52, 54, 6, 3);
   {
@@ -166,7 +169,7 @@ export function drawCitadel() {
     cv.rect(2, 24, 28, 2, [206, 198, 186]);
     for (const x of [5, 15, 25]) cv.rect(x, 13, 2, 11, [196, 70, 52]);
     roof(cv, 1, 4, 30, 10, ROOF.imperial, 4);
-    place(cv, 54, 55, 1);
+    place(named(cv, 'nghenhLuong'), 54, 55, 1);
     // Steps down into the river from its landing.
     for (let i = 0; i < 3; i++) ground.rect(55 * T - 6 + i * 2, 57 * T + i * 3, 14 - i * 4, 3, i % 2 ? P.stoneEdge : P.stone);
   }
@@ -186,7 +189,7 @@ export function drawCitadelGrounds() {
       cv.rect(wx, ph - 26, 12, 12, [214, 186, 120]);
       for (let k = 0; k < 12; k += 3) { cv.rect(wx + k, ph - 26, 1, 12, [120, 84, 52]); cv.rect(wx, ph - 26 + k, 12, 1, [120, 84, 52]); }
     }
-    place(cv, LIBRARY.island.x + 1, LIBRARY.island.y, 3);
+    place(named(cv, 'tangThuLau'), LIBRARY.island.x + 1, LIBRARY.island.y, 3);
   }
 
   // A small pavilion on Tịnh Tâm lake, a stone causeway out to it from the

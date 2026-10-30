@@ -39,14 +39,15 @@ export function drawKimLong() {
     }
     cv.rect(pw / 2 - 2, y - 6, 4, 6, [210, 170, 80]);
     cv.rect(pw / 2 - 1, y - 10, 2, 4, [230, 196, 100]);
+    cv.spec = { kind: 'thienMuTower' };
     place(cv, 4, 37, 2);
   }
-  place(hall({ w: 5, h: 5, roofRows: 3, roofPal: ROOF.dark, wall: [226, 214, 186], pillar: [150, 60, 46], pillarStep: 10 }), 9, 42, 2);
+  place(Object.assign(hall({ w: 5, h: 5, roofRows: 3, roofPal: ROOF.dark, wall: [226, 214, 186], pillar: [150, 60, 46], pillarStep: 10 }), { spec: { kind: 'thienMuHall' } }), 9, 42, 2);
 
   // Văn Miếu: the temple of literature, its hall flanked by stele pavilions —
   // the stone tablets that carried the names of the laureates.
   {
-    place(hall({ w: 6, h: 5, roofRows: 3, roofPal: ROOF.dark, wall: [150, 54, 40], pillar: [196, 160, 96], pillarStep: 9, doorW: 10 }), 17, 39, 2);
+    place(Object.assign(hall({ w: 6, h: 5, roofRows: 3, roofPal: ROOF.dark, wall: [150, 54, 40], pillar: [196, 160, 96], pillarStep: 9, doorW: 10 }), { spec: { kind: 'vanMieu' } }), 17, 39, 2);
     for (const x of [14, 24]) {
       const cv = new Canvas(2 * T, 3 * T);
       cv.rect(6, 22, 20, 22, [150, 148, 142]);                // the stele
@@ -54,6 +55,7 @@ export function drawKimLong() {
       for (let y = 27; y < 40; y += 3) cv.rect(10, y, 12, 1, [168, 166, 160]); // carved lines
       for (const px of [2, 27]) cv.rect(px, 18, 3, 28, [160, 50, 40]);
       roof(cv, 2, 8, 28, 10, ROOF.dark, 3);
+      cv.spec = { kind: 'stele' };
       place(cv, x, 41, 1);
     }
   }
