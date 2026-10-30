@@ -144,7 +144,7 @@ export default {
   'places.phuVanLauFact': 'The names of those who passed the royal exams were posted here too — crowds gathered on the bank to find their own.',
   'places.nghenhLuong': 'Nghênh Lương Đình',
   'places.nghenhLuongEn': 'Pavilion of the Cool Breeze',
-  'places.nghenhLuongAbout': 'A small pavilion at the water’s edge beside Phu Văn Lâu, where emperors rested in the river breeze and boarded the royal boats.',
+  'places.nghenhLuongAbout': 'A small pavilion at the water’s edge in front of Phu Văn Lâu, where emperors rested in the river breeze and boarded the royal boats.',
   'places.nghenhLuongFact': 'Its name means “the pavilion that welcomes the cool” — on a summer evening in Huế, there’s nowhere better to stand.',
   'places.theMieu': 'Thế Miếu',
   'places.theMieuEn': 'The Dynastic Temple',

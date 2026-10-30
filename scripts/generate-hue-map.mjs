@@ -275,7 +275,7 @@ const ROADS = [
   // South bank
   [0, 58, 97, 2, 'stone'],                          // Lê Lợi riverside promenade
   [20, 60, 2, 24, 'dirt'], [2, 82, 20, 2, 'dirt'],  // down to the tombs
-  [48, 60, 3, 12, 'dirt'], [66, 60, 3, 12, 'dirt'], // on from Phú Xuân and Trường Tiền
+  [48, 60, 3, 12, 'dirt'], [66, 60, 3, 12, 'dirt'], // south to the canal; on from Phú Xuân
   [44, 75, 27, 2, 'dirt'],                          // across the canal, to Ngự Bình
   [35, 65, 12, 1, 'stone'],                         // Quốc Học forecourt
   [69, 68, 17, 2, 'stone'],                         // the walking street
@@ -572,7 +572,7 @@ const BANK_N = 50 * T, BANK_S = 57 * T;
 // Phú Xuân: the plain one — even concrete spans on square piers, sidewalks
 // along both edges and a steady line of lamps.
 {
-  const tx = 48, tw = 3, y0 = BRIDGE_Y0, y1 = BRIDGE_Y1;
+  const tx = 66, tw = 3, y0 = BRIDGE_Y0, y1 = BRIDGE_Y1;
   const x0 = tx * T, x1 = (tx + tw) * T;
   for (let y = BANK_N + 8; y < BANK_S - 4; y += 18) {
     ground.rect(x0 - 3, y, 3, 5, [150, 146, 140]);   // pier heads either side
@@ -645,7 +645,7 @@ const BANK_N = 50 * T, BANK_S = 57 * T;
 // Trường Tiền: the deck, flanked by six silver-white truss arches. By day
 // it's all silver; at night its lighting gives each span its own colour.
 {
-  const tx = 66, tw = 3;
+  const tx = 75, tw = 3;
   const x0 = tx * T, x1 = (tx + tw) * T;
   const y0 = BRIDGE_Y0, y1 = BRIDGE_Y1;
   plainBridge(tx, tw, y0, y1, [172, 168, 160], [132, 130, 126]);
@@ -678,14 +678,15 @@ const BANK_N = 50 * T, BANK_S = 57 * T;
 // Cồn Hến footbridge, from the Gia Hội bank out to the islet.
 plankDeck(101, 39, 7, 2, true);
 
-// The dragon-boat wharf off Lê Lợi park, and a boat moored alongside it.
+// The dragon-boat wharf below the citadel, west of Phu Văn Lâu's landing, and
+// a boat moored alongside it.
 {
-  plankDeck(57, 51, 2, 7);
-  const x0 = 57 * T, x1 = 59 * T, y0 = 51 * T;
+  plankDeck(48, 49, 2, 8);
+  const x0 = 48 * T, x1 = 50 * T, y0 = 51 * T;
   for (const [px, py] of [[x0, y0], [x1 - 2, y0], [x0, y0 + 40], [x1 - 2, y0 + 40]]) ground.rect(px, py, 2, 3, [96, 66, 44]);
 }
 {
-  const bx = 51 * T, by = 52.6 * T, bw = 88, bh = 18;
+  const bx = 42.3 * T, by = 52.6 * T, bw = 88, bh = 18;
   for (let x = 0; x < bw; x++) {
     const taper = x < 10 ? Math.round((10 - x) * 0.5) : x > bw - 8 ? Math.round((x - (bw - 8)) * 0.6) : 0;
     for (let y = 6 + taper; y < bh; y++) {
@@ -832,8 +833,9 @@ const FLAG = { x: 0, y: 0, drop: 0 };
 // Across the road from Kỳ Đài, on a stone landing out over the river: Phu Văn
 // Lâu, the two-storey pavilion where royal edicts and exam results were
 // posted, and Nghênh Lương Đình, the little pavilion at the water's edge where
-// the court took the cool air. The dragon boats' pier runs out between them.
-stoneSpan(52, 49, 11, 3);
+// the court took the cool air — one behind the other on the axis that runs
+// from the throne hall through Ngọ Môn and Kỳ Đài down to the water.
+stoneSpan(51, 49, 8, 5);
 {
   const cv = new Canvas(4 * T, 3 * T);
   const red = [150, 46, 38], col = [196, 70, 52];
@@ -845,7 +847,7 @@ stoneSpan(52, 49, 11, 3);
   cv.rect(16, 12, 32, 8, red);
   for (let x = 18; x < 46; x += 5) cv.rect(x, 12, 2, 8, col);
   roof(cv, 10, 4, 44, 9, ROOF.imperial, 4);
-  place(cv, 52, 49, 1);
+  place(cv, 53, 49, 1);
 }
 {
   const cv = new Canvas(2 * T, 2 * T);
@@ -853,9 +855,9 @@ stoneSpan(52, 49, 11, 3);
   cv.rect(2, 24, 28, 2, [206, 198, 186]);
   for (const x of [5, 15, 25]) cv.rect(x, 13, 2, 11, [196, 70, 52]);
   roof(cv, 1, 4, 30, 10, ROOF.imperial, 4);
-  place(cv, 60, 50, 1);
+  place(cv, 54, 52, 1);
   // Steps down into the river from its landing.
-  for (let i = 0; i < 3; i++) ground.rect(61 * T - 6 + i * 2, 52 * T + i * 3, 14 - i * 4, 3, i % 2 ? P.stoneEdge : P.stone);
+  for (let i = 0; i < 3; i++) ground.rect(55 * T - 6 + i * 2, 54 * T + i * 3, 14 - i * 4, 3, i % 2 ? P.stoneEdge : P.stone);
 }
 
 // ── The Imperial City's details: the way to the throne hall, the dynastic
@@ -944,7 +946,9 @@ for (const [x, y, pal] of SYSTEM_HALLS) place(HALL(pal), x, y, 2);
   place(cv, LIBRARY.island.x + 1, LIBRARY.island.y, 3);
 }
 
-// A small pavilion on Tịnh Tâm lake.
+// A small pavilion on Tịnh Tâm lake, a stone causeway out to it from the
+// south shore.
+stoneSpan(55, 10, 1, 3);
 {
   const cv = new Canvas(3 * T, 3 * T);
   cv.rect(4, 36, 40, 12, [184, 176, 164]);
@@ -963,14 +967,15 @@ for (const [x, y, pal] of [[33, 7, ROOF.dark], [38, 7, ROOF.terra], [67, 7, ROOF
 }
 
 // Duyệt Thị Đường: the royal theatre, where Nhã nhạc court music played —
-// a long red hall under a two-tier roof, drums at its door.
+// a long red hall under a two-tier roof, drums at its door. A lane runs past
+// its east end, the way up to Tịnh Tâm lake.
 {
-  const cv = palace({ w: 8, h: 5, roofPal: ROOF.imperial, wall: [120, 36, 30], pillar: [214, 170, 80] });
+  const cv = palace({ w: 6, h: 5, roofPal: ROOF.imperial, wall: [120, 36, 30], pillar: [214, 170, 80] });
   for (const dx of [18, cv.w - 30]) {
     cv.ellipse(dx + 6, cv.h - 10, 6, 5, [170, 60, 44]);
     cv.ellipse(dx + 6, cv.h - 12, 5, 3, [236, 214, 170]);
   }
-  place(cv, 69, 13, 3);
+  place(cv, 70, 13, 3);
 }
 
 // ── Kim Long: Thiên Mụ, the garden houses, An Hiên ──
@@ -1432,10 +1437,10 @@ for (let x = 2; x < 96; x += 4) {
 // their own rule: dry grass, not a road, a bridge, the wharf or a building.
 const onRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x && tx < x + w && ty >= y && ty < y + h);
 const nearRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x - 1 && tx < x + w + 1 && ty >= y - 1 && ty < y + h + 1);
-const RIVER_BRIDGES = [[19, 23], [32, 35], [48, 51], [66, 69]];
+const RIVER_BRIDGES = [[19, 23], [32, 35], [66, 69], [75, 78]];
 const BANK_KEEP_CLEAR = [
   ...RIVER_BRIDGES.map(([a, b]) => [a - 1, 46, b - a + 3, 15]),
-  [52, 48, 10, 12],        // the dragon-boat wharf and its boat
+  [41, 48, 19, 12],        // the dragon-boat wharf, its boat, Phu Văn Lâu's landing
   [99, 37, 11, 8],         // the Cồn Hến footbridge
 ];
 function bankOk(tx, ty) {
@@ -1531,15 +1536,15 @@ const point = (type, tx, ty, props = {}) => objects.push({
 });
 
 // Arrive at the south end of Trường Tiền.
-const SPAWN = [67.5, 59];
+const SPAWN = [76.5, 59];
 point('spawn', ...SPAWN);
 // The first label names the (single) area; `hidden` keeps it off the map.
 point('label', 2, 2, { text: 'Huế', theme: 'forest', hidden: 'true' });
 point('label', 4, 54.3, { text: 'Sông Hương', theme: 'forest' });
 point('label', 23.4, 56.4, { text: 'Cầu Nguyễn Hoàng', theme: 'desert' });
 point('label', 35.4, 51.2, { text: 'Cầu Dã Viên', theme: 'desert' });
-point('label', 51.4, 50.9, { text: 'Cầu Phú Xuân', theme: 'desert' });
-point('label', 69.4, 51.2, { text: 'Cầu Trường Tiền', theme: 'desert' });
+point('label', 69.4, 51.2, { text: 'Cầu Phú Xuân', theme: 'desert' });
+point('label', 78.4, 51.2, { text: 'Cầu Trường Tiền', theme: 'desert' });
 point('label', 4, 4.5, { text: 'Kim Long', theme: 'forest' });
 point('label', 86, 5, { text: 'Gia Hội', theme: 'forest' });
 point('label', 108, 54, { text: 'Vỹ Dạ', theme: 'forest' });
@@ -1560,8 +1565,8 @@ landmark('Trường Quốc Học', 41, 60.5);
 landmark('Phố đi bộ', 77, 64.5);
 landmark('Cung An Định', 92, 66.5);
 landmark('Lăng Khải Định', 8, 70.5);
-landmark('Phu Văn Lâu', 54, 49);
-landmark('Nghênh Lương Đình', 61, 50);
+landmark('Phu Văn Lâu', 55, 49);
+landmark('Nghênh Lương Đình', 55, 52);
 landmark('Thế Miếu', 46, 31);
 landmark('Hiển Lâm Các', 46, 35);
 
@@ -1570,7 +1575,6 @@ landmark('Hiển Lâm Các', 46, 35);
 // shuffled so the first few lanterns spread along the river, not bunch up.
 point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
 {
-  const BRIDGE_COLS = [[19, 23], [32, 35], [48, 51], [66, 69]];
   const spots = [];
   for (let s = 3 * T; s < RIVER.length; s += 2.6 * T) {
     const g = RIVER.segs.find((seg) => s >= seg.s0 && s < seg.s0 + seg.len);
@@ -1582,8 +1586,8 @@ point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
     const x = cx + nx * off, y = cy + ny * off;
     const tx = x / T, ty = y / T;
     if (tx < 2 || tx > W - 2 || ty < 2) continue;
-    if (BRIDGE_COLS.some(([a, b]) => tx > a - 1.5 && tx < b + 1.5 && ty > 48 && ty < 59)) continue;
-    if (tx > 49 && tx < 61 && ty > 50) continue;                 // the wharf and the boat
+    if (RIVER_BRIDGES.some(([a, b]) => tx > a - 1.5 && tx < b + 1.5 && ty > 48 && ty < 59)) continue;
+    if (tx > 41 && tx < 60 && ty > 50) continue;                 // the wharf, the boat, the landing
     if (tx > 100 && tx < 109 && ty > 37 && ty < 43) continue;    // the Cồn Hến footbridge
     if (onIslet(x, y) || ISLETS.some((i) => isletE(i, x, y) < 1.8)) continue;
     if (![[0, 0], [T, 0], [-T, 0], [0, T], [0, -T]].every(([dx, dy]) => isWater(x + dx, y + dy))) continue;
@@ -1603,7 +1607,7 @@ point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
 const FEATURES = [
   ['vocabulary', 91, 47.5, 'Chợ Đông Ba'],
   ['speaking', 111, 40.6, 'Cồn Hến'],
-  ['listening', 58, 54.5, 'Thuyền rồng'],
+  ['listening', 49, 54.5, 'Thuyền rồng'],
   ['writing', 20, 44.5, 'Văn Miếu'],
   ['you', 13, 12.5, 'Nhà vườn An Hiên'],
   // One keeper for every collection and level, before the throne hall.
@@ -1612,8 +1616,8 @@ const FEATURES = [
 FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 
 // ── 10. Sanity: every slot reachable from the spawn ──
+const seen = new Uint8Array(W * H);
 {
-  const seen = new Uint8Array(W * H);
   const sx = Math.floor(SPAWN[0]), sy = Math.floor(SPAWN[1]);
   const q = [[sx, sy]];
   seen[sy * W + sx] = 1;
@@ -1673,7 +1677,10 @@ if (previewPath) {
   pv.blit(ground, 0, 0);
   pv.blit(over, 0, 0);
   if (process.argv.includes('--walls')) {
-    for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (walls[ty * W + tx]) pv.rect(tx * T, ty * T, T, T, [255, 0, 0], 0.25);
+    for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+      if (walls[ty * W + tx]) pv.rect(tx * T, ty * T, T, T, [255, 0, 0], 0.25);
+      else if (!seen[ty * W + tx]) pv.rect(tx * T, ty * T, T, T, [0, 80, 255], 0.35); // open but cut off
+    }
   }
   for (const o of objects) {
     const c = o.type === 'spawn' ? [255, 255, 255] : o.type === 'label' ? [0, 0, 0] : [255, 220, 0];

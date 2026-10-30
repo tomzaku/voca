@@ -138,7 +138,7 @@ export default {
   'places.phuVanLauFact': 'Danh sách những người đỗ đạt trong các khoa thi cũng được yết tại đây — người dân kéo đến bờ sông tìm tên mình.',
   'places.nghenhLuong': 'Nghênh Lương Đình',
   'places.nghenhLuongEn': 'Pavilion of the Cool Breeze',
-  'places.nghenhLuongAbout': 'Ngôi đình nhỏ sát mép nước cạnh Phu Văn Lâu, nơi vua nghỉ ngơi đón gió sông và xuống thuyền rồng.',
+  'places.nghenhLuongAbout': 'Ngôi đình nhỏ sát mép nước trước Phu Văn Lâu, nơi vua nghỉ ngơi đón gió sông và xuống thuyền rồng.',
   'places.nghenhLuongFact': 'Tên đình có nghĩa là “đón gió mát” — chiều hè ở Huế, không đâu dễ chịu hơn.',
   'places.theMieu': 'Thế Miếu',
   'places.theMieuEn': 'The Dynastic Temple',
