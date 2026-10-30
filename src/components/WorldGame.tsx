@@ -182,7 +182,7 @@ export function WorldGame() {
     ].filter(Boolean).join(' ');
     return (
       <KeeperDialog
-        look={keeperLookFor(WORLD_SKILLS.indexOf(skill))}
+        look={keeperLookFor(WORLD_SKILLS.findIndex((s) => s.id === skill.id))}
         name={<FormattedMessage id="world.keeperVocabulary" />}
         line={line}
         primary={<FormattedMessage id={advice.actionId} />}
