@@ -48,5 +48,8 @@ export const WORLD_EVENTS = {
   area: 'world:area',
   /** Camera zoom changed (payload: the new user zoom factor). */
   zoom: 'world:zoom',
+  /** Buddy came within reach of a named place on the map (payload: its
+   *  `places` id, or null on leaving). */
+  landmark: 'world:landmark',
 } as const;
 

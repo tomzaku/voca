@@ -124,4 +124,17 @@ export default {
   'places.nguBinhEn': 'Ngự Bình Mountain',
   'places.nguBinhAbout': 'A flat-topped hill south of the city, about 100 metres high. Its name means “royal screen”: it stands before the Citadel like a screen guarding it.',
   'places.nguBinhFact': 'Climb it at sunset for a view over the Perfume River and the whole city.',
+
+  'places.phuXuan': 'Cầu Phú Xuân',
+  'places.phuXuanEn': 'Phú Xuân Bridge',
+  'places.phuXuanAbout': 'A newer bridge across the Perfume River, between Trường Tiền and Dã Viên, named after the city’s old name.',
+  'places.phuXuanFact': 'Before it was called Huế, the city was Phú Xuân — the capital of the Nguyễn lords, then of the Tây Sơn emperor Quang Trung.',
+  'places.daVien': 'Cầu Dã Viên',
+  'places.daVienEn': 'Dã Viên Bridge',
+  'places.daVienAbout': 'The bridge that crosses the Perfume River by way of Dã Viên islet, upriver from the Citadel.',
+  'places.daVienFact': 'Dã Viên means “the wild garden”: the islet was once a royal garden where the court came to rest.',
+  'places.nguyenHoang': 'Cầu Nguyễn Hoàng',
+  'places.nguyenHoangEn': 'Nguyễn Hoàng Bridge',
+  'places.nguyenHoangAbout': 'Huế’s newest bridge, its golden arch spanning the Perfume River upstream, towards Kim Long and Thiên Mụ.',
+  'places.nguyenHoangFact': 'It’s named after Lord Nguyễn Hoàng, who came south to this land in 1558 and founded Thiên Mụ pagoda.',
 } satisfies Catalog;

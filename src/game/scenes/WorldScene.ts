@@ -6,6 +6,7 @@ import {
 import { featureNodeId, type WorldFeature } from '../features';
 import { Dressed, loadWardrobe } from '../dressed';
 import { KEEPER_DRESS, propLayers } from '../keeperLooks';
+import { LABEL_PLACES } from '../mapPlaces';
 import type { Look } from '../wardrobe';
 import { t } from '../../i18n';
 import { defaultMap } from '../maps';
@@ -46,6 +47,10 @@ const FULL_MAST = 7;
 
 const SPEED = 360;      // buddy speed, px/s
 const REACH = 110;      // distance at which a building "opens"
+const PLACE_REACH = 170; // a named place lights up, and tells its story, from a little further
+/** A place name at rest — there but quiet — and lit, once you're there. */
+const LABEL_REST = 0.55;
+const LABEL_LIT = '#f0c050';
 const SCALE = 2;        // 16px Sunnyside art drawn 2× → 32px on-screen tiles
 const NIGHT_TINT = 0x8d92c4; // dims the day-lit tile art in dark mode
 
@@ -182,7 +187,9 @@ export class WorldScene extends Phaser.Scene {
   /** Scenery that takes the night tint individually (it sits above the veil). */
   private tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [];
   /** Area labels, kept so a theme switch can recolor them in place. */
-  private labels: { text: Phaser.GameObjects.Text; theme: ThemeId }[] = [];
+  private labels: { text: Phaser.GameObjects.Text; theme: ThemeId; place?: string }[] = [];
+  /** The named place the buddy is at, if any (LABEL_PLACES). */
+  private litPlace: string | null = null;
   private nodes: KeeperNode[] = [];
   /** Collision grid from the map's `walls` layer, indexed [tileY][tileX]. */
   private blocked: boolean[][] = [];
@@ -417,7 +424,7 @@ export class WorldScene extends Phaser.Scene {
     this.pal = worldPalette();
     this.applyNight();
     for (const l of this.labels) {
-      l.text.setColor(this.pal.zones[l.theme].labelCss).setBackgroundColor(this.pal.cardCss);
+      if (l.place !== this.litPlace) l.text.setColor(this.pal.zones[l.theme].labelCss);
     }
     this.cameras.main.setBackgroundColor(this.pal.void);
     this.buildStations();
@@ -644,19 +651,22 @@ export class WorldScene extends Phaser.Scene {
     this.labels = [];
     for (const l of this.meta.labels) {
       if (l.hidden) continue;   // names the area without a sign on the map
+      // Place names as a game's map writes them: outlined, no box, and quiet
+      // until you're there.
       const text = this.add
         .text(l.x, l.y, l.text, {
           fontFamily: FONT,
           fontSize: '12px',
           fontStyle: 'bold',
           color: this.pal.zones[l.theme].labelCss,
-          backgroundColor: this.pal.cardCss,
-          padding: { x: 10, y: 4 },
+          stroke: '#1c120c',
+          strokeThickness: 3,
           resolution: this.args.dpr,
         })
-        .setOrigin(0, 0.5);
+        .setOrigin(0, 0.5)
+        .setAlpha(LABEL_REST);
       layer.add(text);
-      this.labels.push({ text, theme: l.theme });
+      this.labels.push({ text, theme: l.theme, place: LABEL_PLACES[l.text] });
     }
 
     // Each area is its own "room": the camera is locked to the strip the buddy
@@ -1235,6 +1245,27 @@ export class WorldScene extends Phaser.Scene {
       }
       this.nearestId = id;
       this.game.events.emit(WORLD_EVENTS.near, id);
+    }
+
+    // The named place being walked through → its label lights, React tells
+    // its story.
+    let place: (typeof this.labels)[number] | null = null;
+    let placeD = PLACE_REACH;
+    for (const l of this.labels) {
+      if (!l.place) continue;
+      const d = Math.hypot(l.text.x + l.text.width / 2 - this.buddy.x, l.text.y - this.buddy.y);
+      if (d < placeD) { place = l; placeD = d; }
+    }
+    const placeId = place?.place ?? null;
+    if (placeId !== this.litPlace) {
+      for (const l of this.labels) {
+        if (!l.place) continue;
+        const on = l.place === placeId;
+        l.text.setColor(on ? LABEL_LIT : this.pal.zones[l.theme].labelCss);
+        this.tweens.add({ targets: l.text, alpha: on ? 1 : LABEL_REST, scale: on ? 1.12 : 1, duration: 220, ease: 'quad.out' });
+      }
+      this.litPlace = placeId;
+      this.game.events.emit(WORLD_EVENTS.landmark, placeId);
     }
   }
 }

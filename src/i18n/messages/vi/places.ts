@@ -118,4 +118,17 @@ export default {
   'places.nguBinhEn': 'Ngự Bình Mountain',
   'places.nguBinhAbout': 'Ngọn đồi đỉnh bằng phía nam thành phố, cao khoảng 100 mét. Tên núi có nghĩa là “bức bình phong của vua”: núi đứng trước Kinh Thành như tấm bình phong che chắn.',
   'places.nguBinhFact': 'Leo lên lúc hoàng hôn để ngắm sông Hương và toàn cảnh thành phố.',
+
+  'places.phuXuan': 'Cầu Phú Xuân',
+  'places.phuXuanEn': 'Phú Xuân Bridge',
+  'places.phuXuanAbout': 'Cây cầu mới bắc qua sông Hương, giữa cầu Trường Tiền và cầu Dã Viên, mang tên cũ của thành phố.',
+  'places.phuXuanFact': 'Trước khi có tên Huế, thành phố là Phú Xuân — thủ phủ của các chúa Nguyễn, rồi kinh đô của vua Quang Trung nhà Tây Sơn.',
+  'places.daVien': 'Cầu Dã Viên',
+  'places.daVienEn': 'Dã Viên Bridge',
+  'places.daVienAbout': 'Cây cầu vượt sông Hương qua cồn Dã Viên, phía thượng nguồn Kinh Thành.',
+  'places.daVienFact': 'Dã Viên nghĩa là “vườn hoang”: cồn từng là vườn ngự, nơi triều đình đến nghỉ ngơi.',
+  'places.nguyenHoang': 'Cầu Nguyễn Hoàng',
+  'places.nguyenHoangEn': 'Nguyễn Hoàng Bridge',
+  'places.nguyenHoangAbout': 'Cây cầu mới nhất của Huế, vòm vàng vắt qua sông Hương phía thượng nguồn, hướng về Kim Long và Thiên Mụ.',
+  'places.nguyenHoangFact': 'Cầu mang tên chúa Nguyễn Hoàng, người vào vùng đất này năm 1558 và dựng chùa Thiên Mụ.',
 } satisfies Record<keyof typeof en, string>;

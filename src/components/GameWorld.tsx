@@ -265,6 +265,8 @@ export function GameWorld({
     game.scene.add(WorldScene.KEY, WorldScene, true, data);
     game.scene.add(RoomScene.KEY, RoomScene, false);
     const onNear = (id: string | null) => setNearestId(id);
+    // Arriving at a named place tells its story (leaving lets it fade).
+    const onLandmark = (id: string | null) => { if (id) setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 })); };
     const onMoved = (p: { x: number; y: number; areaIndex: number }) => setPos(p);
     const onArea = ({ area }: { index: number; area: WorldArea }) => {
       arrivalKey.current += 1;
@@ -274,6 +276,7 @@ export function GameWorld({
     setZoom(1);
     const onZoom = (z: number) => setZoom(z);
     game.events.on(WORLD_EVENTS.near, onNear);
+    game.events.on(WORLD_EVENTS.landmark, onLandmark);
     game.events.on(WORLD_EVENTS.moved, onMoved);
     game.events.on(WORLD_EVENTS.area, onArea);
     game.events.on(WORLD_EVENTS.zoom, onZoom);
@@ -286,6 +289,7 @@ export function GameWorld({
       gameRef.current = null;
       ro.disconnect();
       game.events.off(WORLD_EVENTS.near, onNear);
+      game.events.off(WORLD_EVENTS.landmark, onLandmark);
       game.events.off(WORLD_EVENTS.moved, onMoved);
       game.events.off(WORLD_EVENTS.area, onArea);
       game.events.off(WORLD_EVENTS.zoom, onZoom);
@@ -628,7 +632,7 @@ export function GameWorld({
         </WorldCard>
       )}
 
-      {panel && placeToast && <PlaceInfo key={placeToast.n} id={placeToast.id} onClose={hidePlace} />}
+      {placeToast && <PlaceInfo key={placeToast.n} id={placeToast.id} onClose={hidePlace} />}
 
       {/* ── Inside a skill: a bar across the top says where you are and holds
              the two ways out (Menu, Leave); the activity's HUD docks below it
