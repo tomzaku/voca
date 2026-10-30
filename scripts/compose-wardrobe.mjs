@@ -6,21 +6,22 @@
 // The villager sheet is one bald body plus a hairstyle per look, each a 20×20
 // frame (9 idle, 8 walk). Here that becomes three layers drawn in order:
 //
-//   body.<outfit>        the body, its clothes recoloured — everyday clothes,
-//                        áo dài in Huế purple / white / red / blue / royal
-//                        yellow, áo the; `….girl` is the same body with
-//                        lashes at the corners of the eyes
+//   body.<garment>.<colour>  the body, its clothes recoloured — everyday
+//                        clothes (the shirt's colour), an áo dài or an áo the,
+//                        each in its own range of colours
 //   hair.<style>.<color> the hairstyle alone (the look minus the bald body),
 //                        in dark, brown or grey; `….hat` is the same hair
 //                        trimmed to the crown, to wear under a hat
 //   hat.<id>             drawn onto the head — nón lá, khăn đóng
 //
 // The body is a chibi: a big head, then four or five rows of clothes. Its
-// shirt and trousers are told apart by colour; an áo dài is the shirt and the
-// first rows below it as the tunic, white trousers under. Hats are drawn per
+// shirt and trousers are told apart by colour; everyday clothes recolour the
+// shirt, an áo dài or áo the is the shirt and the first rows below it as the
+// tunic, white trousers under. Hats are drawn per
 // frame from where the head is, so they bob with it.
 //
-// Frames are named `<layer>-<clip>-<i>`, 1px apart like the villager sheet.
+// Frames are named `<layer>-<clip>-<i>`, 1px apart like the villager sheet;
+// src/game/wardrobe-layers.json lists the layers' rows for the DOM.
 // Keep the option lists in step with src/game/wardrobe.ts.
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -43,17 +44,26 @@ const HAIR_COLORS = {
   brown: [[102, 62, 38], [146, 94, 56]],
   grey: [[136, 132, 140], [188, 184, 192]],
 };
-/** Tunic [dark, light]; trousers white unless the outfit says otherwise. */
-const TROUSERS = [[196, 190, 180], [238, 234, 226]];
-const OUTFITS = {
-  everyday: null,
-  aoDaiPurple: [[92, 46, 112], [128, 72, 152]],   // tím Huế
-  aoDaiWhite: [[206, 204, 214], [246, 246, 250]],
-  aoDaiRed: [[150, 30, 40], [204, 52, 58]],
-  aoDaiBlue: [[40, 82, 150], [72, 122, 196]],
-  aoDaiYellow: [[196, 146, 30], [240, 196, 64]],  // the royal colour
-  aoThe: [[28, 28, 38], [52, 52, 68]],
+/** Each colour as [dark, light]. */
+const COLOURS = {
+  red: [[165, 31, 51], [233, 50, 69]],          // the pack's own shirt
+  purple: [[92, 46, 112], [128, 72, 152]],      // tím Huế
+  white: [[206, 204, 214], [246, 246, 250]],
+  blue: [[40, 82, 150], [72, 122, 196]],
+  yellow: [[196, 146, 30], [240, 196, 64]],     // the royal colour
+  pink: [[196, 92, 132], [236, 140, 172]],
+  green: [[46, 110, 76], [78, 156, 106]],
+  black: [[28, 28, 38], [52, 52, 68]],
+  navy: [[30, 40, 78], [50, 64, 116]],
+  brown: [[96, 60, 40], [136, 90, 60]],
 };
+/** What each garment comes in — keep in step with GARMENTS in wardrobe.ts. */
+const GARMENTS = {
+  everyday: ['red', 'blue', 'green', 'yellow', 'black'],
+  aoDai: ['purple', 'white', 'red', 'blue', 'yellow', 'pink', 'green'],
+  aoThe: ['black', 'navy', 'brown'],
+};
+const TROUSERS = [[196, 190, 180], [238, 234, 226]];
 const HATS = ['nonLa', 'khanDong'];
 
 // The body's clothes, by colour: [ref, kind, shade].
@@ -86,10 +96,18 @@ const put = (buf, x, y, c) => {
 };
 const lum = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 
-function body(outfit, base) {
+function body(garment, colour, base) {
   const out = new Uint8ClampedArray(base);
-  const tunic = OUTFITS[outfit];
-  if (!tunic) return out;
+  const tunic = COLOURS[colour];
+  if (garment === 'everyday') {
+    // Just the shirt: the trousers stay the pack's own.
+    for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) {
+      const p = px(base, x, y);
+      const c = p[3] && cloth(p);
+      if (c && c[1] === 'shirt') put(out, x, y, tunic[c[2]]);
+    }
+    return out;
+  }
   // Rows that hold clothes, top to bottom: the tunic covers the shirt and the
   // row below it; anything lower is trousers.
   const rows = [];
@@ -102,29 +120,6 @@ function body(outfit, base) {
     put(out, x, y, (y <= tunicTo ? tunic : TROUSERS)[c[2]]);
   }
   return out;
-}
-
-/** The eyes: the dark pixels inside the face with skin on both sides. */
-function eyes(base) {
-  const h = head(base);
-  const found = [];
-  for (let y = h.top + 5; y < h.top + 11; y++) for (let x = h.l + 1; x < h.r; x++) {
-    const c = px(base, x, y), l = px(base, x - 1, y), r = px(base, x + 1, y);
-    if (c[3] && lum(c) < 60 && lum(l) > 120 && lum(r) > 120) found.push([x, y]);
-  }
-  if (!found.length) return null;
-  const xs = found.map(([x]) => x), ys = found.map(([, y]) => y);
-  return { l: Math.min(...xs), r: Math.max(...xs), top: Math.min(...ys) };
-}
-
-/** A girl's body: a lash flicking up from the outer corner of each eye. */
-function lashes(img, base) {
-  const e = eyes(base);
-  if (!e) return img;
-  const ink = px(base, head(base).l, head(base).top + 4);
-  put(img, e.l - 1, e.top - 1, ink);
-  put(img, e.r + 1, e.top - 1, ink);
-  return img;
 }
 
 function hair(style, color, base, look, underHat = false) {
@@ -195,10 +190,9 @@ function hat(id, base) {
 
 // ── Lay out the atlas: one row per layer, its 17 frames across ──
 const layers = [
-  ...Object.keys(OUTFITS).flatMap((o) => [
-    { name: `body.${o}`, draw: (b) => body(o, b) },
-    { name: `body.${o}.girl`, draw: (b) => lashes(body(o, b), b) },
-  ]),
+  ...Object.entries(GARMENTS).flatMap(([g, colours]) => colours.map((c) => ({
+    name: `body.${g}.${c}`, draw: (b) => body(g, c, b),
+  }))),
   ...STYLES.flatMap((s) => Object.keys(HAIR_COLORS).flatMap((c) => [false, true].map((underHat) => ({
     name: `hair.${s}.${c}${underHat ? '.hat' : ''}`, draw: (b, clip, i) => hair(s, c, b, frame(s, clip, i), underHat),
   })))),
@@ -222,5 +216,10 @@ layers.forEach((layer, row) => {
   });
 });
 await sharp(sheet, { raw: { width: W, height: H, channels: 4 } }).png().toFile(path('wardrobe.png'));
+// The layers' rows, for drawing a look outside Phaser (the tailor's tiles).
+writeFileSync(
+  fileURLToPath(new URL('../src/game/wardrobe-layers.json', import.meta.url)),
+  `${JSON.stringify({ stride: STRIDE, frame: F, width: W, height: H, layers: layers.map((l) => l.name) })}\n`,
+);
 writeFileSync(path('wardrobe.json'), JSON.stringify({ frames, meta: { image: 'wardrobe.png', size: { w: W, h: H }, scale: '1' } }));
 console.log(`wardrobe.png ${W}×${H} — ${layers.length} layers`);

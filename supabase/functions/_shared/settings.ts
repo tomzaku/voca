@@ -64,7 +64,7 @@ export function fromSettings(body: Record<string, unknown>): Record<string, unkn
 }
 
 /** The parts of a look the tailor's knows. */
-const DRESS_PARTS = ['figure', 'hair', 'hairColor', 'outfit', 'hat'];
+const DRESS_PARTS = ['hair', 'hairColor', 'outfit', 'outfitColor', 'hat'];
 
 /**
  * A look, kept to what one is: the known parts, each a short string. It's a
