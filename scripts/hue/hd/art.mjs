@@ -11,7 +11,7 @@ const T2 = 32;               // a tile, in detail pixels
 const OUTLINE = [34, 26, 24];
 
 /** Draw a dark outline round everything already on the canvas. */
-function outline(cv, c = OUTLINE) {
+export function outline(cv, c = OUTLINE) {
   const edge = [];
   for (let y = 0; y < cv.h; y++) for (let x = 0; x < cv.w; x++) {
     if (cv.alpha(x, y)) continue;
@@ -20,14 +20,14 @@ function outline(cv, c = OUTLINE) {
   for (const [x, y] of edge) cv.set(x, y, c);
 }
 
-const disc = (cv, cx, cy, r, c, a = 1) => cv.ellipse(cx, cy, r, r, c, a);
+export const disc = (cv, cx, cy, r, c, a = 1) => cv.ellipse(cx, cy, r, r, c, a);
 
 // ── Roofs and buildings ──
 
 /** A roof of overlapping clay tiles on a trapezoid: courses of rounded tiles,
  *  each lit along its top and shaded at its lip, a heavy ridge with upturned
  *  ends, the eave casting a shadow. */
-function tiledRoof(cv, x, y, w, h, pal, inset) {
+export function tiledRoof(cv, x, y, w, h, pal, inset) {
   const course = 5, tileW = 6;
   for (let r = 0; r < h; r++) {
     const ins = Math.round(inset * (1 - r / Math.max(1, h - 1)));
@@ -59,7 +59,7 @@ function tiledRoof(cv, x, y, w, h, pal, inset) {
 }
 
 /** A plastered wall, mottled, its corners shaded. */
-function plaster(cv, x, y, w, h, wall) {
+export function plaster(cv, x, y, w, h, wall) {
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     let c = mix(wall, [0, 0, 0], (noise(x + i, y + j, 5) - 0.5) * 0.1);
     if (i < 2 || i >= w - 2) c = mix(c, [0, 0, 0], 0.12);
@@ -94,7 +94,7 @@ function door(cv, cx, bottom, w, h) {
 }
 
 /** A potted plant by a door. */
-function pot(cv, x, bottom, leaves = [78, 140, 74]) {
+export function pot(cv, x, bottom, leaves = [78, 140, 74]) {
   cv.rect(x, bottom - 6, 7, 6, [176, 96, 64]);
   cv.rect(x, bottom - 6, 7, 1, [206, 130, 90]);
   cv.rect(x + 1, bottom - 1, 5, 1, [130, 70, 46]);

@@ -17,6 +17,11 @@ import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
 import { K, bicycle, cyclo, house, kyDai, lamp, market, tree } from './art.mjs';
+import { canChanh, daiCungMon, dienTho, sideHall, thaiMieu, theMieu, truongSanh } from './imperial.mjs';
+
+/** The buildings with detailed art of their own, by the name their canvas
+ *  carries (cv.spec.kind); other halls with windows are drawn as houses. */
+const BUILDINGS = { market, kyDai, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon };
 
 /** The patches, in tiles: the whole map, in pieces small enough for any
  *  GPU's largest texture (40 × 36 tiles is 1280 × 1152 px). */
@@ -128,7 +133,7 @@ export function renderDetail(write) {
       if (e.type === 'structure') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const spec = e.cv.spec;
-        const art = spec?.kind === 'market' ? market() : spec?.kind === 'kyDai' ? kyDai() : spec?.kind === 'hall' && spec.windows ? house(spec) : null;
+        const art = BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' && spec.windows ? house(spec) : null);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
       } else if (e.type === 'tree') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;

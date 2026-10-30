@@ -8,6 +8,10 @@ import { ground, mark, place, solid, used } from '../core/world.mjs';
 import { hall, roof } from '../draw/buildings.mjs';
 import { T } from '../layout.mjs';
 
+/** Name a building's canvas, so the detailed renders (../hd) draw it as
+ *  itself rather than as a generic hall. */
+const named = (cv, kind) => { cv.spec = { kind }; return cv; };
+
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
   { text: 'Điện Thái Hòa', x: 55, y: 24.2, place: 'thaiHoa' },
@@ -38,7 +42,7 @@ export function drawImperialCity() {
   // Thế Miếu, the dynastic temple, in the Imperial City's south-west corner;
   // before it the nine bronze urns of Cửu Đỉnh in a row, and Hiển Lâm Các, the
   // three-tiered pavilion of merit, nearest Ngọ Môn.
-  place(hall({ w: 6, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 7, doorW: 8, doorFill: [60, 30, 24] }), 43, 31, 1);
+  place(named(hall({ w: 6, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 7, doorW: 8, doorFill: [60, 30, 24] }), 'theMieu'), 43, 31, 1);
   for (let i = 0; i < 9; i++) {
     const cx = 43.4 * T + i * 10.5, cy = 34.6 * T;
     ground.ellipse(cx, cy + 6, 4, 1.5, P.shadow, 0.25);
@@ -138,12 +142,12 @@ export function drawImperialCity() {
       cv.rect(17, 30, 30, 18, [52, 30, 26]);
       roof(cv, 4, 12, 56, 14, ROOF.imperial, 4);
       cv.rect(8, 24, 48, 4, [150, 40, 32]);
-      place(cv, 53, FC.y1 - 3, 1, { gaps: [54, 55], shadow: false });
+      place(named(cv, 'daiCungMon'), 53, FC.y1 - 3, 1, { gaps: [54, 55], shadow: false });
     }
     // Cần Chánh, where the emperor held court on ordinary days, and the halls
     // either side.
-    place(hall({ w: 6, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 40, 32], pillar: [196, 64, 48], pillarStep: 6, doorW: 10, doorFill: [60, 28, 22] }), 52, 18, 1);
-    for (const x of [49, 59]) place(hall({ w: 3, h: 3, roofRows: 2, roofPal: ROOF.glazed, wall: [150, 40, 32], pillar: [196, 64, 48], pillarStep: 6, doorW: 6, doorFill: [60, 28, 22] }), x, 18, 1);
+    place(named(hall({ w: 6, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 40, 32], pillar: [196, 64, 48], pillarStep: 6, doorW: 10, doorFill: [60, 28, 22] }), 'canChanh'), 52, 18, 1);
+    for (const x of [49, 59]) place(named(hall({ w: 3, h: 3, roofRows: 2, roofPal: ROOF.glazed, wall: [150, 40, 32], pillar: [196, 64, 48], pillarStep: 6, doorW: 6, doorFill: [60, 28, 22] }), 'sideHall'), x, 18, 1);
   }
 
   // The palaces of the queen mothers on the west side — Cung Trường Sanh in
@@ -151,9 +155,9 @@ export function drawImperialCity() {
   // Nguyễn lords, on the east.
   {
     const palaceHall = (w, roofPal) => hall({ w, h: 4, roofRows: 2, roofPal, wall: [150, 40, 32], pillar: [196, 64, 48], pillarStep: 7, doorW: 8, doorFill: [60, 28, 22] });
-    place(palaceHall(4, ROOF.glazed), 43, 17, 2);            // Trường Sanh
-    place(palaceHall(5, ROOF.imperial), 43, 24, 2);          // Diên Thọ
-    place(palaceHall(5, ROOF.imperial), 62, 24, 2);          // Thái Miếu
+    place(named(palaceHall(4, ROOF.glazed), 'truongSanh'), 43, 17, 2);
+    place(named(palaceHall(5, ROOF.imperial), 'dienTho'), 43, 24, 2);
+    place(named(palaceHall(5, ROOF.imperial), 'thaiMieu'), 62, 24, 2);
     // Trường Sanh's garden pond, and a pavilion in the north-east garden.
     ground.ellipse(46 * T, 22 * T - 2, 14, 5, P.water);
     ground.ellipse(46 * T, 22 * T - 2, 10, 3, P.waterShallow);
