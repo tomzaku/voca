@@ -15,8 +15,8 @@ import { PARK_PATHS } from '../roads.mjs';
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
   { text: 'Cầu bán nguyệt', x: 41, y: 50.2, place: 'banNguyet' },
-  { text: 'Đài phun nước', x: 72, y: 56.4, place: 'phunNuoc' },
-  { text: 'Cầu đi bộ gỗ lim', x: 61.5, y: 55.6, place: 'goLim' },
+  { text: 'Đài phun nước', x: 72, y: 60.4, place: 'phunNuoc' },
+  { text: 'Cầu đi bộ gỗ lim', x: 61.5, y: 59.6, place: 'goLim' },
 ];
 
 const BLOOMS = [[236, 150, 178], [250, 214, 110], [190, 150, 220], [240, 240, 236], [230, 90, 80]];
@@ -76,20 +76,20 @@ export function drawParks() {
     cv.ellipse(16, 12, 6, 2.5, [196, 190, 178]);
     for (const [dx, dy] of [[-4, -2], [4, -2], [-2, -5], [2, -5], [0, -7], [-6, 2], [6, 2]]) cv.set(16 + dx, 9 + dy, [214, 236, 250]);
     cv.spec = { kind: 'fountain' };
-    place(cv, 71, 56, 1, { shadow: false });
+    place(cv, 71, 60, 1, { shadow: false });
   }
 
   // Cầu đi bộ gỗ lim: an ironwood boardwalk out over the river's edge, from
   // the south park round under Phú Xuân bridge, steps down to it at each end.
   {
     const x0 = 57, x1 = 74;
-    plankDeck(x0, 55, x1 - x0 + 1, 1, true);
-    for (const x of [x0, x1]) plankDeck(x, 56, 1, 1);
+    plankDeck(x0, 59, x1 - x0 + 1, 1, true);
+    for (const x of [x0, x1]) plankDeck(x, 60, 1, 1);
     for (let x = x0 * T; x < (x1 + 1) * T; x += 3 * T) {
-      ground.rect(x, 55 * T - 4, 1, 4, [70, 52, 40]);
-      ground.rect(x - 1, 55 * T - 6, 3, 2, [255, 226, 160]);
-      glow(x, 55 * T - 5, [255, 214, 140], 2);
+      ground.rect(x, 59 * T - 4, 1, 4, [70, 52, 40]);
+      ground.rect(x - 1, 59 * T - 6, 3, 2, [255, 226, 160]);
+      glow(x, 59 * T - 5, [255, 214, 140], 2);
     }
-    drawn.push({ type: 'boardwalk', x: x0 * T, y: 55 * T, w: (x1 - x0 + 1) * T, h: T });
+    drawn.push({ type: 'boardwalk', x: x0 * T, y: 59 * T, w: (x1 - x0 + 1) * T, h: T });
   }
 }

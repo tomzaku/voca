@@ -56,7 +56,7 @@ export function writeMeta() {
       const x = cx + nx * off, y = cy + ny * off;
       const tx = x / T, ty = y / T;
       if (tx < 2 || tx > W - 2 || ty < 2) continue;
-      if (RIVER_BRIDGES.some(([a, b]) => tx > a - 1.5 && tx < b + 1.5 && ty > 48 && ty < 59)) continue;
+      if (RIVER_BRIDGES.some(([a, b]) => tx > a - 1.5 && tx < b + 1.5 && ty > 48 && ty < 63)) continue;
       if (tx > 41 && tx < 60 && ty > 50) continue;                 // the wharf, the boat, the landing
       if (BOATS.some(([bx, by, bw]) => tx > bx - 1 && tx < bx + bw + 1 && ty > by - 1 && ty < by + 1.5)) continue;
       if (tx > 100 && tx < 109 && ty > 37 && ty < 43) continue;    // the Cồn Hến footbridge

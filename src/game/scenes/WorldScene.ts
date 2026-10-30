@@ -1090,8 +1090,8 @@ export class WorldScene extends Phaser.Scene {
       // [road row, ride, carries a passenger, speed px/s]
       [49.6, 'bike', false, 70],
       [49.6, 'cyclo', false, 45],
-      [59.6, 'cyclo', true, 40],
-      [59.6, 'bike', false, 85],
+      [63.6, 'cyclo', true, 40],
+      [63.6, 'bike', false, 85],
     ];
     lanes.forEach(([row, ride, passenger, speed], i) => {
       const k = SCALE * RIDE_SCALE[ride];

@@ -28,8 +28,8 @@ export const QUARTERS = [
   [31, 30, 41, 44],   // the Citadel's south-west
   [69, 18, 77, 44],   // the Citadel's east side
   [83, 1, 104, 35],   // Gia Hội
-  [0, 61, 98, 86],    // the south bank
-  [98, 46, 120, 86],  // Vỹ Dạ
+  [0, 65, 98, 90],    // the south bank
+  [98, 46, 120, 90],  // Vỹ Dạ
 ];
 
 export function buildNeighbourhoods() {

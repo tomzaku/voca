@@ -24,8 +24,8 @@ import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall
 const BUILDINGS = { market, kyDai, fountain, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
 
 /** The patches, in tiles: the whole map, in pieces small enough for any
- *  GPU's largest texture (40 × 36 tiles is 1280 × 1152 px). */
-const PATCH_W = 40, PATCH_H = 36;
+ *  GPU's largest texture (40 × 37 tiles is 1280 × 1184 px). */
+const PATCH_W = 40, PATCH_H = 37;
 export const DETAIL = [];
 for (let y0 = 0; y0 < MAP_H; y0 += PATCH_H) {
   for (let x0 = 0; x0 < MAP_W; x0 += PATCH_W) {

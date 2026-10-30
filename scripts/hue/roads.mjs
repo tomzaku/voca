@@ -29,7 +29,7 @@ const ringAround = (cx, cy, rx, ry, n) => Array.from({ length: n + 2 }, (_, i) =
  *  dragon-boat wharf and Phu Văn Lâu's landing come down to the water. */
 export const PARK_PATHS = [
   [1, 18, 51], [24, 31, 51], [36, 47.5, 51], [60, 65, 51], [70, 74, 51], [84, 95, 51],
-  [1, 18, 57.2], [24, 31, 57.2], [36, 65, 57.2], [70, 74, 57.2], [79, 96, 57.2],
+  [1, 18, 61.2], [24, 31, 61.2], [36, 65, 61.2], [70, 74, 61.2], [79, 96, 61.2],
 ];
 /** A gently winding line from x0 to x1 about row y. */
 const wavy = (x0, x1, y) => Array.from({ length: Math.max(2, Math.round(x1 - x0) + 1) }, (_, i) => {
@@ -72,24 +72,24 @@ export const ROADS = [
   box(44, 23, 23, 1, 'stone'), box(44, 30, 23, 1, 'stone'),
   box(54, 22, 2, 1, 'stone'), box(54, 31, 2, 3, 'stone'),
   // The south bank
-  road('street', 2, [[0, 59], [97, 59]], { main: true }),         // Lê Lợi, along the river
+  road('street', 2, [[0, 63], [97, 63]], { main: true }),         // Lê Lợi, along the river
   // Điện Biên Phủ: south past Ga Huế, over the tracks and the canal, up into
   // the hills to the tombs.
-  road('street', 2, [[21, 60], [21, 77], [22.5, 84], [22.5, 93], [21, 99], [21, 103.5]]),
+  road('street', 2, [[21, 64], [21, 81], [22.5, 88], [22.5, 97], [21, 103], [21, 107.5]]),
   // Hùng Vương: south-east from Phú Xuân bridge, over the An Cựu canal.
-  road('street', 2, [[67.5, 60], [68, 65], [70.5, 70], [70.5, 77]], { main: true }),
-  box(48, 60, 3, 12, 'street'),                                   // from Lê Lợi park down to the canal
+  road('street', 2, [[67.5, 64], [68, 69], [70.5, 74], [70.5, 81]], { main: true }),
+  box(48, 64, 3, 12, 'street'),                                   // from Lê Lợi park down to the canal
   // South of the canal: the lane round Ngự Bình, and on down through the
   // pines to Minh Mạng's tomb.
-  road('lane', 2, [[44, 76], [52, 75], [60, 75.5], [70.5, 76.5]]),
-  road('lane', 2, [[70.5, 77], [68, 82], [66, 88], [66.5, 95], [68, 103.5]]),
+  road('lane', 2, [[44, 80], [52, 79], [60, 79.5], [70.5, 80.5]]),
+  road('lane', 2, [[70.5, 81], [68, 86], [66, 92], [66.5, 99], [68, 107.5]]),
   // The tombs' road, winding through the hills from gate to gate.
-  road('lane', 2, [[2, 103.5], [10, 103.5], [16, 104.3], [21, 103.5], [27, 104.3], [34.5, 103.5], [42, 104.3],
-    [50, 104.6], [58, 104.2], [66, 103.6], [72, 104.3], [79, 103.5], [88, 103.5]]),
+  road('lane', 2, [[2, 107.5], [10, 107.5], [16, 108.3], [21, 107.5], [27, 108.3], [34.5, 107.5], [42, 108.3],
+    [50, 108.6], [58, 108.2], [66, 107.6], [72, 108.3], [79, 107.5], [88, 107.5]]),
   // Footpaths winding through the riverside parks, between the bridges.
   ...PARK_PATHS.map(([x0, x1, y]) => road('path', 0.8, wavy(x0, x1, y))),
-  box(35, 65, 12, 1, 'stone'),                                    // Quốc Học's forecourt
-  box(69, 68, 17, 2, 'stone'),                                    // the walking street
+  box(35, 69, 12, 1, 'stone'),                                    // Quốc Học's forecourt
+  box(69, 72, 17, 2, 'stone'),                                    // the walking street
 ];
 
 /** Where (x, y) px lies on a road: its signed offset from the centre line and
