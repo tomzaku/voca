@@ -7,7 +7,8 @@
 //
 // Kept dependency-free (no React) like the rest of src/game/ so the Phaser
 // scene can import it directly; the scene places the keepers (WorldFeature),
-// the React shell renders the menus and the activities themselves.
+// the React shell renders the menus and the activities themselves — each
+// activity a file of its own (src/components/worldgames/activities/).
 
 export interface WorldFeature {
   /** Stable id; emitted through WORLD_EVENTS.near as `${FEATURE_ID_PREFIX}${id}`,
@@ -29,7 +30,7 @@ export interface WorldFeature {
 export type ActivityKind = 'learn' | 'practice' | 'tool';
 
 export interface WorldActivity {
-  /** Which in-world screen plays it (see WorldGame). */
+  /** Its file in src/components/worldgames/activities/ — and its screen. */
   id: string;
   kind: ActivityKind;
   nameId: string;
@@ -48,63 +49,15 @@ export const FEATURE_ID_PREFIX = 'feat:';
 
 export const featureNodeId = (f: WorldFeature) => `${FEATURE_ID_PREFIX}${f.id}`;
 
-const act = (id: string, kind: ActivityKind, key: string, emoji: string, place: string): WorldActivity =>
-  ({ id, kind, nameId: `world.act${key}`, blurbId: `world.act${key}Blurb`, emoji, place });
-
-/** The skills, in the order menus and the travel drawer list them. */
-export const WORLD_SKILLS: WorldSkill[] = [
-  {
-    id: 'vocabulary', nameId: 'world.skillVocabulary', blurbId: 'world.skillVocabularyBlurb',
-    route: '/', emoji: '📚', icon: 'lucide:sparkles',
-    activities: [
-      act('learn', 'learn', 'Learn', '🏮', 'Chợ Đông Ba'),
-      act('review', 'learn', 'Review', '🪷', 'Chùa Thiên Mụ'),
-      act('quizzes', 'practice', 'Quiz', '⚔️', 'Quốc Học'),
-      act('level-test', 'practice', 'LevelTest', '⛰️', 'Núi Ngự Bình'),
-      act('search', 'tool', 'Search', '🔎', 'Tàng Thư Lâu'),
-      act('history', 'tool', 'Words', '📜', 'Lăng Khải Định'),
-      act('collections', 'tool', 'Collections', '🗂️', 'Điện Thái Hòa'),
-    ],
-  },
-  {
-    id: 'speaking', nameId: 'world.skillSpeaking', blurbId: 'world.skillSpeakingBlurb',
-    route: '/speaking', emoji: '🎤', icon: 'lucide:mic',
-    activities: [
-      act('ipa', 'learn', 'Ipa', '🎶', 'Duyệt Thị Đường'),
-      act('shadow', 'learn', 'Shadow', '🔁', 'Cồn Hến'),
-      act('speak', 'practice', 'Conversation', '🍵', 'Cồn Hến'),
-      act('dialogue', 'practice', 'Dialogue', '🛍️', 'Phố đi bộ'),
-      act('ielts-speaking', 'practice', 'IeltsSpeaking', '🎓', 'Quốc Học'),
-      act('read-aloud', 'tool', 'ReadAloud', '📖', 'Cồn Hến'),
-    ],
-  },
-  {
-    id: 'listening', nameId: 'world.skillListening', blurbId: 'world.skillListeningBlurb',
-    route: '/listening', emoji: '🎧', icon: 'lucide:headphones',
-    activities: [
-      act('podcast', 'learn', 'Podcast', '📻', 'Thuyền rồng'),
-      act('dictation', 'learn', 'Dictation', '✍️', 'Thuyền rồng'),
-      act('comprehension', 'practice', 'Comprehension', '🐉', 'Thuyền rồng'),
-      act('ielts-listening', 'practice', 'IeltsListening', '🎓', 'Quốc Học'),
-    ],
-  },
-  {
-    id: 'writing', nameId: 'world.skillWriting', blurbId: 'world.skillWritingBlurb',
-    route: '/writing/improve', emoji: '🖌️', icon: 'lucide:pen-line',
-    activities: [
-      act('writing', 'practice', 'Stele', '🪨', 'Văn Miếu'),
-      act('ielts-writing', 'practice', 'IeltsWriting', '🎓', 'Quốc Học'),
-      act('improve', 'tool', 'Improve', '✒️', 'Văn Miếu'),
-    ],
-  },
-  {
-    id: 'you', nameId: 'world.skillYou', blurbId: 'world.skillYouBlurb',
-    route: '/companion', emoji: '🐾', icon: 'lucide:paw-print',
-    activities: [
-      act('buddy', 'tool', 'Buddy', '🐾', 'Nhà vườn An Hiên'),
-      act('wardrobe', 'tool', 'Wardrobe', '🧵', 'Tiệm may'),
-    ],
-  },
+/** The skills, in the order menus and the travel drawer list them. Their
+ *  activities aren't listed here: each declares itself, with the skill it
+ *  belongs to, in src/components/worldgames/activities/. */
+export const SKILLS: WorldFeature[] = [
+  { id: 'vocabulary', nameId: 'world.skillVocabulary', blurbId: 'world.skillVocabularyBlurb', route: '/', emoji: '📚', icon: 'lucide:sparkles' },
+  { id: 'speaking', nameId: 'world.skillSpeaking', blurbId: 'world.skillSpeakingBlurb', route: '/speaking', emoji: '🎤', icon: 'lucide:mic' },
+  { id: 'listening', nameId: 'world.skillListening', blurbId: 'world.skillListeningBlurb', route: '/listening', emoji: '🎧', icon: 'lucide:headphones' },
+  { id: 'writing', nameId: 'world.skillWriting', blurbId: 'world.skillWritingBlurb', route: '/writing/improve', emoji: '🖌️', icon: 'lucide:pen-line' },
+  { id: 'you', nameId: 'world.skillYou', blurbId: 'world.skillYouBlurb', route: '/companion', emoji: '🐾', icon: 'lucide:paw-print' },
 ];
 
 /** The keeper of your collections and the levels: one person before Điện
@@ -115,13 +68,4 @@ export const COLLECTIONS_KEEPER: WorldFeature = {
 };
 
 /** The keepers the scene places — one per skill, and the collections'. */
-export const WORLD_FEATURES: WorldFeature[] = [...WORLD_SKILLS, COLLECTIONS_KEEPER];
-
-/** The skill an activity belongs to, and the activity itself. */
-export function findActivity(activityId: string): { skill: WorldSkill; activity: WorldActivity } | null {
-  for (const skill of WORLD_SKILLS) {
-    const activity = skill.activities.find((a) => a.id === activityId);
-    if (activity) return { skill, activity };
-  }
-  return null;
-}
+export const WORLD_FEATURES: WorldFeature[] = [...SKILLS, COLLECTIONS_KEEPER];

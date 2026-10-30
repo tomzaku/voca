@@ -12,37 +12,20 @@ import { dueWords } from '../lib/spacedRepetition';
 import { onAnswerEvent } from '../lib/answerEvents';
 import { vocabularyAdvice } from '../lib/keeperAdvice';
 import { keeperLookFor } from '../game/textures';
-import { COLLECTIONS_KEEPER, WORLD_SKILLS, findActivity, type WorldActivity, type WorldFeature, type WorldSkill } from '../game/features';
+import { COLLECTIONS_KEEPER, type WorldActivity, type WorldFeature, type WorldSkill } from '../game/features';
+import { WORLD_SKILLS, findActivity } from './worldgames/registry';
+import { WorldContext, type WorldApi } from './worldgames/world';
 import type { WorldStation } from '../game/types';
 import { PreviewModal, sampleWords } from './PreviewModal';
 import { CollectionForm } from './CollectionForm';
 import { CollectionStats } from './CollectionStats';
 import { QuizSetup } from './QuizSetup';
-import { DongBaStall } from './worldgames/DongBaStall';
-import { LibrarySearch } from './worldgames/LibrarySearch';
-import { ThienMuReview } from './worldgames/ThienMuReview';
-import { ConHenStall } from './worldgames/ConHenStall';
-import { DragonBoat } from './worldgames/DragonBoat';
-import { Podcast } from './worldgames/Podcast';
-import { IeltsListening } from './worldgames/IeltsListening';
-import { IeltsWriting } from './worldgames/IeltsWriting';
-import { ImproveWriting } from './worldgames/ImproveWriting';
-import { NguBinhClimb } from './worldgames/NguBinhClimb';
-import { KhaiDinhTomb } from './worldgames/KhaiDinhTomb';
-import { AnHienHome } from './worldgames/AnHienHome';
-import { VanMieuStele } from './worldgames/VanMieuStele';
-import { DuyetThiDuong } from './worldgames/DuyetThiDuong';
 import { useWordSearch } from '../hooks/useWordSearch';
-import { QuizArena } from './worldgames/QuizArena';
 import { SkillMenu, SkillToolbar } from './worldgames/SkillMenu';
-import { TailorShop } from './worldgames/TailorShop';
 import { useCompanion } from '../hooks/useCompanion';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import { KeeperDialog } from './worldgames/KeeperDialog';
 import { CollectionsHall } from './worldgames/CollectionsHall';
-import { RolePlay } from './worldgames/RolePlay';
-import { Shadowing } from './worldgames/Shadowing';
-import { ReadAloudTool } from './worldgames/ReadAloudTool';
 
 // The world pulls in Phaser (~1 MB) — only load it when the page mounts.
 const GameWorld = lazy(() => import('./GameWorld').then((m) => ({ default: m.GameWorld })));
@@ -162,7 +145,6 @@ export function WorldGame() {
     }
   };
 
-  /** The in-world screen that plays an activity. */
   // The collections list — the collections' keeper's, and Vocabulary's
   // "Collections" activity, so a list can be picked without leaving the skill.
   const collectionsHall = (focus: string | null, prompt?: string) => (
@@ -216,43 +198,26 @@ export function WorldGame() {
     learn: active ? `${active.name} · ${active.pct}%` : undefined,
   };
 
+  /** What the activities' screens take from the world (./worldgames/world.ts). */
+  const world: WorldApi = {
+    wordPool,
+    openActivity,
+    learnWord: learnAtDongBa,
+    chosen,
+    collectionsHall,
+    tailor: {
+      initial: dress ?? DEFAULT_LOOK,
+      firstVisit,
+      name: buddyName,
+      rename,
+      tryOn: setTrying,
+      done: leaveTailor,
+    },
+  };
+  /** The screen that plays an activity — its own file declares it. */
   const activityScreen = (id: string) => {
-    switch (id) {
-      case 'collections': return collectionsHall(null);
-      // New words come from the collection you study — so a learner who
-      // hasn't picked one picks it first; studying it opens the stall.
-      case 'learn': return chosen ? <DongBaStall /> : collectionsHall(null, intl.formatMessage({ id: 'world.collectionsPickFirst' }));
-      case 'review': return <ThienMuReview onLearnMore={openStall} />;
-      case 'quizzes': return <QuizArena words={wordPool} />;
-      case 'level-test': return <NguBinhClimb onStudy={openStall} />;
-      case 'search': return <LibrarySearch onLearn={learnAtDongBa} />;
-      case 'history': return <KhaiDinhTomb onLearn={learnAtDongBa} />;
-      case 'ipa': return <DuyetThiDuong />;
-      case 'speak': return <ConHenStall />;
-      case 'shadow': return <Shadowing />;
-      case 'dialogue': return <RolePlay key="dialogue" source="dialogue" />;
-      case 'ielts-speaking': return <RolePlay key="ielts" source="ielts" />;
-      case 'read-aloud': return <ReadAloudTool />;
-      case 'podcast': return <Podcast />;
-      case 'dictation': return <DragonBoat key="dictation" initialMode="dictation" />;
-      case 'comprehension': return <DragonBoat key="comprehension" initialMode="comprehension" />;
-      case 'ielts-listening': return <IeltsListening />;
-      case 'writing': return <VanMieuStele />;
-      case 'ielts-writing': return <IeltsWriting />;
-      case 'improve': return <ImproveWriting />;
-      case 'buddy': return <AnHienHome />;
-      case 'wardrobe': return (
-        <TailorShop
-          initial={dress ?? DEFAULT_LOOK}
-          firstVisit={firstVisit}
-          name={buddyName}
-          onRename={rename}
-          onChange={setTrying}
-          onDone={leaveTailor}
-        />
-      );
-      default: return null;
-    }
+    const Screen = findActivity(id)?.activity.Screen;
+    return Screen ? <Screen /> : null;
   };
 
   if (!enabled) return <Navigate to="/collections" replace />;
@@ -280,64 +245,66 @@ export function WorldGame() {
         </button>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="h-[440px] rounded-2xl border-2 border-border bg-bg-card flex items-center justify-center text-sm font-bold text-text-muted">
-            <FormattedMessage id="world.loading" />
-          </div>
-        }
-      >
-        <GameWorld
-          stations={stations}
-          skills={WORLD_SKILLS}
-          onOpenFeature={openSkill}
-          onOpenActivity={openActivity}
-          onOpenCollection={openCollection}
-          paused={open !== null || hall !== null}
-          panel={hall ? {
-            title: intl.formatMessage({ id: COLLECTIONS_KEEPER.nameId }),
-            emoji: COLLECTIONS_KEEPER.emoji,
-            onClose: () => setHall(null),
-            content: collectionsHall(hall.focus),
-          } : open && {
-            title: open.activity
-              ? `${intl.formatMessage({ id: open.skill.nameId })} › ${intl.formatMessage({ id: open.activity.nameId })}`
-              : intl.formatMessage({ id: open.skill.nameId }),
-            emoji: open.activity?.emoji ?? open.skill.emoji,
-            // Leaving the tailor's on a first visit keeps what you have on, so
-            // the shop doesn't greet you again next time.
-            onClose: () => (open.activity?.id === 'wardrobe' && firstVisit ? leaveTailor(trying ?? DEFAULT_LOOK) : setOpen(null)),
-            // Inside an activity, step back out to the keeper, who says how it went.
-            onBack: open.activity ? () => { setOpen({ skill: open.skill, activity: null }); setTalk({ recap: tally.current }); } : undefined,
-            room: open.activity?.id === 'wardrobe' ? 'tailor' : open.skill.id,
-            dress: open.activity?.id === 'wardrobe' ? trying ?? dress ?? DEFAULT_LOOK : undefined,
-            // The keeper's speech bubble while they talk: their message box,
-            // or the tailor fitting you.
-            talking: open.activity?.id === 'wardrobe' || (!open.activity && open.skill.id === 'vocabulary' && talk !== null),
-            tools: (
-              <SkillToolbar
-                skill={open.skill}
-                current={open.activity?.id}
-                // Collections names the list you're studying, and asks for
-                // one until you've picked.
-                labels={chosen && activeName ? { collections: activeName } : {}}
-                attention={chosen ? undefined : 'collections'}
-                onPick={(activity) => { setOpen({ skill: open.skill, activity }); setTalk(null); }}
-              />
-            ),
-            content: open.activity
-              ? activityScreen(open.activity.id)
-              : keeperTalk(open.skill) ?? (
-                <SkillMenu
+      <WorldContext.Provider value={world}>
+        <Suspense
+          fallback={
+            <div className="h-[440px] rounded-2xl border-2 border-border bg-bg-card flex items-center justify-center text-sm font-bold text-text-muted">
+              <FormattedMessage id="world.loading" />
+            </div>
+          }
+        >
+          <GameWorld
+            stations={stations}
+            skills={WORLD_SKILLS}
+            onOpenFeature={openSkill}
+            onOpenActivity={openActivity}
+            onOpenCollection={openCollection}
+            paused={open !== null || hall !== null}
+            panel={hall ? {
+              title: intl.formatMessage({ id: COLLECTIONS_KEEPER.nameId }),
+              emoji: COLLECTIONS_KEEPER.emoji,
+              onClose: () => setHall(null),
+              content: collectionsHall(hall.focus),
+            } : open && {
+              title: open.activity
+                ? `${intl.formatMessage({ id: open.skill.nameId })} › ${intl.formatMessage({ id: open.activity.nameId })}`
+                : intl.formatMessage({ id: open.skill.nameId }),
+              emoji: open.activity?.emoji ?? open.skill.emoji,
+              // Leaving the tailor's on a first visit keeps what you have on, so
+              // the shop doesn't greet you again next time.
+              onClose: () => (open.activity?.id === 'wardrobe' && firstVisit ? leaveTailor(trying ?? DEFAULT_LOOK) : setOpen(null)),
+              // Inside an activity, step back out to the keeper, who says how it went.
+              onBack: open.activity ? () => { setOpen({ skill: open.skill, activity: null }); setTalk({ recap: tally.current }); } : undefined,
+              room: open.activity?.id === 'wardrobe' ? 'tailor' : open.skill.id,
+              dress: open.activity?.id === 'wardrobe' ? trying ?? dress ?? DEFAULT_LOOK : undefined,
+              // The keeper's speech bubble while they talk: their message box,
+              // or the tailor fitting you.
+              talking: open.activity?.id === 'wardrobe' || (!open.activity && open.skill.id === 'vocabulary' && talk !== null),
+              tools: (
+                <SkillToolbar
                   skill={open.skill}
-                  badges={open.skill.id === 'vocabulary' ? badges : undefined}
-                  onPick={(activity) => setOpen({ skill: open.skill, activity })}
+                  current={open.activity?.id}
+                  // Collections names the list you're studying, and asks for
+                  // one until you've picked.
+                  labels={chosen && activeName ? { collections: activeName } : {}}
+                  attention={chosen ? undefined : 'collections'}
+                  onPick={(activity) => { setOpen({ skill: open.skill, activity }); setTalk(null); }}
                 />
               ),
-          }}
-          onCreate={() => setForm({ editingId: null, name: '', words: [] })}
-        />
-      </Suspense>
+              content: open.activity
+                ? activityScreen(open.activity.id)
+                : keeperTalk(open.skill) ?? (
+                  <SkillMenu
+                    skill={open.skill}
+                    badges={open.skill.id === 'vocabulary' ? badges : undefined}
+                    onPick={(activity) => setOpen({ skill: open.skill, activity })}
+                  />
+                ),
+            }}
+            onCreate={() => setForm({ editingId: null, name: '', words: [] })}
+          />
+        </Suspense>
+      </WorldContext.Provider>
 
       {/* Create / edit collection — a modal over the map. */}
       {form && (
