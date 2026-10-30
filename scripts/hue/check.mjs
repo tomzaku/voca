@@ -4,10 +4,11 @@
 //   - every named place can be walked near enough to light its label (the
 //     check that would have caught Hồ Tịnh Tâm sealed in by the theatre);
 //   - every label on show names the place whose story it tells;
-//   - nothing that blocks stands on a road (a tree on a path, say).
+//   - nothing that blocks stands on a road (a tree on a path, say), and no
+//     tree stands on a deck (a bridge, causeway, pier or boardwalk).
 // `seen` (the tiles you can walk to) also feeds the preview's cut-off tint.
 
-import { solid } from './core/world.mjs';
+import { deck, drawn, solid } from './core/world.mjs';
 import { walls } from './collision.mjs';
 import { ROADS, roadHit } from './roads.mjs';
 import { H, SPAWN, T, W } from './layout.mjs';
@@ -66,6 +67,9 @@ export function checkReach() {
     if (!solid[ty][tx]) continue;
     const on = ROADS.find((r) => !r.court && SAMPLES.some(([sx, sy]) => roadHit(r, (tx + sx) * T, (ty + sy) * T)));
     if (on) problems.push(`tile ${tx},${ty} blocks a ${on.kind} at (${on.points[0].join(', ')}…)`);
+  }
+  for (const e of drawn) {
+    if (e.type === 'tree' && deck[e.ty]?.[e.tx]) problems.push(`a ${e.kind} tree stands on a deck at tile ${e.tx},${e.ty}`);
   }
   if (problems.length) {
     for (const m of problems) console.error(m);

@@ -2,8 +2,8 @@
 
 import { Canvas, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
-import { drawn, ground, mark, over, solid, used } from '../core/world.mjs';
-import { H, RIVER_BRIDGES, T, W, isWater, nearSlot } from '../layout.mjs';
+import { deck, drawn, ground, mark, over, solid, used } from '../core/world.mjs';
+import { BRIDGE_Y0, BRIDGE_Y1, H, RIVER_BRIDGES, T, W, isWater, nearSlot } from '../layout.mjs';
 import { nearRoad, onAnyRoad, onRoad, roadGap } from '../roads.mjs';
 
 export const treeKinds = {
@@ -17,9 +17,10 @@ export const treeKinds = {
   deep: { crown: [64, 112, 76], light: [84, 132, 90], dark: [48, 90, 62] },
 };
 
-/** No tree stands where a road passes: its trunk blocks its tile, so a
- *  road reaching into that tile at all would be cut. */
-const inTheWay = (tx, ty) => roadGap(tx, ty) < 0.35;
+/** No tree stands where a road passes, or on a deck — a bridge, causeway,
+ *  pier or boardwalk: its trunk blocks its tile, so a way reaching into that
+ *  tile at all would be cut. */
+const inTheWay = (tx, ty) => roadGap(tx, ty) < 0.35 || deck[ty]?.[tx] === true;
 
 /** Draw a tree canvas into the map: the ground layer, and its top `overRows`
  *  again over the buddy, so walking behind it reads right. */
@@ -243,7 +244,8 @@ export function canPlant(tx, ty) {
 // The riverbanks' rule: dry grass, not a road, a bridge, the wharf or a
 // building — where canPlant's margins would never let a tree go.
 export const BANK_KEEP_CLEAR = [
-  ...RIVER_BRIDGES.map(([a, b]) => [a - 1, 46, b - a + 3, 15]),
+  // Each bridge, its whole length and a tile either side, from Lê Duẩn to Lê Lợi.
+  ...RIVER_BRIDGES.map(([a, b]) => [a - 1, Math.floor(BRIDGE_Y0 / T) - 1, b - a + 3, Math.ceil((BRIDGE_Y1 - BRIDGE_Y0) / T) + 2]),
   [41, 48, 19, 12],        // the dragon-boat wharf, its boat, Phu Văn Lâu's landing
   [99, 37, 11, 8],         // the Cồn Hến footbridge
 ];
