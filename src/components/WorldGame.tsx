@@ -7,10 +7,8 @@ import { t } from '../i18n';
 import { hasChosenCollection, useCollections } from '../hooks/useCollections';
 import { useGameMode } from '../hooks/useGameMode';
 import { useWorldStations } from '../hooks/useWorldStations';
-import { useVocabularyStore } from '../hooks/useVocabulary';
-import { dueWords } from '../lib/spacedRepetition';
 import { onAnswerEvent } from '../lib/answerEvents';
-import { vocabularyAdvice } from '../lib/keeperAdvice';
+import type { Recap } from '../lib/keeperAdvice';
 import { keeperLookFor } from '../game/textures';
 import { COLLECTIONS_KEEPER, type WorldActivity, type WorldFeature, type WorldSkill } from '../game/features';
 import { WORLD_SKILLS, findActivity } from './worldgames/registry';
@@ -21,10 +19,11 @@ import { CollectionForm } from './CollectionForm';
 import { CollectionStats } from './CollectionStats';
 import { QuizSetup } from './QuizSetup';
 import { useWordSearch } from '../hooks/useWordSearch';
-import { SkillMenu, SkillToolbar } from './worldgames/SkillMenu';
+import { SkillToolbar } from './worldgames/SkillMenu';
 import { useCompanion } from '../hooks/useCompanion';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
-import { KeeperDialog } from './worldgames/KeeperDialog';
+import { KEEPERS } from './worldgames/keepers';
+import { KeeperMenu, KeeperTalk } from './worldgames/KeeperTalk';
 import { CollectionsHall } from './worldgames/CollectionsHall';
 
 // The world pulls in Phaser (~1 MB) — only load it when the page mounts.
@@ -67,7 +66,7 @@ export function WorldGame() {
   const [hall, setHall] = useState<{ focus: string | null } | null>(null);
   // The keeper talking — on walking in, and on coming back from an activity
   // with how it went. "Something else" (or picking an activity) hushes them.
-  const [talk, setTalk] = useState<{ recap?: { right: number; total: number } } | null>(null);
+  const [talk, setTalk] = useState<{ recap?: Recap } | null>(null);
   const openSkill = (f: WorldFeature) => {
     if (f.id === COLLECTIONS_KEEPER.id) { setOpen(null); setHall({ focus: null }); return; }
     const skill = WORLD_SKILLS.find((x) => x.id === f.id);
@@ -79,13 +78,13 @@ export function WorldGame() {
   };
 
   // Answers given in the activity open now, for the keeper's recap.
-  const tally = useRef({ right: 0, total: 0 });
+  const tally = useRef<Recap>({ right: 0, total: 0 });
   const activityId = open?.activity?.id;
   useEffect(() => {
     if (!activityId) return;
-    tally.current = { right: 0, total: 0 };
+    tally.current = { right: 0, total: 0, from: activityId };
     return onAnswerEvent((e) => {
-      if (e.kind === 'correct') tally.current = { right: tally.current.right + 1, total: tally.current.total + 1 };
+      if (e.kind === 'correct') tally.current = { ...tally.current, right: tally.current.right + 1, total: tally.current.total + 1 };
       else if (e.kind === 'wrong') tally.current = { ...tally.current, total: tally.current.total + 1 };
     });
   }, [activityId]);
@@ -166,36 +165,21 @@ export function WorldGame() {
   const chosen = hasChosenCollection();
   const active = stations.find((s) => s.active);
   const activeName = active?.name;
-  const progress = useVocabularyStore((s) => s.progress);
-  const due = useMemo(() => dueWords(progress).length, [progress]);
-
-  /** The keeper's line and suggestion, for skills whose keeper has one. */
+  /** The skill's keeper talking: their advice when you walk in, and how the
+   *  last activity went when you come back. */
   const keeperTalk = (skill: WorldSkill) => {
-    if (skill.id !== 'vocabulary' || !talk) return null;
-    const advice = vocabularyAdvice({
-      chosen, due, recap: talk.recap,
-      collection: active && { name: active.name, pct: active.pct },
-    });
-    const line = [
-      advice.recapId && intl.formatMessage({ id: advice.recapId }, advice.values),
-      intl.formatMessage({ id: advice.lineId }, advice.values),
-    ].filter(Boolean).join(' ');
+    const keeper = KEEPERS[skill.id];
+    if (!keeper || !talk) return null;
     return (
-      <KeeperDialog
+      <KeeperTalk
+        key={skill.id}
+        keeper={keeper}
         look={keeperLookFor(WORLD_SKILLS.findIndex((s) => s.id === skill.id))}
-        name={<FormattedMessage id="world.keeperVocabulary" />}
-        line={line}
-        primary={<FormattedMessage id={advice.actionId} />}
-        onPrimary={() => openActivity(advice.action)}
-        secondary={<FormattedMessage id="world.kvOther" />}
-        onSecondary={() => setTalk(null)}
+        recap={talk.recap}
+        onAction={openActivity}
+        onOther={() => setTalk(null)}
       />
     );
-  };
-  /** Where you stand in each Vocabulary activity, on its menu card. */
-  const badges = {
-    review: due > 0 ? intl.formatMessage({ id: 'world.badgeDue' }, { count: due }) : undefined,
-    learn: active ? `${active.name} · ${active.pct}%` : undefined,
   };
 
   /** What the activities' screens take from the world (./worldgames/world.ts). */
@@ -204,6 +188,7 @@ export function WorldGame() {
     openActivity,
     learnWord: learnAtDongBa,
     chosen,
+    activeCollection: active ? { name: active.name, pct: active.pct } : null,
     collectionsHall,
     tailor: {
       initial: dress ?? DEFAULT_LOOK,
@@ -279,7 +264,7 @@ export function WorldGame() {
               dress: open.activity?.id === 'wardrobe' ? trying ?? dress ?? DEFAULT_LOOK : undefined,
               // The keeper's speech bubble while they talk: their message box,
               // or the tailor fitting you.
-              talking: open.activity?.id === 'wardrobe' || (!open.activity && open.skill.id === 'vocabulary' && talk !== null),
+              talking: open.activity?.id === 'wardrobe' || (!open.activity && !!KEEPERS[open.skill.id] && talk !== null),
               tools: (
                 <SkillToolbar
                   skill={open.skill}
@@ -294,9 +279,10 @@ export function WorldGame() {
               content: open.activity
                 ? activityScreen(open.activity.id)
                 : keeperTalk(open.skill) ?? (
-                  <SkillMenu
+                  <KeeperMenu
+                    key={open.skill.id}
+                    keeper={KEEPERS[open.skill.id]}
                     skill={open.skill}
-                    badges={open.skill.id === 'vocabulary' ? badges : undefined}
                     onPick={(activity) => setOpen({ skill: open.skill, activity })}
                   />
                 ),

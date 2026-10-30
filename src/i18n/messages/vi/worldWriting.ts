@@ -24,4 +24,9 @@ export default {
   'world.scribeCopy': 'Sao chép',
   'world.scribePlaceholder': 'Dán hoặc viết bất cứ gì — email, tin nhắn, bài luận…',
   'world.scribeImprove': 'Cải thiện',
+  'world.keeperWriting': 'Thầy Đồ · nhà nho',
+  'world.kwStele': 'Chữ chỉ đọc thì trôi đi, chữ viết ra thì ở lại. Khắc một câu với từ con đang học nhé.',
+  'world.kwSteleGo': 'Khắc bia',
+  'world.kwIelts': 'Ra chợ học vài từ trước đã — trong lúc đó, thử một bài IELTS Writing.',
+  'world.kwIeltsGo': 'Thử IELTS Writing',
 } satisfies Record<keyof typeof en, string>;

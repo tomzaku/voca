@@ -44,4 +44,11 @@ export default {
   'world.shadowNoMic': 'This browser can’t record — listen and repeat it aloud anyway.',
   'world.readPlaceholder': 'Type or paste anything to hear it…',
   'world.rpRandom': 'Random',
+  'world.keeperSpeaking': 'Chú Năm · the tea seller',
+  'world.ksDialogue': 'Sit down, have some tea. {left, plural, one {# everyday dialogue is} other {# everyday dialogues are}} waiting for you — shall we play one?',
+  'world.ksDialogueGo': 'Play a dialogue',
+  'world.ksIelts': 'You’ve tried every everyday dialogue! {left, plural, one {# IELTS Speaking part is} other {# IELTS Speaking parts are}} left — ready for the examiner?',
+  'world.ksIeltsGo': 'Try IELTS Speaking',
+  'world.ksShadow': 'You’ve tried every script I have. Now polish your voice: hear a line, say it straight back.',
+  'world.ksShadowGo': 'Shadow a line',
 } satisfies Catalog;

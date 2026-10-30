@@ -26,4 +26,9 @@ export default {
   'world.scribeCopy': 'Copy',
   'world.scribePlaceholder': 'Paste or write anything — an email, a message, an essay…',
   'world.scribeImprove': 'Improve',
+  'world.keeperWriting': 'Thầy Đồ · the scholar',
+  'world.kwStele': 'Words you only read slip away; words you write stay. Carve a sentence with one you’re learning.',
+  'world.kwSteleGo': 'Carve a stele',
+  'world.kwIelts': 'Learn a few words at the market first — meanwhile, try an IELTS Writing task.',
+  'world.kwIeltsGo': 'Try IELTS Writing',
 } satisfies Catalog;

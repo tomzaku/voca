@@ -19,4 +19,11 @@ export default {
   'world.ilPlay': 'Phát băng',
   'world.ilHandIn': 'Nộp bài',
   'world.ilSections': 'Các phần',
+  'world.keeperListening': 'Ông Sáu · người lái đò',
+  'world.klDictation': 'Lên thuyền nào. Khởi động đôi tai trước — ông đọc một câu, con chép lại.',
+  'world.klDictationGo': 'Bắt đầu chép chính tả',
+  'world.klClip': 'Tai thính lắm! Thử đoạn dài hơn nhé? Nghe một đoạn băng rồi trả lời câu hỏi.',
+  'world.klClipGo': 'Nghe một đoạn',
+  'world.klIelts': 'Con nghe được hết rồi. Đến lúc thi thật — một phần IELTS Listening.',
+  'world.klIeltsGo': 'Làm IELTS Listening',
 } satisfies Record<keyof typeof en, string>;

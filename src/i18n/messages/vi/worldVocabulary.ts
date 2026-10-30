@@ -43,8 +43,6 @@ export default {
   'world.kvDue': 'Có {due} từ đang chờ ôn. Mình ôn {n} từ ngay khi còn nhớ nhé.',
   'world.kvLearn': 'Không còn từ nào cần ôn — giỏi lắm. Học thêm vài từ mới trong {name} nhé?',
   'world.kvListDone': 'Bạn đã học xong {name}! Chọn danh sách mới rồi mình học tiếp.',
-  'world.kvRecap': 'Đúng {right}/{total} — tốt lắm.',
-  'world.kvRecapPerfect': '{total}/{total} — hoàn hảo!',
   'world.kvPickList': 'Chọn danh sách',
   'world.kvReview': 'Ôn ngay',
   'world.kvLearnNew': 'Học từ mới',

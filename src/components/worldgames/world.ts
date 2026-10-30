@@ -13,6 +13,8 @@ export interface WorldApi {
   learnWord: (word: string) => void;
   /** Has this learner ever chosen a collection. */
   chosen: boolean;
+  /** The collection being studied, and how much of it is done (%). */
+  activeCollection: { name: string; pct: number } | null;
   /** The collections list with its actions — study, preview, quiz, manage. */
   collectionsHall: (focus: string | null, prompt?: string) => ReactNode;
   /** The tailor's: what you have on, and how a fitting ends. */

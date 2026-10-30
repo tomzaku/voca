@@ -45,8 +45,6 @@ export default {
   'world.kvDue': '{due, plural, one {# word is} other {# words are}} waiting for review. Let’s clear {n} now, while they’re fresh.',
   'world.kvLearn': 'Nothing is due — well done. Shall we learn some new words from {name}?',
   'world.kvListDone': 'You’ve finished {name}! Pick a new list and we’ll keep going.',
-  'world.kvRecap': '{right} of {total} right — nice.',
-  'world.kvRecapPerfect': '{total} of {total} — perfect!',
   'world.kvPickList': 'Pick a list',
   'world.kvReview': 'Review now',
   'world.kvLearnNew': 'Learn new words',

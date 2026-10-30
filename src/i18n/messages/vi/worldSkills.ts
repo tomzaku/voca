@@ -20,4 +20,6 @@ export default {
   'world.menuBack': 'Menu',
   'world.menuChoose': 'Bạn muốn làm gì?',
   'world.skills': 'Kỹ năng',
+  'world.keeperRecap': 'Đúng {right}/{total} — tốt lắm.',
+  'world.keeperRecapPerfect': '{total}/{total} — hoàn hảo!',
 } satisfies Record<keyof typeof en, string>;

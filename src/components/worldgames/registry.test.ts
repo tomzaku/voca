@@ -38,3 +38,14 @@ describe('activity registry', () => {
     expect(findActivity('nope')).toBeNull();
   });
 });
+
+describe('keepers', () => {
+  it('gives every skill a keeper, named in both languages', async () => {
+    const { KEEPERS } = await import('./keepers');
+    for (const s of SKILLS) {
+      expect(KEEPERS[s.id], s.id).toBeDefined();
+      expect(en[KEEPERS[s.id].nameId], s.id).toBeDefined();
+      expect(vi[KEEPERS[s.id].nameId], s.id).toBeDefined();
+    }
+  });
+});

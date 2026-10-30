@@ -22,4 +22,6 @@ export default {
   'world.menuBack': 'Menu',
   'world.menuChoose': 'What would you like to do?',
   'world.skills': 'Skills',
+  'world.keeperRecap': '{right} of {total} right — nice.',
+  'world.keeperRecapPerfect': '{total} of {total} — perfect!',
 } satisfies Catalog;

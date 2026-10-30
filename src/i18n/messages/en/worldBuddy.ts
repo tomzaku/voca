@@ -45,4 +45,7 @@ export default {
   'world.hair.spikeyhair': 'Spiky',
   'world.actBuddy': 'Your buddy',
   'world.actBuddyBlurb': 'Its growth, perk and skills',
+  'world.keeperYou': 'Mệ Hai · keeper of An Hiên',
+  'world.kyHome': 'Welcome home, con. {name} has grown on {known, plural, one {# word} other {# words}} you know — go and see.',
+  'world.kyBuddyGo': 'See your buddy',
 } satisfies Catalog;

@@ -21,4 +21,11 @@ export default {
   'world.ilPlay': 'Play recording',
   'world.ilHandIn': 'Hand in',
   'world.ilSections': 'Sections',
+  'world.keeperListening': 'Ông Sáu · the boatman',
+  'world.klDictation': 'Welcome aboard. Let’s warm up your ears — I’ll say a sentence, you write it down.',
+  'world.klDictationGo': 'Start dictation',
+  'world.klClip': 'Sharp ears! Ready for something longer? Listen to a clip and answer its questions.',
+  'world.klClipGo': 'Hear a clip',
+  'world.klIelts': 'You caught all of that. Time for a real test — an IELTS Listening section.',
+  'world.klIeltsGo': 'Sit IELTS Listening',
 } satisfies Catalog;

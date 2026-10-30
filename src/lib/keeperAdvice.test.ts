@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { vocabularyAdvice } from './keeperAdvice';
+import { listeningAdvice, speakingAdvice, vocabularyAdvice, writingAdvice, youAdvice } from './keeperAdvice';
 
 const list = { name: 'Level 2', pct: 1 };
 
@@ -21,8 +21,44 @@ describe('vocabularyAdvice', () => {
     expect(vocabularyAdvice({ chosen: true, due: 0, collection: { name: 'A', pct: 100 } }).action).toBe('collections');
   });
   it('opens with how the last activity went, and cheers a perfect one', () => {
-    expect(vocabularyAdvice({ chosen: true, due: 0, collection: list, recap: { right: 8, total: 10 } }).recapId).toBe('world.kvRecap');
-    expect(vocabularyAdvice({ chosen: true, due: 0, collection: list, recap: { right: 5, total: 5 } }).recapId).toBe('world.kvRecapPerfect');
+    expect(vocabularyAdvice({ chosen: true, due: 0, collection: list, recap: { right: 8, total: 10 } }).recapId).toBe('world.keeperRecap');
+    expect(vocabularyAdvice({ chosen: true, due: 0, collection: list, recap: { right: 5, total: 5 } }).recapId).toBe('world.keeperRecapPerfect');
     expect(vocabularyAdvice({ chosen: true, due: 0, collection: list, recap: { right: 0, total: 0 } }).recapId).toBeUndefined();
+  });
+});
+
+describe('speakingAdvice', () => {
+  it('starts with the everyday dialogues, then IELTS, then shadowing', () => {
+    expect(speakingAdvice({ dialoguesLeft: 3, ieltsLeft: 5 }).action).toBe('dialogue');
+    expect(speakingAdvice({ dialoguesLeft: 0, ieltsLeft: 5 }).action).toBe('ielts-speaking');
+    expect(speakingAdvice({ dialoguesLeft: 0, ieltsLeft: 0 }).action).toBe('shadow');
+  });
+});
+
+describe('listeningAdvice', () => {
+  it('warms up with dictation', () => {
+    expect(listeningAdvice().action).toBe('dictation');
+  });
+  it('moves on after a good dictation, then a good clip', () => {
+    expect(listeningAdvice({ right: 9, total: 10, from: 'dictation' }).action).toBe('comprehension');
+    expect(listeningAdvice({ right: 4, total: 4, from: 'comprehension' }).action).toBe('ielts-listening');
+  });
+  it('stays on dictation after a rough one', () => {
+    expect(listeningAdvice({ right: 2, total: 10, from: 'dictation' }).action).toBe('dictation');
+  });
+});
+
+describe('writingAdvice', () => {
+  it('asks for a sentence with a word you’re learning', () => {
+    expect(writingAdvice({ hasWords: true }).action).toBe('writing');
+  });
+  it('offers IELTS when there’s no word yet', () => {
+    expect(writingAdvice({ hasWords: false }).action).toBe('ielts-writing');
+  });
+});
+
+describe('youAdvice', () => {
+  it('sends you to your buddy', () => {
+    expect(youAdvice({ name: 'Kitty', known: 12 }).action).toBe('buddy');
   });
 });
