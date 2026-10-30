@@ -305,5 +305,239 @@ async function tailor() {
   console.log(`tailor.png ${W}×${H}`);
 }
 
+// ── Shared pieces for the skills' rooms ──
+
+/** Sky over the far bank and the river — for rooms that open onto the water. */
+function riverView(cv, W, top, horizon, waterTo) {
+  for (let y = top; y < horizon; y++) for (let x = 0; x < W; x++) {
+    cv.set(x, y, mix([196, 222, 230], [228, 236, 222], (y - top) / (horizon - top)));
+  }
+  // The far bank: a band of trees, soft-edged.
+  for (let x = 0; x < W; x++) {
+    const h = 6 + Math.round(4 * Math.sin(x / 11) + 3 * Math.sin(x / 5.3) + hash(x, 1) * 2);
+    for (let y = horizon - h; y < horizon + 2; y++) cv.set(x, y, mix([92, 132, 96], [70, 108, 78], hash(x >> 1, y)));
+  }
+  for (let y = horizon + 2; y < waterTo; y++) for (let x = 0; x < W; x++) {
+    let c = mix([104, 160, 162], [86, 142, 148], (y - horizon) / (waterTo - horizon));
+    if (hash(x >> 3, y) > 0.93) c = [170, 212, 204];
+    cv.set(x, y, c);
+  }
+}
+
+/** Wooden deck or floor planks, laid across. */
+function planks(cv, W, y0, y1, base = [168, 116, 72]) {
+  for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) {
+    const row = Math.floor((y - y0) / 8);
+    const seam = (y - y0) % 8 === 0 || (x + row * 37) % 64 === 0;
+    let c = mix(base, shade(base, 0.88), hash(row, (x + row * 37) >> 6));
+    if (seam) c = shade(c, 0.78);
+    cv.set(x, y, mix(c, shade(base, 1.07), hash(x, y) * 0.12));
+  }
+  cv.rect(0, y0, W, 2, [0, 0, 0], 0.25);
+}
+
+/** The soft vignette every room ends with. */
+function vignette(cv, W, H, tint = [40, 22, 14]) {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2);
+    const v = Math.max(0, Math.hypot(dx, dy * 0.8) - 0.55);
+    if (v > 0) cv.set(x, y, tint, Math.min(0.45, v * 0.8));
+  }
+}
+
+/** A low tea table with a pot and cups. */
+function teaTable(cv, x, y) {
+  cv.rect(x + 2, y + 9, 30, 3, [0, 0, 0], 0.18);
+  cv.rect(x, y, 30, 4, WOOD.light);
+  cv.rect(x, y + 4, 30, 2, WOOD.dark);
+  cv.rect(x + 2, y + 6, 3, 6, WOOD.dark);
+  cv.rect(x + 25, y + 6, 3, 6, WOOD.dark);
+  cv.oval(x + 9, y - 3, 4, 3, [86, 128, 132]);     // teapot
+  cv.rect(x + 13, y - 4, 3, 1, [86, 128, 132]);
+  cv.rect(x + 8, y - 7, 2, 1, [60, 96, 100]);
+  for (const cx of [18, 23]) { cv.rect(x + cx, y - 2, 3, 2, [236, 228, 210]); cv.rect(x + cx, y - 2, 3, 1, [200, 170, 110]); }
+}
+
+/** A low stool. */
+function stool(cv, x, y) {
+  cv.rect(x, y, 10, 3, WOOD.base);
+  cv.rect(x, y, 10, 1, WOOD.light);
+  cv.rect(x + 1, y + 3, 2, 5, WOOD.dark);
+  cv.rect(x + 7, y + 3, 2, 5, WOOD.dark);
+}
+
+// ── Speaking: Chú Năm's tea stall on Cồn Hến ──
+async function speaking() {
+  const W = 384, H = 192, FLOOR = 92;
+  const cv = new Canvas(W, H);
+  riverView(cv, W, 0, 46, FLOOR);
+  // A thatched awning along the top, on bamboo posts.
+  for (let y = 0; y < 16; y++) for (let x = 0; x < W; x++) {
+    const c = mix([196, 164, 96], [160, 128, 70], hash(x >> 1, y) * 0.8);
+    cv.set(x, y, (y + (x >> 2)) % 5 === 0 ? shade(c, 0.85) : c);
+  }
+  for (let x = 0; x < W; x += 3) cv.rect(x, 16, 2, 2 + (hash(x, 3) > 0.5 ? 2 : 0), [150, 118, 62]);
+  for (const x of [20, 140, 238, 358]) { cv.rect(x, 16, 5, FLOOR - 16, [176, 160, 96]); cv.rect(x, 16, 1, FLOOR - 16, [206, 194, 130]); for (let y = 24; y < FLOOR; y += 14) cv.rect(x, y, 5, 1, [130, 112, 60]); }
+  // A rail at the water's edge.
+  cv.rect(0, FLOOR - 12, W, 2, [176, 160, 96]);
+  for (let x = 6; x < W; x += 18) cv.rect(x, FLOOR - 12, 2, 12, [150, 132, 74]);
+  // Floor: a bamboo deck over the bank.
+  planks(cv, W, FLOOR, H, [186, 160, 104]);
+  // The stall's cart of chè: pots and bright bowls.
+  counter(cv, 12, 100, 96, 22);
+  for (const [i, c] of [[0, [196, 92, 132]], [1, [240, 196, 64]], [2, [78, 156, 106]], [3, [236, 228, 210]], [4, [128, 72, 152]]]) {
+    cv.oval(26 + i * 16, 96, 6, 3, [60, 60, 66]);
+    cv.oval(26 + i * 16, 95, 5, 2, c);
+  }
+  // Tea tables and stools out front.
+  teaTable(cv, 168, 128); stool(cv, 154, 136); stool(cv, 204, 136);
+  teaTable(cv, 270, 112); stool(cv, 256, 120); stool(cv, 306, 120);
+  for (const [x, len] of [[80, 4], [196, 2], [300, 4]]) lantern(cv, x, 16, len);
+  vignette(cv, W, H);
+  await cv.save('speaking.png');
+  console.log(`speaking.png ${W}×${H}`);
+}
+
+// ── Listening: the dragon boat's deck, on the Perfume River ──
+async function listening() {
+  const W = 384, H = 192, DECK = 100;
+  const cv = new Canvas(W, H);
+  riverView(cv, W, 0, 50, DECK);
+  // Thiên Mụ's tower on the far bank: seven tiers, narrowing.
+  for (let t = 0; t < 7; t++) {
+    const w = 14 - t * 1.4, y = 46 - t * 5;
+    cv.rect(Math.round(300 - w / 2), y - 4, Math.round(w), 4, [214, 150, 120]);
+    cv.rect(Math.round(300 - w / 2) - 1, y - 5, Math.round(w) + 2, 1, [120, 84, 70]);
+  }
+  cv.rect(299, 6, 2, 6, [120, 84, 70]);
+  // The cabin roof overhead: red lacquer beams with gold trim.
+  cv.rect(0, 0, W, 12, LACQUER.dark);
+  cv.rect(0, 12, W, 3, GOLD.base);
+  for (let x = 6; x < W; x += 20) cv.rect(x, 0, 4, 12, LACQUER.base);
+  for (const x of [36, 186, 336]) pillar(cv, x, 15, DECK);
+  // The railing: red posts, gold rail.
+  cv.rect(0, DECK - 14, W, 3, GOLD.dark);
+  cv.rect(0, DECK - 14, W, 1, GOLD.light);
+  for (let x = 4; x < W; x += 16) cv.rect(x, DECK - 14, 3, 14, LACQUER.base);
+  planks(cv, W, DECK, H, [150, 96, 60]);
+  // The dragon's head rearing at the prow, on the left.
+  cv.rect(0, 60, 26, 40, [214, 164, 60]);
+  for (let i = 0; i < 8; i++) cv.rect(26 + i, 60 + i * 2, 1, 40 - i * 4, [214, 164, 60]);
+  cv.rect(4, 52, 16, 10, [226, 180, 72]);
+  cv.rect(18, 56, 8, 3, [190, 60, 40]);       // tongue
+  cv.rect(10, 55, 2, 2, [40, 30, 30]);         // eye
+  for (let y = 64; y < 100; y += 5) cv.rect(2, y, 22, 1, [180, 130, 44]);   // scales
+  // Instruments for ca Huế: a đàn tranh on a low stand, a drum.
+  cv.rect(150, 128, 70, 5, WOOD.light);
+  cv.rect(150, 133, 70, 2, WOOD.dark);
+  for (let i = 0; i < 9; i++) cv.rect(154 + i * 7, 127, 1, 1, [236, 228, 210]);
+  cv.rect(152, 135, 3, 6, WOOD.dark); cv.rect(215, 135, 3, 6, WOOD.dark);
+  cv.oval(256, 140, 10, 6, [150, 44, 36]); cv.oval(256, 137, 9, 3, [226, 204, 160]);
+  for (const [x, len] of [[90, 4], [140, 8], [240, 8], [290, 4]]) lantern(cv, x, 15, len);
+  vignette(cv, W, H);
+  await cv.save('listening.png');
+  console.log(`listening.png ${W}×${H}`);
+}
+
+// ── Writing: the hall of stelae at Văn Miếu ──
+async function writing() {
+  const W = 384, H = 192, FLOOR = 88;
+  const cv = new Canvas(W, H);
+  for (let y = 0; y < FLOOR; y++) for (let x = 0; x < W; x++) cv.set(x, y, mix([196, 150, 104], [176, 132, 90], hash(x >> 2, y >> 2) * 0.6));
+  cv.rect(0, 0, W, 10, WOOD.dark);
+  for (let x = 4; x < W; x += 24) cv.rect(x, 0, 6, 10, WOOD.base);
+  cv.rect(0, 10, W, 2, [60, 38, 24]);
+  for (const x of [26, 126, 250, 350]) pillar(cv, x, 12, FLOOR);
+  // Scrolls of calligraphy between the pillars.
+  for (const x of [60, 296]) {
+    cv.rect(x - 1, 18, 26, 2, WOOD.dark);
+    cv.rect(x, 20, 24, 44, [240, 232, 210]);
+    for (let i = 0; i < 4; i++) { cv.rect(x + 9, 25 + i * 9, 6, 2, [40, 36, 40]); cv.rect(x + 11, 23 + i * 9, 2, 6, [40, 36, 40]); }
+    cv.rect(x - 1, 64, 26, 2, WOOD.dark);
+  }
+  // Stelae on stone turtles, along the back of the hall.
+  for (const x of [150, 184, 218]) {
+    cv.rect(x, 30, 22, 44, [150, 148, 142]);
+    cv.rect(x, 30, 22, 2, [176, 174, 168]);
+    cv.rect(x + 1, 28, 20, 2, [130, 128, 122]);
+    for (let r = 0; r < 7; r++) for (let c = 0; c < 3; c++) cv.rect(x + 4 + c * 6, 36 + r * 5, 3, 2, [118, 116, 110]);
+    cv.oval(x + 11, 80, 15, 7, [120, 118, 112]);       // the turtle
+    cv.oval(x + 11, 78, 12, 5, [140, 138, 132]);
+    cv.oval(x + 26, 80, 3, 3, [120, 118, 112]);        // its head
+  }
+  // Stone floor tiles.
+  for (let y = FLOOR; y < H; y++) for (let x = 0; x < W; x++) {
+    const tx = x >> 4, ty = (y - FLOOR) >> 4;
+    const joint = (x & 15) === 0 || ((y - FLOOR) & 15) === 0;
+    let c = mix([170, 166, 156], [152, 148, 140], hash(tx, ty));
+    if (joint) c = shade(c, 0.85);
+    cv.set(x, y, c);
+  }
+  cv.rect(0, FLOOR, W, 2, [0, 0, 0], 0.25);
+  // The scholar's desk on the left: paper, ink stone, brush.
+  counter(cv, 14, 100, 92, 22);
+  cv.rect(28, 94, 30, 6, [240, 232, 210]);
+  cv.rect(34, 96, 14, 1, [40, 36, 40]);
+  cv.rect(66, 95, 10, 5, [40, 40, 46]);
+  cv.rect(82, 92, 2, 8, [150, 110, 60]); cv.rect(82, 99, 2, 2, [30, 30, 30]);
+  // An incense burner on the right.
+  cv.rect(318, 124, 22, 14, [150, 120, 60]); cv.rect(316, 122, 26, 3, [180, 150, 80]);
+  for (const dx of [6, 12, 18]) cv.rect(318 + dx, 112, 1, 10, [120, 70, 50]);
+  for (const [x, len] of [[96, 6], [192, 2], [288, 6]]) lantern(cv, x, 12, len);
+  vignette(cv, W, H);
+  await cv.save('writing.png');
+  console.log(`writing.png ${W}×${H}`);
+}
+
+// ── You: the garden house at An Hiên ──
+async function you() {
+  const W = 384, H = 192, FLOOR = 88;
+  const cv = new Canvas(W, H);
+  // Dark wooden walls, carved panels.
+  for (let y = 0; y < FLOOR; y++) for (let x = 0; x < W; x++) cv.set(x, y, mix([110, 72, 46], [96, 62, 40], hash(x >> 3, y >> 2) * 0.7));
+  for (let x = 0; x < W; x += 32) cv.rect(x, 0, 3, FLOOR, [76, 48, 30]);
+  cv.rect(0, 0, W, 8, [70, 44, 28]);
+  for (const px of [36, 260]) for (const py of [18, 46]) {
+    cv.rect(px, py, 40, 22, [124, 84, 54]);
+    cv.rect(px + 2, py + 2, 36, 18, [96, 62, 40]);
+    for (let i = 0; i < 4; i++) cv.rect(px + 6 + i * 8, py + 6, 4, 10, [124, 84, 54]);
+  }
+  // An open doorway on the right onto the garden.
+  cv.rect(320, 14, 52, FLOOR - 14, [70, 44, 28]);
+  for (let y = 18; y < FLOOR; y++) for (let x = 324; x < 368; x++) cv.set(x, y, mix([120, 170, 100], [90, 140, 80], hash(x >> 2, y >> 2)));
+  for (const [cx, cy, c] of [[336, 40, [232, 150, 48]], [356, 30, [212, 64, 104]], [346, 60, [232, 150, 48]]]) cv.oval(cx, cy, 2, 2, c);
+  // The ancestral altar in the middle: red and gold, fruit and incense.
+  cv.rect(152, 40, 80, 40, LACQUER.dark);
+  cv.rect(152, 40, 80, 3, GOLD.base);
+  cv.rect(160, 46, 64, 26, LACQUER.base);
+  for (let i = 0; i < 3; i++) cv.rect(176 + i * 12, 50, 6, 18, GOLD.dark);
+  basket(cv, 168, 36, [232, 150, 48]);
+  basket(cv, 216, 36, [212, 64, 104]);
+  cv.rect(190, 30, 4, 8, [150, 120, 60]);
+  for (const dx of [0, 2]) cv.rect(191 + dx, 22, 1, 8, [120, 70, 50]);
+  // Brick floor.
+  for (let y = FLOOR; y < H; y++) for (let x = 0; x < W; x++) {
+    const row = (y - FLOOR) >> 3;
+    const joint = (y - FLOOR) % 8 === 0 || (x + (row % 2) * 8) % 16 === 0;
+    let c = mix([176, 100, 70], [158, 88, 60], hash(x >> 4, row));
+    if (joint) c = shade(c, 0.8);
+    cv.set(x, y, c);
+  }
+  cv.rect(0, FLOOR, W, 2, [0, 0, 0], 0.25);
+  // A tea table and an orchid in a blue pot.
+  teaTable(cv, 40, 124); stool(cv, 26, 132); stool(cv, 76, 132);
+  cv.rect(286, 128, 14, 12, [72, 122, 196]); cv.rect(286, 128, 14, 2, [110, 156, 220]);
+  for (let i = 0; i < 4; i++) cv.rect(288 + i * 3, 112 + i, 2, 16 - i, [78, 140, 90]);
+  for (const [x, y] of [[290, 108], [296, 106], [300, 110]]) cv.rect(x, y, 3, 3, [236, 140, 200]);
+  for (const [x, len] of [[120, 4], [264, 4]]) lantern(cv, x, 8, len);
+  vignette(cv, W, H);
+  await cv.save('you.png');
+  console.log(`you.png ${W}×${H}`);
+}
+
 await vocabulary();
 await tailor();
+await speaking();
+await listening();
+await writing();
+await you();

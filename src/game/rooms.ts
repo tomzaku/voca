@@ -36,6 +36,30 @@ export const ROOMS: Record<string, RoomDef> = {
     edge: 0x2a1a12,
     place: 'dongBa',
   },
+  // Chú Năm's tea stall on Cồn Hến, over the river.
+  speaking: {
+    id: 'speaking', url: 'game/rooms/speaking.png', w: 384, h: 192,
+    keeper: { x: 64, y: 150 }, buddy: { x: 330, y: 162 },
+    edge: 0x2a2014, place: 'conHen',
+  },
+  // The dragon boat's deck, Thiên Mụ's tower across the water.
+  listening: {
+    id: 'listening', url: 'game/rooms/listening.png', w: 384, h: 192,
+    keeper: { x: 60, y: 156 }, buddy: { x: 322, y: 164 },
+    edge: 0x24160e, place: 'dragonBoat',
+  },
+  // Văn Miếu's hall of stelae, the scholar at his desk.
+  writing: {
+    id: 'writing', url: 'game/rooms/writing.png', w: 384, h: 192,
+    keeper: { x: 64, y: 156 }, buddy: { x: 296, y: 168 },
+    edge: 0x221a14, place: 'vanMieu',
+  },
+  // The garden house at An Hiên — home.
+  you: {
+    id: 'you', url: 'game/rooms/you.png', w: 384, h: 192,
+    keeper: { x: 104, y: 158 }, buddy: { x: 316, y: 166 },
+    edge: 0x1e140c, place: 'anHien',
+  },
   // The tailor's (tiệm may): where you're dressed, first and whenever you like.
   tailor: {
     id: 'tailor',
