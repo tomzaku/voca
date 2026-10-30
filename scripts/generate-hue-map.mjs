@@ -53,7 +53,9 @@
 //   layout.mjs where everything is — river, Citadel, gates, roads, lakes,
 //              keepers — and the water and road tests built on it
 //   draw/      building blocks: roofs and halls, tomb stonework, trees
-//   paint/     terrain and water, the ground under everything
+//   roads.mjs  the road network: streets, lanes and paved courts
+//   paint/     terrain, roads and water, the ground under everything; street
+//              lamps, crossings and parked bikes
 //   places/    one file per part of the city, each drawing its landmarks
 //   fill/      the passes that fill the gaps: houses, boats, trees, forest
 //   meta, collision, check — the map's points, walls and sanity check
@@ -68,7 +70,8 @@ import { fileURLToPath } from 'node:url';
 import { Canvas } from './hue/core/canvas.mjs';
 import { ground, night, over } from './hue/core/world.mjs';
 import { H, PH, PW, T, W } from './hue/layout.mjs';
-import { paintGrass, paintRoads } from './hue/paint/terrain.mjs';
+import { paintGrass } from './hue/paint/terrain.mjs';
+import { furnishStreets, paintRoads } from './hue/paint/roads.mjs';
 import { paintWater } from './hue/paint/water.mjs';
 import { drawRiver } from './hue/places/river.mjs';
 import { drawCitadel, drawCitadelGrounds } from './hue/places/citadel.mjs';
@@ -100,6 +103,7 @@ drawKimLong();
 drawDongBa();
 drawSouthBank();
 drawTombs();
+furnishStreets();
 buildNeighbourhoods();
 launchBoats();
 plantGreenery();

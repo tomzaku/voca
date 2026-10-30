@@ -150,49 +150,11 @@ export const inRiver = (x, y) => {
 export const inCanal = (x, y) => CANALS.some((c) => nearest(c, x, y).d < CANAL_HW);
 export const isWater = (x, y) => inRiver(x, y) || inCanal(x, y) || inMoat(x, y) || inLake(x, y);
 
-// Paved surfaces: [x, y, w, h, material] in tiles. Purely visual — anything
-// that isn't a wall is walkable — but they show where the city expects you.
-export const ROADS = [
-  // Kim Long
-  [2, 12, 26, 2, 'dirt'], [2, 22, 26, 2, 'dirt'], [2, 31, 26, 2, 'dirt'],
-  [2, 12, 2, 36, 'dirt'], [26, 8, 2, 40, 'dirt'],
-  [14, 44, 12, 1, 'stone'], [19, 45, 2, 3, 'stone'], // Văn Miếu's forecourt
-  [28, WEST_GATE_Y, 7, 2, 'stone'],                 // through the west gate
-  // North riverside road, the length of the city
-  [0, 48, 97, 2, 'dirt'],
-  // Inside the Citadel
-  [31, 41, 46, 3, 'stone'],                         // esplanade along the front wall
-  ...SOUTH_GATES.map((g) => [g, 44, 2, 4, 'stone']),
-  [35, 30, 2, 11, 'stone'],                         // from the west gate down past the library
-  [32, 21, 8, 7, 'stone'],                          // the library's island courtyard
-  [69, EAST_GATE_Y, 11, 2, 'stone'], [70, 38, 2, 3, 'stone'],
-  [72, 19, 2, 17, 'stone'],                         // up to Duyệt Thị Đường
-  // The Imperial City: the lane behind Thái Hòa, the court before it, the
-  // way in through Ngọ Môn and up to Đại Cung Môn
-  [44, 23, 23, 1, 'stone'], [44, 30, 23, 1, 'stone'],
-  [54, 22, 2, 1, 'stone'], [54, 31, 2, 3, 'stone'],
-  // Gia Hội
-  [84, 36, 19, 2, 'dirt'], [97, 38, 2, 10, 'dirt'], [101, 38, 2, 1, 'dirt'],
-  // South bank
-  [0, 58, 97, 2, 'stone'],                          // Lê Lợi riverside promenade
-  [20, 60, 2, 43, 'dirt'], [66, 77, 2, 26, 'dirt'], // south into the hills
-  [2, 103, 87, 2, 'dirt'],                          // the tombs' road
-  [48, 60, 3, 12, 'dirt'], [66, 60, 3, 12, 'dirt'], // south to the canal; on from Phú Xuân
-  [44, 75, 27, 2, 'dirt'],                          // across the canal, to Ngự Bình
-  [35, 65, 12, 1, 'stone'],                         // Quốc Học forecourt
-  [69, 68, 17, 2, 'stone'],                         // the walking street
-];
-
 // The river's bridges run from the north road (row 49) to the promenade (58).
 export const BRIDGE_Y0 = 49.7 * T;
 export const BRIDGE_Y1 = 58.3 * T;
 export const BANK_N = 51 * T;
 export const BANK_S = 57 * T;
 
-/** Within a tile of a road — kept clear for walking. */
-export const onAnyRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x - 1 && tx < x + w + 1 && ty >= y - 1 && ty < y + h + 1);
 /** Too close to a keeper or the spawn to build or plant on. */
 export const nearSlot = (tx, ty) => [...FEATURES.map(([, x, y]) => [x, y]), SPAWN].some(([x, y]) => Math.abs(tx + 1 - x) < 4 && Math.abs(ty + 1 - y) < 4);
-/** On a road, or within a tile of one. */
-export const onRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x && tx < x + w && ty >= y && ty < y + h);
-export const nearRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x - 1 && tx < x + w + 1 && ty >= y - 1 && ty < y + h + 1);

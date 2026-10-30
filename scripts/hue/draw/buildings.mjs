@@ -5,8 +5,8 @@
 // down are its footprint (blocked, painted on the ground), rows above it are
 // its upper part (painted again on `over`, so the buddy passes behind them).
 
-import { Canvas, hash, mix } from '../core/canvas.mjs';
-import { P, ROOF } from '../core/palette.mjs';
+import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
+import { P, ROOF, STREET } from '../core/palette.mjs';
 import { deck, glow, ground, mark, solid } from '../core/world.mjs';
 import { T } from '../layout.mjs';
 
@@ -105,14 +105,33 @@ export function stoneSpan(tx, ty, tw, th) {
   mark(deck, tx, ty, tw, th);
 }
 
-export function plainBridge(tx, tw, y0, y1, deckC, railC) {
-  const x0 = tx * T, x1 = (tx + tw) * T;
-  for (let y = y0; y < y1; y++) {
-    ground.set(x1, y + 2, P.shadow, 0.35);       // shadow on the water, east side
+/** A road bridge's deck in the streets' own style — parapets with posts
+ *  along both edges, pavements inside them, asphalt down the middle under a
+ *  centre line (or a median) — with its shadow on the water and `piers`
+ *  standing in it, the river breaking white on their downstream side. */
+export function bridgeDeck(tx, tw, y0, y1, { rail, post, piers = 3, pierColor = post, median = false }) {
+  const x0 = tx * T, x1 = (tx + tw) * T, cx = (x0 + x1) / 2;
+  for (let i = 1; i <= piers; i++) {
+    const py = Math.round(y0 + ((y1 - y0) * i) / (piers + 1));
+    ground.rect(x0 - 3, py - 2, x1 - x0 + 6, 5, pierColor);
+    ground.rect(x0 - 3, py + 3, x1 - x0 + 6, 1, mix(pierColor, [0, 0, 0], 0.3));
+    for (const [rx, len] of [[x1 + 4, 5], [x1 + 6, 3]]) ground.rect(rx, py - 1 + (len === 3 ? 2 : 0), len, 1, P.glint, 0.7);
+  }
+  for (let y = Math.floor(y0); y < y1; y++) {
+    ground.set(x1, y + 2, P.shadow, 0.35);
     ground.set(x1 + 1, y + 2, P.shadow, 0.2);
     for (let x = x0; x < x1; x++) {
-      const edge = x === x0 || x === x1 - 1;
-      ground.set(x, y, edge ? railC : (y % 6 === 0 ? mix(deckC, railC, 0.3) : deckC));
+      const e = Math.min(x - x0, x1 - 1 - x);
+      let c;
+      if (e < 2) c = y % 6 < 2 ? post : rail;
+      else if (e < 5) c = (x % 4 === 0 || y % 4 === 0) ? STREET.pavementJoint : mix(STREET.pavement, STREET.pavementJoint, hash(x, y) * 0.3);
+      else if (e < 6) c = STREET.kerb;
+      else {
+        c = mix(STREET.asphalt, STREET.asphaltDark, noise(x, y, 5));
+        if (hash(x, y) < 0.04) c = STREET.asphaltSpeck;
+        if (median ? Math.abs(x + 0.5 - cx) < 1.5 : Math.abs(x + 0.5 - cx) < 1 && y % 18 < 10) c = median ? [214, 208, 196] : STREET.centreLine;
+      }
+      ground.set(x, y, c);
     }
   }
   mark(deck, tx, Math.floor(y0 / T), tw, Math.ceil(y1 / T) - Math.floor(y0 / T));

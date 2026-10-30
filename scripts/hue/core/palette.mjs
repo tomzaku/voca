@@ -13,6 +13,13 @@ export const P = {
   shadow: [24, 40, 36],
 };
 
+// The streets' materials — shared by the roads and the bridges that carry them.
+export const STREET = {
+  asphalt: [98, 102, 110], asphaltDark: [88, 92, 100], asphaltSpeck: [120, 124, 132],
+  pavement: [206, 200, 188], pavementJoint: [182, 176, 164], kerb: [228, 224, 214], kerbShadow: [132, 128, 120],
+  centreLine: [234, 216, 140],
+};
+
 // Roof palettes: base, tile line, eave highlight, eave shadow, ridge.
 export const ROOF = {
   imperial: { base: [226, 178, 64], line: [204, 154, 50], light: [244, 206, 116], eave: [146, 98, 40], ridge: [178, 116, 38] },

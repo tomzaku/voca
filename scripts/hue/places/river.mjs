@@ -2,10 +2,11 @@
 // dragon-boat wharf and its boat, and the crossings over the canals.
 
 import { mix, noise } from '../core/canvas.mjs';
-import { P, ROOF } from '../core/palette.mjs';
+import { P, ROOF, STREET } from '../core/palette.mjs';
 import { glow, ground, night } from '../core/world.mjs';
-import { lamps, plainBridge, plankDeck, stoneSpan } from '../draw/buildings.mjs';
+import { bridgeDeck, lamps, plankDeck } from '../draw/buildings.mjs';
 import { BANK_N, BANK_S, BRIDGE_Y0, BRIDGE_Y1, EAST_GATE_Y, ISLETS, T, isletE } from '../layout.mjs';
+import { streetBridge } from '../paint/roads.mjs';
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
@@ -28,21 +29,12 @@ export function drawRiver() {
       }
     }
   }
-  // Phú Xuân: the plain one — even concrete spans on square piers, sidewalks
-  // along both edges and a steady line of lamps.
+  // Phú Xuân: the plain one — even concrete spans on square piers, and a
+  // steady line of lamps along its parapets.
   {
     const tx = 66, tw = 3, y0 = BRIDGE_Y0, y1 = BRIDGE_Y1;
     const x0 = tx * T, x1 = (tx + tw) * T;
-    for (let y = BANK_N + 8; y < BANK_S - 4; y += 18) {
-      ground.rect(x0 - 3, y, 3, 5, [150, 146, 140]);   // pier heads either side
-      ground.rect(x1, y, 3, 5, [150, 146, 140]);
-      ground.rect(x1 + 3, y + 2, 3, 5, P.shadow, 0.25);
-    }
-    plainBridge(tx, tw, y0, y1, [192, 188, 180], [150, 146, 140]);
-    for (let y = y0; y < y1; y++) {
-      ground.rect(x0 + 1, y, 3, 1, [212, 208, 200]);  // sidewalks
-      ground.rect(x1 - 4, y, 3, 1, [212, 208, 200]);
-    }
+    bridgeDeck(tx, tw, y0, y1, { rail: [204, 200, 192], post: [150, 146, 140], piers: 4 });
     lamps(x0, x1, y0, y1, 16);
   }
 
@@ -51,15 +43,16 @@ export function drawRiver() {
   {
     const tx = 32, tw = 3, y0 = BRIDGE_Y0, y1 = BRIDGE_Y1;
     const x0 = tx * T, x1 = (tx + tw) * T;
-    plainBridge(tx, tw, y0, y1, [184, 182, 176], [120, 126, 134]);
-    for (let y = y0; y < y1; y++) {
-      if (Math.floor(y) % 10 === 0) ground.rect(x0 + 2, y, tw * T - 4, 1, [168, 166, 160]); // expansion joints
+    bridgeDeck(tx, tw, y0, y1, { rail: [184, 190, 198], post: [120, 126, 134], piers: 2 });
+    for (let y = Math.ceil(y0); y < y1; y++) {
+      if (y % 12 === 0) ground.rect(x0 + 6, y, tw * T - 12, 1, STREET.asphaltSpeck); // expansion joints
     }
     lamps(x0, x1, y0, y1, 22);
   }
 
-  // Nguyễn Hoàng: the new crossing by Kim Long — a wide deck under one great
-  // arch in imperial yellow, hung on cables, standing on V-shaped piers.
+  // Nguyễn Hoàng: the new crossing by Kim Long — a wide deck with a median,
+  // under one great arch in imperial yellow hung on cables, standing on
+  // V-shaped piers.
   {
     const tx = 19, tw = 4, y0 = BRIDGE_Y0, y1 = BRIDGE_Y1;
     const x0 = tx * T, x1 = (tx + tw) * T, cx = (x0 + x1) / 2;
@@ -72,13 +65,9 @@ export function drawRiver() {
         }
       }
     }
-    plainBridge(tx, tw, y0, y1, [116, 118, 124], [212, 184, 96]);
-    for (let y = y0; y < y1; y++) {
-      ground.rect(x0 + 1, y, 6, 1, [206, 200, 188]);              // walkways
-      ground.rect(x1 - 7, y, 6, 1, [206, 200, 188]);
-      if (Math.floor(y) % 8 < 4) ground.set(cx - 7, y, [236, 236, 230]); // lane dashes
-      if (Math.floor(y) % 8 < 4) ground.set(cx + 6, y, [236, 236, 230]);
-      ground.rect(cx - 1, y, 2, 1, [96, 98, 104]);                 // median
+    bridgeDeck(tx, tw, y0, y1, { rail: [226, 196, 110], post: [176, 126, 40], piers: 0, median: true });
+    for (let y = Math.ceil(y0); y < y1; y++) {
+      if (y % 8 < 4) for (const lx of [cx - 14, cx + 13]) ground.set(lx, y, [236, 236, 230]); // lane dashes
     }
     // The arch springs from the median at both banks and leans out west over
     // the water, so its full sweep reads from above. Cables hang back to the deck.
@@ -101,15 +90,23 @@ export function drawRiver() {
     }
   }
 
-  // Trường Tiền: the deck, flanked by six silver-white truss arches. By day
-  // it's all silver; at night its lighting gives each span its own colour.
+  // Trường Tiền: the deck between six great silver-white truss arches, a
+  // stone pier wherever two meet. By day it's all silver; at night its
+  // lighting gives each span its own colour.
   {
     const tx = 75, tw = 3;
     const x0 = tx * T, x1 = (tx + tw) * T;
     const y0 = BRIDGE_Y0, y1 = BRIDGE_Y1;
-    plainBridge(tx, tw, y0, y1, [172, 168, 160], [132, 130, 126]);
     const spans = 6, spanLen = (y1 - y0) / spans;
-    const steel = [226, 232, 236], steelShade = [158, 170, 180];
+    // The piers first, under everything: stone footings in the water.
+    for (let s = 1; s < spans; s++) {
+      const py = Math.round(y0 + s * spanLen);
+      ground.rect(x0 - 12, py - 2, x1 - x0 + 24, 5, [168, 164, 156]);
+      ground.rect(x0 - 12, py + 3, x1 - x0 + 24, 1, [120, 116, 110]);
+      ground.rect(x1 + 13, py, 5, 1, P.glint, 0.7);
+    }
+    bridgeDeck(tx, tw, y0, y1, { rail: [160, 168, 178], post: [214, 220, 226], piers: 0 });
+    const steel = [228, 234, 240], steelShade = [150, 162, 174];
     // Huế purple first, then round the colour wheel, one per span.
     const spanLights = [[186, 120, 255], [96, 140, 255], [64, 214, 240], [96, 236, 150], [255, 220, 90], [255, 120, 180]];
     for (const side of [-1, 1]) {
@@ -117,20 +114,22 @@ export function drawRiver() {
       for (let s = 0; s < spans; s++) {
         const sy = y0 + s * spanLen;
         for (let k = 0; k <= spanLen; k++) {
-          // Arch bulging outward, drawn in oblique so it reads from above.
+          // The arch bulging outward, drawn in oblique so it reads from above;
+          // hangers from the deck's edge out to it.
           const t = k / spanLen;
-          const bulge = Math.round(Math.sin(t * Math.PI) * 6);
+          const bulge = Math.round(Math.sin(t * Math.PI) * 10);
           const x = base + side * bulge;
+          if (k % 3 === 0) for (let b = 1; b < bulge; b++) ground.set(base + side * b, sy + k, steelShade, 0.8);
           ground.set(x, sy + k, steel);
+          ground.set(x - side, sy + k, steel);
           ground.set(x + side, sy + k, steelShade);
+          ground.set(x + side * 2, sy + k + 2, P.shadow, 0.25);
           glow(x, sy + k, spanLights[s], k % 3 === 0 ? 2 : 1);
           night.set(x + side, sy + k, spanLights[s]);
-          // Lattice: diagonals from the deck rail out to the arch.
-          if (k % 4 === 0) for (let b = 0; b < bulge; b++) ground.set(base + side * b, sy + k + (b % 2), steelShade, 0.85);
         }
-        ground.rect(base - 1, Math.floor(sy) - 1, 3, 3, steelShade); // pier cap where arches meet
+        ground.rect(base - 1, Math.floor(sy) - 1, 3, 3, steelShade); // where the arches meet
       }
-      for (let y = y0; y < y1; y++) ground.set(base, y, steel);   // rail chord
+      for (let y = Math.floor(y0); y < y1; y++) ground.set(base, y, steel);   // the chord along the deck
     }
   }
 
@@ -170,7 +169,7 @@ export function drawRiver() {
 
   // Over the Đông Ba canal: at the east gate and on the riverside road.
   plankDeck(80, EAST_GATE_Y, 5, 2, true);
-  stoneSpan(80, 48, 5, 2);
+  streetBridge(80, 48, 5, 2);
   // Over the An Cựu canal, where the south-bank roads meet it.
-  for (const [x, w] of [[20, 2], [48, 3], [66, 3]]) stoneSpan(x, 71, w, 4);
+  for (const [x, w] of [[20, 2], [48, 3], [69, 3]]) streetBridge(x, 71, w, 4);
 }

@@ -6,7 +6,8 @@ import { rand } from '../core/canvas.mjs';
 import { ROOF } from '../core/palette.mjs';
 import { place, solid, used } from '../core/world.mjs';
 import { hall } from '../draw/buildings.mjs';
-import { T, isWater, nearSlot, onAnyRoad } from '../layout.mjs';
+import { T, isWater, nearSlot } from '../layout.mjs';
+import { onAnyRoad } from '../roads.mjs';
 
 export const SMALL_HOUSE = (roofPal, wall) => hall({ w: 3, h: 3, roofRows: 2, roofPal, wall, windows: true, windowStep: 9, doorW: 5 });
 export const LANE_ROOFS = [ROOF.red, ROOF.orange, ROOF.red, ROOF.blue, ROOF.terra, ROOF.orange, ROOF.teal, ROOF.dark];

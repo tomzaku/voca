@@ -3,7 +3,8 @@
 import { Canvas, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { ground, mark, over, solid, used } from '../core/world.mjs';
-import { H, RIVER_BRIDGES, T, W, isWater, nearRoad, nearSlot, onAnyRoad, onRoad } from '../layout.mjs';
+import { H, RIVER_BRIDGES, T, W, isWater, nearSlot } from '../layout.mjs';
+import { nearRoad, onAnyRoad, onRoad } from '../roads.mjs';
 
 export const treeKinds = {
   // Round broadleaf crown.

@@ -6,7 +6,8 @@ import { hash, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { ground, solid, used } from '../core/world.mjs';
 import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
-import { H, HILLS_Y, RIVER, ROADS, T, W, isWater, nearSlot, onAnyRoad, onIslet, riverHalfWidth } from '../layout.mjs';
+import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
+import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
 
 export function plantGreenery() {
   // Purple bằng lăng along both banks — the city's colour.
@@ -67,13 +68,19 @@ export function plantGreenery() {
   // A few flame trees for a warm accent.
   for (const [x, y] of [[24, 9], [100, 26], [44, 64], [109, 70]]) if (canPlant(x, y)) tree(x, y, 'flame');
   // Trees along the lanes, every few steps on both sides.
-  for (const [x, y, w, h, mat] of ROADS) {
-    if (mat !== 'dirt') continue;
+  for (const r of ROADS) {
+    if (r.kind === 'stone') continue;
     const kinds = ['leaf', 'deep', 'leaf', 'flame', 'leaf', 'lilac'];
-    if (w >= h) {
-      for (let tx = x + 1; tx < x + w - 1; tx += 3) for (const ty of [y - 1, y + h]) if (bankOk(tx, ty) && canPlantLoose(tx, ty)) plant(kinds[(tx + ty) % kinds.length], tx, ty);
-    } else {
-      for (let ty = y + 1; ty < y + h - 1; ty += 3) for (const tx of [x - 1, x + w]) if (bankOk(tx, ty) && canPlantLoose(tx, ty)) plant(kinds[(tx + ty) % kinds.length], tx, ty);
+    for (let s = T; s < r.line.length - T; s += 3 * T) {
+      const g = r.line.segs.find((seg) => s >= seg.s0 && s < seg.s0 + seg.len);
+      const t = (s - g.s0) / g.len;
+      const cx = g.ax + (g.bx - g.ax) * t, cy = g.ay + (g.by - g.ay) * t;
+      const nx = -(g.by - g.ay) / g.len, ny = (g.bx - g.ax) / g.len;
+      const reach = (r.width / 2 + 0.5) * T;
+      for (const side of [-1, 1]) {
+        const tx = Math.floor((cx + nx * reach * side) / T), ty = Math.floor((cy + ny * reach * side) / T);
+        if (bankOk(tx, ty) && canPlantLoose(tx, ty)) plant(kinds[(tx + ty) % kinds.length], tx, ty);
+      }
     }
   }
   // Forest round the edge of the map — the green hills Huế sits in, thickest
@@ -87,8 +94,8 @@ export function plantGreenery() {
         const n = noise(tx * T, ty * T, 70);
         const depth = (ty > H / 2 ? 2.8 + Math.max(0, ty - (H - 9)) * 0.6 : 2.2) + n * 3.6;
         // ...and woods in the open land, away from the lanes.
-        const wood = noise(tx * T + 900, ty * T + 300, 110) > 0.7 && !ROADS.some(([x, y, w, h]) => tx >= x - 2 && tx < x + w + 2 && ty >= y - 2 && ty < y + h + 2);
-        const hills = ty >= HILLS_Y && !ROADS.some(([x, y, w, h]) => tx >= x - 1 && tx < x + w + 1 && ty >= y - 1 && ty < y + h + 1);
+        const wood = noise(tx * T + 900, ty * T + 300, 110) > 0.7 && roadGap(tx, ty) >= 2;
+        const hills = ty >= HILLS_Y && roadGap(tx, ty) >= 1;
         if (edge >= depth && !wood && !hills) continue;
         if (used[ty][tx] || solid[ty][tx] || onAnyRoad(tx, ty) || isWater(tx * T + 8, ty * T + 8)) continue;
         if (nearSlot(tx - 1, ty - 1) || (used[ty + 1]?.[tx] && !wood && !hills)) continue;

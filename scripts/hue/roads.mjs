@@ -1,0 +1,119 @@
+// The road network, laid out like the real city: Lê Duẩn and Trần Hưng Đạo
+// along the Citadel's front, turning north-east with the river as Chi Lăng;
+// Lê Lợi on the south bank; Hùng Vương running south-east from Phú Xuân
+// bridge over the An Cựu canal; Điện Biên Phủ south past the station into the
+// hills; the lanes of Kim Long and Gia Hội; the winding tombs' road; and the
+// paved courts of the Citadel.
+//
+// A road is a path (tile coordinates) with a width, of one of three kinds:
+//   street — asphalt between kerbs and pavements; `main` ones have a centre line
+//   lane   — packed dirt with wheel ruts and grass creeping in at the edges
+//   stone  — paved: the Citadel's courts, forecourts, the walking street
+// Its ends are cut square, so a straight road is exactly the rectangle it
+// covers; where it bends, the bend is rounded.
+//
+// Roads are only paint — anything that isn't a wall is walkable — but they
+// show where the city expects you, and keep houses and trees off them.
+
+import { EAST_GATE_Y, H, SOUTH_GATES, T, W, WEST_GATE_Y, polyline } from './layout.mjs';
+
+const road = (kind, width, points, opts = {}) => ({ kind, width, points, line: polyline(points), ...opts });
+/** A straight road covering the tile rectangle (x, y, w, h). */
+const box = (x, y, w, h, kind, opts) => (w >= h
+  ? road(kind, h, [[x, y + h / 2], [x + w, y + h / 2]], opts)
+  : road(kind, w, [[x + w / 2, y], [x + w / 2, y + h]], opts));
+
+export const ROADS = [
+  // Kim Long: village lanes between the garden houses.
+  box(2, 12, 26, 2, 'lane'), box(2, 22, 26, 2, 'lane'), box(2, 31, 26, 2, 'lane'),
+  box(2, 12, 2, 36, 'lane'), box(26, 8, 2, 40, 'lane'),
+  box(14, 44, 12, 1, 'stone'), box(19, 45, 2, 3, 'stone'),        // Văn Miếu's forecourt
+  box(28, WEST_GATE_Y, 7, 2, 'street'),                           // in at Cửa Chánh Tây
+  // Along the north bank, the length of the city — Kim Long, Lê Duẩn under
+  // the Citadel, Trần Hưng Đạo past Đông Ba — then round the bend as Chi Lăng
+  // to Cồn Hến's footbridge.
+  road('street', 2, [[0, 49], [96, 49], [99.5, 44.5], [100.5, 40.5]], { main: true }),
+  // Gia Hội's old street, from the Đông Ba gate's bridge down to the river.
+  road('lane', 2, [[84, 37], [94, 37], [100.5, 40]]),
+  // Inside the Citadel
+  box(31, 41, 46, 3, 'stone'),                                    // the esplanade along the front wall
+  ...SOUTH_GATES.map((g) => box(g, 44, 2, 4, 'stone')),
+  box(35, 30, 2, 11, 'stone'),                                    // from the west gate down past the library
+  box(32, 21, 8, 7, 'stone'),                                     // the library's island courtyard
+  box(69, EAST_GATE_Y, 11, 2, 'stone'), box(70, 38, 2, 3, 'stone'),
+  box(72, 19, 2, 17, 'stone'),                                    // up to Duyệt Thị Đường
+  // The Imperial City: the lane behind Thái Hòa, the court before it, the
+  // way in through Ngọ Môn and up to Đại Cung Môn
+  box(44, 23, 23, 1, 'stone'), box(44, 30, 23, 1, 'stone'),
+  box(54, 22, 2, 1, 'stone'), box(54, 31, 2, 3, 'stone'),
+  // The south bank
+  road('street', 2, [[0, 59], [97, 59]], { main: true }),         // Lê Lợi, along the river
+  // Điện Biên Phủ: south past Ga Huế, over the tracks and the canal, up into
+  // the hills to the tombs.
+  road('street', 2, [[21, 60], [21, 77], [22.5, 84], [22.5, 93], [21, 99], [21, 103.5]]),
+  // Hùng Vương: south-east from Phú Xuân bridge, over the An Cựu canal.
+  road('street', 2, [[67.5, 60], [68, 65], [70.5, 70], [70.5, 77]], { main: true }),
+  box(48, 60, 3, 12, 'street'),                                   // from Lê Lợi park down to the canal
+  // South of the canal: the lane round Ngự Bình, and on down through the
+  // pines to Minh Mạng's tomb.
+  road('lane', 2, [[44, 76], [52, 75], [60, 75.5], [70.5, 76.5]]),
+  road('lane', 2, [[70.5, 77], [68, 82], [66, 88], [66.5, 95], [68, 103.5]]),
+  // The tombs' road, winding through the hills from gate to gate.
+  road('lane', 2, [[2, 103.5], [10, 103.5], [16, 104.3], [21, 103.5], [27, 104.3], [34.5, 103.5], [42, 104.3],
+    [50, 104.6], [58, 104.2], [66, 103.6], [72, 104.3], [79, 103.5], [88, 103.5]]),
+  box(35, 65, 12, 1, 'stone'),                                    // Quốc Học's forecourt
+  box(69, 68, 17, 2, 'stone'),                                    // the walking street
+];
+
+/** Where (x, y) px lies on a road: its signed offset from the centre line and
+ *  how far along it, in px — or null if it's off the road. Square ends. */
+export function roadHit(r, x, y) {
+  const half = (r.width * T) / 2;
+  const segs = r.line.segs;
+  let best = null;
+  segs.forEach((g, i) => {
+    const dx = g.bx - g.ax, dy = g.by - g.ay;
+    let t = ((x - g.ax) * dx + (y - g.ay) * dy) / (g.len * g.len);
+    if ((i === 0 && t < 0) || (i === segs.length - 1 && t > 1)) return;
+    t = Math.max(0, Math.min(1, t));
+    const px = g.ax + dx * t, py = g.ay + dy * t;
+    const d = Math.hypot(x - px, y - py);
+    if (d >= half || (best && d >= Math.abs(best.o))) return;
+    const side = Math.sign(dx * (y - g.ay) - dy * (x - g.ax)) || 1;
+    best = { o: side * d, s: g.s0 + t * g.len };
+  });
+  return best;
+}
+
+/** How far each tile's centre is from the nearest road's edge, in tiles
+ *  (negative inside one). Ends count as rounded here, so the margin runs
+ *  round them too. */
+const GAP = (() => {
+  const gap = Array.from({ length: H }, () => new Float32Array(W).fill(Infinity));
+  for (const r of ROADS) {
+    const half = r.width / 2;
+    const xs = r.points.map((p) => p[0]), ys = r.points.map((p) => p[1]);
+    const x0 = Math.max(0, Math.floor(Math.min(...xs) - half - 3)), x1 = Math.min(W - 1, Math.ceil(Math.max(...xs) + half + 3));
+    const y0 = Math.max(0, Math.floor(Math.min(...ys) - half - 3)), y1 = Math.min(H - 1, Math.ceil(Math.max(...ys) + half + 3));
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        const cx = (tx + 0.5) * T, cy = (ty + 0.5) * T;
+        let d = Infinity;
+        for (const g of r.line.segs) {
+          const dx = g.bx - g.ax, dy = g.by - g.ay;
+          const t = Math.max(0, Math.min(1, ((cx - g.ax) * dx + (cy - g.ay) * dy) / (g.len * g.len)));
+          d = Math.min(d, Math.hypot(cx - (g.ax + dx * t), cy - (g.ay + dy * t)));
+        }
+        gap[ty][tx] = Math.min(gap[ty][tx], d / T - half);
+      }
+    }
+  }
+  return gap;
+})();
+export const roadGap = (tx, ty) => GAP[ty]?.[tx] ?? Infinity;
+
+/** A tile on a road. */
+export const onRoad = (tx, ty) => ROADS.some((r) => roadHit(r, (tx + 0.5) * T, (ty + 0.5) * T));
+/** On a road, or within a tile of one — kept clear for walking. */
+export const nearRoad = (tx, ty) => roadGap(tx, ty) < 1;
+export const onAnyRoad = nearRoad;
