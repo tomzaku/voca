@@ -1,7 +1,11 @@
-// The icons floating over the keepers' heads, as pixel art — drawn here as
-// character grids (one letter per colour, '.' clear) so they share the map's
-// square-pixel look instead of the system's emoji. The scene turns each into
-// a texture once and draws it at the map's 2× scale.
+// Each skill's icon, as pixel art, floating over the top of its landmark —
+// the building its keeper stands at — like a marker on a game's map. Drawn
+// here as character grids (one letter per colour, '.' clear) so they share
+// the map's square-pixel look instead of the system's emoji; the scene turns
+// each into a texture once.
+//
+// `at` is the landmark's roofline in map tiles (scripts/generate-hue-map.mjs
+// paints the buildings); the icon floats just above it.
 //
 // Kept dependency-free like the rest of src/game/'s data.
 
@@ -10,11 +14,17 @@ export interface PixelArt {
   rows: string[];
 }
 
+export interface KeeperIcon extends PixelArt {
+  /** The landmark's roofline, in map tiles. */
+  at: { x: number; y: number };
+}
+
 const INK = '#1c120c';
 
-export const KEEPER_ICONS: Record<string, PixelArt> = {
-  // A red book with gold bands.
+export const KEEPER_ICONS: Record<string, KeeperIcon> = {
+  // A red book with gold bands, over Đông Ba market.
   vocabulary: {
+    at: { x: 91, y: 42 },
     palette: { k: INK, r: '#c0392b', d: '#8e2a20', g: '#f0c050', w: '#f6ecd6' },
     rows: [
       '.kkkkkkkkk..',
@@ -30,8 +40,9 @@ export const KEEPER_ICONS: Record<string, PixelArt> = {
       '.kkkkkkkkkk.',
     ],
   },
-  // A speech bubble, two lines of talk in it.
+  // A speech bubble, two lines of talk in it, over the tea stall on Cồn Hến.
   speaking: {
+    at: { x: 110.5, y: 38.5 },
     palette: { k: INK, w: '#f6ecd6', b: '#5aa0c8' },
     rows: [
       '.kkkkkkkkkk.',
@@ -45,8 +56,9 @@ export const KEEPER_ICONS: Record<string, PixelArt> = {
       '...kk.......',
     ],
   },
-  // Headphones.
+  // Headphones, over the dragon boat.
   listening: {
+    at: { x: 55.5, y: 52 },
     palette: { k: INK, g: '#f0c050', r: '#c0392b' },
     rows: [
       '...kkkkkk...',
@@ -60,8 +72,9 @@ export const KEEPER_ICONS: Record<string, PixelArt> = {
       'kkkk....kkkk',
     ],
   },
-  // A calligraphy brush, its tip inked.
+  // A calligraphy brush, its tip inked, over Văn Miếu's hall.
   writing: {
+    at: { x: 20, y: 39 },
     palette: { k: INK, b: '#a0703c', g: '#f0c050', w: '#f6ecd6' },
     rows: [
       '.........kk.',
@@ -77,8 +90,9 @@ export const KEEPER_ICONS: Record<string, PixelArt> = {
       'kk..........',
     ],
   },
-  // A paw.
+  // A paw, over the garden house at An Hiên.
   you: {
+    at: { x: 13, y: 7 },
     palette: { k: INK, p: '#ec8cac' },
     rows: [
       '.kk..kk..kk.',
@@ -92,8 +106,9 @@ export const KEEPER_ICONS: Record<string, PixelArt> = {
       '..kkkkkkkk..',
     ],
   },
-  // A scroll, rolled at both ends.
+  // A scroll, rolled at both ends, over Điện Thái Hòa.
   collections: {
+    at: { x: 55, y: 25.5 },
     palette: { k: INK, w: '#f6ecd6', g: '#f0c050', l: '#a08060' },
     rows: [
       'kkkkkkkkkkkk',

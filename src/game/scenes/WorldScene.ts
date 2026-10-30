@@ -172,6 +172,9 @@ export class WorldScene extends Phaser.Scene {
   /** The keepers — rebuilt on a theme switch, since their labels take its
    *  colours. Everything else the world draws is built once and left alone. */
   private stationLayer?: Phaser.GameObjects.Container;
+  /** The skills' markers over their landmarks — above the roofs, which the
+   *  station layer sits under. Rebuilt with it. */
+  private markerLayer?: Phaser.GameObjects.Container;
   /** The flag and the lanterns — rebuilt whenever progress changes. */
   private progressLayer?: Phaser.GameObjects.Container;
   /** Dims the day-lit tile art in dark mode, in place of a per-layer tint
@@ -672,9 +675,11 @@ export class WorldScene extends Phaser.Scene {
    *  plot. Cheap enough to throw away and redo whenever collections change. */
   private buildStations() {
     this.stationLayer?.destroy();
+    this.markerLayer?.destroy();
     this.nodes = [];
     const layer = this.add.container(0, 0).setDepth(DEPTH_STATIONS);
     this.stationLayer = layer;
+    this.markerLayer = this.add.container(0, 0).setDepth(DEPTH_OVER + 2);
 
     // Keepers stand at the map's feature slots — by id where the map names
     // one, else in list order. Collections have one keeper too, whose menu
@@ -892,13 +897,22 @@ export class WorldScene extends Phaser.Scene {
     sprite.play({ key: villagerAnim(this, look, 'idle'), delay: (x * 7 + y) % 700 });
     root.add(sprite);
 
-    // Pixel art where the keeper has it, the skill's emoji otherwise.
+    // The skill's marker floats over the top of its landmark, above the roofs
+    // (the keeper stands at the door below); a skill with no pixel icon gets
+    // its emoji over the keeper's head instead.
     const art = KEEPER_ICONS[f.id];
-    const icon = art
-      ? this.add.image(0, -52, this.pixelTexture(`keeper-icon-${f.id}`, art)).setScale(SCALE)
-      : this.add.text(0, -50, f.emoji, { fontFamily: FONT, fontSize: '16px', resolution: this.args.dpr }).setOrigin(0.5, 0.5);
-    this.tweens.add({ targets: icon, y: icon.y - 4, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: (x * 3 + y) % 900 });
-    root.add(icon);
+    if (art) {
+      const marker = this.add
+        .image(art.at.x * this.tilePx, art.at.y * this.tilePx - 6, this.pixelTexture(`keeper-icon-${f.id}`, art))
+        .setOrigin(0.5, 1)
+        .setScale(SCALE * 1.5);
+      this.tweens.add({ targets: marker, y: marker.y - 6, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: (x * 3 + y) % 900 });
+      this.markerLayer?.add(marker);
+    } else {
+      const icon = this.add.text(0, -50, f.emoji, { fontFamily: FONT, fontSize: '16px', resolution: this.args.dpr }).setOrigin(0.5, 0.5);
+      this.tweens.add({ targets: icon, y: icon.y - 4, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+      root.add(icon);
+    }
 
     // Their name as a game would write it: outlined pixel text, no box — the
     // skill in gold, the place under it.
