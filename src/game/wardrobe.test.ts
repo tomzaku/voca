@@ -35,3 +35,13 @@ describe('parseLook', () => {
     expect(parseLook(null)).toEqual(DEFAULT_LOOK);
   });
 });
+
+describe('keepers’ dress', () => {
+  it('uses only layers the wardrobe atlas has', async () => {
+    const { KEEPER_DRESS, propLayers } = await import('./keeperLooks');
+    const { layers } = (await import('./wardrobe-layers.json')).default;
+    for (const [skill, d] of Object.entries(KEEPER_DRESS)) {
+      for (const layer of [...lookLayers(d.look), ...propLayers(d)]) expect(layers, `${skill}: ${layer}`).toContain(layer);
+    }
+  });
+});

@@ -9,6 +9,7 @@ import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
 import { RoomScene, type RoomSceneData } from '../game/scenes/RoomScene';
 import { ROOMS } from '../game/rooms';
+import { KEEPER_DRESS } from '../game/keeperLooks';
 import { keeperLookFor, type BuddyLook, type VillagerLook } from '../game/textures';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import {
@@ -316,6 +317,7 @@ export function GameWorld({
         stage,
         keeperLook: (ROOMS[roomId].keeperLook as VillagerLook | undefined)
           ?? keeperLookFor(Math.max(0, features.findIndex((f) => f.id === roomId))),
+        keeperDress: KEEPER_DRESS[roomId],
         talking: talkingRef.current,
         dress: dressRef.current,
       };

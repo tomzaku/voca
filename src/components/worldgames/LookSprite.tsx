@@ -9,11 +9,17 @@ import { lookLayers, type Look } from '../../game/wardrobe';
 
 const SHEET = `${import.meta.env.BASE_URL}game/characters/wardrobe.png`;
 
-export function LookSprite({ look, scale = 3, frame = 0 }: { look: Look; scale?: number; frame?: number }) {
+export function LookSprite({ look, scale = 3, frame = 0, extra = [] }: {
+  look: Look;
+  scale?: number;
+  frame?: number;
+  /** Layers over the look — a keeper's prop. */
+  extra?: string[];
+}) {
   const size = layout.frame * scale;
   return (
     <span aria-hidden className="relative inline-block shrink-0" style={{ width: size, height: size }}>
-      {lookLayers(look).map((name) => {
+      {[...lookLayers(look), ...extra].map((name) => {
         const row = layout.layers.indexOf(name);
         if (row < 0) return null;
         return (

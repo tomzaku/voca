@@ -13,6 +13,9 @@
 //                        in dark, brown or grey; `….hat` is the same hair
 //                        trimmed to the crown, to wear under a hat
 //   hat.<id>             drawn onto the head — nón lá, khăn đóng
+//   prop.<id>            what a keeper carries, drawn per frame at the hand
+//                        (a book, a cup of tea, a brush, a scroll) or on the
+//                        head (headphones)
 //
 // The body is a chibi: a big head, then four or five rows of clothes. Its
 // shirt and trousers are told apart by colour; everyday clothes recolour the
@@ -65,6 +68,7 @@ const GARMENTS = {
 };
 const TROUSERS = [[196, 190, 180], [238, 234, 226]];
 const HATS = ['nonLa', 'khanDong'];
+const PROPS = ['book', 'teacup', 'brush', 'scroll', 'headphones'];
 
 // The body's clothes, by colour: [ref, kind, shade].
 const CLOTH = [
@@ -188,6 +192,65 @@ function hat(id, base) {
   return out;
 }
 
+/** The visible hand: the skin pixel at the body's side. Some walk frames hide
+ *  it behind the body; those reuse the last hand seen. */
+let lastHand = { x: 14, y: 17 };
+function hand(base) {
+  for (let y = 12; y < F; y++) for (let x = F - 1; x >= 0; x--) {
+    const p = px(base, x, y);
+    if (p[3] && near(p, [187, 109, 83])) { lastHand = { x, y }; return lastHand; }
+  }
+  return lastHand;
+}
+
+const INK = [28, 18, 12];
+function prop(id, base) {
+  const out = new Uint8ClampedArray(F * F * 4);
+  const { x: hx, y: hy } = hand(base);
+  const dot = (x, y, c) => put(out, x, y, c);
+  // Props are big for the frame on purpose: at 20px anything smaller than a
+  // handful of pixels can't be told apart at game zoom.
+  if (id === 'book') {
+    // A red book held up beside the body: gold bands, pages showing on the right.
+    for (let y = hy - 6; y <= hy; y++) for (let x = hx - 2; x <= hx + 3; x++) {
+      const edge = x === hx - 2 || x === hx + 3 || y === hy - 6 || y === hy;
+      const band = y === hy - 4 || y === hy - 2;
+      dot(x, y, edge ? INK : x === hx + 2 ? [246, 236, 214] : band ? [240, 192, 80] : [192, 57, 43]);
+    }
+  } else if (id === 'teacup') {
+    // A cup on its saucer, a curl of steam over it.
+    for (let x = hx - 2; x <= hx + 2; x++) { dot(x, hy - 3, INK); dot(x, hy - 2, [246, 236, 214]); dot(x, hy - 1, [90, 160, 200]); }
+    for (const x of [hx - 3, hx + 3]) { dot(x, hy - 2, INK); dot(x, hy - 1, INK); }
+    for (let x = hx - 3; x <= hx + 3; x++) dot(x, hy, INK);
+    dot(hx + 4, hy - 2, INK);                                  // handle
+    for (const [dx, dy] of [[-1, -5], [0, -6], [1, -7], [0, -8]]) dot(hx + dx, hy + dy, [230, 230, 230]);
+  } else if (id === 'brush') {
+    // A long brush held tilted up, gold ferrule, a heavy inked tip — leaning
+    // in from the hand so the tip stays inside the frame.
+    const bx = hx - 2;
+    for (let i = 0; i < 5; i++) { dot(bx - 1 + i, hy + 1 - i, [160, 112, 60]); dot(bx + i, hy + 1 - i, [120, 80, 40]); }
+    dot(bx + 4, hy - 4, [240, 192, 80]); dot(bx + 5, hy - 4, [240, 192, 80]);
+    for (const [dx, dy] of [[5, -5], [6, -5], [5, -6], [6, -6], [5, -7]]) dot(bx + dx, hy + dy, INK);
+  } else if (id === 'scroll') {
+    // A long scroll held across the body, chunky gold rolls at both ends.
+    const sx = hx - 3;
+    for (let x = sx - 3; x <= sx + 3; x++) { dot(x, hy - 2, INK); dot(x, hy - 1, [246, 236, 214]); dot(x, hy, [214, 200, 170]); dot(x, hy + 1, INK); }
+    for (const x of [sx - 5, sx - 4, sx + 4, sx + 5]) for (let y = hy - 2; y <= hy + 1; y++) dot(x, y, y === hy - 2 || y === hy + 1 ? INK : [240, 192, 80]);
+  } else if (id === 'headphones') {
+    // A thick band over the crown, big red cups over the ears.
+    const h = head(base);
+    for (let x = h.l + 2; x <= h.r - 2; x++) dot(x, h.top - 2, INK);
+    for (let x = h.l + 1; x <= h.r - 1; x++) dot(x, h.top - 1, [240, 192, 80]);
+    dot(h.l, h.top - 1, INK); dot(h.r, h.top - 1, INK);
+    for (let y = h.top; y < h.top + 4; y++) { dot(h.l - 1, y, INK); dot(h.l, y, [240, 192, 80]); dot(h.r, y, [240, 192, 80]); dot(h.r + 1, y, INK); }
+    for (const x0 of [h.l - 2, h.r]) for (let y = h.top + 4; y <= h.top + 9; y++) for (let x = x0; x <= x0 + 2; x++) {
+      const edge = y === h.top + 4 || y === h.top + 9 || x === x0 || x === x0 + 2;
+      dot(x, y, edge ? INK : [214, 60, 46]);
+    }
+  }
+  return out;
+}
+
 // ── Lay out the atlas: one row per layer, its 17 frames across ──
 const layers = [
   ...Object.entries(GARMENTS).flatMap(([g, colours]) => colours.map((c) => ({
@@ -197,6 +260,7 @@ const layers = [
     name: `hair.${s}.${c}${underHat ? '.hat' : ''}`, draw: (b, clip, i) => hair(s, c, b, frame(s, clip, i), underHat),
   })))),
   ...HATS.map((id) => ({ name: `hat.${id}`, draw: (b) => hat(id, b) })),
+  ...PROPS.map((id) => ({ name: `prop.${id}`, draw: (b) => prop(id, b) })),
 ];
 const W = FRAMES.length * STRIDE - PAD, H = layers.length * STRIDE - PAD;
 const sheet = Buffer.alloc(W * H * 4);

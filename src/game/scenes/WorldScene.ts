@@ -5,7 +5,7 @@ import {
 } from '../types';
 import { featureNodeId, type WorldFeature } from '../features';
 import { Dressed, loadWardrobe } from '../dressed';
-import { KEEPER_ICONS, type PixelArt } from '../keeperIcons';
+import { KEEPER_DRESS, propLayers } from '../keeperLooks';
 import type { Look } from '../wardrobe';
 import { t } from '../../i18n';
 import { defaultMap } from '../maps';
@@ -172,9 +172,6 @@ export class WorldScene extends Phaser.Scene {
   /** The keepers — rebuilt on a theme switch, since their labels take its
    *  colours. Everything else the world draws is built once and left alone. */
   private stationLayer?: Phaser.GameObjects.Container;
-  /** The skills' markers over their landmarks — above the roofs, which the
-   *  station layer sits under. Rebuilt with it. */
-  private markerLayer?: Phaser.GameObjects.Container;
   /** The flag and the lanterns — rebuilt whenever progress changes. */
   private progressLayer?: Phaser.GameObjects.Container;
   /** Dims the day-lit tile art in dark mode, in place of a per-layer tint
@@ -675,11 +672,9 @@ export class WorldScene extends Phaser.Scene {
    *  plot. Cheap enough to throw away and redo whenever collections change. */
   private buildStations() {
     this.stationLayer?.destroy();
-    this.markerLayer?.destroy();
     this.nodes = [];
     const layer = this.add.container(0, 0).setDepth(DEPTH_STATIONS);
     this.stationLayer = layer;
-    this.markerLayer = this.add.container(0, 0).setDepth(DEPTH_OVER + 2);
 
     // Keepers stand at the map's feature slots — by id where the map names
     // one, else in list order. Collections have one keeper too, whose menu
@@ -887,31 +882,20 @@ export class WorldScene extends Phaser.Scene {
     this.tweens.add({ targets: ring, scaleX: 1.15, scaleY: 1.15, alpha: 0.18, duration: 900, yoyo: true, repeat: -1, ease: 'sine.inOut' });
     root.add(ring);
 
-    // The map paints the building itself — this is the villager at its door,
-    // the skill's icon floating over their head so you can tell them apart.
+    // The map paints the building itself — this is its keeper at the door,
+    // dressed for their trade and carrying its tool (game/keeperLooks.ts), so
+    // you can tell who's who by looking; a keeper with no dress is a villager.
     root.add(this.add.ellipse(0, 2, 26, 7, 0x000000, 0.25));
-    const sprite = this.add
-      .sprite(0, 2, VILLAGERS_KEY, `${look}-idle-0`)
-      .setOrigin(0.5, 1)
-      .setScale(SCALE);
-    sprite.play({ key: villagerAnim(this, look, 'idle'), delay: (x * 7 + y) % 700 });
-    root.add(sprite);
-
-    // The skill's marker floats over the top of its landmark, above the roofs
-    // (the keeper stands at the door below); a skill with no pixel icon gets
-    // its emoji over the keeper's head instead.
-    const art = KEEPER_ICONS[f.id];
-    if (art) {
-      const marker = this.add
-        .image(art.at.x * this.tilePx, art.at.y * this.tilePx - 6, this.pixelTexture(`keeper-icon-${f.id}`, art))
-        .setOrigin(0.5, 1)
-        .setScale(SCALE * 1.5);
-      this.tweens.add({ targets: marker, y: marker.y - 6, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: (x * 3 + y) % 900 });
-      this.markerLayer?.add(marker);
+    const dress = KEEPER_DRESS[f.id];
+    if (dress) {
+      root.add(new Dressed(this, 0, 2, dress.look, propLayers(dress)).setScale(SCALE));
     } else {
-      const icon = this.add.text(0, -50, f.emoji, { fontFamily: FONT, fontSize: '16px', resolution: this.args.dpr }).setOrigin(0.5, 0.5);
-      this.tweens.add({ targets: icon, y: icon.y - 4, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut' });
-      root.add(icon);
+      const sprite = this.add
+        .sprite(0, 2, VILLAGERS_KEY, `${look}-idle-0`)
+        .setOrigin(0.5, 1)
+        .setScale(SCALE);
+      sprite.play({ key: villagerAnim(this, look, 'idle'), delay: (x * 7 + y) % 700 });
+      root.add(sprite);
     }
 
     // Their name as a game would write it: outlined pixel text, no box — the
@@ -931,23 +915,6 @@ export class WorldScene extends Phaser.Scene {
 
     layer.add(root);
     this.nodes.push({ id: featureNodeId(f), x, y, root, ring });
-  }
-
-  /** A character-grid drawing as a texture (made once, kept by key). */
-  private pixelTexture(key: string, art: PixelArt): string {
-    if (this.textures.exists(key)) return key;
-    const w = Math.max(...art.rows.map((r) => r.length)), h = art.rows.length;
-    const tex = this.textures.createCanvas(key, w, h);
-    const ctx = tex!.getContext();
-    art.rows.forEach((row, y) => [...row].forEach((ch, x) => {
-      const colour = art.palette[ch];
-      if (!colour) return;
-      ctx.fillStyle = colour;
-      ctx.fillRect(x, y, 1, 1);
-    }));
-    tex!.refresh();
-    tex!.setFilter(Phaser.Textures.FilterMode.NEAREST);
-    return key;
   }
 
   /** Outlined text for names on the map — readable on any ground, no box. */

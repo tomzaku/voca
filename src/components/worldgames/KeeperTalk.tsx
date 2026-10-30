@@ -2,6 +2,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { Recap } from '../../lib/keeperAdvice';
 import type { WorldActivity, WorldSkill } from '../../game/features';
 import type { VillagerLook } from '../../game/textures';
+import { KEEPER_DRESS } from '../../game/keeperLooks';
 import type { KeeperDef } from './keeper';
 import { KeeperDialog } from './KeeperDialog';
 import { SkillMenu } from './SkillMenu';
@@ -26,6 +27,7 @@ export function KeeperTalk({ keeper, look, recap, onAction, onOther }: {
   return (
     <KeeperDialog
       look={look}
+      dress={KEEPER_DRESS[keeper.skill]}
       name={<FormattedMessage id={keeper.nameId} />}
       line={line}
       primary={<FormattedMessage id={advice.actionId} />}

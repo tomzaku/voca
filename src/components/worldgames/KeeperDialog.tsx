@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { VILLAGER_FRAME, VILLAGER_LOOKS, type VillagerLook } from '../../game/textures';
+import { propLayers, type KeeperDress } from '../../game/keeperLooks';
+import { LookSprite } from './LookSprite';
 import { playSelect } from '../../lib/sfx';
 import { PixelButton } from './pixel';
 
@@ -14,9 +16,16 @@ const ATLAS_STRIDE = VILLAGER_FRAME + 1;
 const ATLAS_WIDTH = 357;
 const PORTRAIT_SCALE = 3;
 
-function Portrait({ look }: { look: VillagerLook }) {
+function Portrait({ look, dress }: { look: VillagerLook; dress?: KeeperDress }) {
   const row = VILLAGER_LOOKS.indexOf(look);
   const size = VILLAGER_FRAME * PORTRAIT_SCALE;
+  if (dress) {
+    return (
+      <span className="px-inset px-notch shrink-0 w-[4.5rem] h-[4.5rem] flex items-end justify-center overflow-hidden">
+        <LookSprite look={dress.look} extra={propLayers(dress)} scale={PORTRAIT_SCALE} />
+      </span>
+    );
+  }
   return (
     <span className="px-inset px-notch shrink-0 w-[4.5rem] h-[4.5rem] flex items-end justify-center overflow-hidden">
       <span
@@ -37,8 +46,10 @@ function Portrait({ look }: { look: VillagerLook }) {
 /** Characters revealed per tick (~16ms): quick enough not to wait on. */
 const TYPE_STEP = 2;
 
-export function KeeperDialog({ look, name, line, primary, onPrimary, secondary, onSecondary }: {
+export function KeeperDialog({ look, dress, name, line, primary, onPrimary, secondary, onSecondary }: {
   look: VillagerLook;
+  /** The keeper as dressed, for their portrait. */
+  dress?: KeeperDress;
   name: ReactNode;
   line: string;
   primary: ReactNode;
@@ -72,7 +83,7 @@ export function KeeperDialog({ look, name, line, primary, onPrimary, secondary, 
     <div className="px absolute bottom-2 left-1/2 -translate-x-1/2 w-[min(720px,calc(100%-1rem))] pointer-events-auto px-in-up">
       <div className="px-notch px-frame p-3.5" onClick={() => typing && setShown(line.length)}>
         <div className="flex gap-3.5">
-          <Portrait look={look} />
+          <Portrait look={look} dress={dress} />
           <div className="flex-1 min-h-[4.5rem]">
             <p className="px-title !text-[13px] text-[var(--px-gold)] mb-1">{name}</p>
             <p className="text-[17px] leading-snug">

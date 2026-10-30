@@ -37,7 +37,8 @@ export class Dressed extends Phaser.GameObjects.Container {
   private clip: Clip = 'idle';
   private flipped = false;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, look: Look) {
+  /** `extra`: layers drawn over the look — a keeper's prop. */
+  constructor(scene: Phaser.Scene, x: number, y: number, look: Look, private extra: string[] = []) {
     super(scene, x, y);
     scene.add.existing(this);
     this.setSize(FRAME, FRAME);
@@ -47,7 +48,7 @@ export class Dressed extends Phaser.GameObjects.Container {
   setLook(look: Look) {
     for (const s of this.layers) s.destroy();
     this.textureFilter();
-    this.names = lookLayers(look);
+    this.names = [...lookLayers(look), ...this.extra];
     this.layers = this.names.map((name) =>
       this.scene.add.sprite(0, 0, WARDROBE_KEY, `${name}-${this.clip}-0`).setOrigin(0.5, 1).setFlipX(this.flipped));
     this.add(this.layers);

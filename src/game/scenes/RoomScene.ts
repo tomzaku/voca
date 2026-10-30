@@ -4,6 +4,7 @@ import { FONT } from '../palette';
 import { onAnswerEvent, type AnswerEvent } from '../../lib/answerEvents';
 import { Dressed, loadWardrobe } from '../dressed';
 import type { Look } from '../wardrobe';
+import { propLayers, type KeeperDress } from '../keeperLooks';
 import {
   buddySpec, type BuddyLook,
   VILLAGERS_KEY, loadVillagers, villagerAnim, type VillagerLook,
@@ -21,6 +22,8 @@ export interface RoomSceneData {
   look: BuddyLook;
   stage: number;
   keeperLook: VillagerLook;
+  /** The keeper dressed for their trade, prop in hand — else the villager look. */
+  keeperDress?: KeeperDress;
   /** What your buddy wears. */
   dress: Look;
   /** The keeper is talking to you (their message box is up). */
@@ -37,7 +40,7 @@ export class RoomScene extends Phaser.Scene {
   static KEY = 'room';
   private args!: RoomSceneData;
   private buddy!: Dressed;
-  private keeper!: Phaser.GameObjects.Sprite;
+  private keeper!: Mover;
   private glow!: Phaser.GameObjects.Rectangle;
   private bubble?: Phaser.GameObjects.Container;
   /** Your buddy's thought bubble: it's your turn. */
@@ -92,14 +95,18 @@ export class RoomScene extends Phaser.Scene {
   }
 
   create() {
-    const { room, look, stage, keeperLook } = this.args;
+    const { room, look, stage, keeperLook, keeperDress } = this.args;
     this.textures.get(this.textureKey).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.add.image(0, 0, this.textureKey).setOrigin(0).setDepth(-1);
 
-    const keeper = this.add
-      .sprite(room.keeper.x, room.keeper.y, VILLAGERS_KEY, `${keeperLook}-idle-0`)
-      .setOrigin(0.5, 1);
-    keeper.play(villagerAnim(this, keeperLook, 'idle'));
+    let keeper: Mover;
+    if (keeperDress) {
+      keeper = new Dressed(this, room.keeper.x, room.keeper.y, keeperDress.look, propLayers(keeperDress));
+    } else {
+      const sprite = this.add.sprite(room.keeper.x, room.keeper.y, VILLAGERS_KEY, `${keeperLook}-idle-0`).setOrigin(0.5, 1);
+      sprite.play(villagerAnim(this, keeperLook, 'idle'));
+      keeper = sprite;
+    }
     this.add.ellipse(room.keeper.x, room.keeper.y, 13, 3, 0x000000, 0.25);
 
     // Your buddy, at the size it walks the city, turned to face the keeper.
