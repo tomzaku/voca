@@ -9,7 +9,7 @@ import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
   buddySpec, type BuddyLook, type BuddySpec,
-  VILLAGERS_KEY, loadVillagers, villagerAnim, villagerLookFor,
+  VILLAGERS_KEY, loadVillagers, villagerAnim, keeperLookFor,
   type BuddyDir, type VillagerLook,
 } from '../textures';
 
@@ -677,7 +677,7 @@ export class WorldScene extends Phaser.Scene {
     const loose = slots.filter((s) => !s.feature);
     this.args.features.forEach((f, i) => {
       const slot = slots.find((s) => s.feature === f.id) ?? loose.shift();
-      if (slot) this.addFeature(layer, f, slot, villagerLookFor(i));
+      if (slot) this.addFeature(layer, f, slot, keeperLookFor(i));
     });
 
     // Carry the open card across the rebuild: re-light the keeper the buddy

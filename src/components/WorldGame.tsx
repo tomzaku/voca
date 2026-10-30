@@ -228,6 +228,7 @@ export function WorldGame() {
             onClose: () => setOpen(null),
             // Inside an activity, step back out to the keeper's menu.
             onBack: open.activity ? () => setOpen({ skill: open.skill, activity: null }) : undefined,
+            room: open.skill.id,
             tools: (
               <SkillToolbar
                 skill={open.skill}

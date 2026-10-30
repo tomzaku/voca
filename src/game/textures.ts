@@ -55,9 +55,10 @@ export function villagerAnim(scene: Phaser.Scene, look: VillagerLook, clip: Vill
   return key;
 }
 
-/** Pick a look deterministically, so a station keeps the same face on rebuild. */
-export function villagerLookFor(index: number): VillagerLook {
-  return VILLAGER_LOOKS[index % VILLAGER_LOOKS.length];
+/** A keeper's look, picked by index so each keeps the same face — never
+ *  `base`, which is you (buddySpec). */
+export function keeperLookFor(index: number): VillagerLook {
+  return VILLAGER_LOOKS[1 + (index % (VILLAGER_LOOKS.length - 1))];
 }
 
 /** What walks the map. The pack ships one character, so the companion animal

@@ -7,7 +7,9 @@ import { useStreak } from '../hooks/useStreak';
 import { useProgressCounts } from '../hooks/useProgressQuery';
 import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
-import type { BuddyLook } from '../game/textures';
+import { RoomScene, type RoomSceneData } from '../game/scenes/RoomScene';
+import { ROOMS } from '../game/rooms';
+import { keeperLookFor, type BuddyLook } from '../game/textures';
 import {
   WORLD_EVENTS,
   type WorldArea, type WorldSnapshot, type WorldStation,
@@ -46,6 +48,8 @@ interface Props {
     onBack?: () => void;
     /** The skill's tools, on the right of the bar from any of its screens. */
     tools?: ReactNode;
+    /** The skill whose room to stand in (ROOMS) instead of over the city. */
+    room?: string;
   } | null;
   onCreate: () => void;
 }
@@ -236,6 +240,7 @@ export function GameWorld({
       scale: { mode: Phaser.Scale.NONE, zoom: 1 / dpr },
     });
     game.scene.add(WorldScene.KEY, WorldScene, true, data);
+    game.scene.add(RoomScene.KEY, RoomScene, false);
     const onNear = (id: string | null) => setNearestId(id);
     const onMoved = (p: { x: number; y: number; areaIndex: number }) => setPos(p);
     const onArea = ({ area }: { index: number; area: WorldArea }) => {
@@ -266,6 +271,30 @@ export function GameWorld({
   }, [animal.id, animal.name, stage, buddyName, locale]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
+
+  // Entering a skill with a room steps inside: the city sleeps (keeping where
+  // you stood) and the room takes the canvas; leaving wakes the city.
+  const roomId = panel?.room && ROOMS[panel.room] ? panel.room : null;
+  useEffect(() => {
+    const game = gameRef.current;
+    if (!game) return;
+    if (roomId) {
+      const data: RoomSceneData = {
+        room: ROOMS[roomId],
+        look: { kind: 'animal', id: animal.id },
+        stage,
+        keeperLook: keeperLookFor(Math.max(0, features.findIndex((f) => f.id === roomId))),
+      };
+      game.scene.sleep(WorldScene.KEY);
+      game.scene.start(RoomScene.KEY, data);
+      return () => {
+        if (gameRef.current !== game) return;
+        game.scene.stop(RoomScene.KEY);
+        game.scene.wake(WorldScene.KEY);
+        (game.scene.getScene(WorldScene.KEY) as WorldScene | null)?.cameras.main.fadeIn(220, 0, 0, 0);
+      };
+    }
+  }, [roomId, animal.id, stage, features]);
 
   // Inside a skill, Esc leaves it. (Not Backspace for Menu — the spelling
   // round uses it to take a letter back.)
@@ -522,7 +551,7 @@ export function GameWorld({
              around the map. The layer swallows clicks on the map, so your
              character stays put until you leave. ── */}
       {panel && (
-        <div className="absolute inset-0 z-30 bg-black/20 animate-fade-in">
+        <div className={`absolute inset-0 z-30 animate-fade-in ${roomId ? '' : 'bg-black/20'}`}>
           <div className="px absolute top-0 inset-x-0 z-10 px-frame px-3 h-[3.25rem] flex items-center gap-3">
             <span className="text-[20px] leading-none shrink-0">{panel.emoji}</span>
             <span className="px-title !text-[16px] text-[var(--px-gold)] truncate">{panel.title}</span>
