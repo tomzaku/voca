@@ -1133,7 +1133,30 @@ const treeKinds = {
   lilac: { crown: [150, 116, 172], light: [176, 144, 196], dark: [116, 88, 140] },
   // Phượng — flame tree.
   flame: { crown: [194, 96, 66], light: [220, 128, 86], dark: [150, 70, 50] },
+  // The old riverside shade trees — a deeper, cooler green.
+  deep: { crown: [64, 112, 76], light: [84, 132, 90], dark: [48, 90, 62] },
 };
+
+/** An areca palm (cau): a slim ringed trunk and a burst of fronds — the
+ *  garden palm of Vỹ Dạ and Kim Long. */
+function palm(tx, ty) {
+  if (solid[ty]?.[tx] === undefined) return;
+  const cv = new Canvas(2 * T, 2 * T);
+  for (let y = 10; y < 31; y++) cv.set(15 + (y < 18 ? 1 : 0), y, y % 4 === 0 ? [120, 104, 80] : [150, 132, 100]);
+  const fronds = [[-1, -0.35], [1, -0.35], [-1, 0.25], [1, 0.25], [-0.45, -1], [0.45, -1], [0, -1]];
+  for (const [dx, dy] of fronds) {
+    for (let i = 1; i < 11; i++) {
+      const x = 16 + dx * i, y = 10 + dy * i + (Math.abs(dx) > 0.5 ? (i * i) / 22 : 0);
+      cv.set(x, y, i > 7 ? [70, 120, 74] : [88, 140, 86]);
+      cv.set(x, y + 1, [62, 104, 68]);
+    }
+  }
+  ground.ellipse(tx * T + 9, ty * T + 15, 5, 2, P.shadow, 0.22);
+  ground.blit(cv, (tx - 0.5) * T, (ty - 1) * T);
+  over.blit(cv, (tx - 0.5) * T, (ty - 1) * T, [0, T + 4]);
+  solid[ty][tx] = true;
+  mark(used, tx, ty - 1, 1, 2);
+}
 function tree(tx, ty, kind = 'leaf') {
   if (solid[ty]?.[tx] === undefined) return;
   const cv = new Canvas(2 * T, 2 * T);
@@ -1186,6 +1209,56 @@ function canPlant(tx, ty) {
 for (let x = 2; x < 96; x += 4) {
   if (canPlant(x, 61)) tree(x, 61, x % 3 ? 'lilac' : 'leaf');
   if (x < 28 && canPlant(x, 45)) tree(x, 45, 'lilac');
+}
+// The Perfume River's banks, lined with trees the way Huế's are. The
+// riverside roads run close to the water, so these stand on the grass strip
+// between — where canPlant's margins would never let a tree go. bankOk is
+// their own rule: dry grass, not a road, a bridge, the wharf or a building.
+const onRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x && tx < x + w && ty >= y && ty < y + h);
+const nearRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x - 1 && tx < x + w + 1 && ty >= y - 1 && ty < y + h + 1);
+const RIVER_BRIDGES = [[19, 23], [32, 35], [48, 51], [66, 69]];
+const BANK_KEEP_CLEAR = [
+  ...RIVER_BRIDGES.map(([a, b]) => [a - 1, 46, b - a + 3, 15]),
+  [52, 48, 10, 12],        // the dragon-boat wharf and its boat
+  [99, 37, 11, 8],         // the Cồn Hến footbridge
+];
+function bankOk(tx, ty) {
+  if (solid[ty]?.[tx] !== false || onRoad(tx, ty)) return false;   // the trunk stands off the road
+  for (const y of [ty, ty - 1]) {                                     // trunk and crown clear of buildings;
+    if (solid[y]?.[tx] !== false) return false;                       // the crown may overhang a road
+    if (used[y][tx] && !nearRoad(tx, y)) return false;
+  }
+  if (isWater(tx * T + 8, ty * T + 8)) return false;
+  return !BANK_KEEP_CLEAR.some(([x, y, w, h]) => tx >= x && tx < x + w && ty >= y && ty < y + h);
+}
+{
+  const kinds = ['deep', 'leaf', 'deep', 'flame', 'leaf', 'deep', 'lilac', 'leaf', 'deep', 'flame'];
+  let k = 0;
+  // Walk the river; on each side step out from the middle to the first dry
+  // tile — the bank — and plant there, every couple of tiles.
+  for (let s = 1.5 * T; s < RIVER.length; s += 2 * T) {
+    const g = RIVER.segs.find((seg) => s >= seg.s0 && s < seg.s0 + seg.len);
+    if (!g) continue;
+    const t = (s - g.s0) / g.len;
+    const cx = g.ax + (g.bx - g.ax) * t, cy = g.ay + (g.by - g.ay) * t;
+    const nx = -(g.by - g.ay) / g.len, ny = (g.bx - g.ax) / g.len;
+    for (const side of [-1, 1]) {
+      let off = riverHalfWidth(s) * 0.6;
+      while (off < riverHalfWidth(s) + 3 * T && isWater(cx + nx * off * side, cy + ny * off * side)) off += T / 4;
+      const tx = Math.round((cx + nx * (off + T * 0.5) * side) / T - 0.5);
+      const ty = Math.round((cy + ny * (off + T * 0.5) * side) / T - 0.5);
+      if (tx < 1 || tx > W - 2 || ty < 2 || ty > H - 2 || !bankOk(tx, ty)) continue;
+      tree(tx, ty, kinds[k++ % kinds.length]);
+    }
+  }
+}
+// Trees on the islets: Dã Viên's park, Cồn Hến's village gardens.
+for (const [x, y] of [[30, 53], [37, 53], [105, 45], [108, 47], [114, 39], [116, 36], [112, 45], [104, 43]]) {
+  if (bankOk(x, y) && onIslet(x * T + 8, y * T + 8)) tree(x, y, 'deep');
+}
+// Areca palms in the garden villages — Vỹ Dạ across the river, Kim Long upriver.
+for (const [x, y] of [[104, 58], [107, 63], [111, 61], [116, 64], [102, 67], [118, 57], [3, 10], [7, 16], [17, 17], [23, 26], [5, 28]]) {
+  if (bankOk(x, y)) palm(x, y);
 }
 // Pines on Ngự Bình and around Thiên Mụ.
 for (const [x, y] of [[53, 79], [56, 78], [59, 79], [51, 82], [61, 82], [55, 83], [58, 84], [1, 36], [1, 41], [8, 36]]) pine(x, y);
