@@ -69,7 +69,7 @@ export function LibrarySearch({ onLearn }: { onLearn: (word: string) => void }) 
   return (
     <>
       {/* The search bar, docked where the vitals sit in a game. */}
-      <div className="px absolute top-[3.75rem] xl:top-2 left-1/2 -translate-x-1/2 w-[min(620px,calc(100%-1rem))] pointer-events-auto px-in-down">
+      <div className="px absolute top-[3.75rem] left-1/2 -translate-x-1/2 w-[min(620px,calc(100%-1rem))] pointer-events-auto px-in-down">
         <form
           className="px-notch px-frame p-2.5 flex items-center gap-2"
           onSubmit={(e) => { e.preventDefault(); void search(query); }}

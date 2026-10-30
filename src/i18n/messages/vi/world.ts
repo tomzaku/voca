@@ -141,6 +141,7 @@ export default {
   'world.shadowNoMic': 'Trình duyệt không ghi âm được — hãy cứ nghe và đọc to theo.',
   'world.readPlaceholder': 'Gõ hoặc dán đoạn văn để nghe…',
   'world.rpRandom': 'Ngẫu nhiên',
+  'world.skillBarHint': 'Bấm vào bản đồ để rời đi',
   'world.areaFallback': 'Khu {n}',
   'world.wordCount': '{count} từ',
   'world.studyingBadge': 'ĐANG HỌC',

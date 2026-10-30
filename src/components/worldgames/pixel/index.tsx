@@ -6,7 +6,8 @@
 // Layout follows strategy-game HUDs: an activity docks to the edges of the
 // world (HudTop, HudBanner, HudActionBar, HudSide) and leaves the city
 // visible in the middle; HudCenter is for the few screens that need room
-// (a match board, a results card).
+// (a match board, a results card). Everything sits below the skill bar the
+// world draws across the top while a skill is open.
 
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
 import { PixelIcon, type PixelIconName } from './PixelIcon';
@@ -21,7 +22,7 @@ export type PixelTone = 'gold' | 'red' | 'jade' | 'sky' | 'paper' | 'good' | 'ba
 /** Top centre: the run's vitals (lives, score, time). */
 export function HudTop({ children }: { children: ReactNode }) {
   return (
-    <div className="px absolute top-[3.75rem] xl:top-2 left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-1rem))] pointer-events-auto px-in-down">
+    <div className="px absolute top-[3.75rem] left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-1rem))] pointer-events-auto px-in-down">
       <div className="px-notch px-frame px-4 py-2.5">{children}</div>
     </div>
   );
@@ -30,7 +31,7 @@ export function HudTop({ children }: { children: ReactNode }) {
 /** Under the top bar: what's being asked. */
 export function HudBanner({ label, aside, children }: { label?: ReactNode; aside?: ReactNode; children: ReactNode }) {
   return (
-    <div className="px absolute top-[7.25rem] xl:top-[4.5rem] left-1/2 -translate-x-1/2 w-[min(640px,calc(100%-1rem))] pointer-events-auto px-in-down">
+    <div className="px absolute top-[7.25rem] left-1/2 -translate-x-1/2 w-[min(640px,calc(100%-1rem))] pointer-events-auto px-in-down">
       <div className="px-notch px-frame px-5 py-3.5">
         {(label || aside) && (
           <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -87,7 +88,7 @@ export function HudSlot({ hotkey, state = 'idle', onClick, children }: {
 /** Docked to the right like a shop panel — for setup and long forms. */
 export function HudSide({ title, footer, children }: { title: ReactNode; footer?: ReactNode; children: ReactNode }) {
   return (
-    <div className="px absolute top-[3.75rem] md:top-2 right-2 bottom-2 w-[min(380px,calc(100%-1rem))] pointer-events-auto px-in-side">
+    <div className="px absolute top-[3.75rem] right-2 bottom-2 w-[min(380px,calc(100%-1rem))] pointer-events-auto px-in-side">
       <div className="px-notch px-frame h-full flex flex-col">
         <div className="px-title !text-[17px] px-4 pt-3.5 pb-2.5 text-[var(--px-gold)] shrink-0">{title}</div>
         <div className="flex-1 overflow-y-auto px-4 pb-3 space-y-4">{children}</div>
@@ -107,7 +108,7 @@ export function HudCenter({ children, wide = false, besideSide = false, aboveDoc
   aboveDock?: boolean;
 }) {
   return (
-    <div className={`px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] xl:pt-[4.5rem] pointer-events-none ${besideSide ? 'md:pr-[396px]' : ''} ${aboveDock ? 'pb-[9.5rem]' : ''}`}>
+    <div className={`px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] pointer-events-none ${besideSide ? 'md:pr-[396px]' : ''} ${aboveDock ? 'pb-[9.5rem]' : ''}`}>
       <div className={`px-notch px-frame w-full ${wide ? 'max-w-[640px]' : 'max-w-[400px]'} max-h-full overflow-y-auto p-5 pointer-events-auto px-in-up`}>
         {children}
       </div>

@@ -369,6 +369,14 @@ export class WorldScene extends Phaser.Scene {
 
   /** Swap the station data (progress ticked, collection created…) in place.
    *  Only the station markers are rebuilt — the terrain is untouched. */
+  /** Walk to a point on screen (game pixels) — a tap that landed on the
+   *  React layer over the canvas rather than on the canvas itself. */
+  walkToScreen(x: number, y: number) {
+    if (!this.ready) return;
+    const p = this.cameras.main.getWorldPoint(x, y);
+    this.routeTo(p.x, p.y);
+  }
+
   /** Swap in fresh progress (an answer landed, a day was studied). */
   setProgress(progress: WorldProgress) {
     const prev = this.args.progress;

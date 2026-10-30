@@ -289,6 +289,17 @@ export function GameWorld({
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
 
+  // Inside a skill, Esc leaves it. (Not Backspace for Menu — the spelling
+  // round uses it to take a letter back.)
+  useEffect(() => {
+    if (!panel) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); panel.onClose(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [panel]);
+
   // Progress changes (an answer, a new day of study) re-hoist the flag and
   // refloat the lanterns in the running scene.
   useEffect(() => { scene()?.setProgress(progress); }, [progress]);
@@ -637,24 +648,36 @@ export function GameWorld({
         </WorldCard>
       )}
 
-      {/* ── Inside a building: its game is a HUD docked around the map, which
-             stays visible (dimmed a touch) in the middle. ── */}
+      {/* ── Inside a skill: a bar across the top says where you are and holds
+             the two ways out (Menu, Leave); the activity's HUD docks below it
+             around the map. Clicking the map itself — anywhere no panel
+             covers — leaves the skill and walks your character there. ── */}
       {panel && (
-        <div className="absolute inset-0 z-30 bg-black/30 animate-fade-in pointer-events-none">
-          <div className="px absolute top-2 left-2 flex items-center gap-2 pointer-events-auto">
-            <span className="px-notch px-frame px-title flex items-center gap-2 pl-3 pr-4 py-2.5">
-              <span className="text-base leading-none">{panel.emoji}</span>
-              {panel.title}
+        <div
+          className="absolute inset-0 z-30 bg-black/20 animate-fade-in"
+          onPointerDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            panel.onClose();
+            scene()?.walkToScreen((e.clientX - rect.left) * dpr, (e.clientY - rect.top) * dpr);
+          }}
+        >
+          <div className="px absolute top-0 inset-x-0 z-10 px-frame px-3 h-[3.25rem] flex items-center gap-3">
+            <span className="text-[20px] leading-none shrink-0">{panel.emoji}</span>
+            <span className="px-title !text-[16px] text-[var(--px-gold)] truncate">{panel.title}</span>
+            <span className="hidden lg:inline text-[13px] text-[var(--px-muted)] truncate">
+              <FormattedMessage id="world.skillBarHint" />
             </span>
+            <span className="flex-1" />
             {panel.onBack && (
-              <PixelButton tone="paper" onClick={panel.onBack} className="!px-3 !py-2.5">
-                <PixelIcon name="sliders" size={2} />
-                {intl.formatMessage({ id: 'world.menuBack' })}
+              <PixelButton tone="gold" onClick={panel.onBack} className="!py-2">
+                <PixelIcon name="sliders" size={2} /> <FormattedMessage id="world.menuBack" />
               </PixelButton>
             )}
-            <PixelButton tone="paper" onClick={panel.onClose} className="!px-3 !py-2.5">
-              <PixelIcon name="close" size={2} />
-              {intl.formatMessage({ id: 'world.leaveBuilding' })}
+            <PixelButton tone="red" onClick={panel.onClose} className="!py-2">
+              <PixelIcon name="close" size={2} /> <FormattedMessage id="world.leaveBuilding" />
+              <span className="hidden sm:inline opacity-60 !text-[11px]">Esc</span>
             </PixelButton>
           </div>
           {panel.content}

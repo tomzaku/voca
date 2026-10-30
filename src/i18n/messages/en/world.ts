@@ -141,6 +141,7 @@ export default {
   'world.shadowNoMic': 'This browser can’t record — listen and repeat it aloud anyway.',
   'world.readPlaceholder': 'Type or paste anything to hear it…',
   'world.rpRandom': 'Random',
+  'world.skillBarHint': 'Click the map to walk away',
   'world.areaFallback': 'Area {n}',
   'world.wordCount': '{count, plural, one {# word} other {# words}}',
   'world.studyingBadge': 'STUDYING',
