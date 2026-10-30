@@ -67,7 +67,7 @@ export default {
   'places.kyDai': 'Kỳ Đài',
   'places.kyDaiEn': 'The Flag Tower',
   'places.kyDaiAbout': 'Kỳ Đài nằm giữa mặt thành phía trước Kinh Thành, nhìn ra sông Hương. Xây lần đầu năm 1807 dưới thời vua Gia Long, ba tầng gạch đỡ cột cờ cao nhất Huế.',
-  'places.kyDaiFact': 'Trong thế giới này, lá cờ được kéo cao dần theo chuỗi ngày học của bạn.',
+  'places.kyDaiFact': 'Lá cờ trên đỉnh cột có thể nhìn thấy từ bên kia sông Hương.',
 
   'places.dragonBoat': 'Thuyền rồng',
   'places.dragonBoatEn': 'Dragon boats',

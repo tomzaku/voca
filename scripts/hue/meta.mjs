@@ -38,10 +38,11 @@ export function writeMeta() {
     else point('label', l.x - l.text.length * 0.095, l.y - 0.6, props);
   }
 
-  // Progress the city shows (WorldScene): the streak flag on Kỳ Đài, and spots
-  // on the Hương where a lantern floats for each mastered word. The spots are
+  // The flag at the top of Kỳ Đài's pole, and the progress the city shows
+  // (WorldScene): spots on the Hương where a lantern floats for each mastered
+  // word. The spots are
   // shuffled so the first few lanterns spread along the river, not bunch up.
-  point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
+  point('flag', FLAG.x, FLAG.y);
   {
     const spots = [];
     for (let s = 3 * T; s < RIVER.length; s += 0.6 * T) {

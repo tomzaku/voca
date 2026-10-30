@@ -8,7 +8,7 @@ import { ground, place } from '../core/world.mjs';
 import { HOUSE, archBridge, citadelGate, palace, plankDeck, roof, stoneSpan, wallRing } from '../draw/buildings.mjs';
 import { BASTION, CITADEL, EAST_GATE_Y, GATES, IMPERIAL, LIBRARY, NGO_MON, SOUTH_GATES, T, gatesOn } from '../layout.mjs';
 
-/** Where the streak flag flies on Kỳ Đài, worked out as it's drawn. */
+/** Where the flag flies on Kỳ Đài, worked out as it's drawn. */
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
   { text: 'Ngọ Môn', x: 55, y: 34.5, place: 'ngoMon' },
@@ -29,7 +29,7 @@ export const LABELS = [
   })),
 ];
 
-export const FLAG = { x: 0, y: 0, drop: 0 };
+export const FLAG = { x: 0, y: 0 };
 
 export function drawCitadel() {
   const CW = { x0: CITADEL.wall.x0, y0: CITADEL.wall.y0, x1: CITADEL.wall.x1, y1: CITADEL.wall.y1 };
@@ -133,13 +133,11 @@ export function drawCitadel() {
     cv.set(poleX, 3, [236, 200, 90]); cv.set(poleX + 1, 3, [236, 200, 90]);
     cv.spec = { kind: 'kyDai' };
     place(cv, BASTION.x0, BASTION.y0 - 7, baseRows);
-    // The flag itself isn't painted: WorldScene hoists it up this pole as the
-    // learner's streak grows (the `flag` meta point: where it flies at the top,
-    // and how far it can drop).
+    // The flag itself isn't painted: WorldScene flies it, waving, at the top
+    // of this pole (the `flag` meta point).
     const top = (BASTION.y0 - 7) * T + 6;
     FLAG.x = BASTION.x0 + (poleX + 2) / T;
     FLAG.y = top / T;
-    FLAG.drop = baseY - 16 - 6;
   }
 
   // Across the road from Kỳ Đài, on a stone landing out over the river: Phu Văn

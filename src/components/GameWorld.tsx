@@ -155,10 +155,10 @@ export function GameWorld({
   const dress = panel?.dress ?? worn ?? DEFAULT_LOOK;
   const dressRef = useRef(dress);
   const known = useWordsKnown();
-  // What the city shows of progress: the streak flag and the river lanterns.
+  // Progress: the streak in the status bar, and the lanterns on the river.
   const streak = useStreak((s) => s.count);
   const mastered = useProgressCounts().counts.mastered;
-  const progress = useMemo(() => ({ streak, mastered }), [streak, mastered]);
+  const progress = useMemo(() => ({ mastered }), [mastered]);
   const animal = getAnimal(animalId ?? 'fox');
   const stage = stageIndex(known);
 
@@ -443,7 +443,7 @@ export function GameWorld({
              building's HUD is up. ── */}
       {/* ── Status bar ── the world's menu (back to the app), you — your
              buddy as dressed, your name — and what the city shows of your
-             progress: the flag's streak and the river's lanterns. ── */}
+             progress: your streak and the river's lanterns. ── */}
       {!panel && (
         // Above the minimap (z-20), so the menu opens over it.
         <div className="px absolute top-2 left-2 z-30 flex items-start gap-2">
@@ -481,9 +481,9 @@ export function GameWorld({
             </span>
             <span className="min-w-0">
               <span className="block px-title !text-[14px] text-[var(--px-gold)] truncate max-w-[10rem]">{buddyName || animal.name}</span>
-              {/* What the flag and the lanterns mean — they're progress, not scenery. */}
+              {/* Your streak, and what the lanterns mean — they're progress, not scenery. */}
               <span className="flex items-center gap-3 text-[12px] font-bold">
-                <span className="flex items-center gap-1 text-[var(--px-gold)]" title={intl.formatMessage({ id: 'world.progressFlag' }, { count: streak })}>
+                <span className="flex items-center gap-1 text-[var(--px-gold)]" title={intl.formatMessage({ id: 'world.progressStreak' }, { count: streak })}>
                   <PixelIcon name="flame" size={2} /> {streak}
                 </span>
                 <span className="text-[var(--px-text)]" title={intl.formatMessage({ id: 'world.progressLanterns' }, { count: mastered })}>

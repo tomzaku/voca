@@ -3,7 +3,7 @@ import type { Catalog } from '../..';
 // The world itself: the page, the HUD over the map, travel and zoom.
 
 export default {
-  'world.progressFlag': '{count, plural, one {# day} other {# days}} · the flag on Kỳ Đài',
+  'world.progressStreak': '{count, plural, one {# day} other {# days}} in a row',
   'world.progressLanterns': '{count, plural, one {# lantern} other {# lanterns}} · words mastered',
   'world.areaFallback': 'Area {n}',
   'world.close': 'Close',

@@ -73,7 +73,7 @@ export default {
   'places.kyDai': 'Kỳ Đài',
   'places.kyDaiEn': 'The Flag Tower',
   'places.kyDaiAbout': 'The Flag Tower stands in the middle of the Citadel’s front wall, facing the Perfume River. First built in 1807 under Emperor Gia Long, its three brick tiers carry Huế’s tallest flagpole.',
-  'places.kyDaiFact': 'In this world, its flag climbs the pole as your study streak grows.',
+  'places.kyDaiFact': 'The flag at the top of its pole can be seen from across the Perfume River.',
 
   'places.dragonBoat': 'Thuyền rồng',
   'places.dragonBoatEn': 'Dragon boats',

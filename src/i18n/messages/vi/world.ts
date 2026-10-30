@@ -1,7 +1,7 @@
 import type en from '../en/world';
 
 export default {
-  'world.progressFlag': '{count} ngày · cờ trên Kỳ Đài',
+  'world.progressStreak': '{count} ngày liên tiếp',
   'world.progressLanterns': '{count} đèn lồng · từ đã thuộc',
   'world.areaFallback': 'Khu {n}',
   'world.close': 'Đóng',

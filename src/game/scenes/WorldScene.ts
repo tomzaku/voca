@@ -36,16 +36,11 @@ export interface WorldSceneData {
   progress: WorldProgress;
 }
 
-/** The learner's progress, as the city shows it: the streak hoists the flag
- *  on Kỳ Đài (full mast at FULL_MAST days), and every mastered word floats a
- *  lantern on the river. */
+/** The learner's progress, as the city shows it: every mastered word floats
+ *  a lantern on the river. */
 export interface WorldProgress {
-  streak: number;
   mastered: number;
 }
-
-/** Streak days that bring the flag to the top of its pole. */
-const FULL_MAST = 7;
 
 const SPEED = 360;      // buddy speed, px/s
 const REACH = 110;      // distance at which a building "opens"
@@ -111,8 +106,8 @@ interface MapMeta {
   animals: { x: number; y: number; kind: string }[];
   /** Where the keepers stand. */
   slots: MapSlot[];
-  /** Where the streak flag flies at full mast, and how far it can drop. */
-  flag: { x: number; y: number; drop: number } | null;
+  /** Where the flag flies, at the top of Kỳ Đài's pole. */
+  flag: { x: number; y: number } | null;
   /** Lantern spots on the water, in the order they fill. */
   lanterns: { x: number; y: number }[];
 }
@@ -413,7 +408,7 @@ export class WorldScene extends Phaser.Scene {
   setProgress(progress: WorldProgress) {
     const prev = this.args.progress;
     this.args.progress = progress;
-    if (this.ready && (prev.streak !== progress.streak || prev.mastered !== progress.mastered)) this.buildProgress();
+    if (this.ready && prev.mastered !== progress.mastered) this.buildProgress();
   }
 
   // ── Zoom ──
@@ -751,21 +746,20 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * The city's picture of the learner's progress: the flag on Kỳ Đài sits
-   * as high up its pole as the streak reaches (full mast at FULL_MAST days,
-   * at the foot with none), and a paper lantern floats on the river for
-   * each mastered word, as many as the map has spots for. Both move gently —
-   * the flag waves, the lanterns bob — and glow through the night veil.
+   * The flag on Kỳ Đài, flying at the top of its pole as the real one does,
+   * and the city's picture of the learner's progress: a paper lantern on the
+   * river for each mastered word, as many as the map has spots for. Both
+   * move gently — the flag waves, the lanterns bob — and glow through the
+   * night veil.
    */
   private buildProgress() {
     this.progressLayer?.destroy();
     const layer = this.add.container(0, 0);
     this.progressLayer = layer;
-    const { streak, mastered } = this.args.progress;
+    const { mastered } = this.args.progress;
 
     const flag = this.meta.flag;
     if (flag) {
-      const lift = Math.min(1, streak / FULL_MAST);
       const g = this.add.graphics();
       // Drawn at source pixels × SCALE, from the pole outwards (origin left).
       g.fillStyle(0xcc2a26, 1).fillRect(0, 0, 22 * SCALE, 14 * SCALE);
@@ -774,7 +768,7 @@ export class WorldScene extends Phaser.Scene {
       const star = [[11, 3], [10, 4], [11, 4], [12, 4], [8, 5], [9, 5], [10, 5], [11, 5], [12, 5], [13, 5], [14, 5],
         [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [10, 7], [11, 7], [12, 7], [9, 8], [10, 8], [12, 8], [13, 8]];
       for (const [sx, sy] of star) g.fillRect(sx * SCALE, sy * SCALE, SCALE, SCALE);
-      const banner = this.add.container(flag.x, flag.y + (1 - lift) * flag.drop, [g]).setDepth(DEPTH_OVER + 1);
+      const banner = this.add.container(flag.x, flag.y, [g]).setDepth(DEPTH_OVER + 1);
       this.tweens.add({ targets: banner, scaleX: { from: 1, to: 0.9 }, duration: 900, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       layer.add(banner);
     }
@@ -882,7 +876,7 @@ export class WorldScene extends Phaser.Scene {
           meta.windmills.push({ x, y });
           break;
         case 'flag':
-          meta.flag = { x, y, drop: Number(get('drop') ?? 0) * SCALE };
+          meta.flag = { x, y };
           break;
         case 'lantern':
           lanterns.push({ x, y, order: Number(get('order') ?? lanterns.length) });
