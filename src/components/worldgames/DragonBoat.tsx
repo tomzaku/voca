@@ -13,10 +13,10 @@ import { HudActionBar, HudBanner, HudCenter, HudDock, HudSlot, HudTop, PixelButt
 // sentence and you type it, and Comprehension, where a clip plays and its
 // questions sit on hotkeys 1–4. Switch between them in the top bar.
 
-type Mode = 'dictation' | 'comprehension';
+export type Mode = 'dictation' | 'comprehension';
 
-export function DragonBoat() {
-  const [mode, setMode] = useState<Mode>('dictation');
+export function DragonBoat({ initialMode = 'dictation' }: { initialMode?: Mode }) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [score, setScore] = useState<ReactNode>(null);
 
   useEffect(() => () => stopSpeaking(), []);

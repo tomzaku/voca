@@ -1,39 +1,111 @@
-// The app's features, surfaced as buildings you walk up to in the world game.
+// The world's skills — one keeper each, standing at the skill's home
+// landmark. Walking up to a keeper opens a menu of the skill's activities,
+// grouped the way a game would: Learn (battle the creeps — small rounds, one
+// at a time), Practice (face the boss — test what you know) and Tools. Every
+// app page is an activity of some skill, so the city stays one organised map
+// rather than a building per page.
+//
 // Kept dependency-free (no React) like the rest of src/game/ so the Phaser
-// scene can import it directly. The React shell turns `route` into navigation.
+// scene can import it directly; the scene places the keepers (WorldFeature),
+// the React shell renders the menus and the activities themselves.
 
 export interface WorldFeature {
-  /** Stable id; emitted through WORLD_EVENTS.near as `${FEATURE_ID_PREFIX}${id}`. */
+  /** Stable id; emitted through WORLD_EVENTS.near as `${FEATURE_ID_PREFIX}${id}`,
+   *  and the map's keeper slot for it carries the same id. */
   id: string;
   /** Message id (world catalog) — formatted when drawn, so it follows the language. */
   nameId: string;
-  /** react-router path this building opens (see App.tsx routes). */
+  /** react-router path of the skill's page in the app. */
   route: string;
-  /** Message id for the one line shown on the building's card. */
+  /** Message id for the one line shown on the keeper's card. */
   blurbId: string;
-  /** Emoji drawn on the building marker + name pill. */
+  /** Emoji drawn on the keeper's badge and in menus. */
   emoji: string;
-  /** Iconify (Lucide) name for the DOM card and fast-travel list. */
+  /** Iconify (Lucide) name, for app-side lists. */
   icon: string;
 }
 
-/** Namespace for feature ids so React can tell them apart from collection ids
+/** Learn: battle the creeps. Practice: face the boss. Tool: look things up. */
+export type ActivityKind = 'learn' | 'practice' | 'tool';
+
+export interface WorldActivity {
+  /** Which in-world screen plays it (see WorldGame). */
+  id: string;
+  kind: ActivityKind;
+  nameId: string;
+  blurbId: string;
+  emoji: string;
+  /** The landmark it belongs to — shown in menus so the map still means something. */
+  place: string;
+}
+
+export interface WorldSkill extends WorldFeature {
+  activities: WorldActivity[];
+}
+
+/** Namespace for keeper ids so React can tell them apart from collection ids
  *  and CREATE_STATION_ID in the `near` payload. */
 export const FEATURE_ID_PREFIX = 'feat:';
 
 export const featureNodeId = (f: WorldFeature) => `${FEATURE_ID_PREFIX}${f.id}`;
 
-/** The buildings placed in the world, in a sensible walk order. */
-export const WORLD_FEATURES: WorldFeature[] = [
-  { id: 'learn',      nameId: 'world.featureLearn',      route: '/',           emoji: '📚', icon: 'lucide:sparkles', blurbId: 'world.featureLearnBlurb' },
-  { id: 'speak',      nameId: 'world.featureSpeak',      route: '/speaking',   emoji: '🎤', icon: 'lucide:mic',      blurbId: 'world.featureSpeakBlurb' },
-  { id: 'quizzes',    nameId: 'world.featureQuizzes',    route: '/quizzes',    emoji: '📝', icon: 'lucide:file-pen', blurbId: 'world.featureQuizzesBlurb' },
-  { id: 'level-test', nameId: 'world.featureLevelTest', route: '/level-test', emoji: '🎯', icon: 'lucide:target',   blurbId: 'world.featureLevelTestBlurb' },
-  { id: 'history',    nameId: 'world.featureHistory',    route: '/history',    emoji: '📜', icon: 'lucide:history',   blurbId: 'world.featureHistoryBlurb' },
-  { id: 'buddy',      nameId: 'world.featureBuddy',      route: '/companion',  emoji: '🐾', icon: 'lucide:paw-print', blurbId: 'world.featureBuddyBlurb' },
-  { id: 'review',     nameId: 'world.featureReview',     route: '/review',     emoji: '🪷', icon: 'lucide:repeat',     blurbId: 'world.featureReviewBlurb' },
-  { id: 'listening',  nameId: 'world.featureListening',  route: '/listening',  emoji: '🎧', icon: 'lucide:headphones', blurbId: 'world.featureListeningBlurb' },
-  { id: 'search',     nameId: 'world.featureSearch',     route: '/',           emoji: '🔎', icon: 'lucide:search',     blurbId: 'world.featureSearchBlurb' },
-  { id: 'writing',    nameId: 'world.featureWriting',    route: '/writing/improve', emoji: '✍️', icon: 'lucide:pen-line', blurbId: 'world.featureWritingBlurb' },
-  { id: 'ipa',        nameId: 'world.featureIpa',        route: '/ipa',        emoji: '🎶', icon: 'lucide:audio-lines', blurbId: 'world.featureIpaBlurb' },
+const act = (id: string, kind: ActivityKind, key: string, emoji: string, place: string): WorldActivity =>
+  ({ id, kind, nameId: `world.act${key}`, blurbId: `world.act${key}Blurb`, emoji, place });
+
+/** The skills, in the order menus and the travel drawer list them. */
+export const WORLD_SKILLS: WorldSkill[] = [
+  {
+    id: 'vocabulary', nameId: 'world.skillVocabulary', blurbId: 'world.skillVocabularyBlurb',
+    route: '/', emoji: '📚', icon: 'lucide:sparkles',
+    activities: [
+      act('learn', 'learn', 'Learn', '🏮', 'Chợ Đông Ba'),
+      act('review', 'learn', 'Review', '🪷', 'Chùa Thiên Mụ'),
+      act('quizzes', 'practice', 'Quiz', '⚔️', 'Quốc Học'),
+      act('level-test', 'practice', 'LevelTest', '⛰️', 'Núi Ngự Bình'),
+      act('search', 'tool', 'Search', '🔎', 'Tàng Thư Lâu'),
+      act('history', 'tool', 'Words', '📜', 'Lăng Khải Định'),
+    ],
+  },
+  {
+    id: 'speaking', nameId: 'world.skillSpeaking', blurbId: 'world.skillSpeakingBlurb',
+    route: '/speaking', emoji: '🎤', icon: 'lucide:mic',
+    activities: [
+      act('ipa', 'learn', 'Ipa', '🎶', 'Duyệt Thị Đường'),
+      act('speak', 'practice', 'Conversation', '🍵', 'Cồn Hến'),
+    ],
+  },
+  {
+    id: 'listening', nameId: 'world.skillListening', blurbId: 'world.skillListeningBlurb',
+    route: '/listening', emoji: '🎧', icon: 'lucide:headphones',
+    activities: [
+      act('dictation', 'learn', 'Dictation', '✍️', 'Thuyền rồng'),
+      act('comprehension', 'practice', 'Comprehension', '🐉', 'Thuyền rồng'),
+    ],
+  },
+  {
+    id: 'writing', nameId: 'world.skillWriting', blurbId: 'world.skillWritingBlurb',
+    route: '/writing/improve', emoji: '🖌️', icon: 'lucide:pen-line',
+    activities: [
+      act('writing', 'practice', 'Stele', '🪨', 'Văn Miếu'),
+    ],
+  },
+  {
+    id: 'you', nameId: 'world.skillYou', blurbId: 'world.skillYouBlurb',
+    route: '/companion', emoji: '🐾', icon: 'lucide:paw-print',
+    activities: [
+      act('buddy', 'tool', 'Buddy', '🐾', 'Nhà vườn An Hiên'),
+    ],
+  },
 ];
+
+/** The keepers the scene places — one per skill. */
+export const WORLD_FEATURES: WorldFeature[] = WORLD_SKILLS;
+
+/** The skill an activity belongs to, and the activity itself. */
+export function findActivity(activityId: string): { skill: WorldSkill; activity: WorldActivity } | null {
+  for (const skill of WORLD_SKILLS) {
+    const activity = skill.activities.find((a) => a.id === activityId);
+    if (activity) return { skill, activity };
+  }
+  return null;
+}

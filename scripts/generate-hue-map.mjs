@@ -1276,19 +1276,16 @@ point('station', 55, 30.5, { region: 'system', slot: 0 });
 SYSTEM_HALLS.forEach(([x, y], i) => point('station', x + 2, y + 4.5, { region: 'system', slot: i + 1 }));
 // Collections: the Kim Long garden houses, front row first.
 HOUSE_ROWS.forEach((y, r) => HOUSE_X.forEach((x, i) => point('station', x + 2, y + 4.5, { region: 'public', slot: r * 4 + i })));
-// App pages, each bound to its landmark.
+// The skills' keepers — one person per skill, at its home landmark (see
+// src/game/features.ts). Their menus reach every activity, including those
+// whose landmarks (Thiên Mụ, Quốc Học, the library…) have no keeper of
+// their own.
 const FEATURES = [
-  ['learn', 91, 47.5, 'Chợ Đông Ba'],
-  ['review', 6, 47.5, 'Chùa Thiên Mụ'],
-  ['speak', 111, 40.6, 'Cồn Hến'],
+  ['vocabulary', 91, 47.5, 'Chợ Đông Ba'],
+  ['speaking', 111, 40.6, 'Cồn Hến'],
   ['listening', 58, 54.5, 'Thuyền rồng'],
-  ['quizzes', 41, 65.5, 'Quốc Học'],
-  ['level-test', 57, 76.5, 'Núi Ngự Bình'],
-  ['history', 8, 81.5, 'Lăng Khải Định'],
-  ['buddy', 13, 12.5, 'Nhà vườn An Hiên'],
-  ['search', 36, 26.5, 'Tàng Thư Lâu'],
   ['writing', 20, 44.5, 'Văn Miếu'],
-  ['ipa', 73, 18.5, 'Duyệt Thị Đường'],
+  ['you', 13, 12.5, 'Nhà vườn An Hiên'],
 ];
 FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 

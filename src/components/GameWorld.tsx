@@ -12,7 +12,7 @@ import {
   CREATE_STATION_ID, WORLD_EVENTS,
   type WorldArea, type WorldSnapshot, type WorldStation,
 } from '../game/types';
-import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../game/features';
+import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 
 export type { WorldStation } from '../game/types';
@@ -21,14 +21,26 @@ interface Props {
   stations: WorldStation[];
   /** App pages placed as buildings; walking up opens a card that opens the
    *  page in-game (the parent renders it over the world). */
-  features: WorldFeature[];
+  /** The skills, whose keepers the scene places; their activities fill the
+   *  travel drawer. */
+  skills: WorldSkill[];
+  /** A keeper was reached and entered: open its skill menu. */
   onOpenFeature: (f: WorldFeature) => void;
+  /** An activity picked straight from the travel drawer. */
+  onOpenActivity: (activityId: string) => void;
   /** True while an in-game panel covers the world: freeze the buddy's controls
    *  so the panel's own keyboard (typing, space, arrows) isn't swallowed. */
   paused?: boolean;
   /** The building you stepped into, shown as a popup *inside* the world frame —
    *  the map stays visible behind it, so you never leave the game. */
-  panel?: { feature: WorldFeature; content: ReactNode; onClose: () => void } | null;
+  panel?: {
+    title: string;
+    emoji: string;
+    content: ReactNode;
+    onClose: () => void;
+    /** Inside an activity: back to the skill's menu. */
+    onBack?: () => void;
+  } | null;
   onStudy: (s: WorldStation) => void;
   onPreview: (s: WorldStation) => void;
   onQuiz: (s: WorldStation) => void;
@@ -87,6 +99,33 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
   );
 }
 
+/** One foldable section of the travel drawer. `onTitle`, when given, makes
+ *  the title itself a destination (a skill's keeper); the chevron folds. */
+function DrawerSection({ title, open, onToggle, onTitle, children }: {
+  title: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  onTitle?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="px-inset px-notch p-1.5">
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onTitle ?? onToggle}
+          className="flex-1 min-w-0 flex items-center gap-1.5 px-1.5 py-1 px-title !text-[13px] text-[var(--px-text)] hover:text-[var(--px-gold)] text-left"
+        >
+          {title}
+        </button>
+        <button onClick={onToggle} aria-expanded={open} className="w-7 h-7 flex items-center justify-center text-[var(--px-muted)] hover:text-[var(--px-gold)]">
+          <PixelIcon name={open ? 'minus' : 'plus'} size={1} />
+        </button>
+      </div>
+      {open && <div className="space-y-1 mt-1">{children}</div>}
+    </div>
+  );
+}
+
 /**
  * The standalone world game. The world itself (movement, camera, stations,
  * feature buildings, scenery) is a Phaser scene — see src/game/ — while this
@@ -95,10 +134,11 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
  * collection or an app-page building.
  */
 export function GameWorld({
-  stations, features, onOpenFeature, paused = false, panel = null,
+  stations, skills, onOpenFeature, onOpenActivity, paused = false, panel = null,
   onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
 }: Props) {
   const intl = useIntl();
+  const features: WorldFeature[] = skills;
   // Phaser text is drawn once, so a language switch rebuilds the scene.
   const locale = intl.locale;
   const animalId = useCompanion((s) => s.animalId);
@@ -126,6 +166,13 @@ export function GameWorld({
 
   // ── Fast-travel drawer (top right) ──
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Drawer sections folded shut, by key (a skill id or a collection kind).
+  const [folded, setFolded] = useState<Set<string>>(new Set());
+  const toggleFold = (key: string) => setFolded((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   // ── Owner ⋯ menu on the station card ──
   const [menuOpen, setMenuOpen] = useState(false);
@@ -391,36 +438,52 @@ export function GameWorld({
               </PixelButton>
             </div>
             <div className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-3">
-              {/* App pages first, then collections by kind. */}
-              {features.length > 0 && (
-                <div>
-                  <p className="px-title !text-[11px] text-[var(--px-muted)] px-1 pb-1"><FormattedMessage id="world.places" /></p>
-                  <div className="space-y-1">
-                    {features.map((f) => (
-                      <button key={f.id} onClick={() => travelTo(featureNodeId(f))} className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left">
-                        <span className="text-[14px] leading-none">{f.emoji}</span>
-                        <span className="flex-1 min-w-0 truncate text-[15px] font-bold">{intl.formatMessage({ id: f.nameId })}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* A drawer of sections: each skill with its activities (picking
+                  one walks to the keeper and opens it), then your collections
+                  and the levels. Every section folds. */}
+              <p className="px-title !text-[11px] text-[var(--px-muted)] px-1"><FormattedMessage id="world.skills" /></p>
+              {skills.map((skill) => (
+                <DrawerSection
+                  key={skill.id}
+                  open={!folded.has(skill.id)}
+                  onToggle={() => toggleFold(skill.id)}
+                  title={<><span className="text-[14px] leading-none">{skill.emoji}</span> {intl.formatMessage({ id: skill.nameId })}</>}
+                  onTitle={() => travelTo(featureNodeId(skill))}
+                >
+                  {skill.activities.map((a) => (
+                    <button
+                      key={a.id}
+                      onClick={() => { travelTo(featureNodeId(skill)); onOpenActivity(a.id); }}
+                      className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left"
+                    >
+                      <span className="text-[13px] leading-none">{a.emoji}</span>
+                      <span className="flex-1 min-w-0 truncate text-[14px] font-bold">{intl.formatMessage({ id: a.nameId })}</span>
+                      <PixelIcon
+                        name={a.kind === 'learn' ? 'sword' : a.kind === 'practice' ? 'skull' : 'search'}
+                        size={1}
+                        className={a.kind === 'learn' ? 'text-[var(--px-jade)]' : a.kind === 'practice' ? 'text-[var(--px-bad)]' : 'text-[var(--px-sky)]'}
+                      />
+                    </button>
+                  ))}
+                </DrawerSection>
+              ))}
               {(['mine', 'joined', 'level'] as const).map((kind) => {
                 const group = stations.filter((s) => s.kind === kind);
                 if (group.length === 0) return null;
                 return (
-                  <div key={kind}>
-                    <p className="px-title !text-[11px] text-[var(--px-muted)] px-1 pb-1"><FormattedMessage id={KIND_META[kind].groupId} /></p>
-                    <div className="space-y-1">
-                      {group.map((s) => (
-                        <button key={s.id} onClick={() => travelTo(s.id)} data-on={s.active} className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left">
-                          <PixelIcon name={KIND_META[s.kind].icon} size={2} className="shrink-0" />
-                          <span className="flex-1 min-w-0 truncate text-[15px] font-bold">{s.name}</span>
-                          <span className="shrink-0 px-num text-[13px] text-[var(--px-muted)]">{s.pct}%</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <DrawerSection
+                    key={kind}
+                    open={!folded.has(kind)}
+                    onToggle={() => toggleFold(kind)}
+                    title={<><PixelIcon name={KIND_META[kind].icon} size={2} /> <FormattedMessage id={KIND_META[kind].groupId} /></>}
+                  >
+                    {group.map((s) => (
+                      <button key={s.id} onClick={() => travelTo(s.id)} data-on={s.active} className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left">
+                        <span className="flex-1 min-w-0 truncate text-[14px] font-bold">{s.name}</span>
+                        <span className="shrink-0 px-num text-[13px] text-[var(--px-muted)]">{s.pct}%</span>
+                      </button>
+                    ))}
+                  </DrawerSection>
                 );
               })}
             </div>
@@ -580,9 +643,15 @@ export function GameWorld({
         <div className="absolute inset-0 z-30 bg-black/30 animate-fade-in pointer-events-none">
           <div className="px absolute top-2 left-2 flex items-center gap-2 pointer-events-auto">
             <span className="px-notch px-frame px-title flex items-center gap-2 pl-3 pr-4 py-2.5">
-              <span className="text-base leading-none">{panel.feature.emoji}</span>
-              {intl.formatMessage({ id: panel.feature.nameId })}
+              <span className="text-base leading-none">{panel.emoji}</span>
+              {panel.title}
             </span>
+            {panel.onBack && (
+              <PixelButton tone="paper" onClick={panel.onBack} className="!px-3 !py-2.5">
+                <PixelIcon name="sliders" size={2} />
+                {intl.formatMessage({ id: 'world.menuBack' })}
+              </PixelButton>
+            )}
             <PixelButton tone="paper" onClick={panel.onClose} className="!px-3 !py-2.5">
               <PixelIcon name="close" size={2} />
               {intl.formatMessage({ id: 'world.leaveBuilding' })}

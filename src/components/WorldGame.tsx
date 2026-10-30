@@ -7,7 +7,7 @@ import { t } from '../i18n';
 import { useCollections } from '../hooks/useCollections';
 import { useGameMode } from '../hooks/useGameMode';
 import { useWorldStations } from '../hooks/useWorldStations';
-import { WORLD_FEATURES, type WorldFeature } from '../game/features';
+import { WORLD_SKILLS, findActivity, type WorldActivity, type WorldFeature, type WorldSkill } from '../game/features';
 import type { WorldStation } from '../game/types';
 import { PreviewModal, sampleWords } from './PreviewModal';
 import { CollectionForm } from './CollectionForm';
@@ -25,24 +25,16 @@ import { VanMieuStele } from './worldgames/VanMieuStele';
 import { DuyetThiDuong } from './worldgames/DuyetThiDuong';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
+import { SkillMenu } from './worldgames/SkillMenu';
 
 // The world pulls in Phaser (~1 MB) — only load it when the page mounts.
 const GameWorld = lazy(() => import('./GameWorld').then((m) => ({ default: m.GameWorld })));
 
-/** Placeholder for buildings whose in-game activity isn't built yet. */
-function ComingSoon({ feature }: { feature: WorldFeature }) {
-  return (
-    <div className="py-6 text-center">
-      <div className="text-4xl mb-3">{feature.emoji}</div>
-      <p className="text-sm text-text-muted"><FormattedMessage id="world.comingSoon" /></p>
-    </div>
-  );
-}
-
 /**
- * The standalone World game at /world: your buddy walks a village to reach the
- * app's pages (feature buildings) and your collections (stations). Enabled and
- * configured from Settings only — visiting while off bounces to Collections.
+ * The standalone World game at /world: your buddy walks Huế to reach the
+ * skills' keepers (whose menus hold every activity) and your collections
+ * (stations). Enabled and configured from Settings only — visiting while off
+ * bounces to Collections.
  */
 export function WorldGame() {
   const intl = useIntl();
@@ -64,21 +56,27 @@ export function WorldGame() {
   const [quiz, setQuiz] = useState<{ name: string; words: string[] } | null>(null);
   // form set = the create/edit modal is open (editingId null = creating).
   const [form, setForm] = useState<{ editingId: string | null; name: string; words: string[] } | null>(null);
-  // The feature building whose page is open over the world (null = none).
-  const [feature, setFeature] = useState<WorldFeature | null>(null);
+  // What's open over the world: a skill keeper's menu (activity null), or
+  // one of its activities. Null = just the map.
+  const [open, setOpen] = useState<{ skill: WorldSkill; activity: WorldActivity | null } | null>(null);
+  const openSkill = (f: WorldFeature) => {
+    const skill = WORLD_SKILLS.find((x) => x.id === f.id);
+    if (skill) setOpen({ skill, activity: null });
+  };
+  const openActivity = (id: string) => {
+    const found = findActivity(id);
+    if (found) setOpen(found);
+  };
 
   // Search lives in the library: the header's search (button, ⌘K, "/") opens
   // it here instead of the app's modal, and "learn it" hands the word to the
   // Đông Ba stall, which plays it next.
   useEffect(() => useWordSearch.subscribe((s, prev) => {
     if (s.openCount === prev.openCount) return;
-    const library = WORLD_FEATURES.find((f) => f.id === 'search');
-    if (library) setFeature(library);
+    const found = findActivity('search');
+    if (found) setOpen(found);
   }), []);
-  const openStall = () => {
-    const stall = WORLD_FEATURES.find((f) => f.id === 'learn');
-    if (stall) setFeature(stall);
-  };
+  const openStall = () => openActivity('learn');
   const learnAtDongBa = (word: string) => {
     useWordSearch.getState().requestSearch(word);
     openStall();
@@ -111,6 +109,25 @@ export function WorldGame() {
       toast.success(t('world.toastDeleted', { name: s.name }));
     } catch (err) {
       toast.error((err as Error).message || t('world.toastDeleteFailed'));
+    }
+  };
+
+  /** The in-world screen that plays an activity. */
+  const activityScreen = (id: string) => {
+    switch (id) {
+      case 'learn': return <DongBaStall />;
+      case 'review': return <ThienMuReview onLearnMore={openStall} />;
+      case 'quizzes': return <QuizArena words={wordPool} />;
+      case 'level-test': return <NguBinhClimb onStudy={openStall} />;
+      case 'search': return <LibrarySearch onLearn={learnAtDongBa} />;
+      case 'history': return <KhaiDinhTomb onLearn={learnAtDongBa} />;
+      case 'ipa': return <DuyetThiDuong />;
+      case 'speak': return <ConHenStall />;
+      case 'dictation': return <DragonBoat key="dictation" initialMode="dictation" />;
+      case 'comprehension': return <DragonBoat key="comprehension" initialMode="comprehension" />;
+      case 'writing': return <VanMieuStele />;
+      case 'buddy': return <AnHienHome />;
+      default: return null;
     }
   };
 
@@ -148,24 +165,21 @@ export function WorldGame() {
       >
         <GameWorld
           stations={stations}
-          features={WORLD_FEATURES}
-          onOpenFeature={setFeature}
-          paused={feature !== null}
-          panel={feature && {
-            feature,
-            onClose: () => setFeature(null),
-            content: feature.id === 'learn' ? <DongBaStall />
-              : feature.id === 'search' ? <LibrarySearch onLearn={learnAtDongBa} />
-              : feature.id === 'review' ? <ThienMuReview onLearnMore={openStall} />
-              : feature.id === 'speak' ? <ConHenStall />
-              : feature.id === 'listening' ? <DragonBoat />
-              : feature.id === 'level-test' ? <NguBinhClimb onStudy={openStall} />
-              : feature.id === 'history' ? <KhaiDinhTomb onLearn={learnAtDongBa} />
-              : feature.id === 'buddy' ? <AnHienHome />
-              : feature.id === 'writing' ? <VanMieuStele />
-              : feature.id === 'ipa' ? <DuyetThiDuong />
-              : feature.id === 'quizzes' ? <QuizArena words={wordPool} />
-              : <ComingSoon feature={feature} />,
+          skills={WORLD_SKILLS}
+          onOpenFeature={openSkill}
+          onOpenActivity={openActivity}
+          paused={open !== null}
+          panel={open && {
+            title: open.activity
+              ? `${intl.formatMessage({ id: open.skill.nameId })} › ${intl.formatMessage({ id: open.activity.nameId })}`
+              : intl.formatMessage({ id: open.skill.nameId }),
+            emoji: open.activity?.emoji ?? open.skill.emoji,
+            onClose: () => setOpen(null),
+            // Inside an activity, step back out to the keeper's menu.
+            onBack: open.activity ? () => setOpen({ skill: open.skill, activity: null }) : undefined,
+            content: open.activity
+              ? activityScreen(open.activity.id)
+              : <SkillMenu skill={open.skill} onPick={(activity) => setOpen({ skill: open.skill, activity })} />,
           }}
           onStudy={study}
           onPreview={(s) => setPreview({ name: s.name, all: s.words, sample: sampleWords(s.words) })}
