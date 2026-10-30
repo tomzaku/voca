@@ -15,9 +15,9 @@ const named = (cv, kind) => { cv.spec = { ...cv.spec, kind }; return cv; };
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
-  { text: 'Lăng Tự Đức', x: 10, y: 111.9, place: 'tuDuc' },
-  { text: 'Lăng Khải Định', x: 34.5, y: 111.9, place: 'khaiDinh' },
-  { text: 'Lăng Minh Mạng', x: 79, y: 111.9, place: 'minhMang' },
+  { text: 'Lăng Tự Đức', x: 10, y: 112.6, place: 'tuDuc' },
+  { text: 'Lăng Khải Định', x: 34.5, y: 112.6, place: 'khaiDinh' },
+  { text: 'Lăng Minh Mạng', x: 79, y: 112.6, place: 'minhMang' },
 ];
 
 export function drawTombs() {

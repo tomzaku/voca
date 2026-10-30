@@ -79,17 +79,20 @@ export const ROADS = [
   road('street', 2, [[0, 66], [97, 66]], { main: true }),         // Lê Lợi, along the river
   // Điện Biên Phủ: south past Ga Huế, over the tracks and the canal, up into
   // the hills to the tombs.
-  road('street', 2, [[21, 67], [21, 84], [22.5, 91], [22.5, 100], [21, 106], [21, 110.5]]),
+  road('street', 2, [[21, 67], [21, 84], [22.5, 91], [22.5, 100], [23.5, 106], [23.5, 114.5]]),
   // Hùng Vương: south-east from Phú Xuân bridge, over the An Cựu canal.
   road('street', 2, [[67.5, 67], [68, 72], [70.5, 77], [70.5, 84]], { main: true }),
   box(48, 67, 3, 16, 'street'),                                   // from Lê Lợi park, over the canal, to the lane round Ngự Bình
   // South of the canal: the lane round Ngự Bình, and on down through the
   // pines to Minh Mạng's tomb.
   road('lane', 2, [[44, 83], [52, 82], [60, 82.5], [70.5, 83.5]]),
-  road('lane', 2, [[70.5, 84], [68, 89], [66, 95], [66.5, 102], [68, 110.5]]),
+  road('lane', 2, [[70.5, 84], [68, 89], [66, 95], [65, 102], [65, 114.5]]),
   // The tombs' road, winding through the hills from gate to gate.
-  road('lane', 1.6, [[2, 110.8], [10, 110.8], [16, 111.4], [21, 110.8], [27, 111.4], [34.5, 110.8], [42, 111.4],
-    [50, 111.6], [58, 111.3], [66, 110.9], [72, 111.4], [79, 110.8], [88, 110.8]]),
+  road('lane', 1.6, [[2, 114.8], [10, 114.8], [16, 115.4], [21, 114.8], [27, 115.4], [34.5, 114.8], [42, 115.4],
+    [50, 115.6], [58, 115.3], [66, 114.9], [72, 115.4], [79, 114.8], [88, 114.8]]),
+  // The tombs stand up on the mountain: stone stairs from each gate down the
+  // terraces to the road.
+  box(9, 110, 2, 5, 'stone'), box(33, 110, 3, 5, 'stone'), box(78, 110, 2, 5, 'stone'),
   // Footpaths winding through the riverside parks, between the bridges.
   ...PARK_PATHS.map(([x0, x1, y]) => road('path', 0.8, wavy(x0, x1, y))),
   box(35, 72, 12, 1, 'stone'),                                    // Quốc Học's forecourt
