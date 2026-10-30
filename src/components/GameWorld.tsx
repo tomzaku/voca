@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Phaser from 'phaser';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
@@ -153,8 +153,11 @@ export function GameWorld({
 
   const [nearestId, setNearestId] = useState<string | null>(null);
   const nearestFeature = features.find((f) => featureNodeId(f) === nearestId) ?? null;
-  // The story of the place a room stands in, opened from the skill bar's ⓘ.
-  const [placeOpen, setPlaceOpen] = useState<string | null>(null);
+  // The story of the place a room stands in, as a toast: shown on stepping
+  // in, and again from the skill bar's ⓘ (`n` restarts its clock).
+  const [placeToast, setPlaceToast] = useState<{ id: string; n: number } | null>(null);
+  const showPlace = (id: string) => setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
+  const hidePlace = useCallback(() => setPlaceToast(null), []);
 
   // ── Fast-travel drawer (top right) ──
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -282,6 +285,11 @@ export function GameWorld({
   const roomId = panel?.room && ROOMS[panel.room] ? panel.room : null;
   const talking = !!panel?.talking;
   const talkingRef = useRef(talking);
+  // Stepping into a room introduces its place; leaving takes the toast away.
+  useEffect(() => {
+    const place = roomId ? ROOMS[roomId].place : undefined;
+    setPlaceToast(place ? { id: place, n: 0 } : null);
+  }, [roomId]);
   useEffect(() => {
     talkingRef.current = talking;
     (gameRef.current?.scene.getScene(RoomScene.KEY) as RoomScene | null)?.setTalking(talking);
@@ -558,7 +566,7 @@ export function GameWorld({
         </WorldCard>
       )}
 
-      {placeOpen && <PlaceInfo id={placeOpen} onClose={() => setPlaceOpen(null)} />}
+      {panel && placeToast && <PlaceInfo key={placeToast.n} id={placeToast.id} onClose={hidePlace} />}
 
       {/* ── Inside a skill: a bar across the top says where you are and holds
              the two ways out (Menu, Leave); the activity's HUD docks below it
@@ -572,8 +580,8 @@ export function GameWorld({
             <span className="flex-1" />
             {roomId && ROOMS[roomId].place && (
               <PixelButton
-                tone={placeOpen ? 'sky' : 'paper'}
-                onClick={() => setPlaceOpen(ROOMS[roomId].place!)}
+                tone={placeToast ? 'sky' : 'paper'}
+                onClick={() => showPlace(ROOMS[roomId].place!)}
                 title={intl.formatMessage({ id: `places.${ROOMS[roomId].place}` })}
                 aria-label={intl.formatMessage({ id: `places.${ROOMS[roomId].place}` })}
                 className="!py-2 !px-3"
