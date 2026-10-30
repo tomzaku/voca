@@ -4,6 +4,7 @@ import {
   type ThemeId, type WorldArea, type WorldSnapshot,
 } from '../types';
 import { featureNodeId, type WorldFeature } from '../features';
+import { LANDMARKS } from '../landmarks';
 import { t } from '../../i18n';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
@@ -41,6 +42,7 @@ const FULL_MAST = 7;
 
 const SPEED = 360;      // buddy speed, px/s
 const REACH = 110;      // distance at which a building "opens"
+const LANDMARK_REACH = 200; // landmarks are walked past, not up to — their plaque sits on the roof
 const SCALE = 2;        // 16px Sunnyside art drawn 2× → 32px on-screen tiles
 const NIGHT_TINT = 0x8d92c4; // dims the day-lit tile art in dark mode
 
@@ -194,6 +196,7 @@ export class WorldScene extends Phaser.Scene {
   private route: number[][] = [];
   private targetMark!: Phaser.GameObjects.Arc;
   private nearestId: string | null = null;
+  private nearLandmark: string | null = null;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
@@ -431,9 +434,18 @@ export class WorldScene extends Phaser.Scene {
   travelTo(nodeId: string) {
     if (!this.ready) return;
     const node = this.nodes.find((n) => n.id === nodeId);
-    if (!node) return;
-    const spot = this.clampToWalkable(node.x, node.y + 50)
-      ?? { x: node.x, y: node.y + 50 };
+    if (node) this.jumpTo(node.x, node.y + 50);
+  }
+
+  /** Fast travel to a landmark: the nearest street below its plaque. */
+  visitLandmark(id: string) {
+    if (!this.ready) return;
+    const m = LANDMARKS.find((l) => l.id === id);
+    if (m) this.jumpTo(m.x * this.tilePx, m.y * this.tilePx + 3 * this.tilePx);
+  }
+
+  private jumpTo(x: number, y: number) {
+    const spot = this.clampToWalkable(x, y) ?? { x, y };
     this.route = [];
     const cam = this.cameras.main;
     const [r, g, b] = this.pal.light ? [255, 255, 255] : [0, 0, 0];
@@ -651,6 +663,28 @@ export class WorldScene extends Phaser.Scene {
         .setOrigin(0, 0.5);
       layer.add(text);
       this.labels.push({ text, theme: l.theme });
+      const named = LANDMARKS.find((m) => m.label === l.text);
+      if (named) this.tellAbout(text, named.id);
+    }
+
+    // Plaques on the landmarks the map paints without a label: tap one to
+    // read what the place is. Above the roofs, which they sit on.
+    for (const m of LANDMARKS) {
+      if (m.label) continue;
+      const plaque = this.add
+        .text(m.x * this.tilePx, m.y * this.tilePx, `📜 ${t(`places.${m.id}`)}`, {
+          fontFamily: FONT,
+          fontSize: '10px',
+          fontStyle: 'bold',
+          color: this.pal.textCss,
+          backgroundColor: this.pal.cardCss,
+          padding: { x: 6, y: 2 },
+          resolution: this.args.dpr,
+        })
+        .setOrigin(0.5, 1)
+        .setAlpha(0.92)
+        .setDepth(DEPTH_OVER + 2);
+      this.tellAbout(plaque, m.id);
     }
 
     // Each area is its own "room": the camera is locked to the strip the buddy
@@ -1242,5 +1276,29 @@ export class WorldScene extends Phaser.Scene {
       this.nearestId = id;
       this.game.events.emit(WORLD_EVENTS.near, id);
     }
+
+    // The landmark being walked past, if any → React's place card.
+    let place: string | null = null;
+    let placeD = LANDMARK_REACH;
+    for (const m of LANDMARKS) {
+      const d = Math.hypot(m.x * this.tilePx - this.buddy.x, m.y * this.tilePx - this.buddy.y);
+      if (d < placeD) { place = m.id; placeD = d; }
+    }
+    if (place !== this.nearLandmark) {
+      this.nearLandmark = place;
+      this.game.events.emit(WORLD_EVENTS.landmark, place);
+    }
+  }
+
+  /** Make a plaque or label open its landmark's story when tapped. */
+  private tellAbout(text: Phaser.GameObjects.Text, id: string) {
+    text.setInteractive({ useHandCursor: true });
+    text.on(
+      'pointerdown',
+      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.game.events.emit(WORLD_EVENTS.place, id);
+      },
+    );
   }
 }

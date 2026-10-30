@@ -9,6 +9,7 @@ import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
 import { RoomScene, type RoomSceneData } from '../game/scenes/RoomScene';
 import { ROOMS } from '../game/rooms';
+import { LANDMARKS } from '../game/landmarks';
 import { keeperLookFor, type BuddyLook } from '../game/textures';
 import {
   WORLD_EVENTS,
@@ -17,6 +18,7 @@ import {
 import { COLLECTIONS_KEEPER, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 import { KIND_META } from './worldgames/collectionKinds';
+import { PlaceInfo } from './worldgames/PlaceInfo';
 
 export type { WorldStation } from '../game/types';
 
@@ -152,11 +154,15 @@ export function GameWorld({
 
   const [nearestId, setNearestId] = useState<string | null>(null);
   const nearestFeature = features.find((f) => featureNodeId(f) === nearestId) ?? null;
+  // Huế's landmarks: the one being walked past, and the one whose story is open.
+  const [nearLandmark, setNearLandmark] = useState<string | null>(null);
+  const [placeOpen, setPlaceOpen] = useState<string | null>(null);
 
   // ── Fast-travel drawer (top right) ──
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Drawer sections folded shut, by key (a skill id or a collection kind).
-  const [folded, setFolded] = useState<Set<string>>(new Set());
+  // The places guide starts folded: it's long, and the skills come first.
+  const [folded, setFolded] = useState<Set<string>>(new Set(['places']));
   const toggleFold = (key: string) => setFolded((prev) => {
     const next = new Set(prev);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -189,15 +195,15 @@ export function GameWorld({
     (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.resetZoom();
 
   // Latest props for stable event/keyboard handlers.
-  const live = useRef({ features, onOpenFeature, nearestId, paused, progress });
-  live.current = { features, onOpenFeature, nearestId, paused, progress };
+  const live = useRef({ features, onOpenFeature, nearestId, nearLandmark, paused, progress });
+  live.current = { features, onOpenFeature, nearestId, nearLandmark, paused, progress };
 
   // Freeze the world's own keyboard while a panel covers it, so Phaser doesn't
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused;
-  }, [paused]);
+    if (kb) kb.enabled = !paused && !placeOpen;
+  }, [paused, placeOpen]);
 
   // The world fills the page: the frame stretches from wherever it starts down
   // to the bottom of the window (12px page padding), never below MIN_H.
@@ -244,6 +250,8 @@ export function GameWorld({
     game.scene.add(WorldScene.KEY, WorldScene, true, data);
     game.scene.add(RoomScene.KEY, RoomScene, false);
     const onNear = (id: string | null) => setNearestId(id);
+    const onLandmark = (id: string | null) => setNearLandmark(id);
+    const onPlace = (id: string) => setPlaceOpen(id);
     const onMoved = (p: { x: number; y: number; areaIndex: number }) => setPos(p);
     const onArea = ({ area }: { index: number; area: WorldArea }) => {
       arrivalKey.current += 1;
@@ -253,6 +261,8 @@ export function GameWorld({
     setZoom(1);
     const onZoom = (z: number) => setZoom(z);
     game.events.on(WORLD_EVENTS.near, onNear);
+    game.events.on(WORLD_EVENTS.landmark, onLandmark);
+    game.events.on(WORLD_EVENTS.place, onPlace);
     game.events.on(WORLD_EVENTS.moved, onMoved);
     game.events.on(WORLD_EVENTS.area, onArea);
     game.events.on(WORLD_EVENTS.zoom, onZoom);
@@ -265,6 +275,8 @@ export function GameWorld({
       gameRef.current = null;
       ro.disconnect();
       game.events.off(WORLD_EVENTS.near, onNear);
+      game.events.off(WORLD_EVENTS.landmark, onLandmark);
+      game.events.off(WORLD_EVENTS.place, onPlace);
       game.events.off(WORLD_EVENTS.moved, onMoved);
       game.events.off(WORLD_EVENTS.area, onArea);
       game.events.off(WORLD_EVENTS.zoom, onZoom);
@@ -333,7 +345,8 @@ export function GameWorld({
     return () => observer.disconnect();
   }, []);
 
-  // Enter/Space opens the keeper the buddy is standing at. +/- zoom, 0 resets.
+  // Enter/Space opens the keeper the buddy is standing at, or else the story
+  // of the landmark being walked past. +/- zoom, 0 resets.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -346,10 +359,11 @@ export function GameWorld({
       }
       if (e.key !== 'Enter' && e.key !== ' ') return;
       if (typing) return;
-      const { features: feats, onOpenFeature: open, nearestId: id, paused: frozen } = live.current;
-      if (frozen || !id) return;
-      const f = feats.find((x) => featureNodeId(x) === id);
+      const { features: feats, onOpenFeature: open, nearestId: id, nearLandmark: place, paused: frozen } = live.current;
+      if (frozen) return;
+      const f = id ? feats.find((x) => featureNodeId(x) === id) : undefined;
       if (f) { e.preventDefault(); open(f); }
+      else if (place) { e.preventDefault(); setPlaceOpen(place); }
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
@@ -500,6 +514,22 @@ export function GameWorld({
                   </DrawerSection>
                 );
               })}
+              <DrawerSection
+                open={!folded.has('places')}
+                onToggle={() => toggleFold('places')}
+                title={<><span className="text-[14px] leading-none">📜</span> <FormattedMessage id="places.guide" /></>}
+              >
+                <p className="text-[12px] text-[var(--px-muted)] leading-snug px-1 pb-1"><FormattedMessage id="places.hueAbout" /></p>
+                {LANDMARKS.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => { scene()?.visitLandmark(m.id); setDrawerOpen(false); setPlaceOpen(m.id); }}
+                    className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left"
+                  >
+                    <span className="flex-1 min-w-0 truncate text-[14px] font-bold"><FormattedMessage id={`places.${m.id}`} /></span>
+                  </button>
+                ))}
+              </DrawerSection>
             </div>
           </div>
         </>
@@ -554,6 +584,21 @@ export function GameWorld({
           </PixelButton>
         </WorldCard>
       )}
+
+      {/* ── A landmark being walked past (no keeper here) ── */}
+      {!panel && !nearestFeature && nearLandmark && !placeOpen && (
+        <WorldCard
+          emoji="📜"
+          title={intl.formatMessage({ id: `places.${nearLandmark}` })}
+          subtitle={intl.formatMessage({ id: `places.${nearLandmark}En` })}
+        >
+          <PixelButton tone="paper" block onClick={() => setPlaceOpen(nearLandmark)}>
+            <FormattedMessage id="places.read" /> <span className="hidden sm:inline opacity-70">↵</span>
+          </PixelButton>
+        </WorldCard>
+      )}
+
+      {placeOpen && <PlaceInfo id={placeOpen} onClose={() => setPlaceOpen(null)} />}
 
       {/* ── Inside a skill: a bar across the top says where you are and holds
              the two ways out (Menu, Leave); the activity's HUD docks below it

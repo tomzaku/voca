@@ -1,0 +1,124 @@
+import type en from '../en/places';
+
+export default {
+  'places.guide': 'Địa danh Huế',
+  'places.hueAbout': 'Huế là kinh đô của Việt Nam dưới triều Nguyễn từ năm 1802 đến 1945. Quần thể di tích Cố đô Huế được UNESCO công nhận là Di sản Thế giới năm 1993.',
+  'places.read': 'Tìm hiểu',
+  'places.didYouKnow': 'Bạn có biết?',
+  'places.close': 'Đóng',
+
+  'places.anHien': 'Nhà vườn An Hiên',
+  'places.anHienEn': 'An Hiên garden house',
+  'places.anHienAbout': 'Một trong những nhà vườn được yêu thích nhất ở Huế, nằm ở làng Kim Long bên sông Hương. Xây cuối thế kỷ 19, ngôi nhà gỗ nằm giữa vườn cây ăn trái và những luống hoa.',
+  'places.anHienFact': 'Nhà vườn Huế vừa là nhà, vừa là vườn cây — một lối sống gần gũi thiên nhiên làm nên nét riêng của thành phố.',
+
+  'places.kimLong': 'Kim Long',
+  'places.kimLongEn': 'Kim Long village',
+  'places.kimLongAbout': 'Làng ven sông phía tây Kinh Thành, nổi tiếng với nhà vườn và những con ngõ rợp bóng cây.',
+  'places.kimLongFact': 'Trước khi có Kinh Thành, các chúa Nguyễn từng đóng đô ở Kim Long vào thế kỷ 17.',
+
+  'places.tinhTam': 'Hồ Tịnh Tâm',
+  'places.tinhTamEn': 'Lake of the Calm Heart',
+  'places.tinhTamAbout': 'Hồ sen phía bắc Kinh Thành, xưa là vườn ngự với đảo và đình tạ cho vua dạo chơi.',
+  'places.tinhTamFact': 'Tên hồ có nghĩa là “tâm hồn tĩnh lặng”. Mùa hè, sen hồng phủ kín mặt nước.',
+
+  'places.giaHoi': 'Gia Hội',
+  'places.giaHoiEn': 'Gia Hội old quarter',
+  'places.giaHoiAbout': 'Khu phố buôn bán cổ bên kia sông Đông Ba, với nhà phố và hội quán người Hoa dọc các con đường.',
+  'places.giaHoiFact': 'Đây là nơi lý tưởng để thấy nếp sống phố cổ Huế — chợ sớm, quán trà và bàn thờ gia tiên trong những gian nhà mở cửa.',
+
+  'places.duyetThiDuong': 'Duyệt Thị Đường',
+  'places.duyetThiDuongEn': 'The Royal Theatre',
+  'places.duyetThiDuongAbout': 'Nhà hát cung đình trong Hoàng Thành, xây năm 1826 dưới thời vua Minh Mạng — nhà hát cổ nhất Việt Nam. Triều đình xem tuồng và nghe nhạc cung đình tại đây.',
+  'places.duyetThiDuongFact': 'Nhã nhạc cung đình Huế được UNESCO công nhận năm 2003.',
+
+  'places.tangThuLau': 'Tàng Thư Lâu',
+  'places.tangThuLauEn': 'The Royal Library',
+  'places.tangThuLauAbout': 'Kho lưu trữ của triều đình, xây năm 1825 dưới thời vua Minh Mạng để cất giữ hồ sơ, văn bản hoàng gia.',
+  'places.tangThuLauFact': 'Lầu nằm trên đảo giữa hồ Học Hải — “biển học” — nước bao quanh để giữ giấy tờ khỏi hỏa hoạn.',
+
+  'places.thaiHoa': 'Điện Thái Hòa',
+  'places.thaiHoaEn': 'Hall of Supreme Harmony',
+  'places.thaiHoaAbout': 'Chính điện của Hoàng Thành, xây năm 1805. Các vua đăng quang và cử hành những đại lễ của triều đình tại đây.',
+  'places.thaiHoaFact': 'Mái điện đặt trên 80 cột gỗ lim sơn son, vẽ rồng vàng.',
+
+  'places.ngoMon': 'Ngọ Môn',
+  'places.ngoMonEn': 'The Noon Gate',
+  'places.ngoMonAbout': 'Cổng chính vào Hoàng Thành, xây năm 1833 dưới thời vua Minh Mạng. Trên nền đá là lầu Ngũ Phụng.',
+  'places.ngoMonFact': 'Năm 1945, vua Bảo Đại — vị vua cuối cùng của Việt Nam — thoái vị trên lầu này, khép lại hơn 140 năm triều Nguyễn.',
+
+  'places.thienMu': 'Chùa Thiên Mụ',
+  'places.thienMuEn': 'Thiên Mụ Pagoda',
+  'places.thienMuAbout': 'Do chúa Nguyễn Hoàng dựng năm 1601 trên đồi bên sông Hương, ngôi chùa cổ nhất Huế là biểu tượng quen thuộc của thành phố. Tháp Phước Duyên bảy tầng được xây thêm năm 1844.',
+  'places.thienMuFact': 'Tên chùa có nghĩa là “bà mụ nhà trời”, từ truyền thuyết về một bà lão báo trước rằng sẽ có chúa dựng chùa trên đồi này.',
+
+  'places.vanMieu': 'Văn Miếu',
+  'places.vanMieuEn': 'Temple of Literature',
+  'places.vanMieuAbout': 'Văn Miếu Huế, xây năm 1808 dưới thời vua Gia Long để tôn vinh Khổng Tử và việc học, bên bờ sông gần chùa Thiên Mụ.',
+  'places.vanMieuFact': 'Các tấm bia đá khắc tên những vị tiến sĩ đỗ đạt trong các khoa thi từ năm 1822 đến 1919.',
+
+  'places.dongBa': 'Chợ Đông Ba',
+  'places.dongBaEn': 'Đông Ba Market',
+  'places.dongBaAbout': 'Chợ lớn và nhộn nhịp nhất Huế, bên sông Hương gần cầu Trường Tiền. Chợ họp ở đây từ cuối thế kỷ 19 — đồ ăn, vải vóc, nón lá và đủ thứ khác.',
+  'places.dongBaFact': 'Đây là nơi để thử bún bò Huế ở những quầy ăn trong chợ.',
+
+  'places.conHen': 'Cồn Hến',
+  'places.conHenEn': 'Hến Islet',
+  'places.conHenAbout': 'Cồn nhỏ giữa sông Hương, làng trên cồn nổi tiếng với một món: cơm hến — cơm với hến, rau thơm và ớt.',
+  'places.conHenFact': 'Hến là loài nghêu nhỏ cào từ đáy sông — món ăn dân dã đã trở thành đặc sản của Huế.',
+
+  'places.kyDai': 'Kỳ Đài',
+  'places.kyDaiEn': 'The Flag Tower',
+  'places.kyDaiAbout': 'Kỳ Đài nằm giữa mặt thành phía trước Kinh Thành, nhìn ra sông Hương. Xây lần đầu năm 1807 dưới thời vua Gia Long, ba tầng gạch đỡ cột cờ cao nhất Huế.',
+  'places.kyDaiFact': 'Trong thế giới này, lá cờ được kéo cao dần theo chuỗi ngày học của bạn.',
+
+  'places.dragonBoat': 'Thuyền rồng',
+  'places.dragonBoatEn': 'Dragon boats',
+  'places.dragonBoatAbout': 'Thuyền đầu rồng đưa khách dọc sông Hương — ngược lên chùa Thiên Mụ ban ngày, và ra giữa sông ban đêm nghe ca Huế.',
+  'places.dragonBoatFact': 'Trong những chuyến thuyền đêm, người ta thả đèn hoa đăng xuống sông để cầu may.',
+
+  'places.truongTien': 'Cầu Trường Tiền',
+  'places.truongTienEn': 'Trường Tiền Bridge',
+  'places.truongTienAbout': 'Cây cầu nổi tiếng nhất Huế bắc qua sông Hương, hoàn thành vào khoảng chuyển giao thế kỷ 20. Ban đêm cầu đổi màu lung linh.',
+  'places.truongTienFact': 'Câu hò xưa đếm nhịp cầu: “Cầu Trường Tiền sáu vài mười hai nhịp”.',
+
+  'places.songHuong': 'Sông Hương',
+  'places.songHuongEn': 'The Perfume River',
+  'places.songHuongAbout': 'Dòng sông chảy qua lòng Huế, qua chùa Thiên Mụ, Kinh Thành và chợ Đông Ba.',
+  'places.songHuongFact': 'Tương truyền tên sông đến từ loài cây thơm ở thượng nguồn làm nước sông thơm mỗi mùa thu.',
+
+  'places.vyDa': 'Vỹ Dạ',
+  'places.vyDaEn': 'Vỹ Dạ village',
+  'places.vyDaAbout': 'Ngôi làng yên bình với nhà vườn và hàng cau bên bờ đông sông Hương.',
+  'places.vyDaFact': 'Làng nổi tiếng qua bài thơ “Đây thôn Vĩ Dạ” của Hàn Mặc Tử, một trong những bài thơ được yêu thích nhất Việt Nam.',
+
+  'places.gaHue': 'Ga Huế',
+  'places.gaHueEn': 'Huế Railway Station',
+  'places.gaHueAbout': 'Nhà ga Huế, mở đầu thế kỷ 20 trên tuyến đường sắt chạy dọc chiều dài đất nước.',
+  'places.gaHueFact': 'Tàu Hà Nội – Sài Gòn dừng ở đây — và đoạn phía nam qua đèo Hải Vân là một trong những cung đường đẹp nhất cả nước.',
+
+  'places.quocHoc': 'Trường Quốc Học',
+  'places.quocHocEn': 'Quốc Học High School',
+  'places.quocHocAbout': 'Thành lập năm 1896, Quốc Học là một trong những ngôi trường lâu đời và nổi tiếng nhất Việt Nam, dãy nhà đỏ nhìn ra sông Hương.',
+  'places.quocHocFact': 'Hồ Chí Minh từng học ở đây một thời gian ngắn khi còn trẻ, và Đại tướng Võ Nguyên Giáp cũng là học trò của trường.',
+
+  'places.walkingStreet': 'Phố đi bộ',
+  'places.walkingStreetEn': 'The walking street',
+  'places.walkingStreetAbout': 'Phố đi bộ bờ nam sông Hương rộn ràng mỗi tối với quán cà phê, đồ ăn đường phố và nhạc sống.',
+  'places.walkingStreetFact': 'Nhiều quán ở đây bán cà phê muối — món cà phê ra đời ở Huế.',
+
+  'places.anDinh': 'Cung An Định',
+  'places.anDinhEn': 'An Định Palace',
+  'places.anDinhAbout': 'Cung điện kiểu châu Âu bên bờ sông An Cựu, được vua Khải Định xây lại vào khoảng năm 1920.',
+  'places.anDinhFact': 'Cung là ví dụ về lối kết hợp kiến trúc châu Âu với trang trí Việt Nam thịnh hành những thập niên cuối của triều Nguyễn.',
+
+  'places.khaiDinh': 'Lăng Khải Định',
+  'places.khaiDinhEn': 'Tomb of Emperor Khải Định',
+  'places.khaiDinhAbout': 'Lăng vua Khải Định, xây từ năm 1920 đến 1931 trên sườn đồi phía nam Huế. Khác các lăng cổ, lăng làm bằng bê tông và kết hợp phong cách Việt, Hoa và châu Âu.',
+  'places.khaiDinhFact': 'Bên trong, cung Thiên Định được trang trí bằng tranh ghép từ mảnh sành sứ và thủy tinh.',
+
+  'places.nguBinh': 'Núi Ngự Bình',
+  'places.nguBinhEn': 'Ngự Bình Mountain',
+  'places.nguBinhAbout': 'Ngọn đồi đỉnh bằng phía nam thành phố, cao khoảng 100 mét. Tên núi có nghĩa là “bức bình phong của vua”: núi đứng trước Kinh Thành như tấm bình phong che chắn.',
+  'places.nguBinhFact': 'Leo lên lúc hoàng hôn để ngắm sông Hương và toàn cảnh thành phố.',
+} satisfies Record<keyof typeof en, string>;
