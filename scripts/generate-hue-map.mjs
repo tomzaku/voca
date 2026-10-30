@@ -1456,6 +1456,22 @@ point('label', 4, 4.5, { text: 'Kim Long', theme: 'forest' });
 point('label', 86, 5, { text: 'Gia Hội', theme: 'forest' });
 point('label', 108, 54, { text: 'Vỹ Dạ', theme: 'forest' });
 point('label', 52, 84.6, { text: 'Ngự Bình', theme: 'forest' });
+// The landmarks with a story to tell (src/game/mapPlaces.ts), named over
+// their roofs — quiet until you walk up, then lit. Centred on the building:
+// a label is placed by its left edge, and a character is about a fifth of a
+// tile wide.
+const landmark = (text, x, y) => point('label', x - text.length * 0.095, y - 0.6, { text, theme: 'desert' });
+landmark('Chùa Thiên Mụ', 6, 39.5);
+landmark('Ngọ Môn', 55, 34.5);
+landmark('Kỳ Đài', 55, 44);
+landmark('Tàng Thư Lâu', 36, 21);
+landmark('Duyệt Thị Đường', 73, 13.2);
+landmark('Hồ Tịnh Tâm', 55, 7.5);
+landmark('Ga Huế', 27.5, 61.5);
+landmark('Trường Quốc Học', 41, 60.5);
+landmark('Phố đi bộ', 77, 64.5);
+landmark('Cung An Định', 92, 66.5);
+landmark('Lăng Khải Định', 8, 70.5);
 
 // Progress the city shows (WorldScene): the streak flag on Kỳ Đài, and spots
 // on the Hương where a lantern floats for each mastered word. The spots are

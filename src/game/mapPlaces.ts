@@ -14,4 +14,22 @@ export const LABEL_PLACES: Record<string, string> = {
   'Gia Hội': 'giaHoi',
   'Vỹ Dạ': 'vyDa',
   'Ngự Bình': 'nguBinh',
+  'Chùa Thiên Mụ': 'thienMu',
+  'Ngọ Môn': 'ngoMon',
+  'Kỳ Đài': 'kyDai',
+  'Tàng Thư Lâu': 'tangThuLau',
+  'Duyệt Thị Đường': 'duyetThiDuong',
+  'Hồ Tịnh Tâm': 'tinhTam',
+  'Ga Huế': 'gaHue',
+  'Trường Quốc Học': 'quocHoc',
+  'Phố đi bộ': 'walkingStreet',
+  'Cung An Định': 'anDinh',
+  'Lăng Khải Định': 'khaiDinh',
+};
+
+/** Where each keeper stands — walking up to one tells that place's story.
+ *  The skills' keepers stand at their rooms' places (ROOMS[…].place); this
+ *  names the rest. */
+export const KEEPER_PLACES: Record<string, string> = {
+  collections: 'thaiHoa',
 };

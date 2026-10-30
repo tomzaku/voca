@@ -10,13 +10,14 @@ import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/Worl
 import { RoomScene, type RoomSceneData } from '../game/scenes/RoomScene';
 import { ROOMS } from '../game/rooms';
 import { KEEPER_DRESS } from '../game/keeperLooks';
+import { KEEPER_PLACES } from '../game/mapPlaces';
 import { keeperLookFor, type BuddyLook, type VillagerLook } from '../game/textures';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import {
   WORLD_EVENTS,
   type WorldArea, type WorldSnapshot, type WorldStation,
 } from '../game/types';
-import { COLLECTIONS_KEEPER, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
+import { COLLECTIONS_KEEPER, FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 import { KIND_META } from './worldgames/collectionKinds';
 import { PlaceInfo } from './worldgames/PlaceInfo';
@@ -264,7 +265,13 @@ export function GameWorld({
     });
     game.scene.add(WorldScene.KEY, WorldScene, true, data);
     game.scene.add(RoomScene.KEY, RoomScene, false);
-    const onNear = (id: string | null) => setNearestId(id);
+    const onNear = (id: string | null) => {
+      setNearestId(id);
+      // A keeper's place tells its story as you walk up — Đông Ba, the boat…
+      const feature = id?.startsWith(FEATURE_ID_PREFIX) ? id.slice(FEATURE_ID_PREFIX.length) : null;
+      const place = feature && (ROOMS[feature]?.place ?? KEEPER_PLACES[feature]);
+      if (place) setPlaceToast((t) => ({ id: place, n: (t?.n ?? 0) + 1 }));
+    };
     // Arriving at a named place tells its story (leaving lets it fade).
     const onLandmark = (id: string | null) => { if (id) setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 })); };
     const onMoved = (p: { x: number; y: number; areaIndex: number }) => setPos(p);
