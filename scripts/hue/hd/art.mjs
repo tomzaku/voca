@@ -4,6 +4,7 @@
 // canvas for that thing, doubled, so it drops into exactly the same place.
 
 import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
+import { light } from '../hills.mjs';
 
 export const K = 2;          // detail pixels per map pixel
 const T2 = 32;               // a tile, in detail pixels
@@ -670,19 +671,24 @@ export function forestCanopy(g, tiles, ox, oy) {
     const h = hash(tx * 7 + k, ty * 13 + k);
     return { x: (tx * 16 + 4 + h * 8 - ox) * K, y: (ty * 16 + 4 + hash(ty * 5 + k, tx * 3) * 8 - oy) * K, r: (9 + h * 4) * K, h, k: tx * 31 + ty * 17 + k };
   }));
+  // Each crown lit or shaded with the slope it stands on.
+  for (const c of crowns) {
+    const l = light(c.x / K + ox, c.y / K + oy);
+    c.lit = (col) => (l > 0 ? mix(col, [196, 232, 146], l * 0.5) : mix(col, [10, 34, 28], -l * 0.6));
+  }
   for (const c of crowns) g.ellipse(c.x + 4, c.y + 8, c.r, c.r * 0.8, [24, 40, 36], 0.35);
-  for (const c of crowns) g.ellipse(c.x, c.y, c.r, c.r * 0.85, shades[0]);
+  for (const c of crowns) g.ellipse(c.x, c.y, c.r, c.r * 0.85, c.lit(shades[0]));
   for (const c of crowns) {
     for (let i = 0; i < 7; i++) {
       const a = hash(c.k, i) * Math.PI * 2, d = Math.sqrt(hash(c.k + 1, i)) * c.r * 0.6;
       const bx = c.x + Math.cos(a) * d, by = c.y + Math.sin(a) * d * 0.8, br = c.r * (0.3 + hash(c.k + 2, i) * 0.15);
-      g.ellipse(bx, by + 2, br, br * 0.9, shades[1]);
-      g.ellipse(bx - br * 0.2, by - br * 0.25, br * 0.75, br * 0.65, shades[c.h > 0.6 ? 3 : 2]);
+      g.ellipse(bx, by + 2, br, br * 0.9, c.lit(shades[1]));
+      g.ellipse(bx - br * 0.2, by - br * 0.25, br * 0.75, br * 0.65, c.lit(shades[c.h > 0.6 ? 3 : 2]));
     }
   }
   for (const c of crowns) for (let i = 0; i < 6; i++) {
     const x = c.x + (hash(c.k + 5, i) - 0.6) * c.r * 1.2, y = c.y + (hash(c.k + 6, i) - 0.7) * c.r;
-    g.set(x, y, shades[4]); g.set(x + 1, y, shades[3]);
+    g.set(x, y, c.lit(shades[4])); g.set(x + 1, y, c.lit(shades[3]));
   }
 }
 

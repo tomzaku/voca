@@ -30,8 +30,8 @@ const BUILDINGS = {
   market, kyDai, fountain, halfMoon, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
 
 /** The patches, in tiles: the whole map, in pieces small enough for any
- *  GPU's largest texture (40 × 38 tiles is 1280 × 1216 px). */
-const PATCH_W = 40, PATCH_H = 38;
+ *  GPU's largest texture (40 × 41 tiles is 1280 × 1312 px). */
+const PATCH_W = 40, PATCH_H = 41;
 export const DETAIL = [];
 for (let y0 = 0; y0 < MAP_H; y0 += PATCH_H) {
   for (let x0 = 0; x0 < MAP_W; x0 += PATCH_W) {
@@ -45,7 +45,7 @@ const same = (d, i, c) => d[i] === c[0] && d[i + 1] === c[1] && d[i + 2] === c[2
  *  tint over it below the city. */
 function grassAt(X, Y, mx, my) {
   const c = flatGrassAt(X, Y);
-  return my >= HILLS_Y * T ? hillTint(c, mx, my) : c;
+  return my >= (HILLS_Y - 4) * T ? hillTint(c, mx, my) : c;
 }
 function flatGrassAt(X, Y) {
   const n = noise(X, Y, 22) * 0.6 + noise(X, Y, 7) * 0.4;

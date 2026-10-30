@@ -2,10 +2,11 @@
 // to a place, the forest round the edge and in the hills, then groves and
 // single trees over whatever's left.
 
-import { hash, noise, rand } from '../core/canvas.mjs';
+import { hash, mix, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { drawn, ground, solid, used } from '../core/world.mjs';
 import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
+import { TREELINE, height, light } from '../hills.mjs';
 import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
 import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
 
@@ -99,6 +100,7 @@ export function plantGreenery() {
         if (edge >= depth && !wood && !hills) continue;
         if (used[ty][tx] || solid[ty][tx] || onAnyRoad(tx, ty) || isWater(tx * T + 8, ty * T + 8)) continue;
         if (nearSlot(tx - 1, ty - 1) || (used[ty + 1]?.[tx] && !wood && !hills)) continue;
+        if (height(tx * T + 8, ty * T + 8) > TREELINE) continue;           // bare rock above the tree line
         forest.push([tx, ty]);
       }
     }
@@ -109,10 +111,13 @@ export function plantGreenery() {
           const h = hash(tx * 7 + k, ty * 13 + k);
           const cx = tx * T + 4 + h * 8, cy = ty * T + 4 + hash(ty * 5 + k, tx * 3) * 8;
           const r = 9 + h * 4;
+          // On the hills, lit or shaded with the slope the tree stands on.
+          const l = light(cx, cy);
+          const lit = (c) => (l > 0 ? mix(c, [196, 232, 146], l * 0.5) : mix(c, [10, 34, 28], -l * 0.6));
           if (pass === 0) ground.ellipse(cx + 2, cy + 4, r, r * 0.8, P.shadow, 0.35);
-          else if (pass === 1) ground.ellipse(cx, cy, r, r * 0.85, shades[0]);
-          else if (pass === 2) ground.ellipse(cx - 1, cy - 1, r - 2, r * 0.7, shades[1 + (h > 0.6 ? 1 : 0)]);
-          else ground.ellipse(cx - 3, cy - 4, r * 0.4, r * 0.3, shades[3], 0.8);
+          else if (pass === 1) ground.ellipse(cx, cy, r, r * 0.85, lit(shades[0]));
+          else if (pass === 2) ground.ellipse(cx - 1, cy - 1, r - 2, r * 0.7, lit(shades[1 + (h > 0.6 ? 1 : 0)]));
+          else ground.ellipse(cx - 3, cy - 4, r * 0.4, r * 0.3, lit(shades[3]), 0.8);
         }
       }
     }

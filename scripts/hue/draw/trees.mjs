@@ -1,6 +1,7 @@
 // Huế's trees, one function per kind, and the rules for where one may stand.
 
 import { Canvas, rand } from '../core/canvas.mjs';
+import { TREELINE, height } from '../hills.mjs';
 import { P } from '../core/palette.mjs';
 import { deck, drawn, ground, mark, over, solid, used } from '../core/world.mjs';
 import { BRIDGE_Y0, BRIDGE_Y1, H, RIVER_BRIDGES, T, W, isWater, nearSlot } from '../layout.mjs';
@@ -262,6 +263,7 @@ export function bankOk(tx, ty) {
 // Every tree keeps a clear tile all round it, so however thick they grow
 // there's a way between them; and stays off the lanes and doorsteps.
 export function canPlantDense(tx, ty) {
+  if (height(tx * T + 8, ty * T + 8) > TREELINE - 0.1) return false;    // not up on the bare rock
   if (used[ty]?.[tx] !== false || used[ty - 1]?.[tx] !== false || onAnyRoad(tx, ty)) return false;
   for (let j = ty - 1; j <= ty + 1; j++) for (let i = tx - 1; i <= tx + 1; i++) if (solid[j]?.[i] !== false) return false;
   return !isWater(tx * T + 8, ty * T + 8) && !isWater(tx * T + 8, ty * T - 8) && !nearSlot(tx - 1, ty - 1);

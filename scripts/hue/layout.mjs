@@ -4,7 +4,7 @@
 // draws.
 
 export const W = 120; // map size in tiles
-export const H = 114;
+export const H = 122;
 // Below the city, from this row: the forested hills where the emperors lie.
 export const HILLS_Y = 93;
 export const T = 16; // tile size px (WorldScene draws the map at 2×)
