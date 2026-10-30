@@ -306,9 +306,6 @@ export function kyDai() {
   cv.rect(cx - 8, 192, 16, 1, [228, 224, 214]);
   // The flagpole: where the map's was (its right edge is where the flag hangs).
   const px = 94;
-  for (const [ax, ay] of [[60, 190], [W - 60, 190]]) {
-    for (let i = 0; i <= 40; i++) cv.set(Math.round(px + 2 + ((ax - px - 2) * i) / 40), Math.round(20 + ((ay - 20) * i) / 40), [210, 210, 206], 0.5);
-  }
   cv.rect(px, 8, 4, 186, [222, 222, 218]);
   cv.rect(px, 8, 1, 186, [250, 250, 248]);
   cv.rect(px + 3, 8, 1, 186, [170, 170, 166]);
@@ -316,6 +313,11 @@ export function kyDai() {
   cv.ellipse(px + 2, 5, 3.5, 3.5, [236, 196, 90]);
   cv.set(px + 1, 3, [255, 236, 160]);
   outline(cv);
+  // The guy ropes, after the outline: fine lines, not outlined ones.
+  for (const [ax, ay] of [[60, 186], [W - 60, 186]]) {
+    const n = Math.max(Math.abs(ax - px - 2), Math.abs(ay - 20));
+    for (let i = 0; i <= n; i++) cv.set(Math.round(px + 2 + ((ax - px - 2) * i) / n), Math.round(20 + ((ay - 20) * i) / n), [70, 66, 62], 0.55);
+  }
   return cv;
 }
 

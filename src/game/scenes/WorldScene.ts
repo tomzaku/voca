@@ -175,8 +175,11 @@ export class WorldScene extends Phaser.Scene {
   /** The keepers — rebuilt on a theme switch, since their labels take its
    *  colours. Everything else the world draws is built once and left alone. */
   private stationLayer?: Phaser.GameObjects.Container;
-  /** The flag and the lanterns — rebuilt whenever progress changes. */
-  private progressLayer?: Phaser.GameObjects.Container;
+  /** The flag and the lanterns — rebuilt whenever progress changes. Kept
+   *  as a list rather than a container: a container's children are drawn at
+   *  its depth, and these each need their own (the flag over the map's over
+   *  layer, the lanterns over the night veil). */
+  private progressItems: Phaser.GameObjects.Container[] = [];
   /** Dims the day-lit tile art in dark mode, in place of a per-layer tint
    *  (GPU tilemap layers have none) — a multiply veil over the map bounds. */
   private nightVeil?: Phaser.GameObjects.Rectangle;
@@ -753,9 +756,8 @@ export class WorldScene extends Phaser.Scene {
    * night veil.
    */
   private buildProgress() {
-    this.progressLayer?.destroy();
-    const layer = this.add.container(0, 0);
-    this.progressLayer = layer;
+    for (const item of this.progressItems) item.destroy();
+    this.progressItems = [];
     const { mastered } = this.args.progress;
 
     const flag = this.meta.flag;
@@ -770,7 +772,7 @@ export class WorldScene extends Phaser.Scene {
       for (const [sx, sy] of star) g.fillRect(sx * SCALE, sy * SCALE, SCALE, SCALE);
       const banner = this.add.container(flag.x, flag.y, [g]).setDepth(DEPTH_OVER + 1);
       this.tweens.add({ targets: banner, scaleX: { from: 1, to: 0.9 }, duration: 900, yoyo: true, repeat: -1, ease: 'sine.inOut' });
-      layer.add(banner);
+      this.progressItems.push(banner);
     }
 
     const count = Math.min(mastered, this.meta.lanterns.length);
@@ -785,7 +787,7 @@ export class WorldScene extends Phaser.Scene {
       // Each bobs and drifts on its own clock, so the river never moves in step.
       this.tweens.add({ targets: lantern, y: y - 3, duration: 1800 + (i * 137) % 900, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       this.tweens.add({ targets: lantern, x: x + 8 - (i % 3) * 8, duration: 7000 + (i * 389) % 4000, yoyo: true, repeat: -1, ease: 'sine.inOut' });
-      layer.add(lantern);
+      this.progressItems.push(lantern);
     }
   }
 
