@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import {
-  CREATE_STATION_ID, WORLD_EVENTS,
-  type ThemeId, type WorldArea, type WorldSnapshot, type WorldStation,
+  WORLD_EVENTS,
+  type ThemeId, type WorldArea, type WorldSnapshot,
 } from '../types';
-import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature } from '../features';
+import { featureNodeId, type WorldFeature } from '../features';
 import { t } from '../../i18n';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
@@ -14,8 +14,8 @@ import {
 } from '../textures';
 
 export interface WorldSceneData {
-  stations: WorldStation[];
-  /** App pages placed as buildings you walk up to. Static for the game's life. */
+  /** The keepers you walk up to — one per skill, and one for your
+   *  collections. Static for the game's life. */
   features: WorldFeature[];
   /** The sprite that walks the map: companion animal or hero look. */
   look: BuddyLook;
@@ -80,15 +80,11 @@ const DEPTH_OVER = DEPTH_BUDDY + 5;
 export const ZOOM_STEPS = [0.5, 1, 1.5, 2, 2.5, 3] as const;
 const DEFAULT_ZOOM_INDEX = 1;   // 1×
 
-const KIND_EMOJI = { mine: '👤', joined: '👥', level: '🎓' } as const;
-
-interface PlacedStation extends WorldStation {
+interface KeeperNode {
+  /** featureNodeId of the keeper — what WORLD_EVENTS.near reports. */
+  id: string;
   x: number;
   y: number;
-}
-
-interface StationNode {
-  station: PlacedStation;
   root: Phaser.GameObjects.Container;
   /** Highlight ring shown when the buddy is in reach. */
   ring: Phaser.GameObjects.Arc;
@@ -100,7 +96,8 @@ interface MapMeta {
   labels: { x: number; y: number; text: string; theme: ThemeId; hidden?: boolean }[];
   windmills: { x: number; y: number }[];
   animals: { x: number; y: number; kind: string }[];
-  slots: Record<'public' | 'system' | 'feature', MapSlot[]>;
+  /** Where the keepers stand. */
+  slots: MapSlot[];
   /** Where the streak flag flies at full mast, and how far it can drop. */
   flag: { x: number; y: number; drop: number } | null;
   /** Lantern spots on the water, in the order they fill. */
@@ -167,8 +164,8 @@ export class WorldScene extends Phaser.Scene {
   private pal!: WorldPalette;
   private ready = false;
 
-  /** Rebuilt whenever collections change: stations, features, the build plot.
-   *  Everything else the world draws is built once and left alone. */
+  /** The keepers — rebuilt on a theme switch, since their labels take its
+   *  colours. Everything else the world draws is built once and left alone. */
   private stationLayer?: Phaser.GameObjects.Container;
   /** The flag and the lanterns — rebuilt whenever progress changes. */
   private progressLayer?: Phaser.GameObjects.Container;
@@ -181,7 +178,7 @@ export class WorldScene extends Phaser.Scene {
   private tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [];
   /** Area labels, kept so a theme switch can recolor them in place. */
   private labels: { text: Phaser.GameObjects.Text; theme: ThemeId }[] = [];
-  private nodes: StationNode[] = [];
+  private nodes: KeeperNode[] = [];
   /** Collision grid from the map's `walls` layer, indexed [tileY][tileX]. */
   private blocked: boolean[][] = [];
   private meta!: MapMeta;
@@ -367,18 +364,11 @@ export class WorldScene extends Phaser.Scene {
 
   // ── React-facing API ──
 
-  /** Swap the station data (progress ticked, collection created…) in place.
-   *  Only the station markers are rebuilt — the terrain is untouched. */
   /** Swap in fresh progress (an answer landed, a day was studied). */
   setProgress(progress: WorldProgress) {
     const prev = this.args.progress;
     this.args.progress = progress;
     if (this.ready && (prev.streak !== progress.streak || prev.mastered !== progress.mastered)) this.buildProgress();
-  }
-
-  setStations(stations: WorldStation[]) {
-    this.args.stations = stations;
-    if (this.ready) this.buildStations();
   }
 
   // ── Zoom ──
@@ -437,13 +427,13 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  /** Fast travel: fade out, drop the buddy at the station's door, fade in. */
-  travelTo(stationId: string) {
+  /** Fast travel: fade out, drop the buddy in front of a keeper, fade in. */
+  travelTo(nodeId: string) {
     if (!this.ready) return;
-    const node = this.nodes.find((n) => n.station.id === stationId);
+    const node = this.nodes.find((n) => n.id === nodeId);
     if (!node) return;
-    const spot = this.clampToWalkable(node.station.x, node.station.y + 50)
-      ?? { x: node.station.x, y: node.station.y + 50 };
+    const spot = this.clampToWalkable(node.x, node.y + 50)
+      ?? { x: node.x, y: node.y + 50 };
     this.route = [];
     const cam = this.cameras.main;
     const [r, g, b] = this.pal.light ? [255, 255, 255] : [0, 0, 0];
@@ -535,14 +525,10 @@ export class WorldScene extends Phaser.Scene {
       worldH: this.worldH,
       areas: this.areas,
       nodes: this.nodes.map((n) => ({
-        id: n.station.id,
-        x: n.station.x,
-        y: n.station.y,
-        kind: n.station.id === CREATE_STATION_ID
-          ? 'create'
-          : n.station.id.startsWith(FEATURE_ID_PREFIX)
-            ? 'feature'
-            : n.station.kind,
+        id: n.id,
+        x: n.x,
+        y: n.y,
+        kind: 'feature',
       })),
     };
   }
@@ -684,45 +670,19 @@ export class WorldScene extends Phaser.Scene {
     const layer = this.add.container(0, 0).setDepth(DEPTH_STATIONS);
     this.stationLayer = layer;
 
-    // Bind collections to the template's station slots: public collections
-    // fill the public slots in order, levels fill the system slots.
-    const pub = this.args.stations.filter((s) => s.kind !== 'level');
-    const sys = this.args.stations.filter((s) => s.kind === 'level');
-    // Villager looks are handed out by running order, so the same collection
-    // keeps the same face across rebuilds; levels start further along the list
-    // so they don't all share a face with the collections next door.
-    let villager = 0;
-    const bind = (list: WorldStation[], slots: MapMeta['slots']['public']) => {
-      list.forEach((s, i) => {
-        const slot = slots[i];
-        if (!slot) {
-          console.warn(`[voca] world template has no free ${s.kind} slot for "${s.name}"`);
-          return;
-        }
-        const placed: PlacedStation = { ...s, x: slot.x, y: slot.y };
-        this.addStation(layer, placed, villagerLookFor(villager++));
-      });
-    };
-    bind(pub, this.meta.slots.public);
-    bind(sys, this.meta.slots.system);
-
-    // App pages: fixed buildings bound to the template's feature slots — by
-    // feature id where the map names one, else in list order.
-    const slots = this.meta.slots.feature;
+    // Keepers stand at the map's feature slots — by id where the map names
+    // one, else in list order. Collections have one keeper too, whose menu
+    // lists them all, rather than a villager per collection crowding the map.
+    const slots = this.meta.slots;
     const loose = slots.filter((s) => !s.feature);
-    this.args.features.forEach((f) => {
+    this.args.features.forEach((f, i) => {
       const slot = slots.find((s) => s.feature === f.id) ?? loose.shift();
-      if (slot) this.addFeature(layer, f, slot, villagerLookFor(villager++));
+      if (slot) this.addFeature(layer, f, slot, villagerLookFor(i));
     });
 
-    // The next empty house up north is a build plot: walk up (or fast travel)
-    // to start a new collection there.
-    const free = this.meta.slots.public[pub.length];
-    if (free) this.addCreateSpot(layer, free.x, free.y);
-
-    // Carry the open station card across the rebuild: re-light the node the
-    // buddy is standing at, or tell React it's gone if the collection was.
-    const still = this.nodes.find((n) => n.station.id === this.nearestId);
+    // Carry the open card across the rebuild: re-light the keeper the buddy
+    // is standing at.
+    const still = this.nodes.find((n) => n.id === this.nearestId);
     if (still) {
       still.ring.setVisible(true);
       still.root.setScale(1.12);
@@ -841,7 +801,7 @@ export class WorldScene extends Phaser.Scene {
       labels: [],
       windmills: [],
       animals: [],
-      slots: { public: [], system: [], feature: [] },
+      slots: [],
       flag: null,
       lanterns: [],
     };
@@ -883,11 +843,12 @@ export class WorldScene extends Phaser.Scene {
           break;
         }
         case 'station': {
-          const raw = get('region');
-          const region = raw === 'system' ? 'system' : raw === 'feature' ? 'feature' : 'public';
+          // Older templates also carry per-collection slots (public, system);
+          // only the keepers' are used now.
+          if (get('region') !== 'feature') break;
           const feature = get('feature');
           const place = get('place');
-          meta.slots[region].push({
+          meta.slots.push({
             x, y, slot: Number(get('slot') ?? 0),
             feature: typeof feature === 'string' ? feature : undefined,
             place: typeof place === 'string' ? place : undefined,
@@ -896,193 +857,9 @@ export class WorldScene extends Phaser.Scene {
         }
       }
     }
-    meta.slots.public.sort((a, b) => a.slot - b.slot);
-    meta.slots.system.sort((a, b) => a.slot - b.slot);
-    meta.slots.feature.sort((a, b) => a.slot - b.slot);
+    meta.slots.sort((a, b) => a.slot - b.slot);
     meta.lanterns = lanterns.sort((a, b) => a.order - b.order).map(({ x, y }) => ({ x, y }));
     return meta;
-  }
-
-  private addStation(layer: Phaser.GameObjects.Container, p: PlacedStation, look: VillagerLook) {
-    const kind = this.pal.kind[p.kind];
-    const root = this.add.container(p.x, p.y);
-
-    // Highlight ring, lit while the buddy is in reach (always on when active).
-    const ring = this.add
-      .circle(0, -12, 30)
-      .setStrokeStyle(2.5, kind.color, 0.9)
-      .setFillStyle(kind.color, 0.10)
-      .setVisible(p.active);
-    root.add(ring);
-
-    // The villager who minds this collection, idling on the spot.
-    root.add(this.add.ellipse(0, 2, 26, 7, 0x000000, 0.25));
-    const sprite = this.add
-      .sprite(0, 2, VILLAGERS_KEY, `${look}-idle-0`)
-      .setOrigin(0.5, 1)
-      .setScale(SCALE);
-    sprite.play({ key: villagerAnim(this, look, 'idle'), delay: (p.x * 7 + p.y) % 700 });
-    root.add(sprite);
-
-    // Name pill under the villager, kind emoji inline.
-    root.add(
-      this.add
-        .text(0, 12, `${KIND_EMOJI[p.kind]} ${p.name}`, {
-          fontFamily: FONT,
-          fontSize: '10px',
-          fontStyle: 'bold',
-          color: this.pal.textCss,
-          backgroundColor: this.pal.cardCss,
-          padding: { x: 7, y: 3 },
-          align: 'center',
-          wordWrap: { width: 110 },
-          maxLines: 2,
-          resolution: this.args.dpr,
-        })
-        .setOrigin(0.5, 0),
-    );
-
-    const metaLine = `${t('world.wordCount', { count: p.words.length })}${p.learners ? ` · ${p.learners} 👥` : ''}`;
-    root.add(
-      this.add
-        .text(0, 36, metaLine, {
-          fontFamily: FONT,
-          fontSize: '8px',
-          fontStyle: 'bold',
-          color: this.pal.mutedCss,
-          resolution: this.args.dpr,
-        })
-        .setOrigin(0.5, 0),
-    );
-
-    // Progress bar.
-    const bar = this.add.graphics();
-    bar.fillStyle(this.pal.track, 1);
-    bar.fillRoundedRect(-28, 49, 56, 4, 2);
-    if (p.pct > 0) {
-      bar.fillStyle(kind.color, 1);
-      bar.fillRoundedRect(-28, 49, Math.max(56 * (p.pct / 100), 5), 4, 2);
-    }
-    root.add(bar);
-
-    // A level hall lights a lantern over its door for every quarter of the
-    // level learned, and wears a gold star once it's all done.
-    if (p.kind === 'level') {
-      const lamps = this.add.graphics();
-      for (let i = 0; i < 4; i++) {
-        const lit = p.pct >= (i + 1) * 25;
-        const lx = -21 + i * 14;
-        // Hung on a cord under the eave; unlit ones are dim paper, not dark.
-        lamps.fillStyle(0x2a1d16, 1).fillRect(lx - 0.5, -78, 1, 6);
-        if (lit) lamps.fillStyle(0xffc070, 0.4).fillCircle(lx, -66, 8);
-        lamps.fillStyle(0x2a1d16, 1).fillRect(lx - 4, -73, 8, 2).fillRect(lx - 4, -60, 8, 2);
-        lamps.fillStyle(lit ? 0xe8553f : 0x8a5a48, lit ? 1 : 0.85).fillRect(lx - 5, -71, 10, 11);
-        lamps.fillStyle(lit ? 0xffd27a : 0xa87a64, 1).fillRect(lx - 1, -69, 2, 7);
-      }
-      root.add(lamps);
-      if (p.pct >= 100) {
-        root.add(this.add.star(0, -86, 5, 5, 11, 0xf0c050).setStrokeStyle(2, 0x241703));
-      }
-    }
-
-    if (p.active) {
-      root.add(
-        this.add
-          .text(0, 58, t('world.studyingBadge'), {
-            fontFamily: FONT,
-            fontSize: '8px',
-            fontStyle: 'bold',
-            color: this.pal.light ? '#ffffff' : '#0d1120',
-            backgroundColor: kind.css,
-            padding: { x: 6, y: 2 },
-            resolution: this.args.dpr,
-          })
-          .setOrigin(0.5, 0),
-      );
-    }
-
-    root.setSize(84, 100);
-    root.setInteractive({ useHandCursor: true });
-    root.on(
-      'pointerdown',
-      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
-        event.stopPropagation();
-        this.routeTo(p.x, p.y + 50); // stroll up to it — the card opens on arrival
-      },
-    );
-
-    layer.add(root);
-    this.nodes.push({ station: p, root, ring });
-  }
-
-  /** The "build a new collection" plot: a plus marker that behaves like a
-   *  station (ring, proximity event) but is handled by React as a create CTA. */
-  private addCreateSpot(layer: Phaser.GameObjects.Container, x: number, y: number) {
-    const kind = this.pal.kind.mine;
-    const root = this.add.container(x, y);
-
-    const ring = this.add
-      .circle(0, -12, 30)
-      .setStrokeStyle(2.5, kind.color, 0.9)
-      .setFillStyle(kind.color, 0.10)
-      .setVisible(false);
-    root.add(ring);
-
-    root.add(this.add.ellipse(0, 2, 30, 8, 0x000000, 0.25));
-    const disc = this.add
-      .circle(0, -16, 15, kind.color, 0.16)
-      .setStrokeStyle(2.5, kind.color, 0.95);
-    root.add(disc);
-    root.add(
-      this.add
-        .text(0, -16, '+', {
-          fontFamily: FONT,
-          fontSize: '20px',
-          fontStyle: 'bold',
-          color: kind.css,
-          resolution: this.args.dpr,
-        })
-        .setOrigin(0.5, 0.52),
-    );
-    this.tweens.add({
-      targets: disc,
-      scale: { from: 1, to: 1.12 },
-      duration: 900,
-      yoyo: true,
-      repeat: -1,
-      ease: 'sine.inOut',
-    });
-
-    root.add(
-      this.add
-        .text(0, 12, `🏗️ ${t('world.newCollection')}`, {
-          fontFamily: FONT,
-          fontSize: '10px',
-          fontStyle: 'bold',
-          color: this.pal.textCss,
-          backgroundColor: this.pal.cardCss,
-          padding: { x: 7, y: 3 },
-          resolution: this.args.dpr,
-        })
-        .setOrigin(0.5, 0),
-    );
-
-    const station: PlacedStation = {
-      id: CREATE_STATION_ID, name: t('world.newCollection'), kind: 'mine',
-      words: [], pct: 0, active: false, x, y,
-    };
-    root.setSize(84, 80);
-    root.setInteractive({ useHandCursor: true });
-    root.on(
-      'pointerdown',
-      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
-        event.stopPropagation();
-        this.routeTo(x, y + 50);
-      },
-    );
-
-    layer.add(root);
-    this.nodes.push({ station, root, ring });
   }
 
   /** An app page as a little building: walk up and React opens its card, whose
@@ -1136,10 +913,6 @@ export class WorldScene extends Phaser.Scene {
         .setOrigin(0.5, 0),
     );
 
-    const station: PlacedStation = {
-      id: featureNodeId(f), name: t(f.nameId), kind: 'mine',
-      words: [], pct: 0, active: false, x, y,
-    };
     root.setSize(84, 84);
     root.setInteractive({ useHandCursor: true });
     root.on(
@@ -1151,7 +924,7 @@ export class WorldScene extends Phaser.Scene {
     );
 
     layer.add(root);
-    this.nodes.push({ station, root, ring });
+    this.nodes.push({ id: featureNodeId(f), x, y, root, ring });
   }
 
   // ── The buddy ──
@@ -1449,17 +1222,17 @@ export class WorldScene extends Phaser.Scene {
     }
 
     // Nearest station within reach → tell React (rare change).
-    let best: StationNode | null = null;
+    let best: KeeperNode | null = null;
     let bestD = REACH;
     for (const n of this.nodes) {
-      const d = Math.hypot(n.station.x - this.buddy.x, n.station.y - this.buddy.y);
+      const d = Math.hypot(n.x - this.buddy.x, n.y - this.buddy.y);
       if (d < bestD) { best = n; bestD = d; }
     }
-    const id = best?.station.id ?? null;
+    const id = best?.id ?? null;
     if (id !== this.nearestId) {
-      const prev = this.nodes.find((n) => n.station.id === this.nearestId);
+      const prev = this.nodes.find((n) => n.id === this.nearestId);
       if (prev) {
-        prev.ring.setVisible(prev.station.active);
+        prev.ring.setVisible(false);
         this.tweens.add({ targets: prev.root, scale: 1, duration: 150 });
       }
       if (best) {

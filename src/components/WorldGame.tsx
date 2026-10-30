@@ -7,7 +7,7 @@ import { t } from '../i18n';
 import { useCollections } from '../hooks/useCollections';
 import { useGameMode } from '../hooks/useGameMode';
 import { useWorldStations } from '../hooks/useWorldStations';
-import { WORLD_SKILLS, findActivity, type WorldActivity, type WorldFeature, type WorldSkill } from '../game/features';
+import { COLLECTIONS_KEEPER, WORLD_SKILLS, findActivity, type WorldActivity, type WorldFeature, type WorldSkill } from '../game/features';
 import type { WorldStation } from '../game/types';
 import { PreviewModal, sampleWords } from './PreviewModal';
 import { CollectionForm } from './CollectionForm';
@@ -30,6 +30,7 @@ import { DuyetThiDuong } from './worldgames/DuyetThiDuong';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
 import { SkillMenu } from './worldgames/SkillMenu';
+import { CollectionsHall } from './worldgames/CollectionsHall';
 import { RolePlay } from './worldgames/RolePlay';
 import { Shadowing } from './worldgames/Shadowing';
 import { ReadAloudTool } from './worldgames/ReadAloudTool';
@@ -39,8 +40,8 @@ const GameWorld = lazy(() => import('./GameWorld').then((m) => ({ default: m.Gam
 
 /**
  * The standalone World game at /world: your buddy walks Huế to reach the
- * skills' keepers (whose menus hold every activity) and your collections
- * (stations). Enabled and configured from Settings only — visiting while off
+ * skills' keepers (whose menus hold every activity) and the collections'
+ * keeper (whose list holds every collection and level). Enabled and configured from Settings only — visiting while off
  * bounces to Collections.
  */
 export function WorldGame() {
@@ -66,14 +67,19 @@ export function WorldGame() {
   // What's open over the world: a skill keeper's menu (activity null), or
   // one of its activities. Null = just the map.
   const [open, setOpen] = useState<{ skill: WorldSkill; activity: WorldActivity | null } | null>(null);
+  // The collections' keeper's list, open on a collection when one was picked
+  // from the travel drawer. Only one of `open` and `hall` is ever set.
+  const [hall, setHall] = useState<{ focus: string | null } | null>(null);
   const openSkill = (f: WorldFeature) => {
+    if (f.id === COLLECTIONS_KEEPER.id) { setOpen(null); setHall({ focus: null }); return; }
     const skill = WORLD_SKILLS.find((x) => x.id === f.id);
-    if (skill) setOpen({ skill, activity: null });
+    if (skill) { setHall(null); setOpen({ skill, activity: null }); }
   };
   const openActivity = (id: string) => {
     const found = findActivity(id);
-    if (found) setOpen(found);
+    if (found) { setHall(null); setOpen(found); }
   };
+  const openCollection = (id: string) => { setOpen(null); setHall({ focus: id }); };
 
   // Search lives in the library: the header's search (button, ⌘K, "/") opens
   // it here instead of the app's modal, and "learn it" hands the word to the
@@ -120,8 +126,26 @@ export function WorldGame() {
   };
 
   /** The in-world screen that plays an activity. */
+  // The collections list — the collections' keeper's, and Vocabulary's
+  // "Collections" activity, so a list can be picked without leaving the skill.
+  const collectionsHall = (focus: string | null) => (
+    <CollectionsHall
+      stations={stations}
+      focusId={focus}
+      onStudy={study}
+      onPreview={(s) => setPreview({ name: s.name, all: s.words, sample: sampleWords(s.words) })}
+      onQuiz={(s) => setQuiz({ name: s.name, words: s.words })}
+      onStats={(s) => setStats({ name: s.name, words: s.words })}
+      onCreate={() => setForm({ editingId: null, name: '', words: [] })}
+      onEdit={openEdit}
+      onShare={share}
+      onDelete={remove}
+    />
+  );
+
   const activityScreen = (id: string) => {
     switch (id) {
+      case 'collections': return collectionsHall(null);
       case 'learn': return <DongBaStall />;
       case 'review': return <ThienMuReview onLearnMore={openStall} />;
       case 'quizzes': return <QuizArena words={wordPool} />;
@@ -183,8 +207,14 @@ export function WorldGame() {
           skills={WORLD_SKILLS}
           onOpenFeature={openSkill}
           onOpenActivity={openActivity}
-          paused={open !== null}
-          panel={open && {
+          onOpenCollection={openCollection}
+          paused={open !== null || hall !== null}
+          panel={hall ? {
+            title: intl.formatMessage({ id: COLLECTIONS_KEEPER.nameId }),
+            emoji: COLLECTIONS_KEEPER.emoji,
+            onClose: () => setHall(null),
+            content: collectionsHall(hall.focus),
+          } : open && {
             title: open.activity
               ? `${intl.formatMessage({ id: open.skill.nameId })} › ${intl.formatMessage({ id: open.activity.nameId })}`
               : intl.formatMessage({ id: open.skill.nameId }),
@@ -196,14 +226,7 @@ export function WorldGame() {
               ? activityScreen(open.activity.id)
               : <SkillMenu skill={open.skill} onPick={(activity) => setOpen({ skill: open.skill, activity })} />,
           }}
-          onStudy={study}
-          onPreview={(s) => setPreview({ name: s.name, all: s.words, sample: sampleWords(s.words) })}
-          onQuiz={(s) => setQuiz({ name: s.name, words: s.words })}
-          onStats={(s) => setStats({ name: s.name, words: s.words })}
           onCreate={() => setForm({ editingId: null, name: '', words: [] })}
-          onEdit={openEdit}
-          onShare={share}
-          onDelete={remove}
         />
       </Suspense>
 

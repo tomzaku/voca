@@ -1,7 +1,8 @@
 // Types that cross the React ↔ Phaser boundary. Keep this file dependency-free
 // so game code never imports React and components never import game internals.
 
-/** A collection rendered as a station on the world map. */
+/** A collection or level, as the world lists it (the collections' keeper,
+ *  the travel drawer). */
 export interface WorldStation {
   id: string;
   name: string;
@@ -49,6 +50,3 @@ export const WORLD_EVENTS = {
   zoom: 'world:zoom',
 } as const;
 
-/** Pseudo-station id for the "build a new collection" spot on the map.
- *  Emitted through WORLD_EVENTS.near like a real station id. */
-export const CREATE_STATION_ID = '__create__';

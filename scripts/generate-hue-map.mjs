@@ -1271,11 +1271,6 @@ point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
   spots.slice(0, 60).forEach(([x, y], i) => point('lantern', x, y, { order: i }));
 }
 
-// Levels: Thái Hòa holds the curated list, then A1 → C2 through the halls.
-point('station', 55, 30.5, { region: 'system', slot: 0 });
-SYSTEM_HALLS.forEach(([x, y], i) => point('station', x + 2, y + 4.5, { region: 'system', slot: i + 1 }));
-// Collections: the Kim Long garden houses, front row first.
-HOUSE_ROWS.forEach((y, r) => HOUSE_X.forEach((x, i) => point('station', x + 2, y + 4.5, { region: 'public', slot: r * 4 + i })));
 // The skills' keepers — one person per skill, at its home landmark (see
 // src/game/features.ts). Their menus reach every activity, including those
 // whose landmarks (Thiên Mụ, Quốc Học, the library…) have no keeper of
@@ -1286,6 +1281,8 @@ const FEATURES = [
   ['listening', 58, 54.5, 'Thuyền rồng'],
   ['writing', 20, 44.5, 'Văn Miếu'],
   ['you', 13, 12.5, 'Nhà vườn An Hiên'],
+  // One keeper for every collection and level, before the throne hall.
+  ['collections', 55, 30.5, 'Điện Thái Hòa'],
 ];
 FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 

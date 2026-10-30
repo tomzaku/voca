@@ -43,8 +43,7 @@ export interface WorldSkill extends WorldFeature {
   activities: WorldActivity[];
 }
 
-/** Namespace for keeper ids so React can tell them apart from collection ids
- *  and CREATE_STATION_ID in the `near` payload. */
+/** Namespace for keeper ids in the `near` payload. */
 export const FEATURE_ID_PREFIX = 'feat:';
 
 export const featureNodeId = (f: WorldFeature) => `${FEATURE_ID_PREFIX}${f.id}`;
@@ -64,6 +63,7 @@ export const WORLD_SKILLS: WorldSkill[] = [
       act('level-test', 'practice', 'LevelTest', '⛰️', 'Núi Ngự Bình'),
       act('search', 'tool', 'Search', '🔎', 'Tàng Thư Lâu'),
       act('history', 'tool', 'Words', '📜', 'Lăng Khải Định'),
+      act('collections', 'tool', 'Collections', '🗂️', 'Điện Thái Hòa'),
     ],
   },
   {
@@ -106,8 +106,15 @@ export const WORLD_SKILLS: WorldSkill[] = [
   },
 ];
 
-/** The keepers the scene places — one per skill. */
-export const WORLD_FEATURES: WorldFeature[] = WORLD_SKILLS;
+/** The keeper of your collections and the levels: one person before Điện
+ *  Thái Hòa whose menu lists them all — study one, preview, quiz, manage. */
+export const COLLECTIONS_KEEPER: WorldFeature = {
+  id: 'collections', nameId: 'world.collectionsKeeper', blurbId: 'world.collectionsKeeperBlurb',
+  route: '/collections', emoji: '🗂️', icon: 'lucide:library',
+};
+
+/** The keepers the scene places — one per skill, and the collections'. */
+export const WORLD_FEATURES: WorldFeature[] = [...WORLD_SKILLS, COLLECTIONS_KEEPER];
 
 /** The skill an activity belongs to, and the activity itself. */
 export function findActivity(activityId: string): { skill: WorldSkill; activity: WorldActivity } | null {

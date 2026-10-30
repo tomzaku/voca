@@ -9,23 +9,27 @@ import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
 import type { BuddyLook } from '../game/textures';
 import {
-  CREATE_STATION_ID, WORLD_EVENTS,
+  WORLD_EVENTS,
   type WorldArea, type WorldSnapshot, type WorldStation,
 } from '../game/types';
-import { FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
+import { COLLECTIONS_KEEPER, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
+import { KIND_META } from './worldgames/collectionKinds';
 
 export type { WorldStation } from '../game/types';
 
 interface Props {
+  /** Your collections and the levels — listed in the travel drawer; on the
+   *  map they're one keeper's (COLLECTIONS_KEEPER). */
   stations: WorldStation[];
-  /** App pages placed as buildings; walking up opens a card that opens the
-   *  page in-game (the parent renders it over the world). */
   /** The skills, whose keepers the scene places; their activities fill the
    *  travel drawer. */
   skills: WorldSkill[];
-  /** A keeper was reached and entered: open its skill menu. */
+  /** A keeper was reached and entered: open its menu. */
   onOpenFeature: (f: WorldFeature) => void;
+  /** A collection picked from the travel drawer: open the collections'
+   *  keeper on it. */
+  onOpenCollection: (id: string) => void;
   /** An activity picked straight from the travel drawer. */
   onOpenActivity: (activityId: string) => void;
   /** True while an in-game panel covers the world: freeze the buddy's controls
@@ -41,15 +45,7 @@ interface Props {
     /** Inside an activity: back to the skill's menu. */
     onBack?: () => void;
   } | null;
-  onStudy: (s: WorldStation) => void;
-  onPreview: (s: WorldStation) => void;
-  onQuiz: (s: WorldStation) => void;
-  onStats: (s: WorldStation) => void;
   onCreate: () => void;
-  /** Owner actions — only offered on the user's own (`kind: 'mine'`) stations. */
-  onEdit: (s: WorldStation) => void;
-  onShare: (s: WorldStation) => void;
-  onDelete: (s: WorldStation) => void;
 }
 
 const MIN_H = 440; // viewport height floor
@@ -62,13 +58,6 @@ const DOT: Record<string, string> = {
   level: '#5fd068',
   feature: '#f0c050',
   create: '#b8a88e',
-};
-
-// labelId: the kind on a station card; groupId: its heading in the fast-travel list.
-const KIND_META: Record<WorldStation['kind'], { labelId: string; groupId: string; icon: PixelIconName; color: string }> = {
-  mine:   { labelId: 'world.kindMine',   groupId: 'world.groupMine',   icon: 'person', color: '#4f8fe0' },
-  joined: { labelId: 'world.kindJoined', groupId: 'world.groupJoined', icon: 'people', color: '#a77bf0' },
-  level:  { labelId: 'world.kindLevel',  groupId: 'world.groupLevel',  icon: 'cap',    color: '#5fd068' },
 };
 
 /** The card at the bottom when the buddy reaches a building, a plot or a
@@ -134,11 +123,10 @@ function DrawerSection({ title, open, onToggle, onTitle, children }: {
  * collection or an app-page building.
  */
 export function GameWorld({
-  stations, skills, onOpenFeature, onOpenActivity, paused = false, panel = null,
-  onStudy, onPreview, onQuiz, onStats, onCreate, onEdit, onShare, onDelete,
+  stations, skills, onOpenFeature, onOpenActivity, onOpenCollection, paused = false, panel = null, onCreate,
 }: Props) {
   const intl = useIntl();
-  const features: WorldFeature[] = skills;
+  const features = useMemo<WorldFeature[]>(() => [...skills, COLLECTIONS_KEEPER], [skills]);
   // Phaser text is drawn once, so a language switch rebuilds the scene.
   const locale = intl.locale;
   const animalId = useCompanion((s) => s.animalId);
@@ -155,14 +143,7 @@ export function GameWorld({
   const gameRef = useRef<Phaser.Game | null>(null);
 
   const [nearestId, setNearestId] = useState<string | null>(null);
-  const isFeature = nearestId?.startsWith(FEATURE_ID_PREFIX) ?? false;
-  const nearestFeature = isFeature
-    ? features.find((f) => featureNodeId(f) === nearestId) ?? null
-    : null;
-  const nearest = (!isFeature && nearestId && nearestId !== CREATE_STATION_ID)
-    ? stations.find((s) => s.id === nearestId) ?? null
-    : null;
-  const atBuildSpot = nearestId === CREATE_STATION_ID;
+  const nearestFeature = features.find((f) => featureNodeId(f) === nearestId) ?? null;
 
   // ── Fast-travel drawer (top right) ──
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -173,10 +154,6 @@ export function GameWorld({
     if (next.has(key)) next.delete(key); else next.add(key);
     return next;
   });
-
-  // ── Owner ⋯ menu on the station card ──
-  const [menuOpen, setMenuOpen] = useState(false);
-  useEffect(() => setMenuOpen(false), [nearestId]);
 
   // ── Minimap + gate arrival card ──
   const [snap, setSnap] = useState<WorldSnapshot | null>(null);
@@ -204,8 +181,8 @@ export function GameWorld({
     (gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null)?.resetZoom();
 
   // Latest props for stable event/keyboard handlers.
-  const live = useRef({ stations, onStudy, features, onOpenFeature, nearestId, paused, progress });
-  live.current = { stations, onStudy, features, onOpenFeature, nearestId, paused, progress };
+  const live = useRef({ features, onOpenFeature, nearestId, paused, progress });
+  live.current = { features, onOpenFeature, nearestId, paused, progress };
 
   // Freeze the world's own keyboard while a panel covers it, so Phaser doesn't
   // preventDefault space/arrows the panel's inputs need.
@@ -240,7 +217,6 @@ export function GameWorld({
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const look: BuddyLook = { kind: 'animal', id: animal.id };
     const data: WorldSceneData = {
-      stations: live.current.stations,
       features: live.current.features,
       look,
       stage,
@@ -304,13 +280,6 @@ export function GameWorld({
   // refloat the lanterns in the running scene.
   useEffect(() => { scene()?.setProgress(progress); }, [progress]);
 
-  // Push station-data changes into the running scene, then re-read the minimap.
-  useEffect(() => {
-    const s = scene();
-    s?.setStations(stations);
-    if (s) setSnap(s.snapshot());
-  }, [stations]);
-
   // The first position report means the scene is live — grab the layout then.
   useEffect(() => {
     if (!pos || snap) return;
@@ -324,8 +293,7 @@ export function GameWorld({
     return () => observer.disconnect();
   }, []);
 
-  // Enter/Space acts on whatever the buddy is standing at: a feature opens, a
-  // collection studies. +/- zoom, 0 resets.
+  // Enter/Space opens the keeper the buddy is standing at. +/- zoom, 0 resets.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -338,15 +306,10 @@ export function GameWorld({
       }
       if (e.key !== 'Enter' && e.key !== ' ') return;
       if (typing) return;
-      const { stations: all, onStudy: study, features: feats, onOpenFeature: open, nearestId: id, paused: frozen } = live.current;
+      const { features: feats, onOpenFeature: open, nearestId: id, paused: frozen } = live.current;
       if (frozen || !id) return;
-      if (id.startsWith(FEATURE_ID_PREFIX)) {
-        const f = feats.find((x) => featureNodeId(x) === id);
-        if (f) { e.preventDefault(); open(f); }
-        return;
-      }
-      const s = all.find((x) => x.id === id);
-      if (s) { e.preventDefault(); study(s); }
+      const f = feats.find((x) => featureNodeId(x) === id);
+      if (f) { e.preventDefault(); open(f); }
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
@@ -489,7 +452,7 @@ export function GameWorld({
                     title={<><PixelIcon name={KIND_META[kind].icon} size={2} /> <FormattedMessage id={KIND_META[kind].groupId} /></>}
                   >
                     {group.map((s) => (
-                      <button key={s.id} onClick={() => travelTo(s.id)} data-on={s.active} className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left">
+                      <button key={s.id} onClick={() => { travelTo(featureNodeId(COLLECTIONS_KEEPER)); onOpenCollection(s.id); }} data-on={s.active} className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left">
                         <span className="flex-1 min-w-0 truncate text-[14px] font-bold">{s.name}</span>
                         <span className="shrink-0 px-num text-[13px] text-[var(--px-muted)]">{s.pct}%</span>
                       </button>
@@ -549,102 +512,6 @@ export function GameWorld({
           <PixelButton tone="gold" block onClick={() => onOpenFeature(nearestFeature)}>
             <FormattedMessage id="world.enter" /> <span className="hidden sm:inline opacity-70">↵</span>
           </PixelButton>
-        </WorldCard>
-      )}
-
-      {/* ── Build card (the buddy reached the empty plot) ── */}
-      {!panel && atBuildSpot && (
-        <WorldCard
-          icon="plus"
-          color="var(--px-jade)"
-          title={intl.formatMessage({ id: 'world.emptyPlot' })}
-          subtitle={intl.formatMessage({ id: 'world.emptyPlotBlurb' })}
-        >
-          <PixelButton tone="jade" block onClick={onCreate}>
-            <PixelIcon name="plus" size={2} /> <FormattedMessage id="world.newCollection" />
-          </PixelButton>
-        </WorldCard>
-      )}
-
-      {/* ── Station card (opens when the buddy is close to a collection) ── */}
-      {!panel && nearest && (
-        <WorldCard
-          icon={KIND_META[nearest.kind].icon}
-          color={KIND_META[nearest.kind].color}
-          title={nearest.name}
-          subtitle={
-            <>
-              <FormattedMessage
-                id="world.stationMeta"
-                values={{
-                  kind: intl.formatMessage({ id: KIND_META[nearest.kind].labelId }),
-                  count: nearest.words.length,
-                  pct: nearest.pct,
-                }}
-              />
-              {(nearest.learners ?? 0) > 0 && (
-                <> · <FormattedMessage id="world.learners" values={{ count: nearest.learners }} /></>
-              )}
-            </>
-          }
-        >
-          <div className="flex items-center gap-2">
-            <PixelButton tone={nearest.active ? 'jade' : 'gold'} className="flex-1" onClick={() => onStudy(nearest)}>
-              <FormattedMessage id={nearest.active ? 'world.studying' : 'world.studyThis'} />
-              <span className="hidden sm:inline opacity-70">↵</span>
-            </PixelButton>
-            {([
-              ['eye', 'world.previewWords', () => onPreview(nearest)],
-              ['play', 'world.quizCollection', () => onQuiz(nearest)],
-              ['chart', 'world.progressStats', () => onStats(nearest)],
-            ] as const).map(([icon, label, act]) => (
-              <PixelButton
-                key={icon}
-                tone="paper"
-                onClick={act}
-                title={intl.formatMessage({ id: label })}
-                aria-label={intl.formatMessage({ id: label })}
-                className="!w-10 !h-11 !p-0"
-              >
-                <PixelIcon name={icon} size={2} />
-              </PixelButton>
-            ))}
-            {/* Owner actions tucked behind an options menu, same as List view */}
-            {nearest.kind === 'mine' && (
-              <div className="relative shrink-0">
-                <PixelButton
-                  tone={menuOpen ? 'gold' : 'paper'}
-                  onClick={() => setMenuOpen((o) => !o)}
-                  title={intl.formatMessage({ id: 'world.options' })}
-                  aria-label={intl.formatMessage({ id: 'world.options' })}
-                  className="!w-10 !h-11 !p-0"
-                >
-                  <PixelIcon name="dots" size={2} />
-                </PixelButton>
-                {menuOpen && (
-                  <>
-                    {/* click-away backdrop */}
-                    <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
-                    <div className="absolute right-0 bottom-14 z-40 w-40 px-notch px-frame p-2 space-y-1">
-                      {([
-                        ['pencil', 'world.edit', () => onEdit(nearest), false],
-                        ['share', 'world.share', () => onShare(nearest), false],
-                        ['trash', 'world.delete', () => onDelete(nearest), true],
-                      ] as const).map(([icon, label, act, danger]) => (
-                        <button
-                          key={icon}
-                          onClick={() => { setMenuOpen(false); act(); }}
-                          className={`px-pick px-notch w-full flex items-center gap-2 px-2.5 py-2 text-left text-[15px] font-bold ${danger ? 'text-[var(--px-bad)]' : ''}`}
-                        >
-                          <PixelIcon name={icon} size={2} /> <FormattedMessage id={label} />
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
         </WorldCard>
       )}
 
