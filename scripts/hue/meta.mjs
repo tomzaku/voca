@@ -4,6 +4,7 @@
 import { rand } from './core/canvas.mjs';
 import { BOATS } from './fill/boats.mjs';
 import { PARK_PATHS } from './roads.mjs';
+import { FARMERS } from './places/fields.mjs';
 import { FEATURES, ISLETS, RIVER, RIVER_BRIDGES, SPAWN, T, W, isWater, isletE, onIslet, riverHalfWidth } from './layout.mjs';
 import { FLAG, LABELS as CITADEL_LABELS } from './places/citadel.mjs';
 import { LABELS as DONG_BA_LABELS } from './places/dongBa.mjs';
@@ -80,6 +81,7 @@ export function writeMeta() {
   }
   for (const [x, y] of [[11.5, 46.4], [20, 43.6], [62.9, 27.9], [66.1, 27.9]]) point('smoke', x, y);
   point('spray', 72, 63.3);
+  for (const [x, y] of FARMERS) point('farmer', x, y);
 
   FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 }

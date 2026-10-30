@@ -11,18 +11,22 @@
 import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
 import { P, STREET } from '../core/palette.mjs';
 import { drawn, ground, over } from '../core/world.mjs';
+import { cliff as cliffAt } from '../hills.mjs';
 import { H as MAP_H, HILLS_Y, T, W as MAP_W, isWater } from '../layout.mjs';
 import { grassColor, hillTint } from '../paint/terrain.mjs';
 import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
-import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, lamp, market, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
+import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, ladder, lamp, market, paddy, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
 import { anDinh, cheStall, gaHue, gardenHouse, gateTower, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
 import { biDinh, biDinhKhaiDinh, biDinhMinhMang, daiHongMon, grave, minhLau, obelisk, thienDinh, tombGate, tombHall, xungKhiem } from './tombs.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
 /** The buildings with detailed art of their own, by the name their canvas
  *  carries (cv.spec.kind); other halls with windows are drawn as houses. */
+/** A ladder's repeating rows (one rung's worth). */
+const LADDER = ladder(6);
+
 const BUILDINGS = {
   ngoMon, thaiHoa, hienLam, thienMuTower, thienMuHall, vanMieu, stele, tangThuLau,
   gaHue, quocHoc, anDinh, gateTower, sideGateTower, phuVanLau, nghenhLuong, cheStall,
@@ -141,6 +145,7 @@ export function renderDetail(write) {
     // What gets drawn again in detail.
     const redraw = [];
     const forest = [];
+    const ladderTiles = [];
     for (const e of drawn) {
       if (e.type === 'structure') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
@@ -151,6 +156,12 @@ export function renderDetail(write) {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const art = tree(e.kind, e.cv.w, e.cv.h, e.tx * 131 + e.ty * 17);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
+      } else if (e.type === 'paddy') {
+        if (!inside(e, e.w, e.h)) continue;
+        redraw.push({ e, art: paddy(e.w * K, e.h * K, e.stage), bottom: e.y - 1500, overTo: 0 });
+      } else if (e.type === 'ladder') {
+        if (!inside(e, 16, 24)) continue;
+        ladderTiles.push(e);
       } else if (e.type === 'wall') {
         if (!inside(e, 16, 16)) continue;
         redraw.push({ e, art: wallTile(e.horizontal, e.tx * 7 + e.ty), bottom: e.y - 2000, overTo: 0 });
@@ -216,6 +227,16 @@ export function renderDetail(write) {
 
     // The forest's canopy, in passes over the whole patch, before the rest.
     if (forest.length) forestCanopy(g, forest, ox, oy);
+
+    // Ladders over the cliff faces, after the ground is shaded afresh.
+    for (const e of ladderTiles) {
+      for (let Y = (e.y - oy) * K; Y < (e.y + 24 - oy) * K; Y++) {
+        const my = oy + Y / K;
+        if (cliffAt(e.tx * T + 8, my)?.face === undefined) continue;
+        const X = (e.tx * T + 3 - ox) * K, r = Y % 6;
+        g.blit(LADDER, X, Y - r, [r, r + 1]);
+      }
+    }
 
     // The things, in detail, back to front.
     redraw.sort((a, b) => a.bottom - b.bottom);

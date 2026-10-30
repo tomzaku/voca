@@ -115,6 +115,8 @@ interface MapMeta {
   strolls: { x: number; y: number; to: number }[];
   smokes: { x: number; y: number }[];
   sprays: { x: number; y: number }[];
+  /** Farmers at work in the rice paddies. */
+  farmers: { x: number; y: number }[];
 }
 
 interface MapSlot {
@@ -385,6 +387,7 @@ export class WorldScene extends Phaser.Scene {
     this.createBuddy();
     this.setRide(this.args.ride ?? 'walk');
     this.spawnTraffic();
+    this.spawnFarmers();
     this.spawnAmbient();
     this.targetMark = this.add
       .circle(0, 0, 8)
@@ -870,6 +873,7 @@ export class WorldScene extends Phaser.Scene {
       strolls: [],
       smokes: [],
       sprays: [],
+      farmers: [],
     };
     const lanterns: { x: number; y: number; order: number }[] = [];
     type TiledProp = { name: string; value: unknown };
@@ -903,6 +907,9 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'spray':
           meta.sprays.push({ x, y });
+          break;
+        case 'farmer':
+          meta.farmers.push({ x, y });
           break;
         case 'animal':
           meta.animals.push({ x, y, kind: String(get('kind') ?? 'chicken') });
@@ -1112,6 +1119,32 @@ export class WorldScene extends Phaser.Scene {
       this.buddy.addAt(this.driver, 2);   // over the frame, in the saddle
     }
     this.applyAnim(false);
+  }
+
+  /** Farmers in the rice paddies, in nón lá and working clothes, bent over
+   *  the rice — straightening now and then, turning to the next row. Still
+   *  for anyone who has asked their system for reduced motion. */
+  private spawnFarmers() {
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const clothes: [Look['outfit'], string][] = [['aoThe', 'brown'], ['everyday', 'blue'], ['aoThe', 'black'], ['everyday', 'green']];
+    this.meta.farmers.forEach((f, i) => {
+      const [outfit, outfitColor] = clothes[i % clothes.length];
+      const look: Look = { hair: 'longhair', hairColor: 'dark', outfit, outfitColor, hat: 'nonLa' };
+      const farmer = new Dressed(this, f.x, f.y, look).setScale(SCALE).setDepth(DEPTH_BUDDY - 1);
+      farmer.playClip('idle', false, i % 3 === 0 ? 'side' : i % 3 === 1 ? 'front' : 'back').setFlipX(i % 2 === 1);
+      if (calm) return;
+      // Bending to the rice and back up.
+      this.tweens.add({ targets: farmer, scaleY: SCALE * 0.88, y: f.y + 1, duration: 900 + (i * 137) % 500, yoyo: true, repeat: -1, hold: 1400, repeatDelay: 600, delay: (i * 311) % 1500 });
+      // Now and then, a step along the row.
+      this.time.addEvent({
+        delay: 5000 + (i * 977) % 4000, loop: true, callback: () => {
+          const dir = farmer.flipX ? -1 : 1;
+          const x = Phaser.Math.Clamp(farmer.x + dir * 10, f.x - 20, f.x + 20);
+          if (x === farmer.x) farmer.setFlipX(!farmer.flipX);
+          this.tweens.add({ targets: farmer, x, duration: 700 });
+        },
+      });
+    });
   }
 
   /**

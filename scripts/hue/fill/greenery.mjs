@@ -4,9 +4,9 @@
 
 import { hash, mix, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
-import { drawn, ground, solid, used } from '../core/world.mjs';
+import { deck, drawn, ground, mark, solid, used } from '../core/world.mjs';
 import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
-import { TREELINE, height, light, markCliffs } from '../hills.mjs';
+import { TREELINE, drawLadder, height, light, markCliffs } from '../hills.mjs';
 import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
 import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
 
@@ -88,7 +88,11 @@ export function plantGreenery() {
   // to the south where the land rises towards the tombs. A canopy of crowns
   // packed edge to edge; the buddy stays out of it.
   // The hills' cliffs block the way — but not on a road or in a tomb's grounds.
-  markCliffs(solid, (tx, ty) => used[ty][tx] || roadGap(tx, ty) < 1);
+  // Ladders climb them here and there; no tree grows on one.
+  for (const [tx, ty] of markCliffs(solid, (tx, ty) => used[ty][tx] || roadGap(tx, ty) < 1)) {
+    drawLadder(ground, tx, ty, drawn);
+    mark(deck, tx, ty - 1, 1, 3);
+  }
   {
     const forest = [];
     const hillside = [];

@@ -727,3 +727,38 @@ export function dragonBoat(cv, x, y) {
   for (let i = 0; i < 7; i++) cv.rect(x + w + i, y + 6 - i, 3, 3, [214, 172, 72]);
   cv.ellipse(x + w / 2, y + 20, w / 2, 2, [0, 0, 0], 0.18);
 }
+
+// ── Rice fields and ladders ──
+
+/** A paddy in detail (`w, h` detail px): still water catching the sky
+ *  between rows of rice — young shoots, a thick green stand, or ripe gold
+ *  heads bowing. */
+export function paddy(w, h, stage) {
+  const cv = new Canvas(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let c = mix([98, 154, 166], [80, 134, 150], noise(x, y, 10));
+    if (hash(x, y * 3) < 0.03) c = [190, 220, 230];
+    if (y < 2) c = [64, 102, 112];
+    cv.set(x, y, c);
+  }
+  for (let y = 4; y < h - 2; y += stage === 0 ? 6 : 5) for (let x = 3; x < w - 2; x += 5) {
+    const jx = x + Math.round((hash(x, y) - 0.5) * 2);
+    if (stage === 0) { cv.set(jx, y, [140, 204, 102]); cv.set(jx - 1, y - 1, [120, 190, 90]); cv.set(jx + 1, y - 1, [120, 190, 90]); continue; }
+    const leaf = stage === 1 ? [[70, 140, 58], [100, 170, 72], [136, 200, 96]] : [[176, 140, 52], [214, 178, 72], [240, 210, 110]];
+    for (let i = 0; i < 4; i++) { cv.set(jx - 2 + i, y + 1, leaf[0]); }
+    for (const [dx, dy, k] of [[-2, -1, 1], [2, -1, 1], [-1, -2, 2], [1, -2, 2], [0, -3, 2], [-3, -2, 1], [3, -2, 1]]) cv.set(jx + dx, y + dy, leaf[k]);
+    if (stage === 2) { cv.set(jx + 3, y - 1, [250, 226, 140]); cv.set(jx - 3, y - 1, [250, 226, 140]); }
+  }
+  return cv;
+}
+
+/** A wooden ladder over a cliff face, `h` detail px tall. */
+export function ladder(h) {
+  const cv = new Canvas(18, h);
+  for (let y = 0; y < h; y++) {
+    cv.rect(2, y, 2, 1, [104, 70, 44]); cv.set(4, y, [150, 106, 66]);
+    cv.rect(14, y, 2, 1, [104, 70, 44]); cv.set(13, y, [150, 106, 66]);
+    if (y % 6 === 0) { cv.rect(4, y, 10, 2, [176, 128, 84]); cv.rect(4, y + 2, 10, 1, [96, 64, 40]); }
+  }
+  return cv;
+}
