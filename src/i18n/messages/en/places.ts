@@ -1,13 +1,12 @@
 import type { Catalog } from '../..';
 
-// Huế's real places, as the world introduces them (src/game/landmarks.ts):
-// each has a name (kept in Vietnamese, as on the map), what it's called in
-// English, a short introduction, and one thing worth knowing.
+// Huế's real places, introduced from the skill rooms that stand in them
+// (ROOMS[…].place, the ⓘ in the skill bar): each has a name (kept in
+// Vietnamese, as on the map), what it's called in English, a short
+// introduction, and one thing worth knowing. More are written than have rooms
+// yet, ready for the rooms to come.
 
 export default {
-  'places.guide': 'Places of Huế',
-  'places.hueAbout': 'Huế was Vietnam’s capital under the Nguyễn emperors from 1802 to 1945. Its monuments became a UNESCO World Heritage Site in 1993.',
-  'places.read': 'Read about it',
   'places.didYouKnow': 'Did you know?',
   'places.close': 'Close',
 

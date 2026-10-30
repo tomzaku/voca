@@ -16,6 +16,9 @@ export interface RoomDef {
   buddy: { x: number; y: number };
   /** Fills the frame where the art doesn't reach (a very wide or tall one). */
   edge: number;
+  /** The real place the room is in — its story (the `places` catalog) is
+   *  one tap away in the skill bar. */
+  place?: string;
 }
 
 export const ROOMS: Record<string, RoomDef> = {
@@ -26,5 +29,6 @@ export const ROOMS: Record<string, RoomDef> = {
     keeper: { x: 72, y: 158 },
     buddy: { x: 312, y: 160 },
     edge: 0x2a1a12,
+    place: 'dongBa',
   },
 };

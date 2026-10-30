@@ -3,6 +3,16 @@
 // They paint in currentColor; `size` is the pixel scale.
 
 const GRIDS = {
+  info: [
+    '..###..',
+    '.#####.',
+    '###.###',
+    '#######',
+    '###.###',
+    '###.###',
+    '.##.##.',
+    '..###..',
+  ],
   heart: [
     '.##.##.',
     '#######',

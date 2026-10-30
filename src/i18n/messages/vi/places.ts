@@ -1,9 +1,6 @@
 import type en from '../en/places';
 
 export default {
-  'places.guide': 'Địa danh Huế',
-  'places.hueAbout': 'Huế là kinh đô của Việt Nam dưới triều Nguyễn từ năm 1802 đến 1945. Quần thể di tích Cố đô Huế được UNESCO công nhận là Di sản Thế giới năm 1993.',
-  'places.read': 'Tìm hiểu',
   'places.didYouKnow': 'Bạn có biết?',
   'places.close': 'Đóng',
 

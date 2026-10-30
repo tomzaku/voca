@@ -2,10 +2,10 @@ import { useEffect } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { PixelButton, PixelIcon } from './pixel';
 
-// A landmark's story, opened from its plaque on the map, the card that shows
-// when you walk by, or the travel drawer's guide: its name as Huế says it,
-// what it's called in English, a short introduction and one thing worth
-// knowing — a little of the real city for someone who hasn't been.
+// The story of the real place a skill's room stands in, opened from the ⓘ in
+// the skill bar: its name as Huế says it, what it's called in English, a
+// short introduction and one thing worth knowing — a little of the real city
+// for someone who hasn't been.
 
 export function PlaceInfo({ id, onClose }: { id: string; onClose: () => void }) {
   useEffect(() => {
