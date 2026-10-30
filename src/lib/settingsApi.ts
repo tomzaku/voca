@@ -25,6 +25,8 @@ export interface UserSettings {
   ttsVoice: string | null;
   companionAnimal: string | null;
   companionName: string | null;
+  /** What the buddy wears in the world (src/game/wardrobe.ts Look). */
+  companionDress: Record<string, string> | null;
   activeCollection: string | null;
   guessGame: string | null;
   reminderEnabled: boolean | null;

@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import type { RoomDef } from '../rooms';
 import { FONT } from '../palette';
 import { onAnswerEvent, type AnswerEvent } from '../../lib/answerEvents';
+import { Dressed, loadWardrobe } from '../dressed';
+import type { Look } from '../wardrobe';
 import {
   buddySpec, type BuddyLook,
   VILLAGERS_KEY, loadVillagers, villagerAnim, type VillagerLook,
@@ -19,9 +21,14 @@ export interface RoomSceneData {
   look: BuddyLook;
   stage: number;
   keeperLook: VillagerLook;
+  /** What your buddy wears. */
+  dress: Look;
   /** The keeper is talking to you (their message box is up). */
   talking?: boolean;
 }
+
+/** Someone in the room who can hop, shake and turn: the keeper, or you. */
+type Mover = Phaser.GameObjects.Sprite | Dressed;
 
 /** The map draws its 16px art at 2×; a room is drawn at 1× and zoomed. */
 const MAP_SCALE = 2;
@@ -29,7 +36,7 @@ const MAP_SCALE = 2;
 export class RoomScene extends Phaser.Scene {
   static KEY = 'room';
   private args!: RoomSceneData;
-  private buddy!: Phaser.GameObjects.Sprite;
+  private buddy!: Dressed;
   private keeper!: Phaser.GameObjects.Sprite;
   private glow!: Phaser.GameObjects.Rectangle;
   private bubble?: Phaser.GameObjects.Container;
@@ -75,6 +82,13 @@ export class RoomScene extends Phaser.Scene {
       this.load.image(this.textureKey, `${import.meta.env.BASE_URL}${this.args.room.url}`);
     }
     loadVillagers(this);
+    loadWardrobe(this);
+  }
+
+  /** Change clothes while standing in the room. */
+  setDress(look: Look) {
+    this.args.dress = look;
+    this.buddy?.setLook(look);
   }
 
   create() {
@@ -90,12 +104,9 @@ export class RoomScene extends Phaser.Scene {
 
     // Your buddy, at the size it walks the city, turned to face the keeper.
     const spec = buddySpec(look);
-    const buddy = this.add
-      .sprite(room.buddy.x, room.buddy.y, VILLAGERS_KEY, `${spec.look}-idle-0`)
-      .setOrigin(0.5, 1)
+    const buddy = new Dressed(this, room.buddy.x, room.buddy.y, this.args.dress)
       .setScale((spec.baseScale * (1.3 + stage * 0.1)) / MAP_SCALE)
       .setFlipX(room.buddy.x > room.keeper.x);
-    buddy.play({ key: villagerAnim(this, spec.look, 'idle'), delay: 300 });
     this.add.ellipse(room.buddy.x, room.buddy.y, 12, 3, 0x000000, 0.25);
     keeper.setDepth(1);
     buddy.setDepth(1);
@@ -207,26 +218,26 @@ export class RoomScene extends Phaser.Scene {
   }
 
   /** Up and back down; a new hop replaces one still in the air. */
-  private hop(s: Phaser.GameObjects.Sprite, groundY: number, height: number) {
+  private hop(s: Mover, groundY: number, height: number) {
     this.tweens.killTweensOf(s);
     s.y = groundY;
     s.angle = 0;
     this.tweens.add({ targets: s, y: groundY - height, duration: 130, yoyo: true, ease: 'quad.out' });
   }
 
-  private shake(s: Phaser.GameObjects.Sprite, homeX: number) {
+  private shake(s: Mover, homeX: number) {
     this.tweens.killTweensOf(s);
     s.x = homeX;
     this.tweens.add({ targets: s, x: homeX + 2, duration: 45, yoyo: true, repeat: 3, onComplete: () => { s.x = homeX; } });
   }
 
   /** A puzzled head-tilt. */
-  private tilt(s: Phaser.GameObjects.Sprite) {
+  private tilt(s: Mover) {
     this.tweens.add({ targets: s, angle: -8, duration: 160, yoyo: true, hold: 220, ease: 'sine.inOut' });
   }
 
   /** A full turn, drawn as two flips — the art only faces front. */
-  private spin(s: Phaser.GameObjects.Sprite) {
+  private spin(s: Mover) {
     const flip = s.flipX;
     this.time.addEvent({ delay: 90, repeat: 3, callback: () => s.setFlipX(!s.flipX) });
     this.time.delayedCall(450, () => s.setFlipX(flip));

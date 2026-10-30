@@ -10,6 +10,7 @@ import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/Worl
 import { RoomScene, type RoomSceneData } from '../game/scenes/RoomScene';
 import { ROOMS } from '../game/rooms';
 import { keeperLookFor, type BuddyLook } from '../game/textures';
+import { DEFAULT_LOOK } from '../game/wardrobe';
 import {
   WORLD_EVENTS,
   type WorldArea, type WorldSnapshot, type WorldStation,
@@ -140,6 +141,8 @@ export function GameWorld({
   const locale = intl.locale;
   const animalId = useCompanion((s) => s.animalId);
   const buddyName = useCompanion((s) => s.name);
+  const dress = useCompanion((s) => s.dress) ?? DEFAULT_LOOK;
+  const dressRef = useRef(dress);
   const known = useWordsKnown();
   // What the city shows of progress: the streak flag and the river lanterns.
   const streak = useStreak((s) => s.count);
@@ -233,6 +236,7 @@ export function GameWorld({
     const data: WorldSceneData = {
       features: live.current.features,
       look,
+      dress: dressRef.current,
       stage,
       buddyName: buddyName || animal.name,
       dpr,
@@ -304,6 +308,7 @@ export function GameWorld({
         stage,
         keeperLook: keeperLookFor(Math.max(0, features.findIndex((f) => f.id === roomId))),
         talking: talkingRef.current,
+        dress: dressRef.current,
       };
       game.scene.sleep(WorldScene.KEY);
       game.scene.start(RoomScene.KEY, data);
@@ -326,6 +331,14 @@ export function GameWorld({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [panel]);
+
+  // New clothes from the tailor's go straight onto the buddy, wherever it is.
+  useEffect(() => {
+    dressRef.current = dress;
+    scene()?.setDress(dress);
+    const game = gameRef.current;
+    if (game?.scene.isActive(RoomScene.KEY)) (game.scene.getScene(RoomScene.KEY) as RoomScene).setDress(dress);
+  }, [dress]);
 
   // Progress changes (an answer, a new day of study) re-hoist the flag and
   // refloat the lanterns in the running scene.

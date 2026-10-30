@@ -4,6 +4,8 @@ import {
   type ThemeId, type WorldArea, type WorldSnapshot,
 } from '../types';
 import { featureNodeId, type WorldFeature } from '../features';
+import { Dressed, loadWardrobe } from '../dressed';
+import type { Look } from '../wardrobe';
 import { t } from '../../i18n';
 import { defaultMap } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
@@ -19,6 +21,8 @@ export interface WorldSceneData {
   features: WorldFeature[];
   /** The sprite that walks the map: companion animal or hero look. */
   look: BuddyLook;
+  /** What your buddy wears — chosen at the tailor's (src/game/wardrobe.ts). */
+  dress: Look;
   stage: number;
   buddyName: string;
   /** Device pixel ratio: the canvas renders at native res, the camera zooms by
@@ -188,7 +192,7 @@ export class WorldScene extends Phaser.Scene {
   private tilePx = 32;
 
   private buddy!: Phaser.GameObjects.Container;
-  private sprite!: Phaser.GameObjects.Sprite;
+  private sprite!: Dressed;
   private facing: BuddyDir = 'down';
   /** Waypoints for tap-to-walk (routed through doors across areas). */
   private route: number[][] = [];
@@ -245,6 +249,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.spec.load(this);
     loadVillagers(this);
+    loadWardrobe(this);
   }
 
   create() {
@@ -931,17 +936,12 @@ export class WorldScene extends Phaser.Scene {
 
   private createBuddy() {
     const { spawn } = this.meta;
-    const { look } = this.spec;
-    villagerAnim(this, look, 'idle');
-    villagerAnim(this, look, 'walk');
 
     // Container origin = the buddy's feet.
     this.buddy = this.add.container(spawn.x, spawn.y).setDepth(DEPTH_BUDDY);
     this.buddy.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.28));
-    // Pixel-art frame, scaled up; the buddy grows a little per stage.
-    this.sprite = this.add
-      .sprite(0, 2, VILLAGERS_KEY, `${look}-idle-0`)
-      .setOrigin(0.5, 1)
+    // Pixel-art layers, scaled up; the buddy grows a little per stage.
+    this.sprite = new Dressed(this, 0, 2, this.args.dress)
       .setScale(this.spec.baseScale * (1.3 + this.args.stage * 0.1));
     this.buddy.add(this.sprite);
     this.buddy.add(
@@ -965,8 +965,14 @@ export class WorldScene extends Phaser.Scene {
    * and down reuse the front view. There is no back-facing art to use.
    */
   private applyAnim(moving: boolean) {
-    this.sprite.play(villagerAnim(this, this.spec.look, moving ? 'walk' : 'idle'), true);
+    this.sprite.playClip(moving ? 'walk' : 'idle');
     this.sprite.setFlipX(this.facing === 'left');
+  }
+
+  /** Change clothes (back from the tailor's) without rebuilding the world. */
+  setDress(look: Look) {
+    this.args.dress = look;
+    this.sprite?.setLook(look);
   }
 
   // ── Movement ──
