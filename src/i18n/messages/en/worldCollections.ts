@@ -1,0 +1,38 @@
+import type { Catalog } from '../..';
+
+// The collections' keeper and list: kinds, actions and what they say.
+
+export default {
+  'world.wordCount': '{count, plural, one {# word} other {# words}}',
+  'world.collectionsKeeper': 'Collections',
+  'world.collectionsKeeperBlurb': 'Every word list you have — pick one to study',
+  'world.collectionsPick': 'Pick a collection',
+  'world.collectionsPickFirst': 'New words come from the list you study — pick one to start.',
+  'world.collectionsNone': 'Nothing here yet.',
+  'world.newCollection': 'New collection',
+  'world.toastStudying': 'Studying “{name}”',
+  'world.toastShareCopied': 'Share link copied!',
+  'world.toastShareFailed': 'Could not share.',
+  'world.confirmDelete': 'Delete “{name}”? This can\'t be undone.',
+  'world.toastDeleted': 'Deleted “{name}”',
+  'world.toastDeleteFailed': 'Could not delete.',
+  'world.editCollection': 'Edit collection',
+  'world.buildCollection': 'Build a new collection',
+  'world.kindMine': 'My collection',
+  'world.kindJoined': 'Joined',
+  'world.kindLevel': 'Level',
+  'world.kindTopic': 'Topic',
+  'world.groupMine': 'My collections',
+  'world.groupJoined': 'Joined',
+  'world.groupLevel': 'Levels',
+  'world.groupTopic': 'Topics',
+  'world.new': 'New',
+  'world.studying': 'Studying ✓',
+  'world.studyThis': 'Study this',
+  'world.previewWords': 'Preview words',
+  'world.quizCollection': 'Quiz this collection',
+  'world.progressStats': 'Progress stats',
+  'world.edit': 'Edit',
+  'world.share': 'Share',
+  'world.delete': 'Delete',
+} satisfies Catalog;

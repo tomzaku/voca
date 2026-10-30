@@ -1,0 +1,27 @@
+import type en from '../en/worldWriting';
+
+export default {
+  'world.steleWrite': 'Viết một câu có từ',
+  'world.steleCarve': 'Khắc lên bia',
+  'world.steleUsed': 'Có dùng từ',
+  'world.steleMissing': 'Chưa dùng từ này',
+  'world.steleRevised': 'Bản sửa của thầy đồ',
+  'world.steleNoWords': 'Hãy học vài từ trước, rồi quay lại viết với chúng.',
+  'world.steleNext': 'Từ khác',
+  'world.stelePlaceholder': 'Câu của bạn…',
+  'world.steleNoChanges': 'Không có gì cần sửa — viết rất tốt!',
+  'world.steleCorrecting': 'Thầy đồ đang đọc…',
+  'world.stelePro': 'Xem gói Pro',
+  'world.actStele': 'Khắc bia',
+  'world.actSteleBlurb': 'Viết một câu với từ bạn đang học',
+  'world.actIeltsWriting': 'IELTS Writing',
+  'world.actIeltsWritingBlurb': 'Viết Task 1 hoặc 2 có tính giờ, nhận band điểm',
+  'world.actImprove': 'Cải thiện bài viết',
+  'world.actImproveBlurb': 'Trau chuốt bất kỳ đoạn văn nào theo mẫu',
+  'world.scribeWorking': 'Thầy đồ đang sửa…',
+  'world.scribeEdit': 'Sửa lại',
+  'world.scribeOption': 'Phương án {n}',
+  'world.scribeCopy': 'Sao chép',
+  'world.scribePlaceholder': 'Dán hoặc viết bất cứ gì — email, tin nhắn, bài luận…',
+  'world.scribeImprove': 'Cải thiện',
+} satisfies Record<keyof typeof en, string>;

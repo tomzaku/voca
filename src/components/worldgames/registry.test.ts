@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import en from '../../i18n/messages/en/world';
-import vi from '../../i18n/messages/vi/world';
 import { SKILLS } from '../../game/features';
 import { ACTIVITIES, WORLD_SKILLS, findActivity } from './registry';
 
 // The registry is files nobody lists by hand, so these are the checks a list
 // would have made: every activity belongs to a real skill, none share an id,
-// and each has its words in both languages.
+// and each has its words in both languages (in any of the world's catalogs).
+
+type Catalog = Record<string, string>;
+const merge = (files: Record<string, { default: Catalog }>): Catalog => Object.assign({}, ...Object.values(files).map((m) => m.default));
+const en = merge(import.meta.glob<{ default: Catalog }>('../../i18n/messages/en/world*.ts', { eager: true }));
+const vi = merge(import.meta.glob<{ default: Catalog }>('../../i18n/messages/vi/world*.ts', { eager: true }));
 
 describe('activity registry', () => {
   it('finds every activity file', () => {
