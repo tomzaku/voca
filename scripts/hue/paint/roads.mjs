@@ -164,7 +164,7 @@ export function furnishStreets() {
   }
   // Zebra crossings on the riverside streets, beside each bridge's mouth.
   for (const [a] of RIVER_BRIDGES) {
-    for (const row of [49, 63]) {
+    for (const row of [52, 66]) {
       for (let y = (row - 1) * T; y < (row + 1) * T; y++) {
         for (let x = Math.round((a - 1.7) * T); x < Math.round((a - 1.1) * T); x++) {
           const k = y * PW + x;
@@ -178,10 +178,10 @@ export function furnishStreets() {
   // Huế and Quốc Học, and along the walking street.
   const frames = [[176, 52, 40], [52, 92, 150], [40, 120, 92], [214, 170, 60]];
   for (const [tx, ty, kind] of [
-    [86.4, 48.3, 'bike'], [87.3, 48.3, 'bike'], [88.2, 48.3, 'bike'], [91.5, 48.3, 'cyclo'], [93.2, 48.3, 'cyclo'],
-    [24.5, 63.9, 'bike'], [25.4, 63.9, 'bike'], [28, 63.9, 'cyclo'],
-    [37, 69.9, 'bike'], [37.9, 69.9, 'bike'],
-    [58.5, 62.6, 'bike'], [59.4, 62.6, 'bike'], [62, 62.6, 'cyclo'],
+    [86.4, 51.3, 'bike'], [87.3, 51.3, 'bike'], [88.2, 51.3, 'bike'], [91.5, 51.3, 'cyclo'], [93.2, 51.3, 'cyclo'],
+    [24.5, 66.9, 'bike'], [25.4, 66.9, 'bike'], [28, 66.9, 'cyclo'],
+    [37, 72.9, 'bike'], [37.9, 72.9, 'bike'],
+    [58.5, 65.6, 'bike'], [59.4, 65.6, 'bike'], [62, 65.6, 'cyclo'],
   ]) {
     const x = Math.round(tx * T), y = Math.round(ty * T);
     const frame = frames[Math.floor(hash(x, y) * frames.length)];

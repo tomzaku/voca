@@ -4,9 +4,9 @@
 // draws.
 
 export const W = 120; // map size in tiles
-export const H = 111;
+export const H = 114;
 // Below the city, from this row: the forested hills where the emperors lie.
-export const HILLS_Y = 90;
+export const HILLS_Y = 93;
 export const T = 16; // tile size px (WorldScene draws the map at 2×)
 export const PW = W * T;
 export const PH = H * T;
@@ -41,7 +41,7 @@ export const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
 // The Hương: west → east along the Citadel's front, then the bend north-east
 // past Đông Ba, widest where it wraps around Cồn Hến. Along the city it
 // leaves room on both banks for the riverside parks (paint/parks.mjs).
-export const RIVER = polyline([[-4, 56], [40, 55.9], [80, 56.1], [97, 56], [106, 49], [111, 40], [115, 30], [120, 18], [126, 4]]);
+export const RIVER = polyline([[-4, 59], [40, 58.9], [80, 59.1], [97, 59], [106, 50], [111, 40], [115, 30], [120, 18], [126, 4]]);
 export const [, , , S3, S4, , S6, S7] = RIVER.vertexS;
 export const riverHalfWidth = (s) => {
   let hw = s < S3 ? 4 : s < S4 ? lerp(4, 8, (s - S3) / (S4 - S3)) : s < S6 ? 8 : lerp(8, 5.5, (s - S6) / (S7 - S6));
@@ -50,7 +50,7 @@ export const riverHalfWidth = (s) => {
 
 // Islets: Dã Viên (under its bridge) and Cồn Hến (in the bend, lying along
 // the flow).
-export const DA_VIEN = { cx: 33.5 * T, cy: 56 * T, rx: 4.5 * T, ry: 1.6 * T, angle: 0 };
+export const DA_VIEN = { cx: 33.5 * T, cy: 59 * T, rx: 4.5 * T, ry: 1.6 * T, angle: 0 };
 export const CON_HEN = { cx: 110.5 * T, cy: 41 * T, rx: 6.5 * T, ry: 3.4 * T, angle: Math.atan2(-9, 5) };
 export const ISLETS = [DA_VIEN, CON_HEN];
 export const isletE = (i, x, y) => {
@@ -62,8 +62,8 @@ export const onIslet = (x, y) => ISLETS.some((i) => isletE(i, x, y) <= 1);
 // Canals: Đông Ba (between the Citadel and Gia Hội) and An Cựu (across the
 // south bank).
 export const CANALS = [
-  polyline([[82.2, -2], [82.2, 52.6]]),
-  polyline([[13, 78], [30, 77.4], [50, 77], [75, 77.6], [100, 76.6], [126, 77]]),
+  polyline([[82.2, -2], [82.2, 55.6]]),
+  polyline([[13, 81], [30, 80.4], [50, 80], [75, 80.6], [100, 79.6], [126, 80]]),
 ];
 export const CANAL_HW = 1.3 * T;
 
@@ -102,14 +102,14 @@ export const NGO_MON = { x: 49, y: 34, w: 12, h: 6 };         // in the Imperial
 export const FEATURES = [
   ['vocabulary', 91, 47.5, 'Chợ Đông Ba'],
   ['speaking', 111, 40.6, 'Cồn Hến'],
-  ['listening', 49, 56.5, 'Thuyền rồng'],
+  ['listening', 49, 59.5, 'Thuyền rồng'],
   ['writing', 20, 44.5, 'Văn Miếu'],
   ['you', 13, 12.5, 'Nhà vườn An Hiên'],
   // One keeper for every collection and level, before the throne hall.
   ['collections', 55, 30.5, 'Điện Thái Hòa'],
 ];
 // Arrive at the south end of Trường Tiền.
-export const SPAWN = [76.5, 63];
+export const SPAWN = [76.5, 66];
 // The river bridges' columns, west to east: Nguyễn Hoàng, Dã Viên, Phú Xuân,
 // Trường Tiền.
 export const RIVER_BRIDGES = [[19, 23], [32, 35], [66, 69], [75, 78]];
@@ -124,13 +124,13 @@ export const LAKES = [
   { kind: 'rect', x: 56, y: 31, w: 5, h: 2 },                            // of Trung Đạo, before Thái Hòa
   { kind: 'rect', ...LIBRARY.lake },
   // The pond in the north riverside park, under Cầu bán nguyệt.
-  { kind: 'ellipse', cx: 41 * T, cy: 51 * T, rx: 2.4 * T, ry: 0.85 * T },
+  { kind: 'ellipse', cx: 41 * T, cy: 54 * T, rx: 2.4 * T, ry: 0.85 * T },
   // In the tomb hills: Lưu Khiêm at Tự Đức's; Trừng Minh either side of
   // Minh Mạng's axis, and the crescent of Tân Nguyệt round his tomb.
-  { kind: 'ellipse', cx: 8 * T, cy: 100 * T, rx: 4.5 * T, ry: 2.6 * T },
-  { kind: 'ellipse', cx: 73.3 * T, cy: 97 * T, rx: 2.2 * T, ry: 3.4 * T },
-  { kind: 'ellipse', cx: 84.7 * T, cy: 97 * T, rx: 2.2 * T, ry: 3.4 * T },
-  { kind: 'crescent', cx: 79 * T, cy: 89.5 * T, rx: 5 * T, ry: 3.3 * T, inner: { cy: 89 * T, rx: 4 * T, ry: 2.4 * T } },
+  { kind: 'ellipse', cx: 8 * T, cy: 103 * T, rx: 4.5 * T, ry: 2.6 * T },
+  { kind: 'ellipse', cx: 73.3 * T, cy: 100 * T, rx: 2.2 * T, ry: 3.4 * T },
+  { kind: 'ellipse', cx: 84.7 * T, cy: 100 * T, rx: 2.2 * T, ry: 3.4 * T },
+  { kind: 'crescent', cx: 79 * T, cy: 92.5 * T, rx: 5 * T, ry: 3.3 * T, inner: { cy: 92 * T, rx: 4 * T, ry: 2.4 * T } },
 ];
 
 export const inBox = (tx, ty, b) => tx >= b.x0 && tx < b.x1 && ty >= b.y0 && ty < b.y1;
@@ -153,11 +153,11 @@ export const inRiver = (x, y) => {
 export const inCanal = (x, y) => CANALS.some((c) => nearest(c, x, y).d < CANAL_HW);
 export const isWater = (x, y) => inRiver(x, y) || inCanal(x, y) || inMoat(x, y) || inLake(x, y);
 
-// The river's bridges run from Lê Duẩn (row 49) across to Lê Lợi (row 63).
-export const BRIDGE_Y0 = 49.7 * T;
-export const BRIDGE_Y1 = 62.3 * T;
-export const BANK_N = 52 * T;
-export const BANK_S = 60 * T;
+// The river's bridges run from Lê Duẩn (row 52) across to Lê Lợi (row 66).
+export const BRIDGE_Y0 = 52.7 * T;
+export const BRIDGE_Y1 = 65.3 * T;
+export const BANK_N = 55 * T;
+export const BANK_S = 63 * T;
 
 /** Too close to a keeper or the spawn to build or plant on. */
 export const nearSlot = (tx, ty) => [...FEATURES.map(([, x, y]) => [x, y]), SPAWN].some(([x, y]) => Math.abs(tx + 1 - x) < 4 && Math.abs(ty + 1 - y) < 4);

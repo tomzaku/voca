@@ -39,7 +39,7 @@ export function launchBoats() {
     for (let i = 0; i < 400 && BOATS.length < 14; i++) {
       const big = BOATS.length % 5 === 4;
       const w = big ? 3 : 2;
-      const tx = 2 + rand() * 92, ty = 52.8 + rand() * 6;
+      const tx = 2 + rand() * 92, ty = 55.8 + rand() * 6;
       if (!clear(tx, ty, w)) continue;
       if (big) dragon(tx * T, ty * T); else sampan(tx * T, ty * T, rand() < 0.5);
       BOATS.push([tx, ty, w]);

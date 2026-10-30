@@ -10,11 +10,11 @@ import { streetBridge } from '../paint/roads.mjs';
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
-  { text: 'Sông Hương', x: 4, y: 56.3, place: 'songHuong', theme: 'forest', anchor: 'left' },
-  { text: 'Cầu Nguyễn Hoàng', x: 23.4, y: 58.4, place: 'nguyenHoang', theme: 'desert', anchor: 'left' },
-  { text: 'Cầu Dã Viên', x: 35.4, y: 52, place: 'daVien', theme: 'desert', anchor: 'left' },
-  { text: 'Cầu Phú Xuân', x: 69.4, y: 52, place: 'phuXuan', theme: 'desert', anchor: 'left' },
-  { text: 'Cầu Trường Tiền', x: 78.4, y: 52, place: 'truongTien', theme: 'desert', anchor: 'left' },
+  { text: 'Sông Hương', x: 4, y: 59.3, place: 'songHuong', theme: 'forest', anchor: 'left' },
+  { text: 'Cầu Nguyễn Hoàng', x: 23.4, y: 61.4, place: 'nguyenHoang', theme: 'desert', anchor: 'left' },
+  { text: 'Cầu Dã Viên', x: 35.4, y: 55, place: 'daVien', theme: 'desert', anchor: 'left' },
+  { text: 'Cầu Phú Xuân', x: 69.4, y: 55, place: 'phuXuan', theme: 'desert', anchor: 'left' },
+  { text: 'Cầu Trường Tiền', x: 78.4, y: 55, place: 'truongTien', theme: 'desert', anchor: 'left' },
 ];
 
 export function drawRiver() {
@@ -139,12 +139,12 @@ export function drawRiver() {
   // The dragon-boat wharf below the citadel, west of Phu Văn Lâu's landing, and
   // a boat moored alongside it.
   {
-    plankDeck(48, 50, 2, 9);
-    const x0 = 48 * T, x1 = 50 * T, y0 = 51 * T + 32;
+    plankDeck(48, 53, 2, 9);
+    const x0 = 48 * T, x1 = 50 * T, y0 = 54 * T + 32;
     for (const [px, py] of [[x0, y0], [x1 - 2, y0], [x0, y0 + 40], [x1 - 2, y0 + 40]]) ground.rect(px, py, 2, 3, [96, 66, 44]);
   }
   {
-    const bx = 42.3 * T, by = 55 * T, bw = 88, bh = 18;
+    const bx = 42.3 * T, by = 58 * T, bw = 88, bh = 18;
     for (let x = 0; x < bw; x++) {
       const taper = x < 10 ? Math.round((10 - x) * 0.5) : x > bw - 8 ? Math.round((x - (bw - 8)) * 0.6) : 0;
       for (let y = 6 + taper; y < bh; y++) {
@@ -169,7 +169,7 @@ export function drawRiver() {
 
   // Over the Đông Ba canal: at the east gate and on the riverside road.
   plankDeck(80, EAST_GATE_Y, 5, 2, true);
-  streetBridge(80, 48, 5, 2);
+  streetBridge(80, 51, 5, 2);
   // Over the An Cựu canal, where the south-bank roads meet it.
-  for (const [x, w] of [[20, 2], [48, 3], [69, 3]]) streetBridge(x, 75, w, 4);
+  for (const [x, w] of [[20, 2], [48, 3], [69, 3]]) streetBridge(x, 78, w, 4);
 }

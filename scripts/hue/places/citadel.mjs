@@ -13,8 +13,8 @@ import { BASTION, CITADEL, EAST_GATE_Y, GATES, IMPERIAL, LIBRARY, NGO_MON, SOUTH
 export const LABELS = [
   { text: 'Ngọ Môn', x: 55, y: 34.5, place: 'ngoMon' },
   { text: 'Kỳ Đài', x: 55, y: 44, place: 'kyDai' },
-  { text: 'Phu Văn Lâu', x: 55, y: 50, place: 'phuVanLau' },
-  { text: 'Nghênh Lương Đình', x: 55, y: 56.2, place: 'nghenhLuong' },
+  { text: 'Phu Văn Lâu', x: 55, y: 48.3, place: 'phuVanLau' },
+  { text: 'Nghênh Lương Đình', x: 55, y: 58.3, place: 'nghenhLuong' },
   { text: 'Tàng Thư Lâu', x: 36, y: 21, place: 'tangThuLau' },
   { text: 'Hồ Tịnh Tâm', x: 55, y: 7.5, place: 'tinhTam' },
   // The gates, named just outside the wall.
@@ -141,10 +141,11 @@ export function drawCitadel() {
 
   // Across the road from Kỳ Đài, on a stone landing out over the river: Phu Văn
   // Lâu, the two-storey pavilion where royal edicts and exam results were
-  // posted, and Nghênh Lương Đình, the little pavilion at the water's edge where
-  // the court took the cool air — one behind the other on the axis that runs
-  // from the throne hall through Ngọ Môn and Kỳ Đài down to the water.
-  stoneSpan(51, 50, 8, 5);
+  // posted, in the park before Kỳ Đài; and across Lê Duẩn, Nghênh Lương Đình,
+  // the little pavilion at the water's edge where the court took the cool
+  // air — one behind the other on the axis that runs from the throne hall
+  // through Ngọ Môn and Kỳ Đài down to the water.
+  stoneSpan(52, 48, 6, 3);
   {
     const cv = new Canvas(4 * T, 3 * T);
     const red = [150, 46, 38], col = [196, 70, 52];
@@ -156,17 +157,18 @@ export function drawCitadel() {
     cv.rect(16, 12, 32, 8, red);
     for (let x = 18; x < 46; x += 5) cv.rect(x, 12, 2, 8, col);
     roof(cv, 10, 4, 44, 9, ROOF.imperial, 4);
-    place(cv, 53, 50, 1);
+    place(cv, 53, 48, 1);
   }
+  stoneSpan(52, 54, 6, 3);
   {
     const cv = new Canvas(2 * T, 2 * T);
     cv.rect(2, 24, 28, 8, [184, 176, 164]);
     cv.rect(2, 24, 28, 2, [206, 198, 186]);
     for (const x of [5, 15, 25]) cv.rect(x, 13, 2, 11, [196, 70, 52]);
     roof(cv, 1, 4, 30, 10, ROOF.imperial, 4);
-    place(cv, 54, 53, 1);
+    place(cv, 54, 55, 1);
     // Steps down into the river from its landing.
-    for (let i = 0; i < 3; i++) ground.rect(55 * T - 6 + i * 2, 55 * T + i * 3, 14 - i * 4, 3, i % 2 ? P.stoneEdge : P.stone);
+    for (let i = 0; i < 3; i++) ground.rect(55 * T - 6 + i * 2, 57 * T + i * 3, 14 - i * 4, 3, i % 2 ? P.stoneEdge : P.stone);
   }
 }
 

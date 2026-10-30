@@ -12,7 +12,7 @@ import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
 export function plantGreenery() {
   // Purple bằng lăng along both banks — the city's colour.
   for (let x = 2; x < 96; x += 4) {
-    if (canPlant(x, 65)) tree(x, 65, x % 3 ? 'lilac' : 'leaf');
+    if (canPlant(x, 68)) tree(x, 68, x % 3 ? 'lilac' : 'leaf');
     if (x < 28 && canPlant(x, 45)) tree(x, 45, 'lilac');
   }
   // The Perfume River's banks, lined with trees the way Huế's are. The
@@ -41,11 +41,11 @@ export function plantGreenery() {
     }
   }
   // Trees on the islets: Dã Viên's park, Cồn Hến's village gardens.
-  for (const [x, y] of [[30, 56], [37, 56], [105, 45], [108, 47], [114, 39], [116, 36], [112, 45], [104, 43]]) {
+  for (const [x, y] of [[30, 59], [37, 59], [105, 45], [108, 47], [114, 39], [116, 36], [112, 45], [104, 43]]) {
     if (bankOk(x, y) && onIslet(x * T + 8, y * T + 8)) tree(x, y, 'deep');
   }
   // Areca palms in the garden villages — Vỹ Dạ across the river, Kim Long upriver.
-  for (const [x, y] of [[104, 62], [107, 67], [111, 65], [116, 68], [102, 71], [118, 61], [3, 10], [7, 16], [17, 17], [23, 26], [5, 28]]) {
+  for (const [x, y] of [[104, 65], [107, 70], [111, 68], [116, 71], [102, 74], [118, 64], [3, 10], [7, 16], [17, 17], [23, 26], [5, 28]]) {
     if (bankOk(x, y)) palm(x, y);
   }
   // Trees that belong to their place: old banyans and frangipani at Thiên Mụ
@@ -57,16 +57,16 @@ export function plantGreenery() {
   plantAround('frangipani', 24, 41, 3, 2);
   for (const [cx, cy] of [[8, 18], [20, 28], [14, 40]]) plantAround('bamboo', cx, cy, 5, 2);   // Kim Long
   for (const [cx, cy] of [[92, 12], [104, 22], [96, 28]]) plantAround('bamboo', cx, cy, 5, 2); // Gia Hội
-  for (const [cx, cy] of [[106, 72], [114, 78]]) plantAround('bamboo', cx, cy, 5, 2);          // Vỹ Dạ
+  for (const [cx, cy] of [[106, 75], [114, 81]]) plantAround('bamboo', cx, cy, 5, 2);          // Vỹ Dạ
   plantAround('frangipani', 64, 33, 2, 2);      // the royal garden in the Imperial City
   plantAround('bang', 65, 37, 2, 1);
-  plantAround('bang', 40, 68, 6, 2);
-  plantAround('bangRed', 88, 78, 6, 2);
-  plantAround('banyan', 70, 80, 6, 1);
+  plantAround('bang', 40, 71, 6, 2);
+  plantAround('bangRed', 88, 81, 6, 2);
+  plantAround('banyan', 70, 83, 6, 1);
   // Pines on Ngự Bình and around Thiên Mụ.
-  for (const [x, y] of [[53, 83], [56, 82], [59, 83], [51, 86], [61, 86], [55, 87], [58, 88], [1, 36], [1, 41], [8, 36]]) pine(x, y);
+  for (const [x, y] of [[53, 86], [56, 85], [59, 86], [51, 89], [61, 89], [55, 90], [58, 91], [1, 36], [1, 41], [8, 36]]) pine(x, y);
   // A few flame trees for a warm accent.
-  for (const [x, y] of [[24, 9], [100, 26], [44, 68], [109, 74]]) if (canPlant(x, y)) tree(x, y, 'flame');
+  for (const [x, y] of [[24, 9], [100, 26], [44, 71], [109, 77]]) if (canPlant(x, y)) tree(x, y, 'flame');
   // Trees along the lanes, every few steps on both sides.
   for (const r of ROADS) {
     if (r.kind === 'stone' || r.kind === 'path') continue;

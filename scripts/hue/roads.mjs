@@ -28,8 +28,10 @@ const ringAround = (cx, cy, rx, ry, n) => Array.from({ length: n + 2 }, (_, i) =
  *  Duẩn, the south park's above Lê Lợi, broken where the bridges, the
  *  dragon-boat wharf and Phu Văn Lâu's landing come down to the water. */
 export const PARK_PATHS = [
-  [1, 18, 51], [24, 31, 51], [36, 47.5, 51], [60, 65, 51], [70, 74, 51], [84, 95, 51],
-  [1, 18, 61.2], [24, 31, 61.2], [36, 56, 61.2], [79, 96, 61.2],
+  [1, 18, 54], [24, 31, 54], [36, 47.5, 54], [60, 65, 54], [70, 74, 54], [84, 95, 54],
+  [1, 18, 64.2], [24, 31, 64.2], [36, 56, 64.2], [79, 96, 64.2],
+  // The gate parks, between the Citadel's moat and Lê Duẩn.
+  [29, 35.5, 49.6], [38.5, 46.5, 49.6], [49.5, 52.5, 49.6], [57.5, 60.5, 49.6], [63.5, 71.5, 49.6], [74.5, 79, 49.6],
 ];
 /** A gently winding line from x0 to x1 about row y. */
 const wavy = (x0, x1, y) => Array.from({ length: Math.max(2, Math.round(x1 - x0) + 1) }, (_, i) => {
@@ -45,18 +47,18 @@ const box = (x, y, w, h, kind, opts) => (w >= h
 export const ROADS = [
   // Kim Long: village lanes between the garden houses.
   box(2, 12, 26, 2, 'lane'), box(2, 22, 26, 2, 'lane'), box(2, 31, 26, 2, 'lane'),
-  box(2, 12, 2, 36, 'lane'), box(26, 8, 2, 40, 'lane'),
-  box(14, 44, 12, 1, 'stone'), box(19, 45, 2, 3, 'stone'),        // Văn Miếu's forecourt
+  box(2, 12, 2, 39, 'lane'), box(26, 8, 2, 43, 'lane'),
+  box(14, 44, 12, 1, 'stone'), box(19, 45, 2, 6, 'stone'),        // Văn Miếu's forecourt
   box(28, WEST_GATE_Y, 7, 2, 'street'),                           // in at Cửa Chánh Tây
   // Along the north bank, the length of the city — Kim Long, Lê Duẩn under
   // the Citadel, Trần Hưng Đạo past Đông Ba — then round the bend as Chi Lăng
   // to Cồn Hến's footbridge.
-  road('street', 2, [[0, 49], [96, 49], [99.5, 44.5], [100.5, 40.5]], { main: true }),
+  road('street', 2, [[0, 52], [96, 52], [99.5, 46], [100.5, 40.5]], { main: true }),
   // Gia Hội's old street, from the Đông Ba gate's bridge down to the river.
   road('lane', 2, [[84, 37], [94, 37], [100.5, 40]]),
   // Inside the Citadel
   box(31, 41, 46, 3, 'stone'),                                    // the esplanade along the front wall
-  ...SOUTH_GATES.map((g) => box(g, 44, 2, 4, 'stone')),
+  ...SOUTH_GATES.map((g) => box(g, 44, 2, 7, 'stone')),       // out through the gate parks to Lê Duẩn
   box(35, 30, 2, 11, 'stone'),                                    // from the west gate down past the library
   box(32, 21, 8, 7, 'stone'),                                     // the library's island courtyard
   box(69, EAST_GATE_Y, 11, 2, 'stone'), box(70, 38, 2, 3, 'stone'),
@@ -72,26 +74,26 @@ export const ROADS = [
   box(44, 23, 23, 1, 'stone'), box(44, 30, 23, 1, 'stone'),
   box(54, 22, 2, 1, 'stone'), box(54, 31, 2, 3, 'stone'),
   // The south bank
-  road('street', 2, [[0, 63], [97, 63]], { main: true }),         // Lê Lợi, along the river
+  road('street', 2, [[0, 66], [97, 66]], { main: true }),         // Lê Lợi, along the river
   // Điện Biên Phủ: south past Ga Huế, over the tracks and the canal, up into
   // the hills to the tombs.
-  road('street', 2, [[21, 64], [21, 81], [22.5, 88], [22.5, 97], [21, 103], [21, 107.5]]),
+  road('street', 2, [[21, 67], [21, 84], [22.5, 91], [22.5, 100], [21, 106], [21, 110.5]]),
   // Hùng Vương: south-east from Phú Xuân bridge, over the An Cựu canal.
-  road('street', 2, [[67.5, 64], [68, 69], [70.5, 74], [70.5, 81]], { main: true }),
-  box(48, 64, 3, 12, 'street'),                                   // from Lê Lợi park down to the canal
+  road('street', 2, [[67.5, 67], [68, 72], [70.5, 77], [70.5, 84]], { main: true }),
+  box(48, 67, 3, 12, 'street'),                                   // from Lê Lợi park down to the canal
   // South of the canal: the lane round Ngự Bình, and on down through the
   // pines to Minh Mạng's tomb.
-  road('lane', 2, [[44, 80], [52, 79], [60, 79.5], [70.5, 80.5]]),
-  road('lane', 2, [[70.5, 81], [68, 86], [66, 92], [66.5, 99], [68, 107.5]]),
+  road('lane', 2, [[44, 83], [52, 82], [60, 82.5], [70.5, 83.5]]),
+  road('lane', 2, [[70.5, 84], [68, 89], [66, 95], [66.5, 102], [68, 110.5]]),
   // The tombs' road, winding through the hills from gate to gate.
-  road('lane', 2, [[2, 107.5], [10, 107.5], [16, 108.3], [21, 107.5], [27, 108.3], [34.5, 107.5], [42, 108.3],
-    [50, 108.6], [58, 108.2], [66, 107.6], [72, 108.3], [79, 107.5], [88, 107.5]]),
+  road('lane', 2, [[2, 110.5], [10, 110.5], [16, 111.3], [21, 110.5], [27, 111.3], [34.5, 110.5], [42, 111.3],
+    [50, 111.6], [58, 111.2], [66, 110.6], [72, 111.3], [79, 110.5], [88, 110.5]]),
   // Footpaths winding through the riverside parks, between the bridges.
   ...PARK_PATHS.map(([x0, x1, y]) => road('path', 0.8, wavy(x0, x1, y))),
-  box(35, 69, 12, 1, 'stone'),                                    // Quốc Học's forecourt
+  box(35, 72, 12, 1, 'stone'),                                    // Quốc Học's forecourt
   // Phố đi bộ Nguyễn Đình Chiểu: the walking street along the south bank,
   // from under Phú Xuân bridge to Trường Tiền, by the ironwood boardwalk.
-  road('stone', 1.6, [[56.5, 61.2], [75, 61.2]]),
+  road('stone', 1.6, [[56.5, 64.2], [75, 64.2]]),
 ];
 
 /** Where (x, y) px lies on a road: its signed offset from the centre line and

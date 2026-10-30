@@ -14,10 +14,10 @@ import { PARK_PATHS } from '../roads.mjs';
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
-  { text: 'Cầu bán nguyệt', x: 41, y: 50.2, place: 'banNguyet' },
-  { text: 'Đài phun nước', x: 72, y: 60.4, place: 'phunNuoc' },
-  { text: 'Phố đi bộ', x: 63, y: 62.4, place: 'walkingStreet' },
-  { text: 'Cầu đi bộ gỗ lim', x: 61.5, y: 59.6, place: 'goLim' },
+  { text: 'Cầu bán nguyệt', x: 41, y: 53.2, place: 'banNguyet' },
+  { text: 'Đài phun nước', x: 72, y: 63.4, place: 'phunNuoc' },
+  { text: 'Phố đi bộ', x: 63, y: 65.4, place: 'walkingStreet' },
+  { text: 'Cầu đi bộ gỗ lim', x: 61.5, y: 62.6, place: 'goLim' },
 ];
 
 const BLOOMS = [[236, 150, 178], [250, 214, 110], [190, 150, 220], [240, 240, 236], [230, 90, 80]];
@@ -54,9 +54,9 @@ function parkLamp(x, y) {
 export function drawParks() {
   // Phố đi bộ: red lanterns strung across the walking street on poles.
   for (let x = 57 * T; x < 75 * T; x += 2 * T) {
-    for (const y of [60.5 * T, 61.9 * T]) ground.rect(x, y - 8, 1, 8, [70, 52, 40]);
+    for (const y of [63.5 * T, 64.9 * T]) ground.rect(x, y - 8, 1, 8, [70, 52, 40]);
     for (let i = 0; i < 4; i++) {
-      const lx = x + 4 + i * 6, ly = 60.5 * T - 6 + Math.round(Math.sin((i / 3) * Math.PI) * 3);
+      const lx = x + 4 + i * 6, ly = 63.5 * T - 6 + Math.round(Math.sin((i / 3) * Math.PI) * 3);
       ground.rect(lx, ly, 2, 3, [214, 72, 56]);
       glow(lx + 1, ly + 1, [255, 140, 90], 2);
     }
@@ -65,7 +65,7 @@ export function drawParks() {
   // Along each path, by turns: a flower bed, a bench, a lamp — on the path's
   // landward side, clear of the water.
   for (const [x0, x1, y] of PARK_PATHS) {
-    const north = y < 54;
+    const north = y < 58;
     for (let x = x0 + 1.5, i = 0; x < x1 - 1; x += 2.5, i++) {
       const px = Math.round(x * T), py = Math.round((y + Math.sin(x * 0.7) * 0.3) * T) + (north ? -11 : 12);
       if (isWater(px, py) || isWater(px - 8, py) || isWater(px + 8, py)) continue;   // not in the pond
@@ -96,8 +96,8 @@ export function drawParks() {
       for (let y = 0; y < h * 0.45; y++) cv.set(x, base + y, [176, 170, 160], 0.35);  // its reflection
     }
     cv.spec = { kind: 'halfMoon' };
-    place(cv, 39, 50, 0, { shadow: false });
-    mark(deck, 39, 50, 4, 2);
+    place(cv, 39, 53, 0, { shadow: false });
+    mark(deck, 39, 53, 4, 2);
   }
 
   // Đài phun nước: a round basin, the fountain rising in tiers from its middle.
@@ -110,20 +110,20 @@ export function drawParks() {
     cv.ellipse(16, 12, 6, 2.5, [196, 190, 178]);
     for (const [dx, dy] of [[-4, -2], [4, -2], [-2, -5], [2, -5], [0, -7], [-6, 2], [6, 2]]) cv.set(16 + dx, 9 + dy, [214, 236, 250]);
     cv.spec = { kind: 'fountain' };
-    place(cv, 71, 60, 1, { shadow: false });
+    place(cv, 71, 63, 1, { shadow: false });
   }
 
   // Cầu đi bộ gỗ lim: an ironwood boardwalk out over the river's edge, from
   // the south park round under Phú Xuân bridge, steps down to it at each end.
   {
     const x0 = 57, x1 = 74;
-    plankDeck(x0, 59, x1 - x0 + 1, 1, true);
-    for (const x of [x0, x1]) plankDeck(x, 60, 1, 1);
+    plankDeck(x0, 62, x1 - x0 + 1, 1, true);
+    for (const x of [x0, x1]) plankDeck(x, 63, 1, 1);
     for (let x = x0 * T; x < (x1 + 1) * T; x += 3 * T) {
-      ground.rect(x, 59 * T - 4, 1, 4, [70, 52, 40]);
-      ground.rect(x - 1, 59 * T - 6, 3, 2, [255, 226, 160]);
-      glow(x, 59 * T - 5, [255, 214, 140], 2);
+      ground.rect(x, 62 * T - 4, 1, 4, [70, 52, 40]);
+      ground.rect(x - 1, 62 * T - 6, 3, 2, [255, 226, 160]);
+      glow(x, 62 * T - 5, [255, 214, 140], 2);
     }
-    drawn.push({ type: 'boardwalk', x: x0 * T, y: 59 * T, w: (x1 - x0 + 1) * T, h: T });
+    drawn.push({ type: 'boardwalk', x: x0 * T, y: 62 * T, w: (x1 - x0 + 1) * T, h: T });
   }
 }
