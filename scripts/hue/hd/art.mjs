@@ -575,3 +575,34 @@ export function boardwalk(w, h) {
   for (let x = 2; x < w; x += 12) { cv.rect(x, 0, 3, 4, [70, 36, 24]); cv.rect(x, h - 4, 3, 4, [70, 36, 24]); }
   return cv;
 }
+
+/** Cầu bán nguyệt, side-on: a steep half-moon arch of dressed stone, the
+ *  deck riding high over it under a balustrade of posts and rails, the arch
+ *  mirrored in the pond below to make the full moon. 4 × 2 tiles. */
+export function halfMoon() {
+  const cv = new Canvas(4 * T2, 2 * T2);
+  const cx = 64, base = 60, r = 26;
+  const stone = [212, 206, 194], joint = [176, 170, 158], cap = [240, 236, 228];
+  for (let x = 0; x < cv.w; x++) {
+    const d = Math.abs(x + 0.5 - cx);
+    const deck = Math.round(base - 12 - Math.max(0, 30 - (d * d) / 44));
+    for (let y = deck; y < base; y++) {
+      const fromArch = Math.sqrt(d * d + (base - y) ** 2);
+      if (d < r && fromArch < r) continue;                      // the opening
+      let c = stone;
+      if (fromArch < r + 4 && d < r + 4) c = (Math.floor(Math.atan2(base - y, x - cx) * 9) % 2) ? [198, 192, 180] : [222, 216, 204];   // voussoirs
+      else if ((y - deck) % 6 === 0 || (x + (Math.floor((y - deck) / 6) % 2) * 5) % 10 === 0) c = joint;
+      cv.set(x, y, c);
+    }
+    cv.set(x, deck, cap);
+    cv.set(x, deck - 6, cap);                                   // the rail
+    if (x % 6 === 0) cv.rect(x, deck - 6, 2, 6, [228, 224, 214]);
+  }
+  // The reflection in the pond: the arch again, upside down, faint.
+  for (let x = cx - r - 4; x <= cx + r + 4; x++) {
+    const d = Math.abs(x - cx);
+    for (let y = 0; y < 4; y++) if (d > r - 1 || y > Math.sqrt(Math.max(0, r * r - d * d)) * 0.12) cv.set(x, base + y, [190, 196, 200], 0.3);
+  }
+  outline(cv, [110, 104, 96]);
+  return cv;
+}

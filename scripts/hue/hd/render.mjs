@@ -16,12 +16,12 @@ import { grassColor, hillTint } from '../paint/terrain.mjs';
 import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
-import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, house, kyDai, lamp, market, parkLamp, tree } from './art.mjs';
+import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, halfMoon, house, kyDai, lamp, market, parkLamp, tree } from './art.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
 /** The buildings with detailed art of their own, by the name their canvas
  *  carries (cv.spec.kind); other halls with windows are drawn as houses. */
-const BUILDINGS = { market, kyDai, fountain, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
+const BUILDINGS = { market, kyDai, fountain, halfMoon, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
 
 /** The patches, in tiles: the whole map, in pieces small enough for any
  *  GPU's largest texture (40 × 37 tiles is 1280 × 1184 px). */

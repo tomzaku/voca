@@ -7,15 +7,16 @@
 
 import { Canvas, hash } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
-import { drawn, glow, ground, mark, place, used } from '../core/world.mjs';
-import { archBridge, plankDeck } from '../draw/buildings.mjs';
-import { T } from '../layout.mjs';
+import { deck, drawn, glow, ground, mark, place, used } from '../core/world.mjs';
+import { plankDeck } from '../draw/buildings.mjs';
+import { T, isWater } from '../layout.mjs';
 import { PARK_PATHS } from '../roads.mjs';
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
   { text: 'Cầu bán nguyệt', x: 41, y: 50.2, place: 'banNguyet' },
   { text: 'Đài phun nước', x: 72, y: 60.4, place: 'phunNuoc' },
+  { text: 'Phố đi bộ', x: 63, y: 62.4, place: 'walkingStreet' },
   { text: 'Cầu đi bộ gỗ lim', x: 61.5, y: 59.6, place: 'goLim' },
 ];
 
@@ -51,20 +52,53 @@ function parkLamp(x, y) {
 }
 
 export function drawParks() {
+  // Phố đi bộ: red lanterns strung across the walking street on poles.
+  for (let x = 57 * T; x < 75 * T; x += 2 * T) {
+    for (const y of [60.5 * T, 61.9 * T]) ground.rect(x, y - 8, 1, 8, [70, 52, 40]);
+    for (let i = 0; i < 4; i++) {
+      const lx = x + 4 + i * 6, ly = 60.5 * T - 6 + Math.round(Math.sin((i / 3) * Math.PI) * 3);
+      ground.rect(lx, ly, 2, 3, [214, 72, 56]);
+      glow(lx + 1, ly + 1, [255, 140, 90], 2);
+    }
+  }
+
   // Along each path, by turns: a flower bed, a bench, a lamp — on the path's
   // landward side, clear of the water.
   for (const [x0, x1, y] of PARK_PATHS) {
     const north = y < 54;
     for (let x = x0 + 1.5, i = 0; x < x1 - 1; x += 2.5, i++) {
       const px = Math.round(x * T), py = Math.round((y + Math.sin(x * 0.7) * 0.3) * T) + (north ? -11 : 12);
+      if (isWater(px, py) || isWater(px - 8, py) || isWater(px + 8, py)) continue;   // not in the pond
       if (i % 3 === 0) flowerBed(px, py);
       else if (i % 3 === 1) bench(px, py + (north ? 2 : -2));
       else parkLamp(px, py);
     }
   }
 
-  // Cầu bán nguyệt: the half-moon bridge, carrying the north path over its pond.
-  archBridge(40, 50, 2, 2, 'ew');
+  // Cầu bán nguyệt: the half-moon bridge, seen side-on from the river — a
+  // steep stone arch over the pond, the deck and its balustrade riding high
+  // over it, the arch's reflection closing the circle.
+  {
+    const cv = new Canvas(4 * T, 2 * T);
+    const cx = 32, base = 30, r = 13;
+    for (let x = 0; x < cv.w; x++) {
+      const d = Math.abs(x + 0.5 - cx);
+      const deck = Math.round(base - 6 - Math.max(0, 15 - d * d / 22));     // the deck's hump
+      for (let y = deck; y < base; y++) {
+        const inArch = d < r && (base - y) < Math.sqrt(r * r - d * d);
+        if (!inArch) cv.set(x, y, y === deck ? [236, 232, 222] : (x + y) % 5 === 0 ? [168, 162, 150] : [206, 200, 188]);
+      }
+      if (x % 4 === 0) cv.rect(x, deck - 3, 1, 3, [226, 222, 212]);         // balusters
+      cv.set(x, deck - 3, [236, 232, 222]);
+    }
+    for (let x = cx - r; x <= cx + r; x++) {
+      const h = Math.sqrt(Math.max(0, r * r - (x - cx) ** 2));
+      for (let y = 0; y < h * 0.45; y++) cv.set(x, base + y, [176, 170, 160], 0.35);  // its reflection
+    }
+    cv.spec = { kind: 'halfMoon' };
+    place(cv, 39, 50, 0, { shadow: false });
+    mark(deck, 39, 50, 4, 2);
+  }
 
   // Đài phun nước: a round basin, the fountain rising in tiers from its middle.
   {

@@ -29,7 +29,7 @@ const ringAround = (cx, cy, rx, ry, n) => Array.from({ length: n + 2 }, (_, i) =
  *  dragon-boat wharf and Phu Văn Lâu's landing come down to the water. */
 export const PARK_PATHS = [
   [1, 18, 51], [24, 31, 51], [36, 47.5, 51], [60, 65, 51], [70, 74, 51], [84, 95, 51],
-  [1, 18, 61.2], [24, 31, 61.2], [36, 65, 61.2], [70, 74, 61.2], [79, 96, 61.2],
+  [1, 18, 61.2], [24, 31, 61.2], [36, 56, 61.2], [79, 96, 61.2],
 ];
 /** A gently winding line from x0 to x1 about row y. */
 const wavy = (x0, x1, y) => Array.from({ length: Math.max(2, Math.round(x1 - x0) + 1) }, (_, i) => {
@@ -89,7 +89,9 @@ export const ROADS = [
   // Footpaths winding through the riverside parks, between the bridges.
   ...PARK_PATHS.map(([x0, x1, y]) => road('path', 0.8, wavy(x0, x1, y))),
   box(35, 69, 12, 1, 'stone'),                                    // Quốc Học's forecourt
-  box(69, 72, 17, 2, 'stone'),                                    // the walking street
+  // Phố đi bộ Nguyễn Đình Chiểu: the walking street along the south bank,
+  // from under Phú Xuân bridge to Trường Tiền, by the ironwood boardwalk.
+  road('stone', 1.6, [[56.5, 61.2], [75, 61.2]]),
 ];
 
 /** Where (x, y) px lies on a road: its signed offset from the centre line and

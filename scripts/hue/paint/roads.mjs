@@ -181,7 +181,7 @@ export function furnishStreets() {
     [86.4, 48.3, 'bike'], [87.3, 48.3, 'bike'], [88.2, 48.3, 'bike'], [91.5, 48.3, 'cyclo'], [93.2, 48.3, 'cyclo'],
     [24.5, 63.9, 'bike'], [25.4, 63.9, 'bike'], [28, 63.9, 'cyclo'],
     [37, 69.9, 'bike'], [37.9, 69.9, 'bike'],
-    [72, 73.9, 'bike'], [72.9, 73.9, 'bike'], [80.5, 73.9, 'cyclo'],
+    [58.5, 62.6, 'bike'], [59.4, 62.6, 'bike'], [62, 62.6, 'cyclo'],
   ]) {
     const x = Math.round(tx * T), y = Math.round(ty * T);
     const frame = frames[Math.floor(hash(x, y) * frames.length)];

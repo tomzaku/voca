@@ -107,7 +107,7 @@ export default {
 
   'places.walkingStreet': 'Phố đi bộ',
   'places.walkingStreetEn': 'The walking street',
-  'places.walkingStreetAbout': 'The south bank’s walking street fills up in the evening with cafés, street food and live music.',
+  'places.walkingStreetAbout': 'Nguyễn Đình Chiểu, the walking street along the Perfume River’s south bank between Phú Xuân and Trường Tiền bridges, fills up in the evening with street food, music and people strolling by the water.',
   'places.walkingStreetFact': 'Many cafés here serve cà phê muối — salted coffee, a Huế invention.',
 
   'places.anDinh': 'Cung An Định',

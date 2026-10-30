@@ -3,7 +3,7 @@
 
 import { Canvas, hash, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
-import { glow, ground, mark, place, solid, used } from '../core/world.mjs';
+import { ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, facade, hall, palace, roof } from '../draw/buildings.mjs';
 import { T } from '../layout.mjs';
 
@@ -11,7 +11,6 @@ import { T } from '../layout.mjs';
 export const LABELS = [
   { text: 'Ga Huế', x: 27.5, y: 65.5, place: 'gaHue' },
   { text: 'Trường Quốc Học', x: 41, y: 64.5, place: 'quocHoc' },
-  { text: 'Phố đi bộ', x: 77, y: 68.5, place: 'walkingStreet' },
   { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
   { text: 'Vỹ Dạ', x: 108, y: 58, place: 'vyDa', theme: 'forest', anchor: 'left' },
   { text: 'Ngự Bình', x: 52, y: 88.6, place: 'nguBinh', theme: 'forest', anchor: 'left' },
@@ -68,13 +67,8 @@ export function drawSouthBank() {
     mark(used, x, y, 3, 2);
   }
 
-  // The walking street: shophouses with lanterns strung across.
+  // Shophouses east of Hùng Vương, the old Phố Tây.
   for (const [x, pal] of [[70, ROOF.terra], [75, ROOF.dark], [80, ROOF.plum]]) place(HOUSE(pal, [222, 206, 176]), x, 68, 2);
-  for (let x = 69 * T + 4; x < 86 * T; x += 10) {
-    const y = 72 * T + 3 + Math.round(Math.sin(x / 9) * 1.5);
-    ground.rect(x, y, 2, 3, [214, 72, 56]);
-    glow(x + 1, y + 1, [255, 140, 90], 2);
-  }
 
   // Cung An Định: the European-style palace on the An Cựu canal.
   {

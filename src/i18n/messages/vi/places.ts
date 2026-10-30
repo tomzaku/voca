@@ -101,7 +101,7 @@ export default {
 
   'places.walkingStreet': 'Phố đi bộ',
   'places.walkingStreetEn': 'The walking street',
-  'places.walkingStreetAbout': 'Phố đi bộ bờ nam sông Hương rộn ràng mỗi tối với quán cà phê, đồ ăn đường phố và nhạc sống.',
+  'places.walkingStreetAbout': 'Phố đi bộ Nguyễn Đình Chiểu dọc bờ nam sông Hương, giữa cầu Phú Xuân và cầu Trường Tiền, rộn ràng mỗi tối với đồ ăn đường phố, âm nhạc và người dạo bên sông.',
   'places.walkingStreetFact': 'Nhiều quán ở đây bán cà phê muối — món cà phê ra đời ở Huế.',
 
   'places.anDinh': 'Cung An Định',
