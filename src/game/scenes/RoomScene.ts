@@ -58,12 +58,12 @@ export class RoomScene extends Phaser.Scene {
     this.showTurn();
   }
 
-  /** The keeper's bubble while they talk; your buddy's whenever the room is
-   *  waiting on you — to answer what's asked, or to pick what to do — which
-   *  in a room is always, but for the moment it's reacting to an answer. */
+  /** One bubble at a time. The keeper's while they talk; once they've
+   *  finished it's your turn — to pick what to do, or answer what's asked —
+   *  and your buddy's shows, but for the moment it reacts to an answer. */
   private showTurn() {
     this.bubble?.setVisible(this.talking);
-    this.thought?.setVisible(!this.hush);
+    this.thought?.setVisible(!this.talking && !this.hush);
   }
 
   private get textureKey() {
