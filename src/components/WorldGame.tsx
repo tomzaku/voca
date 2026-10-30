@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
 import { hasChosenCollection, useCollections } from '../hooks/useCollections';
@@ -25,6 +25,7 @@ import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import { KEEPERS } from './worldgames/keepers';
 import { KeeperMenu, KeeperTalk } from './worldgames/KeeperTalk';
 import { CollectionsHall } from './worldgames/CollectionsHall';
+import { WorldLoading } from './worldgames/WorldLoading';
 
 // The world pulls in Phaser (~1 MB) — only load it when the page mounts.
 const GameWorld = lazy(() => import('./GameWorld').then((m) => ({ default: m.GameWorld })));
@@ -39,7 +40,6 @@ export function WorldGame() {
   const intl = useIntl();
   const enabled = useGameMode((s) => s.enabled);
   const setActive = useCollections((s) => s.setActive);
-  const navigate = useNavigate();
   const { stations, mine } = useWorldStations();
 
   // Words the in-game activities draw from: the collection you're studying, or
@@ -214,30 +214,11 @@ export function WorldGame() {
   }
 
   return (
-    <div className="mx-auto max-w-none px-2 sm:px-4 py-3">
-      <div className="flex items-center justify-between gap-3 mb-3 px-1">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-text-primary"><FormattedMessage id="world.title" /></h1>
-          <p className="text-sm text-text-muted"><FormattedMessage id="world.subtitle" /></p>
-        </div>
-        <button
-          onClick={() => navigate('/settings')}
-          title={intl.formatMessage({ id: 'world.gameSettings' })}
-          className="flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 border border-border bg-bg-card text-text-secondary hover:text-text-primary transition-all shrink-0"
-        >
-          <Icon icon="lucide:settings" className="text-sm" />
-          <span className="hidden sm:inline"><FormattedMessage id="world.settings" /></span>
-        </button>
-      </div>
-
+    // Full-screen: the world is the page (App hides the header and rail
+    // here); its own menu, in the status bar, leads back to the app.
+    <div className="relative">
       <WorldContext.Provider value={world}>
-        <Suspense
-          fallback={
-            <div className="h-[440px] rounded-2xl border-2 border-border bg-bg-card flex items-center justify-center text-sm font-bold text-text-muted">
-              <FormattedMessage id="world.loading" />
-            </div>
-          }
-        >
+        <Suspense fallback={<div className="relative h-screen"><WorldLoading /></div>}>
           <GameWorld
             stations={stations}
             skills={WORLD_SKILLS}

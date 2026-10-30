@@ -1,14 +1,15 @@
 import layout from '../../game/wardrobe-layers.json';
 import { lookLayers, type Look } from '../../game/wardrobe';
 
-// A look drawn in the page rather than the game — the tailor's tiles: the
-// wardrobe atlas's layers stacked as backgrounds, standing still on the first
-// idle frame. Rows come from wardrobe-layers.json, which the atlas script
-// writes beside the sheet.
+// A look drawn in the page rather than the game — the tailor's tiles, the
+// status bar's portrait, the loading card: the wardrobe atlas's layers stacked
+// as backgrounds, on one frame (the first idle frame unless told otherwise;
+// 0–8 are the idle clip, 9–16 the walk). Rows come from wardrobe-layers.json,
+// which the atlas script writes beside the sheet.
 
 const SHEET = `${import.meta.env.BASE_URL}game/characters/wardrobe.png`;
 
-export function LookSprite({ look, scale = 3 }: { look: Look; scale?: number }) {
+export function LookSprite({ look, scale = 3, frame = 0 }: { look: Look; scale?: number; frame?: number }) {
   const size = layout.frame * scale;
   return (
     <span aria-hidden className="relative inline-block shrink-0" style={{ width: size, height: size }}>
@@ -21,7 +22,7 @@ export function LookSprite({ look, scale = 3 }: { look: Look; scale?: number }) 
             className="px-sprite absolute inset-0"
             style={{
               backgroundImage: `url(${SHEET})`,
-              backgroundPosition: `0 ${-row * layout.stride * scale}px`,
+              backgroundPosition: `${-frame * layout.stride * scale}px ${-row * layout.stride * scale}px`,
               backgroundSize: `${layout.width * scale}px auto`,
             }}
           />

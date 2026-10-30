@@ -19,6 +19,8 @@ import { COLLECTIONS_KEEPER, featureNodeId, type WorldFeature, type WorldSkill }
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 import { KIND_META } from './worldgames/collectionKinds';
 import { PlaceInfo } from './worldgames/PlaceInfo';
+import { LookSprite } from './worldgames/LookSprite';
+import { WorldLoading } from './worldgames/WorldLoading';
 
 export type { WorldStation } from '../game/types';
 
@@ -60,7 +62,7 @@ interface Props {
   onCreate: () => void;
 }
 
-const MIN_H = 440; // viewport height floor
+const MIN_H = 360; // viewport height floor
 const MINIMAP_W = 96; // px
 
 /** Minimap dot colour per node kind — the pixel kit's palette. */
@@ -165,6 +167,9 @@ export function GameWorld({
   const showPlace = (id: string) => setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
   const hidePlace = useCallback(() => setPlaceToast(null), []);
 
+  // ── The world's menu (status bar) ──
+  const [menuOpen, setMenuOpen] = useState(false);
+
   // ── Fast-travel drawer (top right) ──
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Drawer sections folded shut, by key (a skill id or a collection kind).
@@ -211,14 +216,14 @@ export function GameWorld({
     if (kb) kb.enabled = !paused;
   }, [paused]);
 
-  // The world fills the page: the frame stretches from wherever it starts down
-  // to the bottom of the window (12px page padding), never below MIN_H.
+  // The world fills the screen: the frame stretches from wherever it starts
+  // (the top, full-screen) to the bottom of the window, never below MIN_H.
   const [vpH, setVpH] = useState(MIN_H);
   useEffect(() => {
     const measure = () => {
       const el = frameRef.current;
       if (!el) return;
-      setVpH(Math.max(MIN_H, Math.floor(window.innerHeight - el.getBoundingClientRect().top - 12)));
+      setVpH(Math.max(MIN_H, Math.floor(window.innerHeight - el.getBoundingClientRect().top)));
     };
     measure();
     window.addEventListener('resize', measure);
@@ -386,32 +391,68 @@ export function GameWorld({
   return (
     <div
       ref={frameRef}
-      className="relative rounded-2xl border-2 border-border overflow-hidden select-none touch-none"
-      style={{ background: 'var(--color-bg-secondary)', height: vpH }}
+      className="relative overflow-hidden select-none touch-none"
+      style={{ background: '#1c120c', height: vpH }}
     >
       {/* Phaser mounts its canvas here (fills the frame via Scale.RESIZE). */}
+
+      {/* The title card, until the map has drawn and your buddy stands in it. */}
+      {!pos && <WorldLoading />}
 
       {/* ── HUD (DOM, on top of the canvas) ── the world's own controls, in the
              same pixel kit as the buildings' screens, stepping aside while a
              building's HUD is up. ── */}
+      {/* ── Status bar ── the world's menu (back to the app), you — your
+             buddy as dressed, your name — and what the city shows of your
+             progress: the flag's streak and the river's lanterns. ── */}
       {!panel && (
-        <div className="px absolute top-2 left-2 z-20 pointer-events-none">
-          <span className="px-notch px-frame inline-block px-3 py-2">
-            <span className="px-title !text-[12px] text-[var(--px-muted)] block">
-              <span className="hidden sm:inline"><FormattedMessage id="world.hintWalkDesktop" /></span>
-              <span className="sm:hidden"><FormattedMessage id="world.hintWalkMobile" /></span>
+        // Above the minimap (z-20), so the menu opens over it.
+        <div className="px absolute top-2 left-2 z-30 flex items-start gap-2">
+          <div className="relative">
+            <PixelButton
+              tone={menuOpen ? 'gold' : 'paper'}
+              onClick={() => setMenuOpen((o) => !o)}
+              title={intl.formatMessage({ id: 'world.menu' })}
+              aria-label={intl.formatMessage({ id: 'world.menu' })}
+              aria-expanded={menuOpen}
+              className="!w-11 !h-[3.25rem] !p-0"
+            >
+              <PixelIcon name="dots" size={2} />
+            </PixelButton>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                <div className="absolute left-0 top-[3.6rem] z-40 w-52 px-notch px-frame p-2 space-y-1">
+                  {([['/', 'world.menuApp'], ['/settings', 'world.menuSettings']] as const).map(([to, label]) => (
+                    <Link key={to} to={to} className="px-pick px-notch block px-3 py-2 px-title !text-[14px]">
+                      <FormattedMessage id={label} />
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => { const you = features.find((f) => f.id === 'you'); if (you) onOpenFeature(you); }}
+            title={intl.formatMessage({ id: 'world.statusYou' })}
+            className="px-notch px-frame flex items-center gap-2.5 pl-1.5 pr-3.5 h-[3.25rem] text-left hover:brightness-110"
+          >
+            <span className="px-inset px-notch w-10 h-10 flex items-end justify-center overflow-hidden shrink-0">
+              <LookSprite look={dress} scale={2} />
             </span>
-            {/* What the flag and the lanterns mean — they're progress, not scenery. */}
-            <span className="flex items-center gap-3 mt-1 text-[13px] font-bold">
-              <span className="flex items-center gap-1 text-[var(--px-gold)]">
-                <PixelIcon name="flame" size={2} />
-                <FormattedMessage id="world.progressFlag" values={{ count: streak }} />
-              </span>
-              <span className="text-[var(--px-text)]">
-                🏮 <FormattedMessage id="world.progressLanterns" values={{ count: mastered }} />
+            <span className="min-w-0">
+              <span className="block px-title !text-[14px] text-[var(--px-gold)] truncate max-w-[10rem]">{buddyName || animal.name}</span>
+              {/* What the flag and the lanterns mean — they're progress, not scenery. */}
+              <span className="flex items-center gap-3 text-[12px] font-bold">
+                <span className="flex items-center gap-1 text-[var(--px-gold)]" title={intl.formatMessage({ id: 'world.progressFlag' }, { count: streak })}>
+                  <PixelIcon name="flame" size={2} /> {streak}
+                </span>
+                <span className="text-[var(--px-text)]" title={intl.formatMessage({ id: 'world.progressLanterns' }, { count: mastered })}>
+                  🏮 {mastered}
+                </span>
               </span>
             </span>
-          </span>
+          </button>
         </div>
       )}
       {!panel && (
@@ -541,7 +582,7 @@ export function GameWorld({
         const height = Math.max(28, Math.round((MINIMAP_W * h) / snap.worldW));
         const here = snap.nodes.filter((n) => n.y >= area.top && n.y < area.bottom);
         return (
-          <div className="px absolute top-14 left-2 z-20 px-notch px-frame p-2 pointer-events-none">
+          <div className="px absolute top-[4.25rem] left-2 z-20 px-notch px-frame p-2 pointer-events-none">
             <svg
               width={MINIMAP_W}
               height={height}
