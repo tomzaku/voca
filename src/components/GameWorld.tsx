@@ -50,6 +50,8 @@ interface Props {
     tools?: ReactNode;
     /** The skill whose room to stand in (ROOMS) instead of over the city. */
     room?: string;
+    /** The room's keeper is talking to you: a speech bubble over their head. */
+    talking?: boolean;
   } | null;
   onCreate: () => void;
 }
@@ -275,6 +277,12 @@ export function GameWorld({
   // Entering a skill with a room steps inside: the city sleeps (keeping where
   // you stood) and the room takes the canvas; leaving wakes the city.
   const roomId = panel?.room && ROOMS[panel.room] ? panel.room : null;
+  const talking = !!panel?.talking;
+  const talkingRef = useRef(talking);
+  useEffect(() => {
+    talkingRef.current = talking;
+    (gameRef.current?.scene.getScene(RoomScene.KEY) as RoomScene | null)?.setTalking(talking);
+  }, [talking]);
   useEffect(() => {
     const game = gameRef.current;
     if (!game) return;
@@ -284,6 +292,7 @@ export function GameWorld({
         look: { kind: 'animal', id: animal.id },
         stage,
         keeperLook: keeperLookFor(Math.max(0, features.findIndex((f) => f.id === roomId))),
+        talking: talkingRef.current,
       };
       game.scene.sleep(WorldScene.KEY);
       game.scene.start(RoomScene.KEY, data);

@@ -282,6 +282,7 @@ export function WorldGame() {
             // Inside an activity, step back out to the keeper, who says how it went.
             onBack: open.activity ? () => { setOpen({ skill: open.skill, activity: null }); setTalk({ recap: tally.current }); } : undefined,
             room: open.skill.id,
+            talking: !open.activity && open.skill.id === 'vocabulary' && talk !== null,
             tools: (
               <SkillToolbar
                 skill={open.skill}

@@ -19,6 +19,8 @@ export interface RoomSceneData {
   look: BuddyLook;
   stage: number;
   keeperLook: VillagerLook;
+  /** The keeper is talking to you (KeeperDialog is up). */
+  talking?: boolean;
 }
 
 /** The map draws its 16px art at 2×; a room is drawn at 1× and zoomed. */
@@ -30,6 +32,8 @@ export class RoomScene extends Phaser.Scene {
   private buddy!: Phaser.GameObjects.Sprite;
   private keeper!: Phaser.GameObjects.Sprite;
   private glow!: Phaser.GameObjects.Rectangle;
+  private bubble?: Phaser.GameObjects.Container;
+  private talking = false;
 
   constructor() {
     super(RoomScene.KEY);
@@ -37,6 +41,15 @@ export class RoomScene extends Phaser.Scene {
 
   init(data: RoomSceneData) {
     this.args = data;
+    this.talking = data.talking ?? false;
+    this.bubble = undefined;
+  }
+
+  /** Show or hide the speech bubble over the keeper. Safe to call before the
+   *  room has finished loading; it applies once it has. */
+  setTalking(on: boolean) {
+    this.talking = on;
+    this.bubble?.setVisible(on);
   }
 
   private get textureKey() {
@@ -76,6 +89,9 @@ export class RoomScene extends Phaser.Scene {
     this.keeper = keeper;
     this.glow = this.add.rectangle(0, 0, room.w, room.h, 0xffd27a, 0).setOrigin(0).setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
 
+    this.bubble = this.speechBubble(room.keeper.x + 7, room.keeper.y - keeper.displayHeight - 3);
+    this.bubble.setVisible(this.talking);
+
     const off = onAnswerEvent((e) => this.react(e));
     this.events.once('shutdown', off);
 
@@ -95,6 +111,23 @@ export class RoomScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setZoom(Math.max(this.scale.width / w, this.scale.height / h));
     cam.centerOn(w / 2, h / 2);
+  }
+
+  /** A white speech bubble with three dots taking turns to bounce — the
+   *  keeper is talking to you — bobbing gently over their head. */
+  private speechBubble(x: number, y: number) {
+    const g = this.add.graphics();
+    const ink = 0x2a1a12;
+    // Pixel outline, white fill, a tail down-left towards the keeper.
+    g.fillStyle(ink, 1).fillRect(-8, -12, 17, 10).fillRect(-6, -2, 3, 1).fillRect(-6, -1, 2, 1);
+    g.fillStyle(0xffffff, 1).fillRect(-7, -11, 15, 8).fillRect(-5, -3, 2, 1).fillRect(-5, -2, 1, 1);
+    const dots = [-4, 0, 4].map((dx) => this.add.rectangle(dx, -7, 2, 2, ink));
+    const bubble = this.add.container(x, y, [g, ...dots]).setDepth(4);
+    dots.forEach((d, i) => {
+      this.tweens.add({ targets: d, y: -9, duration: 220, yoyo: true, repeat: -1, repeatDelay: 440, delay: i * 220, ease: 'sine.inOut' });
+    });
+    this.tweens.add({ targets: bubble, y: y - 1.5, duration: 700, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    return bubble;
   }
 
   // ── Reactions ──
