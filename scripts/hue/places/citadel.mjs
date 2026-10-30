@@ -6,9 +6,29 @@ import { Canvas, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
 import { ground, place } from '../core/world.mjs';
 import { HOUSE, gateHouse, palace, plankDeck, roof, stoneSpan, wallRing } from '../draw/buildings.mjs';
-import { BASTION, CITADEL, EAST_GATE_Y, IMPERIAL, LIBRARY, NGO_MON, SOUTH_GATES, T, gatesOn } from '../layout.mjs';
+import { BASTION, CITADEL, EAST_GATE_Y, GATES, IMPERIAL, LIBRARY, NGO_MON, SOUTH_GATES, T, gatesOn } from '../layout.mjs';
 
 /** Where the streak flag flies on Kỳ Đài, worked out as it's drawn. */
+/** Its names on the map (see meta.mjs). */
+export const LABELS = [
+  { text: 'Ngọ Môn', x: 55, y: 34.5, place: 'ngoMon' },
+  { text: 'Kỳ Đài', x: 55, y: 44, place: 'kyDai' },
+  { text: 'Phu Văn Lâu', x: 55, y: 50, place: 'phuVanLau' },
+  { text: 'Nghênh Lương Đình', x: 55, y: 56.2, place: 'nghenhLuong' },
+  { text: 'Tàng Thư Lâu', x: 36, y: 21, place: 'tangThuLau' },
+  { text: 'Duyệt Thị Đường', x: 73, y: 13.2, place: 'duyetThiDuong' },
+  { text: 'Hồ Tịnh Tâm', x: 55, y: 7.5, place: 'tinhTam' },
+  // The gates, named just outside the wall.
+  ...GATES.map((g) => ({
+    text: g.label,
+    place: g.place,
+    ...(g.side === 'south' ? { x: g.at + 1, y: CITADEL.moat.y1 - 0.2 }
+      : g.side === 'north' ? { x: g.at + 1, y: CITADEL.moat.y0 - 0.4 }
+      : g.side === 'west' ? { x: CITADEL.moat.x0 - 2.5, y: g.at + 0.4 }
+      : { x: CITADEL.moat.x1 + 2.5, y: g.at + 0.4 }),
+  })),
+];
+
 export const FLAG = { x: 0, y: 0, drop: 0 };
 
 export function drawCitadel() {

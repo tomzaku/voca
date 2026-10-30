@@ -8,6 +8,17 @@ import { ground, mark, place, solid, used } from '../core/world.mjs';
 import { hall, roof } from '../draw/buildings.mjs';
 import { T } from '../layout.mjs';
 
+/** Its names on the map (see meta.mjs). */
+export const LABELS = [
+  { text: 'Điện Thái Hòa', x: 55, y: 24.2, place: 'thaiHoa' },
+  { text: 'Tử Cấm Thành', x: 55, y: 17.3, place: 'tuCamThanh' },
+  { text: 'Cung Trường Sanh', x: 45, y: 17.3, place: 'truongSanh' },
+  { text: 'Cung Diên Thọ', x: 45.5, y: 24.3, place: 'dienTho' },
+  { text: 'Thái Miếu', x: 64.5, y: 24.3, place: 'thaiMieu' },
+  { text: 'Thế Miếu', x: 46, y: 31, place: 'theMieu' },
+  { text: 'Hiển Lâm Các', x: 46, y: 35, place: 'hienLam' },
+];
+
 export function drawImperialCity() {
   // Trung Đạo: the central path crossing Thái Dịch lake on a bridge, red
   // railings either side.

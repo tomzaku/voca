@@ -1,52 +1,8 @@
-// Which of the map's name labels are real places with a story to tell (the
-// `places` catalog): walk up to one and its label lights up and its story
-// shows. Keyed by the label's text, as the map template writes it.
+// Where each keeper stands, as a place with a story to tell (the `places`
+// catalog). The map's own labels carry their story's id in the template
+// (scripts/hue: each place's LABELS), so only keepers are listed here.
 //
 // Kept dependency-free like the rest of src/game/'s data.
-
-export const LABEL_PLACES: Record<string, string> = {
-  'Sông Hương': 'songHuong',
-  'Cầu Trường Tiền': 'truongTien',
-  'Cầu Phú Xuân': 'phuXuan',
-  'Cầu Dã Viên': 'daVien',
-  'Cầu Nguyễn Hoàng': 'nguyenHoang',
-  'Kim Long': 'kimLong',
-  'Gia Hội': 'giaHoi',
-  'Vỹ Dạ': 'vyDa',
-  'Ngự Bình': 'nguBinh',
-  'Chùa Thiên Mụ': 'thienMu',
-  'Ngọ Môn': 'ngoMon',
-  'Kỳ Đài': 'kyDai',
-  'Tàng Thư Lâu': 'tangThuLau',
-  'Duyệt Thị Đường': 'duyetThiDuong',
-  'Hồ Tịnh Tâm': 'tinhTam',
-  'Ga Huế': 'gaHue',
-  'Trường Quốc Học': 'quocHoc',
-  'Phố đi bộ': 'walkingStreet',
-  'Cung An Định': 'anDinh',
-  'Lăng Khải Định': 'khaiDinh',
-  'Lăng Tự Đức': 'tuDuc',
-  'Lăng Minh Mạng': 'minhMang',
-  'Tử Cấm Thành': 'tuCamThanh',
-  'Cung Diên Thọ': 'dienTho',
-  'Cung Trường Sanh': 'truongSanh',
-  'Thái Miếu': 'thaiMieu',
-  'Điện Thái Hòa': 'thaiHoa',
-  'Phu Văn Lâu': 'phuVanLau',
-  'Nghênh Lương Đình': 'nghenhLuong',
-  'Thế Miếu': 'theMieu',
-  'Hiển Lâm Các': 'hienLam',
-  'Chánh Nam Môn': 'chanhNam',
-  'Cửa Quảng Đức': 'quangDuc',
-  'Cửa Ngăn': 'cuaNgan',
-  'Cửa Thượng Tứ': 'thuongTu',
-  'Cửa Đông Ba': 'dongBaGate',
-  'Cửa Kẻ Trài': 'keTrai',
-  'Cửa Hậu': 'cuaHau',
-  'Cửa An Hòa': 'anHoa',
-  'Cửa Chánh Tây': 'chanhTay',
-  'Cửa Hữu': 'cuaHuu',
-};
 
 /** Where each keeper stands — walking up to one tells that place's story.
  *  The skills' keepers stand at their rooms' places (ROOMS[…].place); this

@@ -7,6 +7,12 @@ import { ground, place } from '../core/world.mjs';
 import { hall, roof } from '../draw/buildings.mjs';
 import { T } from '../layout.mjs';
 
+/** Its names on the map (see meta.mjs). */
+export const LABELS = [
+  { text: 'Kim Long', x: 4, y: 4.5, place: 'kimLong', theme: 'forest', anchor: 'left' },
+  { text: 'Chùa Thiên Mụ', x: 6, y: 39.5, place: 'thienMu' },
+];
+
 export function drawKimLong() {
   // Thiên Mụ: the seven-storey Phước Duyên tower beside its temple hall.
   {

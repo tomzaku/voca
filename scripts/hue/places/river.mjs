@@ -7,6 +7,15 @@ import { glow, ground, night } from '../core/world.mjs';
 import { lamps, plainBridge, plankDeck, stoneSpan } from '../draw/buildings.mjs';
 import { BANK_N, BANK_S, BRIDGE_Y0, BRIDGE_Y1, EAST_GATE_Y, ISLETS, T, isletE } from '../layout.mjs';
 
+/** Its names on the map (see meta.mjs). */
+export const LABELS = [
+  { text: 'Sông Hương', x: 4, y: 54.3, place: 'songHuong', theme: 'forest', anchor: 'left' },
+  { text: 'Cầu Nguyễn Hoàng', x: 23.4, y: 56.4, place: 'nguyenHoang', theme: 'desert', anchor: 'left' },
+  { text: 'Cầu Dã Viên', x: 35.4, y: 52, place: 'daVien', theme: 'desert', anchor: 'left' },
+  { text: 'Cầu Phú Xuân', x: 69.4, y: 52, place: 'phuXuan', theme: 'desert', anchor: 'left' },
+  { text: 'Cầu Trường Tiền', x: 78.4, y: 52, place: 'truongTien', theme: 'desert', anchor: 'left' },
+];
+
 export function drawRiver() {
   // The islets, Dã Viên and Cồn Hến: grass with a sandy rim.
   for (const isl of ISLETS) {

@@ -7,6 +7,16 @@ import { glow, ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, facade, hall, palace, roof } from '../draw/buildings.mjs';
 import { T } from '../layout.mjs';
 
+/** Its names on the map (see meta.mjs). */
+export const LABELS = [
+  { text: 'Ga Huế', x: 27.5, y: 61.5, place: 'gaHue' },
+  { text: 'Trường Quốc Học', x: 41, y: 60.5, place: 'quocHoc' },
+  { text: 'Phố đi bộ', x: 77, y: 64.5, place: 'walkingStreet' },
+  { text: 'Cung An Định', x: 92, y: 66.5, place: 'anDinh' },
+  { text: 'Vỹ Dạ', x: 108, y: 54, place: 'vyDa', theme: 'forest', anchor: 'left' },
+  { text: 'Ngự Bình', x: 52, y: 84.6, place: 'nguBinh', theme: 'forest', anchor: 'left' },
+];
+
 export function drawSouthBank() {
   // Ga Huế: the cream railway station, with its tracks running west–east.
   {

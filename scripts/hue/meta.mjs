@@ -3,8 +3,14 @@
 
 import { rand } from './core/canvas.mjs';
 import { BOATS } from './fill/boats.mjs';
-import { CITADEL, FEATURES, GATES, ISLETS, RIVER, RIVER_BRIDGES, SPAWN, T, W, isWater, isletE, onIslet, riverHalfWidth } from './layout.mjs';
-import { FLAG } from './places/citadel.mjs';
+import { FEATURES, ISLETS, RIVER, RIVER_BRIDGES, SPAWN, T, W, isWater, isletE, onIslet, riverHalfWidth } from './layout.mjs';
+import { FLAG, LABELS as CITADEL_LABELS } from './places/citadel.mjs';
+import { LABELS as DONG_BA_LABELS } from './places/dongBa.mjs';
+import { LABELS as IMPERIAL_LABELS } from './places/imperial.mjs';
+import { LABELS as KIM_LONG_LABELS } from './places/kimLong.mjs';
+import { LABELS as RIVER_LABELS } from './places/river.mjs';
+import { LABELS as SOUTH_BANK_LABELS } from './places/southBank.mjs';
+import { LABELS as TOMB_LABELS } from './places/tombs.mjs';
 
 export const objects = [];
 export let nextId = 1;
@@ -15,53 +21,21 @@ export const point = (type, tx, ty, props = {}) => objects.push({
   properties: Object.entries(props).map(([k, v]) => prop(k, v)),
 });
 
-// The landmarks with a story to tell (src/game/mapPlaces.ts), named over
-// their roofs — quiet until you walk up, then lit. Centred on the building:
-// a label is placed by its left edge, and a character is about a fifth of a
-// tile wide.
-export const landmark = (text, x, y) => point('label', x - text.length * 0.095, y - 0.6, { text, theme: 'desert' });
+// Every place's names, gathered from its file. Each carries `place`, the id
+// of its story (src/i18n/messages/*/places.ts): walk up and the label lights
+// and the story shows. Most are centred over their building — `x, y` is the
+// middle, and a character is about a fifth of a tile wide; the river's and
+// the districts' (`anchor: 'left'`) start at `x`.
+const LABELS = [CITADEL_LABELS, IMPERIAL_LABELS, RIVER_LABELS, KIM_LONG_LABELS, DONG_BA_LABELS, SOUTH_BANK_LABELS, TOMB_LABELS].flat();
 
 export function writeMeta() {
   point('spawn', ...SPAWN);
   // The first label names the (single) area; `hidden` keeps it off the map.
   point('label', 2, 2, { text: 'Huế', theme: 'forest', hidden: 'true' });
-  point('label', 4, 54.3, { text: 'Sông Hương', theme: 'forest' });
-  point('label', 23.4, 56.4, { text: 'Cầu Nguyễn Hoàng', theme: 'desert' });
-  point('label', 35.4, 52, { text: 'Cầu Dã Viên', theme: 'desert' });
-  point('label', 69.4, 52, { text: 'Cầu Phú Xuân', theme: 'desert' });
-  point('label', 78.4, 52, { text: 'Cầu Trường Tiền', theme: 'desert' });
-  point('label', 4, 4.5, { text: 'Kim Long', theme: 'forest' });
-  point('label', 86, 5, { text: 'Gia Hội', theme: 'forest' });
-  point('label', 108, 54, { text: 'Vỹ Dạ', theme: 'forest' });
-  point('label', 52, 84.6, { text: 'Ngự Bình', theme: 'forest' });
-  landmark('Chùa Thiên Mụ', 6, 39.5);
-  landmark('Ngọ Môn', 55, 34.5);
-  landmark('Kỳ Đài', 55, 44);
-  landmark('Tàng Thư Lâu', 36, 21);
-  landmark('Duyệt Thị Đường', 73, 13.2);
-  landmark('Hồ Tịnh Tâm', 55, 7.5);
-  landmark('Ga Huế', 27.5, 61.5);
-  landmark('Trường Quốc Học', 41, 60.5);
-  landmark('Phố đi bộ', 77, 64.5);
-  landmark('Cung An Định', 92, 66.5);
-  landmark('Lăng Tự Đức', 10, 104.9);
-  landmark('Lăng Khải Định', 34.5, 104.9);
-  landmark('Lăng Minh Mạng', 79, 104.9);
-  landmark('Phu Văn Lâu', 55, 50);
-  landmark('Nghênh Lương Đình', 55, 56.2);
-  landmark('Điện Thái Hòa', 55, 24.2);
-  landmark('Tử Cấm Thành', 55, 17.3);
-  landmark('Cung Trường Sanh', 45, 17.3);
-  landmark('Cung Diên Thọ', 45.5, 24.3);
-  landmark('Thái Miếu', 64.5, 24.3);
-  landmark('Thế Miếu', 46, 31);
-  landmark('Hiển Lâm Các', 46, 35);
-  // The gates, named just outside the wall.
-  for (const g of GATES) {
-    if (g.side === 'south') landmark(g.label, g.at + 1, CITADEL.moat.y1 - 0.2);
-    if (g.side === 'north') landmark(g.label, g.at + 1, CITADEL.moat.y0 - 0.4);
-    if (g.side === 'west') landmark(g.label, CITADEL.moat.x0 - 2.5, g.at + 0.4);
-    if (g.side === 'east') landmark(g.label, CITADEL.moat.x1 + 2.5, g.at + 0.4);
+  for (const l of LABELS) {
+    const props = { text: l.text, theme: l.theme ?? 'desert', place: l.place };
+    if (l.anchor === 'left') point('label', l.x, l.y, props);
+    else point('label', l.x - l.text.length * 0.095, l.y - 0.6, props);
   }
 
   // Progress the city shows (WorldScene): the streak flag on Kỳ Đài, and spots

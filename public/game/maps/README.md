@@ -1,4 +1,23 @@
-# World map template
+# World map templates
+
+## Huế (`hue.tmj`) — the world
+
+Drawn entirely in code — no tileset art. `hue.tmj` and its images
+(`hue-ground.png`, `hue-over.png`, `hue-night.png`, `hue-tiles.png`) are
+generated; don't edit them by hand. Regenerate with:
+
+```
+npm run map:hue                                  # writes the map and its images
+npm run map:hue -- preview.png --walls           # plus a QA render: blocked tiles red, cut-off ground blue
+```
+
+The generator is `scripts/generate-hue-map.mjs`, a short pipeline over
+`scripts/hue/` — one file per part of the city in `places/`, each drawing its
+landmarks and listing its labels (with the id of the story each tells). It
+fails the run if a keeper or a named place can't be walked to, or a label
+names no place.
+
+## Sunnyside (`village.tmj`)
 
 `village.tmj` is a standard Tiled map (edit it in https://www.mapeditor.org).
 Its tileset is the whole **Sunnyside World 16px sheet**, copied here as

@@ -10,6 +10,13 @@ import { STONE, biDinh, obelisk, statue, steps, terrace } from '../draw/tomb.mjs
 import { pine } from '../draw/trees.mjs';
 import { T } from '../layout.mjs';
 
+/** Its names on the map (see meta.mjs). */
+export const LABELS = [
+  { text: 'Lăng Tự Đức', x: 10, y: 104.9, place: 'tuDuc' },
+  { text: 'Lăng Khải Định', x: 34.5, y: 104.9, place: 'khaiDinh' },
+  { text: 'Lăng Minh Mạng', x: 79, y: 104.9, place: 'minhMang' },
+];
+
 export function drawTombs() {
   // ── Khải Định (Ứng Lăng): dark weathered concrete climbing the hillside —
   // dragon stairs from the road, the court of stone mandarins, elephants and

@@ -7,6 +7,11 @@ import { ground, place } from '../core/world.mjs';
 import { HOUSE, facade, roof } from '../draw/buildings.mjs';
 import { T } from '../layout.mjs';
 
+/** Its names on the map (see meta.mjs). */
+export const LABELS = [
+  { text: 'Gia Hội', x: 86, y: 5, place: 'giaHoi', theme: 'forest', anchor: 'left' },
+];
+
 export function drawDongBa() {
   // Đông Ba market: a long cream hall with stall awnings and the clock gable,
   // on the corner where the Đông Ba canal meets the river.

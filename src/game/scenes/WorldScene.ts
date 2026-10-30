@@ -6,7 +6,6 @@ import {
 import { featureNodeId, type WorldFeature } from '../features';
 import { Dressed, loadWardrobe } from '../dressed';
 import { KEEPER_DRESS, propLayers } from '../keeperLooks';
-import { LABEL_PLACES } from '../mapPlaces';
 import { RIDE_SCALE, RIDE_SPEED, SEAT, drawRide, drawRideFront, type Ride } from '../vehicles';
 import type { Look } from '../wardrobe';
 import { t } from '../../i18n';
@@ -106,7 +105,8 @@ interface KeeperNode {
 interface MapMeta {
   spawn: { x: number; y: number };
   doors: { x: number; y: number }[];
-  labels: { x: number; y: number; text: string; theme: ThemeId; hidden?: boolean }[];
+  /** `place`: the id of the place's story, for the labels that have one. */
+  labels: { x: number; y: number; text: string; theme: ThemeId; hidden?: boolean; place?: string }[];
   windmills: { x: number; y: number }[];
   animals: { x: number; y: number; kind: string }[];
   /** Where the keepers stand. */
@@ -191,7 +191,7 @@ export class WorldScene extends Phaser.Scene {
   private tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [];
   /** Area labels, kept so a theme switch can recolor them in place. */
   private labels: { text: Phaser.GameObjects.Text; theme: ThemeId; place?: string }[] = [];
-  /** The named place the buddy is at, if any (LABEL_PLACES). */
+  /** The named place the buddy is at, if any (a label's `place`). */
   private litPlace: string | null = null;
   private nodes: KeeperNode[] = [];
   /** Collision grid from the map's `walls` layer, indexed [tileY][tileX]. */
@@ -681,7 +681,7 @@ export class WorldScene extends Phaser.Scene {
         .setOrigin(0, 0.5)
         .setAlpha(LABEL_REST);
       layer.add(text);
-      this.labels.push({ text, theme: l.theme, place: LABEL_PLACES[l.text] });
+      this.labels.push({ text, theme: l.theme, place: l.place });
     }
 
     // Each area is its own "room": the camera is locked to the strip the buddy
@@ -870,6 +870,7 @@ export class WorldScene extends Phaser.Scene {
             text: String(get('text') ?? ''),
             theme: t === 'desert' ? 'desert' : t === 'snow' ? 'snow' : 'forest',
             hidden: get('hidden') === true || get('hidden') === 'true',
+            place: get('place') ? String(get('place')) : undefined,
           });
           break;
         }
