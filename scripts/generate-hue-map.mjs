@@ -1137,6 +1137,136 @@ const treeKinds = {
   deep: { crown: [64, 112, 76], light: [84, 132, 90], dark: [48, 90, 62] },
 };
 
+/** Draw a tree canvas into the map: the ground layer, and its top `overRows`
+ *  again over the buddy, so walking behind it reads right. */
+function stand(cv, tx, ty, overRows, shadowRx, solidTiles = [[tx, ty]]) {
+  ground.ellipse(tx * T + 9, ty * T + 15, shadowRx, Math.max(2, shadowRx / 3), P.shadow, 0.22);
+  const ox = (tx + 0.5) * T - cv.w / 2, oy = (ty + 1) * T - cv.h;
+  ground.blit(cv, ox, oy);
+  over.blit(cv, ox, oy, [0, overRows]);
+  for (const [x, y] of solidTiles) if (solid[y]?.[x] === false) solid[y][x] = true;
+}
+
+/** Cây đa — a banyan: an old, wide canopy on a thick trunk, aerial roots
+ *  hanging. Three tiles across; the big tree of pagodas and village greens. */
+function banyan(tx, ty) {
+  const cv = new Canvas(3 * T, 3 * T);
+  const bark = [96, 70, 50], barkLight = [122, 92, 66];
+  cv.rect(20, 28, 8, 20, bark);
+  cv.rect(20, 28, 2, 20, barkLight);
+  for (const [x, w] of [[16, 4], [28, 4]]) cv.rect(x, 42, w, 6, bark);          // root flare
+  cv.ellipse(24, 18, 23, 15, [52, 92, 60]);
+  cv.ellipse(23, 16, 21, 13, [70, 116, 76]);
+  cv.ellipse(16, 11, 9, 6, [90, 136, 92]);
+  cv.ellipse(32, 13, 8, 5, [84, 128, 86]);
+  for (let i = 0; i < 30; i++) cv.set(4 + Math.floor(rand() * 40), 4 + Math.floor(rand() * 24), [52, 92, 60]);
+  for (const x of [8, 11, 15, 33, 36, 40]) {                                    // aerial roots
+    const len = 8 + Math.floor(rand() * 10);
+    for (let y = 26; y < 26 + len; y++) cv.set(x, y, y % 3 ? [112, 86, 62] : [92, 70, 50]);
+  }
+  stand(cv, tx, ty, 2 * T + 6, 16, [[tx - 1, ty], [tx, ty], [tx + 1, ty]]);
+  mark(used, tx - 2, ty - 3, 5, 5);
+}
+
+/** Liễu — a weeping willow by the water: a small dome, strands hanging down. */
+function willow(tx, ty) {
+  const cv = new Canvas(2 * T, 2 * T);
+  cv.rect(15, 18, 3, 13, [104, 80, 58]);
+  cv.ellipse(16, 9, 11, 7, [80, 132, 80]);
+  for (let x = 4; x <= 28; x += 2) {
+    const top = 6 + Math.round(Math.abs(x - 16) * 0.35);
+    const len = 14 + Math.floor(rand() * 8) - Math.round(Math.abs(x - 16) * 0.3);
+    for (let y = top; y < top + len; y++) cv.set(x + (y > top + len - 4 ? 1 : 0), y, y % 2 ? [92, 146, 86] : [68, 120, 70]);
+  }
+  stand(cv, tx, ty, T + 6, 8);
+  mark(used, tx - 1, ty - 1, 3, 3);
+}
+
+/** Bàng — the Indian almond: flat tiers stacked like a pagoda roof; some
+ *  turn red. */
+function bang(tx, ty, red = false) {
+  const cv = new Canvas(2 * T, 2 * T);
+  const [dark, mid, light] = red
+    ? [[150, 66, 46], [188, 92, 58], [214, 124, 78]]
+    : [[58, 104, 66], [80, 130, 82], [104, 154, 96]];
+  cv.rect(15, 16, 3, 15, [104, 80, 58]);
+  for (const [y, rx] of [[20, 15], [13, 12], [7, 8]]) {
+    cv.ellipse(16, y + 1, rx, 3, dark);
+    cv.ellipse(16, y, rx - 1, 3, mid);
+    cv.ellipse(14, y - 1, rx - 5, 1, light);
+  }
+  stand(cv, tx, ty, T + 6, 9);
+  mark(used, tx - 1, ty - 1, 3, 3);
+}
+
+/** Tre — a clump of bamboo: tall, thin, jointed stalks with leaves at the
+ *  tops; the green hedge of a Huế village. */
+function bamboo(tx, ty) {
+  const cv = new Canvas(2 * T, 2 * T);
+  // Stalks two pixels wide (lit and shaded), jointed every few pixels.
+  for (const [x, h] of [[5, 22], [9, 28], [13, 25], [16, 31], [20, 27], [24, 29], [27, 21]]) {
+    for (let y = 31 - h; y < 31; y++) {
+      const joint = (31 - y) % 5 === 0;
+      cv.set(x, y, joint ? [70, 96, 48] : [138, 172, 84]);
+      cv.set(x + 1, y, joint ? [60, 84, 42] : [100, 136, 62]);
+    }
+    // A spray of narrow leaves at the top, and a few down the stalk.
+    for (const [dx, dy] of [[-3, 1], [-2, 0], [-1, 1], [2, 0], [3, 1], [4, 2], [-3, 4], [-2, 5], [3, 5], [4, 6], [-2, 9], [3, 10]]) {
+      cv.set(x + dx, 31 - h + dy, dy % 2 ? [56, 112, 58] : [78, 136, 70]);
+      cv.set(x + dx + (dx > 0 ? 1 : -1), 31 - h + dy, [56, 112, 58]);
+    }
+  }
+  stand(cv, tx, ty, T + 6, 10);
+  mark(used, tx - 1, ty - 1, 3, 3);
+}
+
+/** Hoa sứ — frangipani: a twisting grey trunk, a few clumps of leaves, white
+ *  flowers with yellow hearts. Grown at pagodas and temples. */
+function frangipani(tx, ty) {
+  const cv = new Canvas(2 * T, 2 * T);
+  const bark = [130, 118, 104];
+  for (let y = 16; y < 31; y++) cv.set(15 + (y < 22 ? Math.round((22 - y) / 3) : 0), y, bark);
+  for (let i = 0; i < 6; i++) { cv.set(14 - i, 16 - i, bark); cv.set(18 + i, 15 - i, bark); }
+  for (const [cx, cy] of [[8, 8], [24, 7], [16, 5]]) {
+    cv.ellipse(cx, cy, 6, 4, [72, 120, 74]);
+    cv.ellipse(cx - 1, cy - 1, 4, 2, [96, 146, 92]);
+  }
+  for (const [x, y] of [[6, 6], [10, 9], [22, 5], [26, 8], [15, 3], [18, 6], [8, 11]]) {
+    cv.set(x, y, [250, 248, 240]); cv.set(x + 1, y, [250, 248, 240]); cv.set(x, y + 1, [250, 248, 240]);
+    cv.set(x + 1, y + 1, [240, 196, 80]);
+  }
+  stand(cv, tx, ty, T + 6, 7);
+  mark(used, tx - 1, ty - 1, 3, 3);
+}
+
+/** Room for a three-tile banyan: like canPlant, a tile wider each side. */
+function canPlantWide(tx, ty) {
+  return canPlant(tx - 1, ty) && canPlant(tx + 1, ty) && canPlant(tx, ty - 1);
+}
+
+/** Plant any kind of tree by name. */
+function plant(kind, tx, ty) {
+  if (kind === 'banyan') return banyan(tx, ty);
+  if (kind === 'willow') return willow(tx, ty);
+  if (kind === 'bang') return bang(tx, ty);
+  if (kind === 'bangRed') return bang(tx, ty, true);
+  if (kind === 'bamboo') return bamboo(tx, ty);
+  if (kind === 'frangipani') return frangipani(tx, ty);
+  return tree(tx, ty, kind);
+}
+
+/** Plant `n` of a kind somewhere open near (cx, cy) — for the trees that
+ *  belong to a place: banyans at a pagoda, bamboo round a village. */
+function plantAround(kind, cx, cy, r, n) {
+  const fits = kind === 'banyan' ? canPlantWide : canPlant;
+  for (let i = 0, done = 0; i < 400 && done < n; i++) {
+    const tx = Math.round(cx + (rand() * 2 - 1) * r), ty = Math.round(cy + (rand() * 2 - 1) * r);
+    if (tx < 2 || tx > W - 3 || ty < 3 || ty > H - 2 || !fits(tx, ty)) continue;
+    plant(kind, tx, ty);
+    done++;
+  }
+}
+
 /** An areca palm (cau): a slim ringed trunk and a burst of fronds — the
  *  garden palm of Vỹ Dạ and Kim Long. */
 function palm(tx, ty) {
@@ -1232,7 +1362,7 @@ function bankOk(tx, ty) {
   return !BANK_KEEP_CLEAR.some(([x, y, w, h]) => tx >= x && tx < x + w && ty >= y && ty < y + h);
 }
 {
-  const kinds = ['deep', 'leaf', 'deep', 'flame', 'leaf', 'deep', 'lilac', 'leaf', 'deep', 'flame'];
+  const kinds = ['deep', 'willow', 'leaf', 'flame', 'bang', 'deep', 'lilac', 'willow', 'leaf', 'bangRed', 'deep', 'flame'];
   let k = 0;
   // Walk the river; on each side step out from the middle to the first dry
   // tile — the bank — and plant there, every couple of tiles.
@@ -1248,7 +1378,7 @@ function bankOk(tx, ty) {
       const tx = Math.round((cx + nx * (off + T * 0.5) * side) / T - 0.5);
       const ty = Math.round((cy + ny * (off + T * 0.5) * side) / T - 0.5);
       if (tx < 1 || tx > W - 2 || ty < 2 || ty > H - 2 || !bankOk(tx, ty)) continue;
-      tree(tx, ty, kinds[k++ % kinds.length]);
+      plant(kinds[k++ % kinds.length], tx, ty);
     }
   }
 }
@@ -1260,6 +1390,19 @@ for (const [x, y] of [[30, 53], [37, 53], [105, 45], [108, 47], [114, 39], [116,
 for (const [x, y] of [[104, 58], [107, 63], [111, 61], [116, 64], [102, 67], [118, 57], [3, 10], [7, 16], [17, 17], [23, 26], [5, 28]]) {
   if (bankOk(x, y)) palm(x, y);
 }
+// Trees that belong to their place: old banyans and frangipani at Thiên Mụ
+// and Văn Miếu, bamboo round the villages of Kim Long, Gia Hội and Vỹ Dạ,
+// an almond tree or two by the Citadel's gates.
+plantAround('banyan', 7, 33, 4, 1);
+plantAround('frangipani', 10, 36, 4, 2);
+plantAround('banyan', 14, 34, 4, 1);
+plantAround('frangipani', 24, 41, 3, 2);
+for (const [cx, cy] of [[8, 18], [20, 28], [14, 40]]) plantAround('bamboo', cx, cy, 5, 2);   // Kim Long
+for (const [cx, cy] of [[92, 12], [104, 22], [96, 28]]) plantAround('bamboo', cx, cy, 5, 2); // Gia Hội
+for (const [cx, cy] of [[106, 68], [114, 74]]) plantAround('bamboo', cx, cy, 5, 2);          // Vỹ Dạ
+plantAround('bang', 40, 64, 6, 2);
+plantAround('bangRed', 88, 74, 6, 2);
+plantAround('banyan', 70, 76, 6, 1);
 // Pines on Ngự Bình and around Thiên Mụ.
 for (const [x, y] of [[53, 79], [56, 78], [59, 79], [51, 82], [61, 82], [55, 83], [58, 84], [1, 36], [1, 41], [8, 36]]) pine(x, y);
 // A few flame trees for a warm accent.
@@ -1270,7 +1413,8 @@ for (const [x, y] of [[24, 9], [100, 26], [44, 64], [109, 70]]) if (canPlant(x, 
   for (let i = 0; i < 8000 && placed < 70; i++) {
     const tx = 1 + Math.floor(rand() * (W - 2)), ty = 2 + Math.floor(rand() * (H - 3));
     if (!canPlant(tx, ty)) continue;
-    tree(tx, ty, rand() < 0.15 ? 'lilac' : 'leaf');
+    const r = rand();
+    plant(r < 0.4 ? 'leaf' : r < 0.55 ? 'deep' : r < 0.67 ? 'lilac' : r < 0.79 ? 'bang' : r < 0.86 ? 'bangRed' : r < 0.94 ? 'bamboo' : 'frangipani', tx, ty);
     placed++;
   }
 }
