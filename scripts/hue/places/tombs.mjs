@@ -134,7 +134,7 @@ export function drawTombs() {
       roof(cv, 14, 2, 36, 9, ROOF.imperial, 4);
       place(cv, 77, 89, 1);
     }
-    archBridge(78, 86, 2, 3);                                 // Trung Đạo, over Tân Nguyệt
+    archBridge(78, 86, 2, 3, 'ns');                               // Trung Đạo, over Tân Nguyệt
     // Bửu Thành: the round wall about the tomb mound, its pines.
     {
       const cx = 79 * T, cy = 85.1 * T;

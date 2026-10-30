@@ -208,10 +208,10 @@ export const citadelGate = () => {
 
 /** An arched stone bridge over a moat — the kind before every gate: a deck
  *  that rises over the arch (lighter at its crown), stone parapets with
- *  balusters along both sides. `along` is the way it's crossed: north–south
+ *  balusters along both sides. `way` is the way it's crossed: north–south
  *  ('ns'), or east–west ('ew'), when its face shows below the deck, the arch
- *  dark over the water. */
-export function archBridge(tx, ty, tw, th, way = th >= tw ? 'ns' : 'ew') {
+ *  dark over the water. Always given: a bridge's shape doesn't say which. */
+export function archBridge(tx, ty, tw, th, way) {
   const x0 = tx * T, y0 = ty * T, x1 = (tx + tw) * T, y1 = (ty + th) * T;
   const along = way === 'ns';
   const stone = [196, 190, 176], stoneLow = [168, 162, 148], parapet = [222, 218, 206], baluster = [150, 144, 132];

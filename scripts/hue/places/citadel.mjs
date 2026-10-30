@@ -43,13 +43,13 @@ export function drawCitadel() {
   wallRing(IW, (tx, ty) => ty === IW.y1 - 1 && tx >= NGO_MON.x && tx < NGO_MON.x + NGO_MON.w);
 
   // Causeways over the moats at every gate.
-  for (const g of SOUTH_GATES) archBridge(g, CITADEL.wall.y1, 2, CITADEL.moat.y1 - CITADEL.wall.y1);
-  for (const g of gatesOn('north')) archBridge(g, CITADEL.moat.y0, 2, 2);
+  for (const g of SOUTH_GATES) archBridge(g, CITADEL.wall.y1, 2, CITADEL.moat.y1 - CITADEL.wall.y1, 'ns');
+  for (const g of gatesOn('north')) archBridge(g, CITADEL.moat.y0, 2, 2, 'ns');
   for (const g of gatesOn('west')) archBridge(CITADEL.moat.x0, g, 2, 2, 'ew');
   for (const g of gatesOn('east')) archBridge(CITADEL.wall.x1, g, 2, 2, 'ew');
   // Kẻ Trài's lane on over the Đông Ba canal into Gia Hội.
   for (const g of gatesOn('east')) if (g !== EAST_GATE_Y) plankDeck(80, g, 5, 2, true);
-  archBridge(54, IMPERIAL.wall.y1, 2, 1);                // Trung Đạo, in front of Ngọ Môn
+  archBridge(54, IMPERIAL.wall.y1, 2, 1, 'ns');          // Trung Đạo, in front of Ngọ Môn
 
   // Gate houses on the front and back walls, their faces to the outside.
   for (const g of SOUTH_GATES) place(citadelGate(), g - 1, CITADEL.wall.y1 - 4, 1, { gaps: [g, g + 1], shadow: false });
