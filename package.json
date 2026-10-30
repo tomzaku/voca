@@ -24,7 +24,8 @@
     "deploy:teams": "supabase functions deploy teams",
     "deploy:writing-templates": "supabase functions deploy writing-templates",
     "notify:test": "node scripts/test-reminder.mjs",
-    "doodles:backfill": "node scripts/backfill-doodles.mjs"
+    "doodles:backfill": "node scripts/backfill-doodles.mjs",
+    "map:hue": "node scripts/generate-hue-map.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
