@@ -3,13 +3,14 @@ import { create } from 'zustand';
 // Whether the standalone World game (the /world hub) is turned on. Device-local
 // like the companion avatar (useCompanion.avatar) — it only changes navigation
 // and which page is reachable, so there's no need to sync it to the server.
+// On by default: only a learner who switched it off in Settings goes without.
 const KEY = 'voca-game-mode';
 
 function load(): boolean {
   try {
-    return localStorage.getItem(KEY) === 'true';
+    return localStorage.getItem(KEY) !== 'false';
   } catch {
-    return false;
+    return true;
   }
 }
 
