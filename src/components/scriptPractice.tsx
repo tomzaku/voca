@@ -1,23 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
+import { speakText } from '../lib/tts';
 
 // Shared pieces for practising a two-person script — Daily Dialogue and IELTS
 // Speaking. A script is read like a chat; it can be listened to with two
 // voices, or role-played: the learner takes one side, those lines are hidden,
 // and playback stops on each one so they say it first.
 
-export type Speaker = 'a' | 'b';
+import type { Speaker, Mode, ScriptLine, ScriptPlayer } from '../hooks/useScriptPlayer';
 export type Tone = 'green' | 'cyan' | 'orange';
-/** `listen` plays everything; a speaker means "I'm playing this side". */
-export type Mode = 'listen' | Speaker;
-
-export interface ScriptLine {
-  speaker: Speaker;
-  text: string;
-  voice: string;
-}
 
 // Spelled out in full — Tailwind only keeps classes it finds as whole strings.
 const TONE: Record<Tone, { avatar: string; name: string; bubble: string; ring: string }> = {
@@ -25,84 +17,6 @@ const TONE: Record<Tone, { avatar: string; name: string; bubble: string; ring: s
   orange: { avatar: 'bg-accent-orange/15 text-accent-orange', name: 'text-accent-orange', bubble: 'bg-bg-card border-border', ring: 'ring-accent-orange/60' },
   cyan: { avatar: 'bg-accent-cyan/15 text-accent-cyan', name: 'text-accent-cyan', bubble: 'bg-accent-cyan/[0.07] border-accent-cyan/20', ring: 'ring-accent-cyan/60' },
 };
-
-/* ─── Playback ───────────────────────────────────────────────── */
-export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'waiting';
-
-/**
- * Plays a script line by line. With `pauseOn`, it stops on that speaker's
- * lines (`waiting`) until `resume()` — the learner says the line first. Each
- * run carries a token so a stop, or a newer run, ends an older loop at its
- * next step even if its last `speakText` never settles.
- */
-export function useScriptPlayer(lines: ScriptLine[], pauseOn: Speaker | null, onFinish: () => void) {
-  const [status, setStatus] = useState<PlayerStatus>('idle');
-  const [index, setIndex] = useState(-1);
-  const runRef = useRef(0);
-  const resumeRef = useRef<(() => void) | null>(null);
-  const finishRef = useRef(onFinish);
-  useEffect(() => { finishRef.current = onFinish; });
-
-  const stop = useCallback(() => {
-    runRef.current++;
-    resumeRef.current?.();
-    stopSpeaking();
-    setStatus('idle');
-    setIndex(-1);
-  }, []);
-
-  // A new script or role invalidates whatever was playing.
-  useEffect(() => stop, [lines, pauseOn, stop]);
-
-  useEffect(() => {
-    const id = setTimeout(() => preloadTts(), 1500);
-    return () => clearTimeout(id);
-  }, []);
-
-  const say = useCallback(async (i: number, token: number) => {
-    setIndex(i);
-    setStatus('loading');
-    await speakText(lines[i].text, {
-      voice: lines[i].voice,
-      onStart: () => { if (runRef.current === token) setStatus('playing'); },
-    }).catch(() => {});
-  }, [lines]);
-
-  const playFrom = useCallback(async (from: number) => {
-    resumeRef.current?.();
-    const token = ++runRef.current;
-    for (let i = from; i < lines.length; i++) {
-      if (runRef.current !== token) return;
-      if (pauseOn && lines[i].speaker === pauseOn) {
-        setIndex(i);
-        setStatus('waiting');
-        await new Promise<void>((r) => { resumeRef.current = r; });
-        resumeRef.current = null;
-        continue;
-      }
-      await say(i, token);
-    }
-    if (runRef.current !== token) return;
-    setStatus('idle');
-    setIndex(-1);
-    finishRef.current();
-  }, [lines, pauseOn, say]);
-
-  /** One line on its own — tapping a bubble. */
-  const playLine = useCallback(async (i: number) => {
-    resumeRef.current?.();
-    const token = ++runRef.current;
-    await say(i, token);
-    if (runRef.current !== token) return;
-    setStatus('idle');
-    setIndex(-1);
-  }, [say]);
-
-  const resume = useCallback(() => resumeRef.current?.(), []);
-
-  return { status, index, playFrom, playLine, resume, stop, running: status !== 'idle' };
-}
-export type ScriptPlayer = ReturnType<typeof useScriptPlayer>;
 
 /* ─── Mode switch + play button (sticky) ─────────────────────── */
 export function PlayerBar({ modes, mode, onMode, player, total }: {

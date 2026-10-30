@@ -6,10 +6,8 @@ import { dialogues, dialogueTopics, type Dialogue } from '../data/englishDialogu
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
 import { PracticeButton } from './PracticeButton';
-import {
-  useScriptPlayer, PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips,
-  type Mode, type Speaker,
-} from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips } from './scriptPractice';
+import { useScriptPlayer, type Mode, type Speaker } from '../hooks/useScriptPlayer';
 
 // "Daily Dialogue" — short scripted exchanges, read like a chat. A list of
 // dialogues (sidebar on desktop, its own screen on mobile) beside one open

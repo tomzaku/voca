@@ -71,7 +71,11 @@ export const WORLD_SKILLS: WorldSkill[] = [
     route: '/speaking', emoji: '🎤', icon: 'lucide:mic',
     activities: [
       act('ipa', 'learn', 'Ipa', '🎶', 'Duyệt Thị Đường'),
+      act('shadow', 'learn', 'Shadow', '🔁', 'Cồn Hến'),
       act('speak', 'practice', 'Conversation', '🍵', 'Cồn Hến'),
+      act('dialogue', 'practice', 'Dialogue', '🛍️', 'Phố đi bộ'),
+      act('ielts-speaking', 'practice', 'IeltsSpeaking', '🎓', 'Quốc Học'),
+      act('read-aloud', 'tool', 'ReadAloud', '📖', 'Cồn Hến'),
     ],
   },
   {

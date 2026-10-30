@@ -5,10 +5,9 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { PracticeButton } from './PracticeButton';
-import {
-  useScriptPlayer, PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips,
-  type Mode, type ScriptLine,
-} from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips } from './scriptPractice';
+import { useScriptPlayer, type Mode, type ScriptLine } from '../hooks/useScriptPlayer';
+import { IELTS_TURN_SECONDS, parseCueCard } from '../lib/speakingRules';
 
 // "IELTS Speaking" — model exam conversations, read like a chat. A list grouped
 // by exam part beside one open conversation, which can be listened to or taken
@@ -32,7 +31,7 @@ const PART_META: Record<Part, { nameId: string; blurbId: string; aimId: string; 
     aimId: 'speaking.ieltsPart1Aim',
     chip: 'text-accent-green bg-accent-green/10 border-accent-green/20',
     dot: 'bg-accent-green',
-    turnSeconds: 30,
+    turnSeconds: IELTS_TURN_SECONDS['Part 1'],
   },
   'Part 2': {
     nameId: 'speaking.ieltsPart2Name',
@@ -40,7 +39,7 @@ const PART_META: Record<Part, { nameId: string; blurbId: string; aimId: string; 
     aimId: 'speaking.ieltsPart2Aim',
     chip: 'text-accent-orange bg-accent-orange/10 border-accent-orange/20',
     dot: 'bg-accent-orange',
-    turnSeconds: 120,
+    turnSeconds: IELTS_TURN_SECONDS['Part 2'],
   },
   'Part 3': {
     nameId: 'speaking.ieltsPart3Name',
@@ -48,7 +47,7 @@ const PART_META: Record<Part, { nameId: string; blurbId: string; aimId: string; 
     aimId: 'speaking.ieltsPart3Aim',
     chip: 'text-accent-red bg-accent-red/10 border-accent-red/20',
     dot: 'bg-accent-red',
-    turnSeconds: 60,
+    turnSeconds: IELTS_TURN_SECONDS['Part 3'],
   },
 };
 
@@ -78,18 +77,6 @@ const shortTitle = (c: IeltsConversation) => c.title.replace(/^Part \d\s*[—-]\
 function ieltsOpener(c: IeltsConversation): string {
   const question = c.exchanges.find((ex) => ex.role === 'examiner')?.text ?? '';
   return question && question.length <= 300 ? question : `${c.part}: ${c.title}`;
-}
-
-/** Splits a Part 2 prompt into the task and its "You should say" points. */
-function parseCueCard(text: string): { task: string; points: string[]; prep: boolean } | null {
-  const m = text.match(/^(.*?)\s*You should say:\s*(.*?)\s*(You have one minute to prepare\.?)?\s*$/s);
-  if (!m) return null;
-  const points = m[2]
-    .replace(/\.$/, '')
-    .split(/,\s*(?:and\s+)?/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  return { task: m[1], points, prep: !!m[3] };
 }
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;

@@ -98,10 +98,16 @@ export function HudSide({ title, footer, children }: { title: ReactNode; footer?
 }
 
 /** Centred, for a match board or a results card. `besideSide` keeps it
- *  clear of a HudSide panel on the right. */
-export function HudCenter({ children, wide = false, besideSide = false }: { children: ReactNode; wide?: boolean; besideSide?: boolean }) {
+ *  clear of a HudSide panel on the right, `aboveDock` of a HudDock below. */
+export function HudCenter({ children, wide = false, besideSide = false, aboveDock = false }: {
+  children: ReactNode;
+  wide?: boolean;
+  besideSide?: boolean;
+  /** Keep clear of a HudDock at the bottom. */
+  aboveDock?: boolean;
+}) {
   return (
-    <div className={`px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] xl:pt-[4.5rem] pointer-events-none ${besideSide ? 'md:pr-[396px]' : ''}`}>
+    <div className={`px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] xl:pt-[4.5rem] pointer-events-none ${besideSide ? 'md:pr-[396px]' : ''} ${aboveDock ? 'pb-[9.5rem]' : ''}`}>
       <div className={`px-notch px-frame w-full ${wide ? 'max-w-[640px]' : 'max-w-[400px]'} max-h-full overflow-y-auto p-5 pointer-events-auto px-in-up`}>
         {children}
       </div>

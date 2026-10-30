@@ -26,6 +26,9 @@ import { DuyetThiDuong } from './worldgames/DuyetThiDuong';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
 import { SkillMenu } from './worldgames/SkillMenu';
+import { RolePlay } from './worldgames/RolePlay';
+import { Shadowing } from './worldgames/Shadowing';
+import { ReadAloudTool } from './worldgames/ReadAloudTool';
 
 // The world pulls in Phaser (~1 MB) — only load it when the page mounts.
 const GameWorld = lazy(() => import('./GameWorld').then((m) => ({ default: m.GameWorld })));
@@ -123,6 +126,10 @@ export function WorldGame() {
       case 'history': return <KhaiDinhTomb onLearn={learnAtDongBa} />;
       case 'ipa': return <DuyetThiDuong />;
       case 'speak': return <ConHenStall />;
+      case 'shadow': return <Shadowing />;
+      case 'dialogue': return <RolePlay key="dialogue" source="dialogue" />;
+      case 'ielts-speaking': return <RolePlay key="ielts" source="ielts" />;
+      case 'read-aloud': return <ReadAloudTool />;
       case 'dictation': return <DragonBoat key="dictation" initialMode="dictation" />;
       case 'comprehension': return <DragonBoat key="comprehension" initialMode="comprehension" />;
       case 'writing': return <VanMieuStele />;
