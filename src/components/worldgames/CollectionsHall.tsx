@@ -37,8 +37,12 @@ export function CollectionsHall({ stations, focusId, prompt, ...act }: Collectio
 }) {
   const intl = useIntl();
   const focused = stations.find((s) => s.id === focusId);
-  const firstKind = KINDS.find((k) => stations.some((s) => s.kind === k)) ?? 'mine';
-  const [kind, setKind] = useState<Kind>(focused?.kind ?? stations.find((s) => s.active)?.kind ?? firstKind);
+  // Only the tabs with something in them: a learner with no lists of their
+  // own (or none joined) shouldn't meet an empty tab and wonder what it is.
+  const kinds = KINDS.filter((k) => stations.some((s) => s.kind === k));
+  const [chosenKind, setKind] = useState<Kind>(focused?.kind ?? stations.find((s) => s.active)?.kind ?? kinds[0] ?? 'level');
+  // The tab you were on can empty out under you (your last list deleted).
+  const kind = kinds.includes(chosenKind) ? chosenKind : kinds[0] ?? 'level';
   const [pickedId, setPickedId] = useState<string | null>(focused?.id ?? null);
   // A drawer pick while the hall is already open moves the selection there.
   const [lastFocus, setLastFocus] = useState(focusId);
@@ -68,7 +72,7 @@ export function CollectionsHall({ stations, focusId, prompt, ...act }: Collectio
         </PixelButton>
       </div>
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {KINDS.map((k) => (
+        {kinds.map((k) => (
           <PixelChip key={k} on={k === kind} onClick={() => setKind(k)}>
             <span className="inline-flex items-center gap-1.5" style={{ color: k === kind ? undefined : KIND_META[k].color }}>
               <PixelIcon name={KIND_META[k].icon} size={2} />
@@ -81,7 +85,7 @@ export function CollectionsHall({ stations, focusId, prompt, ...act }: Collectio
 
       {list.length === 0 ? (
         <p className="text-[15px] text-[var(--px-muted)] py-6 text-center">
-          <FormattedMessage id={kind === 'mine' ? 'world.collectionsNoneMine' : 'world.collectionsNone'} />
+          <FormattedMessage id="world.collectionsNone" />
         </p>
       ) : (
         <div className="space-y-1.5 max-h-[52vh] overflow-y-auto p-0.5">

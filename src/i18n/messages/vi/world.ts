@@ -172,7 +172,6 @@ export default {
   'world.collectionsPick': 'Chọn một bộ sưu tập',
   'world.collectionsPickFirst': 'Từ mới lấy từ danh sách bạn học — hãy chọn một để bắt đầu.',
   'world.collectionsNone': 'Chưa có gì ở đây.',
-  'world.collectionsNoneMine': 'Bạn chưa có bộ sưu tập nào — hãy tạo một bộ.',
   'world.newCollection': 'Bộ sưu tập mới',
   'world.comingSoon': 'Trò chơi của toà nhà này vẫn đang được xây.',
   'world.toastStudying': 'Đang học “{name}”',
