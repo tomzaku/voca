@@ -795,14 +795,29 @@ const gateHouse = () => {
 };
 for (const g of SOUTH_GATES) place(gateHouse(), g - 1, CITADEL.wall.y1 - 3, 1, { gaps: [g, g + 1], shadow: false });
 for (const g of gatesOn('north')) place(gateHouse(), g - 1, CITADEL.wall.y0 - 2, 1, { gaps: [g, g + 1], shadow: false });
-// ...and on the side walls, where the arch runs across the view, a tower
-// seen from above: its roof over the passage, the buddy walking beneath.
+// ...and on the side walls, where the passage runs across the view: a tower
+// standing on the wall itself, seen from above — a hipped roof with its ridge
+// along the wall, the tower's south face under the eaves. The road runs
+// through beneath it, so all of it is drawn over the buddy.
 for (const side of ['west', 'east']) {
   const wx = side === 'west' ? CITADEL.wall.x0 : CITADEL.wall.x1 - 1;
   for (const g of gatesOn(side)) {
-    const cv = new Canvas(3 * T, 3 * T);
-    for (const x of [6, 40]) cv.rect(x, 18, 2, 26, [160, 50, 40]);  // the posts either side
-    roof(cv, 4, 6, 40, 14, ROOF.imperial, 4);
+    const cv = new Canvas(3 * T, 4 * T);
+    const x0 = 10, x1 = 38, mid = 24, pal = ROOF.imperial;
+    // The tower's south face, below the eaves.
+    cv.rect(x0 + 2, 44, x1 - x0 - 4, 16, P.wallFace);
+    for (let y = 47; y < 60; y += 3) for (let x = x0 + 2; x < x1 - 2; x++) if ((x + y) % 6 === 0) cv.set(x, y, P.wallLine);
+    cv.rect(x0 + 2, 44, x1 - x0 - 4, 3, [160, 50, 40]);
+    // The roof: tiles running down either side from the ridge.
+    for (let y = 6; y < 44; y++) for (let x = x0; x < x1; x++) {
+      const d = Math.abs(x + 0.5 - mid);
+      cv.set(x, y, d < 2 ? pal.ridge : x === x0 || x === x1 - 1 ? pal.eave : (x - x0) % 3 === 0 ? pal.line : x < mid ? mix(pal.base, pal.light, 0.25) : pal.base);
+    }
+    cv.rect(x0, 42, x1 - x0, 2, pal.eave);                       // the front eave
+    cv.rect(x0 + 2, 6, x1 - x0 - 4, 2, pal.light);               // the back eave, catching the light
+    for (const [x, y] of [[x0 - 2, 4], [x1, 4], [x0 - 2, 42], [x1, 42]]) cv.rect(x, y, 2, 2, pal.ridge); // upturned corners
+    cv.rect(mid - 3, 2, 6, 4, pal.ridge);                        // ridge ends
+    cv.rect(mid - 3, 42, 6, 3, pal.ridge);
     place(cv, wx - 1, g - 1, 0, { shadow: false });
   }
 }
