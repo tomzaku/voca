@@ -196,6 +196,7 @@ export function drawCitadelGrounds() {
     cv.rect(4, 36, 40, 12, [184, 176, 164]);
     for (let x = 8; x < 42; x += 8) cv.rect(x, 26, 2, 10, [160, 50, 40]);
     roof(cv, 6, 12, 36, 14, ROOF.imperial, 4);
+    cv.spec = { kind: 'tinhTamPavilion' };
     place(cv, 54, 7, 3, { shadow: false });
   }
 
@@ -213,6 +214,7 @@ export function drawCitadelGrounds() {
       cv.ellipse(dx + 6, cv.h - 10, 6, 5, [170, 60, 44]);
       cv.ellipse(dx + 6, cv.h - 12, 5, 3, [236, 214, 170]);
     }
+    cv.spec = { kind: 'duyetThiDuong' };
     place(cv, 70, 13, 3);
   }
 }

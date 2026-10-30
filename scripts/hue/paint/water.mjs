@@ -3,7 +3,7 @@
 
 import { hash, mix, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
-import { ground } from '../core/world.mjs';
+import { drawn, ground } from '../core/world.mjs';
 import { PH, PW, inLake, inMoat, isWater } from '../layout.mjs';
 
 export const waterMask = new Uint8Array(PW * PH);
@@ -20,7 +20,9 @@ export const shoreDist = (x, y, cap = 6) => {
 export const lotusAt = (x, y) => {
   ground.ellipse(x, y, 3, 2, rand() < 0.5 ? P.lotusPad : P.lotusPad2);
   ground.set(x + 1, y - 1, P.fleckDark);
-  if (rand() < 0.35) { ground.rect(x - 1, y - 2, 2, 2, P.lotus); ground.set(x, y - 3, [250, 196, 210]); }
+  const flower = rand() < 0.35;
+  if (flower) { ground.rect(x - 1, y - 2, 2, 2, P.lotus); ground.set(x, y - 3, [250, 196, 210]); }
+  drawn.push({ type: 'lotus', x, y, flower });
 };
 
 export function paintWater() {

@@ -7,7 +7,7 @@
 
 import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
 import { P, ROOF, STREET } from '../core/palette.mjs';
-import { deck, glow, ground, mark, solid } from '../core/world.mjs';
+import { deck, drawn, glow, ground, mark, solid } from '../core/world.mjs';
 import { T } from '../layout.mjs';
 
 /** A curved Vietnamese roof: tile stripes, upturned eaves and ridge ends. */
@@ -104,6 +104,7 @@ export function stoneSpan(tx, ty, tw, th) {
     }
   }
   mark(deck, tx, ty, tw, th);
+  drawn.push({ type: 'span', x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
 }
 
 /** A road bridge's deck in the streets' own style — parapets with posts

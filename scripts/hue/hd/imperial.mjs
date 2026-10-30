@@ -20,14 +20,14 @@ import { disc, outline, tiledRoof } from './art.mjs';
 
 const T2 = 32;
 
-const YELLOW = { base: [234, 182, 58], line: [206, 150, 40], light: [252, 218, 124], eave: [150, 96, 32], ridge: [190, 120, 30] };
-const GREEN = { base: [78, 148, 116], line: [60, 124, 96], light: [124, 186, 150], eave: [36, 84, 64], ridge: [46, 100, 78] };
-const LACQUER = [158, 40, 32], LACQUER_DARK = [118, 28, 22], GOLD = [230, 186, 80], GOLD_DARK = [176, 130, 46];
-const STONE = [200, 194, 180], STONE_LIGHT = [226, 220, 208], STONE_DARK = [158, 150, 136];
-const WOOD = [128, 80, 50], WOOD_DARK = [96, 58, 36];
+export const YELLOW = { base: [234, 182, 58], line: [206, 150, 40], light: [252, 218, 124], eave: [150, 96, 32], ridge: [190, 120, 30] };
+export const GREEN = { base: [78, 148, 116], line: [60, 124, 96], light: [124, 186, 150], eave: [36, 84, 64], ridge: [46, 100, 78] };
+export const LACQUER = [158, 40, 32], LACQUER_DARK = [118, 28, 22], GOLD = [230, 186, 80], GOLD_DARK = [176, 130, 46];
+export const STONE = [200, 194, 180], STONE_LIGHT = [226, 220, 208], STONE_DARK = [158, 150, 136];
+export const WOOD = [128, 80, 50], WOOD_DARK = [96, 58, 36];
 
 /** A stone platform: paved top, a jointed face, steps up the middle. */
-function platform(cv, x, y, w, h, steps = 24) {
+export function platform(cv, x, y, w, h, steps = 24) {
   cv.rect(x, y, w, h, STONE);
   cv.rect(x, y, w, 2, STONE_LIGHT);
   for (let j = y + 4; j < y + h; j += 4) for (let i = x; i < x + w; i++) if ((i + (Math.floor(j / 4) % 2) * 6) % 12 === 0) cv.set(i, j, STONE_DARK);
@@ -40,7 +40,7 @@ function platform(cv, x, y, w, h, steps = 24) {
 }
 
 /** A lacquered column, gold-ringed top and foot. */
-function column(cv, x, y, h, c = LACQUER) {
+export function column(cv, x, y, h, c = LACQUER) {
   cv.rect(x, y, 4, h, c);
   cv.rect(x, y, 1, h, mix(c, [255, 255, 255], 0.25));
   cv.rect(x + 3, y, 1, h, mix(c, [0, 0, 0], 0.3));
@@ -50,7 +50,7 @@ function column(cv, x, y, h, c = LACQUER) {
 
 /** A panel of doors: a frame, gold lattice in the upper half, a plain
  *  lower panel. */
-function latticeDoor(cv, x, y, w, h, frame = LACQUER_DARK, lattice = GOLD) {
+export function latticeDoor(cv, x, y, w, h, frame = LACQUER_DARK, lattice = GOLD) {
   cv.rect(x, y, w, h, frame);
   const lh = Math.round(h * 0.55);
   for (let j = 2; j < lh; j++) for (let i = 2; i < w - 2; i++) {
@@ -61,7 +61,7 @@ function latticeDoor(cv, x, y, w, h, frame = LACQUER_DARK, lattice = GOLD) {
 }
 
 /** A row of bays: a column, then doors, across a façade. */
-function bays(cv, x, y, w, h, n, colour = LACQUER) {
+export function bays(cv, x, y, w, h, n, colour = LACQUER) {
   const bw = w / n;
   for (let b = 0; b < n; b++) {
     const bx = Math.round(x + b * bw);
@@ -74,7 +74,7 @@ function bays(cv, x, y, w, h, n, colour = LACQUER) {
 }
 
 /** Dragons curling up at the ridge's ends and a flaming jewel at its middle. */
-function ridgeDecor(cv, x0, x1, y, pal = YELLOW) {
+export function ridgeDecor(cv, x0, x1, y, pal = YELLOW) {
   const c = mix(pal.ridge, GOLD, 0.4);
   for (const [ex, dir] of [[x0, 1], [x1, -1]]) {
     for (let i = 0; i < 6; i++) cv.rect(ex + dir * i, y - 2 - Math.round(Math.sin(i / 2) * 3), 2, 2, c);
@@ -266,4 +266,104 @@ export function daiCungMon() {
   // Light on the gilded studs of the middle doors.
   for (let j = 0; j < 4; j++) for (let i = 0; i < 3; i++) cv.set(cx - 8 + i * 8, H - 30 + j * 7, hash(i, j) < 2 ? GOLD : GOLD);
   return cv;
+}
+
+/** Duyệt Thị Đường, the royal theatre: 6 × 5 tiles. A two-tier yellow roof,
+ *  its upper storey banded in red and gold round the theatre's plaque;
+ *  lacquered bays below, the middle doors open on the lit stage and its
+ *  curtains; the great drums either side of the steps, lanterns under the
+ *  eaves. */
+export function duyetThiDuong() {
+  const cv = new Canvas(6 * T2, 5 * T2);
+  const W = cv.w, H = cv.h, cx = W / 2;
+  platform(cv, 0, H - 18, W, 18, 30);
+  bays(cv, 8, 96, W - 16, H - 18 - 96, 7);
+  // The open middle doors: the stage inside, lit, its curtains drawn back.
+  const dx = Math.round(8 + (3 * (W - 16)) / 7) + 4, dw = Math.round((W - 16) / 7) - 5;
+  cv.rect(dx, 99, dw, H - 18 - 101, [255, 214, 140]);
+  cv.rect(dx, 99, 5, H - 18 - 101, [176, 36, 40]);
+  cv.rect(dx + dw - 5, 99, 5, H - 18 - 101, [176, 36, 40]);
+  cv.rect(dx, 99, dw, 4, [200, 150, 60]);
+  cv.rect(dx + 7, H - 30, dw - 14, 8, [130, 84, 52]);          // the stage's front
+  // Lanterns under the eave.
+  for (let x = 20; x < W - 16; x += 26) {
+    cv.rect(x, 97, 1, 3, [60, 40, 30]);
+    cv.ellipse(x, 104, 3.5, 4, [224, 70, 50]);
+    cv.rect(x - 1, 100, 3, 1, GOLD);
+  }
+  tiledRoof(cv, 2, 66, W - 4, 30, YELLOW, 10);                // the lower roof
+  // The upper storey: red and gold, the plaque in its middle.
+  cv.rect(30, 46, W - 60, 22, LACQUER);
+  for (let x = 32; x < W - 32; x += 8) { cv.rect(x, 46, 2, 22, LACQUER_DARK); cv.rect(x + 3, 50, 3, 8, GOLD); }
+  cv.rect(cx - 26, 48, 52, 14, LACQUER_DARK);
+  cv.rect(cx - 25, 49, 50, 12, [56, 28, 22]);
+  cv.rect(cx - 26, 48, 52, 1, GOLD);
+  cv.rect(cx - 26, 61, 52, 1, GOLD);
+  for (let i = 0; i < 4; i++) cv.rect(cx - 20 + i * 11, 52, 7, 5, GOLD);
+  tiledRoof(cv, 22, 14, W - 44, 32, YELLOW, 12);              // the upper roof
+  ridgeDecor(cv, 34, W - 36, 10);
+  // The drums, on their stands either side of the steps.
+  for (const x of [cx - 40, cx + 40]) {
+    cv.rect(x - 9, H - 10, 2, 10, WOOD_DARK);
+    cv.rect(x + 7, H - 10, 2, 10, WOOD_DARK);
+    cv.ellipse(x, H - 18, 10, 9, [176, 52, 40]);
+    cv.ellipse(x, H - 18, 7, 6.5, [236, 214, 170]);
+    cv.ellipse(x - 2, H - 20, 3, 2, [250, 236, 206]);
+    for (let a = 0; a < 16; a++) { const t = (a / 16) * Math.PI * 2; cv.set(x + Math.cos(t) * 9, H - 18 + Math.sin(t) * 8, GOLD); }
+  }
+  outline(cv);
+  return cv;
+}
+
+/** The pavilion on Hồ Tịnh Tâm: 3 × 3 tiles. A square pavilion on a stone
+ *  base standing in the lake — red columns, a carved railing, two tiers of
+ *  yellow roof — its reflection under it. */
+export function tinhTamPavilion() {
+  const cv = new Canvas(3 * T2, 3 * T2);
+  const W = cv.w, H = cv.h, cx = W / 2;
+  // The base, and its reflection broken by ripples.
+  cv.rect(8, H - 26, W - 16, 14, STONE);
+  cv.rect(8, H - 26, W - 16, 2, STONE_LIGHT);
+  for (let x = 8; x < W - 8; x += 8) cv.rect(x, H - 24, 1, 12, STONE_DARK);
+  for (let y = H - 12; y < H; y++) for (let x = 10; x < W - 10; x++) if ((y + Math.floor(x / 3)) % 3 !== 0) cv.set(x, y, [200, 90, 60], 0.18);
+  // The railing round it, the columns, the roofs.
+  cv.rect(10, H - 32, W - 20, 6, [176, 52, 40]);
+  for (let x = 12; x < W - 12; x += 4) cv.rect(x, H - 31, 2, 4, GOLD);
+  for (const x of [12, cx - 12, cx + 8, W - 16]) column(cv, x, 34, H - 60);
+  tiledRoof(cv, 4, 22, W - 8, 16, YELLOW, 6);
+  cv.rect(28, 14, W - 56, 8, LACQUER);
+  for (let x = 30; x < W - 30; x += 5) cv.rect(x, 14, 2, 8, GOLD);
+  tiledRoof(cv, 18, 4, W - 36, 12, YELLOW, 4);
+  ridgeDecor(cv, 24, W - 26, 2);
+  outline(cv);
+  return cv;
+}
+
+/** A narrow stone causeway (one or two tiles wide): slabs between carved
+ *  balustrades. `w, h` in detail px. */
+export function causeway(w, h) {
+  const cv = new Canvas(w, h);
+  const along = h >= w;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const e = along ? Math.min(x, w - 1 - x) : Math.min(y, h - 1 - y);
+    const run = along ? y : x;
+    let c;
+    if (e < 4) c = e === 3 ? STONE_LIGHT : run % 6 < 2 ? [240, 236, 226] : STONE_DARK;
+    else c = (run % 10 === 0) ? STONE_DARK : mix(STONE, STONE_LIGHT, hash(Math.floor(run / 10), 3) * 0.5);
+    cv.set(x, y, c);
+  }
+  return cv;
+}
+
+/** A lotus pad, notched, its veins showing, and maybe a pink flower. */
+export function lotus(cv, x, y, flower) {
+  const pad = [74, 140, 78], padLight = [110, 172, 98];
+  cv.ellipse(x, y, 6.5, 4.2, [52, 104, 60]);
+  cv.ellipse(x, y - 0.5, 5.8, 3.6, pad);
+  for (let i = 0; i < 4; i++) cv.set(x + 1 + i, y - 1 - Math.floor(i / 2), [62, 146, 206]);   // the notch
+  for (const [dx, dy] of [[-3, 0], [-1, -2], [2, 1], [-2, 2]]) cv.set(x + dx, y + dy, padLight);
+  if (!flower) return;
+  const pink = [236, 140, 172], light = [252, 206, 222];
+  for (const [dx, dy] of [[-3, -3], [3, -3], [-2, -5], [2, -5], [0, -6]]) cv.ellipse(x + dx, y + dy, 1.8, 2.4, dx === 0 ? light : pink);
+  cv.rect(x - 1, y - 4, 2, 2, [244, 210, 90]);
 }

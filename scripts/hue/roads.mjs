@@ -17,6 +17,12 @@
 
 import { EAST_GATE_Y, H, SOUTH_GATES, T, W, WEST_GATE_Y, polyline } from './layout.mjs';
 
+/** Points round an ellipse, closed with a little overlap so the ring's
+ *  square ends don't leave a notch where they meet. */
+const ringAround = (cx, cy, rx, ry, n) => Array.from({ length: n + 2 }, (_, i) => {
+  const a = (i / n) * Math.PI * 2;
+  return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
+});
 const road = (kind, width, points, opts = {}) => ({ kind, width, points, line: polyline(points), ...opts });
 /** A straight road covering the tile rectangle (x, y, w, h). */
 const box = (x, y, w, h, kind, opts) => (w >= h
@@ -42,6 +48,12 @@ export const ROADS = [
   box(32, 21, 8, 7, 'stone'),                                     // the library's island courtyard
   box(69, EAST_GATE_Y, 11, 2, 'stone'), box(70, 38, 2, 3, 'stone'),
   box(72, 19, 2, 17, 'stone'),                                    // up to Duyệt Thị Đường
+  // Hồ Tịnh Tâm: a paved walk all round the lake (past Cửa Hậu at its
+  // north), a street in to it from Cửa An Hòa, and a lane round from the
+  // east, by Cửa Kẻ Trài and past the theatre.
+  road('stone', 1.4, ringAround(55, 9.5, 8.8, 4.2, 40)),
+  road('street', 2, [[30, 13], [47.6, 13]]),
+  road('lane', 1, [[76.5, 21.5], [76.5, 11.6], [63.4, 11.6]]),
   // The Imperial City: the lane behind Thái Hòa, the court before it, the
   // way in through Ngọ Môn and up to Đại Cung Môn
   box(44, 23, 23, 1, 'stone'), box(44, 30, 23, 1, 'stone'),

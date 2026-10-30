@@ -17,11 +17,11 @@ import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
 import { K, bicycle, cyclo, house, kyDai, lamp, market, tree } from './art.mjs';
-import { canChanh, daiCungMon, dienTho, sideHall, thaiMieu, theMieu, truongSanh } from './imperial.mjs';
+import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
 /** The buildings with detailed art of their own, by the name their canvas
  *  carries (cv.spec.kind); other halls with windows are drawn as houses. */
-const BUILDINGS = { market, kyDai, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon };
+const BUILDINGS = { market, kyDai, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
 
 /** The patches, in tiles: the whole map, in pieces small enough for any
  *  GPU's largest texture (40 × 36 tiles is 1280 × 1152 px). */
@@ -139,6 +139,10 @@ export function renderDetail(write) {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const art = tree(e.kind, e.cv.w, e.cv.h, e.tx * 131 + e.ty * 17);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
+      } else if (e.type === 'span') {
+        // Narrow causeways only: a wide landing is a floor, not a walkway.
+        if (Math.min(e.w, e.h) > 2 * T || !inside(e, e.w, e.h)) continue;
+        redraw.push({ e, art: causeway(e.w * K, e.h * K), bottom: e.y, overTo: 0 });
       } else if (inside(e, 1, 1)) {
         redraw.push({ e, bottom: e.y });
       }
@@ -153,10 +157,11 @@ export function renderDetail(write) {
     });
     const clear = new Uint8Array(W * H);
     for (const { e, art } of redraw) {
-      if (art) liftOut(clear, o.d, W, H, ox, oy, e);
-      else {
-        const [w, h, top] = e.type === 'lamp' ? [3, 13, 11] : e.type === 'bike' ? [13, 10, 9] : [19, 15, 14];
-        for (let Y = (e.y - top - oy) * K; Y < (e.y - top + h - oy) * K; Y++) for (let X = (e.x - 1 - ox) * K; X < (e.x - 1 + w - ox) * K; X++) {
+      if (art && e.cv) liftOut(clear, o.d, W, H, ox, oy, e);
+      else if (!art) {
+        // Its box about (x, y): width, height, how far up and left it reaches.
+        const [w, h, top, left] = e.type === 'lamp' ? [3, 13, 11, 1] : e.type === 'bike' ? [13, 10, 9, 1] : e.type === 'lotus' ? [9, 7, 4, 4] : [19, 15, 14, 1];
+        for (let Y = (e.y - top - oy) * K; Y < (e.y - top + h - oy) * K; Y++) for (let X = (e.x - left - ox) * K; X < (e.x - left + w - ox) * K; X++) {
           if (X >= 0 && Y >= 0 && X < W && Y < H) clear[Y * W + X] = 1;
         }
       }
@@ -192,6 +197,7 @@ export function renderDetail(write) {
       } else if (e.type === 'lamp') lamp(g, X, Y);
       else if (e.type === 'bike') bicycle(g, X, Y, e.frame);
       else if (e.type === 'cyclo') cyclo(g, X, Y);
+      else if (e.type === 'lotus') lotus(g, X, Y, e.flower);
     }
     write(key, g, o);
     return { key, x: ox, y: oy, ground: `hue-detail-${key}-ground.png`, over: `hue-detail-${key}-over.png` };
