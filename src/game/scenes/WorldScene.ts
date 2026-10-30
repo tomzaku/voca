@@ -90,8 +90,8 @@ interface KeeperNode {
   x: number;
   y: number;
   root: Phaser.GameObjects.Container;
-  /** Highlight ring shown when the buddy is in reach. */
-  ring: Phaser.GameObjects.Arc;
+  /** A warm glow on the ground at their feet, lit while the buddy is in reach. */
+  ring: Phaser.GameObjects.Ellipse;
 }
 
 interface MapMeta {
@@ -875,16 +875,14 @@ export class WorldScene extends Phaser.Scene {
     const poi = this.pal.poi;
     const root = this.add.container(x, y);
 
-    const ring = this.add
-      .circle(0, -14, 32)
-      .setStrokeStyle(2.5, poi.color, 0.9)
-      .setFillStyle(poi.color, 0.10)
-      .setVisible(false);
+    // In reach: no frame around them, just a soft warm glow on the ground at
+    // their feet, breathing.
+    const ring = this.add.ellipse(0, 2, 56, 18, poi.color, 0.32).setVisible(false);
+    this.tweens.add({ targets: ring, scaleX: 1.15, scaleY: 1.15, alpha: 0.18, duration: 900, yoyo: true, repeat: -1, ease: 'sine.inOut' });
     root.add(ring);
 
     // The map paints the building itself — this is the villager at its door,
-    // with the page's emoji on a badge above so you can tell the buildings
-    // apart at a glance.
+    // the skill's icon floating over their head so you can tell them apart.
     root.add(this.add.ellipse(0, 2, 26, 7, 0x000000, 0.25));
     const sprite = this.add
       .sprite(0, 2, VILLAGERS_KEY, `${look}-idle-0`)
@@ -893,30 +891,16 @@ export class WorldScene extends Phaser.Scene {
     sprite.play({ key: villagerAnim(this, look, 'idle'), delay: (x * 7 + y) % 700 });
     root.add(sprite);
 
-    const badge = this.add
-      .circle(0, -46, 11, poi.color, 0.18)
-      .setStrokeStyle(2, poi.color, 0.95);
-    root.add(badge);
-    root.add(
-      this.add
-        .text(0, -46, f.emoji, { fontFamily: FONT, fontSize: '12px', resolution: this.args.dpr })
-        .setOrigin(0.5, 0.55),
-    );
+    const icon = this.add
+      .text(0, -50, f.emoji, { fontFamily: FONT, fontSize: '16px', resolution: this.args.dpr })
+      .setOrigin(0.5, 0.5);
+    this.tweens.add({ targets: icon, y: -54, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: (x * 3 + y) % 900 });
+    root.add(icon);
 
-    root.add(
-      this.add
-        .text(0, 10, place ? `${t(f.nameId)}\n${place}` : t(f.nameId), {
-          fontFamily: FONT,
-          fontSize: '10px',
-          fontStyle: 'bold',
-          color: this.pal.textCss,
-          backgroundColor: this.pal.cardCss,
-          padding: { x: 7, y: 3 },
-          align: 'center',
-          resolution: this.args.dpr,
-        })
-        .setOrigin(0.5, 0),
-    );
+    // Their name as a game would write it: outlined pixel text, no box — the
+    // skill in gold, the place under it.
+    root.add(this.nameText(t(f.nameId), 6, 11, '#f0c050'));
+    if (place) root.add(this.nameText(place, 20, 9, this.pal.textCss));
 
     root.setSize(84, 84);
     root.setInteractive({ useHandCursor: true });
@@ -932,6 +916,21 @@ export class WorldScene extends Phaser.Scene {
     this.nodes.push({ id: featureNodeId(f), x, y, root, ring });
   }
 
+  /** Outlined text for names on the map — readable on any ground, no box. */
+  private nameText(text: string, y: number, size: number, color: string) {
+    return this.add
+      .text(0, y, text, {
+        fontFamily: FONT,
+        fontSize: `${size}px`,
+        fontStyle: 'bold',
+        color,
+        stroke: '#1c120c',
+        strokeThickness: 3,
+        resolution: this.args.dpr,
+      })
+      .setOrigin(0.5, 0);
+  }
+
   // ── The buddy ──
 
   private createBuddy() {
@@ -944,19 +943,7 @@ export class WorldScene extends Phaser.Scene {
     this.sprite = new Dressed(this, 0, 2, this.args.dress)
       .setScale(this.spec.baseScale * (1.3 + this.args.stage * 0.1));
     this.buddy.add(this.sprite);
-    this.buddy.add(
-      this.add
-        .text(0, 10, this.args.buddyName, {
-          fontFamily: FONT,
-          fontSize: '10px',
-          fontStyle: 'bold',
-          color: this.pal.textCss,
-          backgroundColor: this.pal.cardCss,
-          padding: { x: 6, y: 2 },
-          resolution: this.args.dpr,
-        })
-        .setOrigin(0.5, 0),
-    );
+    this.buddy.add(this.nameText(this.args.buddyName, 6, 10, this.pal.textCss));
   }
 
   /**
