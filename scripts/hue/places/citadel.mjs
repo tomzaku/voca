@@ -5,7 +5,7 @@
 import { Canvas, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
 import { ground, place } from '../core/world.mjs';
-import { HOUSE, gateHouse, palace, plankDeck, roof, stoneSpan, wallRing } from '../draw/buildings.mjs';
+import { HOUSE, archBridge, citadelGate, palace, plankDeck, roof, stoneSpan, wallRing } from '../draw/buildings.mjs';
 import { BASTION, CITADEL, EAST_GATE_Y, GATES, IMPERIAL, LIBRARY, NGO_MON, SOUTH_GATES, T, gatesOn } from '../layout.mjs';
 
 /** Where the streak flag flies on Kỳ Đài, worked out as it's drawn. */
@@ -43,17 +43,17 @@ export function drawCitadel() {
   wallRing(IW, (tx, ty) => ty === IW.y1 - 1 && tx >= NGO_MON.x && tx < NGO_MON.x + NGO_MON.w);
 
   // Causeways over the moats at every gate.
-  for (const g of SOUTH_GATES) stoneSpan(g, CITADEL.wall.y1, 2, CITADEL.moat.y1 - CITADEL.wall.y1);
-  for (const g of gatesOn('north')) stoneSpan(g, CITADEL.moat.y0, 2, 2);
-  for (const g of gatesOn('west')) stoneSpan(CITADEL.moat.x0, g, 2, 2);
-  for (const g of gatesOn('east')) stoneSpan(CITADEL.wall.x1, g, 2, 2);
+  for (const g of SOUTH_GATES) archBridge(g, CITADEL.wall.y1, 2, CITADEL.moat.y1 - CITADEL.wall.y1);
+  for (const g of gatesOn('north')) archBridge(g, CITADEL.moat.y0, 2, 2);
+  for (const g of gatesOn('west')) archBridge(CITADEL.moat.x0, g, 2, 2, 'ew');
+  for (const g of gatesOn('east')) archBridge(CITADEL.wall.x1, g, 2, 2, 'ew');
   // Kẻ Trài's lane on over the Đông Ba canal into Gia Hội.
   for (const g of gatesOn('east')) if (g !== EAST_GATE_Y) plankDeck(80, g, 5, 2, true);
-  stoneSpan(54, IMPERIAL.wall.y1, 2, 1);                 // Trung Đạo, in front of Ngọ Môn
+  archBridge(54, IMPERIAL.wall.y1, 2, 1);                // Trung Đạo, in front of Ngọ Môn
 
   // Gate houses on the front and back walls, their faces to the outside.
-  for (const g of SOUTH_GATES) place(gateHouse(), g - 1, CITADEL.wall.y1 - 3, 1, { gaps: [g, g + 1], shadow: false });
-  for (const g of gatesOn('north')) place(gateHouse(), g - 1, CITADEL.wall.y0 - 2, 1, { gaps: [g, g + 1], shadow: false });
+  for (const g of SOUTH_GATES) place(citadelGate(), g - 1, CITADEL.wall.y1 - 4, 1, { gaps: [g, g + 1], shadow: false });
+  for (const g of gatesOn('north')) place(citadelGate(), g - 1, CITADEL.wall.y0 - 3, 1, { gaps: [g, g + 1], shadow: false });
   // On the side walls, where the passage runs across the view: a tower
   // standing on the wall itself, seen from above — a hipped roof with its ridge
   // along the wall, the tower's south face under the eaves. The road runs
@@ -63,10 +63,11 @@ export function drawCitadel() {
     for (const g of gatesOn(side)) {
       const cv = new Canvas(3 * T, 4 * T);
       const x0 = 10, x1 = 38, mid = 24, pal = ROOF.imperial;
-      // The tower's south face, below the eaves.
-      cv.rect(x0 + 2, 44, x1 - x0 - 4, 16, P.wallFace);
-      for (let y = 47; y < 60; y += 3) for (let x = x0 + 2; x < x1 - 2; x++) if ((x + y) % 6 === 0) cv.set(x, y, P.wallLine);
-      cv.rect(x0 + 2, 44, x1 - x0 - 4, 3, [160, 50, 40]);
+      // The tower's south face below the eaves, weathered brick like the
+      // front gates', red columns under the roof.
+      for (let y = 47; y < 60; y++) for (let x = x0 + 2; x < x1 - 2; x++) cv.set(x, y, (y % 4 === 0 || (x + (Math.floor(y / 4) % 2) * 3) % 6 === 0) ? [118, 84, 68] : [146, 108, 88]);
+      cv.rect(x0 + 2, 44, x1 - x0 - 4, 3, [150, 46, 38]);
+      for (let x = x0 + 4; x < x1 - 3; x += 6) cv.rect(x, 44, 2, 3, [196, 64, 48]);
       // The roof: tiles running down either side from the ridge.
       for (let y = 6; y < 44; y++) for (let x = x0; x < x1; x++) {
         const d = Math.abs(x + 0.5 - mid);

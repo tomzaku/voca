@@ -177,6 +177,74 @@ export function wallRing(b, open) {
 }
 
 /** A gate house: a little yellow roof over an arch, its face to the outside. */
+/** A Citadel gate as Huế's stand: a weathered brick tower over a dark
+ *  arched passage, a pavilion on top — red columns under a two-tier yellow
+ *  roof. Four tiles wide and four tall; the bottom row is the wall. */
+export const citadelGate = () => {
+  const cv = new Canvas(4 * T, 4 * T);
+  const brick = [146, 108, 88], brickDark = [118, 84, 68], brickLight = [172, 134, 110], moss = [104, 116, 82];
+  // The tower: brick courses, darker at the foot where the damp climbs.
+  for (let y = 30; y < 64; y++) {
+    for (let x = 2; x < 62; x++) {
+      let c = (y % 4 === 0 || (x + (Math.floor(y / 4) % 2) * 3) % 6 === 0) ? brickDark : brick;
+      if (y > 54 && hash(x, y) < 0.35) c = moss;
+      cv.set(x, y, c);
+    }
+  }
+  cv.rect(0, 28, 64, 3, brickLight);                       // the cornice
+  for (let x = 0; x < 64; x += 4) cv.rect(x, 26, 2, 2, brickLight);   // its crenels
+  // The arched passage.
+  cv.rect(19, 46, 26, 18, [36, 28, 24]);
+  for (let i = 0; i < 6; i++) cv.rect(19 + i, 46 - Math.round(Math.sqrt(36 - (6 - i) ** 2)), 26 - i * 2, 1, [36, 28, 24]);
+  cv.rect(17, 44, 30, 2, brickLight);
+  // The pavilion on top.
+  cv.rect(14, 14, 36, 12, [150, 46, 38]);
+  for (let x = 16; x < 48; x += 6) cv.rect(x, 14, 2, 12, [196, 64, 48]);
+  roof(cv, 8, 8, 48, 8, ROOF.imperial, 4);
+  cv.rect(22, 4, 20, 4, [150, 46, 38]);
+  roof(cv, 18, -1, 28, 6, ROOF.imperial, 3);
+  return cv;
+};
+
+/** An arched stone bridge over a moat — the kind before every gate: a deck
+ *  that rises over the arch (lighter at its crown), stone parapets with
+ *  balusters along both sides. `along` is the way it's crossed: north–south
+ *  ('ns'), or east–west ('ew'), when its face shows below the deck, the arch
+ *  dark over the water. */
+export function archBridge(tx, ty, tw, th, way = th >= tw ? 'ns' : 'ew') {
+  const x0 = tx * T, y0 = ty * T, x1 = (tx + tw) * T, y1 = (ty + th) * T;
+  const along = way === 'ns';
+  const stone = [196, 190, 176], stoneLow = [168, 162, 148], parapet = [222, 218, 206], baluster = [150, 144, 132];
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const t = along ? (y - y0 + 0.5) / (y1 - y0) : (x - x0 + 0.5) / (x1 - x0);
+      const e = along ? Math.min(x - x0, x1 - 1 - x) : Math.min(y - y0, y1 - 1 - y);
+      const run = along ? y : x;
+      let c;
+      if (e < 3) c = e === 2 ? parapet : run % 4 === 0 ? baluster : mix(parapet, baluster, 0.35);
+      else {
+        c = mix(stoneLow, stone, Math.sin(t * Math.PI));
+        if (run % 6 === 0) c = mix(c, baluster, 0.4);
+      }
+      ground.set(x, y, c);
+    }
+  }
+  if (along) {
+    for (let y = y0; y < y1; y++) { ground.set(x1, y + 2, P.shadow, 0.35); ground.set(x1 + 1, y + 2, P.shadow, 0.2); }
+  } else {
+    // The bridge's south face over the water, the arch under it.
+    const fh = 9, cx = (x0 + x1) / 2, r = (x1 - x0) / 2 - 3;
+    for (let y = y1; y < y1 + fh; y++) {
+      for (let x = x0; x < x1; x++) {
+        const inArch = y - y1 > 1 && ((x + 0.5 - cx) / r) ** 2 + ((y1 + fh - y) / (fh - 2)) ** 2 < 1;
+        ground.set(x, y, inArch ? [40, 66, 72] : (x + y) % 5 === 0 ? stoneLow : mix(stoneLow, stone, 0.4));
+      }
+    }
+    ground.rect(x0, y1 + fh, x1 - x0, 2, P.shadow, 0.3);
+  }
+  mark(deck, tx, ty, tw, th);
+}
+
 export const gateHouse = () => {
   const cv = new Canvas(4 * T, 3 * T);
   cv.rect(0, 26, 64, 22, P.wallFace);

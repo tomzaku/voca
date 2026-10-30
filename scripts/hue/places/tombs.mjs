@@ -5,7 +5,7 @@
 import { Canvas } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
 import { ground, mark, place, solid, used } from '../core/world.mjs';
-import { gateHouse, hall, roof, stoneSpan, wallRing } from '../draw/buildings.mjs';
+import { archBridge, gateHouse, hall, roof, wallRing } from '../draw/buildings.mjs';
 import { STONE, biDinh, obelisk, statue, steps, terrace } from '../draw/tomb.mjs';
 import { pine } from '../draw/trees.mjs';
 import { T } from '../layout.mjs';
@@ -134,7 +134,7 @@ export function drawTombs() {
       roof(cv, 14, 2, 36, 9, ROOF.imperial, 4);
       place(cv, 77, 89, 1);
     }
-    stoneSpan(78, 86, 2, 3);                                  // Trung Đạo, over Tân Nguyệt
+    archBridge(78, 86, 2, 3);                                 // Trung Đạo, over Tân Nguyệt
     // Bửu Thành: the round wall about the tomb mound, its pines.
     {
       const cx = 79 * T, cy = 85.1 * T;
