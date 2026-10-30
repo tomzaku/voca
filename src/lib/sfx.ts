@@ -2,9 +2,14 @@
 // files to ship or download. Sounds are short blips/arpeggios built from
 // oscillators, so the whole thing is a couple hundred bytes of code.
 //
+// Each answer sound also announces the answer (lib/answerEvents), muted or
+// not, so the world can react to it.
+//
 // Muteable via a localStorage flag (on by default). All play() calls are
 // triggered from user gestures (clicks), so the AudioContext resumes cleanly
 // under browser autoplay policies.
+
+import { announceCorrect, announceDone, announceWrong } from './answerEvents';
 
 const SFX_KEY = 'voca-sfx';
 
@@ -71,6 +76,7 @@ export function playSelect() {
 
 /** Cheerful rising triad — a correct answer / placement. */
 export function playCorrect() {
+  announceCorrect();
   play((c) => {
     tone(c, { freq: 659.25, start: 0.0, dur: 0.11, gain: 0.14 });   // E5
     tone(c, { freq: 783.99, start: 0.08, dur: 0.13, gain: 0.14 });  // G5
@@ -80,6 +86,7 @@ export function playCorrect() {
 
 /** Descending buzzer — a wrong answer. */
 export function playWrong() {
+  announceWrong();
   play((c) => {
     tone(c, { freq: 233.08, start: 0.0, dur: 0.16, type: 'sawtooth', gain: 0.09, slideTo: 155.56 });
     tone(c, { freq: 174.61, start: 0.11, dur: 0.2, type: 'sawtooth', gain: 0.08, slideTo: 110 });
@@ -88,6 +95,7 @@ export function playWrong() {
 
 /** Little fanfare — completing a round. */
 export function playWin() {
+  announceDone();
   play((c) => {
     [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((f, i) =>
       tone(c, { freq: f, start: i * 0.09, dur: 0.2, gain: 0.14 }),
