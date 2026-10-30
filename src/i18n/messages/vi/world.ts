@@ -18,6 +18,6 @@ export default {
   'world.menu': 'Menu',
   'world.menuApp': 'Về Voca',
   'world.menuSettings': 'Cài đặt',
-  'world.statusYou': 'Bạn — bạn đồng hành và ngôi nhà',
+  'world.statusYou': 'Bạn — trang phục và bạn đồng hành',
   'world.loadingTagline': 'Học tiếng Anh ở cố đô',
 } satisfies Record<keyof typeof en, string>;

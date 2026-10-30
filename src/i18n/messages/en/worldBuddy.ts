@@ -48,4 +48,5 @@ export default {
   'world.keeperYou': 'Mệ Hai · keeper of An Hiên',
   'world.kyHome': 'Welcome home, con. {name} has grown on {known, plural, one {# word} other {# words}} you know — go and see.',
   'world.kyBuddyGo': 'See your buddy',
+  'world.badgeBuddy': '{name} · {known, plural, one {# word} other {# words}}',
 } satisfies Catalog;

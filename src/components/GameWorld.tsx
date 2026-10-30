@@ -34,6 +34,8 @@ interface Props {
   skills: WorldSkill[];
   /** A keeper was reached and entered: open its menu. */
   onOpenFeature: (f: WorldFeature) => void;
+  /** Your portrait in the status bar: you — your clothes and your buddy. */
+  onOpenProfile: () => void;
   /** A collection picked from the travel drawer: open the collections'
    *  keeper on it. */
   onOpenCollection: (id: string) => void;
@@ -138,7 +140,7 @@ function DrawerSection({ title, open, onToggle, onTitle, children }: {
  * collection or an app-page building.
  */
 export function GameWorld({
-  stations, skills, onOpenFeature, onOpenActivity, onOpenCollection, paused = false, panel = null, onCreate,
+  stations, skills, onOpenFeature, onOpenProfile, onOpenActivity, onOpenCollection, paused = false, panel = null, onCreate,
 }: Props) {
   const intl = useIntl();
   const features = useMemo<WorldFeature[]>(() => [...skills, COLLECTIONS_KEEPER], [skills]);
@@ -435,7 +437,7 @@ export function GameWorld({
             )}
           </div>
           <button
-            onClick={() => { const you = features.find((f) => f.id === 'you'); if (you) onOpenFeature(you); }}
+            onClick={onOpenProfile}
             title={intl.formatMessage({ id: 'world.statusYou' })}
             className="px-notch px-frame flex items-center gap-2.5 pl-1.5 pr-3.5 h-[3.25rem] text-left hover:brightness-110"
           >

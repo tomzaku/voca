@@ -72,6 +72,12 @@ export function WorldGame() {
     const skill = WORLD_SKILLS.find((x) => x.id === f.id);
     if (skill) { setHall(null); setOpen({ skill, activity: null }); setTalk({}); }
   };
+  // Your portrait: straight to An Hiên's menu — clothes and buddy — without
+  // Mệ Hai's greeting, which is for walking up to her.
+  const openProfile = () => {
+    const skill = WORLD_SKILLS.find((x) => x.id === 'you');
+    if (skill) { setHall(null); setOpen({ skill, activity: null }); setTalk(null); }
+  };
   const openActivity = (id: string) => {
     const found = findActivity(id);
     if (found) { setHall(null); setOpen(found); setTalk(null); }
@@ -223,6 +229,7 @@ export function WorldGame() {
             stations={stations}
             skills={WORLD_SKILLS}
             onOpenFeature={openSkill}
+            onOpenProfile={openProfile}
             onOpenActivity={openActivity}
             onOpenCollection={openCollection}
             paused={open !== null || hall !== null}

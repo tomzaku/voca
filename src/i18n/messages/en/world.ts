@@ -20,6 +20,6 @@ export default {
   'world.menu': 'Menu',
   'world.menuApp': 'Back to Voca',
   'world.menuSettings': 'Settings',
-  'world.statusYou': 'You — your buddy and its home',
+  'world.statusYou': 'You — your clothes and your buddy',
   'world.loadingTagline': 'Learning English in the old capital',
 } satisfies Catalog;
