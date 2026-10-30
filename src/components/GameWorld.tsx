@@ -21,6 +21,8 @@ import { COLLECTIONS_KEEPER, FEATURE_ID_PREFIX, featureNodeId, type WorldFeature
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 import { KIND_META } from './worldgames/collectionKinds';
 import { PlaceInfo } from './worldgames/PlaceInfo';
+import { RideButton } from './worldgames/RideButton';
+import { RIDES, type Ride } from '../game/vehicles';
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
 
@@ -171,6 +173,18 @@ export function GameWorld({
   const showPlace = (id: string) => setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
   const hidePlace = useCallback(() => setPlaceToast(null), []);
 
+  // ── Getting about: walk, bicycle or xích lô — remembered on this device ──
+  const [ride, setRideState] = useState<Ride>(() => {
+    try { const r = localStorage.getItem('voca-world-ride') as Ride | null; return r && RIDES.includes(r) ? r : 'walk'; } catch { return 'walk'; }
+  });
+  const rideRef = useRef(ride);
+  const nextRideRef = useRef(() => {});
+  const nextRide = () => setRideState((r) => {
+    const next = RIDES[(RIDES.indexOf(r) + 1) % RIDES.length];
+    try { localStorage.setItem('voca-world-ride', next); } catch { /* ignore */ }
+    return next;
+  });
+
   // ── The world's menu (status bar) ──
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -249,6 +263,7 @@ export function GameWorld({
       features: live.current.features,
       look,
       dress: dressRef.current,
+      ride: rideRef.current,
       stage,
       buddyName: buddyName || animal.name,
       dpr,
@@ -305,6 +320,14 @@ export function GameWorld({
   }, [animal.id, animal.name, stage, buddyName, locale]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
+
+  // Getting on or off a ride happens in the running scene; B and the button
+  // both step to the next one.
+  useEffect(() => { nextRideRef.current = nextRide; });
+  useEffect(() => {
+    rideRef.current = ride;
+    scene()?.setRide(ride);
+  }, [ride]);
 
   // Entering a skill with a room steps inside: the city sleeps (keeping where
   // you stood) and the room takes the canvas; leaving wakes the city.
@@ -391,6 +414,7 @@ export function GameWorld({
         if (e.key === '+' || e.key === '=') { e.preventDefault(); scene?.zoomBy(1); return; }
         if (e.key === '-' || e.key === '_') { e.preventDefault(); scene?.zoomBy(-1); return; }
         if (e.key === '0') { e.preventDefault(); scene?.resetZoom(); return; }
+        if (e.key === 'b' || e.key === 'B') { e.preventDefault(); nextRideRef.current(); return; }
       }
       if (e.key !== 'Enter' && e.key !== ' ') return;
       if (typing) return;
@@ -477,6 +501,7 @@ export function GameWorld({
               <PixelIcon name="paw" size={2} /> <FormattedMessage id="world.chooseBuddy" />
             </Link>
           )}
+          <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton
             tone={drawerOpen ? 'gold' : 'paper'}
             onClick={() => setDrawerOpen((o) => !o)}

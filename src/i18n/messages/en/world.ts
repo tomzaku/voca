@@ -22,4 +22,8 @@ export default {
   'world.menuSettings': 'Settings',
   'world.statusYou': 'You — your clothes and your buddy',
   'world.loadingTagline': 'Learning English in the old capital',
+  'world.ride.walk': 'Walk',
+  'world.ride.bike': 'Bicycle',
+  'world.ride.cyclo': 'Xích lô',
+  'world.rideHint': 'press B to change',
 } satisfies Catalog;

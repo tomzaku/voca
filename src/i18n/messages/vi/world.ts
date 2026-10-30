@@ -20,4 +20,8 @@ export default {
   'world.menuSettings': 'Cài đặt',
   'world.statusYou': 'Bạn — trang phục và bạn đồng hành',
   'world.loadingTagline': 'Học tiếng Anh ở cố đô',
+  'world.ride.walk': 'Đi bộ',
+  'world.ride.bike': 'Xe đạp',
+  'world.ride.cyclo': 'Xích lô',
+  'world.rideHint': 'nhấn B để đổi',
 } satisfies Record<keyof typeof en, string>;
