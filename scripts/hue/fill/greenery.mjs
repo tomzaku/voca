@@ -6,7 +6,7 @@ import { hash, mix, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { drawn, ground, solid, used } from '../core/world.mjs';
 import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
-import { TREELINE, height, light } from '../hills.mjs';
+import { TREELINE, height, light, markCliffs } from '../hills.mjs';
 import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
 import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
 
@@ -87,8 +87,11 @@ export function plantGreenery() {
   // Forest round the edge of the map — the green hills Huế sits in, thickest
   // to the south where the land rises towards the tombs. A canopy of crowns
   // packed edge to edge; the buddy stays out of it.
+  // The hills' cliffs block the way — but not on a road or in a tomb's grounds.
+  markCliffs(solid, (tx, ty) => used[ty][tx] || roadGap(tx, ty) < 1);
   {
     const forest = [];
+    const hillside = [];
     for (let ty = 0; ty < H; ty++) {
       for (let tx = 0; tx < W; tx++) {
         const edge = Math.min(tx, W - 1 - tx, ty, H - 1 - ty);
@@ -101,7 +104,10 @@ export function plantGreenery() {
         if (used[ty][tx] || solid[ty][tx] || onAnyRoad(tx, ty) || isWater(tx * T + 8, ty * T + 8)) continue;
         if (nearSlot(tx - 1, ty - 1) || (used[ty + 1]?.[tx] && !wood && !hills)) continue;
         if (height(tx * T + 8, ty * T + 8) > TREELINE) continue;           // bare rock above the tree line
-        forest.push([tx, ty]);
+        // In the hills, pines on the terraces instead of a closed canopy,
+        // so the land's steps and cliffs show between them.
+        if (ty >= HILLS_Y - 2) hillside.push([tx, ty]);
+        else forest.push([tx, ty]);
       }
     }
     const shades = [[34, 94, 50], [48, 116, 56], [66, 140, 64], [96, 168, 78]];
@@ -122,6 +128,14 @@ export function plantGreenery() {
       }
     }
     for (const [tx, ty] of forest) { solid[ty][tx] = true; used[ty][tx] = true; drawn.push({ type: 'forest', tx, ty, x: tx * T, y: ty * T }); }
+    // The hillsides: pines, the odd broadleaf, thicker on the higher terraces.
+    for (const [tx, ty] of hillside) {
+      const r = hash(tx * 13, ty * 7);
+      if (r > 0.3 + Math.min(0.25, height(tx * T + 8, ty * T + 8) * 0.25)) continue;
+      if (solid[ty][tx] || solid[ty - 1]?.[tx]) continue;
+      if (r < 0.04) tree(tx, ty, 'deep');
+      else pine(tx, ty);
+    }
   }
 
   // Groves in the open, then single trees scattered over what's left.
