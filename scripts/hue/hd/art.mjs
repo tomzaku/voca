@@ -606,3 +606,30 @@ export function halfMoon() {
   outline(cv, [110, 104, 96]);
   return cv;
 }
+
+/** Trường Tiền's deck in detail (`w, h` detail px): railings of silver posts,
+ *  walkways of square slabs, the trusses' chords studded with rivets, and the
+ *  steel roadway between — fine grain, cross-girders, a dashed white line. */
+export function truongTienDeck(w, h) {
+  const cv = new Canvas(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const e = Math.min(x, w - 1 - x);
+    let c;
+    if (e < 2) c = y % 8 < 2 ? [244, 246, 250] : e === 0 ? [120, 128, 138] : [168, 176, 186];
+    else if (e < 16) {
+      const sx = Math.floor((e - 2) / 7), sy = Math.floor(y / 7);
+      c = ((e - 2) % 7 === 0 || y % 7 === 0) ? [186, 178, 164] : mix([222, 214, 202], [208, 200, 188], hash(sx, sy) * 0.6);
+    } else if (e < 20) {
+      c = e === 16 ? [226, 232, 238] : e === 19 ? [140, 150, 160] : [184, 194, 204];
+      if (e === 17 && y % 6 === 0) c = [110, 118, 128];                                      // rivets
+    } else {
+      c = mix([100, 106, 116], [90, 96, 106], noise(x, y, 6));
+      if (hash(x, y) < 0.05) c = [124, 130, 140];
+      if (y % 24 === 0) c = [132, 138, 148];
+      if (y % 24 === 1) c = [80, 86, 96];
+      if (Math.abs(x + 0.5 - w / 2) < 1.5 && y % 20 < 10) c = [240, 240, 234];
+    }
+    cv.set(x, y, c);
+  }
+  return cv;
+}

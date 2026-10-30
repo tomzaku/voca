@@ -1,12 +1,39 @@
 // The river: its islets, the four bridges, Cồn Hến's footbridge, the
 // dragon-boat wharf and its boat, and the crossings over the canals.
 
-import { mix, noise } from '../core/canvas.mjs';
+import { hash, mix, noise } from '../core/canvas.mjs';
 import { P, ROOF, STREET } from '../core/palette.mjs';
-import { glow, ground, night } from '../core/world.mjs';
+import { deck, drawn, glow, ground, mark, night } from '../core/world.mjs';
 import { bridgeDeck, lamps, plankDeck } from '../draw/buildings.mjs';
 import { BANK_N, BANK_S, BRIDGE_Y0, BRIDGE_Y1, EAST_GATE_Y, ISLETS, T, isletE } from '../layout.mjs';
 import { streetBridge } from '../paint/roads.mjs';
+
+/** Trường Tiền's own deck, not a street's: a paved walkway with its
+ *  railing along each edge, then the trusses' riveted steel chords, and
+ *  between them a narrow steel roadway — cross-girder seams, a dashed white
+ *  line — for the motorbikes. Its shadow on the water to the east. */
+function truongTienDeck(tx, tw, y0, y1) {
+  const x0 = tx * T, x1 = (tx + tw) * T, w = x1 - x0;
+  for (let y = Math.floor(y0); y < y1; y++) {
+    ground.set(x1, y + 2, P.shadow, 0.35);
+    ground.set(x1 + 1, y + 2, P.shadow, 0.2);
+    for (let x = x0; x < x1; x++) {
+      const e = Math.min(x - x0, x1 - 1 - x);
+      let c;
+      if (e < 1) c = y % 4 < 1 ? [236, 240, 244] : [150, 158, 168];                      // railing
+      else if (e < 8) c = (y % 6 === 0 || e === 4) ? [190, 182, 170] : mix([218, 210, 198], [206, 198, 186], hash(x, Math.floor(y / 6)) * 0.5);   // walkway
+      else if (e < 10) c = (y % 4 === 0 && e === 8) ? [120, 130, 140] : e === 8 ? [214, 222, 230] : [176, 186, 196];   // chord, riveted
+      else {
+        c = mix([102, 108, 118], [92, 98, 108], noise(x, y, 4));
+        if (y % 12 === 0) c = [128, 134, 144];                                          // cross-girder seams
+        if (Math.abs(x + 0.5 - (x0 + w / 2)) < 1 && y % 10 < 5) c = [236, 236, 230];   // the dashed line
+      }
+      ground.set(x, y, c);
+    }
+  }
+  mark(deck, tx, Math.floor(y0 / T), tw, Math.ceil(y1 / T) - Math.floor(y0 / T));
+  drawn.push({ type: 'ttDeck', x: x0, y: Math.floor(y0), w, h: Math.ceil(y1) - Math.floor(y0) });
+}
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
@@ -105,7 +132,7 @@ export function drawRiver() {
       ground.rect(x0 - 12, py + 3, x1 - x0 + 24, 1, [120, 116, 110]);
       ground.rect(x1 + 13, py, 5, 1, P.glint, 0.7);
     }
-    bridgeDeck(tx, tw, y0, y1, { rail: [160, 168, 178], post: [214, 220, 226], piers: 0 });
+    truongTienDeck(tx, tw, y0, y1);
     const steel = [228, 234, 240], steelShade = [150, 162, 174];
     // Huế purple first, then round the colour wheel, one per span.
     const spanLights = [[186, 120, 255], [96, 140, 255], [64, 214, 240], [96, 236, 150], [255, 220, 90], [255, 120, 180]];

@@ -16,7 +16,7 @@ import { grassColor, hillTint } from '../paint/terrain.mjs';
 import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
-import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, halfMoon, house, kyDai, lamp, market, parkLamp, tree } from './art.mjs';
+import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, halfMoon, house, kyDai, lamp, market, parkLamp, tree, truongTienDeck } from './art.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
 /** The buildings with detailed art of their own, by the name their canvas
@@ -144,6 +144,9 @@ export function renderDetail(write) {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const art = tree(e.kind, e.cv.w, e.cv.h, e.tx * 131 + e.ty * 17);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
+      } else if (e.type === 'ttDeck') {
+        if (!inside(e, e.w, e.h)) continue;
+        redraw.push({ e, art: truongTienDeck(e.w * K, e.h * K), bottom: e.y - 1000, overTo: 0 });
       } else if (e.type === 'boardwalk') {
         if (!inside(e, e.w, e.h)) continue;
         redraw.push({ e, art: boardwalk(e.w * K, e.h * K), bottom: e.y, overTo: 0 });
