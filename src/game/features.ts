@@ -102,6 +102,7 @@ export const WORLD_SKILLS: WorldSkill[] = [
     route: '/companion', emoji: '🐾', icon: 'lucide:paw-print',
     activities: [
       act('buddy', 'tool', 'Buddy', '🐾', 'Nhà vườn An Hiên'),
+      act('wardrobe', 'tool', 'Wardrobe', '🧵', 'Tiệm may'),
     ],
   },
 ];

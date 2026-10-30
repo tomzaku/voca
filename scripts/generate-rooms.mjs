@@ -216,4 +216,94 @@ async function vocabulary() {
   console.log(`vocabulary.png ${W}×${H}`);
 }
 
+// ── The tailor's (tiệm may): where you're dressed before stepping into Huế ──
+async function tailor() {
+  const W = 384, H = 192, FLOOR = 84;
+  const cv = new Canvas(W, H);
+
+  // Back wall: pale green plaster, a beamed ceiling, a dark wainscot.
+  for (let y = 0; y < FLOOR; y++) for (let x = 0; x < W; x++) {
+    cv.set(x, y, mix([214, 222, 196], [198, 206, 180], hash(x >> 2, y >> 2) * 0.6));
+  }
+  cv.rect(0, 0, W, 10, WOOD.dark);
+  for (let x = 4; x < W; x += 24) cv.rect(x, 0, 6, 10, WOOD.base);
+  cv.rect(0, 10, W, 2, [60, 38, 24]);
+  cv.rect(0, FLOOR - 14, W, 14, WOOD.dark);
+  cv.rect(0, FLOOR - 14, W, 2, WOOD.light);
+
+  // Shelves of fabric bolts on the left wall.
+  for (const sy of [22, 42]) {
+    cv.rect(12, sy + 12, 112, 3, WOOD.base);
+    cv.rect(12, sy + 12, 112, 1, WOOD.light);
+    const colours = [[128, 72, 152], [246, 246, 250], [204, 52, 58], [72, 122, 196], [240, 196, 64], [52, 52, 68], [86, 128, 132]];
+    for (let i = 0; i < 14; i++) {
+      const c = colours[(i * 3 + sy) % colours.length];
+      cv.rect(16 + i * 8, sy, 7, 12, c);
+      cv.rect(16 + i * 8, sy, 7, 1, mix(c, [255, 255, 255], 0.35));
+      cv.rect(22 + i * 8, sy, 1, 12, shade(c, 0.75));
+    }
+  }
+
+  // A rail of áo dài on hangers, high on the right wall.
+  cv.rect(236, 18, 136, 2, WOOD.dark);
+  const dresses = [[128, 72, 152], [246, 246, 250], [204, 52, 58], [72, 122, 196], [240, 196, 64], [128, 72, 152]];
+  dresses.forEach((c, i) => {
+    const x = 244 + i * 21;
+    cv.rect(x + 5, 20, 1, 3, [60, 60, 60]);
+    cv.rect(x + 1, 23, 10, 2, shade(c, 0.85));      // shoulders
+    cv.rect(x + 2, 25, 8, 12, c);                   // body
+    cv.rect(x + 3, 37, 3, 22, c);                   // front panel
+    cv.rect(x + 6, 37, 3, 22, shade(c, 0.88));      // back panel
+    cv.rect(x + 5, 25, 1, 34, shade(c, 0.7));
+    cv.rect(x + 2, 25, 8, 1, mix(c, [255, 255, 255], 0.3));
+  });
+
+  // A tall mirror between them, with a gold frame.
+  cv.rect(156, 16, 30, 52, GOLD.dark);
+  cv.rect(158, 18, 26, 48, [176, 200, 204]);
+  for (let i = 0; i < 26; i++) cv.rect(160 + i, 20 + i, 2, 1, [214, 232, 234]);
+  cv.rect(158, 18, 26, 1, GOLD.light);
+
+  // A row of nón lá and a khăn đóng on pegs above the mirror's side.
+  for (const x of [200, 222]) hat(cv, x, 24);
+  cv.rect(196, 42, 30, 6, [34, 38, 64]);
+  cv.rect(196, 42, 30, 1, [62, 68, 108]);
+
+  // Floor: warm wooden planks.
+  for (let y = FLOOR; y < H; y++) for (let x = 0; x < W; x++) {
+    const plank = Math.floor((y - FLOOR) / 8);
+    const seam = (y - FLOOR) % 8 === 0 || (x + plank * 37) % 64 === 0;
+    let c = mix([168, 116, 72], [150, 100, 60], hash(plank, (x + plank * 37) >> 6));
+    if (seam) c = shade(c, 0.78);
+    cv.set(x, y, mix(c, [180, 128, 82], hash(x, y) * 0.12));
+  }
+  cv.rect(0, FLOOR, W, 2, [0, 0, 0], 0.25);
+
+  // The cutting table on the left, with cloth and scissors on it.
+  counter(cv, 14, 98, 88, 22);
+  cv.rect(24, 92, 40, 6, [128, 72, 152]);
+  cv.rect(24, 92, 40, 1, [160, 104, 184]);
+  cv.rect(70, 94, 10, 2, [190, 190, 196]);
+  cv.rect(76, 92, 2, 6, [190, 190, 196]);
+  // A dress form wearing a white áo dài, on the right.
+  cv.rect(330, 132, 2, 20, WOOD.dark);
+  cv.rect(322, 150, 18, 3, WOOD.dark);
+  cv.rect(324, 96, 14, 6, [246, 246, 250]);
+  cv.rect(326, 102, 10, 30, [246, 246, 250]);
+  cv.rect(330, 102, 1, 30, [214, 214, 222]);
+  cv.rect(328, 92, 6, 4, WOOD.base);
+
+  for (const [x, len] of [[140, 6], [210, 4], [228, 6]]) lantern(cv, x, 12, len);
+
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2);
+    const v = Math.max(0, Math.hypot(dx, dy * 0.8) - 0.55);
+    if (v > 0) cv.set(x, y, [30, 22, 14], Math.min(0.45, v * 0.8));
+  }
+
+  await cv.save('tailor.png');
+  console.log(`tailor.png ${W}×${H}`);
+}
+
 await vocabulary();
+await tailor();

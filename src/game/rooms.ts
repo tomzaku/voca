@@ -19,6 +19,11 @@ export interface RoomDef {
   /** The real place the room is in — its story (the `places` catalog) is
    *  one tap away in the skill bar. */
   place?: string;
+  /** Draw your buddy bigger than in the city — the tailor's, where you're
+   *  looking at what you wear. */
+  buddyScale?: number;
+  /** The keeper's villager look, for a room with no skill keeper of its own. */
+  keeperLook?: string;
 }
 
 export const ROOMS: Record<string, RoomDef> = {
@@ -30,5 +35,16 @@ export const ROOMS: Record<string, RoomDef> = {
     buddy: { x: 312, y: 160 },
     edge: 0x2a1a12,
     place: 'dongBa',
+  },
+  // The tailor's (tiệm may): where you're dressed, first and whenever you like.
+  tailor: {
+    id: 'tailor',
+    url: 'game/rooms/tailor.png',
+    w: 384, h: 192,
+    keeper: { x: 56, y: 150 },
+    buddy: { x: 130, y: 168 },
+    edge: 0x24180f,
+    buddyScale: 2.2,
+    keeperLook: 'longhair',
   },
 };

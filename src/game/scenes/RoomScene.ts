@@ -105,7 +105,7 @@ export class RoomScene extends Phaser.Scene {
     // Your buddy, at the size it walks the city, turned to face the keeper.
     const spec = buddySpec(look);
     const buddy = new Dressed(this, room.buddy.x, room.buddy.y, this.args.dress)
-      .setScale((spec.baseScale * (1.3 + stage * 0.1)) / MAP_SCALE)
+      .setScale(((spec.baseScale * (1.3 + stage * 0.1)) / MAP_SCALE) * (room.buddyScale ?? 1))
       .setFlipX(room.buddy.x > room.keeper.x);
     this.add.ellipse(room.buddy.x, room.buddy.y, 12, 3, 0x000000, 0.25);
     keeper.setDepth(1);

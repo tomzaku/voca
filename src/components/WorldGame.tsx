@@ -35,6 +35,9 @@ import { DuyetThiDuong } from './worldgames/DuyetThiDuong';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
 import { SkillMenu, SkillToolbar } from './worldgames/SkillMenu';
+import { TailorShop } from './worldgames/TailorShop';
+import { useCompanion } from '../hooks/useCompanion';
+import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import { KeeperDialog } from './worldgames/KeeperDialog';
 import { CollectionsHall } from './worldgames/CollectionsHall';
 import { RolePlay } from './worldgames/RolePlay';
@@ -72,7 +75,10 @@ export function WorldGame() {
   const [form, setForm] = useState<{ editingId: string | null; name: string; words: string[] } | null>(null);
   // What's open over the world: a skill keeper's menu (activity null), or
   // one of its activities. Null = just the map.
-  const [open, setOpen] = useState<{ skill: WorldSkill; activity: WorldActivity | null } | null>(null);
+  // A learner's first time in the world begins at the tailor's.
+  const [open, setOpen] = useState<{ skill: WorldSkill; activity: WorldActivity | null } | null>(
+    () => (useCompanion.getState().dress === null ? findActivity('wardrobe') : null),
+  );
   // The collections' keeper's list, open on a collection when one was picked
   // from the travel drawer. Only one of `open` and `hall` is ever set.
   const [hall, setHall] = useState<{ focus: string | null } | null>(null);
@@ -101,6 +107,16 @@ export function WorldGame() {
     });
   }, [activityId]);
   const openCollection = (id: string) => { setOpen(null); setHall({ focus: id }); };
+
+  // The tailor's: what the buddy wears (null until the first visit, which is
+  // where the world starts), and what's being tried on.
+  const dress = useCompanion((s) => s.dress);
+  const setDress = useCompanion((s) => s.setDress);
+  const buddyName = useCompanion((s) => s.name);
+  const rename = useCompanion((s) => s.rename);
+  const [trying, setTrying] = useState<Look | null>(null);
+  const firstVisit = dress === null;
+  const leaveTailor = (look: Look) => { setDress(look); setTrying(null); setOpen(null); };
 
   // Search lives in the library: the header's search (button, ⌘K, "/") opens
   // it here instead of the app's modal, and "learn it" hands the word to the
@@ -225,6 +241,16 @@ export function WorldGame() {
       case 'ielts-writing': return <IeltsWriting />;
       case 'improve': return <ImproveWriting />;
       case 'buddy': return <AnHienHome />;
+      case 'wardrobe': return (
+        <TailorShop
+          initial={dress ?? DEFAULT_LOOK}
+          firstVisit={firstVisit}
+          name={buddyName}
+          onRename={rename}
+          onChange={setTrying}
+          onDone={leaveTailor}
+        />
+      );
       default: return null;
     }
   };
@@ -278,12 +304,16 @@ export function WorldGame() {
               ? `${intl.formatMessage({ id: open.skill.nameId })} › ${intl.formatMessage({ id: open.activity.nameId })}`
               : intl.formatMessage({ id: open.skill.nameId }),
             emoji: open.activity?.emoji ?? open.skill.emoji,
-            onClose: () => setOpen(null),
+            // Leaving the tailor's on a first visit keeps what you have on, so
+            // the shop doesn't greet you again next time.
+            onClose: () => (open.activity?.id === 'wardrobe' && firstVisit ? leaveTailor(trying ?? DEFAULT_LOOK) : setOpen(null)),
             // Inside an activity, step back out to the keeper, who says how it went.
             onBack: open.activity ? () => { setOpen({ skill: open.skill, activity: null }); setTalk({ recap: tally.current }); } : undefined,
-            room: open.skill.id,
-            // The keeper's speech bubble while their message box is up.
-            talking: !open.activity && open.skill.id === 'vocabulary' && talk !== null,
+            room: open.activity?.id === 'wardrobe' ? 'tailor' : open.skill.id,
+            dress: open.activity?.id === 'wardrobe' ? trying ?? dress ?? DEFAULT_LOOK : undefined,
+            // The keeper's speech bubble while they talk: their message box,
+            // or the tailor fitting you.
+            talking: open.activity?.id === 'wardrobe' || (!open.activity && open.skill.id === 'vocabulary' && talk !== null),
             tools: (
               <SkillToolbar
                 skill={open.skill}

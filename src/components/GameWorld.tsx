@@ -9,8 +9,8 @@ import { getAnimal, stageIndex } from '../lib/companion';
 import { WorldScene, ZOOM_STEPS, type WorldSceneData } from '../game/scenes/WorldScene';
 import { RoomScene, type RoomSceneData } from '../game/scenes/RoomScene';
 import { ROOMS } from '../game/rooms';
-import { keeperLookFor, type BuddyLook } from '../game/textures';
-import { DEFAULT_LOOK } from '../game/wardrobe';
+import { keeperLookFor, type BuddyLook, type VillagerLook } from '../game/textures';
+import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import {
   WORLD_EVENTS,
   type WorldArea, type WorldSnapshot, type WorldStation,
@@ -54,6 +54,8 @@ interface Props {
     room?: string;
     /** The room's keeper is talking to you: a speech bubble over their head. */
     talking?: boolean;
+    /** Dress the buddy in this for now — the tailor's, as you try things on. */
+    dress?: Look;
   } | null;
   onCreate: () => void;
 }
@@ -141,7 +143,8 @@ export function GameWorld({
   const locale = intl.locale;
   const animalId = useCompanion((s) => s.animalId);
   const buddyName = useCompanion((s) => s.name);
-  const dress = useCompanion((s) => s.dress) ?? DEFAULT_LOOK;
+  const worn = useCompanion((s) => s.dress);
+  const dress = panel?.dress ?? worn ?? DEFAULT_LOOK;
   const dressRef = useRef(dress);
   const known = useWordsKnown();
   // What the city shows of progress: the streak flag and the river lanterns.
@@ -306,7 +309,8 @@ export function GameWorld({
         room: ROOMS[roomId],
         look: { kind: 'animal', id: animal.id },
         stage,
-        keeperLook: keeperLookFor(Math.max(0, features.findIndex((f) => f.id === roomId))),
+        keeperLook: (ROOMS[roomId].keeperLook as VillagerLook | undefined)
+          ?? keeperLookFor(Math.max(0, features.findIndex((f) => f.id === roomId))),
         talking: talkingRef.current,
         dress: dressRef.current,
       };

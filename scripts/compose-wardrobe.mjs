@@ -8,7 +8,8 @@
 //
 //   body.<outfit>        the body, its clothes recoloured — everyday clothes,
 //                        áo dài in Huế purple / white / red / blue / royal
-//                        yellow, áo the
+//                        yellow, áo the; `….girl` is the same body with
+//                        lashes at the corners of the eyes
 //   hair.<style>.<color> the hairstyle alone (the look minus the bald body),
 //                        in dark, brown or grey; `….hat` is the same hair
 //                        trimmed to the crown, to wear under a hat
@@ -103,6 +104,29 @@ function body(outfit, base) {
   return out;
 }
 
+/** The eyes: the dark pixels inside the face with skin on both sides. */
+function eyes(base) {
+  const h = head(base);
+  const found = [];
+  for (let y = h.top + 5; y < h.top + 11; y++) for (let x = h.l + 1; x < h.r; x++) {
+    const c = px(base, x, y), l = px(base, x - 1, y), r = px(base, x + 1, y);
+    if (c[3] && lum(c) < 60 && lum(l) > 120 && lum(r) > 120) found.push([x, y]);
+  }
+  if (!found.length) return null;
+  const xs = found.map(([x]) => x), ys = found.map(([, y]) => y);
+  return { l: Math.min(...xs), r: Math.max(...xs), top: Math.min(...ys) };
+}
+
+/** A girl's body: a lash flicking up from the outer corner of each eye. */
+function lashes(img, base) {
+  const e = eyes(base);
+  if (!e) return img;
+  const ink = px(base, head(base).l, head(base).top + 4);
+  put(img, e.l - 1, e.top - 1, ink);
+  put(img, e.r + 1, e.top - 1, ink);
+  return img;
+}
+
 function hair(style, color, base, look, underHat = false) {
   const out = new Uint8ClampedArray(F * F * 4);
   // Under a hat, nothing grows above the crown — it would poke through.
@@ -171,7 +195,10 @@ function hat(id, base) {
 
 // ── Lay out the atlas: one row per layer, its 17 frames across ──
 const layers = [
-  ...Object.keys(OUTFITS).map((o) => ({ name: `body.${o}`, draw: (b) => body(o, b) })),
+  ...Object.keys(OUTFITS).flatMap((o) => [
+    { name: `body.${o}`, draw: (b) => body(o, b) },
+    { name: `body.${o}.girl`, draw: (b) => lashes(body(o, b), b) },
+  ]),
   ...STYLES.flatMap((s) => Object.keys(HAIR_COLORS).flatMap((c) => [false, true].map((underHat) => ({
     name: `hair.${s}.${c}${underHat ? '.hat' : ''}`, draw: (b, clip, i) => hair(s, c, b, frame(s, clip, i), underHat),
   })))),
