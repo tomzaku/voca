@@ -44,6 +44,8 @@ interface Props {
     onClose: () => void;
     /** Inside an activity: back to the skill's menu. */
     onBack?: () => void;
+    /** The skill's tools, on the right of the bar from any of its screens. */
+    tools?: ReactNode;
   } | null;
   onCreate: () => void;
 }
@@ -525,6 +527,7 @@ export function GameWorld({
             <span className="text-[20px] leading-none shrink-0">{panel.emoji}</span>
             <span className="px-title !text-[16px] text-[var(--px-gold)] truncate">{panel.title}</span>
             <span className="flex-1" />
+            {panel.tools}
             {panel.onBack && (
               <PixelButton tone="gold" onClick={panel.onBack} className="!py-2">
                 <PixelIcon name="sliders" size={2} /> <FormattedMessage id="world.menuBack" />

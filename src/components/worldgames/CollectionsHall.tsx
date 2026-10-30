@@ -27,8 +27,11 @@ export interface CollectionActions {
   onDelete: (s: WorldStation) => void;
 }
 
-export function CollectionsHall({ stations, focusId, ...act }: CollectionActions & {
+export function CollectionsHall({ stations, focusId, prompt, ...act }: CollectionActions & {
   stations: WorldStation[];
+  /** Why you're here, when the list stands in for something else (New
+   *  words before any collection is picked). */
+  prompt?: string;
   /** A collection picked from the travel drawer: open on it. */
   focusId?: string | null;
 }) {
@@ -56,7 +59,10 @@ export function CollectionsHall({ stations, focusId, ...act }: CollectionActions
   return (
     <HudCenter wide>
       <div className="flex items-center justify-between gap-2 mb-3">
-        <p className="px-title !text-[18px] text-[var(--px-gold)]"><FormattedMessage id="world.collectionsPick" /></p>
+        <div>
+          <p className="px-title !text-[18px] text-[var(--px-gold)]"><FormattedMessage id="world.collectionsPick" /></p>
+          {prompt && <p className="text-[14px] text-[var(--px-muted)] leading-snug">{prompt}</p>}
+        </div>
         <PixelButton tone="jade" onClick={act.onCreate}>
           <PixelIcon name="plus" size={2} /> <FormattedMessage id="world.newCollection" />
         </PixelButton>

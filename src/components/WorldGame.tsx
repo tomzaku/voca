@@ -4,7 +4,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Navigate, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
-import { useCollections } from '../hooks/useCollections';
+import { hasChosenCollection, useCollections } from '../hooks/useCollections';
 import { useGameMode } from '../hooks/useGameMode';
 import { useWorldStations } from '../hooks/useWorldStations';
 import { COLLECTIONS_KEEPER, WORLD_SKILLS, findActivity, type WorldActivity, type WorldFeature, type WorldSkill } from '../game/features';
@@ -29,7 +29,7 @@ import { VanMieuStele } from './worldgames/VanMieuStele';
 import { DuyetThiDuong } from './worldgames/DuyetThiDuong';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuizArena } from './worldgames/QuizArena';
-import { SkillMenu } from './worldgames/SkillMenu';
+import { SkillMenu, SkillToolbar } from './worldgames/SkillMenu';
 import { CollectionsHall } from './worldgames/CollectionsHall';
 import { RolePlay } from './worldgames/RolePlay';
 import { Shadowing } from './worldgames/Shadowing';
@@ -128,10 +128,11 @@ export function WorldGame() {
   /** The in-world screen that plays an activity. */
   // The collections list — the collections' keeper's, and Vocabulary's
   // "Collections" activity, so a list can be picked without leaving the skill.
-  const collectionsHall = (focus: string | null) => (
+  const collectionsHall = (focus: string | null, prompt?: string) => (
     <CollectionsHall
       stations={stations}
       focusId={focus}
+      prompt={prompt}
       onStudy={study}
       onPreview={(s) => setPreview({ name: s.name, all: s.words, sample: sampleWords(s.words) })}
       onQuiz={(s) => setQuiz({ name: s.name, words: s.words })}
@@ -143,10 +144,15 @@ export function WorldGame() {
     />
   );
 
+  const chosen = hasChosenCollection();
+  const activeName = stations.find((s) => s.active)?.name;
+
   const activityScreen = (id: string) => {
     switch (id) {
       case 'collections': return collectionsHall(null);
-      case 'learn': return <DongBaStall />;
+      // New words come from the collection you study — so a learner who
+      // hasn't picked one picks it first; studying it opens the stall.
+      case 'learn': return chosen ? <DongBaStall /> : collectionsHall(null, intl.formatMessage({ id: 'world.collectionsPickFirst' }));
       case 'review': return <ThienMuReview onLearnMore={openStall} />;
       case 'quizzes': return <QuizArena words={wordPool} />;
       case 'level-test': return <NguBinhClimb onStudy={openStall} />;
@@ -222,6 +228,17 @@ export function WorldGame() {
             onClose: () => setOpen(null),
             // Inside an activity, step back out to the keeper's menu.
             onBack: open.activity ? () => setOpen({ skill: open.skill, activity: null }) : undefined,
+            tools: (
+              <SkillToolbar
+                skill={open.skill}
+                current={open.activity?.id}
+                // Collections names the list you're studying, and asks for
+                // one until you've picked.
+                labels={chosen && activeName ? { collections: activeName } : {}}
+                attention={chosen ? undefined : 'collections'}
+                onPick={(activity) => setOpen({ skill: open.skill, activity })}
+              />
+            ),
             content: open.activity
               ? activityScreen(open.activity.id)
               : <SkillMenu skill={open.skill} onPick={(activity) => setOpen({ skill: open.skill, activity })} />,

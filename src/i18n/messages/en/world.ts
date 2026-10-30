@@ -170,6 +170,7 @@ export default {
   'world.collectionsKeeper': 'Collections',
   'world.collectionsKeeperBlurb': 'Every word list you have — pick one to study',
   'world.collectionsPick': 'Pick a collection',
+  'world.collectionsPickFirst': 'New words come from the list you study — pick one to start.',
   'world.collectionsNone': 'Nothing here yet.',
   'world.collectionsNoneMine': 'No collections of your own yet — make one.',
   'world.newCollection': 'New collection',
