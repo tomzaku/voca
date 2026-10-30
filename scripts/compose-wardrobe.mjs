@@ -23,8 +23,19 @@
 // tunic, white trousers under. Hats are drawn per
 // frame from where the head is, so they bob with it.
 //
+// The pack only draws the side view (facing right; the game mirrors it for
+// left). Facing the camera and facing away are made from it: the front is the
+// face's half of the head and body mirrored about their centres — both eyes,
+// the bangs, both arms — and the back is the other half mirrored, the back of
+// the head. Every layer goes through the same mirror, so any outfit, hair and
+// hat face all four ways. Walking towards or away, the legs take turns
+// lifting and the body bobs.
+//
 // Frames are named `<layer>-<clip>-<i>`, 1px apart like the villager sheet;
-// src/game/wardrobe-layers.json lists the layers' rows for the DOM.
+// clips `idle` and `walk` are the side view, then `idleFront`, `walkFront`,
+// `idleBack`, `walkBack` after them on each row, so a row's first 17 frames
+// are where they always were. src/game/wardrobe-layers.json lists the layers'
+// rows for the DOM.
 // Keep the option lists in step with src/game/wardrobe.ts.
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -38,7 +49,9 @@ const path = (name) => fileURLToPath(new URL(name, DIR));
 
 const F = 20, PAD = 1, STRIDE = F + PAD;
 const CLIPS = [{ name: 'idle', frames: 9 }, { name: 'walk', frames: 8 }];
-const FRAMES = CLIPS.flatMap((c) => Array.from({ length: c.frames }, (_, i) => ({ clip: c.name, i })));
+const VIEWS = [{ view: 'side', suffix: '' }, { view: 'front', suffix: 'Front' }, { view: 'back', suffix: 'Back' }];
+const FRAMES = VIEWS.flatMap(({ view, suffix }) => CLIPS.flatMap((c) =>
+  Array.from({ length: c.frames }, (_, i) => ({ clip: c.name, i, view, name: `${c.name}${suffix}` }))));
 
 const STYLES = ['bowlhair', 'curlyhair', 'longhair', 'mophair', 'shorthair', 'spikeyhair'];
 /** Each colour as [dark, light] for the hair's two shades. */
@@ -251,7 +264,95 @@ function prop(id, base) {
   return out;
 }
 
-// ── Lay out the atlas: one row per layer, its 17 frames across ──
+// ── Facing the camera, and facing away ──
+
+/** Where to mirror this frame: the head's centre for the rows above the
+ *  collar, the clothes' centre below it. */
+function axes(base) {
+  const h = head(base);
+  let collar = F, l = F, r = -1;
+  for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) {
+    const p = px(base, x, y);
+    if (!p[3] || !cloth(p)) continue;
+    collar = Math.min(collar, y); l = Math.min(l, x); r = Math.max(r, x);
+  }
+  return { collar, head: h.cx, body: (l + r) / 2 };
+}
+
+/** The frame turned to face the camera (`front`) or away (`back`): each row
+ *  keeps the half on that side of its axis, mirrored onto the other. */
+function turn(img, base, view) {
+  const a = axes(base);
+  const out = new Uint8ClampedArray(F * F * 4);
+  for (let y = 0; y < F; y++) {
+    const axis = y < a.collar ? a.head : a.body;
+    for (let x = 0; x < F; x++) {
+      const keep = view === 'front' ? x >= axis : x <= axis;
+      const sx = keep ? x : Math.round(2 * axis - x);
+      if (sx < 0 || sx >= F) continue;
+      const s = (y * F + sx) * 4, d = (y * F + x) * 4;
+      for (let k = 0; k < 4; k++) out[d + k] = img[s + k];
+    }
+  }
+  return out;
+}
+
+/** Walking towards or away: the standing frame, a leg lifted in turn (the
+ *  body layer's own), and the whole figure a pixel higher as the legs pass. */
+const STEP = ['left', 'left', null, null, 'right', 'right', null, null];
+function stride(img, base, i, isBody) {
+  const a = axes(base);
+  let feet = -1;
+  for (let y = F - 1; y >= 0 && feet < 0; y--) for (let x = 0; x < F; x++) if (px(base, x, y)[3]) { feet = y; break; }
+  const out = new Uint8ClampedArray(img);
+  const lift = STEP[i];
+  if (isBody && lift) {
+    for (const y of [feet - 1, feet]) {
+      for (let x = 0; x < F; x++) {
+        if ((lift === 'left') !== (x < a.body)) continue;
+        const s = (y * F + x) * 4, d = ((y - 1) * F + x) * 4;
+        for (let k = 0; k < 4; k++) { out[d + k] = img[s + k]; if (y === feet) out[s + k] = 0; }
+      }
+    }
+  }
+  if (lift) return out;
+  // Bob: up a pixel.
+  const up = new Uint8ClampedArray(F * F * 4);
+  up.set(out.subarray(F * 4), 0);
+  return up;
+}
+
+/** From behind, the hair covers the head: every bit of the head the hair
+ *  doesn't (the face's skin, mirrored round) takes the hair's colour, all but
+ *  the nape. Under a hat that's what shows below its brim. */
+function backOfHead(hairImg, base, color) {
+  const [dark, light] = HAIR_COLORS[color];
+  const { collar } = axes(base);
+  for (let y = 0; y < collar - 1; y++) {
+    for (let x = 0; x < F; x++) {
+      const b = px(base, x, y), h = px(hairImg, x, y);
+      if (!b[3] || h[3] || lum(b) <= 40) continue;    // outside the head, under hair already, or its outline
+      put(hairImg, x, y, (x + y) % 3 === 0 ? light : dark);
+    }
+  }
+}
+
+/** One layer's frame in any view. Props are held, not mirrored — two books
+ *  would be one too many — and are hidden behind the body from the back
+ *  (headphones excepted, which turn with the head). */
+function viewFrame(layer, view, clip, i) {
+  if (view === 'side') return layer.draw(frame('base', clip, i), clip, i);
+  // Walking front or back starts from the side view's first standing frame.
+  const [sClip, sI] = clip === 'walk' ? ['idle', 0] : [clip, i];
+  const base = frame('base', sClip, sI);
+  const img = layer.draw(base, sClip, sI);
+  const held = layer.name.startsWith('prop.') && layer.name !== 'prop.headphones';
+  const turned = held ? (view === 'back' ? new Uint8ClampedArray(F * F * 4) : img) : turn(img, base, view);
+  if (view === 'back' && layer.name.startsWith('hair.')) backOfHead(turned, turn(base, base, 'back'), layer.name.split('.')[2]);
+  return clip === 'walk' ? stride(turned, turn(base, base, view), i, layer.name.startsWith('body.')) : turned;
+}
+
+// ── Lay out the atlas: one row per layer, its frames across ──
 const layers = [
   ...Object.entries(GARMENTS).flatMap(([g, colours]) => colours.map((c) => ({
     name: `body.${g}.${c}`, draw: (b) => body(g, c, b),
@@ -266,14 +367,14 @@ const W = FRAMES.length * STRIDE - PAD, H = layers.length * STRIDE - PAD;
 const sheet = Buffer.alloc(W * H * 4);
 const frames = {};
 layers.forEach((layer, row) => {
-  FRAMES.forEach(({ clip, i }, col) => {
-    const img = layer.draw(frame('base', clip, i), clip, i);
+  FRAMES.forEach(({ clip, i, view, name }, col) => {
+    const img = viewFrame(layer, view, clip, i);
     const ox = col * STRIDE, oy = row * STRIDE;
     for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) {
       const s = (y * F + x) * 4, d = ((oy + y) * W + ox + x) * 4;
       for (let k = 0; k < 4; k++) sheet[d + k] = img[s + k];
     }
-    frames[`${layer.name}-${clip}-${i}`] = {
+    frames[`${layer.name}-${name}-${i}`] = {
       frame: { x: ox, y: oy, w: F, h: F }, rotated: false, trimmed: false,
       spriteSourceSize: { x: 0, y: 0, w: F, h: F }, sourceSize: { w: F, h: F },
     };

@@ -6,7 +6,7 @@ import {
 import { featureNodeId, type WorldFeature } from '../features';
 import { Dressed, loadWardrobe } from '../dressed';
 import { KEEPER_DRESS, propLayers } from '../keeperLooks';
-import { RIDE_SCALE, RIDE_SPEED, SEAT, drawRide, drawRideFront, type Ride } from '../vehicles';
+import { RIDE_SCALE, RIDE_SPEED, RIDE_VIEWS, SEAT, SEAT_FACING, drawRide, drawRideFront, type Ride, type RideView } from '../vehicles';
 import type { Look } from '../wardrobe';
 import { t } from '../../i18n';
 import { defaultMap } from '../maps';
@@ -215,6 +215,10 @@ export class WorldScene extends Phaser.Scene {
   /** Huế's traffic: cyclists and xích lô riding the riverside roads. */
   private traffic: { rig: Phaser.GameObjects.Container; img: Phaser.GameObjects.Image; ride: Exclude<Ride, 'walk'>; parts: Phaser.GameObjects.Components.Flip[]; x0: number; x1: number; dir: number; speed: number }[] = [];
   private facing: BuddyDir = 'down';
+  /** Which way the buddy last faced side-on — riding up or down keeps it. */
+  private sideLeft = false;
+  /** How the ride is seen now (vehicles.ts RIDE_VIEWS). */
+  private rideView: RideView = 'side';
   /** Waypoints for tap-to-walk (routed through doors across areas). */
   private route: number[][] = [];
   private targetMark!: Phaser.GameObjects.Arc;
@@ -974,27 +978,57 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Walk clip while moving, idle when standing. The Sunnyside character is
-   * drawn front-on only, so facing is approximated: mirror for left, and let up
-   * and down reuse the front view. There is no back-facing art to use.
+   * Walk clip while moving, idle when standing, facing the way the buddy
+   * last went: in profile for left and right (the side view, mirrored for
+   * left), towards the camera going down, away from it going up.
    */
   private applyAnim(moving: boolean) {
-    // Riding, the buddy sits still (idle) and the wheels do the moving.
-    this.sprite.playClip(moving && this.ride === 'walk' ? 'walk' : 'idle');
-    const left = this.facing === 'left';
+    const walking = this.ride === 'walk';
+    const way: RideView = this.facing === 'down' ? 'front' : this.facing === 'up' ? 'back' : 'side';
+    if (way === 'side') this.sideLeft = this.facing === 'left';
+    // Riding, the buddy sits still (idle) and the wheels do the moving — seen
+    // the way the ride is, which for one drawn only side-on (RIDE_VIEWS) is in
+    // profile whichever way it goes.
+    const ride = walking ? null : (this.ride as Exclude<Ride, 'walk'>);
+    const view = ride && !RIDE_VIEWS[ride].includes(way) ? 'side' : way;
+    this.sprite.playClip(moving && walking ? 'walk' : 'idle', true, view);
+    const left = this.sideLeft && view === 'side';
     this.sprite.setFlipX(left);
-    if (this.rideImage) {
+    if (ride && this.rideImage) {
       // Vehicles are drawn facing right; mirror the whole rig to face left.
-      const ride = this.ride as Exclude<Ride, 'walk'>;
       const seat = SEAT[ride], k = SCALE * RIDE_SCALE[ride];
+      this.rideView = view;
+      this.dressRide();
       this.rideImage.setFlipX(left);
       this.rideFront?.setFlipX(left);
-      this.sprite.setX((left ? -seat.x : seat.x) * k);
+      if (view === 'side') this.sprite.setPosition((left ? -seat.x : seat.x) * k, 4 + seat.y * k);
+      else this.sprite.setPosition(SEAT_FACING.x * k, 4 + SEAT_FACING.y * k);
       if (this.driver && seat.driver) {
         this.driver.setX((left ? -seat.driver.x : seat.driver.x) * k).setFlipX(left);
         this.driver.play(villagerAnim(this, 'shorthair', moving ? 'walk' : 'idle'), true);
       }
     }
+  }
+
+  /** The ride's pictures for the way it's seen and the turn of its wheels:
+   *  the vehicle under the rider, and what's drawn over them (a xích lô's
+   *  carriage side; head-on, a bicycle's wheel and handlebar). */
+  private dressRide() {
+    if (!this.rideImage || this.ride === 'walk') return;
+    const ride = this.ride, view = this.rideView, frame = this.wheelFrame;
+    this.rideImage.setTexture(this.rideTexture(ride, frame, view));
+    const key = `ride-${ride}-over-${view}-${frame}`;
+    if (!this.textures.exists(key)) {
+      const over = drawRideFront(ride, view, frame);
+      if (over) this.textures.addCanvas(key, over)?.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    if (!this.textures.exists(key)) { this.rideFront?.setVisible(false); return; }
+    if (!this.rideFront) {
+      this.rideFront = this.add.image(0, 4, key).setOrigin(0.5, 1).setScale(SCALE * RIDE_SCALE[ride]);
+      // Over the rider, under their name.
+      this.buddy.addAt(this.rideFront, this.buddy.getIndex(this.sprite) + 1);
+    }
+    this.rideFront.setTexture(key).setVisible(true);
   }
 
   /** Walk, or ride a bicycle or a xích lô: the buddy gets on (or off) where
@@ -1025,14 +1059,6 @@ export class WorldScene extends Phaser.Scene {
       this.driver = this.add.sprite(seat.driver.x * k, 4 + seat.driver.y * k, VILLAGERS_KEY, 'shorthair-walk-0')
         .setOrigin(0.5, 1).setScale(scale * 0.9);
       this.buddy.addAt(this.driver, 2);   // over the frame, in the saddle
-    }
-    const front = drawRideFront(ride);
-    if (front) {
-      const key = `ride-${ride}-front`;
-      if (!this.textures.exists(key)) this.textures.addCanvas(key, front)?.setFilter(Phaser.Textures.FilterMode.NEAREST);
-      this.rideFront = this.add.image(0, 4, key).setOrigin(0.5, 1).setScale(k);
-      // Over the passenger, under their name.
-      this.buddy.addAt(this.rideFront, this.buddy.getIndex(this.sprite) + 1);
     }
     this.applyAnim(false);
   }
@@ -1100,10 +1126,10 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** A ride's frame as a texture, made once. */
-  private rideTexture(ride: Exclude<Ride, 'walk'>, frame: number): string {
-    const key = `ride-${ride}-${frame}`;
+  private rideTexture(ride: Exclude<Ride, 'walk'>, frame: number, view: RideView = 'side'): string {
+    const key = `ride-${ride}-${view}-${frame}`;
     if (!this.textures.exists(key)) {
-      this.textures.addCanvas(key, drawRide(ride, frame))?.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      this.textures.addCanvas(key, drawRide(ride, frame, view))?.setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
     return key;
   }
@@ -1349,7 +1375,7 @@ export class WorldScene extends Phaser.Scene {
     if (turn) {
       this.wheelClock = time;
       this.wheelFrame = 1 - this.wheelFrame;
-      if (this.rideImage && moving) this.rideImage.setTexture(this.rideTexture(this.ride as Exclude<Ride, 'walk'>, this.wheelFrame));
+      if (this.rideImage && moving) this.dressRide();
     }
     this.moveTraffic(dt, turn);
 

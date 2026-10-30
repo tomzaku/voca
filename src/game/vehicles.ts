@@ -20,6 +20,15 @@ export const SEAT: Record<Exclude<Ride, 'walk'>, { x: number; y: number; driver?
   cyclo: { x: -9, y: -9, driver: { x: 7, y: -10 } },
 };
 
+/** Which way a ride is seen: side-on (facing right; mirrored for left),
+ *  coming towards the camera, or going away from it. */
+export type RideView = 'side' | 'front' | 'back';
+/** The views each ride is drawn in — a xích lô only side-on for now: its
+ *  driver is a villager, who only has a side view. */
+export const RIDE_VIEWS: Record<Exclude<Ride, 'walk'>, RideView[]> = { bike: ['side', 'front', 'back'], cyclo: ['side'] };
+/** Where the rider sits head-on or from behind: over the middle. */
+export const SEAT_FACING = { x: 0, y: -7 };
+
 /** How big each is drawn, against the map's 2× — a xích lô is a big thing to
  *  sit in. */
 export const RIDE_SCALE: Record<Exclude<Ride, 'walk'>, number> = { bike: 1, cyclo: 1.4 };
@@ -48,7 +57,8 @@ function line(px: Px, x0: number, y0: number, x1: number, y1: number, c: string)
 /** The front of a xích lô's carriage — its side panel and footrest — drawn
  *  over the passenger, so they sit in it rather than in front of it. Same
  *  size and origin as drawRide's. */
-export function drawRideFront(ride: Exclude<Ride, 'walk'>): HTMLCanvasElement | null {
+export function drawRideFront(ride: Exclude<Ride, 'walk'>, view: RideView = 'side', frame = 0): HTMLCanvasElement | null {
+  if (ride === 'bike' && view !== 'side') return bikeFacing(view, frame, 'over');
   if (ride !== 'cyclo') return null;
   const cv = document.createElement('canvas');
   cv.width = 36; cv.height = 24;
@@ -60,8 +70,49 @@ export function drawRideFront(ride: Exclude<Ride, 'walk'>): HTMLCanvasElement | 
   return cv;
 }
 
-/** The vehicle as a canvas, frame 0 or 1, facing right. */
-export function drawRide(ride: Exclude<Ride, 'walk'>, frame: number): HTMLCanvasElement {
+/** A bicycle head-on or from behind, in the side view's canvas size so it
+ *  stands in the same place. `part` is what's under the rider (pedals, the
+ *  handlebar's ends) or over them (the wheel nearest the camera, and head-on
+ *  the handlebar and lamp). */
+function bikeFacing(view: Exclude<RideView, 'side'>, frame: number, part: 'under' | 'over'): HTMLCanvasElement {
+  const w = 24, h = 15, cx = 12;
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d')!;
+  const px: Px = (x, y, c) => { if (x >= 0 && y >= 0 && x < w && y < h) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); } };
+  const red = '#c0392b';
+  if (part === 'under') {
+    // The pedals either side, one up and one down, swapping as they turn.
+    const [l, r] = frame === 0 ? [11, 9] : [9, 11];
+    px(cx - 4, l, INK); px(cx - 5, l, INK); px(cx + 4, r, INK); px(cx + 5, r, INK);
+    if (view === 'back') {
+      for (const x of [cx - 7, cx - 6, cx + 6, cx + 7]) px(x, 3, INK);   // the handlebar's ends, past the shoulders
+    }
+    return cv;
+  }
+  // The near wheel, seen edge-on: a narrow tyre, the spokes flickering as it turns.
+  for (let y = 6; y <= 14; y++) {
+    px(cx - 1, y, INK); px(cx + 1, y, INK);
+    px(cx, y, (y + frame) % 2 ? '#8a8a8a' : INK);
+  }
+  px(cx, 5, INK); px(cx, 10, '#d0d0d0');
+  if (view === 'front') {
+    for (let y = 3; y <= 6; y++) { px(cx - 2, y, red); px(cx + 2, y, red); }   // the fork
+    for (let x = cx - 6; x <= cx + 6; x++) px(x, 2, INK);                     // the handlebar
+    px(cx - 6, 3, INK); px(cx + 6, 3, INK);
+    px(cx, 3, '#f0d070'); px(cx, 4, '#f0d070');                               // the lamp
+  } else {
+    for (let x = cx - 2; x <= cx + 2; x++) px(x, 5, red);                     // the mudguard
+    px(cx - 2, 6, red); px(cx + 2, 6, red);
+    px(cx, 7, '#e8483a');                                                     // the reflector
+  }
+  return cv;
+}
+
+/** The vehicle as a canvas, frame 0 or 1 — facing right, or head-on or from
+ *  behind for a ride drawn that way (RIDE_VIEWS). */
+export function drawRide(ride: Exclude<Ride, 'walk'>, frame: number, view: RideView = 'side'): HTMLCanvasElement {
+  if (ride === 'bike' && view !== 'side') return bikeFacing(view, frame, 'under');
   const w = ride === 'bike' ? 24 : 36, h = ride === 'bike' ? 15 : 24;
   const cv = document.createElement('canvas');
   cv.width = w; cv.height = h;
