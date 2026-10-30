@@ -19,7 +19,7 @@ export interface RoomSceneData {
   look: BuddyLook;
   stage: number;
   keeperLook: VillagerLook;
-  /** The keeper is talking to you (KeeperDialog is up). */
+  /** The keeper is talking to you or waiting for your choice. */
   talking?: boolean;
 }
 
@@ -114,7 +114,7 @@ export class RoomScene extends Phaser.Scene {
   }
 
   /** A white speech bubble with three dots taking turns to bounce — the
-   *  keeper is talking to you — bobbing gently over their head. */
+   *  keeper is talking, or waiting on your choice — bobbing over their head. */
   private speechBubble(x: number, y: number) {
     const g = this.add.graphics();
     const ink = 0x2a1a12;

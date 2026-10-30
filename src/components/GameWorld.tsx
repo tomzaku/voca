@@ -51,7 +51,8 @@ interface Props {
     tools?: ReactNode;
     /** The skill whose room to stand in (ROOMS) instead of over the city. */
     room?: string;
-    /** The room's keeper is talking to you: a speech bubble over their head. */
+    /** The room's keeper is talking to you or waiting for your choice: a
+     *  speech bubble over their head. */
     talking?: boolean;
   } | null;
   onCreate: () => void;
