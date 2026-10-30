@@ -3,6 +3,7 @@
 
 import { rand } from './core/canvas.mjs';
 import { BOATS } from './fill/boats.mjs';
+import { PARK_PATHS } from './roads.mjs';
 import { FEATURES, ISLETS, RIVER, RIVER_BRIDGES, SPAWN, T, W, isWater, isletE, onIslet, riverHalfWidth } from './layout.mjs';
 import { FLAG, LABELS as CITADEL_LABELS } from './places/citadel.mjs';
 import { LABELS as DONG_BA_LABELS } from './places/dongBa.mjs';
@@ -70,6 +71,15 @@ export function writeMeta() {
     }
     spots.slice(0, 60).forEach(([x, y], i) => point('lantern', x, y, { order: i }));
   }
+
+  // What moves in the city (WorldScene's ambient life): people strolling the
+  // parks' paths and the walking street, incense smoke at the temples, the
+  // fountain's spray.
+  for (const [x0, x1, y] of [...PARK_PATHS, [57, 74.5, 64.2]]) {
+    if (x1 - x0 >= 5) point('stroll', x0 + 0.5, y + 0.2, { to: Math.round((x1 - 0.5) * T) });
+  }
+  for (const [x, y] of [[11.5, 46.4], [20, 43.6], [62.9, 27.9], [66.1, 27.9]]) point('smoke', x, y);
+  point('spray', 72, 63.3);
 
   FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 }

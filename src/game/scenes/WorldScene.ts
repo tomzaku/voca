@@ -110,6 +110,11 @@ interface MapMeta {
   flag: { x: number; y: number } | null;
   /** Lantern spots on the water, in the order they fill. */
   lanterns: { x: number; y: number }[];
+  /** Ambient life: paths people stroll along (from x to `to`), temple
+   *  burners' smoke, the fountain's spray. */
+  strolls: { x: number; y: number; to: number }[];
+  smokes: { x: number; y: number }[];
+  sprays: { x: number; y: number }[];
 }
 
 interface MapSlot {
@@ -380,6 +385,7 @@ export class WorldScene extends Phaser.Scene {
     this.createBuddy();
     this.setRide(this.args.ride ?? 'walk');
     this.spawnTraffic();
+    this.spawnAmbient();
     this.targetMark = this.add
       .circle(0, 0, 8)
       .setStrokeStyle(2.5, 0xffd23f)
@@ -861,6 +867,9 @@ export class WorldScene extends Phaser.Scene {
       slots: [],
       flag: null,
       lanterns: [],
+      strolls: [],
+      smokes: [],
+      sprays: [],
     };
     const lanterns: { x: number; y: number; order: number }[] = [];
     type TiledProp = { name: string; value: unknown };
@@ -885,6 +894,15 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'lantern':
           lanterns.push({ x, y, order: Number(get('order') ?? lanterns.length) });
+          break;
+        case 'stroll':
+          meta.strolls.push({ x, y, to: Number(get('to') ?? 0) * SCALE });
+          break;
+        case 'smoke':
+          meta.smokes.push({ x, y });
+          break;
+        case 'spray':
+          meta.sprays.push({ x, y });
           break;
         case 'animal':
           meta.animals.push({ x, y, kind: String(get('kind') ?? 'chicken') });
@@ -1094,6 +1112,100 @@ export class WorldScene extends Phaser.Scene {
       this.buddy.addAt(this.driver, 2);   // over the frame, in the saddle
     }
     this.applyAnim(false);
+  }
+
+  /**
+   * The city going about its day, for the eye only (nothing here blocks or
+   * can be talked to): people strolling the parks and the walking street,
+   * incense smoke at the temples, the fountain's spray, glints on the river,
+   * sampans drifting between the bridges, now and then birds crossing. Left
+   * out for anyone who has asked their system for reduced motion.
+   */
+  private spawnAmbient() {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const k = this.tilePx;
+    // Strollers: walking one way, then back, each at their own pace.
+    this.meta.strolls.forEach((s, i) => {
+      const look = keeperLookFor(i + 5);
+      const p = this.add.sprite(s.x, s.y, VILLAGERS_KEY, `${look}-walk-0`).setOrigin(0.5, 1).setScale(SCALE * 0.9).setDepth(DEPTH_BUDDY - 1);
+      p.play({ key: villagerAnim(this, look, 'walk'), delay: i * 170 });
+      this.tinted.push(p);
+      const from = i % 2 ? s.to : s.x, to = i % 2 ? s.x : s.to;
+      p.setX(from).setFlipX(to < from);
+      this.tweens.add({
+        targets: p, x: to, duration: (Math.abs(to - from) / (26 + (i % 4) * 6)) * 1000, ease: 'linear',
+        yoyo: true, repeat: -1, delay: i * 400,
+        onYoyo: () => p.setFlipX(!(to < from)), onRepeat: () => p.setFlipX(to < from),
+      });
+    });
+    // Incense smoke: wisps rising from each burner and fading.
+    for (const s of this.meta.smokes) {
+      this.time.addEvent({
+        delay: 700, loop: true, startAt: Math.random() * 700, callback: () => {
+          const w = this.add.circle(s.x + (Math.random() - 0.5) * 4, s.y, 2.5, 0xe8e8ee, 0.55).setDepth(DEPTH_OVER - 1);
+          this.tweens.add({ targets: w, y: s.y - 34, x: w.x + (Math.random() - 0.5) * 12, alpha: 0, scale: 2.2, duration: 2600, onComplete: () => w.destroy() });
+        },
+      });
+    }
+    // The fountain: drops thrown up and falling back into the basin.
+    for (const s of this.meta.sprays) {
+      this.time.addEvent({
+        delay: 90, loop: true, callback: () => {
+          const d = this.add.rectangle(s.x, s.y - 18, 2, 2, 0xdcf0fc).setDepth(DEPTH_BUDDY - 1);
+          const dx = (Math.random() - 0.5) * 30;
+          this.tweens.add({ targets: d, x: s.x + dx, duration: 700, ease: 'linear' });
+          this.tweens.add({ targets: d, y: s.y - 34, duration: 300, ease: 'quad.out', yoyo: true, hold: 0, onComplete: () => d.destroy() });
+        },
+      });
+    }
+    // Glints on the river: here and there the light catches the water.
+    const spots = this.meta.lanterns;
+    if (spots.length) {
+      this.time.addEvent({
+        delay: 120, loop: true, callback: () => {
+          const s = spots[Math.floor(Math.random() * spots.length)];
+          const g = this.add.rectangle(s.x + (Math.random() - 0.5) * k * 3, s.y + (Math.random() - 0.5) * k, 6 + Math.random() * 8, 2, 0xffffff, 0).setDepth(DEPTH_BUDDY - 2);
+          this.tweens.add({ targets: g, alpha: 0.7, duration: 500, yoyo: true, onComplete: () => g.destroy() });
+        },
+      });
+    }
+    // Sampans drifting up and down the stretches between the bridges.
+    const key = 'ambient-sampan';
+    if (!this.textures.exists(key)) {
+      const cv = document.createElement('canvas');
+      cv.width = 28; cv.height = 12;
+      const c = cv.getContext('2d')!;
+      c.fillStyle = '#8a5a3a'; c.fillRect(2, 6, 24, 4); c.fillRect(0, 5, 3, 2); c.fillRect(25, 5, 3, 2);
+      c.fillStyle = '#5c3c28'; c.fillRect(3, 9, 22, 1);
+      c.fillStyle = '#9a7650'; c.fillRect(9, 1, 11, 5);
+      c.fillStyle = '#7a5a38'; for (let x = 9; x < 20; x += 2) c.fillRect(x, 1, 1, 5);
+      this.textures.addCanvas(key, cv)?.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    const rows = spots.map((s) => s.y).sort((a, b) => a - b);
+    const midRow = rows.length ? rows[Math.floor(rows.length / 2)] : 0;
+    for (const [a, b] of [[24, 31], [51, 65], [80, 95]]) {
+      const y = midRow + (Math.random() - 0.5) * k * 2;
+      const boat = this.add.image(a * k, y, key).setScale(SCALE).setDepth(DEPTH_BUDDY - 2);
+      this.tinted.push(boat);
+      this.tweens.add({ targets: boat, x: b * k, duration: (b - a) * 2600, yoyo: true, repeat: -1, ease: 'sine.inOut', onYoyo: () => boat.setFlipX(true), onRepeat: () => boat.setFlipX(false) });
+      this.tweens.add({ targets: boat, y: y + 3, duration: 1400, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    }
+    // Birds, now and then, crossing the sky in a loose V.
+    this.time.addEvent({
+      delay: 16000, loop: true, startAt: 12000, callback: () => {
+        const cam = this.cameras.main.worldView;
+        const y0 = cam.y + cam.height * (0.15 + Math.random() * 0.3);
+        const flock = this.add.container(cam.x - 60, y0).setDepth(DEPTH_OVER + 2);
+        for (let i = 0; i < 5; i++) {
+          const bird = this.add.graphics();
+          bird.lineStyle(2, 0x2a2a30, 0.8).beginPath().moveTo(-5, -2).lineTo(0, 1).lineTo(5, -2).strokePath();
+          bird.setPosition(-Math.abs(i - 2) * 14, (i - 2) * 9);
+          flock.add(bird);
+          this.tweens.add({ targets: bird, scaleY: 0.4, duration: 220 + i * 20, yoyo: true, repeat: -1 });
+        }
+        this.tweens.add({ targets: flock, x: cam.x + cam.width + 80, y: y0 - 40, duration: 9000, onComplete: () => flock.destroy() });
+      },
+    });
   }
 
   /** A few riders on the riverside roads — the north bank's and Lê Lợi on the
