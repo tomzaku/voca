@@ -11,22 +11,32 @@
 import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
 import { P, STREET } from '../core/palette.mjs';
 import { drawn, ground, over } from '../core/world.mjs';
-import { T, isWater } from '../layout.mjs';
+import { H as MAP_H, HILLS_Y, T, W as MAP_W, isWater } from '../layout.mjs';
+import { grassColor, hillTint } from '../paint/terrain.mjs';
 import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
 import { K, bicycle, cyclo, house, lamp, market, tree } from './art.mjs';
 
-/** The patches, in tiles. */
-export const DETAIL = [
-  { key: 'dongba', x0: 80, y0: 30, x1: 100, y1: 52 },
-];
+/** The patches, in tiles: the whole map, in pieces small enough for any
+ *  GPU's largest texture (40 × 36 tiles is 1280 × 1152 px). */
+const PATCH_W = 40, PATCH_H = 36;
+export const DETAIL = [];
+for (let y0 = 0; y0 < MAP_H; y0 += PATCH_H) {
+  for (let x0 = 0; x0 < MAP_W; x0 += PATCH_W) {
+    DETAIL.push({ key: `${x0 / PATCH_W}-${y0 / PATCH_H}`, x0, y0, x1: Math.min(MAP_W, x0 + PATCH_W), y1: Math.min(MAP_H, y0 + PATCH_H) });
+  }
+}
 
-const GRASS = [P.grass, P.grassLight, P.grassDark, P.fleckLight, P.fleckDark].map((c) => c.join());
 const same = (d, i, c) => d[i] === c[0] && d[i + 1] === c[1] && d[i + 2] === c[2];
 
-/** Grass at detail size: three greens, blades, the odd flower. */
-function grassAt(X, Y) {
+/** Grass at detail size: three greens, blades, the odd flower; the hills'
+ *  tint over it below the city. */
+function grassAt(X, Y, mx, my) {
+  const c = flatGrassAt(X, Y);
+  return my >= HILLS_Y * T ? hillTint(c, mx, my) : c;
+}
+function flatGrassAt(X, Y) {
   const n = noise(X, Y, 22) * 0.6 + noise(X, Y, 7) * 0.4;
   let c = n < 0.4 ? [102, 162, 72] : n > 0.62 ? [122, 182, 84] : [112, 172, 78];
   const h = hash(X, Y);
@@ -45,9 +55,9 @@ function waterAt(X, Y, mx, my) {
 }
 
 /** A road at detail size: finer pavement slabs, asphalt grain, a crisp kerb. */
-function roadAt(X, Y, mx, my) {
+function roadAt(X, Y, mx, my, roads) {
   let best = null;
-  for (const r of ROADS) {
+  for (const r of roads) {
     const hit = roadHit(r, mx, my);
     if (!hit) continue;
     const e = (r.width * T) / 2 - Math.abs(hit.o);
@@ -74,7 +84,7 @@ function roadAt(X, Y, mx, my) {
   }
   // A lane: packed earth, pebbles, soft ruts, grass growing in at the edges.
   const half = (r.width * T) / 2;
-  if (e < 2.5 && noise(X, Y, 6) * (2.5 - e) > 0.9) return grassAt(X, Y);
+  if (e < 2.5 && noise(X, Y, 6) * (2.5 - e) > 0.9) return grassAt(X, Y, mx, my);
   let c = mix(P.dirt, P.dirtSpeck, noise(X, Y, 12) * 0.6);
   const rut = Math.abs(Math.abs(o) - half * 0.4);
   if (rut < 2) c = mix(c, [166, 142, 104], 0.35 * (1 - rut / 2));
@@ -131,6 +141,11 @@ export function renderDetail(write) {
 
     // Lift the old pixels out, then shade the ground afresh: everywhere it
     // was lifted, and every untouched pixel of plain grass, road or water.
+    // The roads that reach this patch.
+    const roads = ROADS.filter((r) => {
+      const xs = r.points.map((p) => p[0]), ys = r.points.map((p) => p[1]), half = r.width / 2;
+      return Math.max(...xs) + half >= x0 && Math.min(...xs) - half <= x1 && Math.max(...ys) + half >= y0 && Math.min(...ys) - half <= y1;
+    });
     const clear = new Uint8Array(W * H);
     for (const { e, art } of redraw) {
       if (art) liftOut(clear, o.d, W, H, ox, oy, e);
@@ -150,12 +165,13 @@ export function renderDetail(write) {
         if (isWater(mx, my)) {
           if (clear[i] || (d[p + 2] > d[p] + 40 && d[p + 2] > d[p + 1])) c = waterAt(X, Y, mx, my);
         } else {
-          const road = roadAt(X, Y, mx, my);
+          const road = roadAt(X, Y, mx, my, roads);
+          const grass = same(d, p, grassColor(fx, fy));
           if (road) {
             const plain = shade(fx, fy);
             // Lanes fray into the grass, so their edge pixels count as plain too.
-            if (clear[i] || (plain && same(d, p, plain)) || (!plain && GRASS.includes(`${d[p]},${d[p + 1]},${d[p + 2]}`))) c = road;
-          } else if (clear[i] || GRASS.includes(`${d[p]},${d[p + 1]},${d[p + 2]}`)) c = grassAt(X, Y);
+            if (clear[i] || (plain && same(d, p, plain)) || (!plain && grass)) c = road;
+          } else if (clear[i] || grass) c = grassAt(X, Y, mx, my);
         }
         if (c) g.set(X, Y, c);
       }

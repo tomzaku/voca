@@ -613,16 +613,18 @@ export class WorldScene extends Phaser.Scene {
     });
     // A painted map: the ground goes under everything, the over layer above
     // the buddy. It takes the night tint itself, since it sits over the veil.
+    // Drawn in high detail (scripts/hue/hd), the map comes as patches covering
+    // all of it — twice the pixels, so half the scale — in place of its
+    // ordinary images.
+    const patches = (this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[];
     const ground = `ground-${src.key}`;
     const over = `over-${src.key}`;
-    if (this.textures.exists(ground)) this.add.image(0, 0, ground).setOrigin(0, 0).setScale(SCALE).setDepth(-1);
-    const overImage = this.textures.exists(over)
+    if (!patches.length && this.textures.exists(ground)) this.add.image(0, 0, ground).setOrigin(0, 0).setScale(SCALE).setDepth(-1);
+    const overImage = !patches.length && this.textures.exists(over)
       ? this.add.image(0, 0, over).setOrigin(0, 0).setScale(SCALE).setDepth(DEPTH_OVER)
       : null;
-    // High-detail patches over the map where they've been drawn: twice the
-    // pixels, so half the scale, in exactly the same place.
     const detailOver: Phaser.GameObjects.Image[] = [];
-    for (const p of (this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[]) {
+    for (const p of patches) {
       const g = `detail-${p.key}-ground`, o = `detail-${p.key}-over`;
       if (this.textures.exists(g)) this.add.image(p.x * SCALE, p.y * SCALE, g).setOrigin(0, 0).setScale(SCALE / 2).setDepth(-0.5);
       if (this.textures.exists(o)) detailOver.push(this.add.image(p.x * SCALE, p.y * SCALE, o).setOrigin(0, 0).setScale(SCALE / 2).setDepth(DEPTH_OVER + 0.01));
