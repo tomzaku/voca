@@ -84,13 +84,14 @@ const noise = (x, y, s) => {
 };
 const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 
-// ── Palette ── muted on purpose; saturated colour is kept for landmarks.
+// ── Palette ── bright and green, like an illustrated city map: lush grass,
+// blue water, colourful roofs.
 const P = {
-  grass: [124, 166, 100], grassLight: [131, 172, 105], grassDark: [117, 159, 95],
-  fleckLight: [146, 184, 114], fleckDark: [104, 144, 86],
+  grass: [112, 172, 78], grassLight: [122, 182, 84], grassDark: [102, 162, 72],
+  fleckLight: [148, 200, 102], fleckDark: [86, 144, 62],
   dirt: [214, 194, 156], dirtEdge: [186, 164, 128], dirtSpeck: [199, 178, 140],
   stone: [204, 198, 186], stoneJoint: [184, 178, 166], stoneEdge: [158, 152, 142],
-  water: [88, 152, 154], waterDeep: [74, 137, 144], waterShallow: [114, 172, 168], glint: [170, 212, 204],
+  water: [62, 146, 206], waterDeep: [50, 128, 194], waterShallow: [98, 178, 222], glint: [196, 230, 248],
   embank: [178, 172, 160], embankDark: [126, 120, 110],
   lotusPad: [94, 146, 88], lotusPad2: [112, 160, 98], lotus: [236, 150, 178],
   wallTop: [156, 146, 124], wallFace: [118, 108, 94], wallLine: [96, 88, 76], moss: [112, 132, 92],
@@ -106,6 +107,11 @@ const ROOF = {
   moss:     { base: [118, 122, 98], line: [104, 108, 86], light: [144, 148, 120], eave: [72, 76, 60], ridge: [86, 90, 70] },
   slate:    { base: [94, 94, 104], line: [82, 82, 92], light: [120, 120, 130], eave: [56, 56, 64], ridge: [68, 68, 76] },
   plum:     { base: [120, 92, 104], line: [104, 80, 92], light: [146, 116, 128], eave: [72, 54, 62], ridge: [88, 66, 76] },
+  // The bright roofs of the neighbourhoods.
+  red:      { base: [196, 74, 56], line: [172, 60, 46], light: [222, 110, 84], eave: [120, 40, 32], ridge: [140, 48, 36] },
+  orange:   { base: [222, 128, 62], line: [198, 108, 50], light: [240, 160, 96], eave: [138, 72, 34], ridge: [160, 84, 40] },
+  blue:     { base: [76, 112, 168], line: [64, 96, 148], light: [108, 144, 196], eave: [42, 64, 100], ridge: [52, 76, 118] },
+  teal:     { base: [58, 140, 128], line: [48, 120, 110], light: [92, 170, 156], eave: [32, 84, 76], ridge: [40, 96, 88] },
 };
 
 // ── A tiny RGBA canvas ──
@@ -238,6 +244,25 @@ const SOUTH_GATES = gatesOn('south');
 const WEST_GATE_Y = 30;                                // the gate Kim Long's road runs through
 const EAST_GATE_Y = 36;                                // Đông Ba's, to the market
 const NGO_MON = { x: 49, y: 34, w: 12, h: 6 };         // in the Imperial City's south wall
+
+// The skills' keepers — one person per skill, at its home landmark (see
+// src/game/features.ts). Their menus reach every activity, including those
+// whose landmarks (Thiên Mụ, Quốc Học, the library…) have no keeper of
+// their own.
+const FEATURES = [
+  ['vocabulary', 91, 47.5, 'Chợ Đông Ba'],
+  ['speaking', 111, 40.6, 'Cồn Hến'],
+  ['listening', 49, 54.5, 'Thuyền rồng'],
+  ['writing', 20, 44.5, 'Văn Miếu'],
+  ['you', 13, 12.5, 'Nhà vườn An Hiên'],
+  // One keeper for every collection and level, before the throne hall.
+  ['collections', 55, 30.5, 'Điện Thái Hòa'],
+];
+// Arrive at the south end of Trường Tiền.
+const SPAWN = [76.5, 59];
+// The river bridges' columns, west to east: Nguyễn Hoàng, Dã Viên, Phú Xuân,
+// Trường Tiền.
+const RIVER_BRIDGES = [[19, 23], [32, 35], [66, 69], [75, 78]];
 
 // Tàng Thư Lâu: like the real one, the library stands on an island in Học
 // Hải lake, reached by one small bridge.
@@ -1152,6 +1177,7 @@ for (const [x, y, pal] of [[86, 22, ROOF.plum], [92, 22, ROOF.dark], [88, 12, RO
     ground.set(x, 67 * T + 9, [96, 100, 108]);
     ground.set(x, 68 * T + 6, [96, 100, 108]);
   }
+  mark(used, 6, 67, 41, 2);
   const cv = hall({ w: 9, h: 5, roofRows: 2, roofPal: ROOF.terra, wall: [236, 222, 186], pillar: [196, 170, 120], pillarStep: 12, windows: true, windowStep: 11, doorW: 12, doorFill: [80, 64, 50] });
   // A little clock tower over the door.
   cv.rect(cv.w / 2 - 10, 2, 20, 26, [240, 228, 196]);
@@ -1266,6 +1292,85 @@ const HILL = { cx: 57 * T, cy: 81.2 * T, rx: 7 * T, ry: 3.8 * T };
   cv.rect(pw / 2 - 5, mpy + 26, 10, 12, [44, 42, 40]);
   roof(cv, mpx, mpy + 4, 68, 14, ROOF.slate, 5);
   place(cv, 2, 70, 9);
+}
+
+// ── Neighbourhoods ──
+// The city between the landmarks, as an illustrated map shows it: lanes of
+// small houses under bright roofs, packed into the open land of each quarter,
+// a gap left between every two so the buddy can always walk through.
+const SMALL_HOUSE = (roofPal, wall) => hall({ w: 3, h: 3, roofRows: 2, roofPal, wall, windows: true, windowStep: 9, doorW: 5 });
+const LANE_ROOFS = [ROOF.red, ROOF.orange, ROOF.red, ROOF.blue, ROOF.terra, ROOF.orange, ROOF.teal, ROOF.dark];
+const HOUSE_WALLS = [[240, 232, 210], [236, 214, 170], [244, 240, 230], [232, 196, 168], [226, 214, 190]];
+const onAnyRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x - 1 && tx < x + w + 1 && ty >= y - 1 && ty < y + h + 1);
+const nearSlot = (tx, ty) => [...FEATURES.map(([, x, y]) => [x, y]), SPAWN].some(([x, y]) => Math.abs(tx + 1 - x) < 4 && Math.abs(ty + 1 - y) < 4);
+function lotFree(tx, ty, w, h) {
+  for (let j = ty; j < ty + h + 1; j++) {           // the row in front of the door too
+    for (let i = tx; i < tx + w; i++) {
+      if (used[j]?.[i] !== false || solid[j]?.[i] !== false || onAnyRoad(i, j)) return false;
+      if (isWater(i * T + 8, j * T + 8) || isWater(i * T, j * T) || isWater(i * T + 15, j * T + 15)) return false;
+    }
+  }
+  return !nearSlot(tx, ty);
+}
+// Quarters: [x0, y0, x1, y1] in tiles.
+const QUARTERS = [
+  [1, 2, 28, 46],     // Kim Long
+  [31, 6, 77, 15],    // inside the Citadel, round Tịnh Tâm
+  [31, 30, 41, 44],   // the Citadel's south-west
+  [69, 18, 77, 44],   // the Citadel's east side
+  [83, 1, 104, 35],   // Gia Hội
+  [0, 61, 98, 86],    // the south bank
+  [98, 46, 120, 86],  // Vỹ Dạ
+];
+for (const [x0, y0, x1, y1] of QUARTERS) {
+  for (let y = y0; y + 3 <= y1; y += 4) {
+    const shift = (Math.floor(y / 4) % 2) * 2;     // stagger the rows, like streets that don't line up
+    for (let x = x0 + shift; x + 3 <= x1; x += 4) {
+      if (rand() < 0.22 || !lotFree(x, y, 3, 3)) continue;
+      const roofPal = LANE_ROOFS[Math.floor(rand() * LANE_ROOFS.length)];
+      place(SMALL_HOUSE(roofPal, HOUSE_WALLS[Math.floor(rand() * HOUSE_WALLS.length)]), x, y, 2);
+    }
+  }
+}
+
+// Boats on the Hương: sampans with their woven hoods, and a dragon boat or
+// two — kept clear of the bridges, the wharf and the islets.
+const BOATS = [];
+{
+  const sampan = (bx, by, flip) => {
+    const w = 26;
+    for (let x = 0; x < w; x++) {
+      const taper = x < 4 ? 4 - x : x > w - 5 ? x - (w - 5) : 0;
+      for (let y = 3 + Math.floor(taper / 2); y < 8; y++) ground.set(bx + x, by + y, y > 6 ? [92, 60, 40] : [138, 96, 62]);
+    }
+    const hx = flip ? 4 : 10;
+    for (let x = hx; x < hx + 12; x++) for (let y = 0; y < 4; y++) ground.set(bx + x, by + y, (x + y) % 3 ? [116, 86, 56] : [92, 66, 44]);
+    ground.rect(bx + 2, by + 9, w - 4, 1, P.shadow, 0.25);
+  };
+  const dragon = (bx, by) => {
+    const w = 40;
+    for (let x = 0; x < w; x++) for (let y = 3; y < 9; y++) ground.set(bx + x, by + y, y > 7 ? [120, 40, 32] : y > 5 ? [196, 160, 64] : [186, 54, 42]);
+    ground.rect(bx + 10, by, 20, 4, [150, 44, 36]);
+    for (let x = 9; x < 31; x++) ground.set(bx + x, by - 1, ROOF.imperial.base);
+    ground.rect(bx - 4, by + 1, 5, 4, [196, 160, 64]);        // head
+    ground.set(bx - 3, by + 2, [40, 30, 30]);
+    ground.rect(bx + w, by + 2, 3, 3, [196, 160, 64]);       // tail
+    ground.rect(bx + 2, by + 10, w - 4, 1, P.shadow, 0.25);
+  };
+  const clear = (tx, ty, w) =>
+    !RIVER_BRIDGES.some(([a, b]) => tx + w > a - 2 && tx < b + 2)
+    && !(tx + w > 40 && tx < 61)                                       // the wharf and the landing
+    && !ISLETS.some((i) => isletE(i, tx * T, ty * T) < 2.5 || isletE(i, (tx + w) * T, ty * T) < 2.5)
+    && [0, 0.5, 1].every((f) => [-T, 0, T].every((dy) => isWater((tx + w * f) * T, ty * T + dy)))
+    && !BOATS.some(([x, y, bw]) => Math.abs(y - ty) < 2 && tx < x + bw + 2 && tx + w > x - 2);
+  for (let i = 0; i < 400 && BOATS.length < 14; i++) {
+    const big = BOATS.length % 5 === 4;
+    const w = big ? 3 : 2;
+    const tx = 2 + rand() * 92, ty = 51.5 + rand() * 4;
+    if (!clear(tx, ty, w)) continue;
+    if (big) dragon(tx * T, ty * T); else sampan(tx * T, ty * T, rand() < 0.5);
+    BOATS.push([tx, ty, w]);
+  }
 }
 
 // ── 7. Trees ──
@@ -1466,6 +1571,13 @@ function pine(tx, ty) {
 }
 
 
+/** Room for a roadside tree: its trunk off the road and clear of the next
+ *  tree along. */
+function canPlantLoose(tx, ty) {
+  for (const [i, j] of [[tx, ty], [tx, ty - 1], [tx - 1, ty], [tx + 1, ty]]) if (solid[j]?.[i] !== false) return false;
+  return !isWater(tx * T + 8, ty * T + 8);
+}
+
 /** Room for a tree with its trunk at (tx, ty): nothing built, paved or wet
  *  around it. */
 function canPlant(tx, ty) {
@@ -1489,7 +1601,6 @@ for (let x = 2; x < 96; x += 4) {
 // their own rule: dry grass, not a road, a bridge, the wharf or a building.
 const onRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x && tx < x + w && ty >= y && ty < y + h);
 const nearRoad = (tx, ty) => ROADS.some(([x, y, w, h]) => tx >= x - 1 && tx < x + w + 1 && ty >= y - 1 && ty < y + h + 1);
-const RIVER_BRIDGES = [[19, 23], [32, 35], [66, 69], [75, 78]];
 const BANK_KEEP_CLEAR = [
   ...RIVER_BRIDGES.map(([a, b]) => [a - 1, 46, b - a + 3, 15]),
   [41, 48, 19, 12],        // the dragon-boat wharf, its boat, Phu Văn Lâu's landing
@@ -1552,12 +1663,69 @@ plantAround('banyan', 70, 76, 6, 1);
 for (const [x, y] of [[53, 79], [56, 78], [59, 79], [51, 82], [61, 82], [55, 83], [58, 84], [1, 36], [1, 41], [8, 36]]) pine(x, y);
 // A few flame trees for a warm accent.
 for (const [x, y] of [[24, 9], [100, 26], [44, 64], [109, 70]]) if (canPlant(x, y)) tree(x, y, 'flame');
-// Scatter broadleaf trees over the remaining open grass, sparsely.
+// Trees along the lanes, every few steps on both sides.
+for (const [x, y, w, h, mat] of ROADS) {
+  if (mat !== 'dirt') continue;
+  const kinds = ['leaf', 'deep', 'leaf', 'flame', 'leaf', 'lilac'];
+  if (w >= h) {
+    for (let tx = x + 1; tx < x + w - 1; tx += 3) for (const ty of [y - 1, y + h]) if (bankOk(tx, ty) && canPlantLoose(tx, ty)) plant(kinds[(tx + ty) % kinds.length], tx, ty);
+  } else {
+    for (let ty = y + 1; ty < y + h - 1; ty += 3) for (const tx of [x - 1, x + w]) if (bankOk(tx, ty) && canPlantLoose(tx, ty)) plant(kinds[(tx + ty) % kinds.length], tx, ty);
+  }
+}
+
+// Forest round the edge of the map — the green hills Huế sits in, thickest
+// to the south where the land rises towards the tombs. A canopy of crowns
+// packed edge to edge; the buddy stays out of it.
+{
+  const forest = [];
+  for (let ty = 0; ty < H; ty++) {
+    for (let tx = 0; tx < W; tx++) {
+      const edge = Math.min(tx, W - 1 - tx, ty, H - 1 - ty);
+      const n = noise(tx * T, ty * T, 70);
+      const depth = (ty > H / 2 ? 2.8 + Math.max(0, ty - (H - 9)) * 0.6 : 2.2) + n * 3.6;
+      // ...and woods in the open land, away from the lanes.
+      const wood = noise(tx * T + 900, ty * T + 300, 110) > 0.7 && !ROADS.some(([x, y, w, h]) => tx >= x - 2 && tx < x + w + 2 && ty >= y - 2 && ty < y + h + 2);
+      if (edge >= depth && !wood) continue;
+      if (used[ty][tx] || solid[ty][tx] || onAnyRoad(tx, ty) || isWater(tx * T + 8, ty * T + 8)) continue;
+      if (nearSlot(tx - 1, ty - 1) || (used[ty + 1]?.[tx] && !wood)) continue;
+      forest.push([tx, ty]);
+    }
+  }
+  const shades = [[34, 94, 50], [48, 116, 56], [66, 140, 64], [96, 168, 78]];
+  for (const pass of [0, 1, 2, 3]) {
+    for (const [tx, ty] of forest) {
+      for (let k = 0; k < 2; k++) {
+        const h = hash(tx * 7 + k, ty * 13 + k);
+        const cx = tx * T + 4 + h * 8, cy = ty * T + 4 + hash(ty * 5 + k, tx * 3) * 8;
+        const r = 9 + h * 4;
+        if (pass === 0) ground.ellipse(cx + 2, cy + 4, r, r * 0.8, P.shadow, 0.35);
+        else if (pass === 1) ground.ellipse(cx, cy, r, r * 0.85, shades[0]);
+        else if (pass === 2) ground.ellipse(cx - 1, cy - 1, r - 2, r * 0.7, shades[1 + (h > 0.6 ? 1 : 0)]);
+        else ground.ellipse(cx - 3, cy - 4, r * 0.4, r * 0.3, shades[3], 0.8);
+      }
+    }
+  }
+  for (const [tx, ty] of forest) { solid[ty][tx] = true; used[ty][tx] = true; }
+}
+
+// Groves in the open, then single trees scattered over what's left.
+for (let g = 0; g < 40; g++) {
+  const cx = 2 + rand() * (W - 4), cy = 3 + rand() * (H - 6);
+  plantAround(rand() < 0.6 ? 'leaf' : 'deep', cx, cy, 3, 4);
+}
+// Every tree keeps a clear tile all round it, so however thick they grow
+// there's a way between them; and stays off the lanes and doorsteps.
+function canPlantDense(tx, ty) {
+  if (used[ty]?.[tx] !== false || used[ty - 1]?.[tx] !== false || onAnyRoad(tx, ty)) return false;
+  for (let j = ty - 1; j <= ty + 1; j++) for (let i = tx - 1; i <= tx + 1; i++) if (solid[j]?.[i] !== false) return false;
+  return !isWater(tx * T + 8, ty * T + 8) && !isWater(tx * T + 8, ty * T - 8) && !nearSlot(tx - 1, ty - 1);
+}
 {
   let placed = 0;
-  for (let i = 0; i < 8000 && placed < 70; i++) {
+  for (let i = 0; i < 40000 && placed < 700; i++) {
     const tx = 1 + Math.floor(rand() * (W - 2)), ty = 2 + Math.floor(rand() * (H - 3));
-    if (!canPlant(tx, ty)) continue;
+    if (!canPlantDense(tx, ty)) continue;
     const r = rand();
     plant(r < 0.4 ? 'leaf' : r < 0.55 ? 'deep' : r < 0.67 ? 'lilac' : r < 0.79 ? 'bang' : r < 0.86 ? 'bangRed' : r < 0.94 ? 'bamboo' : 'frangipani', tx, ty);
     placed++;
@@ -1587,8 +1755,6 @@ const point = (type, tx, ty, props = {}) => objects.push({
   properties: Object.entries(props).map(([k, v]) => prop(k, v)),
 });
 
-// Arrive at the south end of Trường Tiền.
-const SPAWN = [76.5, 59];
 point('spawn', ...SPAWN);
 // The first label names the (single) area; `hidden` keeps it off the map.
 point('label', 2, 2, { text: 'Huế', theme: 'forest', hidden: 'true' });
@@ -1635,7 +1801,7 @@ for (const g of GATES) {
 point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
 {
   const spots = [];
-  for (let s = 3 * T; s < RIVER.length; s += 2.6 * T) {
+  for (let s = 3 * T; s < RIVER.length; s += 0.6 * T) {
     const g = RIVER.segs.find((seg) => s >= seg.s0 && s < seg.s0 + seg.len);
     if (!g) continue;
     const t = (s - g.s0) / g.len;
@@ -1647,6 +1813,7 @@ point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
     if (tx < 2 || tx > W - 2 || ty < 2) continue;
     if (RIVER_BRIDGES.some(([a, b]) => tx > a - 1.5 && tx < b + 1.5 && ty > 48 && ty < 59)) continue;
     if (tx > 41 && tx < 60 && ty > 50) continue;                 // the wharf, the boat, the landing
+    if (BOATS.some(([bx, by, bw]) => tx > bx - 1 && tx < bx + bw + 1 && ty > by - 1 && ty < by + 1.5)) continue;
     if (tx > 100 && tx < 109 && ty > 37 && ty < 43) continue;    // the Cồn Hến footbridge
     if (onIslet(x, y) || ISLETS.some((i) => isletE(i, x, y) < 1.8)) continue;
     if (![[0, 0], [T, 0], [-T, 0], [0, T], [0, -T]].every(([dx, dy]) => isWater(x + dx, y + dy))) continue;
@@ -1659,19 +1826,6 @@ point('flag', FLAG.x, FLAG.y, { drop: FLAG.drop });
   spots.slice(0, 60).forEach(([x, y], i) => point('lantern', x, y, { order: i }));
 }
 
-// The skills' keepers — one person per skill, at its home landmark (see
-// src/game/features.ts). Their menus reach every activity, including those
-// whose landmarks (Thiên Mụ, Quốc Học, the library…) have no keeper of
-// their own.
-const FEATURES = [
-  ['vocabulary', 91, 47.5, 'Chợ Đông Ba'],
-  ['speaking', 111, 40.6, 'Cồn Hến'],
-  ['listening', 49, 54.5, 'Thuyền rồng'],
-  ['writing', 20, 44.5, 'Văn Miếu'],
-  ['you', 13, 12.5, 'Nhà vườn An Hiên'],
-  // One keeper for every collection and level, before the throne hall.
-  ['collections', 55, 30.5, 'Điện Thái Hòa'],
-];
 FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 
 // ── 10. Sanity: every slot reachable from the spawn ──
