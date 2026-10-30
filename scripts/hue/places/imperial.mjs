@@ -5,7 +5,7 @@
 import { Canvas } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
 import { ground, mark, place, solid, used } from '../core/world.mjs';
-import { hall, roof } from '../draw/buildings.mjs';
+import { hall, palace, roof } from '../draw/buildings.mjs';
 import { T } from '../layout.mjs';
 
 /** Name a building's canvas, so the detailed renders (../hd) draw it as
@@ -19,6 +19,7 @@ export const LABELS = [
   { text: 'Cung Trường Sanh', x: 45, y: 17.3, place: 'truongSanh' },
   { text: 'Cung Diên Thọ', x: 45.5, y: 24.3, place: 'dienTho' },
   { text: 'Thái Miếu', x: 64.5, y: 24.3, place: 'thaiMieu' },
+  { text: 'Duyệt Thị Đường', x: 65, y: 17.3, place: 'duyetThiDuong' },
   { text: 'Thế Miếu', x: 46, y: 31, place: 'theMieu' },
   { text: 'Hiển Lâm Các', x: 46, y: 35, place: 'hienLam' },
 ];
@@ -158,13 +159,20 @@ export function drawImperialCity() {
     place(named(palaceHall(4, ROOF.glazed), 'truongSanh'), 43, 17, 2);
     place(named(palaceHall(5, ROOF.imperial), 'dienTho'), 43, 24, 2);
     place(named(palaceHall(5, ROOF.imperial), 'thaiMieu'), 62, 24, 2);
-    // Trường Sanh's garden pond, and a pavilion in the north-east garden.
+    // Trường Sanh's garden pond.
     ground.ellipse(46 * T, 22 * T - 2, 14, 5, P.water);
     ground.ellipse(46 * T, 22 * T - 2, 10, 3, P.waterShallow);
-    const cv = new Canvas(3 * T, 3 * T);
-    cv.rect(6, 36, 36, 10, [184, 176, 164]);
-    for (let x = 9; x < 42; x += 10) cv.rect(x, 24, 3, 12, [176, 52, 40]);
-    roof(cv, 4, 10, 40, 14, ROOF.glazed, 4);
-    place(cv, 64, 18, 1);
+  }
+
+  // Duyệt Thị Đường, the royal theatre, where Nhã nhạc court music played and
+  // tuồng was staged for the court: east of the Forbidden City, as it stands
+  // — a red hall under a two-tier roof, drums at its door.
+  {
+    const cv = palace({ w: 4, h: 5, roofPal: ROOF.imperial, wall: [120, 36, 30], pillar: [214, 170, 80] });
+    for (const dx of [4, cv.w - 16]) {
+      cv.ellipse(dx + 6, cv.h - 10, 6, 5, [170, 60, 44]);
+      cv.ellipse(dx + 6, cv.h - 12, 5, 3, [236, 214, 170]);
+    }
+    place(named(cv, 'duyetThiDuong'), 63, 17, 3);
   }
 }

@@ -1,6 +1,6 @@
 // The Citadel (Kinh Thành): walls and moats, the ten gates, Ngọ Môn and Kỳ
 // Đài, Phu Văn Lâu on the river — and, inside the walls, the library on its
-// island, Tịnh Tâm, the houses and the royal theatre.
+// island, Tịnh Tâm and the houses.
 
 import { Canvas, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
@@ -16,7 +16,6 @@ export const LABELS = [
   { text: 'Phu Văn Lâu', x: 55, y: 50, place: 'phuVanLau' },
   { text: 'Nghênh Lương Đình', x: 55, y: 56.2, place: 'nghenhLuong' },
   { text: 'Tàng Thư Lâu', x: 36, y: 21, place: 'tangThuLau' },
-  { text: 'Duyệt Thị Đường', x: 73, y: 13.2, place: 'duyetThiDuong' },
   { text: 'Hồ Tịnh Tâm', x: 55, y: 7.5, place: 'tinhTam' },
   // The gates, named just outside the wall.
   ...GATES.map((g) => ({
@@ -205,16 +204,4 @@ export function drawCitadelGrounds() {
     place(HOUSE(pal), x, y, 2);
   }
 
-  // Duyệt Thị Đường: the royal theatre, where Nhã nhạc court music played —
-  // a long red hall under a two-tier roof, drums at its door. A lane runs past
-  // its east end, the way up to Tịnh Tâm lake.
-  {
-    const cv = palace({ w: 6, h: 5, roofPal: ROOF.imperial, wall: [120, 36, 30], pillar: [214, 170, 80] });
-    for (const dx of [18, cv.w - 30]) {
-      cv.ellipse(dx + 6, cv.h - 10, 6, 5, [170, 60, 44]);
-      cv.ellipse(dx + 6, cv.h - 12, 5, 3, [236, 214, 170]);
-    }
-    cv.spec = { kind: 'duyetThiDuong' };
-    place(cv, 70, 13, 3);
-  }
 }

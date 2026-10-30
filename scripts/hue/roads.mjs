@@ -47,10 +47,10 @@ export const ROADS = [
   box(35, 30, 2, 11, 'stone'),                                    // from the west gate down past the library
   box(32, 21, 8, 7, 'stone'),                                     // the library's island courtyard
   box(69, EAST_GATE_Y, 11, 2, 'stone'), box(70, 38, 2, 3, 'stone'),
-  box(72, 19, 2, 17, 'stone'),                                    // up to Duyệt Thị Đường
+  box(72, 12, 2, 24, 'stone'),                                    // up the east side, to the lane to Tịnh Tâm
   // Hồ Tịnh Tâm: a paved walk all round the lake (past Cửa Hậu at its
   // north), a street in to it from Cửa An Hòa, and a lane round from the
-  // east, by Cửa Kẻ Trài and past the theatre.
+  // east, from Cửa Kẻ Trài.
   road('stone', 1.4, ringAround(55, 9.5, 8.8, 4.2, 40)),
   road('street', 2, [[30, 13], [47.6, 13]]),
   road('lane', 1, [[76.5, 21.5], [76.5, 11.6], [63.4, 11.6]]),

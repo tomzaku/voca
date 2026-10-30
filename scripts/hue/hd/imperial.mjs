@@ -268,48 +268,49 @@ export function daiCungMon() {
   return cv;
 }
 
-/** Duyệt Thị Đường, the royal theatre: 6 × 5 tiles. A two-tier yellow roof,
+/** Duyệt Thị Đường, the royal theatre: 4 × 5 tiles. A two-tier yellow roof,
  *  its upper storey banded in red and gold round the theatre's plaque;
  *  lacquered bays below, the middle doors open on the lit stage and its
  *  curtains; the great drums either side of the steps, lanterns under the
  *  eaves. */
 export function duyetThiDuong() {
-  const cv = new Canvas(6 * T2, 5 * T2);
+  const cv = new Canvas(4 * T2, 5 * T2);
   const W = cv.w, H = cv.h, cx = W / 2;
-  platform(cv, 0, H - 18, W, 18, 30);
-  bays(cv, 8, 96, W - 16, H - 18 - 96, 7);
+  const n = 5, bw = (W - 12) / n;
+  platform(cv, 0, H - 18, W, 18, 22);
+  bays(cv, 6, 96, W - 12, H - 18 - 96, n);
   // The open middle doors: the stage inside, lit, its curtains drawn back.
-  const dx = Math.round(8 + (3 * (W - 16)) / 7) + 4, dw = Math.round((W - 16) / 7) - 5;
+  const dx = Math.round(6 + 2 * bw) + 4, dw = Math.round(bw) - 5;
   cv.rect(dx, 99, dw, H - 18 - 101, [255, 214, 140]);
-  cv.rect(dx, 99, 5, H - 18 - 101, [176, 36, 40]);
-  cv.rect(dx + dw - 5, 99, 5, H - 18 - 101, [176, 36, 40]);
+  cv.rect(dx, 99, 4, H - 18 - 101, [176, 36, 40]);
+  cv.rect(dx + dw - 4, 99, 4, H - 18 - 101, [176, 36, 40]);
   cv.rect(dx, 99, dw, 4, [200, 150, 60]);
-  cv.rect(dx + 7, H - 30, dw - 14, 8, [130, 84, 52]);          // the stage's front
+  cv.rect(dx + 5, H - 30, dw - 10, 8, [130, 84, 52]);          // the stage's front
   // Lanterns under the eave.
-  for (let x = 20; x < W - 16; x += 26) {
+  for (let x = 14; x < W - 10; x += 25) {
     cv.rect(x, 97, 1, 3, [60, 40, 30]);
     cv.ellipse(x, 104, 3.5, 4, [224, 70, 50]);
     cv.rect(x - 1, 100, 3, 1, GOLD);
   }
   tiledRoof(cv, 2, 66, W - 4, 30, YELLOW, 10);                // the lower roof
   // The upper storey: red and gold, the plaque in its middle.
-  cv.rect(30, 46, W - 60, 22, LACQUER);
-  for (let x = 32; x < W - 32; x += 8) { cv.rect(x, 46, 2, 22, LACQUER_DARK); cv.rect(x + 3, 50, 3, 8, GOLD); }
-  cv.rect(cx - 26, 48, 52, 14, LACQUER_DARK);
-  cv.rect(cx - 25, 49, 50, 12, [56, 28, 22]);
-  cv.rect(cx - 26, 48, 52, 1, GOLD);
-  cv.rect(cx - 26, 61, 52, 1, GOLD);
-  for (let i = 0; i < 4; i++) cv.rect(cx - 20 + i * 11, 52, 7, 5, GOLD);
-  tiledRoof(cv, 22, 14, W - 44, 32, YELLOW, 12);              // the upper roof
-  ridgeDecor(cv, 34, W - 36, 10);
+  cv.rect(20, 46, W - 40, 22, LACQUER);
+  for (let x = 22; x < W - 22; x += 8) { cv.rect(x, 46, 2, 22, LACQUER_DARK); cv.rect(x + 3, 50, 3, 8, GOLD); }
+  cv.rect(cx - 20, 48, 40, 14, LACQUER_DARK);
+  cv.rect(cx - 19, 49, 38, 12, [56, 28, 22]);
+  cv.rect(cx - 20, 48, 40, 1, GOLD);
+  cv.rect(cx - 20, 61, 40, 1, GOLD);
+  for (let i = 0; i < 3; i++) cv.rect(cx - 15 + i * 11, 52, 7, 5, GOLD);
+  tiledRoof(cv, 14, 14, W - 28, 32, YELLOW, 12);              // the upper roof
+  ridgeDecor(cv, 26, W - 28, 10);
   // The drums, on their stands either side of the steps.
-  for (const x of [cx - 40, cx + 40]) {
-    cv.rect(x - 9, H - 10, 2, 10, WOOD_DARK);
-    cv.rect(x + 7, H - 10, 2, 10, WOOD_DARK);
-    cv.ellipse(x, H - 18, 10, 9, [176, 52, 40]);
-    cv.ellipse(x, H - 18, 7, 6.5, [236, 214, 170]);
-    cv.ellipse(x - 2, H - 20, 3, 2, [250, 236, 206]);
-    for (let a = 0; a < 16; a++) { const t = (a / 16) * Math.PI * 2; cv.set(x + Math.cos(t) * 9, H - 18 + Math.sin(t) * 8, GOLD); }
+  for (const x of [cx - 34, cx + 34]) {
+    cv.rect(x - 8, H - 10, 2, 10, WOOD_DARK);
+    cv.rect(x + 6, H - 10, 2, 10, WOOD_DARK);
+    cv.ellipse(x, H - 18, 9, 8, [176, 52, 40]);
+    cv.ellipse(x, H - 18, 6, 5.5, [236, 214, 170]);
+    cv.ellipse(x - 2, H - 20, 2.5, 1.8, [250, 236, 206]);
+    for (let a = 0; a < 16; a++) { const t = (a / 16) * Math.PI * 2; cv.set(x + Math.cos(t) * 8, H - 18 + Math.sin(t) * 7, GOLD); }
   }
   outline(cv);
   return cv;
