@@ -342,6 +342,9 @@ export function isTtsPlaying(): boolean {
 
 export const CONV_VOICE_A = 'af_sarah';   // Speaker A (AI bubble)
 export const CONV_VOICE_B = 'am_michael'; // Speaker B (user bubble)
+/** Voices for a recording with any number of speakers (IELTS Listening),
+ *  handed out in turn — see assignVoices in listeningRules. */
+export const RECORDING_VOICES = [CONV_VOICE_A, CONV_VOICE_B, 'bf_emma', 'bm_george'] as const;
 
 async function speakOnce(text: string, voice: string, ticket: number): Promise<void> {
   const clean = cleanMarkdown(text);

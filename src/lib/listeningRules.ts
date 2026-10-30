@@ -1,6 +1,7 @@
 // The rules of the Listen page's drills, with no UI: how a dictation is
 // graded and how a comprehension clip is scored. The Listen page and the
-// world's dragon boat both grade through this.
+// world's listening activities both grade through this, and share how a
+// recording is split up and voiced.
 
 /** A dictation passes at this accuracy (%). */
 export const DICTATION_PASS = 90;
@@ -47,4 +48,26 @@ export function gradeDictation(sentence: string, typed: string): DictationGrade 
 /** Right answers in a comprehension set; unanswered questions count wrong. */
 export function scoreAnswers(questions: { correctIndex: number }[], answers: (number | null)[]): number {
   return questions.reduce((n, q, i) => n + (answers[i] === q.correctIndex ? 1 : 0), 0);
+}
+
+/** A long script as its sentences, so it can be played — and followed — one
+ *  sentence at a time. Paragraph breaks end a sentence too. */
+export function splitSentences(text: string): string[] {
+  return text
+    .split(/\n+/)
+    .flatMap((para) => para.match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) ?? [])
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** One voice per speaker, handed out from `pool` in the order speakers first
+ *  speak — so each keeps the same voice for the whole recording, however
+ *  many there are. */
+export function assignVoices(speakers: string[], pool: readonly string[]): Record<string, string> {
+  const voice: Record<string, string> = {};
+  let n = 0;
+  for (const s of speakers) {
+    if (!(s in voice)) voice[s] = pool[n++ % pool.length];
+  }
+  return voice;
 }

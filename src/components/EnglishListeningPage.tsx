@@ -7,11 +7,11 @@ import {
   comprehensionClips, comprehensionTopics, type ComprehensionQuestion,
   ieltsListeningSections, ieltsListeningTopics,
 } from '../data/englishListening';
-import { gradeDictation, scoreAnswers } from '../lib/listeningRules';
+import { assignVoices, gradeDictation, scoreAnswers } from '../lib/listeningRules';
 import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
 import { ReadAloudVoice, PlaySequence } from './EnglishSpeakingPage';
-import { speakText, stopSpeaking, preloadTts, CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
+import { speakText, stopSpeaking, preloadTts, RECORDING_VOICES } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
 
 type Tab = 'podcast' | 'comprehension' | 'dictation' | 'ielts';
@@ -640,11 +640,6 @@ function DictationTab() {
 
 /* ─── Tab: IELTS Listening — sectioned audio + questions ─────── */
 const IELTS_SECTIONS = ['Section 1', 'Section 2', 'Section 3', 'Section 4'] as const;
-// Cycles through voices as new speakers appear in a section's transcript, so
-// each speaker keeps one consistent voice for the whole section without the
-// data needing to hand-assign one — same trick as DIALOGUE_VOICES elsewhere,
-// generalized past a fixed two-speaker pair.
-const VOICE_POOL = [CONV_VOICE_A, CONV_VOICE_B, 'bf_emma', 'bm_george'];
 
 // Classes spelled out in full per tone — Tailwind only keeps classes it can
 // find as complete strings in the source, so `bg-${tone}/30` would silently
@@ -659,16 +654,9 @@ const TONE_CLASSES: Record<SpeakerTone, { dot: string; badgeBg: string; badgeTex
 };
 
 function speakerAssignments(transcript: { speaker: string }[]) {
-  const voice: Record<string, string> = {};
-  const tone: Record<string, SpeakerTone> = {};
-  let i = 0;
-  for (const t of transcript) {
-    if (!voice[t.speaker]) {
-      voice[t.speaker] = VOICE_POOL[i % VOICE_POOL.length];
-      tone[t.speaker] = TONE_POOL[i % TONE_POOL.length];
-      i++;
-    }
-  }
+  const speakers = transcript.map((t) => t.speaker);
+  const voice = assignVoices(speakers, RECORDING_VOICES);
+  const tone = assignVoices(speakers, TONE_POOL) as Record<string, SpeakerTone>;
   return { voice, tone };
 }
 

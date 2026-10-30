@@ -82,8 +82,10 @@ export const WORLD_SKILLS: WorldSkill[] = [
     id: 'listening', nameId: 'world.skillListening', blurbId: 'world.skillListeningBlurb',
     route: '/listening', emoji: '🎧', icon: 'lucide:headphones',
     activities: [
+      act('podcast', 'learn', 'Podcast', '📻', 'Thuyền rồng'),
       act('dictation', 'learn', 'Dictation', '✍️', 'Thuyền rồng'),
       act('comprehension', 'practice', 'Comprehension', '🐉', 'Thuyền rồng'),
+      act('ielts-listening', 'practice', 'IeltsListening', '🎓', 'Quốc Học'),
     ],
   },
   {
