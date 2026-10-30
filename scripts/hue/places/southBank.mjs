@@ -68,7 +68,7 @@ export function drawSouthBank() {
   }
 
   // Shophouses east of Hùng Vương, the old Phố Tây.
-  for (const [x, pal] of [[70, ROOF.terra], [75, ROOF.dark], [80, ROOF.plum]]) place(HOUSE(pal, [222, 206, 176]), x, 71, 2);
+  for (const [x, pal] of [[71, ROOF.terra], [76, ROOF.dark], [81, ROOF.plum]]) place(HOUSE(pal, [222, 206, 176]), x, 71, 2);
 
   // Cung An Định: the European-style palace on the An Cựu canal.
   {

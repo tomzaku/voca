@@ -119,7 +119,7 @@ export const RIVER_BRIDGES = [[19, 23], [32, 35], [66, 69], [75, 78]];
 export const LIBRARY = { lake: { x: 31, y: 19, w: 10, h: 11 }, island: { x: 32, y: 21, w: 8, h: 7 }, bridgeX: 35 };
 
 export const LAKES = [
-  { kind: 'ellipse', cx: 55 * T, cy: 9.5 * T, rx: 7 * T, ry: 2.6 * T },  // Tịnh Tâm
+  { kind: 'ellipse', cx: 55 * T, cy: 9.8 * T, rx: 7 * T, ry: 2.3 * T },  // Tịnh Tâm
   { kind: 'rect', x: 49, y: 31, w: 5, h: 2 },                            // Thái Dịch lake, either side
   { kind: 'rect', x: 56, y: 31, w: 5, h: 2 },                            // of Trung Đạo, before Thái Hòa
   { kind: 'rect', ...LIBRARY.lake },

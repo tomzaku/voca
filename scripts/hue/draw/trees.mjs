@@ -4,7 +4,7 @@ import { Canvas, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { drawn, ground, mark, over, solid, used } from '../core/world.mjs';
 import { H, RIVER_BRIDGES, T, W, isWater, nearSlot } from '../layout.mjs';
-import { nearRoad, onAnyRoad, onRoad } from '../roads.mjs';
+import { nearRoad, onAnyRoad, onRoad, roadGap } from '../roads.mjs';
 
 export const treeKinds = {
   // Round broadleaf crown.
@@ -16,6 +16,10 @@ export const treeKinds = {
   // The old riverside shade trees — a deeper, cooler green.
   deep: { crown: [64, 112, 76], light: [84, 132, 90], dark: [48, 90, 62] },
 };
+
+/** No tree stands where a road passes: its trunk blocks its tile, so a
+ *  road reaching into that tile at all would be cut. */
+const inTheWay = (tx, ty) => roadGap(tx, ty) < 0.35;
 
 /** Draw a tree canvas into the map: the ground layer, and its top `overRows`
  *  again over the buddy, so walking behind it reads right. */
@@ -31,6 +35,7 @@ export function stand(cv, tx, ty, overRows, shadowRx, solidTiles = [[tx, ty]]) {
 /** Cây đa — a banyan: an old, wide canopy on a thick trunk, aerial roots
  *  hanging. Three tiles across; the big tree of pagodas and village greens. */
 export function banyan(tx, ty) {
+  if ([tx - 1, tx, tx + 1].some((x) => inTheWay(x, ty))) return;
   const cv = new Canvas(3 * T, 3 * T);
   cv.kind = 'banyan';
   const bark = [96, 70, 50], barkLight = [122, 92, 66];
@@ -52,6 +57,7 @@ export function banyan(tx, ty) {
 
 /** Liễu — a weeping willow by the water: a small dome, strands hanging down. */
 export function willow(tx, ty) {
+  if (inTheWay(tx, ty)) return;
   const cv = new Canvas(2 * T, 2 * T);
   cv.kind = 'willow';
   cv.rect(15, 18, 3, 13, [104, 80, 58]);
@@ -68,6 +74,7 @@ export function willow(tx, ty) {
 /** Bàng — the Indian almond: flat tiers stacked like a pagoda roof; some
  *  turn red. */
 export function bang(tx, ty, red = false) {
+  if (inTheWay(tx, ty)) return;
   const cv = new Canvas(2 * T, 2 * T);
   cv.kind = red ? 'bangRed' : 'bang';
   const [dark, mid, light] = red
@@ -86,6 +93,7 @@ export function bang(tx, ty, red = false) {
 /** Tre — a clump of bamboo: tall, thin, jointed stalks with leaves at the
  *  tops; the green hedge of a Huế village. */
 export function bamboo(tx, ty) {
+  if (inTheWay(tx, ty)) return;
   const cv = new Canvas(2 * T, 2 * T);
   cv.kind = 'bamboo';
   // Stalks two pixels wide (lit and shaded), jointed every few pixels.
@@ -108,6 +116,7 @@ export function bamboo(tx, ty) {
 /** Hoa sứ — frangipani: a twisting grey trunk, a few clumps of leaves, white
  *  flowers with yellow hearts. Grown at pagodas and temples. */
 export function frangipani(tx, ty) {
+  if (inTheWay(tx, ty)) return;
   const cv = new Canvas(2 * T, 2 * T);
   cv.kind = 'frangipani';
   const bark = [130, 118, 104];
@@ -156,7 +165,7 @@ export function plantAround(kind, cx, cy, r, n) {
 /** An areca palm (cau): a slim ringed trunk and a burst of fronds — the
  *  garden palm of Vỹ Dạ and Kim Long. */
 export function palm(tx, ty) {
-  if (solid[ty]?.[tx] === undefined) return;
+  if (solid[ty]?.[tx] === undefined || inTheWay(tx, ty)) return;
   const cv = new Canvas(2 * T, 2 * T);
   for (let y = 10; y < 31; y++) cv.set(15 + (y < 18 ? 1 : 0), y, y % 4 === 0 ? [120, 104, 80] : [150, 132, 100]);
   const fronds = [[-1, -0.35], [1, -0.35], [-1, 0.25], [1, 0.25], [-0.45, -1], [0.45, -1], [0, -1]];
@@ -175,7 +184,7 @@ export function palm(tx, ty) {
   mark(used, tx, ty - 1, 1, 2);
 }
 export function tree(tx, ty, kind = 'leaf') {
-  if (solid[ty]?.[tx] === undefined) return;
+  if (solid[ty]?.[tx] === undefined || inTheWay(tx, ty)) return;
   const cv = new Canvas(2 * T, 2 * T);
   const k = treeKinds[kind];
   cv.rect(14, 22, 4, 9, [104, 74, 52]);
@@ -193,7 +202,7 @@ export function tree(tx, ty, kind = 'leaf') {
   mark(used, tx - 1, ty - 1, 3, 3);
 }
 export function pine(tx, ty) {
-  if (solid[ty]?.[tx] === undefined) return;
+  if (solid[ty]?.[tx] === undefined || inTheWay(tx, ty)) return;
   const cv = new Canvas(T, 2 * T);
   cv.rect(7, 25, 2, 6, [96, 70, 50]);
   for (let tier = 0; tier < 3; tier++) {

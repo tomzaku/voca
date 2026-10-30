@@ -10,6 +10,8 @@
 //   lane   — packed dirt with wheel ruts and grass creeping in at the edges
 //   stone  — paved: the Citadel's courts, forecourts, the walking street
 //   path   — gravel: the footpaths winding through the riverside parks
+// A `court` is paved ground that things stand on — the library's island, the
+// esplanade under Kỳ Đài, the walking street round its fountain.
 // Its ends are cut square, so a straight road is exactly the rectangle it
 // covers; where it bends, the bend is rounded.
 //
@@ -57,16 +59,16 @@ export const ROADS = [
   // Gia Hội's old street, from the Đông Ba gate's bridge down to the river.
   road('lane', 2, [[84, 37], [94, 37], [100.5, 40]]),
   // Inside the Citadel
-  box(31, 41, 46, 3, 'stone'),                                    // the esplanade along the front wall
+  box(31, 41, 46, 3, 'stone', { court: true }),                                    // the esplanade along the front wall
   ...SOUTH_GATES.map((g) => box(g, 44, 2, 7, 'stone')),       // out through the gate parks to Lê Duẩn
   box(35, 30, 2, 11, 'stone'),                                    // from the west gate down past the library
-  box(32, 21, 8, 7, 'stone'),                                     // the library's island courtyard
+  box(32, 21, 8, 7, 'stone', { court: true }),                                     // the library's island courtyard
   box(69, EAST_GATE_Y, 11, 2, 'stone'), box(70, 38, 2, 3, 'stone'),
   box(72, 12, 2, 24, 'stone'),                                    // up the east side, to the lane to Tịnh Tâm
   // Hồ Tịnh Tâm: a paved walk all round the lake (past Cửa Hậu at its
   // north), a street in to it from Cửa An Hòa, and a lane round from the
   // east, from Cửa Kẻ Trài.
-  road('stone', 1.4, ringAround(55, 9.5, 8.8, 4.2, 40)),
+  road('stone', 1.4, ringAround(55, 9.8, 8.8, 3.2, 40)),
   road('street', 2, [[30, 13], [47.6, 13]]),
   road('lane', 1, [[76.5, 21.5], [76.5, 11.6], [63.4, 11.6]]),
   // The Imperial City: the lane behind Thái Hòa, the court before it, the
@@ -86,14 +88,14 @@ export const ROADS = [
   road('lane', 2, [[44, 83], [52, 82], [60, 82.5], [70.5, 83.5]]),
   road('lane', 2, [[70.5, 84], [68, 89], [66, 95], [66.5, 102], [68, 110.5]]),
   // The tombs' road, winding through the hills from gate to gate.
-  road('lane', 2, [[2, 110.5], [10, 110.5], [16, 111.3], [21, 110.5], [27, 111.3], [34.5, 110.5], [42, 111.3],
-    [50, 111.6], [58, 111.2], [66, 110.6], [72, 111.3], [79, 110.5], [88, 110.5]]),
+  road('lane', 1.6, [[2, 110.8], [10, 110.8], [16, 111.4], [21, 110.8], [27, 111.4], [34.5, 110.8], [42, 111.4],
+    [50, 111.6], [58, 111.3], [66, 110.9], [72, 111.4], [79, 110.8], [88, 110.8]]),
   // Footpaths winding through the riverside parks, between the bridges.
   ...PARK_PATHS.map(([x0, x1, y]) => road('path', 0.8, wavy(x0, x1, y))),
   box(35, 72, 12, 1, 'stone'),                                    // Quốc Học's forecourt
   // Phố đi bộ Nguyễn Đình Chiểu: the walking street along the south bank,
   // from under Phú Xuân bridge to Trường Tiền, by the ironwood boardwalk.
-  road('stone', 1.6, [[56.5, 64.2], [75, 64.2]]),
+  road('stone', 1.6, [[56.5, 64.2], [75, 64.2]], { court: true }),
 ];
 
 /** Where (x, y) px lies on a road: its signed offset from the centre line and

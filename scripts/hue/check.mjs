@@ -3,11 +3,13 @@
 //     stands on something built;
 //   - every named place can be walked near enough to light its label (the
 //     check that would have caught Hồ Tịnh Tâm sealed in by the theatre);
-//   - every label on show names the place whose story it tells.
+//   - every label on show names the place whose story it tells;
+//   - nothing that blocks stands on a road (a tree on a path, say).
 // `seen` (the tiles you can walk to) also feeds the preview's cut-off tint.
 
 import { solid } from './core/world.mjs';
 import { walls } from './collision.mjs';
+import { ROADS, roadHit } from './roads.mjs';
 import { H, SPAWN, T, W } from './layout.mjs';
 import { objects } from './meta.mjs';
 
@@ -56,6 +58,14 @@ export function checkReach() {
       }
       if (!near) problems.push(`can't walk near enough to "${p.text}" (${where(o)}) to light it`);
     }
+  }
+  // Nothing solid on a road: a blocked tile any real part of which a road
+  // covers (courts excepted — things are meant to stand on them).
+  const SAMPLES = [[0.5, 0.5], [0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]];
+  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+    if (!solid[ty][tx]) continue;
+    const on = ROADS.find((r) => !r.court && SAMPLES.some(([sx, sy]) => roadHit(r, (tx + sx) * T, (ty + sy) * T)));
+    if (on) problems.push(`tile ${tx},${ty} blocks a ${on.kind} at (${on.points[0].join(', ')}…)`);
   }
   if (problems.length) {
     for (const m of problems) console.error(m);

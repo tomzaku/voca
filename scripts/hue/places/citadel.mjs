@@ -198,7 +198,7 @@ export function drawCitadelGrounds() {
     for (let x = 8; x < 42; x += 8) cv.rect(x, 26, 2, 10, [160, 50, 40]);
     roof(cv, 6, 12, 36, 14, ROOF.imperial, 4);
     cv.spec = { kind: 'tinhTamPavilion' };
-    place(cv, 54, 7, 3, { shadow: false });
+    place(cv, 54, 7, 2, { shadow: false });
   }
 
   // Kinh Thành neighbourhoods inside the walls.
