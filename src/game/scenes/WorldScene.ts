@@ -5,6 +5,7 @@ import {
 } from '../types';
 import { featureNodeId, type WorldFeature } from '../features';
 import { Dressed, loadWardrobe } from '../dressed';
+import { KEEPER_ICONS, type PixelArt } from '../keeperIcons';
 import type { Look } from '../wardrobe';
 import { t } from '../../i18n';
 import { defaultMap } from '../maps';
@@ -891,10 +892,12 @@ export class WorldScene extends Phaser.Scene {
     sprite.play({ key: villagerAnim(this, look, 'idle'), delay: (x * 7 + y) % 700 });
     root.add(sprite);
 
-    const icon = this.add
-      .text(0, -50, f.emoji, { fontFamily: FONT, fontSize: '16px', resolution: this.args.dpr })
-      .setOrigin(0.5, 0.5);
-    this.tweens.add({ targets: icon, y: -54, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: (x * 3 + y) % 900 });
+    // Pixel art where the keeper has it, the skill's emoji otherwise.
+    const art = KEEPER_ICONS[f.id];
+    const icon = art
+      ? this.add.image(0, -52, this.pixelTexture(`keeper-icon-${f.id}`, art)).setScale(SCALE)
+      : this.add.text(0, -50, f.emoji, { fontFamily: FONT, fontSize: '16px', resolution: this.args.dpr }).setOrigin(0.5, 0.5);
+    this.tweens.add({ targets: icon, y: icon.y - 4, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: (x * 3 + y) % 900 });
     root.add(icon);
 
     // Their name as a game would write it: outlined pixel text, no box — the
@@ -914,6 +917,23 @@ export class WorldScene extends Phaser.Scene {
 
     layer.add(root);
     this.nodes.push({ id: featureNodeId(f), x, y, root, ring });
+  }
+
+  /** A character-grid drawing as a texture (made once, kept by key). */
+  private pixelTexture(key: string, art: PixelArt): string {
+    if (this.textures.exists(key)) return key;
+    const w = Math.max(...art.rows.map((r) => r.length)), h = art.rows.length;
+    const tex = this.textures.createCanvas(key, w, h);
+    const ctx = tex!.getContext();
+    art.rows.forEach((row, y) => [...row].forEach((ch, x) => {
+      const colour = art.palette[ch];
+      if (!colour) return;
+      ctx.fillStyle = colour;
+      ctx.fillRect(x, y, 1, 1);
+    }));
+    tex!.refresh();
+    tex!.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    return key;
   }
 
   /** Outlined text for names on the map — readable on any ground, no box. */
