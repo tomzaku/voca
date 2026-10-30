@@ -227,8 +227,8 @@ const LIBRARY = { lake: { x: 31, y: 19, w: 10, h: 11 }, island: { x: 32, y: 21, 
 
 const LAKES = [
   { kind: 'ellipse', cx: 55 * T, cy: 9.5 * T, rx: 7 * T, ry: 2.6 * T },  // Tịnh Tâm
-  { kind: 'rect', x: 47, y: 22, w: 3, h: 2 },                            // palace lotus ponds
-  { kind: 'rect', x: 60, y: 22, w: 3, h: 2 },
+  { kind: 'rect', x: 49, y: 31, w: 5, h: 2 },                            // Thái Dịch lake, either side
+  { kind: 'rect', x: 56, y: 31, w: 5, h: 2 },                            // of Trung Đạo, before Thái Hòa
   { kind: 'rect', ...LIBRARY.lake },
 ];
 
@@ -829,6 +829,92 @@ const FLAG = { x: 0, y: 0, drop: 0 };
   FLAG.drop = baseY - 16 - 6;
 }
 
+// Across the road from Kỳ Đài, on a stone landing out over the river: Phu Văn
+// Lâu, the two-storey pavilion where royal edicts and exam results were
+// posted, and Nghênh Lương Đình, the little pavilion at the water's edge where
+// the court took the cool air. The dragon boats' pier runs out between them.
+stoneSpan(52, 49, 11, 3);
+{
+  const cv = new Canvas(4 * T, 3 * T);
+  const red = [150, 46, 38], col = [196, 70, 52];
+  cv.rect(2, 40, 60, 8, [184, 176, 164]);
+  cv.rect(2, 40, 60, 2, [206, 198, 186]);
+  for (let x = 6; x < 58; x += 8) cv.rect(x, 27, 3, 13, col);
+  cv.rect(4, 26, 56, 2, red);
+  roof(cv, 2, 19, 60, 8, ROOF.imperial, 3);
+  cv.rect(16, 12, 32, 8, red);
+  for (let x = 18; x < 46; x += 5) cv.rect(x, 12, 2, 8, col);
+  roof(cv, 10, 4, 44, 9, ROOF.imperial, 4);
+  place(cv, 52, 49, 1);
+}
+{
+  const cv = new Canvas(2 * T, 2 * T);
+  cv.rect(2, 24, 28, 8, [184, 176, 164]);
+  cv.rect(2, 24, 28, 2, [206, 198, 186]);
+  for (const x of [5, 15, 25]) cv.rect(x, 13, 2, 11, [196, 70, 52]);
+  roof(cv, 1, 4, 30, 10, ROOF.imperial, 4);
+  place(cv, 60, 50, 1);
+  // Steps down into the river from its landing.
+  for (let i = 0; i < 3; i++) ground.rect(61 * T - 6 + i * 2, 52 * T + i * 3, 14 - i * 4, 3, i % 2 ? P.stoneEdge : P.stone);
+}
+
+// ── The Imperial City's details: the way to the throne hall, the dynastic
+// temple, the royal garden ──
+
+// Trung Đạo: the central path crossing Thái Dịch lake on a bridge, red
+// railings either side.
+for (let y = 31 * T; y < 33 * T; y++) {
+  for (const x of [54 * T - 1, 56 * T]) ground.set(x, y, [176, 52, 40]);
+  if (y % 6 === 0) for (const x of [54 * T - 2, 56 * T + 1]) { ground.set(x, y, [214, 170, 80]); ground.set(x, y + 1, [214, 170, 80]); }
+}
+// Đại Triều Nghi: the court's courtyard before Thái Hòa — rank stones in two
+// rows where the mandarins stood, by grade.
+for (let i = 0; i < 6; i++) for (const x0 of [47, 58]) {
+  const x = (x0 + i * 0.9) * T, y = 30 * T + 5;
+  ground.rect(x, y, 3, 6, [196, 190, 176]);
+  ground.rect(x, y, 3, 1, [222, 216, 204]);
+  ground.rect(x, y + 6, 3, 1, P.shadow, 0.3);
+}
+
+// Thế Miếu, the dynastic temple, in the Imperial City's south-west corner;
+// before it the nine bronze urns of Cửu Đỉnh in a row, and Hiển Lâm Các, the
+// three-tiered pavilion of merit, nearest Ngọ Môn.
+place(hall({ w: 6, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 7, doorW: 8, doorFill: [60, 30, 24] }), 43, 31, 1);
+for (let i = 0; i < 9; i++) {
+  const cx = 43.4 * T + i * 10.5, cy = 34.6 * T;
+  ground.ellipse(cx, cy + 6, 4, 1.5, P.shadow, 0.25);
+  ground.rect(cx - 3, cy + 3, 1, 3, [70, 60, 44]); ground.rect(cx + 2, cy + 3, 1, 3, [70, 60, 44]);   // legs
+  ground.ellipse(cx, cy, 4, 3.5, [104, 90, 62]);
+  ground.ellipse(cx - 1, cy - 1, 2, 1.5, [150, 132, 92]);
+  ground.rect(cx - 4, cy - 4, 8, 1, [84, 72, 50]);                                                  // rim
+  ground.set(cx - 5, cy - 3, [84, 72, 50]); ground.set(cx + 4, cy - 3, [84, 72, 50]);                // handles
+}
+{
+  const cv = new Canvas(2 * T, 4 * T);
+  const red = [150, 46, 38], col = [196, 70, 52];
+  cv.rect(3, 54, 26, 10, [180, 172, 160]);
+  cv.rect(3, 54, 26, 2, [204, 196, 184]);
+  for (const [y, w, roofY, roofH] of [[44, 22, 38, 7], [30, 16, 24, 7], [16, 10, 9, 8]]) {
+    const x = 16 - w / 2;
+    cv.rect(x, y, w, 10, red);
+    for (let px = x + 1; px < x + w - 1; px += 4) cv.rect(px, y, 1, 10, col);
+    roof(cv, x - 3, roofY, w + 6, roofH, ROOF.imperial, 3);
+  }
+  place(cv, 45, 35, 1);
+}
+
+// The royal garden in the south-east corner: stone lanterns along its paths
+// (its trees are planted with the others).
+for (const [tx, ty] of [[62.3, 32.4], [66.3, 32.4], [62.3, 36.6], [66.3, 36.6], [64.3, 38.4]]) {
+  const x = tx * T, y = ty * T;
+  ground.ellipse(x + 3, y + 10, 4, 1.5, P.shadow, 0.25);
+  ground.rect(x + 1, y + 6, 5, 4, [168, 162, 150]);                      // base
+  ground.rect(x + 2, y + 2, 3, 4, [190, 184, 172]);                      // light box
+  ground.rect(x + 3, y + 3, 1, 2, [250, 214, 120]);                      // the flame
+  ground.rect(x, y, 7, 2, [140, 134, 124]);                              // cap
+  ground.set(x + 3, y - 1, [140, 134, 124]);
+}
+
 // Thái Hòa palace — the curated collection — and the six CEFR halls.
 place(palace({ w: 8, h: 5, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52] }), 51, 25, 3);
 const HALL = (roofPal = ROOF.imperial) => hall({
@@ -1400,6 +1486,8 @@ plantAround('frangipani', 24, 41, 3, 2);
 for (const [cx, cy] of [[8, 18], [20, 28], [14, 40]]) plantAround('bamboo', cx, cy, 5, 2);   // Kim Long
 for (const [cx, cy] of [[92, 12], [104, 22], [96, 28]]) plantAround('bamboo', cx, cy, 5, 2); // Gia Hội
 for (const [cx, cy] of [[106, 68], [114, 74]]) plantAround('bamboo', cx, cy, 5, 2);          // Vỹ Dạ
+plantAround('frangipani', 64, 33, 2, 2);      // the royal garden in the Imperial City
+plantAround('bang', 65, 37, 2, 1);
 plantAround('bang', 40, 64, 6, 2);
 plantAround('bangRed', 88, 74, 6, 2);
 plantAround('banyan', 70, 76, 6, 1);
@@ -1472,6 +1560,10 @@ landmark('Trường Quốc Học', 41, 60.5);
 landmark('Phố đi bộ', 77, 64.5);
 landmark('Cung An Định', 92, 66.5);
 landmark('Lăng Khải Định', 8, 70.5);
+landmark('Phu Văn Lâu', 54, 49);
+landmark('Nghênh Lương Đình', 61, 50);
+landmark('Thế Miếu', 46, 31);
+landmark('Hiển Lâm Các', 46, 35);
 
 // Progress the city shows (WorldScene): the streak flag on Kỳ Đài, and spots
 // on the Hương where a lantern floats for each mastered word. The spots are

@@ -25,6 +25,10 @@ export const LABEL_PLACES: Record<string, string> = {
   'Phố đi bộ': 'walkingStreet',
   'Cung An Định': 'anDinh',
   'Lăng Khải Định': 'khaiDinh',
+  'Phu Văn Lâu': 'phuVanLau',
+  'Nghênh Lương Đình': 'nghenhLuong',
+  'Thế Miếu': 'theMieu',
+  'Hiển Lâm Các': 'hienLam',
 };
 
 /** Where each keeper stands — walking up to one tells that place's story.
