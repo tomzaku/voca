@@ -633,3 +633,91 @@ export function truongTienDeck(w, h) {
   }
   return cv;
 }
+
+// ── Walls, forest, boats ──
+
+/** One tile of the Citadel's (or the Imperial City's) wall. Running across
+ *  the view: its walk on top, merlons along the edge, moss in the cracks, and
+ *  below them the face in courses of weathered stone. Running up and down:
+ *  the walk seen from above between two parapets. */
+export function wallTile(horizontal, seed) {
+  const cv = new Canvas(T2, T2);
+  const top = [164, 154, 132], topDark = [140, 130, 110], face = [124, 114, 98], faceDark = [100, 92, 78], moss = [104, 126, 82];
+  for (let y = 0; y < T2; y++) for (let x = 0; x < T2; x++) {
+    let c;
+    if (horizontal && y >= 18) {
+      const row = Math.floor((y - 18) / 5);
+      c = ((y - 18) % 5 === 0 || (x + (row % 2) * 6) % 12 === 0) ? faceDark : mix(face, faceDark, hash(Math.floor((x + (row % 2) * 6) / 12) + seed, row) * 0.4);
+      if (y > 26 && hash(x + seed * 7, y) < 0.18) c = mix(c, moss, 0.6);
+    } else {
+      c = (x % 8 === 0 || y % 8 === 0) ? topDark : mix(top, topDark, hash((x >> 3) + seed, y >> 3) * 0.4);
+      if (hash(x * 3 + seed, y) < 0.06) c = moss;
+      if (horizontal && y < 5 && x % 8 < 5) c = y === 0 ? [186, 176, 154] : face;            // merlons
+      if (horizontal && y >= 15) c = faceDark;                                               // the shadowed lip
+      if (!horizontal && (x < 4 || x > 27)) c = x === 0 || x === 31 ? faceDark : face;       // parapets
+    }
+    cv.set(x, y, c);
+  }
+  return cv;
+}
+
+/** The forest's canopy, drawn over a patch in passes so crowns overlap
+ *  right: each tile's two crowns (where the map put them), then shadow,
+ *  the dark mass, clusters of leaves lit from above, flecks of light. */
+export function forestCanopy(g, tiles, ox, oy) {
+  const shades = [[30, 86, 46], [44, 108, 54], [62, 134, 62], [94, 166, 78], [138, 196, 104]];
+  const crowns = tiles.flatMap(({ tx, ty }) => [0, 1].map((k) => {
+    const h = hash(tx * 7 + k, ty * 13 + k);
+    return { x: (tx * 16 + 4 + h * 8 - ox) * K, y: (ty * 16 + 4 + hash(ty * 5 + k, tx * 3) * 8 - oy) * K, r: (9 + h * 4) * K, h, k: tx * 31 + ty * 17 + k };
+  }));
+  for (const c of crowns) g.ellipse(c.x + 4, c.y + 8, c.r, c.r * 0.8, [24, 40, 36], 0.35);
+  for (const c of crowns) g.ellipse(c.x, c.y, c.r, c.r * 0.85, shades[0]);
+  for (const c of crowns) {
+    for (let i = 0; i < 7; i++) {
+      const a = hash(c.k, i) * Math.PI * 2, d = Math.sqrt(hash(c.k + 1, i)) * c.r * 0.6;
+      const bx = c.x + Math.cos(a) * d, by = c.y + Math.sin(a) * d * 0.8, br = c.r * (0.3 + hash(c.k + 2, i) * 0.15);
+      g.ellipse(bx, by + 2, br, br * 0.9, shades[1]);
+      g.ellipse(bx - br * 0.2, by - br * 0.25, br * 0.75, br * 0.65, shades[c.h > 0.6 ? 3 : 2]);
+    }
+  }
+  for (const c of crowns) for (let i = 0; i < 6; i++) {
+    const x = c.x + (hash(c.k + 5, i) - 0.6) * c.r * 1.2, y = c.y + (hash(c.k + 6, i) - 0.7) * c.r;
+    g.set(x, y, shades[4]); g.set(x + 1, y, shades[3]);
+  }
+}
+
+/** A sampan: a slim wooden hull, the woven bamboo hood over its middle, an
+ *  oar trailing. `x, y` its top-left. */
+export function sampan(cv, x, y, flip) {
+  const w = 52;
+  for (let i = 0; i < w; i++) {
+    const taper = i < 8 ? 8 - i : i > w - 10 ? i - (w - 10) : 0;
+    for (let j = 6 + Math.floor(taper / 2); j < 16; j++) cv.set(x + i, y + j, j > 13 ? [86, 56, 38] : j > 11 ? [116, 80, 52] : [148, 104, 68]);
+    cv.set(x + i, y + 6 + Math.floor(taper / 2), [176, 132, 90]);
+  }
+  const hx = x + (flip ? 8 : 20);
+  for (let i = 0; i < 24; i++) for (let j = 0; j < 9; j++) {
+    const arch = Math.round(Math.sin((i / 23) * Math.PI) * 3);
+    if (j < 3 - arch + 3) continue;
+    cv.set(hx + i, y - 3 + j, (i + j) % 3 === 0 ? [96, 72, 48] : (i % 2 ? [150, 118, 76] : [132, 100, 64]));
+  }
+  for (let i = 0; i < 10; i++) cv.set(x + (flip ? w + i : -i), y + 12 + Math.round(i * 0.3), [120, 86, 56]);
+  cv.ellipse(x + w / 2, y + 18, w / 2, 2, [0, 0, 0], 0.18);
+}
+
+/** A dragon boat: the red hull banded gold, a pavilion amidships, the
+ *  dragon's head carved at the bow and its tail at the stern. */
+export function dragonBoat(cv, x, y) {
+  const w = 80;
+  for (let i = 0; i < w; i++) for (let j = 6; j < 18; j++) cv.set(x + i, y + j, j > 15 ? [116, 36, 28] : j > 11 ? [204, 166, 70] : [190, 56, 42]);
+  for (let i = 0; i < w; i += 6) cv.rect(x + i, y + 13, 2, 2, [150, 40, 30]);
+  cv.rect(x + 20, y - 2, 40, 9, [160, 46, 36]);
+  for (let i = 22; i < 58; i += 6) { cv.rect(x + i, y + 1, 3, 4, [250, 220, 150]); }
+  for (let i = 16; i < 64; i++) cv.set(x + i, y - 3 + (i < 20 || i > 59 ? 0 : -1), [236, 186, 66]);
+  // The head: a curling neck, an eye, a gold crest; the tail at the stern.
+  for (let i = 0; i < 10; i++) cv.rect(x - 2 - i, y + 8 - Math.round(Math.sin(i / 3) * 6), 4, 4, [214, 172, 72]);
+  cv.set(x - 9, y + 1, [40, 30, 30]);
+  cv.rect(x - 12, y - 1, 3, 2, [190, 56, 42]);
+  for (let i = 0; i < 7; i++) cv.rect(x + w + i, y + 6 - i, 3, 3, [214, 172, 72]);
+  cv.ellipse(x + w / 2, y + 20, w / 2, 2, [0, 0, 0], 0.18);
+}

@@ -10,6 +10,9 @@ import { STONE, biDinh, obelisk, statue, steps, terrace } from '../draw/tomb.mjs
 import { pine } from '../draw/trees.mjs';
 import { T } from '../layout.mjs';
 
+/** Name a building's canvas, so the detailed renders (../hd) draw it as itself. */
+const named = (cv, kind) => { cv.spec = { ...cv.spec, kind }; return cv; };
+
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
   { text: 'Lăng Tự Đức', x: 10, y: 111.9, place: 'tuDuc' },
@@ -35,7 +38,7 @@ export function drawTombs() {
     terrace(30, 97, 9, 4, K, AXIS);
     steps(33, 100, 3, 1, K, true);
     obelisk(30, 100, K); obelisk(38, 100, K);
-    place(biDinh(3, 3, K, ROOF.slate, true), 33, 97, 1);
+    place(named(biDinh(3, 3, K, ROOF.slate, true), 'biDinhKhaiDinh'), 33, 97, 1);
     // Cung Thiên Định: the palace at the top, a raised centre between two
     // wings, pillared, under a dark roof with ornate ridge ends.
     {
@@ -50,7 +53,7 @@ export function drawTombs() {
       roof(cv, 0, ph - 44, pw, 14, ROOF.slate, 5);
       roof(cv, pw / 2 - 20, ph - 58, 40, 14, ROOF.slate, 5);
       for (const x of [6, pw - 10]) cv.rect(x, ph - 50, 4, 8, K.face);  // ridge-end finials
-      place(cv, 31, 93, 2);
+      place(named(cv, 'thienDinh'), 31, 93, 2);
     }
     mark(used, 27, 92, 15, 18);
   }
@@ -64,7 +67,7 @@ export function drawTombs() {
     const O = STONE.old;
     const TD = { x0: 2, y0: 94, x1: 19, y1: 110 };
     wallRing(TD, (tx, ty) => ty === TD.y1 - 1 && (tx === 9 || tx === 10));
-    place(gateHouse(), 8, TD.y1 - 3, 1, { gaps: [9, 10], shadow: false });   // Vụ Khiêm Môn
+    place(named(gateHouse(), 'tombGate'), 8, TD.y1 - 3, 1, { gaps: [9, 10], shadow: false });   // Vụ Khiêm Môn
     // Xung Khiêm Tạ on the lake's north shore, its front on stilts in the water.
     {
       const cv = new Canvas(3 * T, 3 * T);
@@ -72,14 +75,14 @@ export function drawTombs() {
       cv.rect(4, 32, 40, 6, [170, 120, 80]);
       for (let x = 8; x < 42; x += 8) cv.rect(x, 22, 2, 10, [176, 52, 40]);
       roof(cv, 2, 8, 44, 14, ROOF.dark, 5);
-      place(cv, 6, 98, 1, { shadow: false });
+      place(named(cv, 'xungKhiem'), 6, 98, 1, { shadow: false });
     }
     // Hòa Khiêm, where Tự Đức worked and where he is honoured.
-    place(hall({ w: 5, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 7, doorW: 8, doorFill: [60, 30, 24] }), 3, 95, 1);
+    place(named(hall({ w: 5, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 7, doorW: 8, doorFill: [60, 30, 24] }), 'tombHall'), 3, 95, 1);
     // The tomb, east: the honour court's statues, the obelisks, the stele.
     for (const y of [104, 105, 106]) { statue(13, y, 'mandarin', O); statue(17, y, 'mandarin', O); }
     obelisk(13, 103, O); obelisk(17, 103, O);
-    place(biDinh(3, 3, O, ROOF.dark), 14, 99, 1);
+    place(named(biDinh(3, 3, O, ROOF.dark), 'biDinh'), 14, 99, 1);
     // Tiểu Khiêm, the crescent pond, and the walled grave beyond it.
     for (let x = 13 * T; x < 18 * T; x++) {
       const y = 98 * T + 6 + Math.round(Math.abs(x - 15.5 * T) * 0.2);
@@ -93,7 +96,7 @@ export function drawTombs() {
       cv.ellipse(40, 29, 18, 8, [96, 132, 70]);              // the grassed mound
       cv.ellipse(38, 27, 10, 4, [118, 156, 84]);
       cv.rect(36, 40, 8, 4, [70, 60, 50]);                   // its bronze door
-      place(cv, 13, 95, 2);
+      place(named(cv, 'grave'), 13, 95, 2);
     }
     pine(4, 107); pine(16, 108); pine(12, 96);
     mark(used, TD.x0, TD.y0, TD.x1 - TD.x0, TD.y1 - TD.y0);
@@ -115,13 +118,13 @@ export function drawTombs() {
       for (const [cx, aw] of [[pw / 2, 26], [18, 12], [pw - 18, 12]]) cv.rect(cx - aw / 2, 48 - (aw > 20 ? 22 : 16), aw, aw > 20 ? 22 : 16, [52, 30, 26]);
       roof(cv, 2, 8, pw - 4, 14, ROOF.imperial, 5);
       roof(cv, pw / 2 - 18, 0, 36, 10, ROOF.imperial, 3);
-      place(cv, 76, MM.y1 - 3, 1, { gaps: [78, 79], shadow: false });
+      place(named(cv, 'daiHongMon'), 76, MM.y1 - 3, 1, { gaps: [78, 79], shadow: false });
     }
     for (const y of [106, 107, 108]) for (const x of [74, 75, 82, 83]) statue(x, y, y === 108 && (x === 74 || x === 83) ? 'elephant' : 'mandarin', O);
     terrace(76, 103, 6, 3, O, [76, 81]);
-    place(biDinh(4, 3, O, ROOF.imperial), 77, 102, 1);
+    place(named(biDinh(4, 3, O, ROOF.imperial), 'biDinhMinhMang'), 77, 102, 1);
     // Sùng Ân, where the emperor and empress are honoured.
-    place(hall({ w: 4, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 6, doorW: 8, doorFill: [60, 30, 24] }), 77, 99, 1);
+    place(named(hall({ w: 4, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 6, doorW: 8, doorFill: [60, 30, 24] }), 'tombHall'), 77, 99, 1);
     // Minh Lâu: the two-storey pavilion of light, on its own little terrace.
     {
       const cv = new Canvas(4 * T, 3 * T);
@@ -132,7 +135,7 @@ export function drawTombs() {
       roof(cv, 8, 18, 48, 9, ROOF.imperial, 4);
       cv.rect(20, 10, 24, 8, [150, 46, 38]);
       roof(cv, 14, 2, 36, 9, ROOF.imperial, 4);
-      place(cv, 77, 96, 1);
+      place(named(cv, 'minhLau'), 77, 96, 1);
     }
     archBridge(78, 93, 2, 3, 'ns');                               // Trung Đạo, over Tân Nguyệt
     // Bửu Thành: the round wall about the tomb mound, its pines.

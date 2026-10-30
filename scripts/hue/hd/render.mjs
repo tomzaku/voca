@@ -16,8 +16,9 @@ import { grassColor, hillTint } from '../paint/terrain.mjs';
 import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
-import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, halfMoon, house, kyDai, lamp, market, parkLamp, tree, truongTienDeck } from './art.mjs';
+import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, lamp, market, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
 import { anDinh, cheStall, gaHue, gardenHouse, gateTower, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
+import { biDinh, biDinhKhaiDinh, biDinhMinhMang, daiHongMon, grave, minhLau, obelisk, thienDinh, tombGate, tombHall, xungKhiem } from './tombs.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
 /** The buildings with detailed art of their own, by the name their canvas
@@ -25,6 +26,7 @@ import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall
 const BUILDINGS = {
   ngoMon, thaiHoa, hienLam, thienMuTower, thienMuHall, vanMieu, stele, tangThuLau,
   gaHue, quocHoc, anDinh, gateTower, sideGateTower, phuVanLau, nghenhLuong, cheStall,
+  biDinh, biDinhKhaiDinh, biDinhMinhMang, daiHongMon, grave, minhLau, thienDinh, tombGate, xungKhiem,
   market, kyDai, fountain, halfMoon, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
 
 /** The patches, in tiles: the whole map, in pieces small enough for any
@@ -138,16 +140,22 @@ export function renderDetail(write) {
 
     // What gets drawn again in detail.
     const redraw = [];
+    const forest = [];
     for (const e of drawn) {
       if (e.type === 'structure') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const spec = e.cv.spec;
-        const art = BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' ? (spec.windows ? house(spec) : spec.w === 4 && spec.h === 4 ? gardenHouse(spec) : null) : null);
+        const art = spec?.kind === 'tombHall' ? tombHall(e.cv.spec) : spec?.kind === 'obelisk' ? obelisk(spec) : BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' ? (spec.windows ? house(spec) : spec.w === 4 && spec.h === 4 ? gardenHouse(spec) : null) : null);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
       } else if (e.type === 'tree') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const art = tree(e.kind, e.cv.w, e.cv.h, e.tx * 131 + e.ty * 17);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
+      } else if (e.type === 'wall') {
+        if (!inside(e, 16, 16)) continue;
+        redraw.push({ e, art: wallTile(e.horizontal, e.tx * 7 + e.ty), bottom: e.y - 2000, overTo: 0 });
+      } else if (e.type === 'forest') {
+        if (inside(e, 16, 16) || inside({ x: e.x - 16, y: e.y - 16 }, 48, 48)) forest.push(e);
       } else if (e.type === 'ttDeck') {
         if (!inside(e, e.w, e.h)) continue;
         redraw.push({ e, art: truongTienDeck(e.w * K, e.h * K), bottom: e.y - 1000, overTo: 0 });
@@ -178,6 +186,7 @@ export function renderDetail(write) {
         const [w, h, top, left] = {
           lamp: [3, 13, 11, 1], bike: [13, 10, 9, 1], lotus: [9, 7, 4, 4], cyclo: [19, 15, 14, 1],
           bed: [20, 10, 5, 10], bench: [13, 8, 5, 6], parkLamp: [3, 11, 9, 1],
+          sampan: [32, 13, 2, 3], dragonBoat: [50, 14, 2, 5],
         }[e.type];
         for (let Y = (e.y - top - oy) * K; Y < (e.y - top + h - oy) * K; Y++) for (let X = (e.x - left - ox) * K; X < (e.x - left + w - ox) * K; X++) {
           if (X >= 0 && Y >= 0 && X < W && Y < H) clear[Y * W + X] = 1;
@@ -205,6 +214,9 @@ export function renderDetail(write) {
       }
     }
 
+    // The forest's canopy, in passes over the whole patch, before the rest.
+    if (forest.length) forestCanopy(g, forest, ox, oy);
+
     // The things, in detail, back to front.
     redraw.sort((a, b) => a.bottom - b.bottom);
     for (const { e, art, overTo } of redraw) {
@@ -216,6 +228,8 @@ export function renderDetail(write) {
       else if (e.type === 'bike') bicycle(g, X, Y, e.frame);
       else if (e.type === 'cyclo') cyclo(g, X, Y);
       else if (e.type === 'lotus') lotus(g, X, Y, e.flower);
+      else if (e.type === 'sampan') sampan(g, X, Y, e.flip);
+      else if (e.type === 'dragonBoat') dragonBoat(g, X, Y);
       else if (e.type === 'bed') flowerBed(g, X, Y);
       else if (e.type === 'bench') bench(g, X, Y);
       else if (e.type === 'parkLamp') parkLamp(g, X, Y);

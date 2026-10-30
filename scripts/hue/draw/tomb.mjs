@@ -86,6 +86,7 @@ export function obelisk(tx, ty, pal) {
   for (let y = 12; y < 36; y += 6) cv.rect(5, y, 6, 1, pal.line);
   cv.rect(3, 5, 10, 3, pal.face);
   cv.rect(6, 1, 4, 4, pal.light);                          // the finial
+  cv.spec = { kind: 'obelisk', pal };
   place(cv, tx, ty - 2, 1, { shadow: false });
 }
 

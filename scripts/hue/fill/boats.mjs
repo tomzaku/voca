@@ -3,7 +3,7 @@
 
 import { rand } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
-import { ground } from '../core/world.mjs';
+import { drawn, ground } from '../core/world.mjs';
 import { ISLETS, RIVER_BRIDGES, T, isWater, isletE } from '../layout.mjs';
 
 export const BOATS = [];
@@ -41,7 +41,9 @@ export function launchBoats() {
       const w = big ? 3 : 2;
       const tx = 2 + rand() * 92, ty = 55.8 + rand() * 6;
       if (!clear(tx, ty, w)) continue;
-      if (big) dragon(tx * T, ty * T); else sampan(tx * T, ty * T, rand() < 0.5);
+      const flip = !big && rand() < 0.5;
+    if (big) dragon(tx * T, ty * T); else sampan(tx * T, ty * T, flip);
+    drawn.push({ type: big ? 'dragonBoat' : 'sampan', x: Math.floor(tx * T), y: Math.floor(ty * T), flip });
       BOATS.push([tx, ty, w]);
     }
   }

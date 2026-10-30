@@ -160,6 +160,7 @@ export function wallRing(b, open) {
       const ring = horizontal || tx === b.x0 || tx === b.x1 - 1;
       if (!ring || open(tx, ty)) continue;
       solid[ty][tx] = true;
+      drawn.push({ type: 'wall', tx, ty, horizontal, x: tx * T, y: ty * T });
       for (let y = 0; y < T; y++) {
         for (let x = 0; x < T; x++) {
           const px = tx * T + x, py = ty * T + y;

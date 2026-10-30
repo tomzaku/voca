@@ -4,7 +4,7 @@
 
 import { hash, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
-import { ground, solid, used } from '../core/world.mjs';
+import { drawn, ground, solid, used } from '../core/world.mjs';
 import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
 import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
 import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
@@ -116,7 +116,7 @@ export function plantGreenery() {
         }
       }
     }
-    for (const [tx, ty] of forest) { solid[ty][tx] = true; used[ty][tx] = true; }
+    for (const [tx, ty] of forest) { solid[ty][tx] = true; used[ty][tx] = true; drawn.push({ type: 'forest', tx, ty, x: tx * T, y: ty * T }); }
   }
 
   // Groves in the open, then single trees scattered over what's left.
