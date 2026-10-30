@@ -201,6 +201,8 @@ export function GameWorld({
   // ── Minimap + gate arrival card ──
   const [snap, setSnap] = useState<WorldSnapshot | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number; areaIndex: number } | null>(null);
+  // Local development only: where the buddy and the pointer are, in map tiles.
+  const [debugPos, setDebugPos] = useState<{ buddy: [number, number]; cursor: [number, number] | null } | null>(null);
   const [arrival, setArrival] = useState<{ name: string; key: number } | null>(null);
   const arrivalKey = useRef(0);
 
@@ -302,6 +304,7 @@ export function GameWorld({
     game.events.on(WORLD_EVENTS.moved, onMoved);
     game.events.on(WORLD_EVENTS.area, onArea);
     game.events.on(WORLD_EVENTS.zoom, onZoom);
+    if (import.meta.env.DEV) game.events.on(WORLD_EVENTS.debug, setDebugPos);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
     });
@@ -315,6 +318,7 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.moved, onMoved);
       game.events.off(WORLD_EVENTS.area, onArea);
       game.events.off(WORLD_EVENTS.zoom, onZoom);
+      if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
       game.destroy(true);
     };
   }, [animal.id, animal.name, stage, buddyName, locale]);
@@ -441,6 +445,16 @@ export function GameWorld({
       {/* ── HUD (DOM, on top of the canvas) ── the world's own controls, in the
              same pixel kit as the buildings' screens, stepping aside while a
              building's HUD is up. ── */}
+      {/* Local development only: the position readout, in the map generator's
+          tiles, for saying exactly where something on the map is wrong. */}
+      {import.meta.env.DEV && debugPos && (
+        <div className="absolute bottom-2 left-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white">
+          you {debugPos.buddy.join(', ')}
+          {debugPos.cursor && <> · cursor {debugPos.cursor.join(', ')}</>}
+          <span className="text-white/50"> · P logs it</span>
+        </div>
+      )}
+
       {/* ── Status bar ── the world's menu (back to the app), you — your
              buddy as dressed, your name — and what the city shows of your
              progress: your streak and the river's lanterns. ── */}

@@ -51,5 +51,8 @@ export const WORLD_EVENTS = {
   /** Buddy came within reach of a named place on the map (payload: its
    *  `places` id, or null on leaving). */
   landmark: 'world:landmark',
+  /** Local development only: where the buddy and the pointer are, in the map
+   *  generator's tiles (payload: { buddy: [x, y], cursor: [x, y] | null }). */
+  debug: 'world:debug',
 } as const;
 

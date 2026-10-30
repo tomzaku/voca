@@ -324,6 +324,9 @@ export class WorldScene extends Phaser.Scene {
     this.wasd = kb.addKeys('W,A,S,D') as WorldScene['wasd'];
     // Stop arrows/space from scrolling the page while the world has the screen.
     kb.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
+    // Local development: P logs where the buddy and the pointer are, in the
+    // map generator's tiles — handy for saying where something's wrong.
+    if (import.meta.env.DEV) kb.on('keydown-P', () => console.log('[world] position', this.debugPosition()));
 
     // Tap the ground → walk there (through a door if it's another area).
     this.input.on(
@@ -1050,6 +1053,17 @@ export class WorldScene extends Phaser.Scene {
     this.rideFront.setTexture(key).setVisible(true);
   }
 
+  /** Where the buddy stands and the pointer points, in the map generator's
+   *  tiles (scripts/hue: x across, y down), to one decimal. */
+  private debugPosition() {
+    const tile = (v: number) => Math.round((v / this.tilePx) * 10) / 10;
+    const p = this.input.activePointer;
+    return {
+      buddy: [tile(this.buddy.x), tile(this.buddy.y)] as [number, number],
+      cursor: p.active ? [tile(p.worldX), tile(p.worldY)] as [number, number] : null,
+    };
+  }
+
   /** Walk, or ride a bicycle or a xích lô: the buddy gets on (or off) where
    *  they stand, and goes as fast as the ride does. */
   setRide(ride: Ride) {
@@ -1404,12 +1418,14 @@ export class WorldScene extends Phaser.Scene {
       if (idx !== this.areaIndex) this.crossGate(idx);
     }
 
-    // Feed the minimap (throttled — it only needs a rough position).
+    // Feed the minimap (throttled — it only needs a rough position), and in
+    // local development the position readout.
     if (time - this.lastMoveEmit > 100) {
       this.lastMoveEmit = time;
       this.game.events.emit(WORLD_EVENTS.moved, {
         x: this.buddy.x, y: this.buddy.y, areaIndex: this.areaIndex,
       });
+      if (import.meta.env.DEV) this.game.events.emit(WORLD_EVENTS.debug, this.debugPosition());
     }
 
     const hasRoute = this.route.length > 0;
