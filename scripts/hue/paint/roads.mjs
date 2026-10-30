@@ -31,6 +31,10 @@ export function shade(x, y) {
     const joint = (y % 8 === 0) || ((x + (Math.floor(y / 8) % 2) * 6) % 12 === 0);
     c = joint ? P.stoneJoint : mix(P.stone, P.stoneJoint, hash(x, y) * 0.25);
     if (e < 1) c = P.stoneEdge;
+  } else if (r.kind === 'path') {
+    // A park path: fine gravel, its edge a darker line where the grass begins.
+    c = hash(x, y) < 0.18 ? [200, 186, 156] : hash(x * 3, y) < 0.08 ? [240, 232, 214] : [222, 210, 182];
+    if (e < 1) c = [184, 168, 136];
   } else if (r.kind === 'street') {
     if (e < 1) c = KERB_SHADOW;
     else if (e < 4) c = (Math.floor(x / 4) + Math.floor(y / 4)) % 2 === 0 && (x % 4 === 0 || y % 4 === 0) ? PAVEMENT_JOINT : mix(PAVEMENT, PAVEMENT_JOINT, hash(x, y) * 0.3);

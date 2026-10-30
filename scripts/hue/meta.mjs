@@ -8,6 +8,7 @@ import { FLAG, LABELS as CITADEL_LABELS } from './places/citadel.mjs';
 import { LABELS as DONG_BA_LABELS } from './places/dongBa.mjs';
 import { LABELS as IMPERIAL_LABELS } from './places/imperial.mjs';
 import { LABELS as KIM_LONG_LABELS } from './places/kimLong.mjs';
+import { LABELS as PARK_LABELS } from './places/parks.mjs';
 import { LABELS as RIVER_LABELS } from './places/river.mjs';
 import { LABELS as SOUTH_BANK_LABELS } from './places/southBank.mjs';
 import { LABELS as TOMB_LABELS } from './places/tombs.mjs';
@@ -26,7 +27,7 @@ export const point = (type, tx, ty, props = {}) => objects.push({
 // and the story shows. Most are centred over their building — `x, y` is the
 // middle, and a character is about a fifth of a tile wide; the river's and
 // the districts' (`anchor: 'left'`) start at `x`.
-const LABELS = [CITADEL_LABELS, IMPERIAL_LABELS, RIVER_LABELS, KIM_LONG_LABELS, DONG_BA_LABELS, SOUTH_BANK_LABELS, TOMB_LABELS].flat();
+const LABELS = [CITADEL_LABELS, IMPERIAL_LABELS, RIVER_LABELS, PARK_LABELS, KIM_LONG_LABELS, DONG_BA_LABELS, SOUTH_BANK_LABELS, TOMB_LABELS].flat();
 
 export function writeMeta() {
   point('spawn', ...SPAWN);

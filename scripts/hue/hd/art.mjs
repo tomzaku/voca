@@ -503,3 +503,75 @@ export function cyclo(cv, x, y) {
   bar(cv, x + 26, y - 18, x + 25, y - 10, [90, 90, 98]);
   cv.rect(x + 24, y - 20, 6, 2, [40, 34, 32]);
 }
+
+// ── The riverside parks ──
+
+/** A flower bed: a dark earth oval, a stone edge, flowers packed in. */
+export function flowerBed(cv, x, y) {
+  cv.ellipse(x, y, 19, 9, [150, 144, 130]);
+  cv.ellipse(x, y, 17, 7.5, [106, 78, 56]);
+  const blooms = [[236, 140, 172], [250, 210, 96], [184, 140, 218], [246, 246, 240], [226, 84, 72]];
+  for (let i = 0; i < 46; i++) {
+    const a = hash(x + i, y) * Math.PI * 2, d = Math.sqrt(hash(y + i, x));
+    const fx = x + Math.cos(a) * d * 15, fy = y + Math.sin(a) * d * 6;
+    disc(cv, fx, fy + 1, 1.6, [64, 120, 60]);
+    cv.set(fx, fy, blooms[i % blooms.length]);
+    cv.set(fx + 1, fy, blooms[i % blooms.length]);
+  }
+}
+
+/** A park bench of slatted wood on iron legs. */
+export function bench(cv, x, y) {
+  cv.ellipse(x, y + 4, 12, 2, [0, 0, 0], 0.2);
+  for (let i = 0; i < 3; i++) cv.rect(x - 11, y - 9 + i * 2, 22, 1, i % 2 ? [150, 102, 62] : [176, 124, 80]);
+  for (let i = 0; i < 2; i++) cv.rect(x - 11, y - 3 + i * 2, 22, 1, i % 2 ? [150, 102, 62] : [190, 138, 92]);
+  for (const lx of [x - 9, x + 8]) cv.rect(lx, y - 9, 2, 13, [60, 60, 66]);
+}
+
+/** A park lamp: a short post, a round lantern. */
+export function parkLamp(cv, x, y) {
+  cv.ellipse(x + 1, y + 1, 4, 1.2, [0, 0, 0], 0.25);
+  cv.rect(x - 1, y - 2, 4, 2, [60, 62, 70]);
+  cv.rect(x, y - 16, 2, 14, [74, 78, 86]);
+  disc(cv, x + 1, y - 19, 4, [44, 44, 52]);
+  disc(cv, x + 1, y - 19, 3, [255, 232, 170]);
+  cv.set(x, y - 20, [255, 250, 220]);
+}
+
+/** Đài phun nước: a stone basin, the fountain in tiers, water falling. */
+export function fountain() {
+  const cv = new Canvas(2 * T2, 2 * T2);
+  const cx = 32;
+  cv.ellipse(cx, 42, 31, 18, [150, 144, 132]);
+  cv.ellipse(cx, 41, 30, 16.5, [206, 200, 186]);
+  cv.ellipse(cx, 42, 26, 13, [62, 146, 206]);
+  cv.ellipse(cx, 44, 20, 9, [98, 178, 222]);
+  for (let i = 0; i < 30; i++) cv.set(cx - 22 + hash(i, 3) * 44, 34 + hash(i, 7) * 16, [190, 228, 248]);
+  // The column and its two bowls.
+  cv.rect(cx - 4, 16, 8, 26, [196, 190, 178]);
+  cv.rect(cx - 4, 16, 2, 26, [226, 220, 208]);
+  cv.ellipse(cx, 30, 12, 4, [206, 200, 186]);
+  cv.ellipse(cx, 29, 10, 2.5, [98, 178, 222]);
+  cv.ellipse(cx, 17, 7, 2.5, [206, 200, 186]);
+  // Water rising and falling back.
+  for (let i = 0; i < 9; i++) cv.set(cx, 4 + i, [220, 240, 252]);
+  for (const dir of [-1, 1]) for (let i = 0; i < 12; i++) {
+    cv.set(cx + dir * (2 + i), 6 + (i * i) / 12, [220, 240, 252]);
+    cv.set(cx + dir * (8 + i), 26 + (i * i) / 10, [200, 232, 250]);
+  }
+  outline(cv, [70, 66, 60]);
+  return cv;
+}
+
+/** Cầu đi bộ gỗ lim: ironwood planks across, a railing of posts and a rail
+ *  along both edges. `w, h` in detail px. */
+export function boardwalk(w, h) {
+  const cv = new Canvas(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let c = (x % 6 === 0) ? [86, 44, 30] : mix([132, 66, 44], [150, 80, 54], hash(Math.floor(x / 6), 1) * 0.8);
+    if (y < 3 || y >= h - 3) c = y === 0 || y === h - 1 ? [70, 36, 24] : [168, 98, 66];
+    cv.set(x, y, c);
+  }
+  for (let x = 2; x < w; x += 12) { cv.rect(x, 0, 3, 4, [70, 36, 24]); cv.rect(x, h - 4, 3, 4, [70, 36, 24]); }
+  return cv;
+}

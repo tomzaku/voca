@@ -16,12 +16,12 @@ import { grassColor, hillTint } from '../paint/terrain.mjs';
 import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
-import { K, bicycle, cyclo, house, kyDai, lamp, market, tree } from './art.mjs';
+import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, house, kyDai, lamp, market, parkLamp, tree } from './art.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
 /** The buildings with detailed art of their own, by the name their canvas
  *  carries (cv.spec.kind); other halls with windows are drawn as houses. */
-const BUILDINGS = { market, kyDai, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
+const BUILDINGS = { market, kyDai, fountain, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
 
 /** The patches, in tiles: the whole map, in pieces small enough for any
  *  GPU's largest texture (40 × 36 tiles is 1280 × 1152 px). */
@@ -82,6 +82,11 @@ function roadAt(X, Y, mx, my, roads) {
     if (r.main && Math.abs(o) < 1 && s % 18 < 10) c = STREET.centreLine;
     return c;
   }
+  if (r.kind === 'path') {
+    if (e < 1) return [184, 168, 136];
+    const h = hash(X, Y);
+    return h < 0.16 ? [200, 186, 156] : h < 0.22 ? [244, 236, 220] : mix([222, 210, 182], [212, 198, 168], noise(X, Y, 6));
+  }
   if (r.kind === 'stone') {
     const row = Math.floor(Y / 16), col = Math.floor((X + (row % 2) * 8) / 16);
     if (Y % 16 === 0 || (X + (row % 2) * 8) % 16 === 0) return P.stoneJoint;
@@ -139,6 +144,9 @@ export function renderDetail(write) {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const art = tree(e.kind, e.cv.w, e.cv.h, e.tx * 131 + e.ty * 17);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
+      } else if (e.type === 'boardwalk') {
+        if (!inside(e, e.w, e.h)) continue;
+        redraw.push({ e, art: boardwalk(e.w * K, e.h * K), bottom: e.y, overTo: 0 });
       } else if (e.type === 'span') {
         // Narrow causeways only: a wide landing is a floor, not a walkway.
         if (Math.min(e.w, e.h) > 2 * T || !inside(e, e.w, e.h)) continue;
@@ -160,7 +168,10 @@ export function renderDetail(write) {
       if (art && e.cv) liftOut(clear, o.d, W, H, ox, oy, e);
       else if (!art) {
         // Its box about (x, y): width, height, how far up and left it reaches.
-        const [w, h, top, left] = e.type === 'lamp' ? [3, 13, 11, 1] : e.type === 'bike' ? [13, 10, 9, 1] : e.type === 'lotus' ? [9, 7, 4, 4] : [19, 15, 14, 1];
+        const [w, h, top, left] = {
+          lamp: [3, 13, 11, 1], bike: [13, 10, 9, 1], lotus: [9, 7, 4, 4], cyclo: [19, 15, 14, 1],
+          bed: [20, 10, 5, 10], bench: [13, 8, 5, 6], parkLamp: [3, 11, 9, 1],
+        }[e.type];
         for (let Y = (e.y - top - oy) * K; Y < (e.y - top + h - oy) * K; Y++) for (let X = (e.x - left - ox) * K; X < (e.x - left + w - ox) * K; X++) {
           if (X >= 0 && Y >= 0 && X < W && Y < H) clear[Y * W + X] = 1;
         }
@@ -198,6 +209,9 @@ export function renderDetail(write) {
       else if (e.type === 'bike') bicycle(g, X, Y, e.frame);
       else if (e.type === 'cyclo') cyclo(g, X, Y);
       else if (e.type === 'lotus') lotus(g, X, Y, e.flower);
+      else if (e.type === 'bed') flowerBed(g, X, Y);
+      else if (e.type === 'bench') bench(g, X, Y);
+      else if (e.type === 'parkLamp') parkLamp(g, X, Y);
     }
     write(key, g, o);
     return { key, x: ox, y: oy, ground: `hue-detail-${key}-ground.png`, over: `hue-detail-${key}-over.png` };

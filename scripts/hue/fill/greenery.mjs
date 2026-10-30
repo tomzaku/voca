@@ -69,7 +69,7 @@ export function plantGreenery() {
   for (const [x, y] of [[24, 9], [100, 26], [44, 64], [109, 70]]) if (canPlant(x, y)) tree(x, y, 'flame');
   // Trees along the lanes, every few steps on both sides.
   for (const r of ROADS) {
-    if (r.kind === 'stone') continue;
+    if (r.kind === 'stone' || r.kind === 'path') continue;
     const kinds = ['leaf', 'deep', 'leaf', 'flame', 'leaf', 'lilac'];
     for (let s = T; s < r.line.length - T; s += 3 * T) {
       const g = r.line.segs.find((seg) => s >= seg.s0 && s < seg.s0 + seg.len);

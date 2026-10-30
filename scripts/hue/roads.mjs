@@ -9,6 +9,7 @@
 //   street — asphalt between kerbs and pavements; `main` ones have a centre line
 //   lane   — packed dirt with wheel ruts and grass creeping in at the edges
 //   stone  — paved: the Citadel's courts, forecourts, the walking street
+//   path   — gravel: the footpaths winding through the riverside parks
 // Its ends are cut square, so a straight road is exactly the rectangle it
 // covers; where it bends, the bend is rounded.
 //
@@ -22,6 +23,18 @@ import { EAST_GATE_Y, H, SOUTH_GATES, T, W, WEST_GATE_Y, polyline } from './layo
 const ringAround = (cx, cy, rx, ry, n) => Array.from({ length: n + 2 }, (_, i) => {
   const a = (i / n) * Math.PI * 2;
   return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
+});
+/** The parks' paths: [from x, to x, at y] — the north park's under Lê
+ *  Duẩn, the south park's above Lê Lợi, broken where the bridges, the
+ *  dragon-boat wharf and Phu Văn Lâu's landing come down to the water. */
+export const PARK_PATHS = [
+  [1, 18, 51], [24, 31, 51], [36, 47.5, 51], [60, 65, 51], [70, 74, 51], [84, 95, 51],
+  [1, 18, 57.2], [24, 31, 57.2], [36, 65, 57.2], [70, 74, 57.2], [79, 96, 57.2],
+];
+/** A gently winding line from x0 to x1 about row y. */
+const wavy = (x0, x1, y) => Array.from({ length: Math.max(2, Math.round(x1 - x0) + 1) }, (_, i) => {
+  const x = x0 + ((x1 - x0) * i) / Math.max(1, Math.round(x1 - x0));
+  return [x, y + Math.sin(x * 0.7) * 0.3];
 });
 const road = (kind, width, points, opts = {}) => ({ kind, width, points, line: polyline(points), ...opts });
 /** A straight road covering the tile rectangle (x, y, w, h). */
@@ -73,6 +86,8 @@ export const ROADS = [
   // The tombs' road, winding through the hills from gate to gate.
   road('lane', 2, [[2, 103.5], [10, 103.5], [16, 104.3], [21, 103.5], [27, 104.3], [34.5, 103.5], [42, 104.3],
     [50, 104.6], [58, 104.2], [66, 103.6], [72, 104.3], [79, 103.5], [88, 103.5]]),
+  // Footpaths winding through the riverside parks, between the bridges.
+  ...PARK_PATHS.map(([x0, x1, y]) => road('path', 0.8, wavy(x0, x1, y))),
   box(35, 65, 12, 1, 'stone'),                                    // Quốc Học's forecourt
   box(69, 68, 17, 2, 'stone'),                                    // the walking street
 ];
