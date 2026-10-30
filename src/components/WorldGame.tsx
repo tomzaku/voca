@@ -20,6 +20,8 @@ import { ConHenStall } from './worldgames/ConHenStall';
 import { DragonBoat } from './worldgames/DragonBoat';
 import { Podcast } from './worldgames/Podcast';
 import { IeltsListening } from './worldgames/IeltsListening';
+import { IeltsWriting } from './worldgames/IeltsWriting';
+import { ImproveWriting } from './worldgames/ImproveWriting';
 import { NguBinhClimb } from './worldgames/NguBinhClimb';
 import { KhaiDinhTomb } from './worldgames/KhaiDinhTomb';
 import { AnHienHome } from './worldgames/AnHienHome';
@@ -137,6 +139,8 @@ export function WorldGame() {
       case 'comprehension': return <DragonBoat key="comprehension" initialMode="comprehension" />;
       case 'ielts-listening': return <IeltsListening />;
       case 'writing': return <VanMieuStele />;
+      case 'ielts-writing': return <IeltsWriting />;
+      case 'improve': return <ImproveWriting />;
       case 'buddy': return <AnHienHome />;
       default: return null;
     }

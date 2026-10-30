@@ -7,13 +7,11 @@ import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
 import { allTemplates, useWritingTemplates, type AnyWritingTemplate } from '../hooks/useWritingTemplates';
+import { useImproveWriting } from '../hooks/useImproveWriting';
 import { useWritingPrefs, WRITING_CORRECTION_CATEGORIES, type WritingCorrectionCategory } from '../hooks/useWritingPrefs';
-import { ApiError } from '../lib/api';
 import { CATEGORY_CONFIG } from '../lib/learningCategories';
 import {
-  improveWriting,
   type ImproveWritingOption,
-  type ImproveWritingResult,
   type WritingCorrection,
 } from '../lib/improveWritingApi';
 import { diffOption } from '../lib/textDiff';
@@ -409,7 +407,7 @@ function TemplateForm({ editingId, initialName = '', initialInstructions = '', i
 export function ImproveWritingPage() {
   const intl = useIntl();
   const { user, loading: authLoading } = useAuth();
-  const { isPro, loading: proLoading } = useIsPro();
+  const { loading: proLoading } = useIsPro();
   const custom = useWritingTemplates((s) => s.custom);
   const templates = useMemo(() => allTemplates(custom), [custom]);
 
@@ -431,13 +429,7 @@ export function ImproveWritingPage() {
   const [detailOpen, setDetailOpen] = useState(false);
 
   const [text, setText] = useState('');
-  const [result, setResult] = useState<ImproveWritingResult | null>(null);
-  // The text a result belongs to — captured at submit time, since `text`
-  // itself keeps changing if the learner edits the textarea afterward, and
-  // the diff highlight has to stay pinned to what was actually revised.
-  const [resultSourceText, setResultSourceText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const { submit, result, sourceText: resultSourceText, loading, locked } = useImproveWriting();
 
   const visibleCategories = useWritingPrefs((s) => s.visibleCategories);
   const toggleCategory = useWritingPrefs((s) => s.toggleCategory);
@@ -447,7 +439,6 @@ export function ImproveWritingPage() {
   const setSortChanges = useWritingPrefs((s) => s.setSortChanges);
   const [prefsOpen, setPrefsOpen] = useState(false);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
 
   // ── Deep link: ?text=…&template=…&autoAnswer=true ──
   // Lets an external caller (a bookmarklet, a "send to Voca" share action)
@@ -515,42 +506,7 @@ export function ImproveWritingPage() {
     }
   };
 
-  const locked = !proLoading && !isPro;
-
-  const handleSubmit = async () => {
-    if (locked) {
-      toast(
-        intl.formatMessage({ id: user ? 'writing.improveProFeature' : 'writing.improveSignInPro' }),
-        { icon: '👑' },
-      );
-      return;
-    }
-    if (!text.trim()) { toast.error(intl.formatMessage({ id: 'writing.pasteFirst' })); return; }
-    if (!selected) return;
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setLoading(true);
-    setResult(null);
-    const submittedText = text.trim();
-    try {
-      const categories = WRITING_CORRECTION_CATEGORIES.filter((c) => visibleCategories[c]);
-      // Ask for one revision instead of two when Option 2 is hidden anyway —
-      // half the output, half the tokens spent on a round the learner won't see.
-      const result = await improveWriting(
-        { instructions: selected.instructions, text: submittedText, categories, optionCount: hideOption2 ? 1 : 2 },
-        { signal: controller.signal },
-      );
-      setResult(result);
-      setResultSourceText(submittedText);
-    } catch (err) {
-      if (err instanceof ApiError) toast.error(err.message);
-      else if ((err as Error).name !== 'AbortError') toast.error(intl.formatMessage({ id: 'writing.aiUnreachable' }));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleSubmit = () => submit(selected, text);
 
   // Fire the deep-linked auto-submit once auth + Pro status have resolved —
   // both start out "not loading" for an instant before the session restores,

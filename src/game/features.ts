@@ -93,6 +93,8 @@ export const WORLD_SKILLS: WorldSkill[] = [
     route: '/writing/improve', emoji: '🖌️', icon: 'lucide:pen-line',
     activities: [
       act('writing', 'practice', 'Stele', '🪨', 'Văn Miếu'),
+      act('ielts-writing', 'practice', 'IeltsWriting', '🎓', 'Quốc Học'),
+      act('improve', 'tool', 'Improve', '✒️', 'Văn Miếu'),
     ],
   },
   {

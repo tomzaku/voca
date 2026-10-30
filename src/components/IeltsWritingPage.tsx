@@ -1,16 +1,13 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Icon } from '@iconify/react';
-import toast from 'react-hot-toast';
 import TextareaAutosize from 'react-textarea-autosize';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
-import { callAiAction } from '../lib/aiProviders';
-import { ApiError } from '../lib/api';
+import { useIeltsWritingScore, wordCount as countWords, IELTS_MIN_TO_SCORE } from '../hooks/useIeltsWritingScore';
 import { randomIeltsWritingQuestion, type IeltsWritingQuestion, type IeltsTask } from '../data/ieltsWriting';
 import { IELTS_CATEGORY_TIPS, IELTS_TASK_TIPS } from '../data/ieltsWritingTips';
-import { listIeltsSubmissions, saveIeltsSubmission, type IeltsSubmission } from '../lib/ieltsSubmissionsApi';
-import { parseIeltsScoreResult, type IeltsScoreResult } from '../lib/ieltsScoreResult';
+import { listIeltsSubmissions, type IeltsSubmission } from '../lib/ieltsSubmissionsApi';
 import { IeltsChart } from './IeltsChart';
 
 const MAX_ESSAY = 8000;
@@ -46,16 +43,13 @@ function BandChip({ label, value }: { label: string; value: number }) {
 export function IeltsWritingPage() {
   const intl = useIntl();
   const { user } = useAuth();
-  const { isPro, loading: proLoading } = useIsPro();
-  const locked = !proLoading && !isPro;
+  const { isPro } = useIsPro();
+  const { score, scoring, result, reset, locked } = useIeltsWritingScore();
 
   const [taskFilter, setTaskFilter] = useState<IeltsTask | undefined>(undefined);
   const [question, setQuestion] = useState<IeltsWritingQuestion | null>(() => randomIeltsWritingQuestion());
 
   const [essay, setEssay] = useState('');
-  const [result, setResult] = useState<IeltsScoreResult | null>(null);
-  const [scoring, setScoring] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
 
   const [history, setHistory] = useState<IeltsSubmission[]>([]);
   const [showTips, setShowTips] = useState(false);
@@ -66,65 +60,24 @@ export function IeltsWritingPage() {
 
   const loadQuestion = useCallback((task?: IeltsTask) => {
     setEssay('');
-    setResult(null);
+    reset();
     setShowTips(false);
     setShowSample(false);
     setSampleIndex(1);
     setQuestion(randomIeltsWritingQuestion(task));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset is a fresh closure each render, and only aborts and clears
   }, []);
 
   useEffect(() => { loadQuestion(taskFilter); }, [loadQuestion, taskFilter]);
-  useEffect(() => () => abortRef.current?.abort(), []);
 
   useEffect(() => {
     if (!user || !isPro) { setHistory([]); return; }
     void listIeltsSubmissions(undefined, 5).then((page) => setHistory(page.submissions));
   }, [user, isPro, result]);
 
-  const wordCount = essay.trim() ? essay.trim().split(/\s+/).length : 0;
+  const wordCount = countWords(essay);
 
-  const handleScore = async () => {
-    if (locked) {
-      toast(
-        intl.formatMessage({ id: user ? 'writing.ieltsProFeature' : 'writing.ieltsSignInPro' }),
-        { icon: '👑' },
-      );
-      return;
-    }
-    if (!question) return;
-    if (wordCount < 20) { toast.error(intl.formatMessage({ id: 'writing.ieltsWriteMore' })); return; }
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setScoring(true);
-    setResult(null);
-    try {
-      const text = await callAiAction(
-        'ielts_writing',
-        {
-          task: question.task,
-          prompt: question.prompt,
-          dataDescription: question.dataDescription ?? undefined,
-          essay: essay.trim(),
-        },
-        { signal: controller.signal },
-      );
-      const parsed = parseIeltsScoreResult(text);
-      if (!parsed) { toast.error(intl.formatMessage({ id: 'writing.ieltsParseFailed' })); return; }
-      setResult(parsed);
-      try {
-        await saveIeltsSubmission({ questionId: question.id, essay: essay.trim(), ...parsed });
-      } catch {
-        toast(intl.formatMessage({ id: 'writing.ieltsSaveFailed' }), { icon: '⚠️' });
-      }
-    } catch (err) {
-      if (err instanceof ApiError) toast.error(err.message);
-      else if ((err as Error).name !== 'AbortError') toast.error(intl.formatMessage({ id: 'writing.aiUnreachable' }));
-    } finally {
-      setScoring(false);
-    }
-  };
+  const handleScore = () => { if (question) void score(question, essay); };
 
   return (
     <div>
@@ -314,7 +267,7 @@ export function IeltsWritingPage() {
           </span>
           <button
             onClick={handleScore}
-            disabled={scoring || !question || wordCount < 20}
+            disabled={scoring || !question || wordCount < IELTS_MIN_TO_SCORE}
             className="btn-3d px-5 py-2.5 text-base bg-accent-cyan text-bg-primary font-bold disabled:opacity-60 flex items-center gap-2"
           >
             {scoring ? (
