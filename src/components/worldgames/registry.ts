@@ -12,7 +12,7 @@ export const ACTIVITIES: ActivityDef[] = Object.values(files)
   .sort((a, b) => a.order - b.order);
 
 /** The skills with their activities, in the order menus list them. */
-export const WORLD_SKILLS: WorldSkill[] = SKILLS.map((s) => ({
+export const WORLD_SKILLS: (WorldSkill & { activities: ActivityDef[] })[] = SKILLS.map((s) => ({
   ...s,
   activities: ACTIVITIES.filter((a) => a.skill === s.id),
 }));
