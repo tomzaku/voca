@@ -2,7 +2,7 @@
 
 import { Canvas, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
-import { ground, mark, over, solid, used } from '../core/world.mjs';
+import { drawn, ground, mark, over, solid, used } from '../core/world.mjs';
 import { H, RIVER_BRIDGES, T, W, isWater, nearSlot } from '../layout.mjs';
 import { nearRoad, onAnyRoad, onRoad } from '../roads.mjs';
 
@@ -24,6 +24,7 @@ export function stand(cv, tx, ty, overRows, shadowRx, solidTiles = [[tx, ty]]) {
   const ox = (tx + 0.5) * T - cv.w / 2, oy = (ty + 1) * T - cv.h;
   ground.blit(cv, ox, oy);
   over.blit(cv, ox, oy, [0, overRows]);
+  drawn.push({ type: 'tree', kind: cv.kind, cv, x: ox, y: oy, overTo: overRows, tx, ty });
   for (const [x, y] of solidTiles) if (solid[y]?.[x] === false) solid[y][x] = true;
 }
 
@@ -31,6 +32,7 @@ export function stand(cv, tx, ty, overRows, shadowRx, solidTiles = [[tx, ty]]) {
  *  hanging. Three tiles across; the big tree of pagodas and village greens. */
 export function banyan(tx, ty) {
   const cv = new Canvas(3 * T, 3 * T);
+  cv.kind = 'banyan';
   const bark = [96, 70, 50], barkLight = [122, 92, 66];
   cv.rect(20, 28, 8, 20, bark);
   cv.rect(20, 28, 2, 20, barkLight);
@@ -51,6 +53,7 @@ export function banyan(tx, ty) {
 /** Liễu — a weeping willow by the water: a small dome, strands hanging down. */
 export function willow(tx, ty) {
   const cv = new Canvas(2 * T, 2 * T);
+  cv.kind = 'willow';
   cv.rect(15, 18, 3, 13, [104, 80, 58]);
   cv.ellipse(16, 9, 11, 7, [80, 132, 80]);
   for (let x = 4; x <= 28; x += 2) {
@@ -66,6 +69,7 @@ export function willow(tx, ty) {
  *  turn red. */
 export function bang(tx, ty, red = false) {
   const cv = new Canvas(2 * T, 2 * T);
+  cv.kind = red ? 'bangRed' : 'bang';
   const [dark, mid, light] = red
     ? [[150, 66, 46], [188, 92, 58], [214, 124, 78]]
     : [[58, 104, 66], [80, 130, 82], [104, 154, 96]];
@@ -83,6 +87,7 @@ export function bang(tx, ty, red = false) {
  *  tops; the green hedge of a Huế village. */
 export function bamboo(tx, ty) {
   const cv = new Canvas(2 * T, 2 * T);
+  cv.kind = 'bamboo';
   // Stalks two pixels wide (lit and shaded), jointed every few pixels.
   for (const [x, h] of [[5, 22], [9, 28], [13, 25], [16, 31], [20, 27], [24, 29], [27, 21]]) {
     for (let y = 31 - h; y < 31; y++) {
@@ -104,6 +109,7 @@ export function bamboo(tx, ty) {
  *  flowers with yellow hearts. Grown at pagodas and temples. */
 export function frangipani(tx, ty) {
   const cv = new Canvas(2 * T, 2 * T);
+  cv.kind = 'frangipani';
   const bark = [130, 118, 104];
   for (let y = 16; y < 31; y++) cv.set(15 + (y < 22 ? Math.round((22 - y) / 3) : 0), y, bark);
   for (let i = 0; i < 6; i++) { cv.set(14 - i, 16 - i, bark); cv.set(18 + i, 15 - i, bark); }
@@ -164,6 +170,7 @@ export function palm(tx, ty) {
   ground.ellipse(tx * T + 9, ty * T + 15, 5, 2, P.shadow, 0.22);
   ground.blit(cv, (tx - 0.5) * T, (ty - 1) * T);
   over.blit(cv, (tx - 0.5) * T, (ty - 1) * T, [0, T + 4]);
+  drawn.push({ type: 'tree', kind: 'palm', cv, x: (tx - 0.5) * T, y: (ty - 1) * T, overTo: T + 4, tx, ty });
   solid[ty][tx] = true;
   mark(used, tx, ty - 1, 1, 2);
 }
@@ -181,6 +188,7 @@ export function tree(tx, ty, kind = 'leaf') {
   // Trunk tile is (tx, ty); the crown fills the tile above it.
   ground.blit(cv, (tx - 0.5) * T, (ty - 1) * T);
   over.blit(cv, (tx - 0.5) * T, (ty - 1) * T, [0, T + 4]);
+  drawn.push({ type: 'tree', kind, cv, x: (tx - 0.5) * T, y: (ty - 1) * T, overTo: T + 4, tx, ty });
   solid[ty][tx] = true;
   mark(used, tx - 1, ty - 1, 3, 3);
 }
@@ -198,6 +206,7 @@ export function pine(tx, ty) {
   ground.ellipse(tx * T + 9, ty * T + 15, 6, 2, P.shadow, 0.22);
   ground.blit(cv, tx * T, (ty - 1) * T);
   over.blit(cv, tx * T, (ty - 1) * T, [0, T + 6]);
+  drawn.push({ type: 'tree', kind: 'pine', cv, x: tx * T, y: (ty - 1) * T, overTo: T + 6, tx, ty });
   solid[ty][tx] = true;
   mark(used, tx, ty, 1, 1);
 }

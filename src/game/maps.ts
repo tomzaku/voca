@@ -26,7 +26,13 @@ export interface WorldMapSource {
   overUrl?: string;
   /** Lights added over the dimmed map in dark mode only. */
   nightUrl?: string;
+  /** The high-detail patches' list (scripts/hue/hd): each a part of the map
+   *  drawn again at twice the resolution — `x, y` its top-left in map px —
+   *  with its own ground and over images. */
+  detailUrl?: string;
 }
+
+export interface DetailPatch { key: string; x: number; y: number; ground: string; over: string }
 
 /** Huế, painted by scripts/generate-hue-map.mjs — the default world. */
 export function defaultMap(): WorldMapSource {
@@ -39,6 +45,7 @@ export function defaultMap(): WorldMapSource {
     groundUrl: `${base}game/maps/hue-ground.png`,
     overUrl: `${base}game/maps/hue-over.png`,
     nightUrl: `${base}game/maps/hue-night.png`,
+    detailUrl: `${base}game/maps/hue-detail.json`,
   };
 }
 

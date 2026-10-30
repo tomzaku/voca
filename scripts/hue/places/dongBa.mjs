@@ -38,6 +38,7 @@ export function drawDongBa() {
     cv.rect(pw / 2, gy + 13, 1, 6, [40, 36, 34]);
     cv.rect(pw / 2, gy + 18, 4, 1, [40, 36, 34]);
     cv.rect(gx + 8, gy + 30, 24, 4, [176, 92, 80]);
+    cv.spec = { kind: 'market' };
     place(cv, 85, 40, 4);
   }
 

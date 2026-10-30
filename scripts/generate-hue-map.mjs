@@ -58,6 +58,8 @@
 //              lamps, crossings and parked bikes
 //   places/    one file per part of the city, each drawing its landmarks
 //   fill/      the passes that fill the gaps: houses, boats, trees, forest
+//   hd/        high-detail patches: parts of the map drawn again at twice the
+//              resolution, laid over it in the game
 //   meta, collision, check — the map's points, walls and sanity check
 //
 // The steps run in the order below, and that order is part of the output:
@@ -86,6 +88,7 @@ import { plantGreenery } from './hue/fill/greenery.mjs';
 import { buildWalls, walls } from './hue/collision.mjs';
 import { nextId, objects, writeMeta } from './hue/meta.mjs';
 import { checkReach, seen } from './hue/check.mjs';
+import { renderDetail } from './hue/hd/render.mjs';
 const require = createRequire(import.meta.url);
 const sharp = require('sharp');
 
@@ -139,6 +142,11 @@ await Promise.all([
   tile.png(mapFile('hue-tiles.png')),
   night.png(mapFile('hue-night.png')),
 ]);
+// The high-detail patches, and the list the game loads them from.
+const patches = [];
+const detail = renderDetail((key, g, o) => patches.push(g.png(mapFile(`hue-detail-${key}-ground.png`)), o.png(mapFile(`hue-detail-${key}-over.png`))));
+await Promise.all(patches);
+writeFileSync(mapFile('hue-detail.json'), JSON.stringify(detail));
 console.log(`hue.tmj ${W}×${H} — ${objects.length} meta points`);
 
 // Optional QA render: ground + over, blocked tiles tinted, slots marked.

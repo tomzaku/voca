@@ -29,6 +29,13 @@ export const mark = (grid, x, y, w, h, v = true) => {
   for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (grid[j]?.[i] !== undefined) grid[j][i] = v;
 };
 
+/** Everything drawn onto the map from its own canvas — structures, trees —
+ *  and the small street furniture, with where it went: for the detailed
+ *  renders (../hd), which redraw some of them finer in the same place.
+ *  `x, y` is the canvas's top-left in map px; `overTo` how many of its rows
+ *  went on the over layer too. */
+export const drawn = [];
+
 /** Soft drop shadow to the east and south of a footprint. */
 export function dropShadow(px, py, pw, ph) {
   for (let y = 0; y < ph; y++) for (let x = 0; x < 4; x++) ground.set(px + pw + x, py + y + 3, P.shadow, 0.22 - x * 0.04);
@@ -46,6 +53,7 @@ export function place(cv, tx, ty, solidRows, { gaps = [], shadow = true } = {}) 
   if (shadow) dropShadow(tx * T, (ty + solidFrom) * T, cv.w, solidRows * T);
   ground.blit(cv, tx * T, ty * T);
   over.blit(cv, tx * T, ty * T, [0, solidFrom * T]);
+  drawn.push({ type: 'structure', cv, x: tx * T, y: ty * T, overTo: solidFrom * T, tx, ty, solidRows });
   for (let j = solidFrom; j < hT; j++) {
     for (let i = 0; i < wT; i++) if (!gaps.includes(tx + i)) solid[ty + j][tx + i] = true;
   }

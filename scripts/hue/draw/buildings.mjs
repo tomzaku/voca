@@ -60,6 +60,7 @@ export function hall({ w, h, roofRows, roofPal, wall, ...o }) {
   const roofH = roofRows * T;
   facade(cv, 2, roofH - 2, w * T - 4, h * T - roofH + 2, { wall, ...o });
   roof(cv, 2, 5, w * T - 4, roofH - 5, roofPal);
+  cv.spec = { kind: 'hall', w, h, roofRows, roofPal, wall, ...o };
   return cv;
 }
 

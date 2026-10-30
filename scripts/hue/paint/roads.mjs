@@ -4,7 +4,7 @@
 
 import { hash, mix, noise } from '../core/canvas.mjs';
 import { P, STREET } from '../core/palette.mjs';
-import { deck, glow, ground, mark, used } from '../core/world.mjs';
+import { deck, drawn, glow, ground, mark, used } from '../core/world.mjs';
 import { H, PH, PW, RIVER_BRIDGES, T, W, isWater } from '../layout.mjs';
 import { ROADS, roadGap, roadHit } from '../roads.mjs';
 
@@ -20,9 +20,11 @@ const offset = new Float32Array(PW * PH);
 const along = new Float32Array(PW * PH);
 const streets = new Uint8Array(PW * PH);
 
-/** The colour of road pixel (x, y), or null where grass shows through. */
-function shade(x, y) {
+/** The colour of road pixel (x, y), or null where it's off the roads or
+ *  grass shows through. */
+export function shade(x, y) {
   const k = y * PW + x;
+  if (at[k] < 0) return null;
   const r = ROADS[at[k]], e = depth[k], o = offset[k], half = (r.width * T) / 2;
   let c;
   if (r.kind === 'stone') {
@@ -148,6 +150,7 @@ export function furnishStreets() {
         const x = Math.round(cx + nx * reach * side), y = Math.round(cy + ny * reach * side);
         if ((onBridge(x) && Math.abs(ny) > 0.9) || isWater(x, y)) continue;
         if (at[y * PW + x] !== ROADS.indexOf(r)) continue;            // not where another road crosses
+        drawn.push({ type: 'lamp', x, y });
         ground.rect(x, y - 9, 1, 9, [70, 72, 80]);
         ground.rect(x - 1, y - 11, 3, 2, [250, 226, 160]);
         ground.set(x + 1, y, P.shadow, 0.3);
@@ -177,7 +180,9 @@ export function furnishStreets() {
     [72, 69.9, 'bike'], [72.9, 69.9, 'bike'], [80.5, 69.9, 'cyclo'],
   ]) {
     const x = Math.round(tx * T), y = Math.round(ty * T);
-    if (kind === 'bike') bicycle(x, y, frames[Math.floor(hash(x, y) * frames.length)]);
+    const frame = frames[Math.floor(hash(x, y) * frames.length)];
+    if (kind === 'bike') bicycle(x, y, frame);
     else cyclo(x, y);
+    drawn.push({ type: kind, x, y, frame });
   }
 }

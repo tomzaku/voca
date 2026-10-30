@@ -9,7 +9,7 @@ import { KEEPER_DRESS, propLayers } from '../keeperLooks';
 import { RIDE_SCALE, RIDE_SPEED, RIDE_VIEWS, SEAT, SEAT_FACING, drawRide, drawRideFront, type Ride, type RideView } from '../vehicles';
 import type { Look } from '../wardrobe';
 import { t } from '../../i18n';
-import { defaultMap } from '../maps';
+import { defaultMap, type DetailPatch } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
 import {
   buddySpec, type BuddyLook, type BuddySpec,
@@ -264,6 +264,17 @@ export class WorldScene extends Phaser.Scene {
     if (src.groundUrl) this.load.image(`ground-${src.key}`, src.groundUrl);
     if (src.overUrl) this.load.image(`over-${src.key}`, src.overUrl);
     if (src.nightUrl) this.load.image(`night-${src.key}`, src.nightUrl);
+    // The high-detail patches: their list first, then their images.
+    if (src.detailUrl) {
+      const dir = src.detailUrl.slice(0, src.detailUrl.lastIndexOf('/') + 1);
+      this.load.json(`detail-${src.key}`, src.detailUrl);
+      this.load.once(`filecomplete-json-detail-${src.key}`, (_key: string, _type: string, patches: DetailPatch[]) => {
+        for (const p of patches) {
+          this.load.image(`detail-${p.key}-ground`, `${dir}${p.ground}`);
+          this.load.image(`detail-${p.key}-over`, `${dir}${p.over}`);
+        }
+      });
+    }
     this.load.spritesheet(WINDMILL.key, `${import.meta.env.BASE_URL}${WINDMILL.url}`, {
       frameWidth: WINDMILL.frame, frameHeight: WINDMILL.frame,
     });
@@ -284,7 +295,9 @@ export class WorldScene extends Phaser.Scene {
     // Belt and braces: the pixelArt config flag doesn't reliably reach
     // runtime-loaded sheets, and linear filtering blurs 16px art badly.
     const src = defaultMap();
-    for (const key of [`tiles-${src.key}`, `ground-${src.key}`, `over-${src.key}`, `night-${src.key}`, PROPS_KEY]) {
+    const patches = ((this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[])
+      .flatMap((p) => [`detail-${p.key}-ground`, `detail-${p.key}-over`]);
+    for (const key of [`tiles-${src.key}`, `ground-${src.key}`, `over-${src.key}`, `night-${src.key}`, PROPS_KEY, ...patches]) {
       if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
     this.textures.get(VILLAGERS_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
@@ -606,6 +619,14 @@ export class WorldScene extends Phaser.Scene {
     const overImage = this.textures.exists(over)
       ? this.add.image(0, 0, over).setOrigin(0, 0).setScale(SCALE).setDepth(DEPTH_OVER)
       : null;
+    // High-detail patches over the map where they've been drawn: twice the
+    // pixels, so half the scale, in exactly the same place.
+    const detailOver: Phaser.GameObjects.Image[] = [];
+    for (const p of (this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[]) {
+      const g = `detail-${p.key}-ground`, o = `detail-${p.key}-over`;
+      if (this.textures.exists(g)) this.add.image(p.x * SCALE, p.y * SCALE, g).setOrigin(0, 0).setScale(SCALE / 2).setDepth(-0.5);
+      if (this.textures.exists(o)) detailOver.push(this.add.image(p.x * SCALE, p.y * SCALE, o).setOrigin(0, 0).setScale(SCALE / 2).setDepth(DEPTH_OVER + 0.01));
+    }
     this.worldW = map.widthInPixels * SCALE;
     this.worldH = map.heightInPixels * SCALE;
     this.tilePx = map.tileWidth * SCALE;
@@ -638,7 +659,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     const layer = this.add.container(0, 0).setDepth(DEPTH_SCENERY);
-    this.tinted = overImage ? [overImage] : [];
+    this.tinted = [...(overImage ? [overImage] : []), ...detailOver];
 
     // Animated scenery: windmills turn where the map placed them (feet at the
     // point, drawn 2× to match the tiles' on-screen size, tinted at night).
