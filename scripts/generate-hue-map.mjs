@@ -39,10 +39,13 @@
 //   SOUTH BANK        Ga Huế · Quốc Học (Quizzes) · Lê Lợi park and the
 //                     dragon-boat wharf (Listening) · the walking street ·
 //                     the An Cựu canal with Cung An Định · Ngự Bình (Level
-//                     test) · Khải Định tomb (History)
+//                     test)
+//   THE TOMB HILLS    forest, and on the tombs' road Tự Đức's garden tomb,
+//                     Khải Định's (History) and Minh Mạng's long axis
 //
-// Deliberately quiet: one muted palette, no animated scenery, and only the
-// landmarks you can enter get strong colour.
+// Drawn like an illustrated city map: bright greens and blues, forest on the
+// hills, lanes of houses and trees everywhere — but never so thick that a
+// path closes.
 
 import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -51,7 +54,9 @@ const require = createRequire(import.meta.url);
 const sharp = require('sharp');
 
 const W = 120; // map size in tiles
-const H = 86;
+const H = 107;
+// Below the city, from this row: the forested hills where the emperors lie.
+const HILLS_Y = 86;
 const T = 16; // tile size px (WorldScene draws the map at 2×)
 const PW = W * T;
 const PH = H * T;
@@ -273,6 +278,12 @@ const LAKES = [
   { kind: 'rect', x: 49, y: 31, w: 5, h: 2 },                            // Thái Dịch lake, either side
   { kind: 'rect', x: 56, y: 31, w: 5, h: 2 },                            // of Trung Đạo, before Thái Hòa
   { kind: 'rect', ...LIBRARY.lake },
+  // In the tomb hills: Lưu Khiêm at Tự Đức's; Trừng Minh either side of
+  // Minh Mạng's axis, and the crescent of Tân Nguyệt round his tomb.
+  { kind: 'ellipse', cx: 8 * T, cy: 96 * T, rx: 4.5 * T, ry: 2.6 * T },
+  { kind: 'ellipse', cx: 73.3 * T, cy: 93 * T, rx: 2.2 * T, ry: 3.4 * T },
+  { kind: 'ellipse', cx: 84.7 * T, cy: 93 * T, rx: 2.2 * T, ry: 3.4 * T },
+  { kind: 'crescent', cx: 79 * T, cy: 85.5 * T, rx: 5 * T, ry: 3.3 * T, inner: { cy: 85 * T, rx: 4 * T, ry: 2.4 * T } },
 ];
 
 const inBox = (tx, ty, b) => tx >= b.x0 && tx < b.x1 && ty >= b.y0 && ty < b.y1;
@@ -283,8 +294,10 @@ const inMoat = (x, y) => {
   return citadel || imperial;
 };
 const inTileRect = (x, y, r) => x >= r.x * T && x < (r.x + r.w) * T && y >= r.y * T && y < (r.y + r.h) * T;
-const inLake = (x, y) => !inTileRect(x, y, LIBRARY.island) && LAKES.some((l) => l.kind === 'ellipse'
-  ? ((x - l.cx) / l.rx) ** 2 + ((y - l.cy) / l.ry) ** 2 <= 1
+const inEllipse = (x, y, cx, cy, rx, ry) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+const inLake = (x, y) => !inTileRect(x, y, LIBRARY.island) && LAKES.some((l) =>
+  l.kind === 'ellipse' ? inEllipse(x, y, l.cx, l.cy, l.rx, l.ry)
+  : l.kind === 'crescent' ? y > l.cy && inEllipse(x, y, l.cx, l.cy, l.rx, l.ry) && !inEllipse(x, y, l.cx, l.inner.cy, l.inner.rx, l.inner.ry)
   : inTileRect(x, y, l));
 const inRiver = (x, y) => {
   const { d, s } = nearest(RIVER, x, y);
@@ -310,14 +323,16 @@ const ROADS = [
   [32, 21, 8, 7, 'stone'],                          // the library's island courtyard
   [69, EAST_GATE_Y, 11, 2, 'stone'], [70, 38, 2, 3, 'stone'],
   [72, 19, 2, 17, 'stone'],                         // up to Duyệt Thị Đường
-  // The Imperial City
-  [44, 21, 23, 1, 'stone'], [44, 30, 23, 1, 'stone'],
-  [54, 22, 2, 3, 'stone'], [54, 31, 2, 3, 'stone'],
+  // The Imperial City: the lane behind Thái Hòa, the court before it, the
+  // way in through Ngọ Môn and up to Đại Cung Môn
+  [44, 23, 23, 1, 'stone'], [44, 30, 23, 1, 'stone'],
+  [54, 22, 2, 1, 'stone'], [54, 31, 2, 3, 'stone'],
   // Gia Hội
   [84, 36, 19, 2, 'dirt'], [97, 38, 2, 10, 'dirt'], [101, 38, 2, 1, 'dirt'],
   // South bank
   [0, 58, 97, 2, 'stone'],                          // Lê Lợi riverside promenade
-  [20, 60, 2, 24, 'dirt'], [2, 82, 20, 2, 'dirt'],  // down to the tombs
+  [20, 60, 2, 43, 'dirt'], [66, 77, 2, 26, 'dirt'], // south into the hills
+  [2, 103, 87, 2, 'dirt'],                          // the tombs' road
   [48, 60, 3, 12, 'dirt'], [66, 60, 3, 12, 'dirt'], // south to the canal; on from Phú Xuân
   [44, 75, 27, 2, 'dirt'],                          // across the canal, to Ngự Bình
   [35, 65, 12, 1, 'stone'],                         // Quốc Học forecourt
@@ -357,6 +372,12 @@ for (let y = 0; y < PH; y++) {
     const h = hash(x, y);
     if (h < 0.006) c = P.fleckLight;
     else if (h < 0.011) c = P.fleckDark;
+    if (y >= HILLS_Y * T) {
+      // The hills: a deeper green, with faint contour lines where the land rises.
+      const lift = noise(x, y, 90);
+      c = mix(c, [72, 134, 58], 0.35 + lift * 0.2);
+      if ((lift * 9) % 1 < 0.05) c = mix(c, [58, 112, 48], 0.6);
+    }
     ground.set(x, y, c);
   }
 }
@@ -994,18 +1015,95 @@ for (const [tx, ty] of [[62.3, 32.4], [66.3, 32.4], [62.3, 36.6], [66.3, 36.6], 
   ground.set(x + 3, y - 1, [140, 134, 124]);
 }
 
-// Thái Hòa palace — the curated collection — and the six CEFR halls.
-place(palace({ w: 8, h: 5, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52] }), 51, 25, 3);
-const HALL = (roofPal = ROOF.imperial) => hall({
-  w: 4, h: 4, roofRows: 2, roofPal, wall: [128, 52, 40], pillar: [176, 66, 50], pillarStep: 7, doorW: 8, doorFill: [56, 30, 24],
-});
-const SYSTEM_HALLS = [
-  // [x, y, roof] in the order the levels fill them: A1, A2 nearest Ngọ Môn,
-  // then B1–C2 deeper inside.
-  [44, 26, ROOF.imperial], [63, 26, ROOF.imperial],
-  [44, 17, ROOF.glazed], [49, 17, ROOF.imperial], [58, 17, ROOF.imperial], [63, 17, ROOF.glazed],
-];
-for (const [x, y, pal] of SYSTEM_HALLS) place(HALL(pal), x, y, 2);
+// Điện Thái Hòa, the throne hall, on its two-level stone terrace: a wide
+// double roof in imperial yellow over rows of red lacquered columns, gold
+// between them, steps up the middle to the court.
+{
+  const w = 12, h = 6;
+  const cv = new Canvas(w * T, h * T);
+  const pw = w * T, ph = h * T;
+  const stone = [196, 190, 176], stoneLight = [222, 216, 204], stoneDark = [150, 144, 132];
+  const level = (x, y, lw, lh) => {
+    cv.rect(x, y, lw, lh, stone);
+    cv.rect(x, y, lw, 2, stoneLight);
+    cv.rect(x, y + lh - 4, lw, 4, stoneDark);
+    for (let px = x + 3; px < x + lw - 3; px += 6) cv.rect(px, y + lh - 4, 2, 1, stoneLight); // balusters
+  };
+  level(0, ph - 26, pw, 26);                    // the lower terrace
+  level(10, ph - 44, pw - 20, 20);              // the upper terrace
+  for (let y = ph - 44; y < ph; y += 3) cv.rect(pw / 2 - 10, y, 20, 2, y % 6 === 0 ? stoneLight : stoneDark);  // steps
+  for (const sx of [pw / 2 - 12, pw / 2 + 10]) cv.rect(sx, ph - 44, 2, 44, [176, 150, 90]);                  // dragon rails
+  // The hall: red columns, gold panels, a dark doorway on the axis.
+  const hy = ph - 64, hx = 22, hw = pw - 44;
+  cv.rect(hx, hy, hw, 22, [150, 40, 32]);
+  for (let x = hx + 2; x < hx + hw - 2; x += 8) { cv.rect(x, hy + 2, 3, 20, [196, 64, 48]); cv.rect(x + 4, hy + 4, 3, 6, [226, 178, 64]); }
+  cv.rect(pw / 2 - 8, hy + 6, 16, 16, [60, 28, 22]);
+  cv.rect(hx, hy, hw, 3, [100, 30, 26]);
+  roof(cv, 14, hy - 16, pw - 28, 16, ROOF.imperial, 6);     // lower roof
+  cv.rect(40, hy - 26, pw - 80, 10, [150, 40, 32]);
+  for (let x = 42; x < pw - 42; x += 6) cv.rect(x, hy - 26, 2, 10, [226, 178, 64]);
+  roof(cv, 30, hy - 40, pw - 60, 16, ROOF.imperial, 6);     // upper roof
+  // Dragons along the ridge.
+  for (const dx of [-1, 1]) { cv.rect(pw / 2 + dx * 30 - 2, hy - 46, 5, 3, [236, 196, 90]); cv.rect(pw / 2 + dx * 34, hy - 48, 2, 3, [236, 196, 90]); }
+  cv.rect(pw / 2 - 3, hy - 46, 6, 3, [236, 196, 90]);
+  place(cv, 49, 24, 3);
+}
+
+// Tử Cấm Thành, the Purple Forbidden City, behind Thái Hòa: the emperor's own
+// household inside a low red wall, Đại Cung Môn on the axis, Cần Chánh hall
+// facing it and the two side halls.
+{
+  const FC = { x0: 48, y0: 17, x1: 63, y1: 23 };
+  const red = [166, 62, 46], redTop = [196, 92, 66], redLine = [132, 48, 36];
+  for (let ty = FC.y0; ty < FC.y1; ty++) {
+    for (let tx = FC.x0; tx < FC.x1; tx++) {
+      const ring = ty === FC.y0 || ty === FC.y1 - 1 || tx === FC.x0 || tx === FC.x1 - 1;
+      if (!ring || (ty === FC.y1 - 1 && (tx === 54 || tx === 55))) continue;
+      solid[ty][tx] = true;
+      const front = ty === FC.y1 - 1 || ty === FC.y0;
+      for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+        const px = tx * T + x, py = ty * T + y;
+        let c = front && y >= 9 ? ((y % 3 === 0) ? redLine : red) : redTop;
+        if (!front && (x < 3 || x > 12)) c = red;
+        if (front && y < 2 && x % 4 < 2) c = red;
+        if (!front && x >= 3 && x <= 12 && y % 8 === 0) c = [226, 178, 64];
+        ground.set(px, py, c);
+      }
+    }
+  }
+  mark(used, FC.x0, FC.y0, FC.x1 - FC.x0, FC.y1 - FC.y0);
+  // Đại Cung Môn: the gate on the axis.
+  {
+    const cv = new Canvas(4 * T, 3 * T);
+    cv.rect(0, 28, 64, 20, red);
+    cv.rect(17, 30, 30, 18, [52, 30, 26]);
+    roof(cv, 4, 12, 56, 14, ROOF.imperial, 4);
+    cv.rect(8, 24, 48, 4, [150, 40, 32]);
+    place(cv, 53, FC.y1 - 3, 1, { gaps: [54, 55], shadow: false });
+  }
+  // Cần Chánh, where the emperor held court on ordinary days, and the halls
+  // either side.
+  place(hall({ w: 6, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 40, 32], pillar: [196, 64, 48], pillarStep: 6, doorW: 10, doorFill: [60, 28, 22] }), 52, 18, 1);
+  for (const x of [49, 59]) place(hall({ w: 3, h: 3, roofRows: 2, roofPal: ROOF.glazed, wall: [150, 40, 32], pillar: [196, 64, 48], pillarStep: 6, doorW: 6, doorFill: [60, 28, 22] }), x, 18, 1);
+}
+
+// The palaces of the queen mothers on the west side — Cung Trường Sanh in
+// its garden, Cung Diên Thọ below it — and Thái Miếu, the temple of the
+// Nguyễn lords, on the east.
+{
+  const palaceHall = (w, roofPal) => hall({ w, h: 4, roofRows: 2, roofPal, wall: [150, 40, 32], pillar: [196, 64, 48], pillarStep: 7, doorW: 8, doorFill: [60, 28, 22] });
+  place(palaceHall(4, ROOF.glazed), 43, 17, 2);            // Trường Sanh
+  place(palaceHall(5, ROOF.imperial), 43, 24, 2);          // Diên Thọ
+  place(palaceHall(5, ROOF.imperial), 62, 24, 2);          // Thái Miếu
+  // Trường Sanh's garden pond, and a pavilion in the north-east garden.
+  ground.ellipse(46 * T, 22 * T - 2, 14, 5, P.water);
+  ground.ellipse(46 * T, 22 * T - 2, 10, 3, P.waterShallow);
+  const cv = new Canvas(3 * T, 3 * T);
+  cv.rect(6, 36, 36, 10, [184, 176, 164]);
+  for (let x = 9; x < 42; x += 10) cv.rect(x, 24, 3, 12, [176, 52, 40]);
+  roof(cv, 4, 10, 40, 14, ROOF.glazed, 4);
+  place(cv, 64, 18, 1);
+}
 
 // Tàng Thư Lâu: two storeys on a raised stone base, glazed green roofs, on
 // its island in Học Hải lake; a plank bridge crosses to it from the south.
@@ -1257,41 +1355,240 @@ const HILL = { cx: 57 * T, cy: 81.2 * T, rx: 7 * T, ry: 3.8 * T };
   }
 }
 
-// Khải Định tomb: weathered dark stone — mandarin courtyard, stairs, the
-// stele pavilion and the main palace at the top.
-{
-  const w = 12, h = 11;
-  const cv = new Canvas(w * T, h * T);
-  const pw = w * T, ph = h * T;
-  const st = [150, 148, 142], stDark = [112, 110, 106], stLight = [176, 174, 168], stLine = [128, 126, 120];
-  const terrace = (y, tw, th) => {
-    const x = Math.round((pw - tw) / 2);
-    cv.rect(x, y, tw, th, st);
-    cv.rect(x, y, tw, 2, stLight);
-    cv.rect(x, y + th - 4, tw, 4, stDark);
-    for (let yy = y + 4; yy < y + th - 4; yy += 4) for (let xx = x; xx < x + tw; xx++) if (xx % 9 === 0) cv.set(xx, yy, stLine);
-  };
-  terrace(ph - 64, pw - 4, 62);
-  terrace(ph - 120, pw - 40, 58);
-  terrace(ph - 168, pw - 80, 50);
-  for (let y = ph - 120; y < ph - 2; y += 3) cv.rect(pw / 2 - 10, y, 20, 2, y % 6 === 0 ? stLight : stLine);
-  for (const sx of [14, 26, 38, pw - 42, pw - 30, pw - 18]) {
-    for (const sy of [ph - 50, ph - 30]) {
-      cv.rect(sx, sy, 5, 9, stDark);
-      cv.rect(sx + 1, sy - 3, 3, 3, stLine);
-      cv.rect(sx + 1, sy + 1, 3, 3, st);
+// ── The tomb hills: Tự Đức, Khải Định, Minh Mạng ──
+// Each faces the tombs' road along the bottom of the map; you go in at the
+// bottom and climb towards the emperor, up the screen.
+
+/** Stone in a tomb's own weathering: Khải Định's dark concrete, the older
+ *  tombs' grey-gold stone. */
+const STONE = {
+  dark: { base: [132, 132, 128], light: [162, 162, 156], face: [92, 92, 90], line: [112, 112, 108] },
+  old: { base: [184, 176, 156], light: [208, 200, 180], face: [140, 130, 110], line: [164, 156, 136] },
+};
+
+/** A raised stone terrace: slabs on top, its front face along the bottom. The
+ *  face row blocks except where `open` columns lead up steps. */
+function terrace(tx, ty, tw, th, pal, open = []) {
+  const x0 = tx * T, y0 = ty * T, x1 = (tx + tw) * T, y1 = (ty + th) * T;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      let c = y < y0 + 2 ? pal.light : y >= y1 - 6 ? pal.face : pal.base;
+      if (y >= y0 + 2 && y < y1 - 6 && ((y - y0) % 8 === 0 || (x + ((Math.floor((y - y0) / 8) % 2) * 5)) % 10 === 0)) c = pal.line;
+      if (y >= y1 - 6 && (x - x0) % 6 === 0) c = mix(pal.face, [0, 0, 0], 0.2);
+      ground.set(x, y, mix(c, P.moss, hash(x, y) < 0.03 ? 0.4 : 0));
     }
   }
-  const spx = pw / 2 - 20, spy = ph - 116;
-  cv.rect(spx + 4, spy + 18, 32, 24, stDark);
-  cv.rect(spx + 15, spy + 22, 10, 16, [70, 70, 68]);
-  roof(cv, spx, spy + 6, 40, 12, ROOF.slate, 4);
-  const mpx = pw / 2 - 34, mpy = ph - 176;
-  cv.rect(mpx + 4, mpy + 18, 60, 20, [96, 94, 92]);
-  for (let x = mpx + 8; x < mpx + 64; x += 8) cv.rect(x, mpy + 20, 2, 18, stLight);
-  cv.rect(pw / 2 - 5, mpy + 26, 10, 12, [44, 42, 40]);
-  roof(cv, mpx, mpy + 4, 68, 14, ROOF.slate, 5);
-  place(cv, 2, 70, 9);
+  ground.rect(x0, y1, x1 - x0, 2, P.shadow, 0.25);
+  for (let x = tx; x < tx + tw; x++) if (!open.includes(x)) solid[ty + th - 1][x] = true;
+  mark(used, tx, ty, tw, th);
+}
+
+/** Steps up a terrace face; `dragons` gives them the balustrades of Khải
+ *  Định's stairs, a dragon's body rippling down either side. */
+function steps(tx, ty, tw, th, pal, dragons = false) {
+  const x0 = tx * T, y0 = ty * T, x1 = (tx + tw) * T, y1 = (ty + th) * T;
+  for (let y = y0; y < y1; y++) ground.rect(x0 + 3, y, x1 - x0 - 6, 1, (y - y0) % 3 === 0 ? pal.light : (y - y0) % 3 === 1 ? pal.base : pal.line);
+  for (const [ex, dir] of [[x0, 1], [x1 - 3, -1]]) {
+    ground.rect(ex, y0, 3, y1 - y0, pal.face);
+    if (!dragons) continue;
+    for (let y = y0; y < y1; y++) {
+      const wave = Math.round(Math.sin((y - y0) / 4) * 1.5);
+      ground.rect(ex + 1 + wave * dir * 0, y, 2, 1, (y >> 2) % 2 ? [70, 70, 70] : [104, 104, 100]);
+    }
+    ground.rect(ex - 1, y1 - 5, 5, 5, [70, 70, 70]);       // the dragon's head at the foot
+    ground.set(ex + 1, y1 - 4, [214, 196, 120]);
+  }
+  mark(used, tx, ty, tw, th);
+}
+
+/** The stone court's guardians: mandarins, elephants and horses. Each
+ *  stands on (and blocks) its tile. */
+function statue(tx, ty, kind, pal) {
+  const x = tx * T + 8, y = ty * T + 14;
+  ground.ellipse(x, y, 6, 2, P.shadow, 0.3);
+  if (kind === 'mandarin') {
+    ground.rect(x - 3, y - 11, 7, 11, pal.base);
+    ground.rect(x - 3, y - 11, 2, 11, pal.light);
+    ground.rect(x - 1, y - 7, 3, 4, pal.line);             // the tablet held at the chest
+    ground.rect(x - 2, y - 15, 5, 4, pal.light);
+    ground.rect(x - 3, y - 16, 7, 2, pal.face);            // the hat
+  } else if (kind === 'elephant') {
+    ground.ellipse(x, y - 6, 7, 5, pal.base);
+    ground.ellipse(x - 2, y - 8, 4, 2, pal.light);
+    for (const lx of [x - 5, x - 1, x + 3]) ground.rect(lx, y - 3, 2, 3, pal.face);
+    ground.rect(x - 8, y - 8, 2, 7, pal.base);             // trunk
+    ground.set(x - 5, y - 8, [40, 40, 40]);
+  } else {
+    ground.rect(x - 5, y - 8, 10, 4, pal.base);
+    ground.rect(x - 7, y - 13, 3, 6, pal.base);            // neck and head
+    ground.rect(x - 8, y - 13, 2, 2, pal.light);
+    for (const lx of [x - 5, x - 2, x + 2, x + 4]) ground.rect(lx, y - 4, 1, 4, pal.face);
+  }
+  solid[ty][tx] = true;
+  mark(used, tx, ty, 1, 1);
+}
+
+/** A trụ biểu — the tall square obelisk that marks a tomb's honour court. */
+function obelisk(tx, ty, pal) {
+  const cv = new Canvas(T, 3 * T);
+  cv.rect(2, 38, 12, 10, pal.face);
+  cv.rect(2, 38, 12, 2, pal.light);
+  cv.rect(4, 8, 8, 30, pal.base);
+  cv.rect(4, 8, 3, 30, pal.light);
+  for (let y = 12; y < 36; y += 6) cv.rect(5, y, 6, 1, pal.line);
+  cv.rect(3, 5, 10, 3, pal.face);
+  cv.rect(6, 1, 4, 4, pal.light);                          // the finial
+  place(cv, tx, ty - 2, 1, { shadow: false });
+}
+
+/** A stele pavilion (bi đình): a square stone hall open on its front, the
+ *  great inscribed stele standing inside. `octagon` cuts its corners, as
+ *  Khải Định's is. */
+function biDinh(w, h, pal, roofPal, octagon = false) {
+  const cv = new Canvas(w * T, h * T);
+  const pw = w * T, ph = h * T;
+  const by = ph - 26;
+  cv.rect(2, by, pw - 4, 24, pal.base);
+  cv.rect(2, by, pw - 4, 2, pal.light);
+  cv.rect(pw / 2 - 9, by + 4, 18, 20, [44, 42, 40]);       // the open front
+  cv.rect(pw / 2 - 4, by + 7, 8, 17, [168, 164, 150]);     // the stele
+  cv.rect(pw / 2 - 4, by + 7, 8, 2, [196, 192, 178]);
+  for (let y = by + 11; y < by + 22; y += 2) cv.rect(pw / 2 - 3, y, 6, 1, [130, 126, 116]);
+  roof(cv, 0, by - 16, pw, 16, roofPal, octagon ? 7 : 5);
+  if (octagon) roof(cv, pw / 2 - 12, by - 26, 24, 10, roofPal, 4);
+  return cv;
+}
+
+// ── Khải Định (Ứng Lăng): dark weathered concrete climbing the hillside —
+// dragon stairs from the road, the court of stone mandarins, elephants and
+// horses, the octagonal stele pavilion between two obelisks, and Cung Thiên
+// Định at the top. ──
+{
+  const K = STONE.dark;
+  const AXIS = [33, 34, 35];
+  terrace(28, 94, 13, 6, K, AXIS);                          // Bái Đình, the honour court
+  steps(33, 100, 3, 3, K, true);                            // the dragon stairs, down to the road
+  for (const x of [32, 36]) { solid[100][x] = solid[101][x] = solid[102][x] = true; }
+  for (const [x, kind] of [[29, 'mandarin'], [30, 'mandarin'], [38, 'mandarin'], [39, 'mandarin']]) for (const y of [95, 96, 97]) statue(x, y, kind, K);
+  statue(29, 98, 'elephant', K); statue(39, 98, 'elephant', K);
+  statue(30, 98, 'horse', K); statue(38, 98, 'horse', K);
+  terrace(31, 86, 7, 4, K, []);
+  terrace(30, 90, 9, 4, K, AXIS);
+  steps(33, 93, 3, 1, K, true);
+  obelisk(30, 93, K); obelisk(38, 93, K);
+  place(biDinh(3, 3, K, ROOF.slate, true), 33, 90, 1);
+  // Cung Thiên Định: the palace at the top, a raised centre between two
+  // wings, pillared, under a dark roof with ornate ridge ends.
+  {
+    const cv = new Canvas(7 * T, 4 * T);
+    const pw = cv.w, ph = cv.h;
+    cv.rect(4, ph - 30, pw - 8, 26, K.base);
+    cv.rect(4, ph - 30, pw - 8, 2, K.light);
+    for (let x = 8; x < pw - 8; x += 8) cv.rect(x, ph - 28, 3, 22, K.light);
+    cv.rect(pw / 2 - 14, ph - 40, 28, 36, K.face);
+    cv.rect(pw / 2 - 6, ph - 26, 12, 22, [44, 42, 40]);
+    cv.rect(pw / 2 - 4, ph - 24, 8, 4, [214, 186, 110]);    // a glint of the gilded hall inside
+    roof(cv, 0, ph - 44, pw, 14, ROOF.slate, 5);
+    roof(cv, pw / 2 - 20, ph - 58, 40, 14, ROOF.slate, 5);
+    for (const x of [6, pw - 10]) cv.rect(x, ph - 50, 4, 8, K.face);  // ridge-end finials
+    place(cv, 31, 86, 2);
+  }
+  mark(used, 27, 85, 15, 18);
+}
+
+// ── Tự Đức (Khiêm Lăng): a walled garden more than a tomb, where the
+// emperor came to read and write poems — Lưu Khiêm lake with Xung Khiêm
+// pavilion on its shore, Hòa Khiêm temple, and to the east the tomb itself:
+// the honour court, the stele pavilion, the obelisks, the little crescent
+// pond and the walled grave. ──
+{
+  const O = STONE.old;
+  const TD = { x0: 2, y0: 87, x1: 19, y1: 103 };
+  wallRing(TD, (tx, ty) => ty === TD.y1 - 1 && (tx === 9 || tx === 10));
+  place(gateHouse(), 8, TD.y1 - 3, 1, { gaps: [9, 10], shadow: false });   // Vụ Khiêm Môn
+  // Xung Khiêm Tạ on the lake's north shore, its front on stilts in the water.
+  {
+    const cv = new Canvas(3 * T, 3 * T);
+    for (let x = 6; x < 44; x += 6) cv.rect(x, 38, 2, 10, [96, 70, 50]);
+    cv.rect(4, 32, 40, 6, [170, 120, 80]);
+    for (let x = 8; x < 42; x += 8) cv.rect(x, 22, 2, 10, [176, 52, 40]);
+    roof(cv, 2, 8, 44, 14, ROOF.dark, 5);
+    place(cv, 6, 91, 1, { shadow: false });
+  }
+  // Hòa Khiêm, where Tự Đức worked and where he is honoured.
+  place(hall({ w: 5, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 7, doorW: 8, doorFill: [60, 30, 24] }), 3, 88, 1);
+  // The tomb, east: the honour court's statues, the obelisks, the stele.
+  for (const y of [97, 98, 99]) { statue(13, y, 'mandarin', O); statue(17, y, 'mandarin', O); }
+  obelisk(13, 96, O); obelisk(17, 96, O);
+  place(biDinh(3, 3, O, ROOF.dark), 14, 92, 1);
+  // Tiểu Khiêm, the crescent pond, and the walled grave beyond it.
+  for (let x = 13 * T; x < 18 * T; x++) {
+    const y = 91 * T + 6 + Math.round(Math.abs(x - 15.5 * T) * 0.2);
+    ground.rect(x, y, 1, 4, P.water);
+    ground.set(x, y, P.waterShallow);
+  }
+  {
+    const cv = new Canvas(5 * T, 3 * T);
+    cv.rect(4, 14, 72, 30, O.face);
+    cv.rect(8, 18, 64, 22, O.base);
+    cv.ellipse(40, 29, 18, 8, [96, 132, 70]);              // the grassed mound
+    cv.ellipse(38, 27, 10, 4, [118, 156, 84]);
+    cv.rect(36, 40, 8, 4, [70, 60, 50]);                   // its bronze door
+    place(cv, 13, 88, 2);
+  }
+  pine(4, 100); pine(16, 101); pine(12, 89);
+  mark(used, TD.x0, TD.y0, TD.x1 - TD.x0, TD.y1 - TD.y0);
+}
+
+// ── Minh Mạng (Hiếu Lăng): everything on one long axis — Đại Hồng Môn, the
+// honour court, the stele pavilion, Sùng Ân temple, Minh Lâu, then over the
+// crescent of Tân Nguyệt on a stone bridge to the round walled tomb; the two
+// Trừng Minh lakes either side. ──
+{
+  const O = STONE.old;
+  const MM = { x0: 70, y0: 83, x1: 89, y1: 103 };
+  wallRing(MM, (tx, ty) => ty === MM.y1 - 1 && (tx === 78 || tx === 79));
+  // Đại Hồng Môn: three arches, the middle one the emperor's.
+  {
+    const cv = new Canvas(6 * T, 3 * T);
+    const pw = cv.w;
+    cv.rect(0, 22, pw, 26, [176, 62, 46]);
+    for (const [cx, aw] of [[pw / 2, 26], [18, 12], [pw - 18, 12]]) cv.rect(cx - aw / 2, 48 - (aw > 20 ? 22 : 16), aw, aw > 20 ? 22 : 16, [52, 30, 26]);
+    roof(cv, 2, 8, pw - 4, 14, ROOF.imperial, 5);
+    roof(cv, pw / 2 - 18, 0, 36, 10, ROOF.imperial, 3);
+    place(cv, 76, MM.y1 - 3, 1, { gaps: [78, 79], shadow: false });
+  }
+  for (const y of [99, 100, 101]) for (const x of [74, 75, 82, 83]) statue(x, y, y === 101 && (x === 74 || x === 83) ? 'elephant' : 'mandarin', O);
+  terrace(76, 96, 6, 3, O, [76, 81]);
+  place(biDinh(4, 3, O, ROOF.imperial), 77, 95, 1);
+  // Sùng Ân, where the emperor and empress are honoured.
+  place(hall({ w: 4, h: 3, roofRows: 2, roofPal: ROOF.imperial, wall: [150, 46, 38], pillar: [196, 70, 52], pillarStep: 6, doorW: 8, doorFill: [60, 30, 24] }), 77, 92, 1);
+  // Minh Lâu: the two-storey pavilion of light, on its own little terrace.
+  {
+    const cv = new Canvas(4 * T, 3 * T);
+    cv.rect(4, 38, 56, 10, O.base);
+    cv.rect(4, 38, 56, 2, O.light);
+    cv.rect(14, 26, 36, 12, [150, 46, 38]);
+    for (let x = 16; x < 48; x += 6) cv.rect(x, 26, 2, 12, [214, 170, 80]);
+    roof(cv, 8, 18, 48, 9, ROOF.imperial, 4);
+    cv.rect(20, 10, 24, 8, [150, 46, 38]);
+    roof(cv, 14, 2, 36, 9, ROOF.imperial, 4);
+    place(cv, 77, 89, 1);
+  }
+  stoneSpan(78, 86, 2, 3);                                  // Trung Đạo, over Tân Nguyệt
+  // Bửu Thành: the round wall about the tomb mound, its pines.
+  {
+    const cx = 79 * T, cy = 85.1 * T;
+    ground.ellipse(cx, cy, 2.6 * T, 1.4 * T, O.face);
+    ground.ellipse(cx, cy - 1, 2.4 * T, 1.25 * T, O.base);
+    ground.ellipse(cx, cy - 2, 2 * T, 1 * T, [92, 130, 66]);
+    ground.ellipse(cx - 6, cy - 6, 0.9 * T, 0.4 * T, [118, 156, 84]);
+    for (let ty = 84; ty <= 86; ty++) for (let tx = 76; tx <= 81; tx++) {
+      if (((tx + 0.5) * T - cx) ** 2 / (2.6 * T) ** 2 + ((ty + 0.5) * T - cy) ** 2 / (1.4 * T) ** 2 <= 1.1 && !(tx >= 78 && tx <= 79 && ty === 86)) solid[ty][tx] = true;
+    }
+  }
+  pine(72, 86); pine(86, 86); pine(72, 99); pine(86, 99);
+  mark(used, MM.x0, MM.y0, MM.x1 - MM.x0, MM.y1 - MM.y0);
 }
 
 // ── Neighbourhoods ──
@@ -1686,9 +1983,10 @@ for (const [x, y, w, h, mat] of ROADS) {
       const depth = (ty > H / 2 ? 2.8 + Math.max(0, ty - (H - 9)) * 0.6 : 2.2) + n * 3.6;
       // ...and woods in the open land, away from the lanes.
       const wood = noise(tx * T + 900, ty * T + 300, 110) > 0.7 && !ROADS.some(([x, y, w, h]) => tx >= x - 2 && tx < x + w + 2 && ty >= y - 2 && ty < y + h + 2);
-      if (edge >= depth && !wood) continue;
+      const hills = ty >= HILLS_Y && !ROADS.some(([x, y, w, h]) => tx >= x - 1 && tx < x + w + 1 && ty >= y - 1 && ty < y + h + 1);
+      if (edge >= depth && !wood && !hills) continue;
       if (used[ty][tx] || solid[ty][tx] || onAnyRoad(tx, ty) || isWater(tx * T + 8, ty * T + 8)) continue;
-      if (nearSlot(tx - 1, ty - 1) || (used[ty + 1]?.[tx] && !wood)) continue;
+      if (nearSlot(tx - 1, ty - 1) || (used[ty + 1]?.[tx] && !wood && !hills)) continue;
       forest.push([tx, ty]);
     }
   }
@@ -1782,9 +2080,16 @@ landmark('Ga Huế', 27.5, 61.5);
 landmark('Trường Quốc Học', 41, 60.5);
 landmark('Phố đi bộ', 77, 64.5);
 landmark('Cung An Định', 92, 66.5);
-landmark('Lăng Khải Định', 8, 70.5);
+landmark('Lăng Tự Đức', 10, 104.9);
+landmark('Lăng Khải Định', 34.5, 104.9);
+landmark('Lăng Minh Mạng', 79, 104.9);
 landmark('Phu Văn Lâu', 55, 50);
 landmark('Nghênh Lương Đình', 55, 56.2);
+landmark('Điện Thái Hòa', 55, 24.2);
+landmark('Tử Cấm Thành', 55, 17.3);
+landmark('Cung Trường Sanh', 45, 17.3);
+landmark('Cung Diên Thọ', 45.5, 24.3);
+landmark('Thái Miếu', 64.5, 24.3);
 landmark('Thế Miếu', 46, 31);
 landmark('Hiển Lâm Các', 46, 35);
 // The gates, named just outside the wall.
