@@ -51,20 +51,35 @@ export function RolePlay({ source }: { source: Source }) {
   const progress = useSpeakingProgress((s) => s.questions);
   const [script, setScript] = useState<Script | null>(null);
 
-  if (!script) return <Picker scripts={scripts} progress={progress} onPick={(s) => { playSelect(); setScript(s); }} />;
-  return <Stage key={script.id} script={script} onScripts={() => setScript(null)} />;
+  const open = (s: Script) => { playSelect(); setScript(s); };
+  // Random: one not practised yet if any are left, never the one open now.
+  const random = () => {
+    const others = scripts.filter((s) => s.id !== script?.id);
+    const fresh = others.filter((s) => !isPracticed(progress[s.id]));
+    const pool = fresh.length > 0 ? fresh : others;
+    if (pool.length > 0) open(pool[Math.floor(Math.random() * pool.length)]);
+  };
+
+  if (!script) return <Picker scripts={scripts} progress={progress} onPick={open} onRandom={random} />;
+  return <Stage key={script.id} script={script} onScripts={() => setScript(null)} onRandom={random} />;
 }
 
-function Picker({ scripts, progress, onPick }: {
+function Picker({ scripts, progress, onPick, onRandom }: {
   scripts: Script[];
   progress: ReturnType<typeof useSpeakingProgress.getState>['questions'];
   onPick: (s: Script) => void;
+  onRandom: () => void;
 }) {
   const groups = useMemo(() => [...new Set(scripts.map((s) => s.group))], [scripts]);
   const [group, setGroup] = useState(groups[0]);
   return (
     <HudCenter wide>
-      <p className="px-title !text-[18px] text-[var(--px-gold)] mb-3"><FormattedMessage id="world.rpPick" /></p>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <p className="px-title !text-[18px] text-[var(--px-gold)]"><FormattedMessage id="world.rpPick" /></p>
+        <PixelButton tone="gold" onClick={onRandom}>
+          <PixelIcon name="retry" size={2} /> <FormattedMessage id="world.rpRandom" />
+        </PixelButton>
+      </div>
       <div className="flex flex-wrap gap-1.5 mb-3">
         {groups.map((g) => <PixelChip key={g} on={g === group} onClick={() => setGroup(g)}>{g}</PixelChip>)}
       </div>
@@ -83,7 +98,7 @@ function Picker({ scripts, progress, onPick }: {
   );
 }
 
-function Stage({ script, onScripts }: { script: Script; onScripts: () => void }) {
+function Stage({ script, onScripts, onRandom }: { script: Script; onScripts: () => void; onRandom: () => void }) {
   const intl = useIntl();
   const markPracticed = useSpeakingProgress((s) => s.markPracticed);
   const [mode, setMode] = useState<Mode>('listen');
@@ -199,6 +214,9 @@ function Stage({ script, onScripts }: { script: Script; onScripts: () => void })
               <FormattedMessage id={player.running ? 'listening.stop' : 'listening.play'} />
             </PixelButton>
           )}
+          <PixelButton tone="paper" onClick={() => { player.stop(); onRandom(); }}>
+            <PixelIcon name="retry" size={2} /> <FormattedMessage id="world.rpRandom" />
+          </PixelButton>
           <PixelButton tone="paper" onClick={() => { player.stop(); onScripts(); }}><FormattedMessage id="world.rpScripts" /></PixelButton>
         </div>
       </HudDock>

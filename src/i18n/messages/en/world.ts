@@ -140,6 +140,7 @@ export default {
   'world.shadowHeard': 'You said',
   'world.shadowNoMic': 'This browser can’t record — listen and repeat it aloud anyway.',
   'world.readPlaceholder': 'Type or paste anything to hear it…',
+  'world.rpRandom': 'Random',
   'world.areaFallback': 'Area {n}',
   'world.wordCount': '{count, plural, one {# word} other {# words}}',
   'world.studyingBadge': 'STUDYING',
