@@ -131,6 +131,7 @@ export function drawCitadel() {
     const poleX = bw / 2 - 1;
     cv.rect(poleX, 4, 2, baseY + 16, [214, 214, 210]);
     cv.set(poleX, 3, [236, 200, 90]); cv.set(poleX + 1, 3, [236, 200, 90]);
+    cv.spec = { kind: 'kyDai' };
     place(cv, BASTION.x0, BASTION.y0 - 7, baseRows);
     // The flag itself isn't painted: WorldScene hoists it up this pole as the
     // learner's streak grows (the `flag` meta point: where it flies at the top,

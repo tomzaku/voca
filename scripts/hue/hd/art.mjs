@@ -235,6 +235,90 @@ export function market() {
   return cv;
 }
 
+/** Kỳ Đài: the flag tower — three tiers of old brick stepping back and up,
+ *  each with its top, its front face and a crenellated parapet; an arched
+ *  door and a stone plaque in the front, stairs up the side, cannons on the
+ *  lower terrace, a stone balustrade round the top; the tall flagpole with
+ *  its gold finial and guy ropes, where the map's pole was — the streak's
+ *  flag flies from it. Six tiles by ten. */
+export function kyDai() {
+  const cv = new Canvas(6 * T2, 10 * T2);
+  const W = cv.w, H = cv.h;
+  const brick = [150, 92, 74], brickLight = [178, 120, 96], brickDark = [116, 70, 56], mortar = [128, 84, 68];
+  const top = [168, 126, 104], topLight = [190, 150, 126];
+  const moss = [86, 104, 70];
+  /** A brick face: courses, staggered joints, damp and moss at its foot. */
+  const face = (x0, y0, w, h) => {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      const course = Math.floor((y - y0) / 4);
+      let c = (y - y0) % 4 === 0 || (x + (course % 2) * 4) % 8 === 0 ? mortar : mix(brick, brickDark, hash(Math.floor((x + (course % 2) * 4) / 8), course) * 0.5);
+      const foot = (y - y0) / h;
+      if (foot > 0.7 && hash(x, y) < (foot - 0.7) * 1.6) c = mix(c, moss, 0.6);
+      if (hash(x * 3, y) < 0.02) c = brickLight;
+      cv.set(x, y, c);
+    }
+    cv.rect(x0, y0, w, 1, brickLight);
+  };
+  /** A tier's top: worn paving, its front edge a parapet of merlons. */
+  const terrace = (x0, y0, w, h) => {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      cv.set(x, y, (x % 10 === 0 || (y - y0) % 6 === 0) ? mix(top, mortar, 0.5) : mix(top, topLight, hash(Math.floor(x / 10), Math.floor((y - y0) / 6)) * 0.6));
+    }
+    for (let x = x0; x < x0 + w; x += 8) { cv.rect(x, y0 + h - 4, 5, 4, brickLight); cv.rect(x, y0 + h - 4, 5, 1, topLight); }
+  };
+  // The three tiers, back to front so each stands before the one above it.
+  const tiers = [
+    { x: 0, w: W, top: 250, faceTop: 266, bottom: H },
+    { x: 28, w: W - 56, top: 214, faceTop: 228, bottom: 254 },
+    { x: 52, w: W - 104, top: 186, faceTop: 196, bottom: 218 },
+  ];
+  for (const t of [...tiers].reverse()) {
+    terrace(t.x, t.top, t.w, t.faceTop - t.top);
+    face(t.x, t.faceTop, t.w, t.bottom - t.faceTop);
+    cv.rect(t.x + t.w, t.faceTop + 2, 3, t.bottom - t.faceTop, [0, 0, 0], 0.25);   // its shadow to the east
+  }
+  // The front: an arched door, a plaque above it.
+  const cx = W / 2;
+  cv.rect(cx - 10, H - 30, 20, 28, [44, 32, 28]);
+  for (let j = 0; j < 6; j++) cv.rect(cx - 10 + j, H - 30 - Math.round(Math.sqrt(36 - (6 - j) ** 2)), 20 - j * 2, 1, [44, 32, 28]);
+  cv.rect(cx - 12, H - 38, 24, 2, brickLight);
+  cv.rect(cx - 16, H - 50, 32, 9, [196, 188, 170]);
+  cv.rect(cx - 15, H - 49, 30, 7, [170, 160, 140]);
+  for (let i = 0; i < 5; i++) cv.rect(cx - 12 + i * 5, H - 47, 3, 1, [110, 100, 88]);
+  // Stairs up the west side of the lower tiers.
+  for (let i = 0; i < 9; i++) {
+    const x = 10 + i * 2, y = H - 8 - i * 6;
+    cv.rect(x, y, 12, 2, topLight);
+    cv.rect(x, y + 2, 12, 4, mix(brick, brickDark, 0.3));
+  }
+  // Cannons on the lower terrace, their barrels to the river.
+  for (const x of [40, 64, W - 76, W - 52]) {
+    cv.rect(x, 256, 10, 5, [70, 52, 40]);
+    cv.ellipse(x + 2, 262, 2.5, 2.5, [50, 40, 32]);
+    cv.ellipse(x + 8, 262, 2.5, 2.5, [50, 40, 32]);
+    cv.rect(x + 3, 252, 4, 9, [58, 60, 64]);
+    cv.rect(x + 3, 252, 1, 9, [96, 100, 108]);
+  }
+  // The top platform's stone balustrade, the pole's plinth.
+  cv.rect(56, 186, W - 112, 2, [214, 208, 196]);
+  for (let x = 56; x < W - 56; x += 4) cv.rect(x, 188, 2, 5, [200, 194, 182]);
+  cv.rect(cx - 8, 192, 16, 6, [200, 194, 182]);
+  cv.rect(cx - 8, 192, 16, 1, [228, 224, 214]);
+  // The flagpole: where the map's was (its right edge is where the flag hangs).
+  const px = 94;
+  for (const [ax, ay] of [[60, 190], [W - 60, 190]]) {
+    for (let i = 0; i <= 40; i++) cv.set(Math.round(px + 2 + ((ax - px - 2) * i) / 40), Math.round(20 + ((ay - 20) * i) / 40), [210, 210, 206], 0.5);
+  }
+  cv.rect(px, 8, 4, 186, [222, 222, 218]);
+  cv.rect(px, 8, 1, 186, [250, 250, 248]);
+  cv.rect(px + 3, 8, 1, 186, [170, 170, 166]);
+  for (let y = 40; y < 190; y += 30) cv.rect(px - 1, y, 6, 2, [180, 180, 176]);
+  cv.ellipse(px + 2, 5, 3.5, 3.5, [236, 196, 90]);
+  cv.set(px + 1, 3, [255, 236, 160]);
+  outline(cv);
+  return cv;
+}
+
 // ── Trees ──
 
 const LEAVES = {
