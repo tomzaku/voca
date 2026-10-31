@@ -132,11 +132,11 @@ export function drawParks() {
   // Cầu đi bộ gỗ lim: an ironwood boardwalk out over the river's edge, from
   // the south park round under Phú Xuân bridge, steps down to it at each end.
   {
-    // Two stretches, either side of Phú Xuân bridge's foot, so the bridge's
-    // road comes down to Lê Lợi unbroken.
-    for (const [x0, x1] of [[57, 65], [70, 74]]) {
+    // It runs on under Phú Xuân bridge: the planks go right up to the
+    // bridge on both sides, and the bridge's deck passes over them.
+    for (const [x0, x1, ends] of [[57, 65, [57]], [69, 74, [74]]]) {
       plankDeck(x0, 62, x1 - x0 + 1, 1, true);
-      for (const x of [x0, x1]) plankDeck(x, 63, 1, 1);
+      for (const x of ends) plankDeck(x, 63, 1, 1);
       for (let x = x0 * T; x < (x1 + 1) * T; x += 3 * T) {
         ground.rect(x, 62 * T - 4, 1, 4, [70, 52, 40]);
         ground.rect(x - 1, 62 * T - 6, 3, 2, [255, 226, 160]);
