@@ -7,7 +7,7 @@ import { PARK_PATHS } from './roads.mjs';
 import { FARMERS } from './places/fields.mjs';
 import { BUS_STOPS } from './bus.mjs';
 import { FEATURES, ISLETS, RIVER, RIVER_BRIDGES, SPAWN, T, W, isWater, isletE, onIslet, riverHalfWidth } from './layout.mjs';
-import { FLAG, LABELS as CITADEL_LABELS } from './places/citadel.mjs';
+import { FLAG, LABELS as CITADEL_LABELS, SEARCHLIGHTS } from './places/citadel.mjs';
 import { LABELS as DONG_BA_LABELS } from './places/dongBa.mjs';
 import { LABELS as IMPERIAL_LABELS } from './places/imperial.mjs';
 import { LABELS as KIM_LONG_LABELS } from './places/kimLong.mjs';
@@ -47,6 +47,7 @@ export function writeMeta(shelters = []) {
   // word. The spots are
   // shuffled so the first few lanterns spread along the river, not bunch up.
   point('flag', FLAG.x, FLAG.y);
+  for (const [x, y, angle] of SEARCHLIGHTS) point('searchlight', x, y, { angle });
   {
     const spots = [];
     for (let s = 3 * T; s < RIVER.length; s += 0.6 * T) {

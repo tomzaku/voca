@@ -11,6 +11,11 @@ import { BASTION, CITADEL, EAST_GATE_Y, GATES, IMPERIAL, LIBRARY, NGO_MON, SOUTH
 /** Name a building's canvas, so the detailed renders (../hd) draw it as itself. */
 const named = (cv, kind) => { cv.spec = { ...cv.spec, kind }; return cv; };
 
+/** The searchlights behind Ngọ Môn on a festival night: where each stands (in
+ *  tiles) and the way it leans from straight up, in degrees — a fan of
+ *  beams the scene sweeps slowly across the sky. */
+export const SEARCHLIGHTS = [[51, 36.6, -50], [53.4, 36.4, -24], [55, 36.3, 0], [56.6, 36.4, 24], [59, 36.6, 50]];
+
 /** Where the flag flies on Kỳ Đài, worked out as it's drawn. */
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
@@ -115,32 +120,35 @@ export function drawCitadel() {
     roof(cv, 64, 8, pw - 128, pavY - 34, ROOF.imperial, 5);
     place(named(cv, 'ngoMon'), NGO_MON.x, NGO_MON.y, 3, { gaps: [54, 55] });
 
-    // By night Ngọ Môn is floodlit gold. Placed from the detailed render's
-    // shape (hd/landmarks ngoMon, at half its scale): floodlights along the
-    // foot of the base washing it upward, its five passages aglow, and —
-    // on the layer over the roofs — lights along every eave, the galleries
-    // lit from within and red lanterns strung beneath the eaves.
+    // By night Ngọ Môn is lit as the real one is: the stone base in cool
+    // white light from below, its five passages glowing warm, Lầu Ngũ Phụng
+    // and its roofs washed orange-gold with every eave picked out, and pale
+    // lanterns all along the gallery. Placed from the detailed render's shape
+    // (hd/landmarks ngoMon, at half its scale). The searchlights fanning up
+    // behind it are the scene's (SEARCHLIGHTS).
     const ox = NGO_MON.x * T, oy = NGO_MON.y * T, cx = pw / 2;
-    const gold = [255, 196, 110], eave = [255, 230, 160], lantern = [255, 96, 56];
+    const cool = [205, 222, 255], warm = [255, 214, 120], amber = [255, 168, 64], eave = [255, 196, 96];
     const fill = (layer, x0, y0, x1, y1, c, a) => {
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) layer.set(ox + x, oy + y, c, a);
     };
-    for (let y = baseY; y < ph; y++) fill(night, 0, y, pw, y + 1, gold, 0.12 + 0.4 * ((y - baseY) / 40));
-    for (let x = 4; x < pw; x += 12) glow(ox + x, oy + ph - 2, [255, 214, 140], 3);
+    for (let y = baseY; y < ph; y++) fill(night, 0, y, pw, y + 1, cool, 0.1 + 0.38 * ((y - baseY) / 40));
+    for (let x = 4; x < pw; x += 12) glow(ox + x, oy + ph - 2, [232, 240, 255], 3);
     fill(night, 0, baseY - 2, pw, baseY, eave, 0.85);
-    for (const [dx, aw, ah, a] of [[0, 18, 22, 0.8], [-40, 10, 16, 0.65], [40, 10, 16, 0.65], [-75, 8, 13, 0.55], [75, 8, 13, 0.55]]) {
-      fill(night, cx + dx - aw / 2, ph - ah, cx + dx + aw / 2, ph, [255, 168, 72], a);
+    for (const [dx, aw, ah, a] of [[0, 18, 22, 0.9], [-40, 10, 16, 0.75], [40, 10, 16, 0.75], [-75, 8, 13, 0.65], [75, 8, 13, 0.65]]) {
+      fill(night, cx + dx - aw / 2, ph - ah, cx + dx + aw / 2, ph, warm, a);
     }
-    // Above the roofs: the pavilion's colonnade and the gallery above it…
-    fill(nightOver, 10, 44, pw - 10, 55, gold, 0.38);
-    fill(nightOver, 68, 18, pw - 68, 27, gold, 0.42);
+    // Above the roofs: the colonnade and the gallery above it ablaze…
+    fill(nightOver, 10, 44, pw - 10, 55, amber, 0.55);
+    fill(nightOver, 68, 18, pw - 68, 27, amber, 0.55);
+    // …the roofs themselves catching the light…
+    for (const [x0, x1, y0, y1] of [[6, 60, 31, 43], [pw - 60, pw - 6, 31, 43], [56, pw - 56, 27, 43], [63, pw - 63, 7, 18]]) fill(nightOver, x0, y0, x1, y1, amber, 0.22);
     // …a line of light along each eave and the top ridge…
     for (const [x0, x1, y] of [[6, 60, 43], [pw - 60, pw - 6, 43], [56, pw - 56, 43], [63, pw - 63, 19], [70, pw - 70, 6]]) {
       fill(nightOver, x0, y, x1, y + 1, eave, 0.95);
       for (let x = x0 + 2; x < x1; x += 6) glow(ox + x, oy + y, eave, 1, nightOver);
     }
-    // …and red lanterns under the eaves.
-    for (let x = 14; x < pw - 10; x += 10) glow(ox + x, oy + 47, lantern, 2, nightOver);
+    // …and pale lanterns along the gallery.
+    for (let x = 14; x < pw - 10; x += 10) glow(ox + x, oy + 47, [255, 240, 196], 2, nightOver);
   }
 
   // Kỳ Đài: a three-tier brick bastion in the front wall with a tall flagpole.

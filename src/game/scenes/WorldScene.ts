@@ -110,6 +110,9 @@ interface MapMeta {
   slots: MapSlot[];
   /** Where the flag flies, at the top of Kỳ Đài's pole. */
   flag: { x: number; y: number } | null;
+  /** Searchlights behind Ngọ Môn: where each stands, and its lean from
+   *  straight up in degrees. */
+  searchlights: { x: number; y: number; angle: number }[];
   /** Lantern spots on the water, in the order they fill. */
   lanterns: { x: number; y: number }[];
   /** Ambient life: paths people stroll along (from x to `to`), temple
@@ -203,6 +206,8 @@ export class WorldScene extends Phaser.Scene {
   private nightLights?: Phaser.GameObjects.Image;
   /** The lights on roofs and eaves, over the over layer. */
   private nightOverLights?: Phaser.GameObjects.Image;
+  /** Ngọ Môn's searchlight beams, sweeping the night sky. */
+  private beams: Phaser.GameObjects.Graphics[] = [];
   /** Scenery that takes the night tint individually (it sits above the veil). */
   private tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [];
   /** Area labels, kept so a theme switch can recolor them in place. */
@@ -491,6 +496,7 @@ export class WorldScene extends Phaser.Scene {
     this.nightVeil?.setVisible(night);
     this.nightLights?.setVisible(night);
     this.nightOverLights?.setVisible(night);
+    for (const b of this.beams) b.setVisible(night);
     for (const s of this.tinted) {
       if (night) s.setTint(NIGHT_TINT); else s.clearTint();
     }
@@ -691,6 +697,25 @@ export class WorldScene extends Phaser.Scene {
         duration: 2400, yoyo: true, repeat: -1, ease: 'sine.inOut',
       });
     }
+    // Ngọ Môn's searchlights on a festival night: pale blue beams fanning up
+    // from behind the gate, each fading as it climbs and sweeping slowly at
+    // its own pace. Added light, over the roofs.
+    this.beams = this.meta.searchlights.map((s, i) => {
+      const len = this.tilePx * 18, far = this.tilePx * 1.4;
+      const g = this.add.graphics({ x: s.x, y: s.y }).setDepth(DEPTH_OVER + 0.03).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+      // A wide faint halo, then the beam's core; the lamps themselves stand
+      // hidden behind the pavilion.
+      g.fillGradientStyle(0x6f9cff, 0x6f9cff, 0x6f9cff, 0x6f9cff, 0.22, 0, 0, 0);
+      g.fillTriangle(0, 0, -far * 1.6, -len, far * 1.6, -len);
+      g.fillGradientStyle(0xb8d0ff, 0xb8d0ff, 0xb8d0ff, 0xb8d0ff, 0.45, 0, 0, 0);
+      g.fillTriangle(0, 0, -far / 2, -len, far / 2, -len);
+      g.setAngle(s.angle);
+      this.tweens.add({
+        targets: g, angle: { from: s.angle - 10, to: s.angle + 10 },
+        duration: 4200 + i * 650, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: i * 300,
+      });
+      return g;
+    });
 
     const layer = this.add.container(0, 0).setDepth(DEPTH_SCENERY);
     this.tinted = [...(overImage ? [overImage] : []), ...detailOver];
@@ -891,6 +916,7 @@ export class WorldScene extends Phaser.Scene {
       animals: [],
       slots: [],
       flag: null,
+      searchlights: [],
       lanterns: [],
       strolls: [],
       smokes: [],
@@ -920,6 +946,9 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'flag':
           meta.flag = { x, y };
+          break;
+        case 'searchlight':
+          meta.searchlights.push({ x, y, angle: Number(get('angle') ?? 0) });
           break;
         case 'lantern':
           lanterns.push({ x, y, order: Number(get('order') ?? lanterns.length) });
