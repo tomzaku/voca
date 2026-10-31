@@ -107,7 +107,7 @@ export const ROADS = [
   road('lane', 1.4, [[101, 70.5], [110, 70.5]]),
   box(35, 72, 12, 1, 'stone'),                                    // Quốc Học's forecourt
   box(40, 73, 2, 1, 'stone'),                                     // and the way in, through its gate
-  box(52, 67, 14, 7, 'stone', { court: true }),                   // the food market's square
+  box(52, 67, 14, 11, 'stone', { court: true }),                  // the food market's square, down to the canal
   // Phố đi bộ Nguyễn Đình Chiểu: the walking street along the south bank,
   // from under Phú Xuân bridge to Trường Tiền, by the ironwood boardwalk.
   road('stone', 1.6, [[53.5, 64.2], [75, 64.2]], { court: true }),       // from the bus stop to Trường Tiền

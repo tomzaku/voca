@@ -19,6 +19,7 @@ import {
 import { COLLECTIONS_KEEPER, FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 import { PlaceInfo } from './worldgames/PlaceInfo';
+import { VendorTalk } from './worldgames/VendorTalk';
 import { PlaceMemorial } from './worldgames/PlaceMemorial';
 import { RideButton } from './worldgames/RideButton';
 import { LanguageButton } from './worldgames/LanguageButton';
@@ -256,6 +257,10 @@ export function GameWorld({
   // The Focus Zone: whether the buddy is at it, whether its window is open,
   // and the timer (which runs on whether or not it is).
   const [atFocus, setAtFocus] = useState(false);
+  // The food stall whose vendor the buddy is at, and one they've said goodbye
+  // to — quiet until the buddy walks away from it.
+  const [atVendor, setAtVendor] = useState<string | null>(null);
+  const [vendorDone, setVendorDone] = useState<string | null>(null);
   // The playground: the game the buddy is at, and the one open.
   const [atPlay, setAtPlay] = useState<string | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
@@ -421,6 +426,8 @@ export function GameWorld({
     game.events.on(WORLD_EVENTS.bus, setBusRide);
     game.events.on(WORLD_EVENTS.busStop, setAtBusStop);
     game.events.on(WORLD_EVENTS.focus, setAtFocus);
+    const onVendor = (id: string | null) => { setAtVendor(id); if (!id) setVendorDone(null); };
+    game.events.on(WORLD_EVENTS.vendor, onVendor);
     game.events.on(WORLD_EVENTS.play, setAtPlay);
     const onPeer = (id: string) => { const p = liveRef.current?.peer(id); if (p) setPeerCard({ id, name: p.name }); };
     game.events.on(WORLD_EVENTS.peer, onPeer);
@@ -441,6 +448,7 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.bus, setBusRide);
       game.events.off(WORLD_EVENTS.busStop, setAtBusStop);
       game.events.off(WORLD_EVENTS.focus, setAtFocus);
+      game.events.off(WORLD_EVENTS.vendor, onVendor);
       game.events.off(WORLD_EVENTS.play, setAtPlay);
       game.events.off(WORLD_EVENTS.peer, onPeer);
       if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
@@ -1189,6 +1197,11 @@ export function GameWorld({
       {!panel && playing === 'piano' && <StreetPiano onClose={() => setPlaying(null)} />}
       {!panel && playing === 'race' && <TypeRace onClose={() => setPlaying(null)} />}
       {!panel && playing === 'fish' && <Fishing onClose={() => setPlaying(null)} />}
+
+      {/* ── The food market: a vendor telling you about their dish ── */}
+      {!panel && !nearestFeature && atVendor && atVendor !== vendorDone && !busRide && busTicket === null && (
+        <VendorTalk key={atVendor} id={atVendor} onClose={() => setVendorDone(atVendor)} />
+      )}
 
       {/* ── The Focus Zone on Ngự Bình ── */}
       {!panel && !nearestFeature && atFocus && !focusOpen && !busRide && busTicket === null && (

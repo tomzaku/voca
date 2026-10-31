@@ -6,6 +6,7 @@ import {
 import { featureNodeId, type WorldFeature } from '../features';
 import { Dressed, loadWardrobe } from '../dressed';
 import { KEEPER_DRESS, propLayers } from '../keeperLooks';
+import { VENDOR_DRESS } from '../vendors';
 import { RIDE_SCALE, RIDE_SPEED, RIDE_VIEWS, SEAT, SEAT_FACING, drawBus, drawRide, drawRideFront, type Ride, type RideView } from '../vehicles';
 import type { Look } from '../wardrobe';
 import { REACTION_ICONS, REACTION_MS, type Gesture } from '../reactions';
@@ -131,6 +132,8 @@ interface MapMeta {
   /** The bus stops, in order: where the bus halts (on the road), where the
    *  shelter stands (`sx, sy`), and their place's story id. */
   busStops: { place: string; x: number; y: number; sx: number; sy: number }[];
+  /** The food market's stalls: where to stand, and the story of its dish. */
+  stalls: { place: string; x: number; y: number }[];
 }
 
 interface MapSlot {
@@ -408,6 +411,7 @@ export class WorldScene extends Phaser.Scene {
     this.setRide(this.args.ride ?? 'walk');
     this.spawnTraffic();
     this.spawnFarmers();
+    this.spawnVendors();
     this.spawnAmbient();
     this.targetMark = this.add
       .circle(0, 0, 8)
@@ -944,6 +948,7 @@ export class WorldScene extends Phaser.Scene {
       focus: [],
       plays: [],
       busStops: [],
+      stalls: [],
     };
     const lanterns: { x: number; y: number; order: number }[] = [];
     type TiledProp = { name: string; value: unknown };
@@ -989,6 +994,9 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'play':
           meta.plays.push({ game: String(get('game') ?? ''), x, y });
+          break;
+        case 'stall':
+          meta.stalls.push({ place: String(get('place') ?? ''), x, y });
           break;
         case 'busStop':
           meta.busStops[Number(get('order') ?? meta.busStops.length)] = {
@@ -1360,6 +1368,37 @@ export class WorldScene extends Phaser.Scene {
     if (near === this.atPlay) return;
     this.atPlay = near;
     this.game.events.emit(WORLD_EVENTS.play, near);
+  }
+
+  // ── The food market ──
+
+  /** The stall whose vendor the buddy is at (its dish's story id), told to React. */
+  private atVendor: string | null = null;
+
+  private checkVendor() {
+    let near: string | null = null;
+    let best = this.tilePx * 1.4;
+    if (!this.bus) for (const s of this.meta.stalls) {
+      const d = Math.hypot(this.buddy.x - s.x, this.buddy.y - s.y);
+      if (d < best) { near = s.place; best = d; }
+    }
+    if (near === this.atVendor) return;
+    this.atVendor = near;
+    this.game.events.emit(WORLD_EVENTS.vendor, near);
+  }
+
+  /** A vendor beside each stall, in the gap to its east, facing the square
+   *  and swaying a little as they wait for custom. */
+  private spawnVendors() {
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    this.meta.stalls.forEach((s, i) => {
+      const dress = VENDOR_DRESS[s.place];
+      if (!dress) return;
+      const x = s.x + this.tilePx * 1.5, y = s.y - this.tilePx * 0.4;
+      const vendor = new Dressed(this, x, y, dress.look, propLayers(dress)).setScale(SCALE).setDepth(DEPTH_BUDDY - 1);
+      vendor.playClip('idle', false, 'front');
+      if (!calm) this.tweens.add({ targets: vendor, y: y - 1, duration: 1100 + (i * 173) % 500, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: (i * 257) % 900 });
+    });
   }
 
   // ── The Focus Zone ──
@@ -1908,6 +1947,7 @@ export class WorldScene extends Phaser.Scene {
     this.checkBusStop();
     this.checkFocus();
     this.checkPlay();
+    this.checkVendor();
     this.drawRain(dtMs);
     const onBus = !!this.bus;
 

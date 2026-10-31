@@ -129,9 +129,84 @@ export default {
 
   'places.foodMarket': 'Chợ ẩm thực',
   'places.foodMarketEn': 'Huế Food Market',
-  'places.foodMarketAbout': 'A market of Huế’s own dishes, stall by stall: the city cooks spicier, saltier and more delicately than anywhere else in Vietnam, a cuisine shaped by both the royal kitchens and the street.',
+  'places.foodMarketAbout': 'A market of Huế’s own dishes, stall by stall — walk up to one and it tells you its dish. The city cooks spicier, saltier and more delicately than anywhere else in Vietnam, shaped by both the royal kitchens and the street.',
   'places.foodMarketFact': 'Bún bò Huế, the city’s most famous dish, is beef and pork in a broth of lemongrass and fermented shrimp paste, red with chilli oil — not the phở of the north, and Huế will tell you so.',
-  'places.foodMarketMore': 'Walk the stalls: bún bò Huế; cơm hến, rice with tiny mussels from the river, once a poor family’s meal; bánh bèo, little steamed rice cakes in their saucers, topped with dried shrimp; bánh nậm and bánh lọc, flat rice parcels in banana leaf and chewy tapioca dumplings with shrimp and pork; nem lụi, pork grilled on lemongrass skewers and rolled in rice paper; bánh khoái, a crisp pancake with a peanut and liver dipping sauce; chè, sweet soups — Huế is said to have dozens; and mè xửng, the sesame brittle families take home as a gift.',
+  'places.foodMarketMore': 'Most of the stalls sell what Huế is known for; two, phở and xôi, are here for visitors, from the rest of Vietnam’s table.',
+
+  'places.dishBunBo': 'Bún bò Huế',
+  'places.dishBunBoEn': 'Huế beef noodle soup',
+  'places.dishBunBoAbout': 'Thick round rice noodles in a beef broth sharp with lemongrass and fermented shrimp paste, red with chilli oil, with beef shank, pork knuckle and crab cake on top.',
+  'places.dishBunBoFact': 'In Huế it’s just “bún bò” — the “Huế” is what the rest of the country adds, to say where the real one comes from.',
+
+  'places.dishComHen': 'Cơm hến',
+  'places.dishComHenEn': 'Rice with river clams',
+  'places.dishComHenAbout': 'Cold rice with tiny clams from the Hương River, star fruit, banana flower, peanuts, crisp pork skin and chilli, with a little bowl of the clams’ hot broth beside it.',
+  'places.dishComHenFact': 'It was once a poor family’s meal. Cồn Hến, the islet in the river on this map, is named after the clams, and is where cơm hến is most at home.',
+
+  'places.dishBanhBeo': 'Bánh bèo',
+  'places.dishBanhBeoEn': 'Steamed rice cakes',
+  'places.dishBanhBeoAbout': 'Little rice-flour cakes steamed in their own saucers, topped with dried shrimp floss, crisp pork skin and spring-onion oil, with sweet fish sauce poured over.',
+  'places.dishBanhBeoFact': 'You eat them straight from the saucer, scooping each out with a small spoon — and the empty saucers stack up on the table as you go.',
+
+  'places.dishBanhLoc': 'Bánh nậm & bánh lọc',
+  'places.dishBanhLocEn': 'Huế rice and tapioca dumplings',
+  'places.dishBanhLocAbout': 'Bánh nậm is a thin rice-flour cake with shrimp and pork, steamed flat in banana leaf. Bánh lọc is a chewy tapioca dumpling that turns clear as it cooks, a whole shrimp showing through.',
+  'places.dishBanhLocFact': 'They’re usually ordered together with bánh bèo: a plate of Huế’s little steamed cakes, all dipped in sweet chilli fish sauce.',
+
+  'places.dishNemLui': 'Nem lụi',
+  'places.dishNemLuiEn': 'Pork on lemongrass skewers',
+  'places.dishNemLuiAbout': 'Seasoned minced pork pressed round stalks of lemongrass and grilled over charcoal, then rolled in rice paper with herbs, green banana and star fruit, and dipped in a thick peanut sauce.',
+  'places.dishNemLuiFact': '“Lụi” means to skewer. The lemongrass is the skewer and the seasoning at once — it perfumes the pork as it grills.',
+
+  'places.dishBanhKhoai': 'Bánh khoái',
+  'places.dishBanhKhoaiEn': 'Huế crispy pancake',
+  'places.dishBanhKhoaiAbout': 'A small rice-flour pancake fried crisp in its own little pan, filled with shrimp, pork, egg and bean sprouts, eaten with herbs and a peanut and sesame dipping sauce.',
+  'places.dishBanhKhoaiFact': 'It’s a cousin of the south’s bánh xèo, but smaller, thicker and crisper. Its name is often explained as “khoái” — delight.',
+
+  'places.dishChe': 'Chè Huế',
+  'places.dishCheEn': 'Huế sweet soups',
+  'places.dishCheAbout': 'Sweet soups and puddings, served hot or over ice: lotus seed, mung bean, taro, corn, and many more — Huế is said to have dozens of kinds.',
+  'places.dishCheFact': 'Lotus seeds from the Citadel’s Tịnh Tâm lake were prized by the court, and chè hạt sen is still the one Huế is proudest of.',
+
+  'places.dishMeXung': 'Mè xửng',
+  'places.dishMeXungEn': 'Huế sesame candy',
+  'places.dishMeXungAbout': 'A chewy candy of malt syrup and peanuts, coated in sesame, cut into small bars and wrapped one by one.',
+  'places.dishMeXungFact': 'It’s the gift people carry home from Huế. “Mè” is sesame — the seeds pressed all over the outside.',
+
+  'places.dishPho': 'Phở',
+  'places.dishPhoEn': 'Vietnamese noodle soup',
+  'places.dishPhoAbout': 'Flat rice noodles in a clear beef broth simmered for hours with charred onion and ginger, star anise and cinnamon, with thin slices of beef, herbs and lime.',
+  'places.dishPhoFact': 'Phở isn’t from Huế: it was born in northern Vietnam early in the 20th century and spread south from there. In Huế the local bowl is bún bò — this stall is for visitors.',
+
+  'places.dishXoi': 'Xôi',
+  'places.dishXoiEn': 'Sticky rice',
+  'places.dishXoiAbout': 'Steamed glutinous rice, sold in the mornings wrapped in a leaf: red with gấc fruit, green with pandan, yellow with mung beans, or topped with peanuts, coconut or shredded chicken.',
+  'places.dishXoiFact': 'Red xôi gấc is for luck — it’s made for Tết and for weddings.',
+
+  'places.dishBanhCanh': 'Bánh canh Nam Phổ',
+  'places.dishBanhCanhEn': 'Nam Phổ thick noodle soup',
+  'places.dishBanhCanhAbout': 'Thick, slippery noodles of rice and tapioca in an orange broth of crab and shrimp, with crab cake and spring onion — from Nam Phổ, a village just outside Huế.',
+  'places.dishBanhCanhFact': 'The noodles are cut fresh and cooked right in the broth, which is what makes it so thick — closer to a stew than a soup.',
+
+  'places.dishBunHen': 'Bún hến',
+  'places.dishBunHenEn': 'Rice noodles with river clams',
+  'places.dishBunHenAbout': 'Cool rice noodles under tiny stir-fried clams, herbs, peanuts and crisp pork crackling, with a bowl of the clams’ hot broth to pour over — cơm hến’s sister.',
+  'places.dishBunHenFact': 'Huế eats it in the morning and the afternoon alike, and many stalls sell bún hến and cơm hến side by side from the same pot of clams.',
+
+  'places.dishBanhUot': 'Bánh ướt thịt nướng',
+  'places.dishBanhUotEn': 'Rice sheets with grilled pork',
+  'places.dishBanhUotAbout': 'Soft, thin sheets of steamed rice batter rolled round lemongrass-grilled pork, herbs and cucumber, dipped in a thick peanut sauce.',
+  'places.dishBanhUotFact': '“Ướt” means wet: the sheets are steamed, never dried, so they stay soft and a little sticky — eaten the day they’re made.',
+
+  'places.dishBanhMi': 'Bánh mì',
+  'places.dishBanhMiEn': 'Vietnamese baguette',
+  'places.dishBanhMiAbout': 'A crackly, airy baguette filled with pâté, cold cuts or grilled pork, pickled carrot and radish, cucumber, coriander and chilli.',
+  'places.dishBanhMiFact': 'The bread came with the French, and Vietnam made it lighter and its own. “Bánh mì” is now an English word too — it’s in the Oxford English Dictionary.',
+
+  'places.dishCaPheMuoi': 'Cà phê muối',
+  'places.dishCaPheMuoiEn': 'Salt coffee',
+  'places.dishCaPheMuoiAbout': 'Strong Vietnamese coffee dripped through a phin filter, with condensed milk and a cream whipped with a pinch of salt floating on top.',
+  'places.dishCaPheMuoiFact': 'Salt coffee began in Huế, at a small café in the 2010s, and has since spread across Vietnam — the salt takes the edge off the bitterness and makes the cream taste sweeter.',
 
   'places.saigonMorin': 'Khách sạn Saigon Morin',
   'places.saigonMorinEn': 'Hotel Saigon Morin',

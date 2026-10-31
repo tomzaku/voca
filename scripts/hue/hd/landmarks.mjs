@@ -728,12 +728,18 @@ export function nghenhLuong() {
 }
 
 /** The food market's dishes, west to east along each row: what each stall
- *  sells, and the colour of its awning. */
+ *  sells (its story is `places.dish…`, e.g. dishBunBo), and the colour of
+ *  its awning. Five to a row (places/southBank.mjs STALLS). */
 export const DISHES = [
   { dish: 'bunBo', awning: [196, 58, 46] }, { dish: 'comHen', awning: [62, 128, 112] },
   { dish: 'banhBeo', awning: [222, 150, 52] }, { dish: 'banhLoc', awning: [84, 140, 70] },
-  { dish: 'nemLui', awning: [168, 70, 50] }, { dish: 'banhKhoai', awning: [214, 176, 60] },
-  { dish: 'che', awning: [150, 96, 168] }, { dish: 'meXung', awning: [186, 52, 70] },
+  { dish: 'nemLui', awning: [168, 70, 50] },
+  { dish: 'banhKhoai', awning: [214, 176, 60] }, { dish: 'che', awning: [150, 96, 168] },
+  { dish: 'meXung', awning: [186, 52, 70] }, { dish: 'pho', awning: [52, 104, 150] },
+  { dish: 'xoi', awning: [120, 160, 60] },
+  { dish: 'banhCanh', awning: [208, 112, 60] }, { dish: 'bunHen', awning: [70, 120, 140] },
+  { dish: 'banhUot', awning: [196, 90, 110] }, { dish: 'banhMi', awning: [160, 110, 60] },
+  { dish: 'caPheMuoi', awning: [92, 70, 56] },
 ];
 
 /** A stall in the food market, 2 × 2 tiles: a striped awning on two posts,
@@ -812,6 +818,62 @@ export function foodStall(dish) {
     }
     cv.ellipse(48, cy - 2, 8, 2.5, [246, 244, 236]);
     for (const x of [44, 48, 52]) cv.rect(x - 1, cy - 4, 3, 2, [210, 160, 90]);
+  } else if (dish === 'pho') {
+    // The stockpot of clear beef broth, a bowl of flat noodles, herbs and lime.
+    cv.rect(10, cy - 12, 20, 12, [150, 150, 156]); cv.rect(10, cy - 12, 20, 2, [196, 196, 202]);
+    cv.ellipse(20, cy - 12, 9, 2, [214, 170, 96]);
+    for (const [x, y] of [[15, cy - 18], [21, cy - 21], [25, cy - 17]]) cv.set(x, y, [240, 240, 240]);
+    bowl(40, cy - 1, [222, 190, 130], 10);
+    for (const x of [37, 40, 43]) cv.rect(x, cy - 2, 2, 1, [246, 240, 226]);
+    cv.rect(38, cy - 3, 3, 1, [150, 84, 70]);
+    cv.ellipse(52, cy - 2, 4, 2, [96, 160, 72]); cv.set(55, cy - 3, [190, 220, 90]);
+  } else if (dish === 'banhCanh') {
+    // A pot of thick orange crab broth, a bowl of fat tapioca noodles.
+    cv.rect(10, cy - 12, 20, 12, [150, 150, 156]); cv.rect(10, cy - 12, 20, 2, [196, 196, 202]);
+    cv.ellipse(20, cy - 12, 9, 2, [226, 120, 60]);
+    for (const [x, y] of [[16, cy - 18], [23, cy - 20]]) cv.set(x, y, [240, 240, 240]);
+    bowl(42, cy - 1, [226, 130, 70], 10);
+    for (const x of [38, 41, 44]) cv.rect(x, cy - 2, 2, 1, [246, 236, 210]);
+    cv.ellipse(53, cy - 2, 3, 1.5, [210, 80, 50]);
+  } else if (dish === 'bunHen') {
+    // A basin of tiny clams, a heap of rice noodles, bowls of bún hến.
+    cv.ellipse(15, cy - 4, 8, 3.5, [70, 64, 52]);
+    for (let i = 0; i < 10; i++) cv.set(9 + hash(i, 5) * 12, cy - 6 + hash(5, i) * 4, [120, 110, 88]);
+    cv.ellipse(31, cy - 4, 6, 3, [246, 242, 230]);
+    for (let i = 0; i < 5; i++) cv.rect(27 + i * 2, cy - 6 + (i % 2), 1, 3, [226, 222, 206]);
+    bowl(45, cy - 1, [236, 226, 196]); bowl(54, cy - 1, [236, 226, 196]);
+    cv.set(44, cy - 2, [80, 70, 56]); cv.set(53, cy - 2, [110, 170, 80]);
+  } else if (dish === 'banhUot') {
+    // Rolls of soft rice sheet on a plate, pork grilling beside them.
+    cv.ellipse(18, cy - 3, 11, 3.5, [246, 244, 236]);
+    for (const x of [11, 16, 21, 26]) { cv.rect(x - 2, cy - 6, 4, 4, [244, 240, 228]); cv.rect(x - 2, cy - 6, 4, 1, [228, 222, 206]); }
+    cv.rect(34, cy - 6, 22, 5, [60, 56, 58]);
+    for (let x = 35; x < 55; x++) if (hash(x, 7) < 0.5) cv.set(x, cy - 6, [250, 140, 50]);
+    for (const x of [37, 43, 49]) cv.rect(x, cy - 9, 5, 3, [176, 100, 60]);
+  } else if (dish === 'banhMi') {
+    // Golden baguettes stacked in a glass case, one split and filled.
+    cv.rect(8, cy - 14, 30, 13, [206, 226, 230]);
+    cv.rect(8, cy - 14, 30, 1, [240, 248, 250]);
+    for (const [x, y] of [[11, cy - 11], [20, cy - 11], [15, cy - 7], [24, cy - 7]]) { cv.ellipse(x + 4, y, 5, 2, [214, 150, 70]); cv.rect(x + 1, y - 1, 6, 1, [236, 188, 110]); }
+    cv.ellipse(48, cy - 3, 8, 2.5, [214, 150, 70]);
+    cv.rect(41, cy - 4, 14, 1, [120, 180, 80]); cv.rect(42, cy - 3, 12, 1, [196, 90, 70]);
+  } else if (dish === 'caPheMuoi') {
+    // Phin filters dripping into glasses, and the salted cream on top.
+    for (const x of [12, 24]) {
+      cv.rect(x - 3, cy - 9, 7, 8, [120, 76, 50]); cv.rect(x - 3, cy - 9, 7, 2, [236, 222, 196]);
+      cv.rect(x - 4, cy - 13, 9, 3, [176, 176, 182]); cv.rect(x - 2, cy - 15, 5, 2, [150, 150, 156]);
+    }
+    for (const x of [38, 46, 54]) { cv.rect(x - 3, cy - 8, 6, 7, [104, 66, 44]); cv.rect(x - 3, cy - 8, 6, 3, [240, 226, 196]); cv.rect(x - 3, cy - 8, 1, 7, [250, 250, 250]); }
+  } else if (dish === 'xoi') {
+    // A bamboo steamer of sticky rice, and portions on leaves in their
+    // colours: gấc red, pandan green, mung-bean yellow.
+    cv.ellipse(16, cy - 5, 8, 5, [176, 132, 76]); cv.ellipse(16, cy - 8, 7, 2.5, [246, 242, 228]);
+    for (let y = cy - 4; y < cy; y += 2) cv.rect(9, y, 14, 1, [150, 108, 60]);
+    for (const [x, c] of [[32, [210, 70, 56]], [42, [110, 170, 90]], [52, [236, 196, 80]]]) {
+      cv.ellipse(x, cy - 2, 5, 2, [80, 140, 64]);
+      cv.ellipse(x, cy - 3.5, 3.5, 2, c);
+      cv.set(x - 1, cy - 4, mix(c, [255, 255, 255], 0.4));
+    }
   }
   outline(cv);
   return cv;

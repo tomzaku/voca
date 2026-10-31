@@ -61,6 +61,9 @@ export const WORLD_EVENTS = {
   /** The buddy came to one of the playground's games, or left it (payload:
    *  its id — 'piano', 'race' — or null). */
   play: 'world:play',
+  /** The buddy came to a food stall's vendor, or left (payload: the dish's
+   *  story id — 'dishBunBo' — or null). */
+  vendor: 'world:vendor',
   /** The buddy came to the Focus Zone on Ngự Bình, or left it (payload: boolean). */
   focus: 'world:focus',
   /** The buddy came to a bus stop's shelter, or left it (payload: the stop's

@@ -225,4 +225,75 @@ export const PLACE_DETAILS: Record<string, PlaceDetail> = {
       { src: 'places/dienTho-2.webp', w: 800, h: 450, author: 'Andre Hospers', license: 'CC BY 4.0', page: 'https://commons.wikimedia.org/wiki/File:Di%C3%AAn_Th%E1%BB%8D_palace_Hue_Imperial_City.jpg' },
     ],
   },
+  // The food market's dishes, each held up by its stall's vendor (VendorTalk).
+  dishBunBo: {
+    photos: [
+      { src: 'places/dishBunBo-1.webp', w: 800, h: 533, author: 'Kham Tran', license: 'CC BY 3.0', page: 'https://commons.wikimedia.org/wiki/File:Bun-Bo-Hue-from-Huong-Giang-2011.jpg' },
+    ],
+  },
+  dishComHen: {
+    photos: [
+      { src: 'places/dishComHen-1.webp', w: 600, h: 800, author: 'Phương Huy', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:L%E1%BB%85_h%E1%BB%99i_%E1%BA%A9m_th%E1%BB%B1c_C%E1%BB%ADa_Vi%E1%BB%87t_th4n2023_%C4%91%E1%BA%B7c_s%E1%BA%A3n_c%C6%A1m_h%E1%BA%BFn_V%C4%A9_D%E1%BA%A1_(1).jpg' },
+    ],
+  },
+  dishBanhBeo: {
+    photos: [
+      { src: 'places/dishBanhBeo-1.webp', w: 800, h: 600, author: 'Yun Huang Yong', license: 'CC BY-SA 2.0', page: 'https://commons.wikimedia.org/wiki/File:Banh_beo_Thien_Mu.jpg' },
+    ],
+  },
+  dishBanhLoc: {
+    photos: [
+      { src: 'places/dishBanhLoc-1.webp', w: 800, h: 600, author: 'Phương Huy', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:B%C3%A1nh_l%E1%BB%8Dc_M%E1%BB%B9_Ch%C3%A1nh_(h%C3%ACnh_g%E1%BB%91c)_(2).jpg' },
+    ],
+  },
+  dishNemLui: {
+    photos: [
+      { src: 'places/dishNemLui-1.webp', w: 506, h: 800, author: 'Phương Huy', license: 'CC0', page: 'https://commons.wikimedia.org/wiki/File:AE_li%C3%AAn_hoan,_Nem_l%E1%BB%A5i_%E1%BB%9F_B%C3%ACnh_T%C3%A2n,_ng8th2n2020_(1).jpg' },
+    ],
+  },
+  dishBanhKhoai: {
+    photos: [
+      { src: 'places/dishBanhKhoai-1.webp', w: 800, h: 600, author: 'Aterux', license: 'CC BY-SA 3.0', page: 'https://commons.wikimedia.org/wiki/File:Banh_khoai.JPG' },
+    ],
+  },
+  dishChe: {
+    photos: [
+      { src: 'places/dishChe-1.webp', w: 671, h: 800, author: 'Phương Huy', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:L%E1%BB%85_h%E1%BB%99i_%E1%BA%A9m_th%E1%BB%B1c_C%E1%BB%ADa_Vi%E1%BB%87t_th4n2023_%C4%91%E1%BA%B7c_s%E1%BA%A3n_m%C3%B3n_ch%C3%A8_Hu%E1%BA%BF_(ch%C3%A8_h%E1%BA%A1t_sen)_(1).jpg' },
+    ],
+  },
+  dishPho: {
+    photos: [
+      { src: 'places/dishPho-1.webp', w: 800, h: 600, author: 'Andy Li', license: 'CC0', page: 'https://commons.wikimedia.org/wiki/File:Pho_Bo_by_Banh_%26_Mee_in_Kirkgate_Market.jpg' },
+    ],
+  },
+  dishXoi: {
+    photos: [
+      { src: 'places/dishXoi-1.webp', w: 800, h: 600, author: 'Nguyễn Thanh Quang', license: 'Public domain', page: 'https://commons.wikimedia.org/wiki/File:X%C3%B4i_g%E1%BA%A5c.JPG' },
+    ],
+  },
+  dishBanhCanh: {
+    photos: [
+      { src: 'places/dishBanhCanh-1.webp', w: 800, h: 533, author: 'Christopher Crouzet', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:B%C3%A1nh_Canh_Nam_Ph%E1%BB%95,_Da_Nang,_Vietnam.jpg' },
+    ],
+  },
+  dishBunHen: {
+    photos: [
+      { src: 'places/dishBunHen-1.webp', w: 800, h: 556, author: 'Phương Huy', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:B%C3%BAn_h%E1%BA%BFn_Mai_X%C3%A1_n%C4%83m_2018.jpg' },
+    ],
+  },
+  dishBanhUot: {
+    photos: [
+      { src: 'places/dishBanhUot-1.webp', w: 600, h: 800, author: 'Phương Huy', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:Nh%C3%A0_m%C3%ACnh_L%E1%BB%85_30th4n2023_(b%C3%A1nh_%C6%B0%E1%BB%9Bt_Ph%C6%B0%C6%A1ng_Lang,_th%E1%BB%8Bt_heo_n%C6%B0%E1%BB%9Bng_%C4%83n_k%C3%A8m)_(1).jpg' },
+    ],
+  },
+  dishBanhMi: {
+    photos: [
+      { src: 'places/dishBanhMi-1.webp', w: 600, h: 800, author: 'Chainwit', license: 'CC BY 4.0', page: 'https://commons.wikimedia.org/wiki/File:B%C3%A1nh_M%C3%AC_Ph%C6%B0%E1%BB%A3ng_(2024)_-_img_04.jpg' },
+    ],
+  },
+  dishCaPheMuoi: {
+    photos: [
+      { src: 'places/dishCaPheMuoi-1.webp', w: 600, h: 800, author: 'Phương Huy', license: 'CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:Ly_c%C3%A0_ph%C3%AA_mu%E1%BB%91i_%E1%BB%9F_T%C3%A2n_Ph%C3%BA_ng21th5n2023_(1).jpg' },
+    ],
+  },
 };

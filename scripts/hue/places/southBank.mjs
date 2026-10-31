@@ -14,12 +14,16 @@ export const LABELS = [
   { text: 'Ga Huế', x: 13.5, y: 68.5, place: 'gaHue' },
   { text: 'Trường Hai Bà Trưng', x: 28, y: 67.5, place: 'haiBaTrung' },
   { text: 'Trường Quốc Học', x: 41, y: 67.5, place: 'quocHoc' },
-  { text: 'Chợ ẩm thực', x: 55.5, y: 67.2, place: 'foodMarket' },
+  { text: 'Chợ ẩm thực', x: 59, y: 67.2, place: 'foodMarket' },
   { text: 'Saigon Morin', x: 75.5, y: 68, place: 'saigonMorin' },
   { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
   { text: 'Vỹ Dạ', x: 108, y: 61, place: 'vyDa', theme: 'forest', anchor: 'left' },
   { text: 'Ngự Bình', x: 57, y: 91.4, place: 'nguBinh', theme: 'forest' },
 ];
+
+/** The food market's stalls: five to a row, a row every four tiles (the
+ *  stalls, their tables, a walk), each's top-left tile. */
+export const STALLS = DISHES.map(({ dish }, i) => ({ dish, x: 52 + (i % 5) * 3, y: 67 + Math.floor(i / 5) * 4 }));
 
 export function drawSouthBank() {
   // Ga Huế: the cream railway station, with its tracks running west–east.
@@ -59,21 +63,21 @@ export function drawSouthBank() {
     place(gate, 35, 71, 1, { gaps: [40, 41], shadow: false });
   }
 
-  // Huế's food market, in the park between the bridges: two rows of stalls
+  // Huế's food market, in the park between the bridges: three rows of stalls
   // on a paved square (roads.mjs), each with the one dish it's known for,
-  // tables and stools before them, lanterns that light up at night.
-  DISHES.forEach(({ dish }, i) => {
-    const tx = 53 + (i % 4) * 3, ty = i < 4 ? 67.5 : 70.5;
+  // tables and stools before them, lanterns that light up at night. Walk up
+  // to a stall and it tells you its dish (meta.mjs: STALLS).
+  for (const { dish, x: tx, y: ty } of STALLS) {
     const cv = halve(foodStall(dish));
     cv.spec = { kind: 'foodStall', dish };
-    place(cv, tx, Math.floor(ty), 1, { shadow: false });
-    for (const lx of [5, 16, 27]) glow(tx * T + lx + 0.5, Math.floor(ty) * T + 11, [255, 170, 90], 3);
+    place(cv, tx, ty, 1, { shadow: false });
+    for (const lx of [5, 16, 27]) glow(tx * T + lx + 0.5, ty * T + 11, [255, 170, 90], 3);
     // A low table and two stools out front.
-    const fx = tx * T + 8, fy = (Math.floor(ty) + 2) * T + 5;
+    const fx = tx * T + 8, fy = (ty + 2) * T + 5;
     ground.rect(fx, fy, 12, 5, [150, 104, 66]);
     ground.rect(fx, fy, 12, 1, [184, 136, 92]);
     for (const sx of [fx - 4, fx + 14]) ground.rect(sx, fy + 1, 3, 3, [196, 64, 52]);
-  });
+  }
 
   // Shophouses east of Hùng Vương, the old Phố Tây.
   for (const [x, pal] of [[81, ROOF.plum]]) place(HOUSE(pal, [222, 206, 176]), x, 71, 2);

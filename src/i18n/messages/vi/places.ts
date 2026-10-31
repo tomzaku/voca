@@ -123,9 +123,84 @@ export default {
 
   'places.foodMarket': 'Chợ ẩm thực',
   'places.foodMarketEn': 'Huế Food Market',
-  'places.foodMarketAbout': 'Một khu chợ toàn món Huế, mỗi sạp một món: người Huế nấu cay hơn, mặn mà hơn và cầu kỳ hơn mọi nơi ở Việt Nam — nét ẩm thực được nuôi dưỡng từ cả bếp cung đình lẫn gánh hàng rong.',
+  'places.foodMarketAbout': 'Một khu chợ món Huế, mỗi sạp một món — bước đến sạp nào, sạp ấy kể về món của mình. Người Huế nấu cay hơn, mặn mà hơn và cầu kỳ hơn mọi nơi, từ bếp cung đình đến gánh hàng rong.',
   'places.foodMarketFact': 'Bún bò Huế, món nổi tiếng nhất của xứ này, là thịt bò và giò heo trong nước dùng sả và mắm ruốc, đỏ màu dầu ớt.',
-  'places.foodMarketMore': 'Đi một vòng các sạp: bún bò Huế; cơm hến, cơm với hến sông, xưa là bữa ăn của nhà nghèo; bánh bèo, những chén bánh gạo hấp nhỏ rắc tôm chấy; bánh nậm và bánh lọc, bánh gạo dẹt gói lá chuối và bánh bột lọc dai nhân tôm thịt; nem lụi, thịt heo nướng trên que sả cuốn bánh tráng; bánh khoái, bánh giòn chấm nước lèo đậu phộng gan heo; chè Huế, nghe nói có đến vài chục loại; và mè xửng, món quà người ta mua mang về.',
+  'places.foodMarketMore': 'Phần lớn các sạp bán món đặc trưng của Huế; hai sạp phở và xôi là dành cho khách, món của những miền khác.',
+
+  'places.dishBunBo': 'Bún bò Huế',
+  'places.dishBunBoEn': 'Huế beef noodle soup',
+  'places.dishBunBoAbout': 'Sợi bún to trong nước dùng bò thơm sả và mắm ruốc, đỏ màu dầu ớt, bên trên là bắp bò, giò heo và chả cua.',
+  'places.dishBunBoFact': 'Ở Huế người ta chỉ gọi là “bún bò” — chữ “Huế” là cả nước thêm vào, để nói món thật đến từ đâu.',
+
+  'places.dishComHen': 'Cơm hến',
+  'places.dishComHenEn': 'Rice with river clams',
+  'places.dishComHenAbout': 'Cơm nguội trộn hến sông Hương, khế, bắp chuối, đậu phộng, tóp mỡ và ớt, kèm một chén nước hến nóng.',
+  'places.dishComHenFact': 'Xưa là bữa ăn của nhà nghèo. Cồn Hến, cồn giữa sông trên bản đồ này, mang tên con hến, và là nơi cơm hến ngon nhất.',
+
+  'places.dishBanhBeo': 'Bánh bèo',
+  'places.dishBanhBeoEn': 'Steamed rice cakes',
+  'places.dishBanhBeoAbout': 'Bánh bột gạo hấp ngay trong chén nhỏ, rắc tôm chấy, tóp mỡ và mỡ hành, chan nước mắm ngọt.',
+  'places.dishBanhBeoFact': 'Ăn ngay trong chén, dùng que tre hoặc thìa nhỏ xúc từng chiếc — chén không chồng lên dần trên bàn.',
+
+  'places.dishBanhLoc': 'Bánh nậm & bánh lọc',
+  'places.dishBanhLocEn': 'Huế rice and tapioca dumplings',
+  'places.dishBanhLocAbout': 'Bánh nậm là bánh bột gạo mỏng nhân tôm thịt, gói lá chuối hấp dẹt. Bánh lọc là bánh bột năng dai, chín thì trong veo, thấy cả con tôm bên trong.',
+  'places.dishBanhLocFact': 'Người ta thường gọi chung với bánh bèo: một mâm bánh Huế, chấm nước mắm ớt ngọt.',
+
+  'places.dishNemLui': 'Nem lụi',
+  'places.dishNemLuiEn': 'Pork on lemongrass skewers',
+  'places.dishNemLuiAbout': 'Thịt heo xay ướp, quấn quanh cây sả rồi nướng than, cuốn bánh tráng với rau thơm, chuối chát, khế, chấm nước lèo đậu phộng sánh.',
+  'places.dishNemLuiFact': '“Lụi” là xiên. Cây sả vừa là que xiên vừa là gia vị — nướng lên là thơm cả miếng thịt.',
+
+  'places.dishBanhKhoai': 'Bánh khoái',
+  'places.dishBanhKhoaiEn': 'Huế crispy pancake',
+  'places.dishBanhKhoaiAbout': 'Bánh bột gạo đổ giòn trong khuôn nhỏ, nhân tôm, thịt, trứng và giá, ăn với rau sống, chấm nước lèo đậu phộng mè.',
+  'places.dishBanhKhoaiFact': 'Họ hàng với bánh xèo miền Nam nhưng nhỏ hơn, dày và giòn hơn. Tên bánh hay được giải thích là “khoái” — thích thú.',
+
+  'places.dishChe': 'Chè Huế',
+  'places.dishCheEn': 'Huế sweet soups',
+  'places.dishCheAbout': 'Các món chè ăn nóng hoặc với đá: hạt sen, đậu xanh, khoai môn, bắp, và nhiều nữa — nghe nói Huế có đến vài chục loại chè.',
+  'places.dishCheFact': 'Hạt sen hồ Tịnh Tâm trong Kinh Thành từng được triều đình quý chuộng, và chè hạt sen vẫn là món chè Huế tự hào nhất.',
+
+  'places.dishMeXung': 'Mè xửng',
+  'places.dishMeXungEn': 'Huế sesame candy',
+  'places.dishMeXungAbout': 'Kẹo dẻo nấu từ mạch nha và đậu phộng, phủ mè, cắt thành thanh nhỏ gói từng chiếc.',
+  'places.dishMeXungFact': 'Đây là món quà người ta mang từ Huế về. “Mè” là vừng — rắc kín bên ngoài thanh kẹo.',
+
+  'places.dishPho': 'Phở',
+  'places.dishPhoEn': 'Vietnamese noodle soup',
+  'places.dishPhoAbout': 'Bánh phở trong nước dùng bò trong, ninh nhiều giờ với hành gừng nướng, hoa hồi và quế, thêm thịt bò thái mỏng, rau thơm và chanh.',
+  'places.dishPhoFact': 'Phở không phải món của Huế: phở ra đời ở miền Bắc đầu thế kỷ 20 rồi theo người vào Nam. Ở Huế, tô quen của người dân là bún bò — sạp này dành cho khách phương xa.',
+
+  'places.dishXoi': 'Xôi',
+  'places.dishXoiEn': 'Sticky rice',
+  'places.dishXoiAbout': 'Gạo nếp đồ chín, bán buổi sáng gói trong lá: đỏ màu gấc, xanh lá dứa, vàng đậu xanh, hoặc rắc đậu phộng, dừa, gà xé.',
+  'places.dishXoiFact': 'Xôi gấc màu đỏ là lấy may — được nấu cho ngày Tết và đám cưới.',
+
+  'places.dishBanhCanh': 'Bánh canh Nam Phổ',
+  'places.dishBanhCanhEn': 'Nam Phổ thick noodle soup',
+  'places.dishBanhCanhAbout': 'Sợi bánh canh bột gạo pha bột năng dai trơn, trong nước dùng cua tôm màu cam, thêm chả cua và hành — món của làng Nam Phổ, ngay cạnh Huế.',
+  'places.dishBanhCanhFact': 'Sợi bánh được cắt tươi và nấu ngay trong nồi nước dùng, nên nước sánh lại — gần như món hầm hơn là món canh.',
+
+  'places.dishBunHen': 'Bún hến',
+  'places.dishBunHenEn': 'Rice noodles with river clams',
+  'places.dishBunHenAbout': 'Bún nguội với hến xào, rau thơm, đậu phộng và tóp mỡ giòn, chan thêm chén nước hến nóng — chị em với cơm hến.',
+  'places.dishBunHenFact': 'Người Huế ăn bún hến cả sáng lẫn chiều, và nhiều hàng bán bún hến với cơm hến cạnh nhau từ cùng một nồi hến.',
+
+  'places.dishBanhUot': 'Bánh ướt thịt nướng',
+  'places.dishBanhUotEn': 'Rice sheets with grilled pork',
+  'places.dishBanhUotAbout': 'Bánh ướt mỏng mềm cuốn thịt heo nướng sả, rau thơm và dưa leo, chấm nước lèo đậu phộng sánh.',
+  'places.dishBanhUotFact': 'Bánh “ướt” vì được hấp, không phơi khô, nên mềm và hơi dẻo — làm ngày nào ăn ngày ấy.',
+
+  'places.dishBanhMi': 'Bánh mì',
+  'places.dishBanhMiEn': 'Vietnamese baguette',
+  'places.dishBanhMiAbout': 'Ổ bánh mì giòn rỗng ruột, kẹp pa-tê, chả hoặc thịt nướng, đồ chua cà rốt củ cải, dưa leo, ngò và ớt.',
+  'places.dishBanhMiFact': 'Bánh mì đến cùng người Pháp, rồi người Việt làm cho nhẹ hơn và thành của riêng mình. Giờ “bánh mì” đã là một từ tiếng Anh — có trong từ điển Oxford.',
+
+  'places.dishCaPheMuoi': 'Cà phê muối',
+  'places.dishCaPheMuoiEn': 'Salt coffee',
+  'places.dishCaPheMuoiAbout': 'Cà phê phin đậm đặc, thêm sữa đặc, bên trên là lớp kem đánh với chút muối.',
+  'places.dishCaPheMuoiFact': 'Cà phê muối bắt đầu ở Huế, từ một quán nhỏ vào những năm 2010, rồi lan ra khắp cả nước — vị mặn làm dịu vị đắng và khiến lớp kem ngọt hơn.',
 
   'places.saigonMorin': 'Khách sạn Saigon Morin',
   'places.saigonMorinEn': 'Hotel Saigon Morin',

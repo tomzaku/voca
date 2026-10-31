@@ -13,7 +13,7 @@ import { LABELS as IMPERIAL_LABELS } from './places/imperial.mjs';
 import { LABELS as KIM_LONG_LABELS } from './places/kimLong.mjs';
 import { LABELS as PARK_LABELS } from './places/parks.mjs';
 import { LABELS as RIVER_LABELS } from './places/river.mjs';
-import { LABELS as SOUTH_BANK_LABELS } from './places/southBank.mjs';
+import { LABELS as SOUTH_BANK_LABELS, STALLS } from './places/southBank.mjs';
 import { LABELS as TOMB_LABELS } from './places/tombs.mjs';
 
 export const objects = [];
@@ -81,7 +81,7 @@ export function writeMeta(shelters = []) {
   for (const [x0, x1, y] of [...PARK_PATHS, [57, 74.5, 64.2]]) {
     if (x1 - x0 >= 5) point('stroll', x0 + 0.5, y + 0.2, { to: Math.round((x1 - 0.5) * T) });
   }
-  for (const [x, y] of [[11.5, 46.4], [20, 43.6], [62.9, 27.9], [66.1, 27.9], [53.8, 71]]) point('smoke', x, y);   // the last over the nem lụi grill
+  for (const [x, y] of [[11.5, 46.4], [20, 43.6], [62.9, 27.9], [66.1, 27.9], [64.8, 68]]) point('smoke', x, y);   // the last over the nem lụi grill
   point('spray', 72, 63.3);
   // The Focus Zone, on Ngự Bình's summit before the pavilion.
   point('focus', 57, 88.6);
@@ -89,6 +89,9 @@ export function writeMeta(shelters = []) {
   // Ga Huế, on the platform between the station and its tracks.
   point('play', 62, 64.6, { game: 'piano' });
   point('play', 13.5, 73.3, { game: 'race' });
+  // The food market's stalls: stand at one and it tells its dish's story
+  // (places.dishBunBo…), ahead of the market's own.
+  for (const { dish, x, y } of STALLS) point('stall', x + 1, y + 2.4, { place: `dish${dish[0].toUpperCase()}${dish.slice(1)}` });
   // Fishing off the dragon boat's landing, the boat alongside.
   point('play', 48.6, 58.8, { game: 'fish' });
   for (const [x, y] of FARMERS) point('farmer', x, y);
