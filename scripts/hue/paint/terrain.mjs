@@ -13,7 +13,15 @@ export function grassColor(x, y) {
   const h = hash(x, y);
   if (h < 0.006) c = P.fleckLight;
   else if (h < 0.011) c = P.fleckDark;
-  return y >= (HILLS_Y - 4) * T ? hillTint(c, x, y) : c;
+  return tinted(c, x, y);
+}
+
+/** The hills' tint over the grass at (x, y): everywhere in the range, and
+ *  on Ngự Bình out in the plain, fading in at its foot. */
+export function tinted(c, x, y) {
+  if (y >= (HILLS_Y - 4) * T) return hillTint(c, x, y);
+  const h = height(x, y);
+  return h > 0.005 ? mix(c, hillTint(c, x, y), Math.min(1, h / 0.12)) : c;
 }
 
 /** The hills: grass deepening as the land rises and brightening terrace by
@@ -42,6 +50,7 @@ export function hillTint(c, x, y) {
     if (cl.face > 0.9) c = mix(c, [40, 36, 32], 0.4);
   } else if (cl?.shadow) c = mix(c, [20, 40, 30], cl.shadow * 0.45);
   else if (cl?.lip) c = mix(c, [60, 104, 52], 0.7);
+  else if (cl?.back) c = mix(c, [30, 64, 40], cl.back * 0.4);
   return c;
 }
 

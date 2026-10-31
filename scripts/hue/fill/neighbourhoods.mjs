@@ -6,6 +6,7 @@ import { rand } from '../core/canvas.mjs';
 import { ROOF } from '../core/palette.mjs';
 import { place, solid, used } from '../core/world.mjs';
 import { hall } from '../draw/buildings.mjs';
+import { height } from '../hills.mjs';
 import { T, isWater, nearSlot } from '../layout.mjs';
 import { onAnyRoad } from '../roads.mjs';
 
@@ -17,6 +18,7 @@ export function lotFree(tx, ty, w, h) {
     for (let i = tx; i < tx + w; i++) {
       if (used[j]?.[i] !== false || solid[j]?.[i] !== false || onAnyRoad(i, j)) return false;
       if (isWater(i * T + 8, j * T + 8) || isWater(i * T, j * T) || isWater(i * T + 15, j * T + 15)) return false;
+      if (height(i * T + 8, j * T + 8) > 0.03) return false;     // not up a hillside
     }
   }
   return !nearSlot(tx, ty);

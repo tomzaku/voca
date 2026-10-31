@@ -29,17 +29,37 @@ const ROAD_Y = 114.8;
 /** How much height makes one terrace, and how tall (map px) a cliff face is. */
 const STEP = 0.24, CLIFF = 12;
 
+/** Ngự Bình, the "royal screen" the Citadel faces across the river: a
+ *  long, flat-topped hill standing on its own in the plain north of the
+ *  range, higher than the tombs' plateaus — its summit [x0, y0, x1, y1] in
+ *  tiles, level at `top`, the land falling from its edge over `fall` tiles
+ *  in terraces. Stone stairs climb its north face (roads.mjs) to the
+ *  pavilion on top (places/southBank.mjs). */
+export const NGU_BINH = { x0: 51, y0: 87.5, x1: 63, y1: 90.5, top: 1.2, fall: 5 };
+/** The terrain starts here (tiles): Ngự Bình's foot, above the range's. */
+const TOP_Y = 81;
+
 const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 const bump = (tx, ty, [x, y, r, h]) => h * Math.exp(-((tx - x) ** 2 + (ty - y) ** 2) / (r * r));
 
+/** Ngự Bình's height at tile (tx, ty): its summit, then the slopes, the
+ *  edge wandering a little so the terraces aren't drawn with a compass. */
+function nguBinh(tx, ty, x, y) {
+  const { x0, y0, x1, y1, top, fall } = NGU_BINH;
+  const dx = Math.max(x0 - tx, 0, tx - x1), dy = Math.max(y0 - ty, 0, ty - y1);
+  const d = Math.hypot(dx, dy) + (dx || dy ? (noise(x, y, 40) - 0.5) * 1.6 : 0);
+  return top * (1 - smooth(0, fall, d));
+}
+
 function rawHeight(x, y) {
   const tx = x / T, ty = y / T;
-  if (ty < HILLS_Y - 4) return 0;
+  const nb = nguBinh(tx, ty, x, y);
+  if (ty < HILLS_Y - 4) return nb;
   let h = smooth(H - 12, H - 1, ty) * 0.35;
   for (const p of PEAKS) h += bump(tx, ty, p);
   h -= 0.5 * Math.exp(-((ty - ROAD_Y) ** 2) / 3);
   h += (noise(x, y, 70) - 0.5) * 0.18;
-  h = Math.max(0, h) * smooth(HILLS_Y - 4, HILLS_Y + 2, ty);
+  h = Math.max(nb, Math.max(0, h) * smooth(HILLS_Y - 4, HILLS_Y + 2, ty));
   for (const [x0, y0, x1, y1] of PLATEAUS) {
     const d = Math.max(x0 - tx, tx - x1, y0 - ty, ty - y1);   // ≤ 0 inside
     if (d <= 0) return PLATEAU;
@@ -49,7 +69,7 @@ function rawHeight(x, y) {
 }
 
 // Worked out once, a value per map pixel from the hills down.
-const Y0 = (HILLS_Y - 4) * T;
+const Y0 = TOP_Y * T;
 let grid = null;
 const heights = () => {
   if (!grid) {
@@ -82,13 +102,18 @@ export function light(x, y) {
 
 /** What the ground is at (x, y) where terraces meet: the rock face of a
  *  cliff (how far down it, 0–1), the shadow at a cliff's foot, the lip of
- *  grass along a terrace's top — or nothing. */
+ *  grass along a terrace's top, the shade below a step facing away — or
+ *  nothing. */
 export function cliff(x, y) {
   if (y < Y0) return null;
   const here = level(x, y);
   for (let d = 1; d <= CLIFF; d++) if (level(x, y - d) > here) return { face: (CLIFF - d) / CLIFF };
   for (let d = CLIFF + 1; d <= CLIFF + 3; d++) if (level(x, y - d) > here) return { shadow: 1 - (d - CLIFF) / 4 };
   if (level(x, y + 1) < here || level(x - 1, y) < here || level(x + 1, y) < here) return { lip: true };
+  // Where the land steps up to the south, the step's face is turned away
+  // from you — only a band of shade at its foot shows, so a slope facing
+  // the city still reads as terraces.
+  for (let d = 1; d <= 4; d++) if (level(x, y + d) > here) return { back: 1 - (d - 1) / 4 };
   return null;
 }
 

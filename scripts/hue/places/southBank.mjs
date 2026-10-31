@@ -18,7 +18,7 @@ export const LABELS = [
   { text: 'Saigon Morin', x: 75.5, y: 68, place: 'saigonMorin' },
   { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
   { text: 'Vỹ Dạ', x: 108, y: 61, place: 'vyDa', theme: 'forest', anchor: 'left' },
-  { text: 'Ngự Bình', x: 52, y: 91.6, place: 'nguBinh', theme: 'forest', anchor: 'left' },
+  { text: 'Ngự Bình', x: 57, y: 91.4, place: 'nguBinh', theme: 'forest' },
 ];
 
 export function drawSouthBank() {
@@ -106,28 +106,10 @@ export function drawSouthBank() {
   }
 
 
-  // Ngự Bình: the flat-topped "royal screen" hill, with pines.
-  const HILL = { cx: 57 * T, cy: 88.2 * T, rx: 7 * T, ry: 3.8 * T };
-  {
-    const { cx, cy, rx, ry } = HILL;
-    for (let y = Math.floor(cy - ry); y < cy + ry; y++) {
-      for (let x = Math.floor(cx - rx); x < cx + rx; x++) {
-        const e = ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2;
-        if (e > 1) continue;
-        const top = ((x + 0.5 - cx) / (rx * 0.82)) ** 2 + ((y + 0.5 - (cy - ry * 0.22)) / (ry * 0.62)) ** 2 <= 1;
-        const base = top ? [138, 176, 104] : mix([104, 140, 84], [84, 118, 74], (y - cy + ry) / (2 * ry));
-        ground.set(x, y, hash(x, y) < 0.03 ? P.fleckDark : base);
-      }
-    }
-    for (let ty = Math.floor((cy - ry) / T); ty <= Math.floor((cy + ry) / T); ty++) {
-      for (let tx = Math.floor((cx - rx) / T); tx <= Math.floor((cx + rx) / T); tx++) {
-        const e = ((tx + 0.5) * T - cx) ** 2 / rx ** 2 + ((ty + 0.5) * T - cy) ** 2 / ry ** 2;
-        if (e <= 1.05 && solid[ty]) { solid[ty][tx] = true; used[ty][tx] = true; }
-      }
-    }
-  }
-  // The focus pavilion on Ngự Bình's north slope, over the lane round the hill:
-  // where the Focus Zone is (meta.mjs puts its `focus` point on the lane).
+  // Ngự Bình itself is terrain (hills.mjs: NGU_BINH) — terraces and cliffs,
+  // pines on the slopes (fill/greenery.mjs), stone stairs up its north face
+  // (roads.mjs). On its flat summit, at the head of the stairs, the pavilion
+  // where the Focus Zone is (meta.mjs puts its `focus` point before it).
   {
     const cv = new Canvas(2 * T, 2 * T);
     cv.rect(2, 24, 28, 8, [184, 176, 164]);
@@ -135,6 +117,6 @@ export function drawSouthBank() {
     for (const x of [5, 15, 25]) cv.rect(x, 13, 2, 11, [196, 70, 52]);
     roof(cv, 1, 4, 30, 10, ROOF.glazed, 4);
     cv.spec = { kind: 'nghenhLuong' };
-    place(cv, 56, 84, 1);
+    place(cv, 56, 89, 1);
   }
 }

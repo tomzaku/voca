@@ -87,6 +87,7 @@ export const ROADS = [
   // South of the canal: the lane round Ngự Bình, and on down through the
   // pines to Minh Mạng's tomb.
   road('lane', 2, [[44, 83], [52, 82], [60, 82.5], [70.5, 83.5]]),
+  box(56, 83, 2, 6, 'stone', { stairs: true }),                                   // the stairs up Ngự Bình to its summit
   road('lane', 2, [[70.5, 84], [68, 89], [66, 95], [65, 102], [65, 114.5]]),
   // The tombs' road, winding through the hills from gate to gate.
   road('lane', 1.6, [[2, 114.8], [10, 114.8], [16, 115.4], [21, 114.8], [27, 115.4], [34.5, 114.8], [42, 115.4],

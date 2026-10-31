@@ -30,6 +30,8 @@ export function shade(x, y) {
   if (r.kind === 'stone') {
     const joint = (y % 8 === 0) || ((x + (Math.floor(y / 8) % 2) * 6) % 12 === 0);
     c = joint ? P.stoneJoint : mix(P.stone, P.stoneJoint, hash(x, y) * 0.25);
+    // Stairs: a tread every few pixels, the riser below each in shadow.
+    if (r.stairs) c = y % 5 === 0 ? [118, 110, 98] : y % 5 === 1 ? [226, 220, 208] : mix(P.stone, P.stoneJoint, hash(x, y) * 0.3);
     // A raised kerb along its sides, as the landings have.
     if (e < 1) c = [118, 110, 98];
     else if (e < 2) c = [226, 220, 208];

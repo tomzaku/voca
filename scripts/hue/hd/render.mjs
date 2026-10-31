@@ -12,8 +12,8 @@ import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
 import { P, STREET } from '../core/palette.mjs';
 import { drawn, ground, over } from '../core/world.mjs';
 import { cliff as cliffAt } from '../hills.mjs';
-import { H as MAP_H, HILLS_Y, T, W as MAP_W, isWater } from '../layout.mjs';
-import { grassColor, hillTint } from '../paint/terrain.mjs';
+import { H as MAP_H, T, W as MAP_W, isWater } from '../layout.mjs';
+import { grassColor, tinted } from '../paint/terrain.mjs';
 import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
@@ -49,7 +49,7 @@ const same = (d, i, c) => d[i] === c[0] && d[i + 1] === c[1] && d[i + 2] === c[2
  *  tint over it below the city. */
 function grassAt(X, Y, mx, my) {
   const c = flatGrassAt(X, Y);
-  return my >= (HILLS_Y - 4) * T ? hillTint(c, mx, my) : c;
+  return tinted(c, mx, my);
 }
 function flatGrassAt(X, Y) {
   const n = noise(X, Y, 22) * 0.6 + noise(X, Y, 7) * 0.4;
@@ -103,6 +103,10 @@ function roadAt(X, Y, mx, my, roads) {
     if (e < 1) return [118, 110, 98];
     if (e < 2) return [226, 220, 208];
     if (e < 3) return P.stoneEdge;
+    if (r.stairs) {
+      const t = Y % 10;
+      return t < 2 ? [104, 96, 86] : t < 3 ? [236, 230, 218] : mix(P.stone, P.stoneJoint, hash(Math.floor(X / 12), Math.floor(Y / 10)) * 0.4 + hash(X, Y) * 0.1 + (t > 7 ? 0.15 : 0));
+    }
     const row = Math.floor(Y / 16), col = Math.floor((X + (row % 2) * 8) / 16);
     if (Y % 16 === 0 || (X + (row % 2) * 8) % 16 === 0) return P.stoneJoint;
     return mix(P.stone, P.stoneJoint, hash(col, row) * 0.4 + hash(X, Y) * 0.1);

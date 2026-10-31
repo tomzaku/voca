@@ -6,7 +6,7 @@ import { hash, mix, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { deck, drawn, ground, mark, solid, used } from '../core/world.mjs';
 import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
-import { TREELINE, drawLadder, height, light, markCliffs } from '../hills.mjs';
+import { NGU_BINH, TREELINE, drawLadder, height, light, markCliffs } from '../hills.mjs';
 import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
 import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
 
@@ -64,8 +64,8 @@ export function plantGreenery() {
   plantAround('bang', 40, 71, 6, 2);
   plantAround('bangRed', 88, 81, 6, 2);
   plantAround('banyan', 70, 83, 6, 1);
-  // Pines on Ngự Bình and around Thiên Mụ.
-  for (const [x, y] of [[53, 86], [59, 86], [51, 89], [61, 89], [55, 90], [58, 91], [1, 36], [1, 41], [8, 36]]) pine(x, y);
+  // Pines around Thiên Mụ (Ngự Bình's grow on its terraces, below).
+  for (const [x, y] of [[1, 36], [1, 41], [8, 36]]) pine(x, y);
   // A few flame trees for a warm accent.
   for (const [x, y] of [[24, 9], [100, 26], [44, 71], [109, 77]]) if (canPlant(x, y)) tree(x, y, 'flame');
   // Trees along the lanes, every few steps on both sides.
@@ -92,6 +92,20 @@ export function plantGreenery() {
   for (const [tx, ty] of markCliffs(solid, (tx, ty) => used[ty][tx] || roadGap(tx, ty) < 1)) {
     drawLadder(ground, tx, ty, drawn);
     mark(deck, tx, ty - 1, 1, 3);
+  }
+  // Ngự Bình's pines: thick on its slopes, the summit left open round the
+  // pavilion — a hill you can see is a hill from the river.
+  {
+    const { x0, y0, x1, y1, fall } = NGU_BINH;
+    for (let ty = Math.floor(y0 - fall); ty < HILLS_Y - 2; ty++) {
+      for (let tx = Math.floor(x0 - fall); tx <= Math.ceil(x1 + fall); tx++) {
+        const h = height(tx * T + 8, ty * T + 8);
+        const summit = tx >= x0 && tx < x1 && ty >= y0 && ty < y1;
+        if (h < 0.1 || hash(tx * 17, ty * 5) > (summit ? 0.12 : 0.55)) continue;
+        if (solid[ty][tx] || solid[ty - 1]?.[tx] || used[ty][tx] || roadGap(tx, ty) < 1.5) continue;
+        pine(tx, ty);
+      }
+    }
   }
   {
     const forest = [];

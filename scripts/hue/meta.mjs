@@ -83,8 +83,8 @@ export function writeMeta(shelters = []) {
   }
   for (const [x, y] of [[11.5, 46.4], [20, 43.6], [62.9, 27.9], [66.1, 27.9], [53.8, 71]]) point('smoke', x, y);   // the last over the nem lụi grill
   point('spray', 72, 63.3);
-  // The Focus Zone, on the lane under Ngự Bình's pavilion.
-  point('focus', 57, 83.4);
+  // The Focus Zone, on Ngự Bình's summit before the pavilion.
+  point('focus', 57, 88.6);
   // The playground's games: the street piano on Phố đi bộ, the type race at
   // Ga Huế, on the platform between the station and its tracks.
   point('play', 62, 64.6, { game: 'piano' });
