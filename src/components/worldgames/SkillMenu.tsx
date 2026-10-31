@@ -2,14 +2,14 @@ import { useEffect, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ActivityKind, WorldActivity, WorldSkill } from '../../game/features';
 import { playSelect } from '../../lib/sfx';
-import { HudCenter, PixelButton, PixelIcon, type PixelIconName } from './pixel';
+import { HudCenter, PixelIcon, type PixelIconName } from './pixel';
 import { OnlineStatus } from './OnlineStatus';
 
 // What a skill's keeper offers: its activities, grouped the way a game would —
 // Learn (battle the creeps), Practice (face the boss), Tools — each with the
 // landmark it belongs to. Every option is on a number key, in reading order.
-// Tools live in the skill bar instead (SkillToolbar), reachable from any of
-// the skill's screens — unless they're all the skill has.
+// Tools are here too, not up in the skill bar: Back from any activity comes
+// to this menu.
 
 const KINDS: { kind: ActivityKind; icon: PixelIconName; color: string }[] = [
   { kind: 'learn', icon: 'sword', color: 'var(--px-jade)' },
@@ -18,9 +18,6 @@ const KINDS: { kind: ActivityKind; icon: PixelIconName; color: string }[] = [
 ];
 const KIND_KEY: Record<ActivityKind, string> = { learn: 'Learn', practice: 'Practice', tool: 'Tool' };
 
-/** Whether a skill's tools sit in the skill bar rather than its menu. */
-const toolsInBar = (skill: WorldSkill) => skill.activities.some((a) => a.kind !== 'tool');
-
 export function SkillMenu({ skill, onPick, badges = {} }: {
   skill: WorldSkill;
   onPick: (a: WorldActivity) => void;
@@ -28,7 +25,7 @@ export function SkillMenu({ skill, onPick, badges = {} }: {
   badges?: Record<string, ReactNode>;
 }) {
   const intl = useIntl();
-  const kinds = toolsInBar(skill) ? KINDS.filter((k) => k.kind !== 'tool') : KINDS;
+  const kinds = KINDS;
   // Reading order = number keys: Learn first, then Practice, then Tools.
   const ordered = kinds.flatMap(({ kind }) => skill.activities.filter((a) => a.kind === kind));
   const pick = (a: WorldActivity) => { playSelect(); onPick(a); };
@@ -86,40 +83,5 @@ export function SkillMenu({ skill, onPick, badges = {} }: {
         })}
       </div>
     </HudCenter>
-  );
-}
-
-/** A skill's tools as buttons in the skill bar. `labels` overrides a tool's
- *  name (Collections shows the list you're studying); `attention` marks one
- *  that needs you (no collection picked yet). */
-export function SkillToolbar({ skill, current, labels = {}, attention, onPick }: {
-  skill: WorldSkill;
-  /** The activity open now, if it's one of these. */
-  current?: string;
-  labels?: Record<string, string>;
-  attention?: string;
-  onPick: (a: WorldActivity) => void;
-}) {
-  const intl = useIntl();
-  if (!toolsInBar(skill)) return null;
-  return (
-    <>
-      {skill.activities.filter((a) => a.kind === 'tool').map((a) => {
-        const label = labels[a.id] ?? intl.formatMessage({ id: a.nameId });
-        return (
-          <PixelButton
-            key={a.id}
-            tone={a.id === attention ? 'gold' : a.id === current ? 'sky' : 'paper'}
-            onClick={() => { playSelect(); onPick(a); }}
-            title={label}
-            aria-label={label}
-            className="!py-2 !px-3 max-w-[11rem]"
-          >
-            <span className="text-[15px] leading-none">{a.emoji}</span>
-            <span className="hidden md:inline truncate">{label}</span>
-          </PixelButton>
-        );
-      })}
-    </>
   );
 }

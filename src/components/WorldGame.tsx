@@ -19,7 +19,6 @@ import { CollectionForm } from './CollectionForm';
 import { CollectionStats } from './CollectionStats';
 import { QuizSetup } from './QuizSetup';
 import { useWordSearch } from '../hooks/useWordSearch';
-import { SkillToolbar } from './worldgames/SkillMenu';
 import { ActivityChromeProvider, type Chrome } from './worldgames/pixel/ActivityChrome';
 import { useCompanion } from '../hooks/useCompanion';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
@@ -266,17 +265,6 @@ export function WorldGame() {
               // The keeper's speech bubble while they talk: their message box,
               // or the tailor fitting you.
               talking: open.activity?.id === 'wardrobe' || (!open.activity && !!KEEPERS[open.skill.id] && talk !== null),
-              tools: (
-                <SkillToolbar
-                  skill={open.skill}
-                  current={open.activity?.id}
-                  // Collections names the list you're studying, and asks for
-                  // one until you've picked.
-                  labels={chosen && activeName ? { collections: activeName } : {}}
-                  attention={chosen ? undefined : 'collections'}
-                  onPick={(activity) => { setOpen({ skill: open.skill, activity }); setTalk(null); }}
-                />
-              ),
               // Inside an activity: Back (to the skill's menu) and its tabs, in
               // the activity's own popup.
               content: open.activity
@@ -287,6 +275,9 @@ export function WorldGame() {
                     keeper={KEEPERS[open.skill.id]}
                     skill={open.skill}
                     onPick={(activity) => setOpen({ skill: open.skill, activity })}
+                    // Collections names the list you're studying, and asks
+                    // for one until you've picked.
+                    extraBadges={{ collections: chosen && activeName ? activeName : intl.formatMessage({ id: 'world.collectionsPick' }) }}
                   />
                 ),
             }}

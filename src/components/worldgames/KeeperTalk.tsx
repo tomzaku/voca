@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { Recap } from '../../lib/keeperAdvice';
 import type { WorldActivity, WorldSkill } from '../../game/features';
@@ -38,12 +39,14 @@ export function KeeperTalk({ keeper, look, recap, onAction, onOther }: {
   );
 }
 
-/** The skill's menu, with the keeper's notes on its cards. */
-export function KeeperMenu({ keeper, skill, onPick }: {
+/** The skill's menu, with the keeper's notes on its cards — and any the
+ *  world adds (the collection you're studying). */
+export function KeeperMenu({ keeper, skill, onPick, extraBadges = {} }: {
   keeper: KeeperDef;
   skill: WorldSkill;
   onPick: (a: WorldActivity) => void;
+  extraBadges?: Record<string, ReactNode>;
 }) {
   const badges = keeper.useBadges();
-  return <SkillMenu skill={skill} badges={badges} onPick={onPick} />;
+  return <SkillMenu skill={skill} badges={{ ...badges, ...extraBadges }} onPick={onPick} />;
 }
