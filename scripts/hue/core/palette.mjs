@@ -15,7 +15,7 @@ export const P = {
 
 // The streets' materials — shared by the roads and the bridges that carry them.
 export const STREET = {
-  asphalt: [98, 102, 110], asphaltDark: [88, 92, 100], asphaltSpeck: [120, 124, 132],
+  asphalt: [150, 150, 152], asphaltDark: [140, 140, 143], asphaltSpeck: [168, 168, 170],
   pavement: [206, 200, 188], pavementJoint: [182, 176, 164], kerb: [228, 224, 214], kerbShadow: [132, 128, 120],
   centreLine: [234, 216, 140],
 };

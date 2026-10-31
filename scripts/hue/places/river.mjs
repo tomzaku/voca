@@ -24,8 +24,8 @@ function truongTienDeck(tx, tw, y0, y1) {
       else if (e < 8) c = (y % 6 === 0 || e === 4) ? [190, 182, 170] : mix([218, 210, 198], [206, 198, 186], hash(x, Math.floor(y / 6)) * 0.5);   // walkway
       else if (e < 10) c = (y % 4 === 0 && e === 8) ? [120, 130, 140] : e === 8 ? [214, 222, 230] : [176, 186, 196];   // chord, riveted
       else {
-        c = mix([102, 108, 118], [92, 98, 108], noise(x, y, 4));
-        if (y % 12 === 0) c = [128, 134, 144];                                          // cross-girder seams
+        c = mix([146, 152, 160], [136, 142, 150], noise(x, y, 4));
+        if (y % 12 === 0) c = [168, 174, 182];                                          // cross-girder seams
         if (Math.abs(x + 0.5 - (x0 + w / 2)) < 1 && y % 10 < 5) c = [236, 236, 230];   // the dashed line
       }
       ground.set(x, y, c);
