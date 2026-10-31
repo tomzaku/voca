@@ -127,6 +127,12 @@ export default {
   'places.haiBaTrungAbout': 'The old Đồng Khánh school beside Quốc Học on Lê Lợi: founded in 1917, it was the first secondary school for girls in Huế.',
   'places.haiBaTrungFact': 'Emperor Khải Định was there when its first stone was laid, on 15 July 1917. For decades its students in white áo dài along the river were one of the sights of Huế.',
 
+  'places.foodMarket': 'Chợ ẩm thực',
+  'places.foodMarketEn': 'Huế Food Market',
+  'places.foodMarketAbout': 'A market of Huế’s own dishes, stall by stall: the city cooks spicier, saltier and more delicately than anywhere else in Vietnam, a cuisine shaped by both the royal kitchens and the street.',
+  'places.foodMarketFact': 'Bún bò Huế, the city’s most famous dish, is beef and pork in a broth of lemongrass and fermented shrimp paste, red with chilli oil — not the phở of the north, and Huế will tell you so.',
+  'places.foodMarketMore': 'Walk the stalls: bún bò Huế; cơm hến, rice with tiny mussels from the river, once a poor family’s meal; bánh bèo, little steamed rice cakes in their saucers, topped with dried shrimp; bánh nậm and bánh lọc, flat rice parcels in banana leaf and chewy tapioca dumplings with shrimp and pork; nem lụi, pork grilled on lemongrass skewers and rolled in rice paper; bánh khoái, a crisp pancake with a peanut and liver dipping sauce; chè, sweet soups — Huế is said to have dozens; and mè xửng, the sesame brittle families take home as a gift.',
+
   'places.saigonMorin': 'Khách sạn Saigon Morin',
   'places.saigonMorinEn': 'Hotel Saigon Morin',
   'places.saigonMorinAbout': 'Huế’s oldest hotel, opened in 1901 at the south end of Trường Tiền bridge, and named for the Morin brothers who later ran it.',

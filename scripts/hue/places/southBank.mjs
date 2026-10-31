@@ -1,12 +1,12 @@
-// The south bank: Ga Huế, Hai Bà Trưng, Quốc Học, Lê Lợi park, the walking street, Cung An
+// The south bank: Ga Huế, Hai Bà Trưng, Quốc Học, the food market in Lê Lợi park, the walking street, Cung An
 // Định, the houses of Vỹ Dạ, and Ngự Bình hill.
 
 import { Canvas, hash, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
-import { drawn, ground, mark, place, solid, used } from '../core/world.mjs';
+import { drawn, glow, ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, hall, roof } from '../draw/buildings.mjs';
 import { K, parterre } from '../hd/art.mjs';
-import { anDinh, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
+import { DISHES, anDinh, foodStall, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
@@ -14,6 +14,7 @@ export const LABELS = [
   { text: 'Ga Huế', x: 13.5, y: 68.5, place: 'gaHue' },
   { text: 'Trường Hai Bà Trưng', x: 28, y: 67.5, place: 'haiBaTrung' },
   { text: 'Trường Quốc Học', x: 41, y: 67.5, place: 'quocHoc' },
+  { text: 'Chợ ẩm thực', x: 55.5, y: 67.2, place: 'foodMarket' },
   { text: 'Saigon Morin', x: 75.5, y: 68, place: 'saigonMorin' },
   { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
   { text: 'Vỹ Dạ', x: 108, y: 61, place: 'vyDa', theme: 'forest', anchor: 'left' },
@@ -58,12 +59,21 @@ export function drawSouthBank() {
     place(gate, 35, 71, 1, { gaps: [40, 41], shadow: false });
   }
 
-  // Lê Lợi park: flower beds between the bridges.
-  for (const [x, y] of [[53, 68], [59, 68], [53, 71], [59, 71]]) {
-    ground.rect(x * T, y * T, 3 * T, T + 6, [120, 90, 64]);
-    for (let i = 0; i < 20; i++) ground.set(x * T + 3 + (i % 10) * 4, y * T + 4 + Math.floor(i / 10) * 8, [[236, 150, 178], [250, 214, 110], [190, 150, 220], [240, 240, 236]][i % 4]);
-    mark(used, x, y, 3, 2);
-  }
+  // Huế's food market, in the park between the bridges: two rows of stalls
+  // on a paved square (roads.mjs), each with the one dish it's known for,
+  // tables and stools before them, lanterns that light up at night.
+  DISHES.forEach(({ dish }, i) => {
+    const tx = 53 + (i % 4) * 3, ty = i < 4 ? 67.5 : 70.5;
+    const cv = halve(foodStall(dish));
+    cv.spec = { kind: 'foodStall', dish };
+    place(cv, tx, Math.floor(ty), 1, { shadow: false });
+    for (const lx of [5, 16, 27]) glow(tx * T + lx + 0.5, Math.floor(ty) * T + 11, [255, 170, 90], 3);
+    // A low table and two stools out front.
+    const fx = tx * T + 8, fy = (Math.floor(ty) + 2) * T + 5;
+    ground.rect(fx, fy, 12, 5, [150, 104, 66]);
+    ground.rect(fx, fy, 12, 1, [184, 136, 92]);
+    for (const sx of [fx - 4, fx + 14]) ground.rect(sx, fy + 1, 3, 3, [196, 64, 52]);
+  });
 
   // Shophouses east of Hùng Vương, the old Phố Tây.
   for (const [x, pal] of [[81, ROOF.plum]]) place(HOUSE(pal, [222, 206, 176]), x, 71, 2);

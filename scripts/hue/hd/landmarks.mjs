@@ -727,6 +727,96 @@ export function nghenhLuong() {
   return cv;
 }
 
+/** The food market's dishes, west to east along each row: what each stall
+ *  sells, and the colour of its awning. */
+export const DISHES = [
+  { dish: 'bunBo', awning: [196, 58, 46] }, { dish: 'comHen', awning: [62, 128, 112] },
+  { dish: 'banhBeo', awning: [222, 150, 52] }, { dish: 'banhLoc', awning: [84, 140, 70] },
+  { dish: 'nemLui', awning: [168, 70, 50] }, { dish: 'banhKhoai', awning: [214, 176, 60] },
+  { dish: 'che', awning: [150, 96, 168] }, { dish: 'meXung', awning: [186, 52, 70] },
+];
+
+/** A stall in the food market, 2 × 2 tiles: a striped awning on two posts,
+ *  paper lanterns along its edge, and on the counter the one dish it's
+ *  known for, drawn so you can tell which. */
+export function foodStall(dish) {
+  const cv = new Canvas(2 * T2, 2 * T2);
+  const W = cv.w, H = cv.h;
+  const { awning } = DISHES.find((d) => d.dish === dish);
+  const WOOD = [150, 104, 66], WOOD_D = [112, 76, 48];
+  // Back wall and the counter.
+  cv.rect(6, 22, W - 12, 22, [214, 196, 160]);
+  for (let x = 6; x < W - 6; x += 5) cv.rect(x, 22, 1, 22, [196, 176, 138]);
+  cv.rect(4, 42, W - 8, 6, WOOD);
+  cv.rect(4, 42, W - 8, 1, [184, 136, 92]);
+  cv.rect(6, 48, W - 12, H - 52, WOOD_D);
+  for (let x = 8; x < W - 8; x += 6) cv.rect(x, 50, 3, H - 56, [128, 88, 56]);
+  for (const x of [4, W - 7]) cv.rect(x, 12, 3, H - 14, WOOD_D);
+  // The awning, striped, its scalloped edge, and lanterns along it.
+  for (let y = 6; y < 16; y++) for (let x = 1; x < W - 1; x++) cv.set(x, y, Math.floor(x / 6) % 2 ? awning : [244, 238, 226]);
+  for (let x = 1; x < W - 1; x += 6) cv.rect(x, 16, 4, 2, awning);
+  cv.rect(1, 5, W - 2, 1, mix(awning, [0, 0, 0], 0.3));
+  for (const x of [10, 32, 54]) { cv.rect(x, 18, 1, 2, [60, 50, 40]); cv.ellipse(x + 0.5, 23, 3, 3.5, [232, 64, 48]); cv.rect(x - 1, 20, 3, 1, [250, 210, 90]); }
+  const bowl = (x, y, inside, w = 8) => {
+    cv.ellipse(x, y, w / 2, 2, [246, 244, 236]);
+    cv.ellipse(x, y - 0.5, w / 2 - 1, 1.2, inside);
+    cv.rect(x - w / 2 + 1, y + 1, w - 2, 2, [230, 228, 220]);
+  };
+  const cy = 40;
+  if (dish === 'bunBo') {
+    // A great pot of red broth steaming, bowls ready beside it.
+    cv.rect(10, cy - 12, 20, 12, [150, 150, 156]); cv.rect(10, cy - 12, 20, 2, [196, 196, 202]);
+    cv.ellipse(20, cy - 12, 9, 2, [200, 64, 36]);
+    for (const [x, y] of [[16, cy - 18], [22, cy - 20], [19, cy - 24]]) cv.set(x, y, [240, 240, 240]);
+    bowl(38, cy - 1, [204, 74, 40]); bowl(50, cy - 1, [204, 74, 40]); cv.rect(46, cy - 3, 6, 1, [120, 180, 80]);
+  } else if (dish === 'comHen') {
+    // Rice in a basket, a heap of tiny dark mussels, little bowls of it.
+    cv.ellipse(14, cy - 4, 8, 4, [176, 132, 76]); cv.ellipse(14, cy - 6, 6, 2.5, [246, 244, 236]);
+    cv.ellipse(31, cy - 4, 7, 3.5, [70, 64, 52]);
+    for (let i = 0; i < 10; i++) cv.set(26 + hash(i, 3) * 10, cy - 6 + hash(3, i) * 4, [120, 110, 88]);
+    bowl(45, cy - 1, [230, 220, 190]); bowl(54, cy - 1, [230, 220, 190]); cv.set(45, cy - 2, [80, 70, 56]); cv.set(54, cy - 2, [200, 80, 50]);
+  } else if (dish === 'banhBeo') {
+    // Trays of little saucers, each a white cake with orange shrimp on top.
+    cv.rect(8, cy - 6, 48, 6, [176, 132, 76]);
+    for (let r = 0; r < 2; r++) for (let x = 11 + r * 2; x < 54; x += 5) {
+      cv.ellipse(x, cy - 5 + r * 3, 2, 1.2, [246, 244, 236]); cv.set(x, cy - 5 + r * 3, [232, 120, 60]);
+    }
+  } else if (dish === 'banhLoc') {
+    // Banana-leaf parcels of bánh nậm, and clear tapioca dumplings, shrimp inside.
+    for (let i = 0; i < 4; i++) { cv.rect(9 + i * 7, cy - 5 - (i % 2) * 2, 6, 4, [92, 150, 70]); cv.rect(9 + i * 7, cy - 5 - (i % 2) * 2, 6, 1, [130, 186, 96]); }
+    cv.ellipse(46, cy - 3, 10, 3, [246, 244, 236]);
+    for (const x of [40, 44, 48, 52]) { cv.ellipse(x, cy - 4, 1.8, 1.5, [226, 222, 206]); cv.set(x, cy - 4, [230, 120, 70]); }
+  } else if (dish === 'nemLui') {
+    // A charcoal grill, skewers of pork on lemongrass sizzling over it.
+    cv.rect(8, cy - 6, 30, 6, [60, 56, 58]);
+    for (let x = 9; x < 37; x++) if (hash(x, 9) < 0.5) cv.set(x, cy - 6, [250, 140, 50]);
+    for (let i = 0; i < 6; i++) { cv.rect(10 + i * 4, cy - 9, 1, 6, [180, 200, 110]); cv.rect(10 + i * 4, cy - 9, 2, 3, [170, 96, 60]); }
+    cv.ellipse(48, cy - 2, 8, 2.5, [246, 244, 236]);
+    for (const x of [44, 48, 52]) cv.rect(x - 1, cy - 3, 3, 1, [170, 96, 60]);
+  } else if (dish === 'banhKhoai') {
+    // Small iron pans, the yellow pancakes folded in them.
+    for (const x of [14, 28]) { cv.ellipse(x, cy - 3, 6, 2.5, [50, 48, 50]); cv.ellipse(x, cy - 3.5, 4, 1.5, [236, 188, 70]); cv.rect(x + 5, cy - 4, 5, 1, [50, 48, 50]); }
+    bowl(46, cy - 1, [236, 188, 70], 10); cv.rect(42, cy - 3, 4, 1, [110, 170, 80]);
+  } else if (dish === 'che') {
+    // Glasses of chè in their colours, jars of the toppings behind.
+    for (let i = 0; i < 4; i++) cv.rect(9 + i * 7, cy - 10, 5, 8, [[236, 210, 160], [176, 120, 200], [120, 180, 90], [200, 120, 80]][i]);
+    for (let i = 0; i < 7; i++) {
+      const x = 10 + i * 6, c = [[236, 210, 160], [176, 120, 200], [120, 180, 90], [240, 200, 120]][i % 4];
+      cv.rect(x, cy - 4, 4, 5, c); cv.rect(x, cy - 4, 4, 1, [250, 250, 250]); cv.rect(x + 1, cy - 2, 2, 1, [90, 60, 50]);
+    }
+  } else if (dish === 'meXung') {
+    // Boxes of sesame brittle stacked in red and gold, slabs on a plate.
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 4 - r; i++) {
+      const x = 9 + i * 8 + r * 4, y = cy - 4 - r * 4;
+      cv.rect(x, y, 7, 4, r % 2 ? [226, 180, 60] : [190, 44, 40]); cv.rect(x + 2, y + 1, 3, 2, r % 2 ? [190, 44, 40] : [226, 180, 60]);
+    }
+    cv.ellipse(48, cy - 2, 8, 2.5, [246, 244, 236]);
+    for (const x of [44, 48, 52]) cv.rect(x - 1, cy - 4, 3, 2, [210, 160, 90]);
+  }
+  outline(cv);
+  return cv;
+}
+
 /** Cồn Hến's chè stall: 2 × 2 tiles — a hut under a striped awning, the pots
  *  and glasses on its counter. */
 export function cheStall() {

@@ -18,7 +18,7 @@ import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
 import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, ladder, lamp, market, paddy, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
-import { anDinh, cheStall, gaHue, gardenHouse, gateTower, haiBaTrung, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, quocHocGate, saigonMorin, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
+import { anDinh, cheStall, foodStall, gaHue, gardenHouse, gateTower, haiBaTrung, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, quocHocGate, saigonMorin, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
 import { biDinh, biDinhKhaiDinh, biDinhMinhMang, daiHongMon, grave, minhLau, obelisk, thienDinh, tombGate, tombHall, xungKhiem } from './tombs.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
@@ -172,7 +172,7 @@ export function renderDetail(write) {
       if (e.type === 'structure') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const spec = e.cv.spec;
-        const art = spec?.kind === 'tombHall' ? tombHall(e.cv.spec) : spec?.kind === 'obelisk' ? obelisk(spec) : BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' ? (spec.windows ? house(spec) : spec.w === 4 && spec.h === 4 ? gardenHouse(spec) : null) : null);
+        const art = spec?.kind === 'tombHall' ? tombHall(e.cv.spec) : spec?.kind === 'obelisk' ? obelisk(spec) : spec?.kind === 'foodStall' ? foodStall(spec.dish) : BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' ? (spec.windows ? house(spec) : spec.w === 4 && spec.h === 4 ? gardenHouse(spec) : null) : null);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
       } else if (e.type === 'tree') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;

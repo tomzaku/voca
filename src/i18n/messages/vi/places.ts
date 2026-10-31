@@ -121,6 +121,12 @@ export default {
   'places.haiBaTrungAbout': 'Trường Đồng Khánh xưa, cạnh Quốc Học trên đường Lê Lợi: lập năm 1917, là trường trung học đầu tiên dành cho nữ sinh ở Huế.',
   'places.haiBaTrungFact': 'Vua Khải Định có mặt khi đặt viên đá đầu tiên, ngày 15 tháng 7 năm 1917. Suốt nhiều thập niên, tà áo dài trắng của nữ sinh trường bên bờ sông là một nét riêng của Huế.',
 
+  'places.foodMarket': 'Chợ ẩm thực',
+  'places.foodMarketEn': 'Huế Food Market',
+  'places.foodMarketAbout': 'Một khu chợ toàn món Huế, mỗi sạp một món: người Huế nấu cay hơn, mặn mà hơn và cầu kỳ hơn mọi nơi ở Việt Nam — nét ẩm thực được nuôi dưỡng từ cả bếp cung đình lẫn gánh hàng rong.',
+  'places.foodMarketFact': 'Bún bò Huế, món nổi tiếng nhất của xứ này, là thịt bò và giò heo trong nước dùng sả và mắm ruốc, đỏ màu dầu ớt.',
+  'places.foodMarketMore': 'Đi một vòng các sạp: bún bò Huế; cơm hến, cơm với hến sông, xưa là bữa ăn của nhà nghèo; bánh bèo, những chén bánh gạo hấp nhỏ rắc tôm chấy; bánh nậm và bánh lọc, bánh gạo dẹt gói lá chuối và bánh bột lọc dai nhân tôm thịt; nem lụi, thịt heo nướng trên que sả cuốn bánh tráng; bánh khoái, bánh giòn chấm nước lèo đậu phộng gan heo; chè Huế, nghe nói có đến vài chục loại; và mè xửng, món quà người ta mua mang về.',
+
   'places.saigonMorin': 'Khách sạn Saigon Morin',
   'places.saigonMorinEn': 'Hotel Saigon Morin',
   'places.saigonMorinAbout': 'Khách sạn lâu đời nhất Huế, mở năm 1901 ở đầu cầu Trường Tiền phía nam, mang tên anh em nhà Morin, những người về sau điều hành nó.',

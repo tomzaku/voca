@@ -81,7 +81,7 @@ export function writeMeta(shelters = []) {
   for (const [x0, x1, y] of [...PARK_PATHS, [57, 74.5, 64.2]]) {
     if (x1 - x0 >= 5) point('stroll', x0 + 0.5, y + 0.2, { to: Math.round((x1 - 0.5) * T) });
   }
-  for (const [x, y] of [[11.5, 46.4], [20, 43.6], [62.9, 27.9], [66.1, 27.9]]) point('smoke', x, y);
+  for (const [x, y] of [[11.5, 46.4], [20, 43.6], [62.9, 27.9], [66.1, 27.9], [53.8, 71]]) point('smoke', x, y);   // the last over the nem lụi grill
   point('spray', 72, 63.3);
   // The Focus Zone, on the lane under Ngự Bình's pavilion.
   point('focus', 57, 83.4);
