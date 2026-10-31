@@ -990,8 +990,12 @@ export function GameWorld({
       {!panel && peerCard && (
         <WorldCard icon="person" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
           <PeerSection title={<FormattedMessage id="world.peerLearn" />}>
-            <PixelButton tone="gold" onClick={() => askToPlay(peerCard.id, peerCard.name, 'talk')} className="!px-2 !text-[13px] col-span-2">
-              <PixelIcon name="mic" size={2} /> <FormattedMessage id="world.talkInvite" />
+            <PixelButton tone="gold" onClick={() => askToPlay(peerCard.id, peerCard.name, 'talk')} className="!px-3 !py-2 !text-[13px] col-span-2 !justify-start text-left">
+              <PixelIcon name="mic" size={2} />
+              <span className="flex flex-col leading-tight">
+                <FormattedMessage id="world.talkInvite" />
+                <span className="!font-normal text-[11px] opacity-75 normal-case tracking-normal"><FormattedMessage id="world.talkInviteHint" /></span>
+              </span>
             </PixelButton>
           </PeerSection>
           <PeerSection title={<FormattedMessage id="world.peerPlay" />}>
