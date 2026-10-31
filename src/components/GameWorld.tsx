@@ -121,7 +121,8 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 }
 
 /** The playground's games, by the id the map's `play` points give them. */
-const PLAYS: Record<string, { emoji: string }> = { piano: { emoji: '🎹' }, race: { emoji: '🚆' }, fish: { emoji: '🎣' } };
+// A game's mark on its card: a pixel icon where the kit has one, else an emoji.
+const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = { piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' } };
 
 /** One foldable section of the travel drawer. `onTitle`, when given, makes
  *  the title itself a destination (a skill's keeper); the chevron folds. */
@@ -886,10 +887,10 @@ export function GameWorld({
         <WorldCard emoji="👤" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
           <div className="grid grid-cols-2 gap-1.5 mb-1.5">
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'duel')} className="!px-2 !text-[13px]">
-              ⚔️ <FormattedMessage id="world.duelTitle" />
+              <PixelIcon name="sword" size={2} /> <FormattedMessage id="world.duelTitle" />
             </PixelButton>
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'race')} className="!px-2 !text-[13px]">
-              🚆 <FormattedMessage id="world.raceTitle" />
+              <PixelIcon name="train" size={2} /> <FormattedMessage id="world.raceTitle" />
             </PixelButton>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
@@ -910,7 +911,7 @@ export function GameWorld({
         </WorldCard>
       )}
       {!panel && invite && !match && (
-        <WorldCard emoji={invite.game === 'duel' ? '⚔️' : '🚆'} title={invite.name} subtitle={<FormattedMessage id="world.liveInvite" values={{ game: invite.game }} />}>
+        <WorldCard icon={invite.game === 'duel' ? 'sword' : 'train'} title={invite.name} subtitle={<FormattedMessage id="world.liveInvite" values={{ game: invite.game }} />}>
           <div className="grid grid-cols-2 gap-1.5">
             <PixelButton tone="jade" onClick={() => answerInvite(true)} className="!text-[13px]"><FormattedMessage id="world.play" /></PixelButton>
             <PixelButton tone="paper" onClick={() => answerInvite(false)} className="!text-[13px]"><FormattedMessage id="world.busNotNow" /></PixelButton>
@@ -965,7 +966,8 @@ export function GameWorld({
       {/* ── The playground: the street piano, the type race ── */}
       {!panel && !nearestFeature && atPlay && !playing && !busRide && busTicket === null && (
         <WorldCard
-          emoji={PLAYS[atPlay]?.emoji ?? '🎲'}
+          emoji={PLAYS[atPlay]?.emoji ?? (PLAYS[atPlay]?.icon ? undefined : '🎲')}
+          icon={PLAYS[atPlay]?.icon}
           title={<FormattedMessage id={`world.${atPlay}Title`} />}
           subtitle={<FormattedMessage id={`world.${atPlay}Blurb`} />}
         >

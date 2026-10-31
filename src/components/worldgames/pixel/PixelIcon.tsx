@@ -3,6 +3,28 @@
 // They paint in currentColor; `size` is the pixel scale.
 
 const GRIDS = {
+  // The type race's train, side on and heading right — cab, windows, wheels.
+  train: [
+    '.....####..',
+    '.....#..#..',
+    '##########.',
+    '#.##.##.###',
+    '#.##.##.###',
+    '###########',
+    '###########',
+    '.##.##..##.',
+  ],
+  // The finish: a chequered flag on its pole.
+  flag: [
+    '######',
+    '#.#.##',
+    '##.#.#',
+    '#.#.##',
+    '######',
+    '#.....',
+    '#.....',
+    '#.....',
+  ],
   info: [
     '..###..',
     '.#####.',

@@ -8,7 +8,7 @@ import { playCorrect, playWin, playWrong } from '../../lib/sfx';
 import { accuracy, parseRaceWords, playerProgress, raceWords, trainProgress, wpm } from '../../lib/typeRace';
 import type { MatchLink } from '../../lib/worldLive';
 import { LookSprite } from './LookSprite';
-import { PixelButton, PixelChip, PixelLoader } from './pixel';
+import { PixelButton, PixelChip, PixelIcon, PixelLoader } from './pixel';
 import { useWorld } from './world';
 
 // The type race at Ga Huế: race the train by typing your own words. The
@@ -128,7 +128,7 @@ export function TypeRace({ onClose, versus = null }: { onClose: () => void; vers
       <div className="px-notch px-frame w-full max-w-[640px] p-4 px-in-up">
         <div className="flex items-start justify-between gap-2 mb-3">
           <div>
-            <p className="px-title !text-[18px] text-[var(--px-gold)]">🚆 <FormattedMessage id="world.raceTitle" /></p>
+            <p className="px-title !text-[18px] text-[var(--px-gold)] flex items-center gap-2"><PixelIcon name="train" size={2} /> <FormattedMessage id="world.raceTitle" /></p>
             <p className="text-[13px] text-[var(--px-muted)]">
               {versus ? <FormattedMessage id="world.raceVersus" values={{ name: versus.peer.name }} /> : <FormattedMessage id="places.gaHue" />}
             </p>
@@ -140,10 +140,10 @@ export function TypeRace({ onClose, versus = null }: { onClose: () => void; vers
 
         {/* The track: you and the train. */}
         <div className="px-inset px-notch p-2 mb-3 space-y-1.5">
-          {[{ p: you, who: <LookSprite look={look} scale={2} /> }, { p: them, who: versus ? <LookSprite look={versus.peer.look} scale={2} /> : <span className="text-[26px] leading-none">🚆</span> }].map(({ p, who }, i) => (
+          {[{ p: you, who: <LookSprite look={look} scale={2} /> }, { p: them, who: versus ? <LookSprite look={versus.peer.look} scale={2} /> : <PixelIcon name="train" size={3} className="text-[var(--px-gold)] mb-1" /> }].map(({ p, who }, i) => (
             <div key={i} className="relative h-11 border-b-2 border-dashed border-[#5a4a3e]">
               <span className="absolute bottom-0 transition-[left] duration-100" style={{ left: `calc(${p * 100}% - ${p * 44}px)` }}>{who}</span>
-              <span className="absolute right-0 bottom-0 text-[16px]">🏁</span>
+              <PixelIcon name="flag" size={2} className="absolute right-0 bottom-1 text-[var(--px-text)]" />
             </div>
           ))}
         </div>
