@@ -6,7 +6,7 @@ import { P, ROOF } from '../core/palette.mjs';
 import { drawn, glow, ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, hall, roof } from '../draw/buildings.mjs';
 import { K, parterre } from '../hd/art.mjs';
-import { DISHES, anDinh, foodStall, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
+import { DISHES, anDinh, foodStall, planterTree, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
@@ -14,7 +14,7 @@ export const LABELS = [
   { text: 'Ga Huế', x: 13.5, y: 68.5, place: 'gaHue' },
   { text: 'Trường Hai Bà Trưng', x: 28, y: 67.5, place: 'haiBaTrung' },
   { text: 'Trường Quốc Học', x: 41, y: 67.5, place: 'quocHoc' },
-  { text: 'Chợ ẩm thực', x: 59, y: 67.2, place: 'foodMarket' },
+  { text: 'Chợ ẩm thực', x: 58, y: 67.2, place: 'foodMarket' },
   { text: 'Saigon Morin', x: 75.5, y: 68, place: 'saigonMorin' },
   { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
   { text: 'Vỹ Dạ', x: 108, y: 61, place: 'vyDa', theme: 'forest', anchor: 'left' },
@@ -23,7 +23,11 @@ export const LABELS = [
 
 /** The food market's stalls: five to a row, a row every four tiles (the
  *  stalls, their tables, a walk), each's top-left tile. */
-export const STALLS = DISHES.map(({ dish }, i) => ({ dish, x: 52 + (i % 5) * 3, y: 67 + Math.floor(i / 5) * 4 }));
+export const STALLS = DISHES.map(({ dish }, i) => ({ dish, x: 51 + (i % 5) * 3, y: 67 + Math.floor(i / 5) * 4 }));
+/** Small trees in stone planters at the ends of the two walks between the
+ *  rows — below the last column's vendors, who stand in the gap east of
+ *  their stall (WorldScene), not in it. */
+export const MARKET_TREES = [[50, 70], [50, 74], [65, 70], [65, 74]];
 
 export function drawSouthBank() {
   // Ga Huế: the cream railway station, with its tracks running west–east.
@@ -77,6 +81,11 @@ export function drawSouthBank() {
     ground.rect(fx, fy, 12, 5, [150, 104, 66]);
     ground.rect(fx, fy, 12, 1, [184, 136, 92]);
     for (const sx of [fx - 4, fx + 14]) ground.rect(sx, fy + 1, 3, 3, [196, 64, 52]);
+  }
+  for (const [tx, ty] of MARKET_TREES) {
+    const cv = halve(planterTree());
+    cv.spec = { kind: 'planterTree' };
+    place(cv, tx, ty - 1, 1);
   }
 
   // Shophouses east of Hùng Vương, the old Phố Tây.

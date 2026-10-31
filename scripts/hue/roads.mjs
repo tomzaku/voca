@@ -83,7 +83,7 @@ export const ROADS = [
   road('street', 2, [[21, 67], [21, 84], [22.5, 91], [22.5, 100], [23.5, 106], [23.5, 114.5]]),
   // Hùng Vương: south-east from Phú Xuân bridge, over the An Cựu canal.
   road('street', 2, [[67.5, 67], [68, 72], [70.5, 77], [70.5, 84]], { main: true }),
-  box(48, 67, 3, 16, 'street'),                                   // from Lê Lợi park, over the canal, to the lane round Ngự Bình
+  box(48, 67, 2, 16, 'street'),                                   // from Lê Lợi park, over the canal, to the lane round Ngự Bình
   // South of the canal: the lane round Ngự Bình, and on down through the
   // pines to Minh Mạng's tomb.
   road('lane', 2, [[44, 83], [52, 82], [60, 82.5], [70.5, 83.5]]),
@@ -107,7 +107,7 @@ export const ROADS = [
   road('lane', 1.4, [[101, 70.5], [110, 70.5]]),
   box(35, 72, 12, 1, 'stone'),                                    // Quốc Học's forecourt
   box(40, 73, 2, 1, 'stone'),                                     // and the way in, through its gate
-  box(52, 67, 14, 11, 'stone', { court: true }),                  // the food market's square, down to the canal
+  box(50, 67, 16, 11, 'stone', { court: true }),                  // the food market's square, down to the canal
   // Phố đi bộ Nguyễn Đình Chiểu: the walking street along the south bank,
   // from under Phú Xuân bridge to Trường Tiền, by the ironwood boardwalk.
   road('stone', 1.6, [[53.5, 64.2], [75, 64.2]], { court: true }),       // from the bus stop to Trường Tiền

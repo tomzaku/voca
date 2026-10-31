@@ -745,6 +745,34 @@ export const DISHES = [
 /** A stall in the food market, 2 × 2 tiles: a striped awning on two posts,
  *  paper lanterns along its edge, and on the counter the one dish it's
  *  known for, drawn so you can tell which. */
+/** A small tree in a round stone planter, for a paved square: a slim trunk,
+ *  a neat round crown with a little light on it. One tile by two. */
+export function planterTree() {
+  const cv = new Canvas(T2, 2 * T2);
+  const cx = 16;
+  // The planter: a stone ring, earth inside, its shadow on the paving.
+  cv.ellipse(cx + 1, 58, 13, 4, [0, 0, 0], 0.2);
+  cv.rect(4, 48, 24, 9, STONE);
+  cv.rect(4, 55, 24, 2, STONE_DARK);
+  cv.ellipse(cx, 48, 12, 4, STONE_LIGHT);
+  cv.ellipse(cx, 48, 9, 2.6, [96, 72, 52]);
+  for (let x = 6; x < 27; x += 6) cv.rect(x, 50, 1, 5, STONE_DARK);
+  // The trunk.
+  cv.rect(cx - 1, 30, 3, 18, [110, 80, 56]);
+  cv.rect(cx - 1, 30, 1, 18, [140, 104, 72]);
+  // The crown.
+  const dark = [48, 100, 60], mid = [74, 134, 76], light = [112, 170, 96], shine = [156, 204, 120];
+  cv.ellipse(cx, 20, 12, 12, dark);
+  cv.ellipse(cx - 1, 18, 11, 10, mid);
+  cv.ellipse(cx - 4, 14, 6, 5, light);
+  for (let i = 0; i < 16; i++) {
+    const x = cx - 10 + hash(i, 3) * 20, y = 9 + hash(i, 7) * 20;
+    if (cv.alpha(Math.round(x), Math.round(y))) cv.set(Math.round(x), Math.round(y), hash(i, 11) < 0.5 ? dark : shine);
+  }
+  outline(cv);
+  return cv;
+}
+
 export function foodStall(dish) {
   const cv = new Canvas(2 * T2, 2 * T2);
   const W = cv.w, H = cv.h;
