@@ -3,6 +3,16 @@
 // They paint in currentColor; `size` is the pixel scale.
 
 const GRIDS = {
+  // Back: out of an activity, to its keeper.
+  back: [
+    '...#....',
+    '..##....',
+    '.#######',
+    '########',
+    '.#######',
+    '..##....',
+    '...#....',
+  ],
   // Day and night, for the world's day/night switch.
   sun: [
     '....#....',

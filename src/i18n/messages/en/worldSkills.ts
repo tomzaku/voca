@@ -19,7 +19,7 @@ export default {
   'world.kindPracticeBlurb': 'Face the boss — test what you know',
   'world.kindTool': 'Tools',
   'world.kindToolBlurb': 'Tools to use any time',
-  'world.menuBack': 'Menu',
+  'world.activityBack': 'Back',
   'world.menuChoose': 'What would you like to do?',
   'world.skills': 'Skills',
   'world.keeperRecap': '{right} of {total} right — nice.',

@@ -11,6 +11,7 @@
 
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
 import { PixelIcon, type PixelIconName } from './PixelIcon';
+import { useChromeSlot } from './ActivityChrome';
 import './pixel.css';
 
 export { PixelIcon, type PixelIconName };
@@ -21,9 +22,14 @@ export type PixelTone = 'gold' | 'red' | 'jade' | 'sky' | 'paper' | 'good' | 'ba
 
 /** Top centre: the run's vitals (lives, score, time). */
 export function HudTop({ children }: { children: ReactNode }) {
+  // Back and the tabs, if it holds them, sit on the same line — the banner
+  // below is placed for a one-line bar.
+  const chrome = useChromeSlot(true);
   return (
     <div className="px absolute top-[3.75rem] left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-1rem))] pointer-events-auto px-in-down">
-      <div className="px-notch px-frame px-4 py-2.5">{children}</div>
+      <div className="px-notch px-frame px-4 py-2.5">
+        {chrome ? <div className="flex items-center gap-3">{chrome}<div className="flex-1 min-w-0">{children}</div></div> : children}
+      </div>
     </div>
   );
 }
@@ -87,9 +93,11 @@ export function HudSlot({ hotkey, state = 'idle', onClick, children }: {
 
 /** Docked to the right like a shop panel — for setup and long forms. */
 export function HudSide({ title, footer, children }: { title: ReactNode; footer?: ReactNode; children: ReactNode }) {
+  const chrome = useChromeSlot();
   return (
     <div className="px absolute top-[3.75rem] right-2 bottom-2 w-[min(380px,calc(100%-1rem))] pointer-events-auto px-in-side">
       <div className="px-notch px-frame h-full flex flex-col">
+        {chrome && <div className="px-4 pt-3.5 shrink-0">{chrome}</div>}
         <div className="px-title !text-[17px] px-4 pt-3.5 pb-2.5 text-[var(--px-gold)] shrink-0">{title}</div>
         <div className="flex-1 overflow-y-auto px-4 pb-3 space-y-4">{children}</div>
         {footer && <div className="shrink-0 px-4 pb-4 pt-2">{footer}</div>}
@@ -107,9 +115,11 @@ export function HudCenter({ children, wide = false, besideSide = false, aboveDoc
   /** Keep clear of a HudDock at the bottom. */
   aboveDock?: boolean;
 }) {
+  const chrome = useChromeSlot();
   return (
     <div className={`px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] pointer-events-none ${besideSide ? 'md:pr-[396px]' : ''} ${aboveDock ? 'pb-[9.5rem]' : ''}`}>
       <div className={`px-notch px-frame w-full ${wide ? 'max-w-[640px]' : 'max-w-[400px]'} max-h-full overflow-y-auto p-5 pointer-events-auto px-in-up`}>
+        {chrome}
         {children}
       </div>
     </div>

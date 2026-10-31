@@ -67,8 +67,6 @@ interface Props {
     emoji: string;
     content: ReactNode;
     onClose: () => void;
-    /** Inside an activity: back to the skill's menu. */
-    onBack?: () => void;
     /** The skill's tools, on the right of the bar from any of its screens. */
     tools?: ReactNode;
     /** The skill whose room to stand in (ROOMS) instead of over the city. */
@@ -1221,11 +1219,6 @@ export function GameWorld({
               </PixelButton>
             )}
             {panel.tools}
-            {panel.onBack && (
-              <PixelButton tone="gold" onClick={panel.onBack} className="!py-2">
-                <PixelIcon name="sliders" size={2} /> <FormattedMessage id="world.menuBack" />
-              </PixelButton>
-            )}
             <PixelButton tone="red" onClick={panel.onClose} className="!py-2">
               <PixelIcon name="close" size={2} /> <FormattedMessage id="world.leaveBuilding" />
               <span className="hidden sm:inline opacity-60 !text-[11px]">Esc</span>

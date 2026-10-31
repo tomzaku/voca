@@ -17,7 +17,7 @@ export default {
   'world.kindPracticeBlurb': 'Đấu trùm — thử thách điều bạn biết',
   'world.kindTool': 'Công cụ',
   'world.kindToolBlurb': 'Công cụ dùng bất cứ lúc nào',
-  'world.menuBack': 'Menu',
+  'world.activityBack': 'Quay lại',
   'world.menuChoose': 'Bạn muốn làm gì?',
   'world.skills': 'Kỹ năng',
   'world.keeperRecap': 'Đúng {right}/{total} — tốt lắm.',

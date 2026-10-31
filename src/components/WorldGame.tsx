@@ -20,7 +20,7 @@ import { CollectionStats } from './CollectionStats';
 import { QuizSetup } from './QuizSetup';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { SkillToolbar } from './worldgames/SkillMenu';
-import { PixelButton } from './worldgames/pixel';
+import { ActivityChromeProvider, type Chrome } from './worldgames/pixel/ActivityChrome';
 import { useCompanion } from '../hooks/useCompanion';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import { KEEPERS } from './worldgames/keepers';
@@ -206,6 +206,18 @@ export function WorldGame() {
       done: leaveTailor,
     },
   };
+  /** Back to the keeper, and an activity's modes as tabs — shown inside its
+   *  popup (pixel/ActivityChrome). */
+  const activityChrome = (activity: WorldActivity, mode?: string): Chrome => {
+    const def = findActivity(activity.id)?.activity;
+    return {
+      // Like a page's back: straight to the menu you came from.
+      back: () => { if (open) { setOpen({ skill: open.skill, activity: null }); setTalk(null); } },
+      modes: (def?.modes ?? []).map((m) => ({ id: m.id, label: intl.formatMessage({ id: m.nameId }), icon: m.icon })),
+      current: def ? modeOf(def, mode)?.id : undefined,
+      setMode: (id) => { if (open) setOpen({ ...open, mode: id }); },
+    };
+  };
   /** The screen that plays an activity — its own file declares it — in the
    *  mode chosen, for one with modes. */
   const activityScreen = (id: string, mode?: string) => {
@@ -214,23 +226,6 @@ export function WorldGame() {
     const m = modeOf(found.activity, mode);
     const Screen = m?.Screen ?? found.activity.Screen;
     return <Screen key={m?.id} />;
-  };
-  /** An activity's modes, as buttons in the skill bar — the app's tabs. */
-  const modeButtons = (activity: WorldActivity | null, mode?: string) => {
-    const def = activity && findActivity(activity.id)?.activity;
-    if (!def?.modes || !open) return null;
-    const current = modeOf(def, mode)?.id;
-    return def.modes.map((m) => (
-      <PixelButton
-        key={m.id}
-        tone={m.id === current ? 'gold' : 'paper'}
-        onClick={() => setOpen({ ...open, mode: m.id })}
-        aria-pressed={m.id === current}
-        className="!py-2 !px-3"
-      >
-        {intl.formatMessage({ id: m.nameId })}
-      </PixelButton>
-    ));
   };
 
   if (!enabled) return <Navigate to="/collections" replace />;
@@ -266,16 +261,12 @@ export function WorldGame() {
               // Leaving the tailor's on a first visit keeps what you have on, so
               // the shop doesn't greet you again next time.
               onClose: () => (open.activity?.id === 'wardrobe' && firstVisit ? leaveTailor(trying ?? DEFAULT_LOOK) : setOpen(null)),
-              // Inside an activity, step back out to the keeper, who says how it went.
-              onBack: open.activity ? () => { setOpen({ skill: open.skill, activity: null }); setTalk({ recap: tally.current }); } : undefined,
               room: open.activity?.id === 'wardrobe' ? 'tailor' : open.skill.id,
               dress: open.activity?.id === 'wardrobe' ? trying ?? dress ?? DEFAULT_LOOK : undefined,
               // The keeper's speech bubble while they talk: their message box,
               // or the tailor fitting you.
               talking: open.activity?.id === 'wardrobe' || (!open.activity && !!KEEPERS[open.skill.id] && talk !== null),
               tools: (
-                <>
-                {modeButtons(open.activity, open.mode)}
                 <SkillToolbar
                   skill={open.skill}
                   current={open.activity?.id}
@@ -285,10 +276,11 @@ export function WorldGame() {
                   attention={chosen ? undefined : 'collections'}
                   onPick={(activity) => { setOpen({ skill: open.skill, activity }); setTalk(null); }}
                 />
-                </>
               ),
+              // Inside an activity: Back (to the skill's menu) and its tabs, in
+              // the activity's own popup.
               content: open.activity
-                ? activityScreen(open.activity.id, open.mode)
+                ? <ActivityChromeProvider key={open.activity.id} chrome={activityChrome(open.activity, open.mode)}>{activityScreen(open.activity.id, open.mode)}</ActivityChromeProvider>
                 : keeperTalk(open.skill) ?? (
                   <KeeperMenu
                     key={open.skill.id}

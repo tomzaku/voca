@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { ActivityKind, WorldActivity } from '../../game/features';
+import type { PixelIconName } from './pixel/PixelIcon';
 
 // What an activity declares about itself — one file each, in ./activities/,
 // picked up by the registry. Adding an activity is adding a file: it names
@@ -12,6 +13,8 @@ export interface ActivityMode {
   /** Unique among activities and modes: opening it by id lands in this mode. */
   id: string;
   nameId: string;
+  /** Drawn on its tab. */
+  icon: PixelIconName;
   Screen: ComponentType;
 }
 

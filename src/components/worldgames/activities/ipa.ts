@@ -10,7 +10,7 @@ export default defineActivity({
   id: 'ipa', skill: 'speaking', kind: 'learn', key: 'Ipa',
   emoji: '🎶', place: 'Duyệt Thị Đường', order: 10,
   modes: [
-    { id: 'ipa-learn', nameId: 'world.modeLearn', Screen: IpaChart },
-    { id: 'ipa-practice', nameId: 'world.modePractice', Screen: DuyetThiDuong },
+    { id: 'ipa-learn', nameId: 'world.modeLearn', icon: 'eye', Screen: IpaChart },
+    { id: 'ipa-practice', nameId: 'world.modePractice', icon: 'sword', Screen: DuyetThiDuong },
   ],
 });
