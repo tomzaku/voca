@@ -3,6 +3,28 @@
 // They paint in currentColor; `size` is the pixel scale.
 
 const GRIDS = {
+  // Day and night, for the world's day/night switch.
+  sun: [
+    '....#....',
+    '.#.....#.',
+    '...###...',
+    '..#####..',
+    '#.#####.#',
+    '..#####..',
+    '...###...',
+    '.#.....#.',
+    '....#....',
+  ],
+  moon: [
+    '...####..',
+    '..###....',
+    '.###.....',
+    '.###.....',
+    '.###.....',
+    '.###.....',
+    '..###....',
+    '...####..',
+  ],
   // The type race's train, side on and heading right — cab, windows, wheels.
   train: [
     '.....####..',
@@ -290,8 +312,9 @@ const GRIDS = {
 
 export type PixelIconName = keyof typeof GRIDS;
 
-export function PixelIcon({ name, size = 2, className = '' }: { name: PixelIconName; size?: number; className?: string }) {
-  const rows = GRIDS[name];
+/** `rows` draws a grid kept elsewhere (the world's reactions) instead of a named one. */
+export function PixelIcon({ name, rows: own, size = 2, className = '' }: { size?: number; className?: string } & ({ name: PixelIconName; rows?: never } | { name?: never; rows: readonly string[] })) {
+  const rows: readonly string[] = own ?? GRIDS[name!];
   const w = Math.max(...rows.map((r) => r.length));
   return (
     <svg

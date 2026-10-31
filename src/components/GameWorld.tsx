@@ -22,7 +22,9 @@ import { PlaceInfo } from './worldgames/PlaceInfo';
 import { PlaceMemorial } from './worldgames/PlaceMemorial';
 import { RideButton } from './worldgames/RideButton';
 import { LanguageButton } from './worldgames/LanguageButton';
+import { DayNightButton } from './worldgames/DayNightButton';
 import { RIDES, type Ride } from '../game/vehicles';
+import { REACTIONS, REACTION_ICONS, REACTION_MS, type Reaction } from '../game/reactions';
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
 import { BusTicket } from './worldgames/BusTicket';
@@ -201,6 +203,7 @@ export function GameWorld({
   const [peerCard, setPeerCard] = useState<{ id: string; name: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatText, setChatText] = useState('');
+  const [reactOpen, setReactOpen] = useState(false);
   const [chatHidden, setChatHidden] = useState(false);
   // The chat's history while the world is open: yours and others' lines.
   const [chatLog, setChatLog] = useState<{ key: string; name: string; text: string; mine: boolean }[]>([]);
@@ -434,7 +437,8 @@ export function GameWorld({
       },
       message: (m: LiveMessage) => {
         const b = busyRef.current;
-        if (m.kind === 'wave') scene()?.bubble(m.from, '👋');
+        if (m.kind === 'wave') scene()?.react(m.from, 'wave');
+        else if (m.kind === 'react') scene()?.react(m.from, m.reaction);
         else if (m.kind === 'chat' && !chatHiddenRef.current) {
           scene()?.bubble(m.from, m.text);
           const name = live.peer(m.from)?.name ?? '?';
@@ -496,6 +500,16 @@ export function GameWorld({
     const t = setTimeout(() => cancelAskingRef.current(), 30000);
     return () => clearTimeout(t);
   }, [asking]);
+
+  /** React, for everyone around to see — no quicker than one plays. */
+  const lastReact = useRef(0);
+  const react = useCallback((reaction: Reaction) => {
+    const now = Date.now();
+    if (now - lastReact.current < REACTION_MS) return;
+    lastReact.current = now;
+    scene()?.react(null, reaction);
+    liveRef.current?.send({ kind: 'react', reaction });
+  }, []);
 
   const sendChat = () => {
     const text = chatText.trim();
@@ -559,6 +573,18 @@ export function GameWorld({
       };
     }
   }, [roomId, animal.id, stage, features]);
+
+  // 1–6 react, while walking about (not typing, not in a game or a skill).
+  useEffect(() => {
+    if (panel || chatOpen || playing || match || busTicket !== null || focusOpen || memorial) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement)?.closest?.('input, textarea, [contenteditable]')) return;
+      const r = REACTIONS[Number(e.key) - 1];
+      if (r) { e.preventDefault(); react(r); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [panel, chatOpen, playing, match, busTicket, focusOpen, memorial, react]);
 
   // Inside a skill, Esc leaves it. (Not Backspace for Menu — the spelling
   // round uses it to take a letter back.)
@@ -737,6 +763,7 @@ export function GameWorld({
             <PixelIcon name="compass" size={2} />
             <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
           </PixelButton>
+          <DayNightButton />
           <LanguageButton />
         </div>
       )}
@@ -900,8 +927,8 @@ export function GameWorld({
             </PixelButton>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
-            <PixelButton tone="gold" onClick={() => { liveRef.current?.send({ kind: 'wave', to: peerCard.id }); scene()?.bubble(null, '👋'); setPeerCard(null); }} className="!px-2 !text-[13px]">
-              👋 <FormattedMessage id="world.liveWave" />
+            <PixelButton tone="gold" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !text-[13px]">
+              <PixelIcon rows={REACTION_ICONS.wave.rows} size={2} /> <FormattedMessage id="world.liveWave" />
             </PixelButton>
             <PixelButton tone="paper" onClick={() => setPeerCard(null)} className="!px-2 !text-[13px]">
               <FormattedMessage id="world.busNotNow" />
@@ -948,6 +975,40 @@ export function GameWorld({
             <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num shrink-0 pointer-events-auto">
               💬 {online}
             </PixelButton>
+            {/* Reactions: the picker, opening upward; 1–6 do the same. */}
+            {!chatOpen && (
+              <div className="relative pointer-events-auto">
+                {reactOpen && (
+                  <div className="absolute bottom-full left-0 mb-1.5 px-notch px-frame p-1 grid grid-cols-6 gap-1 w-max">
+                    {REACTIONS.map((r, i) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => react(r)}
+                        title={`${intl.formatMessage({ id: `world.react.${r}` })} · ${i + 1}`}
+                        aria-label={intl.formatMessage({ id: `world.react.${r}` })}
+                        className="px-btn px-notch relative w-10 h-10 inline-flex items-center justify-center"
+                        data-tone="paper"
+                        style={{ color: REACTION_ICONS[r].color }}
+                      >
+                        <PixelIcon rows={REACTION_ICONS[r].rows} size={3} />
+                        <span className="absolute bottom-0 right-1 text-[9px] text-[var(--px-ink,#1c120c)] opacity-50 px-num">{i + 1}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <PixelButton
+                  tone={reactOpen ? 'gold' : 'paper'}
+                  onClick={() => setReactOpen((o) => !o)}
+                  title={intl.formatMessage({ id: 'world.react' })}
+                  aria-label={intl.formatMessage({ id: 'world.react' })}
+                  aria-expanded={reactOpen}
+                  className="!px-2.5 !py-0 !h-[2.6rem]"
+                >
+                  <span style={{ color: REACTION_ICONS.dance.color }}><PixelIcon rows={REACTION_ICONS.dance.rows} size={2} /></span>
+                </PixelButton>
+              </div>
+            )}
             {chatOpen && (
               <div className="flex-1 min-w-0 h-[2.6rem] px-notch px-frame p-1 flex gap-1 px-in-up pointer-events-auto" onKeyDown={(e) => e.stopPropagation()}>
                 <input
