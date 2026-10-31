@@ -22,6 +22,8 @@ export const GARMENTS = {
   tracksuit: ['red', 'blue', 'black', 'green', 'navy', 'teal', 'orange', 'maroon'],
 } as const;
 export const HATS = ['none', 'nonLa', 'khanDong', 'cap', 'mandarin', 'crown'] as const;
+/** Worn on the back. */
+export const BACKS = ['none', 'backpack', 'gui', 'cape'] as const;
 
 export type Garment = keyof typeof GARMENTS;
 export const GARMENT_IDS = Object.keys(GARMENTS) as Garment[];
@@ -33,11 +35,13 @@ export interface Look {
   /** One of GARMENTS[outfit]. */
   outfitColor: string;
   hat: (typeof HATS)[number];
+  /** Nothing on the back if unset (looks from before there were any). */
+  back?: (typeof BACKS)[number];
 }
 
 /** The look before anyone visits the tailor: the bald villager in everyday
  *  clothes — exactly how the buddy was drawn before there was a wardrobe. */
-export const DEFAULT_LOOK: Look = { hair: 'none', hairColor: 'dark', outfit: 'everyday', outfitColor: 'red', hat: 'none' };
+export const DEFAULT_LOOK: Look = { hair: 'none', hairColor: 'dark', outfit: 'everyday', outfitColor: 'red', hat: 'none', back: 'none' };
 
 /** Swatches for the colours, as the atlas paints them (their light shade). */
 export const COLOR_SWATCH: Record<string, string> = {
@@ -53,6 +57,7 @@ export const WARDROBE_KEY = 'wardrobe';
  *  copy, so nothing pokes through. */
 export function lookLayers(look: Look): string[] {
   const layers = [`body.${look.outfit}.${look.outfitColor}`];
+  if (look.back && look.back !== 'none') layers.push(`back.${look.back}`);
   if (look.hair !== 'none') layers.push(`hair.${look.hair}.${look.hairColor}${look.hat !== 'none' ? '.hat' : ''}`);
   if (look.hat !== 'none') layers.push(`hat.${look.hat}`);
   return layers;
@@ -78,5 +83,6 @@ export function parseLook(v: unknown): Look {
     outfit,
     outfitColor: pick(GARMENTS[outfit], o.outfitColor, GARMENTS[outfit][0]),
     hat: pick(HATS, o.hat, DEFAULT_LOOK.hat),
+    back: pick(BACKS, o.back, 'none'),
   };
 }

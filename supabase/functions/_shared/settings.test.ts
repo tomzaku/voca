@@ -3,8 +3,8 @@ import { cleanDress, fromSettings } from './settings';
 
 describe('cleanDress', () => {
   it('keeps the known parts as short strings', () => {
-    expect(cleanDress({ outfit: 'aoDai', outfitColor: 'purple', hat: 'nonLa' }))
-      .toEqual({ outfit: 'aoDai', outfitColor: 'purple', hat: 'nonLa' });
+    expect(cleanDress({ outfit: 'aoDai', outfitColor: 'purple', hat: 'nonLa', back: 'gui' }))
+      .toEqual({ outfit: 'aoDai', outfitColor: 'purple', hat: 'nonLa', back: 'gui' });
   });
   it('drops unknown keys, long values and non-strings', () => {
     expect(cleanDress({ outfit: 'x'.repeat(25), hat: 7, admin: true, hair: 'longhair' })).toEqual({ hair: 'longhair' });

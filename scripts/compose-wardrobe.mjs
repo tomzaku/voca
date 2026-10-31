@@ -100,6 +100,7 @@ const DENIM = [[44, 70, 120], [70, 104, 160]];
 const GOLD = [[196, 146, 30], [246, 206, 90]];
 const HATS = ['nonLa', 'khanDong', 'cap', 'mandarin', 'crown'];
 const PROPS = ['book', 'teacup', 'brush', 'scroll', 'headphones'];
+const BACKS = ['backpack', 'gui', 'cape'];
 
 // The body's clothes, by colour: [ref, kind, shade].
 const CLOTH = [
@@ -368,6 +369,54 @@ function prop(id, base) {
   return out;
 }
 
+// ── On the back ──
+
+/** Where the clothes are in a frame (any view): the rows they span, each
+ *  row's left and right, and the axis down the middle. */
+function torso(base) {
+  let top = F, bottom = -1;
+  const edges = {};
+  for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) {
+    const p = px(base, x, y);
+    if (!p[3] || !cloth(p)) continue;
+    top = Math.min(top, y); bottom = Math.max(bottom, y);
+    const e = (edges[y] ??= { l: x, r: x }); e.l = Math.min(e.l, x); e.r = Math.max(e.r, x);
+  }
+  return { top, bottom, edges, mid: edges[top] ? (edges[top].l + edges[top].r) / 2 : F / 2 };
+}
+
+/** Something worn on the back, drawn for each view rather than mirrored: in
+ *  profile behind the body (the side view faces right, so its back is the
+ *  left), from behind over it, from the front only its straps — or a cape's
+ *  edges showing either side. */
+function backItem(id, base, view) {
+  const out = new Uint8ClampedArray(F * F * 4);
+  const t = torso(base);
+  if (t.bottom < 0) return out;
+  const dot = (x, y, c) => put(out, x, y, c);
+  const box = (x0, y0, x1, y1, fill, line = INK) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) dot(x, y, x === x0 || x === x1 || y === y0 || y === y1 ? line : fill(x, y));
+  };
+  const BAG = [176, 52, 44], FLAP = [214, 82, 64];
+  const CANE = [196, 160, 98], WEAVE = [150, 112, 62];
+  const CAPE = [[150, 26, 36], [196, 40, 52]];
+  const back = t.edges[t.top]?.l ?? 6, mid = Math.round(t.mid);
+  if (view === 'side') {
+    if (id === 'backpack') box(back - 4, t.top, back - 1, Math.min(t.top + 4, t.bottom + 1), (x, y) => (y === t.top + 1 ? FLAP : BAG));
+    else if (id === 'gui') box(back - 5, t.top - 3, back - 1, t.bottom, (x, y) => ((x + y) % 2 ? CANE : WEAVE));
+    else if (id === 'cape') for (let y = t.top; y <= t.bottom + 1; y++) { const l = (t.edges[y]?.l ?? back) - 1; dot(l, y, CAPE[1]); dot(l - 1, y, y > t.top + 1 ? CAPE[0] : CAPE[1]); }
+  } else if (view === 'back') {
+    if (id === 'backpack') box(mid - 3, t.top, mid + 3, Math.min(t.top + 4, t.bottom + 1), (x, y) => (y === t.top + 1 ? FLAP : BAG));
+    else if (id === 'gui') box(mid - 4, t.top - 3, mid + 4, t.bottom, (x, y) => ((x + y) % 2 ? CANE : WEAVE));
+    else if (id === 'cape') for (let y = t.top; y <= t.bottom + 1; y++) { const e = t.edges[y] ?? t.edges[t.bottom]; for (let x = e.l - 1; x <= e.r + 1; x++) dot(x, y, (x + y) % 3 ? CAPE[1] : CAPE[0]); }
+  } else {
+    // From the front: the straps over the shoulders, or the cape either side.
+    if (id === 'backpack' || id === 'gui') for (const x of [mid - 2, mid + 2]) for (let y = t.top; y <= t.top + 2; y++) dot(x, y, id === 'gui' ? WEAVE : [90, 30, 26]);
+    else if (id === 'cape') for (let y = t.top + 1; y <= t.bottom + 1; y++) { const e = t.edges[y] ?? t.edges[t.bottom]; dot(e.l - 1, y, CAPE[0]); dot(e.r + 1, y, CAPE[0]); }
+  }
+  return out;
+}
+
 // ── Facing the camera, and facing away ──
 
 /** Where to mirror this frame: the head's centre for the rows above the
@@ -445,6 +494,15 @@ function backOfHead(hairImg, base, color) {
  *  would be one too many — and are hidden behind the body from the back
  *  (headphones excepted, which turn with the head). */
 function viewFrame(layer, view, clip, i) {
+  // What's worn on the back is drawn for its view, not mirrored from the side.
+  if (layer.name.startsWith('back.')) {
+    const id = layer.name.slice(5);
+    if (view === 'side') return backItem(id, frame('base', clip, i), 'side');
+    const [sClip, sI] = clip === 'walk' ? ['idle', 0] : [clip, i];
+    const turnedBase = turn(frame('base', sClip, sI), frame('base', sClip, sI), view);
+    const img = backItem(id, turnedBase, view);
+    return clip === 'walk' ? stride(img, turnedBase, i, false) : img;
+  }
   if (view === 'side') return layer.draw(frame('base', clip, i), clip, i);
   // Walking front or back starts from the side view's first standing frame.
   const [sClip, sI] = clip === 'walk' ? ['idle', 0] : [clip, i];
@@ -466,6 +524,7 @@ const layers = [
   })))),
   ...HATS.map((id) => ({ name: `hat.${id}`, draw: (b) => hat(id, b) })),
   ...PROPS.map((id) => ({ name: `prop.${id}`, draw: (b) => prop(id, b) })),
+  ...BACKS.map((id) => ({ name: `back.${id}`, draw: (b) => backItem(id, b, 'side') })),
 ];
 const W = FRAMES.length * STRIDE - PAD, H = layers.length * STRIDE - PAD;
 const sheet = Buffer.alloc(W * H * 4);

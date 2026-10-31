@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
-  COLOR_SWATCH, GARMENTS, GARMENT_IDS, HAIR_COLORS, HAIR_STYLES, HATS,
+  BACKS, COLOR_SWATCH, GARMENTS, GARMENT_IDS, HAIR_COLORS, HAIR_STYLES, HATS,
   wearGarment, type Look,
 } from '../../game/wardrobe';
 import { playSelect } from '../../lib/sfx';
@@ -15,13 +15,16 @@ import { HudSide, PixelButton, PixelChip, PixelIcon } from './pixel';
 // underneath — áo dài first, then which áo dài. Your buddy stands in the room
 // wearing it all as you pick; nothing is kept until you step out.
 
-type Tab = 'outfit' | 'hair' | 'hat';
-const TABS: Tab[] = ['outfit', 'hair', 'hat'];
+type Tab = 'outfit' | 'hair' | 'hat' | 'back';
+const TABS: Tab[] = ['outfit', 'hair', 'hat', 'back'];
+/** The atlas frame of a look seen from behind (idle, side, walk and front
+ *  come first — see wardrobe-layers), for what's worn on the back. */
+const BACK_VIEW = 9 + 8 + 9 + 8;
 
-function Tile({ on, onClick, look, label }: { on: boolean; onClick: () => void; look: Look; label: ReactNode }) {
+function Tile({ on, onClick, look, label, frame }: { on: boolean; onClick: () => void; look: Look; label: ReactNode; frame?: number }) {
   return (
     <button onClick={onClick} data-on={on} className="px-pick px-notch flex flex-col items-center gap-1 pt-2 pb-1.5 px-1">
-      <LookSprite look={look} scale={3} />
+      <LookSprite look={look} scale={3} frame={frame} />
       <span className="text-[12px] font-bold leading-tight text-center">{label}</span>
     </button>
   );
@@ -74,7 +77,7 @@ export function TailorShop({ initial, firstVisit, name, onRename, onChange, onDo
   const surprise = () => {
     const any = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)];
     const outfit = any(GARMENT_IDS);
-    wear({ hair: any(HAIR_STYLES), hairColor: any(HAIR_COLORS), outfit, outfitColor: any(GARMENTS[outfit]), hat: any(HATS) });
+    wear({ hair: any(HAIR_STYLES), hairColor: any(HAIR_COLORS), outfit, outfitColor: any(GARMENTS[outfit]), hat: any(HATS), back: any(BACKS) });
   };
   const done = () => {
     if (buddyName.trim() !== name) onRename(buddyName.trim());
@@ -155,6 +158,16 @@ export function TailorShop({ initial, firstVisit, name, onRename, onChange, onDo
           {HATS.map((h) => (
             <Tile key={h} on={look.hat === h} look={{ ...look, hat: h }} onClick={() => wear({ ...look, hat: h })}
               label={<FormattedMessage id={`world.hat.${h}`} />} />
+          ))}
+        </div>
+      )}
+
+      {/* Seen from behind, where it shows. */}
+      {tab === 'back' && (
+        <div className="grid grid-cols-3 gap-2">
+          {BACKS.map((b) => (
+            <Tile key={b} on={(look.back ?? 'none') === b} look={{ ...look, back: b }} frame={BACK_VIEW} onClick={() => wear({ ...look, back: b })}
+              label={<FormattedMessage id={`world.back.${b}`} />} />
           ))}
         </div>
       )}
