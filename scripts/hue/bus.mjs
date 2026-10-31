@@ -11,7 +11,8 @@ import { deck, drawn, ground, mark, over, solid, used } from './core/world.mjs';
 import { BRIDGE_Y0, BRIDGE_Y1, H, RIVER_BRIDGES, T, W, isWater } from './layout.mjs';
 import { ROADS, roadHit } from './roads.mjs';
 
-/** The stops, in tiles, each on a road by its place. */
+/** The stops, in tiles, each on a road by its place; `shelter`, where its
+ *  shelter's top-left tile goes, when the nearest free spot isn't right. */
 export const BUS_STOPS = [
   { place: 'dongBa', x: 90, y: 52.4 },
   { place: 'kyDai', x: 55, y: 52.4 },
@@ -20,7 +21,7 @@ export const BUS_STOPS = [
   { place: 'tinhTam', x: 47, y: 13 },
   { place: 'gaHue', x: 28, y: 65.6 },
   { place: 'quocHoc', x: 41, y: 65.6 },
-  { place: 'walkingStreet', x: 62, y: 65.6 },
+  { place: 'walkingStreet', x: 55.5, y: 65.6, shelter: [54, 63] },
   { place: 'nguBinh', x: 52, y: 82.6 },
   { place: 'tuDuc', x: 10, y: 114.8 },
   { place: 'khaiDinh', x: 34.5, y: 114.8 },
@@ -82,7 +83,7 @@ export function drawBusStops() {
     // The nearest free 2×2 spot by the road: north or south first, then round about.
     const tries = [[sx, sy - 3], [sx, sy + 2]];
     for (let r = 1; r <= 5; r++) for (let dy = -r - 2; dy <= r + 1; dy++) for (let dx = -r - 1; dx <= r; dx++) tries.push([sx + dx, sy + dy]);
-    const spot = tries.find(([x, y]) => free(x, y));
+    const spot = s.shelter ?? tries.find(([x, y]) => free(x, y));
     if (!spot) return null;
     const [tx, ty] = spot;
     const cv = new Canvas(2 * T, 2 * T);
