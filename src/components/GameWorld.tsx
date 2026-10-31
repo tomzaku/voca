@@ -183,7 +183,7 @@ export function GameWorld({
   const [busStops, setBusStops] = useState<string[]>([]);
   // ── The shared world ── everyone in Huế at once (lib/worldLive): their
   // buddies walk here, wave and chat; you can block anyone.
-  const { user } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const liveRef = useRef<WorldLive | null>(null);
   const [online, setOnline] = useState(0);
   const [peerCard, setPeerCard] = useState<{ id: string; name: string } | null>(null);
@@ -694,10 +694,12 @@ export function GameWorld({
               💬 {online}
             </PixelButton>
           ) : (
-            // Signed out, you're on your own: say why, and where to sign in.
-            <Link to="/login" title={intl.formatMessage({ id: 'world.liveSignIn' })} className="px-btn px-notch px-title !text-[13px] px-2.5 py-1.5 inline-flex items-center" data-tone="paper">
-              💬
-            </Link>
+            // Signed out, you're on your own: say so, plainly, and sign in from
+            // here — Google brings you straight back to the world.
+            <PixelButton tone="gold" onClick={() => void signInWithGoogle()} title={intl.formatMessage({ id: 'world.liveSignIn' })} className="!px-2.5 !py-1.5 !text-[13px]">
+              👥 <span className="hidden sm:inline"><FormattedMessage id="world.liveSignInButton" /></span>
+              <span className="sm:hidden"><FormattedMessage id="world.liveSignInShort" /></span>
+            </PixelButton>
           )}
           <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton

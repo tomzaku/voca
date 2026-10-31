@@ -3,6 +3,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { ActivityKind, WorldActivity, WorldSkill } from '../../game/features';
 import { playSelect } from '../../lib/sfx';
 import { HudCenter, PixelButton, PixelIcon, type PixelIconName } from './pixel';
+import { OnlineStatus } from './OnlineStatus';
 
 // What a skill's keeper offers: its activities, grouped the way a game would —
 // Learn (battle the creeps), Practice (face the boss), Tools — each with the
@@ -50,6 +51,8 @@ export function SkillMenu({ skill, onPick, badges = {} }: {
           <p className="text-[14px] text-[var(--px-muted)]"><FormattedMessage id="world.menuChoose" /></p>
         </div>
       </div>
+      {/* Your own menu (the portrait): whether you're online, too. */}
+      {skill.id === 'you' && <OnlineStatus />}
       <div className="space-y-4">
         {kinds.map(({ kind, icon, color }) => {
           const list = skill.activities.filter((a) => a.kind === kind);
