@@ -52,6 +52,22 @@ function parkLamp(x, y) {
 }
 
 export function drawParks() {
+  // A street piano on Phố đi bộ, by the walking street's kerb: an upright in
+  // dark wood, its keys showing, a stool before it (the meta's `play` point).
+  {
+    const cv = new Canvas(2 * T, 2 * T);
+    cv.rect(4, 6, 24, 18, [70, 42, 30]);
+    cv.rect(4, 6, 24, 2, [110, 72, 50]);
+    cv.rect(6, 9, 20, 6, [92, 58, 40]);
+    cv.rect(4, 16, 24, 5, [244, 238, 222]);
+    for (let x = 6; x < 27; x += 3) cv.rect(x, 16, 1, 5, [120, 110, 100]);
+    for (const x of [7, 10, 16, 19, 22]) cv.rect(x, 16, 2, 3, [30, 26, 24]);
+    cv.rect(4, 21, 24, 3, [58, 34, 24]);
+    cv.rect(5, 24, 2, 6, [58, 34, 24]); cv.rect(25, 24, 2, 6, [58, 34, 24]);
+    cv.rect(11, 27, 10, 2, [150, 100, 60]);                  // the stool
+    place(cv, 66, 63, 1, { shadow: false });
+  }
+
   // Phố đi bộ: red lanterns strung across the walking street on poles.
   for (let x = 57 * T; x < 75 * T; x += 2 * T) {
     for (const y of [63.5 * T, 64.9 * T]) ground.rect(x, y - 8, 1, 8, [70, 52, 40]);

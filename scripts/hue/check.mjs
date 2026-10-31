@@ -40,7 +40,7 @@ export function checkReach() {
   const problems = [];
   for (const o of objects) {
     const p = props(o);
-    if (o.type === 'station' || o.type === 'spawn') {
+    if (o.type === 'station' || o.type === 'spawn' || o.type === 'play' || o.type === 'focus') {
       const tx = Math.floor(o.x / T), ty = Math.floor(o.y / T);
       if (!seen[ty * W + tx]) problems.push(`unreachable ${o.type} at ${where(o)} (${p.feature ?? ''})`);
       if (solid[ty][tx]) problems.push(`${o.type} at ${where(o)} (${p.feature ?? ''}) stands on something built`);

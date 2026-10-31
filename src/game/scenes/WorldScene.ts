@@ -120,6 +120,8 @@ interface MapMeta {
   farmers: { x: number; y: number }[];
   /** Where the Focus Zone is offered (Ngự Bình). */
   focus: { x: number; y: number }[];
+  /** The playground's games, where they're played. */
+  plays: { game: string; x: number; y: number }[];
   /** The bus stops, in order: where the bus halts (on the road), where the
    *  shelter stands (`sx, sy`), and their place's story id. */
   busStops: { place: string; x: number; y: number; sx: number; sy: number }[];
@@ -884,6 +886,7 @@ export class WorldScene extends Phaser.Scene {
       sprays: [],
       farmers: [],
       focus: [],
+      plays: [],
       busStops: [],
     };
     const lanterns: { x: number; y: number; order: number }[] = [];
@@ -924,6 +927,9 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'focus':
           meta.focus.push({ x, y });
+          break;
+        case 'play':
+          meta.plays.push({ game: String(get('game') ?? ''), x, y });
           break;
         case 'busStop':
           meta.busStops[Number(get('order') ?? meta.busStops.length)] = {
@@ -1147,6 +1153,19 @@ export class WorldScene extends Phaser.Scene {
   private roadTiles: boolean[][] = [];
   /** The bus on its way: the path (world px) and how far along it is. */
   private bus?: { sprite: Phaser.GameObjects.Image; path: { x: number; y: number }[]; i: number; dest: number };
+
+  // ── The playground ──
+
+  /** The game the buddy is at, if any, told to React. */
+  private atPlay: string | null = null;
+
+  private checkPlay() {
+    let near: string | null = null;
+    if (!this.bus) for (const p of this.meta.plays) if (Math.hypot(this.buddy.x - p.x, this.buddy.y - p.y) < this.tilePx * 2.4) near = p.game;
+    if (near === this.atPlay) return;
+    this.atPlay = near;
+    this.game.events.emit(WORLD_EVENTS.play, near);
+  }
 
   // ── The Focus Zone ──
 
@@ -1692,6 +1711,7 @@ export class WorldScene extends Phaser.Scene {
     this.moveBus(dtMs);
     this.checkBusStop();
     this.checkFocus();
+    this.checkPlay();
     this.drawRain(dtMs);
     const onBus = !!this.bus;
 

@@ -25,6 +25,8 @@ import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
 import { BusTicket } from './worldgames/BusTicket';
 import { FocusZone } from './worldgames/FocusZone';
+import { StreetPiano } from './worldgames/StreetPiano';
+import { TypeRace } from './worldgames/TypeRace';
 import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
 import { setRainSound } from '../lib/rainSound';
@@ -175,6 +177,9 @@ export function GameWorld({
   // The Focus Zone: whether the buddy is at it, whether its window is open,
   // and the timer (which runs on whether or not it is).
   const [atFocus, setAtFocus] = useState(false);
+  // The playground: the game the buddy is at, and the one open.
+  const [atPlay, setAtPlay] = useState<string | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
   const [focusOpen, setFocusOpen] = useState(false);
   const focusTimer = useFocus((s) => s.timer);
   const rain = useFocus((s) => s.rain);
@@ -253,8 +258,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen;
-  }, [paused, busTicket, focusOpen]);
+    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing;
+  }, [paused, busTicket, focusOpen, playing]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -327,6 +332,7 @@ export function GameWorld({
     game.events.on(WORLD_EVENTS.bus, setBusRide);
     game.events.on(WORLD_EVENTS.busStop, setAtBusStop);
     game.events.on(WORLD_EVENTS.focus, setAtFocus);
+    game.events.on(WORLD_EVENTS.play, setAtPlay);
     if (import.meta.env.DEV) game.events.on(WORLD_EVENTS.debug, setDebugPos);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
@@ -344,6 +350,7 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.bus, setBusRide);
       game.events.off(WORLD_EVENTS.busStop, setAtBusStop);
       game.events.off(WORLD_EVENTS.focus, setAtFocus);
+      game.events.off(WORLD_EVENTS.play, setAtPlay);
       if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
       game.destroy(true);
     };
@@ -714,8 +721,21 @@ export function GameWorld({
       )}
 
       {/* ── The bus: buying the ticket, then the ride. ── */}
+      {/* ── The playground: the street piano, the type race ── */}
+      {!panel && !nearestFeature && atPlay && !playing && !busRide && busTicket === null && (
+        <WorldCard
+          emoji={atPlay === 'piano' ? '🎹' : '🚆'}
+          title={<FormattedMessage id={atPlay === 'piano' ? 'world.pianoTitle' : 'world.raceTitle'} />}
+          subtitle={<FormattedMessage id={atPlay === 'piano' ? 'world.pianoBlurb' : 'world.raceBlurb'} />}
+        >
+          <PixelButton tone="gold" block onClick={() => setPlaying(atPlay)}><FormattedMessage id="world.play" /></PixelButton>
+        </WorldCard>
+      )}
+      {!panel && playing === 'piano' && <StreetPiano onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'race' && <TypeRace onClose={() => setPlaying(null)} />}
+
       {/* ── The Focus Zone on Ngự Bình ── */}
-      {!panel && !nearestFeature && atFocus && !focusOpen && !busRide && (
+      {!panel && !nearestFeature && atFocus && !focusOpen && !busRide && busTicket === null && (
         <WorldCard emoji="🧘" title={<FormattedMessage id="world.focusTitle" />} subtitle={<FormattedMessage id="world.focusBlurb" />}>
           <PixelButton tone="gold" block onClick={() => setFocusOpen(true)}><FormattedMessage id="world.enter" /></PixelButton>
         </WorldCard>
