@@ -65,13 +65,15 @@ export function WorldGame() {
   // open it on). Only one of `open` and `hall` is ever set.
   const [hall, setHall] = useState<{ focus: string | null } | null>(null);
   // The keeper talking — on coming back from an activity, with how it went.
-  // Walking in goes straight to their menu. "Something else" (or picking an
-  // activity) hushes them.
+  // Walking in goes straight to their menu — or, for a skill with an entry
+  // activity, straight into that. "Something else" (or picking an activity)
+  // hushes them.
   const [talk, setTalk] = useState<{ recap?: Recap } | null>(null);
   const openSkill = (f: WorldFeature) => {
     if (f.id === COLLECTIONS_KEEPER.id) { setOpen(null); setHall({ focus: null }); return; }
     const skill = WORLD_SKILLS.find((x) => x.id === f.id);
-    if (skill) { setHall(null); setOpen({ skill, activity: null }); setTalk(null); }
+    const entry = skill?.activities.find((a) => a.id === skill.entry) ?? null;
+    if (skill) { setHall(null); setOpen({ skill, activity: entry }); setTalk(null); }
   };
   // Your portrait: straight to An Hiên's menu — clothes and buddy.
   const openProfile = () => {
