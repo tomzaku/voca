@@ -27,13 +27,14 @@ import { BusTicket } from './worldgames/BusTicket';
 import { FocusZone } from './worldgames/FocusZone';
 import { StreetPiano } from './worldgames/StreetPiano';
 import { TypeRace } from './worldgames/TypeRace';
+import { WordDuel } from './worldgames/WordDuel';
 import { Fishing } from './worldgames/Fishing';
 import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
 import { setRainSound } from '../lib/rainSound';
 import { playWin } from '../lib/sfx';
 import { useAuth } from '../hooks/useAuth';
-import { WorldLive, type Facing, type LiveMessage } from '../lib/worldLive';
+import { WorldLive, type Facing, MatchBus, type LiveMessage, type Match, type MatchGame, type MatchLink } from '../lib/worldLive';
 
 export type { WorldStation } from '../game/types';
 
@@ -191,6 +192,17 @@ export function GameWorld({
   const [chatHidden, setChatHidden] = useState(false);
   const chatHiddenRef = useRef(chatHidden);
   useEffect(() => { chatHiddenRef.current = chatHidden; }, [chatHidden]);
+  // Games with another player: the one I've asked for, the one I've been
+  // asked to, and the one being played. One at a time — anyone asking while
+  // I'm busy is turned down for me.
+  const [asking, setAsking] = useState<{ id: string; to: string; name: string; game: MatchGame } | null>(null);
+  const [invite, setInvite] = useState<{ id: string; from: string; name: string; game: MatchGame } | null>(null);
+  const [match, setMatch] = useState<Match | null>(null);
+  const busyRef = useRef({ asking, invite, match });
+  useEffect(() => { busyRef.current = { asking, invite, match }; }, [asking, invite, match]);
+  // A game's line through the connection, which plugs itself in while open.
+  const [bus] = useState(() => new MatchBus());
+  const link = useMemo<MatchLink | null>(() => match && bus.link(match), [match, bus]);
   // The latest of me, for the connection to announce.
   const meRef = useRef({ name: '', look: DEFAULT_LOOK });
   useEffect(() => {
@@ -281,8 +293,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen;
-  }, [paused, busTicket, focusOpen, playing, chatOpen]);
+    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen && !match;
+  }, [paused, busTicket, focusOpen, playing, chatOpen, match]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -390,17 +402,77 @@ export function GameWorld({
   useEffect(() => {
     if (!user) return;
     const live = new WorldLive({ id: user.id, ...meRef.current }, {
-      peer: (id, peer) => { scene()?.setPeer(id, peer); setOnline(live.count()); },
+      peer: (id, peer) => {
+        scene()?.setPeer(id, peer);
+        setOnline(live.count());
+        if (peer) return;
+        // Gone: so is any game with them.
+        const b = busyRef.current;
+        if (b.match?.peer.id === id) bus.deliver({ kind: 'left' });
+        if (b.invite?.from === id) setInvite(null);
+        if (b.asking?.to === id) setAsking(null);
+      },
       message: (m: LiveMessage) => {
+        const b = busyRef.current;
         if (m.kind === 'wave') scene()?.bubble(m.from, '👋');
         else if (m.kind === 'chat' && !chatHiddenRef.current) scene()?.bubble(m.from, m.text);
+        else if (m.kind === 'invite') {
+          const p = live.peer(m.from);
+          if (!p || b.asking || b.invite || b.match) live.send({ kind: 'reply', to: m.from, id: m.id, ok: false });
+          else setInvite({ id: m.id, from: m.from, name: p.name, game: m.game as MatchGame });
+        } else if (m.kind === 'reply') {
+          // From the one who asked me: they've called it off.
+          if (b.invite?.id === m.id && b.invite.from === m.from) { setInvite(null); return; }
+          if (b.asking?.id !== m.id || b.asking.to !== m.from) return;
+          const p = live.peer(m.from);
+          setAsking(null);
+          if (m.ok && p) setMatch({ id: m.id, game: b.asking.game, host: true, peer: { id: p.id, name: p.name, look: p.look } });
+          else scene()?.bubble(m.from, '🙅');
+        } else if (m.kind === 'play' && b.match?.id === m.id && b.match.peer.id === m.from) {
+          bus.deliver(m.data);
+        }
       },
     });
     live.connect();
     liveRef.current = live;
+    bus.plug(live);
     const beat = setInterval(() => live.heartbeat(), 2500);
-    return () => { clearInterval(beat); live.disconnect(); liveRef.current = null; };
-  }, [user]);
+    return () => { clearInterval(beat); live.disconnect(); liveRef.current = null; bus.plug(null); };
+  }, [user, bus]);
+  /** Ask someone to a game; they have half a minute to answer. */
+  const askToPlay = (to: string, name: string, game: MatchGame) => {
+    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    liveRef.current?.send({ kind: 'invite', to, game, id });
+    setAsking({ id, to, name, game });
+    setPeerCard(null);
+  };
+  const cancelAsking = () => {
+    if (asking) liveRef.current?.send({ kind: 'reply', to: asking.to, id: asking.id, ok: false });
+    setAsking(null);
+  };
+  const answerInvite = (ok: boolean) => {
+    if (!invite) return;
+    liveRef.current?.send({ kind: 'reply', to: invite.from, id: invite.id, ok });
+    const p = liveRef.current?.peer(invite.from);
+    if (ok && p) { setPlaying(null); setMatch({ id: invite.id, game: invite.game, host: false, peer: { id: p.id, name: p.name, look: p.look } }); }
+    setInvite(null);
+  };
+  const endMatch = () => { link?.send({ kind: 'left' }); setMatch(null); };
+  // Unanswered for half a minute: it's a no.
+  const answerInviteRef = useRef(answerInvite);
+  const cancelAskingRef = useRef(cancelAsking);
+  useEffect(() => { answerInviteRef.current = answerInvite; cancelAskingRef.current = cancelAsking; });
+  useEffect(() => {
+    if (!invite) return;
+    const t = setTimeout(() => answerInviteRef.current(false), 30000);
+    return () => clearTimeout(t);
+  }, [invite]);
+  useEffect(() => {
+    if (!asking) return;
+    const t = setTimeout(() => cancelAskingRef.current(), 30000);
+    return () => clearTimeout(t);
+  }, [asking]);
+
   const sendChat = () => {
     const text = chatText.trim();
     if (!text) return;
@@ -614,10 +686,15 @@ export function GameWorld({
             </PixelButton>
           )}
           {/* The shared world: who's here, and the chat bar. */}
-          {user && (
+          {user ? (
             <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-1.5 !text-[13px] px-num">
               💬 {online}
             </PixelButton>
+          ) : (
+            // Signed out, you're on your own: say why, and where to sign in.
+            <Link to="/login" title={intl.formatMessage({ id: 'world.liveSignIn' })} className="px-btn px-notch px-title !text-[13px] px-2.5 py-1.5 inline-flex items-center" data-tone="paper">
+              💬
+            </Link>
           )}
           <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton
@@ -782,6 +859,14 @@ export function GameWorld({
       {/* ── Another player, tapped: wave, or block. ── */}
       {!panel && peerCard && (
         <WorldCard emoji="👤" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
+          <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'duel')} className="!px-2 !text-[13px]">
+              ⚔️ <FormattedMessage id="world.duelTitle" />
+            </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'race')} className="!px-2 !text-[13px]">
+              🚆 <FormattedMessage id="world.raceTitle" />
+            </PixelButton>
+          </div>
           <div className="grid grid-cols-3 gap-1.5">
             <PixelButton tone="gold" onClick={() => { liveRef.current?.send({ kind: 'wave', to: peerCard.id }); scene()?.bubble(null, '👋'); setPeerCard(null); }} className="!px-2 !text-[13px]">
               👋 <FormattedMessage id="world.liveWave" />
@@ -795,6 +880,23 @@ export function GameWorld({
           </div>
         </WorldCard>
       )}
+
+      {/* ── Games with another player: asking, being asked, and playing. ── */}
+      {!panel && asking && !match && (
+        <WorldCard emoji="⏳" title={asking.name} subtitle={<FormattedMessage id="world.liveAsking" values={{ game: asking.game }} />}>
+          <PixelButton tone="paper" block onClick={cancelAsking}><FormattedMessage id="world.liveCancel" /></PixelButton>
+        </WorldCard>
+      )}
+      {!panel && invite && !match && (
+        <WorldCard emoji={invite.game === 'duel' ? '⚔️' : '🚆'} title={invite.name} subtitle={<FormattedMessage id="world.liveInvite" values={{ game: invite.game }} />}>
+          <div className="grid grid-cols-2 gap-1.5">
+            <PixelButton tone="jade" onClick={() => answerInvite(true)} className="!text-[13px]"><FormattedMessage id="world.play" /></PixelButton>
+            <PixelButton tone="paper" onClick={() => answerInvite(false)} className="!text-[13px]"><FormattedMessage id="world.busNotNow" /></PixelButton>
+          </div>
+        </WorldCard>
+      )}
+      {link?.game === 'duel' && <WordDuel key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'race' && <TypeRace key={link.id} versus={link} onClose={endMatch} />}
 
       {/* ── The chat bar ── */}
       {!panel && chatOpen && (

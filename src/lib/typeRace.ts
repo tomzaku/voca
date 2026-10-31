@@ -44,3 +44,10 @@ export function playerProgress(words: string[], done: number, typed: string): nu
 export function accuracy(right: number, total: number): number {
   return total ? Math.round((right / total) * 100) : 100;
 }
+
+/** A race's words as the other player sent them, or null if they're not:
+ *  plain words only, as raceWords picks them. */
+export function parseRaceWords(raw: unknown): string[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 40) return null;
+  return raw.every((w) => typeof w === 'string' && /^[a-z][a-z'-]{1,13}$/.test(w)) ? (raw as string[]) : null;
+}

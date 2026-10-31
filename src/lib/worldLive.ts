@@ -23,6 +23,20 @@ export type LiveMessage =
   | { kind: 'reply'; from: string; to: string; id: string; ok: boolean }
   | { kind: 'play'; from: string; to: string; id: string; data: Record<string, unknown> };
 
+/** The games two players can play together. */
+export type MatchGame = 'duel' | 'race';
+export const MATCH_GAMES: MatchGame[] = ['duel', 'race'];
+
+/** Two players in a game: its id, which game, whether I asked (the host
+ *  sets the game up), and who's on the other side. */
+export interface Match { id: string; game: MatchGame; host: boolean; peer: { id: string; name: string; look: Look } }
+
+/** A game's line to the other player: `play` messages for this match only. */
+export interface MatchLink extends Match {
+  send: (data: Record<string, unknown>) => void;
+  listen: (cb: (data: Record<string, unknown>) => void) => () => void;
+}
+
 /** A message as sent: the connection adds who it's from. */
 export type Outgoing = LiveMessage extends infer M ? (M extends LiveMessage ? Omit<M, 'from'> : never) : never;
 
@@ -93,7 +107,12 @@ export class WorldLive {
       if (!m || this.blocked.has(m.from) || !this.peers.has(m.from)) return;
       if ('to' in m && m.to && m.to !== this.me.id && m.kind !== 'wave') return;
       if (m.kind === 'chat') this.on.message({ ...m, text: cleanChat(String(m.text ?? '')) });
-      else this.on.message(m);
+      else if (m.kind === 'wave') this.on.message(m);
+      // Games: only ones we know, with an id that's a plain short string.
+      else if (typeof m.id !== 'string' || m.id.length > 40) return;
+      else if (m.kind === 'invite') { if (MATCH_GAMES.includes(m.game as MatchGame)) this.on.message(m); }
+      else if (m.kind === 'reply') this.on.message({ ...m, ok: m.ok === true });
+      else if (m.kind === 'play' && m.data && typeof m.data === 'object') this.on.message(m);
     });
     ch.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -156,4 +175,23 @@ export class WorldLive {
 
   peer(id: string) { return this.peers.get(id); }
   count() { return this.peers.size; }
+}
+
+/** Games' lines through the connection: who's listening for the game being
+ *  played, and the connection to send on while there is one. */
+export class MatchBus {
+  private listeners = new Set<(d: Record<string, unknown>) => void>();
+  private live: WorldLive | null = null;
+
+  plug(live: WorldLive | null) { this.live = live; }
+
+  link(match: Match): MatchLink {
+    return {
+      ...match,
+      send: (data) => this.live?.send({ kind: 'play', to: match.peer.id, id: match.id, data }),
+      listen: (cb) => { this.listeners.add(cb); return () => { this.listeners.delete(cb); }; },
+    };
+  }
+
+  deliver(d: Record<string, unknown>) { this.listeners.forEach((cb) => cb(d)); }
 }

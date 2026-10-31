@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accuracy, playerProgress, raceLength, raceWords, trainProgress, wpm } from './typeRace';
+import { accuracy, parseRaceWords, playerProgress, raceLength, raceWords, trainProgress, wpm } from './typeRace';
 
 describe('raceWords', () => {
   it('keeps plain words, once each, as many as asked', () => {
@@ -32,5 +32,14 @@ describe('speed and progress', () => {
   it('writes accuracy as a whole percent', () => {
     expect(accuracy(9, 10)).toBe(90);
     expect(accuracy(0, 0)).toBe(100);
+  });
+});
+
+describe('parseRaceWords', () => {
+  it('takes plain words, and nothing else', () => {
+    expect(parseRaceWords(['calm', "don't"])).toEqual(['calm', "don't"]);
+    expect(parseRaceWords([])).toBeNull();
+    expect(parseRaceWords(['calm', '<b>'])).toBeNull();
+    expect(parseRaceWords('calm')).toBeNull();
   });
 });
