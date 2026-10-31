@@ -94,8 +94,9 @@ export function drawParks() {
     }
   }
 
-  // A plank footbridge carries the north park's path over the Đông Ba canal.
-  plankDeck(80, 53, 4, 2, true);
+  // A plank footbridge carries the north park's path over the Đông Ba canal —
+  // about as wide as the path, centred where it crosses (row ~54.1).
+  plankDeck(80, 53.5, 4, 1.25, true);
 
   // Cầu bán nguyệt: the half-moon bridge, seen side-on from the river — a
   // steep stone arch over the pond, the deck and its balustrade riding high

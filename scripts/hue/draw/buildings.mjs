@@ -80,9 +80,11 @@ export function palace({ w, h, roofPal, wall, pillar }) {
   return cv;
 }
 
-/** Planks over water, laid across the direction of travel. */
+/** Planks over water, laid across the direction of travel. `ty`/`th` may be
+ *  fractional so a narrow footbridge can sit on its path; every tile it
+ *  touches stays walkable. */
 export function plankDeck(tx, ty, tw, th, horizontal = false) {
-  const x0 = tx * T, y0 = ty * T, x1 = (tx + tw) * T, y1 = (ty + th) * T;
+  const x0 = Math.round(tx * T), y0 = Math.round(ty * T), x1 = Math.round((tx + tw) * T), y1 = Math.round((ty + th) * T);
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
       const edge = horizontal ? (y === y0 || y === y1 - 1) : (x === x0 || x === x1 - 1);
@@ -91,7 +93,8 @@ export function plankDeck(tx, ty, tw, th, horizontal = false) {
     }
   }
   for (let y = y0; y < y1; y++) ground.set(x1, y + 2, P.shadow, 0.3);
-  mark(deck, tx, ty, tw, th);
+  const mx = Math.floor(tx), my = Math.floor(ty);
+  mark(deck, mx, my, Math.ceil(tx + tw) - mx, Math.ceil(ty + th) - my);
 }
 
 /** A short stone causeway over a moat or canal. */
