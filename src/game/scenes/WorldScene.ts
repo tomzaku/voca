@@ -44,6 +44,8 @@ export interface WorldProgress {
 }
 
 const SPEED = 360;      // buddy speed, px/s
+/** Every player's buddy, yours and others', is drawn at one size. */
+const PLAYER_SCALE = 1.3;
 const BUS_SPEED = 520;   // the bus, px/s
 const REACH = 110;      // distance at which a building "opens"
 const PLACE_REACH = 170; // a named place lights up, and tells its story, from a little further
@@ -1100,9 +1102,13 @@ export class WorldScene extends Phaser.Scene {
     // Container origin = the buddy's feet.
     this.buddy = this.add.container(spawn.x, spawn.y).setDepth(DEPTH_BUDDY);
     this.buddy.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.28));
-    // Pixel-art layers, scaled up; the buddy grows a little per stage.
-    this.sprite = new Dressed(this, 0, 2, this.args.dress)
-      .setScale(this.spec.baseScale * (1.3 + this.args.stage * 0.1));
+    // Which one is you, among other players the same size: a soft white ring
+    // at your feet, breathing slowly.
+    const ring = this.add.ellipse(0, 2, 34, 12, 0xffffff, 0.16).setStrokeStyle(2.5, 0xffffff, 1);
+    this.buddy.add(ring);
+    this.tweens.add({ targets: ring, scale: { from: 0.9, to: 1.2 }, alpha: { from: 1, to: 0.45 }, duration: 1100, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    // Pixel-art layers, scaled up — the size every player is drawn at.
+    this.sprite = new Dressed(this, 0, 2, this.args.dress).setScale(this.spec.baseScale * PLAYER_SCALE);
     this.buddy.add(this.sprite);
     this.buddy.add(this.nameText(this.args.buddyName, 6, 10, this.pal.textCss));
   }
@@ -1184,7 +1190,7 @@ export class WorldScene extends Phaser.Scene {
     this.rideImage = undefined;
     this.rideFront = undefined;
     this.driver = undefined;
-    const scale = this.spec.baseScale * (1.3 + this.args.stage * 0.1);
+    const scale = this.spec.baseScale * PLAYER_SCALE;
     if (ride === 'walk') {
       this.sprite.setPosition(0, 2);
       return;
@@ -1231,7 +1237,7 @@ export class WorldScene extends Phaser.Scene {
     if (!o) {
       const rig = this.add.container(peer.x, peer.y).setDepth(DEPTH_BUDDY - 0.5);
       rig.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.22));
-      const sprite = new Dressed(this, 0, 2, peer.look).setScale(this.spec.baseScale * 1.3);
+      const sprite = new Dressed(this, 0, 2, peer.look).setScale(this.spec.baseScale * PLAYER_SCALE);
       const label = this.nameText(peer.name, 6, 10, '#cfe8ff');
       rig.add([sprite, label]);
       o = { rig, sprite, label, tx: peer.x, ty: peer.y, facing: peer.facing, moving: peer.moving, lookKey: JSON.stringify(peer.look) };
