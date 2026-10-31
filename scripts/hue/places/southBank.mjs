@@ -3,15 +3,16 @@
 
 import { Canvas, hash, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
-import { ground, mark, place, solid, used } from '../core/world.mjs';
+import { drawn, ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, facade, hall, palace, roof } from '../draw/buildings.mjs';
+import { K, parterre } from '../hd/art.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
   { text: 'Ga Huế', x: 27.5, y: 68.5, place: 'gaHue' },
   { text: 'Trường Quốc Học', x: 41, y: 67.5, place: 'quocHoc' },
-  { text: 'Cung An Định', x: 92, y: 73.5, place: 'anDinh' },
+  { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
   { text: 'Vỹ Dạ', x: 108, y: 61, place: 'vyDa', theme: 'forest', anchor: 'left' },
   { text: 'Ngự Bình', x: 52, y: 91.6, place: 'nguBinh', theme: 'forest', anchor: 'left' },
 ];
@@ -72,11 +73,30 @@ export function drawSouthBank() {
   // Shophouses east of Hùng Vương, the old Phố Tây.
   for (const [x, pal] of [[71, ROOF.terra], [76, ROOF.dark], [81, ROOF.plum]]) place(HOUSE(pal, [222, 206, 176]), x, 71, 2);
 
-  // Cung An Định: the European-style palace on the An Cựu canal.
+  // Cung An Định: the European-style palace on the An Cựu canal, with a knot
+  // garden behind it, off Lê Lợi, and another in front running down to the
+  // water. A gravel walk runs through each on the palace's axis; the hedges
+  // block, the walks and the gravel by the canal don't.
   {
+    const knot = (ty, h, bedRows) => {
+      const art = parterre(10 * T * K, h * K, { top: 0, bottom: bedRows * T * K, walk: 2 * T * K });
+      for (let y = 0; y < h; y++) for (let x = 0; x < 10 * T; x++) {
+        const s = [0, 0, 0];
+        for (let k = 0; k < 4; k++) {
+          const i = ((y * K + (k >> 1)) * art.w + x * K + (k & 1)) * 4;
+          for (let c = 0; c < 3; c++) s[c] += art.d[i + c] / 4;
+        }
+        ground.set(87 * T + x, ty * T + y, s);
+      }
+      drawn.push({ type: 'parterre', art, x: 87 * T, y: ty * T, w: 10 * T, h });
+      mark(used, 86, ty, 12, Math.ceil(h / T));
+      for (const tx of [87, 93]) mark(solid, tx, ty, 4, bedRows);
+    };
+    knot(67, 3 * T, 2);                    // behind, between the street and the palace
+    knot(75, 3 * T + 3, 2);                // in front, down to the canal
     const cv = palace({ w: 8, h: 5, roofPal: ROOF.slate, wall: [234, 220, 190], pillar: [196, 172, 120] });
     cv.spec = { kind: 'anDinh' };
-    place(cv, 88, 73, 3);
+    place(cv, 88, 70, 3);
   }
 
 

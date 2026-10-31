@@ -183,6 +183,9 @@ export function renderDetail(write) {
       } else if (e.type === 'paddy') {
         if (!inside(e, e.w, e.h)) continue;
         redraw.push({ e, art: paddy(e.w * K, e.h * K, e.stage), bottom: e.y - 1500, overTo: 0 });
+      } else if (e.type === 'parterre') {
+        if (!inside(e, e.w, e.h)) continue;
+        redraw.push({ e, art: e.art, bottom: e.y - 1500, overTo: 0 });
       } else if (e.type === 'ladder') {
         if (!inside(e, 16, 24)) continue;
         ladderTiles.push(e);

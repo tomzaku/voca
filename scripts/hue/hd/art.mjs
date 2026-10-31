@@ -564,6 +564,84 @@ export function fountain() {
   return cv;
 }
 
+/** A knot garden, `w × h` detail px, like Cung An Định's: low clipped
+ *  hedges starred with white periwinkle, in loops that interlock, two beds
+ *  mirrored either side of a gravel walk `walk` px wide. The beds fill rows
+ *  `top` to `bottom`; the rest is gravel, worn green in patches. The map draws
+ *  it at half size (places/southBank.mjs), so both come from this one. */
+export function parterre(w, h, { top, bottom, walk }) {
+  const cv = new Canvas(w, h);
+  const cx = w / 2, bh = bottom - top, bw = (w - walk) / 2 - 6;
+  const ring = (d, hw) => Math.abs(d) < hw;
+  // Distance to a rounded box of half-size (ax, ay), corner radius r.
+  const box = (x, y, ax, ay, r) => {
+    const qx = Math.abs(x) - ax + r, qy = Math.abs(y) - ay + r;
+    return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+  };
+  const hedgeAt = (x, y) => {
+    if (y < top || y >= bottom) return false;
+    const side = x < cx ? -1 : 1;
+    const ux = cx + side * (walk / 2 + 3 + bw / 2), uy = top + bh / 2;
+    const px = (x + 0.5 - ux) * side, py = y + 0.5 - uy;   // mirrored: +x points away from the walk
+    if (Math.abs(px) > bw / 2 || Math.abs(py) > bh / 2) return false;
+    // A gap in the border facing the walk, the way in.
+    if (px < -bw / 2 + 8 && Math.abs(py) < 6) return false;
+    const hw = 4.5;
+    if (ring(box(px, py, bw / 2 - 4, bh / 2 - 4, 10), hw)) return true;
+    if (ring(box(px, py, bw * 0.13, bh * 0.16, 6), hw)) return true;
+    const lr = Math.min(bw * 0.2, bh * 0.28);
+    for (const [lx, ly] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      if (ring(Math.hypot(px - lx * bw * 0.27, py - ly * bh * 0.22) - lr, hw)) return true;
+    }
+    return false;
+  };
+  const m = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) m[y * w + x] = hedgeAt(x, y) ? 1 : 0;
+  const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && m[y * w + x];
+
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let c;
+    if (at(x, y)) {
+      // A hedge 3px tall: its lit top, then the shaded face where it ends.
+      const face = !at(x, y + 1) || !at(x, y + 2) || !at(x, y + 3);
+      const n = noise(x, y, 3);
+      c = face ? mix([54, 96, 50], [44, 80, 44], n) : mix([86, 138, 66], [104, 156, 76], n);
+      if (!face && !at(x, y - 1)) c = [126, 176, 90];
+      if (!face && hash(x, y) < 0.07) c = [246, 246, 238];
+      else if (face && hash(x, y) < 0.03) c = [226, 228, 220];
+    } else {
+      const n = noise(x, y, 8);
+      c = mix([216, 202, 172], [196, 180, 150], n);
+      const h1 = hash(x, y);
+      if (h1 < 0.08) c = [234, 224, 202];
+      else if (h1 < 0.13) c = [170, 154, 126];
+      // Grass growing through, thickest away from the walk's centre.
+      if (noise(x + 40, y, 12) > 0.74 && Math.abs(x - cx) > walk / 2 - 2) c = mix(c, [118, 164, 80], 0.75);
+      if (at(x, y - 1) || at(x, y - 2) || at(x - 1, y - 3)) c = mix(c, [0, 0, 0], 0.22);   // the hedge's shadow
+    }
+    cv.set(x, y, c);
+  }
+  // A stone kerb round the gravel.
+  for (let x = 0; x < w; x++) { cv.set(x, 0, [184, 176, 160]); cv.set(x, h - 1, [150, 142, 126]); }
+  for (let y = 0; y < h; y++) { cv.set(0, y, [184, 176, 160]); cv.set(w - 1, y, [150, 142, 126]); }
+  // Shrubs left to grow loose in the heart of each bed and in two of its
+  // loops, as there.
+  const shrub = (sx, sy, r) => {
+    cv.ellipse(sx + 1, sy + r - 1, r + 1, 3, [0, 0, 0], 0.25);
+    disc(cv, sx, sy, r, [70, 118, 56]);
+    disc(cv, sx - r / 4, sy - r / 4, r * 0.75, [96, 148, 70]);
+    disc(cv, sx - r / 3, sy - r / 2, r * 0.4, [132, 184, 96]);
+    for (let i = 0; i < r; i++) cv.set(sx - r * 0.6 + hash(i, sx) * r * 1.2, sy - r * 0.6 + hash(sx, i) * r * 1.1, [246, 246, 238]);
+  };
+  for (const side of [-1, 1]) {
+    const sx = cx + side * (walk / 2 + 3 + bw / 2), sy = top + bh / 2;
+    shrub(sx, sy - 1, 8);
+    shrub(sx + side * bw * 0.27, sy - bh * 0.22, 5);
+    shrub(sx - side * bw * 0.27, sy + bh * 0.22, 5);
+  }
+  return cv;
+}
+
 /** Cầu đi bộ gỗ lim: ironwood planks across, a railing of posts and a rail
  *  along both edges. `w, h` in detail px. */
 export function boardwalk(w, h) {
