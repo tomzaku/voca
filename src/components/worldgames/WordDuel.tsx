@@ -3,14 +3,13 @@ import { FormattedMessage } from 'react-intl';
 import { useCompanion } from '../../hooks/useCompanion';
 import { useMatch } from '../../hooks/useMatch';
 import { DEFAULT_LOOK } from '../../game/wardrobe';
-import { buildMcq, loadQuizData, shuffle } from '../../lib/quizEngine';
-import { WORD_LIST } from '../../lib/wordService';
 import { DUEL_QUESTIONS, DUEL_SECONDS, duelPoints, duelResult, parseQuestions, type DuelQuestion } from '../../lib/wordDuel';
 import type { MatchLink } from '../../lib/worldLive';
 import { playCorrect, playWin, playWrong } from '../../lib/sfx';
 import { LookSprite } from './LookSprite';
 import { PixelButton, PixelIcon, PixelLoader } from './pixel';
 import { useWorld } from './world';
+import { duelQuestions } from './duelQuestions';
 
 // A word duel with another player in Huế: the same definitions for both, four
 // words to pick from, answered at your own pace with the scores side by side
@@ -26,19 +25,7 @@ export function WordDuel({ link, onClose }: { link: MatchLink; onClose: () => vo
   const [turn, setTurn] = useState<Turn | null>(null);
   const { start: questions, left } = useMatch<DuelQuestion[]>(
     link,
-    async () => {
-      // A few spare words, as not every word has a definition to ask.
-      const pool = shuffle(wordPool.length >= DUEL_QUESTIONS ? wordPool : WORD_LIST.map((w) => w.word)).slice(0, DUEL_QUESTIONS * 2);
-      const { dataMap } = await loadQuizData(pool);
-      const all = WORD_LIST.map((w) => w.word);
-      const qs = pool
-        .map((w) => dataMap[w] && buildMcq('definition', w, dataMap[w], shuffle(all.filter((x) => x !== w)).slice(0, 3)))
-        .filter((q) => !!q)
-        .slice(0, DUEL_QUESTIONS)
-        .map((q) => ({ word: q.word, prompt: q.prompt, options: q.options }));
-      if (qs.length < 3) throw new Error('not enough questions');
-      return qs;
-    },
+    () => duelQuestions(wordPool, DUEL_QUESTIONS),
     parseQuestions,
     (d) => {
       if (d.kind === 'score' && Number.isFinite(d.score) && Number.isFinite(d.answered)) {
