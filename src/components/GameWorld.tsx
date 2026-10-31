@@ -615,7 +615,7 @@ export function GameWorld({
       {/* Local development only: the position readout, in the map generator's
           tiles, for saying exactly where something on the map is wrong. */}
       {import.meta.env.DEV && debugPos && (
-        <div className="absolute bottom-2 left-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white">
+        <div className="absolute bottom-14 left-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white">
           you {debugPos.buddy.join(', ')}
           {debugPos.cursor && <> · cursor {debugPos.cursor.join(', ')}</>}
           <span className="text-white/50"> · P logs it</span>
@@ -685,25 +685,21 @@ export function GameWorld({
       {!panel && (
         <div className="px absolute top-2 right-2 z-20 flex items-center gap-2">
           {user && !animalId && (
-            <Link to="/companion" className="px-btn px-notch px-title !text-[13px] px-3 py-2 inline-flex items-center gap-1.5" data-tone="gold">
+            <Link to="/companion" className="px-btn px-notch px-title !text-[13px] px-3 h-[2.6rem] inline-flex items-center gap-1.5" data-tone="gold">
               <PixelIcon name="paw" size={2} /> <FormattedMessage id="world.chooseBuddy" />
             </Link>
           )}
           {/* The focus timer, while it runs: its time, and back to it. */}
           {focusTimer.running && !focusOpen && (
-            <PixelButton tone="paper" onClick={() => setFocusOpen(true)} title={intl.formatMessage({ id: 'world.focusTitle' })} className="!px-2.5 !py-1.5 !text-[13px] px-num">
+            <PixelButton tone="paper" onClick={() => setFocusOpen(true)} title={intl.formatMessage({ id: 'world.focusTitle' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num">
               🧘 {clock(focusTimer.mode === 'pomodoro' ? secondsLeft(focusTimer, focusNow) : secondsCounted(focusTimer, focusNow))}
             </PixelButton>
           )}
-          {/* The shared world: who's here, and the chat bar. */}
-          {user ? (
-            <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-1.5 !text-[13px] px-num">
-              💬 {online}
-            </PixelButton>
-          ) : (
-            // Signed out, you're on your own: say so, plainly, and sign in from
-            // here — Google brings you straight back to the world.
-            <PixelButton tone="gold" onClick={() => void signInWithGoogle()} title={intl.formatMessage({ id: 'world.liveSignIn' })} className="!px-2.5 !py-1.5 !text-[13px]">
+          {/* Signed out, you're on your own: say so, plainly, and sign in from
+              here — Google brings you straight back to the world. (Signed in,
+              the chat sits at the bottom left.) */}
+          {!user && (
+            <PixelButton tone="gold" onClick={() => void signInWithGoogle()} title={intl.formatMessage({ id: 'world.liveSignIn' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px]">
               👥 <span className="hidden sm:inline"><FormattedMessage id="world.liveSignInButton" /></span>
               <span className="sm:hidden"><FormattedMessage id="world.liveSignInShort" /></span>
             </PixelButton>
@@ -714,7 +710,7 @@ export function GameWorld({
             onClick={() => { setPlaceToast(null); setDrawerOpen((o) => !o); }}
             title={intl.formatMessage({ id: 'world.fastTravel' })}
             aria-label={intl.formatMessage({ id: 'world.fastTravel' })}
-            className="!px-3 !py-2"
+            className="!px-3 !py-0 !h-[2.6rem]"
           >
             <PixelIcon name="compass" size={2} />
             <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
@@ -908,22 +904,29 @@ export function GameWorld({
       {link?.game === 'duel' && <WordDuel key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'race' && <TypeRace key={link.id} versus={link} onClose={endMatch} />}
 
-      {/* ── The chat bar ── */}
-      {!panel && chatOpen && (
-        <div className="px absolute left-1/2 -translate-x-1/2 bottom-2 z-30 w-[min(94%,460px)] px-notch px-frame p-2 flex gap-1.5 px-in-up" onKeyDown={(e) => e.stopPropagation()}>
-          <input
-            autoFocus
-            value={chatText}
-            maxLength={120}
-            onChange={(e) => setChatText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') sendChat(); if (e.key === 'Escape') setChatOpen(false); }}
-            placeholder={intl.formatMessage({ id: 'world.liveSay' })}
-            className="px-inset px-notch flex-1 min-w-0 px-3 py-2 text-[14px] bg-transparent outline-none"
-          />
-          <PixelButton tone="jade" onClick={sendChat} className="!px-3 !text-[13px]"><FormattedMessage id="world.liveSend" /></PixelButton>
-          <PixelButton tone="paper" onClick={() => setChatHidden((h) => !h)} title={intl.formatMessage({ id: chatHidden ? 'world.liveShowChat' : 'world.liveHideChat' })} className="!px-2.5 !text-[13px]">
-            {chatHidden ? '🔕' : '🔔'}
+      {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
+      {!panel && user && (
+        <div className="px absolute left-2 bottom-2 z-30 flex items-end gap-1.5 w-[calc(100%-5rem)] max-w-[520px] pointer-events-none">
+          <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num shrink-0 pointer-events-auto">
+            💬 {online}
           </PixelButton>
+          {chatOpen && (
+            <div className="flex-1 min-w-0 h-[2.6rem] px-notch px-frame p-1 flex gap-1 px-in-up pointer-events-auto" onKeyDown={(e) => e.stopPropagation()}>
+              <input
+                autoFocus
+                value={chatText}
+                maxLength={120}
+                onChange={(e) => setChatText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') sendChat(); if (e.key === 'Escape') setChatOpen(false); }}
+                placeholder={intl.formatMessage({ id: 'world.liveSay' })}
+                className="px-inset px-notch flex-1 min-w-0 px-3 text-[14px] bg-transparent outline-none"
+              />
+              <PixelButton tone="jade" onClick={sendChat} className="!px-3 !py-0 !text-[13px]"><FormattedMessage id="world.liveSend" /></PixelButton>
+              <PixelButton tone="paper" onClick={() => setChatHidden((h) => !h)} title={intl.formatMessage({ id: chatHidden ? 'world.liveShowChat' : 'world.liveHideChat' })} className="!px-2.5 !py-0 !text-[13px]">
+                {chatHidden ? '🔕' : '🔔'}
+              </PixelButton>
+            </div>
+          )}
         </div>
       )}
 
