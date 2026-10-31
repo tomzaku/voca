@@ -35,9 +35,12 @@ import { TypeRace } from './worldgames/TypeRace';
 import { WordDuel } from './worldgames/WordDuel';
 import { TalkCall } from './worldgames/TalkCall';
 import { WordCaro } from './worldgames/WordCaro';
+import { CARO_BIG } from '../lib/wordCaro';
 import { WordChain } from './worldgames/WordChain';
 import { OAnQuan } from './worldgames/OAnQuan';
 import { Poker } from './worldgames/Poker';
+import { MemoryMatch } from './worldgames/MemoryMatch';
+import { TienLen } from './worldgames/TienLen';
 import { ChessMatch } from './worldgames/ChessMatch';
 import { Fishing } from './worldgames/Fishing';
 import { useFocus } from '../hooks/useFocus';
@@ -130,7 +133,7 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 }
 
 /** Each thing two players can do together, by its mark. */
-const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight' };
+const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan' };
 
 /** One group on a player's card: a small heading over its buttons. */
 function PeerSection({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -1026,6 +1029,15 @@ export function GameWorld({
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'caro')} className="!px-2 !text-[13px]">
               <PixelIcon name="grid" size={2} /> <FormattedMessage id="world.caroTitle" />
             </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'caro7')} className="!px-2 !text-[13px]">
+              <PixelIcon name="grid" size={2} /> <FormattedMessage id="world.caroBigTitle" />
+            </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'memory')} className="!px-2 !text-[13px]">
+              <PixelIcon name="memory" size={2} /> <FormattedMessage id="world.memoryTitle" />
+            </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'tienlen')} className="!px-2 !text-[13px]">
+              <PixelIcon name="fan" size={2} /> <FormattedMessage id="world.tlTitle" />
+            </PixelButton>
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'chain')} className="!px-2 !text-[13px]">
               <PixelIcon name="link" size={2} /> <FormattedMessage id="world.chainTitle" />
             </PixelButton>
@@ -1079,6 +1091,9 @@ export function GameWorld({
       {link?.game === 'race' && <TypeRace key={link.id} versus={link} onClose={endMatch} />}
       {link?.game === 'talk' && <TalkCall key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'caro' && <WordCaro key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'caro7' && <WordCaro key={link.id} link={link} onClose={endMatch} board={CARO_BIG} />}
+      {link?.game === 'memory' && <MemoryMatch key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'tienlen' && <TienLen key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'chain' && <WordChain key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'oan' && <OAnQuan key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'poker' && <Poker key={link.id} link={link} onClose={endMatch} />}

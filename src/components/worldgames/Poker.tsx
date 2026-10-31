@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useMatch } from '../../hooks/useMatch';
-import { act, bestHand, dealHand, legal, newGame, parseView, viewFor, type Card, type PokerAction, type PokerState, type PokerView, type Seat } from '../../lib/poker';
+import { act, bestHand, dealHand, legal, newGame, parseView, viewFor, type PokerAction, type PokerState, type PokerView, type Seat } from '../../lib/poker';
 import { playWin } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
 import { MatchWindow } from './MatchWindow';
+import { PlayingCard } from './PlayingCard';
 import { PixelButton } from './pixel';
 
 // Heads-up Texas Hold'em with another player, for play chips (lib/poker).
@@ -14,28 +15,6 @@ import { PixelButton } from './pixel';
 // cards come out — a little English on the way.
 
 const NEXT_HAND_MS = 4000;
-const SUIT: Record<string, { glyph: string; red: boolean }> = {
-  // The text presentation selector, so no platform draws them as emoji.
-  s: { glyph: '♠︎', red: false }, h: { glyph: '♥︎', red: true },
-  d: { glyph: '♦︎', red: true }, c: { glyph: '♣︎', red: false },
-};
-
-function PlayingCard({ card, faded }: { card?: Card; faded?: boolean }) {
-  const box = 'w-11 h-[3.75rem] sm:w-12 sm:h-16 px-notch shrink-0 shadow-[2px_2px_0_#0006]';
-  if (!card) {
-    return (
-      <span className={`${box} border-2 border-[#5b1f1a] bg-[repeating-linear-gradient(45deg,#a8352c_0_4px,#8a2a22_4px_8px)]`} aria-hidden />
-    );
-  }
-  const suit = SUIT[card[1]];
-  return (
-    <span className={`${box} bg-[#f6f0e2] border-2 border-[#2b1a10] flex flex-col items-center justify-center leading-none ${faded ? 'opacity-50' : ''}`} style={{ color: suit.red ? '#b3261e' : '#1c1c22' }}>
-      <span className="px-title !text-[17px]">{card[0] === 'T' ? '10' : card[0]}</span>
-      <span className="text-[20px]">{suit.glyph}</span>
-    </span>
-  );
-}
-
 /** A pile of chips on the table, and how many. */
 function Chips({ n }: { n: number }) {
   if (n <= 0) return <span className="h-5" />;

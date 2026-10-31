@@ -20,9 +20,10 @@ export function duelResult(me: number, them: number): 'won' | 'lost' | 'draw' {
 }
 
 /** The questions as the other player sent them, or null if they're not
- *  questions: each a prompt and two to six options, the word among them. */
-export function parseQuestions(raw: unknown): DuelQuestion[] | null {
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 12) return null;
+ *  questions: each a prompt and two to six options, the word among them —
+ *  no more than `max` (Word Caro's big board sends more than a duel). */
+export function parseQuestions(raw: unknown, max = 12): DuelQuestion[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > max) return null;
   const out: DuelQuestion[] = [];
   for (const q of raw) {
     const { word, prompt, options } = (q ?? {}) as Record<string, unknown>;

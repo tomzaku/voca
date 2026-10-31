@@ -17,3 +17,20 @@ export async function duelQuestions(wordPool: string[], count: number): Promise<
   if (qs.length < 3) throw new Error('not enough questions');
   return qs;
 }
+
+/** Words with a short meaning each, for Memory Match — from the host's own
+ *  words where there are enough, the meaning kept to a card's worth. */
+export async function memoryWords(wordPool: string[], count: number): Promise<{ word: string; meaning: string }[]> {
+  const pool = shuffle(wordPool.length >= count ? wordPool : WORD_LIST.map((w) => w.word)).slice(0, count * 2);
+  const { dataMap } = await loadQuizData(pool);
+  const out = pool
+    .map((w) => {
+      const d = dataMap[w];
+      const meaning = (d?.definition ?? '').replace(/\s+/g, ' ').trim();
+      return meaning ? { word: w, meaning: meaning.length > 70 ? `${meaning.slice(0, 67).trimEnd()}…` : meaning } : null;
+    })
+    .filter((x): x is { word: string; meaning: string } => !!x)
+    .slice(0, count);
+  if (out.length < 4) throw new Error('not enough words');
+  return out;
+}

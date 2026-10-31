@@ -2,8 +2,9 @@
 // by answering its word question. On your turn you pick an open square and
 // get the next question (a definition, four words); answer right and the
 // square is yours, wrong — or too late — and it stays open. The turn passes
-// either way. Three in a row wins; a full board, or running out of
-// questions, goes to whoever holds more squares.
+// either way. Three in a row wins (five on the big 7×7 board, cờ caro as
+// it's usually played); a full board, or too many moves, goes to whoever
+// holds more squares. On the big board the questions come round again.
 //
 // Both players replay the same moves through these functions, so the board
 // can't drift apart: a move is only a square and the word picked.
@@ -15,6 +16,12 @@ export const CARO_LINE = 3;
 export const CARO_SECONDS = 15;
 /** Questions the host sends: enough for a board answered badly. */
 export const CARO_QUESTIONS = 12;
+
+/** A board: its size, the line that wins, the questions sent, and the most
+ *  moves before it's decided on squares held. */
+export interface CaroBoard { size: number; line: number; questions: number; maxMoves: number }
+export const CARO_SMALL: CaroBoard = { size: 3, line: 3, questions: CARO_QUESTIONS, maxMoves: CARO_QUESTIONS };
+export const CARO_BIG: CaroBoard = { size: 7, line: 5, questions: 30, maxMoves: 70 };
 
 export type Mark = 'x' | 'o';
 export interface CaroMove { cell: number; option: string | null }
@@ -47,21 +54,24 @@ export function caroLine(board: (Mark | null)[], size = CARO_SIZE, need = CARO_L
   return null;
 }
 
-/** Play a move: `question` is the one this move was asked (questions[moves]).
+/** The question a move asks, the questions coming round again on a big board. */
+export const caroQuestion = <T>(questions: T[], moves: number): T | undefined => questions[moves % Math.max(1, questions.length)];
+
+/** Play a move: `question` is the one this move was asked (caroQuestion).
  *  An impossible move (game over, square taken) leaves the state as it was. */
-export function playCaro(state: CaroState, move: CaroMove, question: DuelQuestion | undefined, questions: number, size = CARO_SIZE): { state: CaroState; correct: boolean } {
+export function playCaro(state: CaroState, move: CaroMove, question: DuelQuestion | undefined, board: CaroBoard = CARO_SMALL): { state: CaroState; correct: boolean } {
   if (state.winner || !Number.isInteger(move.cell) || move.cell < 0 || move.cell >= state.board.length || state.board[move.cell]) {
     return { state, correct: false };
   }
   const correct = !!question && move.option === question.word;
-  const board = state.board.slice();
-  if (correct) board[move.cell] = state.turn;
+  const cells = state.board.slice();
+  if (correct) cells[move.cell] = state.turn;
   const moves = state.moves + 1;
-  const won = caroLine(board, size);
+  const won = caroLine(cells, board.size, board.line);
   let winner: CaroState['winner'] = won?.mark ?? null;
-  if (!winner && (board.every((c) => c) || moves >= questions)) {
-    const x = board.filter((c) => c === 'x').length, o = board.filter((c) => c === 'o').length;
+  if (!winner && (cells.every((c) => c) || moves >= board.maxMoves)) {
+    const x = cells.filter((c) => c === 'x').length, o = cells.filter((c) => c === 'o').length;
     winner = x > o ? 'x' : o > x ? 'o' : 'draw';
   }
-  return { state: { board, turn: state.turn === 'x' ? 'o' : 'x', moves, winner, line: won?.cells ?? null }, correct };
+  return { state: { board: cells, turn: state.turn === 'x' ? 'o' : 'x', moves, winner, line: won?.cells ?? null }, correct };
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useMatch } from '../../hooks/useMatch';
 import { playCorrect, playWin, playWrong } from '../../lib/sfx';
-import { CARO_QUESTIONS, CARO_SECONDS, CARO_SIZE, initialCaro, playCaro, type CaroState, type Mark } from '../../lib/wordCaro';
+import { CARO_SECONDS, CARO_SMALL, caroQuestion, initialCaro, playCaro, type CaroBoard, type CaroState, type Mark } from '../../lib/wordCaro';
 import { parseQuestions, type DuelQuestion } from '../../lib/wordDuel';
 import type { MatchLink } from '../../lib/worldLive';
 import { duelQuestions } from './duelQuestions';
@@ -13,14 +13,15 @@ import { useWorld } from './world';
 // Word Caro with another player: tic-tac-toe where each square is won by
 // answering a word question (lib/wordCaro). The host is ✕ and goes first.
 // While one player answers, the other sees the same question — so both
-// learn the word either way.
+// learn the word either way. `board` is 3×3 (three in a row) or the big 7×7
+// (five in a row).
 
 const MARK: Record<Mark, string> = { x: '✕', o: '◯' };
 
-export function WordCaro({ link, onClose }: { link: MatchLink; onClose: () => void }) {
+export function WordCaro({ link, onClose, board = CARO_SMALL }: { link: MatchLink; onClose: () => void; board?: CaroBoard }) {
   const { wordPool } = useWorld();
   const me: Mark = link.host ? 'x' : 'o';
-  const [game, setGame] = useState<CaroState>(() => initialCaro());
+  const [game, setGame] = useState<CaroState>(() => initialCaro(board.size));
   /** The square being answered for, by whoever's turn it is. */
   const [asking, setAsking] = useState<{ cell: number; since: number } | null>(null);
   /** The last answer, to flash right or wrong on its square. */
@@ -30,14 +31,14 @@ export function WordCaro({ link, onClose }: { link: MatchLink; onClose: () => vo
 
   const { left } = useMatch<DuelQuestion[]>(
     link,
-    () => duelQuestions(wordPool, CARO_QUESTIONS),
-    parseQuestions,
+    () => duelQuestions(wordPool, board.questions),
+    (raw) => parseQuestions(raw, board.questions),
     (d) => {
       if (!questions) return;
       if (d.kind === 'pick' && Number.isInteger(d.cell) && d.move === game.moves && game.turn !== me) setAsking({ cell: Number(d.cell), since: Date.now() });
       else if (d.kind === 'move' && d.move === game.moves && game.turn !== me) {
         const option = typeof d.option === 'string' ? d.option : null;
-        const r = playCaro(game, { cell: Number(d.cell), option }, questions[game.moves], questions.length);
+        const r = playCaro(game, { cell: Number(d.cell), option }, caroQuestion(questions, game.moves), board);
         if (r.state !== game) { setGame(r.state); setFlash({ cell: Number(d.cell), correct: r.correct, option }); setAsking(null); }
       }
     },
@@ -45,7 +46,7 @@ export function WordCaro({ link, onClose }: { link: MatchLink; onClose: () => vo
   );
 
   const myTurn = !!questions && !game.winner && game.turn === me;
-  const q = questions && asking ? questions[game.moves] : null;
+  const q = questions && asking ? caroQuestion(questions, game.moves) ?? null : null;
 
   const pick = (cell: number) => {
     if (!myTurn || asking || game.board[cell]) return;
@@ -55,7 +56,7 @@ export function WordCaro({ link, onClose }: { link: MatchLink; onClose: () => vo
   };
   const answer = (option: string | null) => {
     if (!questions || !asking || !myTurn) return;
-    const r = playCaro(game, { cell: asking.cell, option }, questions[game.moves], questions.length);
+    const r = playCaro(game, { cell: asking.cell, option }, caroQuestion(questions, game.moves), board);
     if (r.correct) playCorrect(); else playWrong();
     link.send({ kind: 'move', move: game.moves, cell: asking.cell, option });
     setFlash({ cell: asking.cell, correct: r.correct, option });
@@ -81,12 +82,12 @@ export function WordCaro({ link, onClose }: { link: MatchLink; onClose: () => vo
 
   return (
     <MatchWindow
-      link={link} icon="grid" title={<FormattedMessage id="world.caroTitle" />} onClose={onClose}
+      link={link} icon="grid" title={<FormattedMessage id={board.size > 3 ? 'world.caroBigTitle' : 'world.caroTitle'} />} onClose={onClose}
       turn={result ? null : myTurn ? 'me' : questions ? 'them' : null}
       mine={<>{MARK[me]} · {count(me)}</>} theirs={<>{MARK[me === 'x' ? 'o' : 'x']} · {count(me === 'x' ? 'o' : 'x')}</>}
       started={!!questions} left={left} result={result}
     >
-      <div className="grid gap-1.5 mx-auto mb-3" style={{ gridTemplateColumns: `repeat(${CARO_SIZE}, minmax(0, 1fr))`, maxWidth: 260 }}>
+      <div className={`grid mx-auto mb-3 ${board.size > 3 ? 'gap-1' : 'gap-1.5'}`} style={{ gridTemplateColumns: `repeat(${board.size}, minmax(0, 1fr))`, maxWidth: board.size > 3 ? 340 : 260 }}>
         {game.board.map((c, i) => {
           const lit = game.line?.includes(i), hot = asking?.cell === i, flashed = flash?.cell === i;
           return (
@@ -95,7 +96,7 @@ export function WordCaro({ link, onClose }: { link: MatchLink; onClose: () => vo
               type="button"
               onClick={() => pick(i)}
               disabled={!myTurn || !!asking || !!c}
-              className={`px-inset px-notch aspect-square flex items-center justify-center px-title !text-[34px] ${lit ? 'bg-[var(--px-gold)]/35' : hot ? 'outline outline-2 outline-[var(--px-gold)]' : ''} ${myTurn && !asking && !c ? 'hover:bg-white/10 cursor-pointer' : ''}`}
+              className={`px-inset px-notch aspect-square flex items-center justify-center px-title ${board.size > 3 ? '!text-[18px]' : '!text-[34px]'} ${lit ? 'bg-[var(--px-gold)]/35' : hot ? 'outline outline-2 outline-[var(--px-gold)]' : ''} ${myTurn && !asking && !c ? 'hover:bg-white/10 cursor-pointer' : ''}`}
               style={{ color: c === 'x' ? 'var(--px-sky)' : c === 'o' ? 'var(--px-bad)' : flashed && !flash.correct ? 'var(--px-muted)' : undefined }}
             >
               {c ? MARK[c] : flashed && !flash.correct ? '·' : ''}
@@ -121,7 +122,7 @@ export function WordCaro({ link, onClose }: { link: MatchLink; onClose: () => vo
         <p className="text-[14px] text-center text-[var(--px-muted)] min-h-[2.5rem]">
           {flash && questions && (
             <span style={{ color: flash.correct ? 'var(--px-jade)' : 'var(--px-bad)' }}>
-              <FormattedMessage id={flash.correct ? 'world.caroRight' : 'world.caroWrong'} values={{ word: questions[game.moves - 1]?.word ?? '' }} />{' '}
+              <FormattedMessage id={flash.correct ? 'world.caroRight' : 'world.caroWrong'} values={{ word: caroQuestion(questions, game.moves - 1)?.word ?? '' }} />{' '}
             </span>
           )}
           {!game.winner && <FormattedMessage id={myTurn ? 'world.caroPick' : 'world.caroWait'} values={{ name }} />}
