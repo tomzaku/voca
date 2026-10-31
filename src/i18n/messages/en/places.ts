@@ -122,6 +122,11 @@ export default {
   'places.walkingStreetAbout': 'Nguyễn Đình Chiểu, the walking street along the Perfume River’s south bank between Phú Xuân and Trường Tiền bridges, fills up in the evening with street food, music and people strolling by the water.',
   'places.walkingStreetFact': 'Many cafés here serve cà phê muối — salted coffee, a Huế invention.',
 
+  'places.haiBaTrung': 'Trường Hai Bà Trưng',
+  'places.haiBaTrungEn': 'Hai Bà Trưng High School',
+  'places.haiBaTrungAbout': 'The old Đồng Khánh school beside Quốc Học on Lê Lợi: founded in 1917, it was the first secondary school for girls in Huế.',
+  'places.haiBaTrungFact': 'Emperor Khải Định was there when its first stone was laid, on 15 July 1917. For decades its students in white áo dài along the river were one of the sights of Huế.',
+
   'places.anDinh': 'Cung An Định',
   'places.anDinhEn': 'An Định Palace',
   'places.anDinhAbout': 'A European-style palace on the An Cựu river, rebuilt by Emperor Khải Định in the years around 1920.',

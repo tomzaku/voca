@@ -88,7 +88,7 @@ export function writeMeta(shelters = []) {
   // The playground's games: the street piano on Phố đi bộ, the type race at
   // Ga Huế, on the platform between the station and its tracks.
   point('play', 62, 64.6, { game: 'piano' });
-  point('play', 27.5, 73.3, { game: 'race' });
+  point('play', 13.5, 73.3, { game: 'race' });
   // Fishing off the dragon boat's landing, the boat alongside.
   point('play', 48.6, 58.8, { game: 'fish' });
   for (const [x, y] of FARMERS) point('farmer', x, y);

@@ -19,7 +19,7 @@ export const BUS_STOPS = [
   { place: 'vanMieu', x: 20, y: 49 },
   { place: 'thienMu', x: 3, y: 44 },
   { place: 'tinhTam', x: 47, y: 13 },
-  { place: 'gaHue', x: 28, y: 65.6 },
+  { place: 'gaHue', x: 13, y: 65.6 },
   { place: 'quocHoc', x: 41, y: 65.6 },
   { place: 'walkingStreet', x: 55.5, y: 65.6, shelter: [54, 63] },
   { place: 'nguBinh', x: 52, y: 82.6 },

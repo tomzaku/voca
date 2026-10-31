@@ -358,6 +358,64 @@ export function quocHoc() {
   return cv;
 }
 
+/** Hai Bà Trưng: 10 × 5 tiles — the old Đồng Khánh girls' school beside
+ *  Quốc Học: two storeys in dusty rose picked out in white, an open arcade
+ *  along the ground floor, shuttered windows above, a hipped roof of red
+ *  tile and a gabled middle bay with its plaque. */
+export function haiBaTrung() {
+  const cv = new Canvas(10 * T2, 5 * T2);
+  const W = cv.w, H = cv.h, cx = W / 2;
+  const ROSE = [218, 142, 132], ROSE_DARK = [192, 118, 110], ROSE_LIGHT = [234, 170, 160];
+  const WHITE = [246, 240, 230], WHITE_DARK = [216, 206, 194];
+  const SHUTTER = [96, 108, 84], SHUTTER_DARK = [70, 80, 62];
+  const top = 54, floor = 102, foot = H - 8;
+  for (let y = top; y < foot; y++) for (let x = 4; x < W - 4; x++) {
+    cv.set(x, y, mix(ROSE, ROSE_DARK, hash(x, y) * 0.2 + ((y - top) / (foot - top)) * 0.2));
+  }
+  cv.rect(4, top, W - 8, 4, WHITE);
+  cv.rect(4, floor - 4, W - 8, 5, WHITE);
+  cv.rect(4, floor + 1, W - 8, 1, WHITE_DARK);
+  for (let x = 14; x < W - 14; x += 22) {
+    if (Math.abs(x + 6 - cx) < 30) continue;
+    // Upstairs: a shuttered window with a white surround.
+    cv.rect(x - 2, top + 10, 16, 30, WHITE);
+    cv.rect(x, top + 12, 12, 26, SHUTTER);
+    for (let y = top + 13; y < top + 38; y += 3) cv.rect(x, y, 12, 1, SHUTTER_DARK);
+    cv.rect(x + 5, top + 12, 2, 26, SHUTTER_DARK);
+    // Below: the arcade, an arch into the shaded gallery.
+    for (let y = floor + 6; y < foot; y++) for (let i = -9; i < 9; i++) {
+      const dy = floor + 15 - y;
+      if (dy > 0 && (i + 0.5) ** 2 + dy * dy > 81) continue;
+      cv.set(x + 6 + i, y, y > foot - 10 ? [118, 92, 84] : [92, 64, 60]);
+    }
+    for (let a = 0; a <= 16; a++) { const t = Math.PI * (a / 16); cv.set(x + 6 - Math.cos(t) * 10, floor + 15 - Math.sin(t) * 10, WHITE); }
+    cv.rect(x - 5, top + 4, 2, foot - top - 4, ROSE_LIGHT);
+  }
+  tiledRoof(cv, 0, 12, W, top - 10, RED_TILE, 16);
+  // The middle bay, forward under its gable.
+  const bx = cx - 28, bw = 56;
+  for (let y = top - 4; y < foot; y++) for (let x = bx; x < bx + bw; x++) cv.set(x, y, mix(ROSE_LIGHT, ROSE, hash(x, y) * 0.3));
+  for (let i = 0; i < 24; i++) {
+    const half = Math.round((bw / 2 + 3) * (1 - i / 26));
+    cv.rect(cx - half, top - 4 - i, half * 2, 1, i < 2 ? WHITE : ROSE);
+    cv.rect(cx - half, top - 4 - i, 2, 1, WHITE); cv.rect(cx + half - 2, top - 4 - i, 2, 1, WHITE);
+  }
+  cv.rect(cx - 10, top - 18, 20, 7, WHITE);
+  cv.rect(cx - 8, top - 16, 16, 3, [196, 160, 80]);
+  for (const x of [bx, bx + bw - 5]) cv.rect(x, top - 4, 5, foot - top + 4, WHITE_DARK);
+  for (const x of [cx - 18, cx + 6]) {
+    cv.rect(x - 2, top + 8, 16, 32, WHITE);
+    cv.rect(x, top + 10, 12, 28, SHUTTER);
+    for (let y = top + 11; y < top + 38; y += 3) cv.rect(x, y, 12, 1, SHUTTER_DARK);
+  }
+  cv.rect(bx - 2, floor - 4, bw + 4, 5, WHITE);
+  door(cv, cx, foot, 20, 28);
+  cv.rect(0, foot, W, H - foot, STONE);
+  cv.rect(0, foot, W, 1, STONE_LIGHT);
+  outline(cv);
+  return cv;
+}
+
 /** Quốc Học's gate on its wall, 12 × 3 tiles: four red pillars under two
  *  tiers of tiled roof, a balustrade between them pierced with white
  *  squares, the name board over the way in; either side, the low red wall

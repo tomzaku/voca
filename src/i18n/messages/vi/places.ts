@@ -116,6 +116,11 @@ export default {
   'places.walkingStreetAbout': 'Phố đi bộ Nguyễn Đình Chiểu dọc bờ nam sông Hương, giữa cầu Phú Xuân và cầu Trường Tiền, rộn ràng mỗi tối với đồ ăn đường phố, âm nhạc và người dạo bên sông.',
   'places.walkingStreetFact': 'Nhiều quán ở đây bán cà phê muối — món cà phê ra đời ở Huế.',
 
+  'places.haiBaTrung': 'Trường Hai Bà Trưng',
+  'places.haiBaTrungEn': 'Hai Bà Trưng High School',
+  'places.haiBaTrungAbout': 'Trường Đồng Khánh xưa, cạnh Quốc Học trên đường Lê Lợi: lập năm 1917, là trường trung học đầu tiên dành cho nữ sinh ở Huế.',
+  'places.haiBaTrungFact': 'Vua Khải Định có mặt khi đặt viên đá đầu tiên, ngày 15 tháng 7 năm 1917. Suốt nhiều thập niên, tà áo dài trắng của nữ sinh trường bên bờ sông là một nét riêng của Huế.',
+
   'places.anDinh': 'Cung An Định',
   'places.anDinhEn': 'An Định Palace',
   'places.anDinhAbout': 'Cung điện kiểu châu Âu bên bờ sông An Cựu, được vua Khải Định xây lại vào khoảng năm 1920.',

@@ -1,4 +1,4 @@
-// The south bank: Ga Huế, Quốc Học, Lê Lợi park, the walking street, Cung An
+// The south bank: Ga Huế, Hai Bà Trưng, Quốc Học, Lê Lợi park, the walking street, Cung An
 // Định, the houses of Vỹ Dạ, and Ngự Bình hill.
 
 import { Canvas, hash, mix } from '../core/canvas.mjs';
@@ -6,12 +6,13 @@ import { P, ROOF } from '../core/palette.mjs';
 import { drawn, ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, hall, roof } from '../draw/buildings.mjs';
 import { K, parterre } from '../hd/art.mjs';
-import { anDinh, halve, quocHoc, quocHocGate } from '../hd/landmarks.mjs';
+import { anDinh, haiBaTrung, halve, quocHoc, quocHocGate } from '../hd/landmarks.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
-  { text: 'Ga Huế', x: 27.5, y: 68.5, place: 'gaHue' },
+  { text: 'Ga Huế', x: 13.5, y: 68.5, place: 'gaHue' },
+  { text: 'Trường Hai Bà Trưng', x: 28, y: 67.5, place: 'haiBaTrung' },
   { text: 'Trường Quốc Học', x: 41, y: 67.5, place: 'quocHoc' },
   { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
   { text: 'Vỹ Dạ', x: 108, y: 61, place: 'vyDa', theme: 'forest', anchor: 'left' },
@@ -34,7 +35,15 @@ export function drawSouthBank() {
     cv.ellipse(cv.w / 2, 12, 5, 5, [250, 246, 236]);
     cv.rect(cv.w / 2, 8, 1, 4, [40, 36, 34]);
     cv.spec = { kind: 'gaHue' };
-    place(cv, 23, 68, 3);
+    place(cv, 9, 68, 3);
+  }
+
+  // Hai Bà Trưng, the old Đồng Khánh girls' school, next door to Quốc Học
+  // along Lê Lợi.
+  {
+    const cv = halve(haiBaTrung());
+    cv.spec = { kind: 'haiBaTrung' };
+    place(cv, 23, 67, 3);
   }
 
   // Quốc Học: the red school behind its wall and gate, which open on the
