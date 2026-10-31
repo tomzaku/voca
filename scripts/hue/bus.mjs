@@ -9,7 +9,7 @@
 import { Canvas } from './core/canvas.mjs';
 import { deck, drawn, ground, mark, over, solid, used } from './core/world.mjs';
 import { BRIDGE_Y0, BRIDGE_Y1, H, RIVER_BRIDGES, T, W, isWater } from './layout.mjs';
-import { ROADS, roadHit } from './roads.mjs';
+import { ROADS, roadGap, roadHit } from './roads.mjs';
 
 /** The stops, in tiles, each on a road by its place; `shelter`, where its
  *  shelter's top-left tile goes, when the nearest free spot isn't right. */
@@ -70,20 +70,34 @@ export function checkBus(data) {
 }
 
 /** A bus stop's shelter at the roadside beside each stop: a green roof on
- *  posts, a bench, the blue sign with its bus. It doesn't block; trees and
- *  houses keep off it. Returns where each went (tiles), for the meta. */
+ *  posts, a bench, the blue sign with its bus. It stands at the kerb — its
+ *  front row touching the road's edge — at the nearest such spot to the
+ *  stop. It doesn't block; trees and houses keep off it. Returns where each
+ *  went (tiles), for the meta. */
 export function drawBusStops() {
   const free = (tx, ty) => [0, 1].every((dx) => [0, 1].every((dy) => {
     const x = tx + dx, y = ty + dy;
     return solid[y]?.[x] === false && !isWater(x * T + 8, y * T + 8)
-      && !ROADS.some((r) => roadHit(r, (x + 0.5) * T, (y + 0.5) * T));
+      && !ROADS.some((r) => roadHit(r, (x + 0.5) * T, (y + 0.5) * T))
+      && !roofOver(x, y);
   }));
+  // Something already drawn over this tile — a roof, a tree's crown.
+  const roofOver = (x, y) => {
+    for (let py = y * T; py < (y + 1) * T; py += 2) for (let px = x * T; px < (x + 1) * T; px += 2) if (over.alpha(px, py)) return true;
+    return false;
+  };
   return BUS_STOPS.map((s) => {
     const sx = Math.round(s.x) - 1, sy = Math.floor(s.y);
-    // The nearest free 2×2 spot by the road: north or south first, then round about.
-    const tries = [[sx, sy - 3], [sx, sy + 2]];
-    for (let r = 1; r <= 5; r++) for (let dy = -r - 2; dy <= r + 1; dy++) for (let dx = -r - 1; dx <= r; dx++) tries.push([sx + dx, sy + dy]);
-    const spot = s.shelter ?? tries.find(([x, y]) => free(x, y));
+    // Free 2×2 spots whose tiles touch the road's edge without being on it,
+    // the nearest first.
+    const kerb = (tx, ty) => {
+      const gaps = [0, 1].flatMap((dx) => [0, 1].map((dy) => roadGap(tx + dx, ty + dy)));
+      return Math.min(...gaps) >= -0.3 && Math.min(...gaps) <= 0.6;
+    };
+    const tries = [];
+    for (let dy = -6; dy <= 5; dy++) for (let dx = -6; dx <= 5; dx++) tries.push([sx + dx, sy + dy]);
+    tries.sort((a, b) => Math.hypot(a[0] + 1 - s.x, a[1] + 1 - s.y) - Math.hypot(b[0] + 1 - s.x, b[1] + 1 - s.y));
+    const spot = s.shelter ?? tries.find(([x, y]) => free(x, y) && kerb(x, y));
     if (!spot) return null;
     const [tx, ty] = spot;
     const cv = new Canvas(2 * T, 2 * T);
