@@ -20,7 +20,7 @@ export function PlaceMemorial({ id, onClose }: { id: string; onClose: () => void
   const intl = useIntl();
   const detail = PLACE_DETAILS[id];
   const has = (key: string) => key in intl.messages;
-  const wiki = detail && (intl.locale.startsWith('vi') ? detail.wiki.vi : detail.wiki.en ?? detail.wiki.vi);
+  const wiki = detail?.wiki && (intl.locale.startsWith('vi') ? detail.wiki.vi : detail.wiki.en ?? detail.wiki.vi);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); } };
@@ -68,7 +68,7 @@ export function PlaceMemorial({ id, onClose }: { id: string; onClose: () => void
 
             {/* The photos, pasted in, each with who took it and its licence. */}
             {detail && detail.photos.length > 0 && (
-              <div className="grid sm:grid-cols-2 gap-4 mb-5">
+              <div className={`grid gap-4 mb-5 ${detail.photos.length > 1 ? 'sm:grid-cols-2' : ''}`}>
                 {detail.photos.map((p) => (
                   <figure key={p.src} className="m-0">
                     <img
@@ -77,7 +77,7 @@ export function PlaceMemorial({ id, onClose }: { id: string; onClose: () => void
                       width={p.w}
                       height={p.h}
                       loading="lazy"
-                      className="w-full aspect-[4/3] object-cover p-1.5 bg-[#fbf4e2] shadow-[0_2px_6px_rgba(60,30,0,0.35)]"
+                      className={`w-full ${detail.photos.length > 1 ? 'aspect-[4/3]' : 'aspect-[16/9]'} object-cover p-1.5 bg-[#fbf4e2] shadow-[0_2px_6px_rgba(60,30,0,0.35)]`}
                     />
                     <figcaption className="mt-1 text-[11px] leading-snug opacity-70">
                       <a href={p.page} target="_blank" rel="noreferrer" className="underline decoration-dotted hover:opacity-100">
