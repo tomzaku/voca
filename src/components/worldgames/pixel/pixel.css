@@ -179,6 +179,9 @@
 .px-in-down { animation: px-in-down 0.18s steps(4) both; }
 @keyframes px-in-side { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 .px-in-side { animation: px-in-side 0.2s steps(4) both; }
+/* A chat line: there a while, then gone (the history keeps it). */
+@keyframes px-chat-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+.px-chat-fade { animation: px-chat-fade 14s linear both; }
 
 @media (prefers-reduced-motion: reduce) {
   .px-blink, .px-hop, .px-rise, .px-shake, .px-in-up, .px-in-down, .px-in-side, .px-sprite { animation: none !important; }

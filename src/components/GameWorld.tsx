@@ -34,7 +34,7 @@ import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
 import { setRainSound } from '../lib/rainSound';
 import { playWin } from '../lib/sfx';
 import { useAuth } from '../hooks/useAuth';
-import { WorldLive, type Facing, MatchBus, type LiveMessage, type Match, type MatchGame, type MatchLink } from '../lib/worldLive';
+import { WorldLive, cleanChat, type Facing, MatchBus, type LiveMessage, type Match, type MatchGame, type MatchLink } from '../lib/worldLive';
 
 export type { WorldStation } from '../game/types';
 
@@ -85,6 +85,15 @@ const DOT: Record<string, string> = {
 
 /** The card at the bottom when the buddy reaches a building, a plot or a
  *  collection — the world's version of a dialogue box. */
+/** A line of chat: who (you in gold), and what they said. */
+function ChatLine({ name, text, mine }: { name: string; text: string; mine: boolean }) {
+  return (
+    <p className="text-[13px] leading-snug text-white break-words [text-shadow:0_1px_0_#000]">
+      <span className={`px-title !text-[12px] ${mine ? 'text-[var(--px-gold)]' : 'text-[var(--px-sky)]'}`}>{name}</span>{' '}{text}
+    </p>
+  );
+}
+
 function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, children }: {
   emoji?: string;
   icon?: PixelIconName;
@@ -190,6 +199,8 @@ export function GameWorld({
   const [chatOpen, setChatOpen] = useState(false);
   const [chatText, setChatText] = useState('');
   const [chatHidden, setChatHidden] = useState(false);
+  // The chat's history while the world is open: yours and others' lines.
+  const [chatLog, setChatLog] = useState<{ key: string; name: string; text: string; mine: boolean }[]>([]);
   const chatHiddenRef = useRef(chatHidden);
   useEffect(() => { chatHiddenRef.current = chatHidden; }, [chatHidden]);
   // Games with another player: the one I've asked for, the one I've been
@@ -418,7 +429,11 @@ export function GameWorld({
       message: (m: LiveMessage) => {
         const b = busyRef.current;
         if (m.kind === 'wave') scene()?.bubble(m.from, '👋');
-        else if (m.kind === 'chat' && !chatHiddenRef.current) scene()?.bubble(m.from, m.text);
+        else if (m.kind === 'chat' && !chatHiddenRef.current) {
+          scene()?.bubble(m.from, m.text);
+          const name = live.peer(m.from)?.name ?? '?';
+          setChatLog((l) => [...l.slice(-29), { key: `${Date.now()}${Math.random()}`, name, text: m.text, mine: false }]);
+        }
         else if (m.kind === 'invite') {
           const p = live.peer(m.from);
           if (!p || b.asking || b.invite || b.match) live.send({ kind: 'reply', to: m.from, id: m.id, ok: false });
@@ -481,6 +496,7 @@ export function GameWorld({
     if (!text) return;
     liveRef.current?.send({ kind: 'chat', text });
     scene()?.bubble(null, text);
+    setChatLog((l) => [...l.slice(-29), { key: `${Date.now()}${Math.random()}`, name: meRef.current.name, text: cleanChat(text), mine: true }]);
     setChatText('');
   };
 
@@ -615,7 +631,7 @@ export function GameWorld({
       {/* Local development only: the position readout, in the map generator's
           tiles, for saying exactly where something on the map is wrong. */}
       {import.meta.env.DEV && debugPos && (
-        <div className="absolute bottom-14 left-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white">
+        <div className="absolute top-[3.6rem] right-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white">
           you {debugPos.buddy.join(', ')}
           {debugPos.cursor && <> · cursor {debugPos.cursor.join(', ')}</>}
           <span className="text-white/50"> · P logs it</span>
@@ -906,27 +922,43 @@ export function GameWorld({
 
       {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
       {!panel && user && (
-        <div className="px absolute left-2 bottom-2 z-30 flex items-end gap-1.5 w-[calc(100%-5rem)] max-w-[520px] pointer-events-none">
-          <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num shrink-0 pointer-events-auto">
-            💬 {online}
-          </PixelButton>
-          {chatOpen && (
-            <div className="flex-1 min-w-0 h-[2.6rem] px-notch px-frame p-1 flex gap-1 px-in-up pointer-events-auto" onKeyDown={(e) => e.stopPropagation()}>
-              <input
-                autoFocus
-                value={chatText}
-                maxLength={120}
-                onChange={(e) => setChatText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') sendChat(); if (e.key === 'Escape') setChatOpen(false); }}
-                placeholder={intl.formatMessage({ id: 'world.liveSay' })}
-                className="px-inset px-notch flex-1 min-w-0 px-3 text-[14px] bg-transparent outline-none"
-              />
-              <PixelButton tone="jade" onClick={sendChat} className="!px-3 !py-0 !text-[13px]"><FormattedMessage id="world.liveSend" /></PixelButton>
-              <PixelButton tone="paper" onClick={() => setChatHidden((h) => !h)} title={intl.formatMessage({ id: chatHidden ? 'world.liveShowChat' : 'world.liveHideChat' })} className="!px-2.5 !py-0 !text-[13px]">
-                {chatHidden ? '🔕' : '🔔'}
-              </PixelButton>
+        <div className="px absolute left-2 bottom-2 z-30 flex flex-col gap-1.5 w-[calc(100%-5rem)] max-w-[520px] pointer-events-none">
+          {/* The history: open, the recent lines to scroll back through;
+              closed, the newest few, each fading after a while. See-through,
+              so the world stays in view. */}
+          {chatLog.length > 0 && (chatOpen ? (
+            <div ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }} className="max-h-44 overflow-y-auto bg-black/45 px-notch px-2.5 py-1.5 space-y-0.5 pointer-events-auto">
+              {chatLog.map((c) => <ChatLine key={c.key} name={c.name} text={c.text} mine={c.mine} />)}
             </div>
-          )}
+          ) : (
+            <div className="space-y-0.5">
+              {chatLog.slice(-5).map((c) => (
+                <div key={c.key} className="px-chat-fade w-fit max-w-full bg-black/35 px-2 py-0.5"><ChatLine name={c.name} text={c.text} mine={c.mine} /></div>
+              ))}
+            </div>
+          ))}
+          <div className="flex items-end gap-1.5">
+            <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num shrink-0 pointer-events-auto">
+              💬 {online}
+            </PixelButton>
+            {chatOpen && (
+              <div className="flex-1 min-w-0 h-[2.6rem] px-notch px-frame p-1 flex gap-1 px-in-up pointer-events-auto" onKeyDown={(e) => e.stopPropagation()}>
+                <input
+                  autoFocus
+                  value={chatText}
+                  maxLength={120}
+                  onChange={(e) => setChatText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') sendChat(); if (e.key === 'Escape') setChatOpen(false); }}
+                  placeholder={intl.formatMessage({ id: 'world.liveSay' })}
+                  className="px-inset px-notch flex-1 min-w-0 px-3 text-[14px] bg-transparent outline-none"
+                />
+                <PixelButton tone="jade" onClick={sendChat} className="!px-3 !py-0 !text-[13px]"><FormattedMessage id="world.liveSend" /></PixelButton>
+                <PixelButton tone="paper" onClick={() => setChatHidden((h) => !h)} title={intl.formatMessage({ id: chatHidden ? 'world.liveShowChat' : 'world.liveHideChat' })} className="!px-2.5 !py-0 !text-[13px]">
+                  {chatHidden ? '🔕' : '🔔'}
+                </PixelButton>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
