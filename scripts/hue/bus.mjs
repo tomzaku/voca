@@ -23,6 +23,7 @@ export const BUS_STOPS = [
   { place: 'quocHoc', x: 41, y: 65.6 },
   { place: 'walkingStreet', x: 55.5, y: 65.6, shelter: [54, 63] },
   { place: 'nguBinh', x: 52, y: 82.6 },
+  { place: 'vyDa', x: 107, y: 62.3 },
   // The tombs' shelters at the lane's edge, beside the foot of each stair
   // (the lane frays into the grass, so the nearest free spot reads as set back).
   { place: 'tuDuc', x: 10, y: 114.8, shelter: [11, 115] },

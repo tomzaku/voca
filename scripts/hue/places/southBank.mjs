@@ -79,8 +79,6 @@ export function drawSouthBank() {
     place(cv, 88, 73, 3);
   }
 
-  // Phố Tây and Vỹ Dạ, east of the bend: a few houses among the trees.
-  for (const [x, y, pal] of [[103, 67, ROOF.terra], [108, 67, ROOF.dark], [113, 65, ROOF.moss], [112, 73, ROOF.plum]]) place(HOUSE(pal), x, y, 2);
 
   // Ngự Bình: the flat-topped "royal screen" hill, with pines.
   const HILL = { cx: 57 * T, cy: 88.2 * T, rx: 7 * T, ry: 3.8 * T };

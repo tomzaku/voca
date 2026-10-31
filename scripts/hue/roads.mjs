@@ -95,6 +95,14 @@ export const ROADS = [
   box(9, 110, 2, 5, 'stone'), box(33, 110, 3, 5, 'stone'), box(78, 110, 2, 5, 'stone'),
   // Footpaths winding through the riverside parks, between the bridges.
   ...PARK_PATHS.map(([x0, x1, y]) => road('path', 0.8, wavy(x0, x1, y))),
+  // Vỹ Dạ, across the bend: the riverside street (Nguyễn Sinh Cung) on from
+  // Lê Lợi round the bank, and the village lanes inland between the garden
+  // houses, down to the An Cựu canal.
+  road('street', 2, [[96, 66], [104, 63.6], [110, 61], [116, 58.4], [120, 56.7]], { main: true }),
+  road('lane', 1.6, [[101, 64.6], [101, 77.2]]),
+  road('lane', 1.6, [[110, 61], [110, 77.2]]),
+  road('lane', 1.4, [[101, 77.2], [119, 77.2]]),
+  road('lane', 1.4, [[101, 70.5], [110, 70.5]]),
   box(35, 72, 12, 1, 'stone'),                                    // Quốc Học's forecourt
   // Phố đi bộ Nguyễn Đình Chiểu: the walking street along the south bank,
   // from under Phú Xuân bridge to Trường Tiền, by the ironwood boardwalk.
