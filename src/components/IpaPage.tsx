@@ -15,9 +15,10 @@ import {
   type IpaSound,
   type MinimalPair,
 } from '../data/ipa';
-import { IPA_RECORDINGS, recordingUrl } from '../data/ipaAudio';
+import { IPA_RECORDINGS } from '../data/ipaAudio';
 import { pairKey, pairPool, randomRound, type PairRound } from '../lib/ipaRules';
 import { speakText, stopSpeaking } from '../lib/tts';
+import { sayWord, saySound, stopIpa } from '../lib/ipaPlayback';
 import { playCorrect, playWrong } from '../lib/sfx';
 import { MouthDiagram, MouthTags } from './MouthDiagram';
 import { articulationFor, contrast, sameMouth } from '../data/articulation';
@@ -110,45 +111,20 @@ const CATEGORY_STYLE: Record<IpaCategory, { text: string; chip: string; hover: s
 const soundFor = (symbol: string) => IPA_SOUNDS.find((s) => s.symbol === symbol);
 const styleFor = (symbol: string) => CATEGORY_STYLE[soundFor(symbol)?.category ?? 'consonant'];
 
-// One recording at a time across the page, and never over the TTS voice.
-let soundAudio: HTMLAudioElement | null = null;
-function stopAll() {
-  stopSpeaking();
-  soundAudio?.pause();
-  soundAudio = null;
-}
-
 /** Speak a word — or play a sound's recording — toggling to a stop icon
- *  mid-playback. `playing` is the word, or `/symbol/` for a sound. */
+ *  mid-playback. `playing` is the word, or `/symbol/` for a sound. Playback
+ *  itself (one at a time, never over the TTS voice) is lib/ipaPlayback. */
 function useSpeak() {
   const [playing, setPlaying] = useState<string | null>(null);
   const speak = useCallback((text: string) => {
-    stopAll();
-    if (playing === text) { setPlaying(null); return; }
+    if (playing === text) { stopIpa(); setPlaying(null); return; }
     setPlaying(text);
-    speakText(text, { onEnd: () => setPlaying(null) }).catch(() => setPlaying(null));
+    sayWord(text, () => setPlaying(null));
   }, [playing]);
   const speakSound = useCallback((symbol: string) => {
     const key = `/${symbol}/`;
-    stopAll();
-    if (playing === key) { setPlaying(null); return; }
-    const rec = IPA_RECORDINGS[symbol];
-    if (!rec) {
-      // Diphthongs have no recording: a word is the honest substitute.
-      const word = soundFor(symbol)?.examples[0];
-      if (!word) return;
-      setPlaying(key);
-      speakText(word, { onEnd: () => setPlaying(null) }).catch(() => setPlaying(null));
-      return;
-    }
-    const audio = new Audio(recordingUrl(rec));
-    soundAudio = audio;
-    setPlaying(key);
-    const done = () => { if (soundAudio === audio) soundAudio = null; setPlaying((p) => (p === key ? null : p)); };
-    audio.onended = done;
-    audio.onerror = done;
-    audio.onpause = done;
-    audio.play().catch(done);
+    if (playing === key) { stopIpa(); setPlaying(null); return; }
+    if (saySound(symbol, () => setPlaying((p) => (p === key ? null : p)))) setPlaying(key);
   }, [playing]);
   return { playing, speak, speakSound };
 }
