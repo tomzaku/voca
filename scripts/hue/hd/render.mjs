@@ -76,7 +76,9 @@ function roadAt(X, Y, mx, my, roads) {
     const hit = roadHit(r, mx, my);
     if (!hit) continue;
     const e = (r.width * T) / 2 - Math.abs(hit.o);
-    if (!best || e > best.e) best = { r, e, o: hit.o, s: hit.s };
+    // A footpath gives way to any road or paved way it meets.
+    const path = r.kind === 'path', bestPath = best?.r.kind === 'path';
+    if (!best || (bestPath && !path) || (path === bestPath && e > best.e)) best = { r, e, o: hit.o, s: hit.s };
   }
   if (!best) return null;
   const { r, e, o, s } = best;

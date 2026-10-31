@@ -75,7 +75,13 @@ export function paintRoads() {
         if (!hit) continue;
         const k = y * PW + x, e = half - Math.abs(hit.o);
         if (r.kind === 'street') streets[k]++;
-        if (at[k] >= 0 && depth[k] >= e) continue;
+        // A footpath always gives way to a road or paved way it meets (stopping
+        // at its kerb); otherwise the road a pixel's deepest in shows.
+        if (at[k] >= 0) {
+          const was = ROADS[at[k]].kind === 'path', is = r.kind === 'path';
+          if (is && !was) continue;
+          if (is === was && depth[k] >= e) continue;
+        }
         at[k] = i; depth[k] = e; offset[k] = hit.o; along[k] = hit.s;
       }
     }
