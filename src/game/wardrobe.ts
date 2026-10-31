@@ -9,13 +9,17 @@
 export const HAIR_STYLES = ['none', 'shorthair', 'bowlhair', 'curlyhair', 'longhair', 'mophair', 'spikeyhair'] as const;
 export const HAIR_COLORS = ['dark', 'brown', 'grey'] as const;
 export const GARMENTS = {
-  everyday: ['red', 'blue', 'green', 'yellow', 'black'],
-  aoDai: ['purple', 'white', 'red', 'blue', 'yellow', 'pink', 'green'],
-  aoThe: ['black', 'navy', 'brown'],
-  aoBaBa: ['black', 'brown', 'white', 'navy'],
+  everyday: ['red', 'blue', 'green', 'yellow', 'black', 'orange', 'teal', 'sky', 'lavender', 'maroon', 'white', 'pink'],
+  aoDai: ['purple', 'white', 'red', 'blue', 'yellow', 'pink', 'green', 'lavender', 'sky', 'teal', 'maroon', 'cream', 'orange'],
+  aoThe: ['black', 'navy', 'brown', 'maroon', 'teal', 'purple'],
+  aoBaBa: ['black', 'brown', 'white', 'navy', 'cream', 'maroon', 'teal'],
   uniform: ['white'],
-  jeans: ['red', 'blue', 'green', 'yellow', 'black', 'white', 'pink'],
-  longBao: ['yellow', 'red'],
+  jeans: ['red', 'blue', 'green', 'yellow', 'black', 'white', 'pink', 'orange', 'teal', 'sky', 'lavender', 'cream'],
+  longBao: ['yellow', 'red', 'maroon', 'navy'],
+  striped: ['red', 'navy', 'black', 'green', 'orange', 'teal', 'sky', 'pink'],
+  dress: ['red', 'pink', 'yellow', 'sky', 'lavender', 'teal', 'white', 'cream', 'maroon', 'green'],
+  overalls: ['blue', 'red', 'green', 'brown', 'pink', 'orange', 'black'],
+  tracksuit: ['red', 'blue', 'black', 'green', 'navy', 'teal', 'orange', 'maroon'],
 } as const;
 export const HATS = ['none', 'nonLa', 'khanDong', 'cap', 'mandarin', 'crown'] as const;
 
@@ -39,6 +43,7 @@ export const DEFAULT_LOOK: Look = { hair: 'none', hairColor: 'dark', outfit: 'ev
 export const COLOR_SWATCH: Record<string, string> = {
   red: '#e93245', purple: '#804898', white: '#f6f6fa', blue: '#487ac4', yellow: '#f0c440',
   pink: '#ec8cac', green: '#4e9c6a', black: '#343444', navy: '#324074', brown: '#885a3c',
+  orange: '#f08c38', teal: '#2ca29e', sky: '#84c4f0', lavender: '#bca8e8', maroon: '#922838', cream: '#f4e8c8',
   dark: '#5d3b4a', grey: '#bcb8c0',
 };
 

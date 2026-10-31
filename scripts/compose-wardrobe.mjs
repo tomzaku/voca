@@ -72,18 +72,30 @@ const COLOURS = {
   black: [[28, 28, 38], [52, 52, 68]],
   navy: [[30, 40, 78], [50, 64, 116]],
   brown: [[96, 60, 40], [136, 90, 60]],
+  orange: [[196, 96, 30], [240, 140, 56]],
+  teal: [[24, 112, 112], [44, 162, 158]],
+  sky: [[86, 150, 206], [132, 196, 240]],
+  lavender: [[146, 122, 196], [188, 168, 232]],
+  maroon: [[100, 24, 36], [146, 40, 56]],
+  cream: [[214, 196, 156], [244, 232, 200]],
 };
 /** What each garment comes in — keep in step with GARMENTS in wardrobe.ts. */
 const GARMENTS = {
-  everyday: ['red', 'blue', 'green', 'yellow', 'black'],
-  aoDai: ['purple', 'white', 'red', 'blue', 'yellow', 'pink', 'green'],
-  aoThe: ['black', 'navy', 'brown'],
-  aoBaBa: ['black', 'brown', 'white', 'navy'],
+  everyday: ['red', 'blue', 'green', 'yellow', 'black', 'orange', 'teal', 'sky', 'lavender', 'maroon', 'white', 'pink'],
+  aoDai: ['purple', 'white', 'red', 'blue', 'yellow', 'pink', 'green', 'lavender', 'sky', 'teal', 'maroon', 'cream', 'orange'],
+  aoThe: ['black', 'navy', 'brown', 'maroon', 'teal', 'purple'],
+  aoBaBa: ['black', 'brown', 'white', 'navy', 'cream', 'maroon', 'teal'],
   uniform: ['white'],
-  jeans: ['red', 'blue', 'green', 'yellow', 'black', 'white', 'pink'],
-  longBao: ['yellow', 'red'],
+  jeans: ['red', 'blue', 'green', 'yellow', 'black', 'white', 'pink', 'orange', 'teal', 'sky', 'lavender', 'cream'],
+  longBao: ['yellow', 'red', 'maroon', 'navy'],
+  striped: ['red', 'navy', 'black', 'green', 'orange', 'teal', 'sky', 'pink'],
+  dress: ['red', 'pink', 'yellow', 'sky', 'lavender', 'teal', 'white', 'cream', 'maroon', 'green'],
+  overalls: ['blue', 'red', 'green', 'brown', 'pink', 'orange', 'black'],
+  tracksuit: ['red', 'blue', 'black', 'green', 'navy', 'teal', 'orange', 'maroon'],
 };
 const TROUSERS = [[196, 190, 180], [238, 234, 226]];
+/** The pack's own trousers, as drawn. */
+const TROUSERS_PACK = [[36, 43, 66], [55, 68, 100]];
 const DENIM = [[44, 70, 120], [70, 104, 160]];
 const GOLD = [[196, 146, 30], [246, 206, 90]];
 const HATS = ['nonLa', 'khanDong', 'cap', 'mandarin', 'crown'];
@@ -139,6 +151,39 @@ function body(garment, colour, base) {
     }
     return out;
   }
+  // Rows and columns that hold clothes, for the styles drawn by position.
+  let top = F, bottom = -1, shirtTo = -1;
+  const edges = {};
+  for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) {
+    const p = px(base, x, y);
+    const c = p[3] && cloth(p);
+    if (!c) continue;
+    top = Math.min(top, y); bottom = Math.max(bottom, y);
+    if (c[1] === 'shirt') shirtTo = Math.max(shirtTo, y);
+    const e = (edges[y] ??= { l: x, r: x }); e.l = Math.min(e.l, x); e.r = Math.max(e.r, x);
+  }
+  const each = (paint) => {
+    for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) {
+      const p = px(base, x, y);
+      const c = p[3] && cloth(p);
+      if (c) put(out, x, y, paint(x, y, c)[c[2]]);
+    }
+    return out;
+  };
+  // A striped shirt: the colour and white in turn, row by row.
+  if (garment === 'striped') return each((x, y, c) => (c[1] === 'shirt' ? (y % 2 ? COLOURS.white : tunic) : TROUSERS_PACK));
+  // A dress: one colour from the collar down.
+  if (garment === 'dress') return each(() => tunic);
+  // Overalls: a white tee, the bib and straps up the middle in the colour.
+  if (garment === 'overalls') {
+    return each((x, y, c) => {
+      if (c[1] !== 'shirt') return tunic;
+      const e = edges[y], mid = (e.l + e.r) / 2;
+      return Math.abs(x - mid) <= 1 || (y === top && (x === e.l + 1 || x === e.r - 1)) ? tunic : COLOURS.white;
+    });
+  }
+  // A tracksuit: one colour, a white stripe down the side.
+  if (garment === 'tracksuit') return each((x, y) => (x === edges[y].r - 1 ? COLOURS.white : tunic));
   if (garment === 'longBao') {
     // The emperor's robe: one colour from the collar to the feet, its collar
     // and hem trimmed in gold.
