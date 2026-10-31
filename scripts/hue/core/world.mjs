@@ -10,12 +10,15 @@ export const ground = new Canvas(PW, PH);
 export const over = new Canvas(PW, PH);
 /** Lights that only show in dark mode, added on top of the dimmed map. */
 export const night = new Canvas(PW, PH);
-/** A soft light: a bright core with a halo around it. */
-export const glow = (x, y, c, r = 2) => {
+/** Night lights on what the buddy walks behind — eaves, galleries, lanterns
+ *  under a roof — which the over layer would otherwise cover. */
+export const nightOver = new Canvas(PW, PH);
+/** A soft light: a bright core with a halo around it (on `layer`). */
+export const glow = (x, y, c, r = 2, layer = night) => {
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
       const d = Math.hypot(dx, dy);
-      if (d <= r) night.set(x + dx, y + dy, c, d < 1 ? 1 : 0.35 * (1 - d / (r + 1)));
+      if (d <= r) layer.set(x + dx, y + dy, c, d < 1 ? 1 : 0.35 * (1 - d / (r + 1)));
     }
   }
 };

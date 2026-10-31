@@ -201,6 +201,8 @@ export class WorldScene extends Phaser.Scene {
   private nightVeil?: Phaser.GameObjects.Rectangle;
   /** A painted map's lights, shown only in dark mode. */
   private nightLights?: Phaser.GameObjects.Image;
+  /** The lights on roofs and eaves, over the over layer. */
+  private nightOverLights?: Phaser.GameObjects.Image;
   /** Scenery that takes the night tint individually (it sits above the veil). */
   private tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [];
   /** Area labels, kept so a theme switch can recolor them in place. */
@@ -278,6 +280,7 @@ export class WorldScene extends Phaser.Scene {
     if (src.groundUrl) this.load.image(`ground-${src.key}`, src.groundUrl);
     if (src.overUrl) this.load.image(`over-${src.key}`, src.overUrl);
     if (src.nightUrl) this.load.image(`night-${src.key}`, src.nightUrl);
+    if (src.nightOverUrl) this.load.image(`night-over-${src.key}`, src.nightOverUrl);
     // The high-detail patches: their list first, then their images.
     if (src.detailUrl) {
       const dir = src.detailUrl.slice(0, src.detailUrl.lastIndexOf('/') + 1);
@@ -311,7 +314,7 @@ export class WorldScene extends Phaser.Scene {
     const src = defaultMap();
     const patches = ((this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[])
       .flatMap((p) => [`detail-${p.key}-ground`, `detail-${p.key}-over`]);
-    for (const key of [`tiles-${src.key}`, `ground-${src.key}`, `over-${src.key}`, `night-${src.key}`, PROPS_KEY, ...patches]) {
+    for (const key of [`tiles-${src.key}`, `ground-${src.key}`, `over-${src.key}`, `night-${src.key}`, `night-over-${src.key}`, PROPS_KEY, ...patches]) {
       if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
     this.textures.get(VILLAGERS_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
@@ -487,6 +490,7 @@ export class WorldScene extends Phaser.Scene {
     const night = !this.pal.light;
     this.nightVeil?.setVisible(night);
     this.nightLights?.setVisible(night);
+    this.nightOverLights?.setVisible(night);
     for (const s of this.tinted) {
       if (night) s.setTint(NIGHT_TINT); else s.clearTint();
     }
@@ -677,8 +681,13 @@ export class WorldScene extends Phaser.Scene {
       this.nightLights = this.add.image(0, 0, lights)
         .setOrigin(0, 0).setScale(SCALE).setDepth(DEPTH_LIGHTS)
         .setVisible(false);
+      // Roofs and eaves, lit over the layer that would hide them.
+      const overLights = `night-over-${src.key}`;
+      this.nightOverLights = this.textures.exists(overLights)
+        ? this.add.image(0, 0, overLights).setOrigin(0, 0).setScale(SCALE).setDepth(DEPTH_OVER + 0.02).setVisible(false)
+        : undefined;
       this.tweens.add({
-        targets: this.nightLights, alpha: { from: 1, to: 0.6 },
+        targets: [this.nightLights, ...(this.nightOverLights ? [this.nightOverLights] : [])], alpha: { from: 1, to: 0.6 },
         duration: 2400, yoyo: true, repeat: -1, ease: 'sine.inOut',
       });
     }

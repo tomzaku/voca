@@ -26,6 +26,8 @@ export interface WorldMapSource {
   overUrl?: string;
   /** Lights added over the dimmed map in dark mode only. */
   nightUrl?: string;
+  /** Dark-mode lights on roofs and eaves, drawn over the over layer. */
+  nightOverUrl?: string;
   /** The high-detail patches' list (scripts/hue/hd): each a part of the map
    *  drawn again at twice the resolution — `x, y` its top-left in map px —
    *  with its own ground and over images. */
@@ -45,6 +47,7 @@ export function defaultMap(): WorldMapSource {
     groundUrl: `${base}game/maps/hue-ground.png`,
     overUrl: `${base}game/maps/hue-over.png`,
     nightUrl: `${base}game/maps/hue-night.png`,
+    nightOverUrl: `${base}game/maps/hue-night-over.png`,
     detailUrl: `${base}game/maps/hue-detail.json`,
   };
 }

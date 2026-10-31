@@ -2,8 +2,9 @@
 // Generates the Huế world template: public/game/maps/hue.tmj plus the images
 // it paints with — hue-ground.png (everything, under the buddy), hue-over.png
 // (roofs, tower tops and tree crowns, drawn over the buddy so it can walk
-// behind them) and hue-night.png (bridge lights, shown only in dark mode —
-// Trường Tiền's six spans each glow their own colour). Every pixel is drawn
+// behind them), hue-night.png (lights, shown only in dark mode — Trường
+// Tiền's six spans each glow their own colour) and hue-night-over.png (the
+// night lights on roofs and eaves, drawn over the over layer). Every pixel is drawn
 // here in code; there is no tileset art to license or keep in sync.
 //
 //   npm run map:hue [-- preview.png [--walls]]
@@ -71,7 +72,7 @@ import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { Canvas } from './hue/core/canvas.mjs';
-import { ground, night, over } from './hue/core/world.mjs';
+import { ground, night, nightOver, over } from './hue/core/world.mjs';
 import { H, PH, PW, T, W } from './hue/layout.mjs';
 import { paintGrass } from './hue/paint/terrain.mjs';
 import { furnishStreets, paintRoads } from './hue/paint/roads.mjs';
@@ -131,7 +132,7 @@ tile.rect(0, 0, T, T, [200, 60, 60]);
 const tmj = {
   compressionlevel: -1, width: W, height: H, tilewidth: T, tileheight: T, infinite: false,
   orientation: 'orthogonal', renderorder: 'right-down', tiledversion: '1.10.2', type: 'map', version: '1.10',
-  nextlayerid: 7, nextobjectid: nextId,
+  nextlayerid: 8, nextobjectid: nextId,
   tilesets: [{
     firstgid: 1, name: 'hue', image: 'hue-tiles.png', imagewidth: T, imageheight: T,
     tilewidth: T, tileheight: T, columns: 1, tilecount: 1, margin: 0, spacing: 0,
@@ -140,6 +141,7 @@ const tmj = {
     { id: 1, name: 'ground', type: 'imagelayer', image: 'hue-ground.png', x: 0, y: 0, opacity: 1, visible: true },
     { id: 2, name: 'over', type: 'imagelayer', image: 'hue-over.png', x: 0, y: 0, opacity: 1, visible: true },
     { id: 5, name: 'night', type: 'imagelayer', image: 'hue-night.png', x: 0, y: 0, opacity: 1, visible: false },
+    { id: 7, name: 'nightOver', type: 'imagelayer', image: 'hue-night-over.png', x: 0, y: 0, opacity: 1, visible: false },
     { id: 3, name: 'walls', type: 'tilelayer', x: 0, y: 0, width: W, height: H, opacity: 0.5, visible: false, data: walls },
     { id: 6, name: 'roads', type: 'tilelayer', x: 0, y: 0, width: W, height: H, opacity: 0.5, visible: false, data: roads },
     { id: 4, name: 'meta', type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown', objects },
@@ -152,6 +154,7 @@ await Promise.all([
   over.png(mapFile('hue-over.png')),
   tile.png(mapFile('hue-tiles.png')),
   night.png(mapFile('hue-night.png')),
+  nightOver.png(mapFile('hue-night-over.png')),
 ]);
 // The high-detail patches, and the list the game loads them from.
 const patches = [];
