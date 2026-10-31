@@ -13,11 +13,19 @@ const vi = merge(import.meta.glob<{ default: Catalog }>('../../i18n/messages/vi/
 
 describe('activity registry', () => {
   it('finds every activity file', () => {
-    expect(ACTIVITIES.length).toBeGreaterThanOrEqual(22);
+    expect(ACTIVITIES.length).toBeGreaterThanOrEqual(20);
   });
   it('gives each activity its own id', () => {
-    const ids = ACTIVITIES.map((a) => a.id);
+    const ids = ACTIVITIES.flatMap((a) => [a.id, ...(a.modes ?? []).map((m) => m.id).filter((m) => m !== a.id)]);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+  it('names each mode in English and Vietnamese', () => {
+    const missing = ACTIVITIES.flatMap((a) => (a.modes ?? []).map((m) => m.nameId)).filter((id) => !(id in en) || !(id in vi));
+    expect(missing).toEqual([]);
+  });
+  it('opens a mode by its id, in its activity', () => {
+    expect(findActivity('ielts-speaking')).toMatchObject({ activity: { id: 'speak' }, mode: 'ielts-speaking' });
+    expect(findActivity('speak')?.mode).toBeUndefined();
   });
   it('puts each activity under a skill that exists', () => {
     const skills = new Set(SKILLS.map((s) => s.id));

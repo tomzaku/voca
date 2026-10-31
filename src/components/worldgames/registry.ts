@@ -17,9 +17,16 @@ export const WORLD_SKILLS: (Omit<WorldSkill, 'activities'> & { activities: Activ
   activities: ACTIVITIES.filter((a) => a.skill === s.id),
 }));
 
-/** The skill an activity belongs to, and the activity itself. */
-export function findActivity(id: string): { skill: WorldSkill; activity: ActivityDef } | null {
-  const activity = ACTIVITIES.find((a) => a.id === id);
+/** The skill an activity belongs to, and the activity itself — found by its
+ *  own id or one of its modes' (then `mode` says which). */
+export function findActivity(id: string): { skill: WorldSkill; activity: ActivityDef; mode?: string } | null {
+  const activity = ACTIVITIES.find((a) => a.id === id) ?? ACTIVITIES.find((a) => a.modes?.some((m) => m.id === id));
   const skill = activity && WORLD_SKILLS.find((s) => s.id === activity.skill);
-  return activity && skill ? { skill, activity } : null;
+  if (!activity || !skill) return null;
+  return activity.id === id ? { skill, activity } : { skill, activity, mode: id };
+}
+
+/** The screen an activity shows in `mode` (its first mode, or its one screen). */
+export function modeOf(activity: ActivityDef, mode?: string) {
+  return activity.modes?.find((m) => m.id === mode) ?? activity.modes?.[0] ?? null;
 }

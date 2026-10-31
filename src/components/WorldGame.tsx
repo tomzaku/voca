@@ -11,7 +11,7 @@ import { onAnswerEvent } from '../lib/answerEvents';
 import type { Recap } from '../lib/keeperAdvice';
 import { keeperLookFor } from '../game/textures';
 import { COLLECTIONS_KEEPER, type WorldActivity, type WorldFeature, type WorldSkill } from '../game/features';
-import { WORLD_SKILLS, findActivity } from './worldgames/registry';
+import { WORLD_SKILLS, findActivity, modeOf } from './worldgames/registry';
 import { WorldContext, type WorldApi } from './worldgames/world';
 import type { WorldStation } from '../game/types';
 import { PreviewModal, sampleWords } from './PreviewModal';
@@ -20,6 +20,7 @@ import { CollectionStats } from './CollectionStats';
 import { QuizSetup } from './QuizSetup';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { SkillToolbar } from './worldgames/SkillMenu';
+import { PixelButton } from './worldgames/pixel';
 import { useCompanion } from '../hooks/useCompanion';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import { KEEPERS } from './worldgames/keepers';
@@ -58,7 +59,8 @@ export function WorldGame() {
   // What's open over the world: a skill keeper's menu (activity null), or
   // one of its activities. Null = just the map.
   // A learner's first time in the world begins at the tailor's.
-  const [open, setOpen] = useState<{ skill: WorldSkill; activity: WorldActivity | null } | null>(
+  // `mode`: which of an activity's modes is showing (its first if unset).
+  const [open, setOpen] = useState<{ skill: WorldSkill; activity: WorldActivity | null; mode?: string } | null>(
     () => (useCompanion.getState().dress === null ? findActivity('wardrobe') : null),
   );
   // The collections' keeper's list, when it's open (`focus`, a collection to
@@ -204,10 +206,31 @@ export function WorldGame() {
       done: leaveTailor,
     },
   };
-  /** The screen that plays an activity — its own file declares it. */
-  const activityScreen = (id: string) => {
-    const Screen = findActivity(id)?.activity.Screen;
-    return Screen ? <Screen /> : null;
+  /** The screen that plays an activity — its own file declares it — in the
+   *  mode chosen, for one with modes. */
+  const activityScreen = (id: string, mode?: string) => {
+    const found = findActivity(id);
+    if (!found) return null;
+    const m = modeOf(found.activity, mode);
+    const Screen = m?.Screen ?? found.activity.Screen;
+    return <Screen key={m?.id} />;
+  };
+  /** An activity's modes, as buttons in the skill bar — the app's tabs. */
+  const modeButtons = (activity: WorldActivity | null, mode?: string) => {
+    const def = activity && findActivity(activity.id)?.activity;
+    if (!def?.modes || !open) return null;
+    const current = modeOf(def, mode)?.id;
+    return def.modes.map((m) => (
+      <PixelButton
+        key={m.id}
+        tone={m.id === current ? 'gold' : 'paper'}
+        onClick={() => setOpen({ ...open, mode: m.id })}
+        aria-pressed={m.id === current}
+        className="!py-2 !px-3"
+      >
+        {intl.formatMessage({ id: m.nameId })}
+      </PixelButton>
+    ));
   };
 
   if (!enabled) return <Navigate to="/collections" replace />;
@@ -251,6 +274,8 @@ export function WorldGame() {
               // or the tailor fitting you.
               talking: open.activity?.id === 'wardrobe' || (!open.activity && !!KEEPERS[open.skill.id] && talk !== null),
               tools: (
+                <>
+                {modeButtons(open.activity, open.mode)}
                 <SkillToolbar
                   skill={open.skill}
                   current={open.activity?.id}
@@ -260,9 +285,10 @@ export function WorldGame() {
                   attention={chosen ? undefined : 'collections'}
                   onPick={(activity) => { setOpen({ skill: open.skill, activity }); setTalk(null); }}
                 />
+                </>
               ),
               content: open.activity
-                ? activityScreen(open.activity.id)
+                ? activityScreen(open.activity.id, open.mode)
                 : keeperTalk(open.skill) ?? (
                   <KeeperMenu
                     key={open.skill.id}

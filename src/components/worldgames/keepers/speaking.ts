@@ -24,9 +24,8 @@ export default defineKeeper({
   },
   useBadges() {
     const { dialogues: d, ielts } = useLeft();
-    return {
-      dialogue: `${d.total - d.left} / ${d.total}`,
-      'ielts-speaking': `${ielts.total - ielts.left} / ${ielts.total}`,
-    };
+    // Conversation holds the dialogues and IELTS as modes: one count for both.
+    const total = d.total + ielts.total;
+    return { speak: `${total - d.left - ielts.left} / ${total}` };
   },
 });

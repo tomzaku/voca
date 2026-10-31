@@ -41,7 +41,7 @@ export function IpaChart() {
 function Chart({ onOpen }: { onOpen: (s: IpaSound) => void }) {
   return (
     <HudCenter wide>
-      <p className="px-title !text-[20px] text-[var(--px-gold)]"><FormattedMessage id="world.actIpaLearn" /></p>
+      <p className="px-title !text-[20px] text-[var(--px-gold)]"><FormattedMessage id="world.ipaChartTitle" /></p>
       <p className="text-[14px] text-[var(--px-muted)] mb-4"><FormattedMessage id="world.ipaLearnTap" /></p>
       <div className="space-y-4">
         {CATEGORY_ORDER.map((cat) => (
