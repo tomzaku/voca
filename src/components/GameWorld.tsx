@@ -21,6 +21,7 @@ import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 import { PlaceInfo } from './worldgames/PlaceInfo';
 import { PlaceMemorial } from './worldgames/PlaceMemorial';
 import { RideButton } from './worldgames/RideButton';
+import { LanguageButton } from './worldgames/LanguageButton';
 import { RIDES, type Ride } from '../game/vehicles';
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
@@ -736,6 +737,7 @@ export function GameWorld({
             <PixelIcon name="compass" size={2} />
             <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
           </PixelButton>
+          <LanguageButton />
         </div>
       )}
 

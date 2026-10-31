@@ -10,6 +10,7 @@ export default {
   'world.chooseBuddy': 'Chọn bạn đồng hành',
   'world.fastTravel': 'Di chuyển nhanh',
   'world.travel': 'Di chuyển',
+  'world.language': 'Ngôn ngữ',
   'world.zoomIn': 'Phóng to (+)',
   'world.zoomReset': 'Đặt lại thu phóng (0)',
   'world.zoomOut': 'Thu nhỏ (−)',

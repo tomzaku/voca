@@ -12,6 +12,7 @@ export default {
   'world.chooseBuddy': 'Choose your buddy',
   'world.fastTravel': 'Fast travel',
   'world.travel': 'Travel',
+  'world.language': 'Language',
   'world.zoomIn': 'Zoom in (+)',
   'world.zoomReset': 'Reset zoom (0)',
   'world.zoomOut': 'Zoom out (−)',
