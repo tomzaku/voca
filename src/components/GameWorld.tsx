@@ -33,6 +33,7 @@ import { FocusZone } from './worldgames/FocusZone';
 import { StreetPiano } from './worldgames/StreetPiano';
 import { TypeRace } from './worldgames/TypeRace';
 import { WordDuel } from './worldgames/WordDuel';
+import { TalkCall } from './worldgames/TalkCall';
 import { Fishing } from './worldgames/Fishing';
 import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
@@ -959,6 +960,10 @@ export function GameWorld({
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'race')} className="!px-2 !text-[13px]">
               <PixelIcon name="train" size={2} /> <FormattedMessage id="world.raceTitle" />
             </PixelButton>
+            {/* A voice call, with a sample dialogue to follow (TalkCall). */}
+            <PixelButton tone="gold" onClick={() => askToPlay(peerCard.id, peerCard.name, 'talk')} className="!px-2 !text-[13px] col-span-2">
+              <PixelIcon name="mic" size={2} /> <FormattedMessage id="world.talkInvite" />
+            </PixelButton>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             <PixelButton tone="gold" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !text-[13px]">
@@ -978,7 +983,7 @@ export function GameWorld({
         </WorldCard>
       )}
       {!panel && invite && !match && (
-        <WorldCard icon={invite.game === 'duel' ? 'sword' : 'train'} title={invite.name} subtitle={<FormattedMessage id="world.liveInvite" values={{ game: invite.game }} />}>
+        <WorldCard icon={invite.game === 'duel' ? 'sword' : invite.game === 'race' ? 'train' : 'mic'} title={invite.name} subtitle={<FormattedMessage id="world.liveInvite" values={{ game: invite.game }} />}>
           <div className="grid grid-cols-2 gap-1.5">
             <PixelButton tone="jade" onClick={() => answerInvite(true)} className="!text-[13px]"><FormattedMessage id="world.play" /></PixelButton>
             <PixelButton tone="paper" onClick={() => answerInvite(false)} className="!text-[13px]"><FormattedMessage id="world.busNotNow" /></PixelButton>
@@ -987,6 +992,7 @@ export function GameWorld({
       )}
       {link?.game === 'duel' && <WordDuel key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'race' && <TypeRace key={link.id} versus={link} onClose={endMatch} />}
+      {link?.game === 'talk' && <TalkCall key={link.id} link={link} onClose={endMatch} />}
 
       {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
       {!panel && user && (

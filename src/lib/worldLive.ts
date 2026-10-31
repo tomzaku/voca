@@ -26,9 +26,9 @@ export type LiveMessage =
   | { kind: 'reply'; from: string; to: string; id: string; ok: boolean }
   | { kind: 'play'; from: string; to: string; id: string; data: Record<string, unknown> };
 
-/** The games two players can play together. */
-export type MatchGame = 'duel' | 'race';
-export const MATCH_GAMES: MatchGame[] = ['duel', 'race'];
+/** What two players can do together: the games, and talking (a voice call). */
+export type MatchGame = 'duel' | 'race' | 'talk';
+export const MATCH_GAMES: MatchGame[] = ['duel', 'race', 'talk'];
 
 /** Two players in a game: its id, which game, whether I asked (the host
  *  sets the game up), and who's on the other side. */
