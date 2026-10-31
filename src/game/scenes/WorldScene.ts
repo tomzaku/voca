@@ -506,9 +506,26 @@ export class WorldScene extends Phaser.Scene {
   travelTo(nodeId: string) {
     if (!this.ready) return;
     const node = this.nodes.find((n) => n.id === nodeId);
-    if (!node) return;
-    const spot = this.clampToWalkable(node.x, node.y + 50)
-      ?? { x: node.x, y: node.y + 50 };
+    if (node) this.jumpTo(node.x, node.y + 50);
+  }
+
+  /** Fast travel to a named place (its label on the map) — the welcome's
+   *  history stop. Just below the name, so its story card comes up. */
+  travelToPlace(placeId: string) {
+    if (!this.ready) return;
+    const l = this.meta.labels.find((m) => m.place === placeId);
+    if (l) this.jumpTo(l.x, l.y + this.tilePx);
+  }
+
+  /** Fast travel to one of the playground's games. */
+  travelToPlay(game: string) {
+    if (!this.ready) return;
+    const p = this.meta.plays.find((m) => m.game === game);
+    if (p) this.jumpTo(p.x, p.y);
+  }
+
+  private jumpTo(x: number, y: number) {
+    const spot = this.clampToWalkable(x, y) ?? { x, y };
     this.route = [];
     const cam = this.cameras.main;
     const [r, g, b] = this.pal.light ? [255, 255, 255] : [0, 0, 0];

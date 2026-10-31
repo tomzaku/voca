@@ -27,6 +27,7 @@ import { RIDES, type Ride } from '../game/vehicles';
 import { REACTIONS, REACTION_ICONS, REACTION_MS, type Reaction } from '../game/reactions';
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
+import { WorldIntro, type IntroStop } from './worldgames/WorldIntro';
 import { BusTicket } from './worldgames/BusTicket';
 import { FocusZone } from './worldgames/FocusZone';
 import { StreetPiano } from './worldgames/StreetPiano';
@@ -124,6 +125,9 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
   );
 }
 
+/** Set once the welcome (WorldIntro) has been seen or skipped on this device. */
+const INTRO_SEEN = 'voca-world-intro-seen';
+
 /** The playground's games, by the id the map's `play` points give them. */
 // A game's mark on its card: a pixel icon where the kit has one, else an emoji.
 const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = { piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' } };
@@ -197,7 +201,10 @@ export function GameWorld({
   const [busStops, setBusStops] = useState<string[]>([]);
   // ── The shared world ── everyone in Huế at once (lib/worldLive): their
   // buddies walk here, wave and chat; you can block anyone.
-  const { user, signInWithGoogle, signOut } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+  // The welcome, for someone new and signed out — once per device, and again
+  // from the ⓘ button beside Sign in.
+  const [intro, setIntro] = useState(false);
   const liveRef = useRef<WorldLive | null>(null);
   const [online, setOnline] = useState(0);
   const [peerCard, setPeerCard] = useState<{ id: string; name: string } | null>(null);
@@ -313,8 +320,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen && !match && !memorial;
-  }, [paused, busTicket, focusOpen, playing, chatOpen, match, memorial]);
+    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen && !match && !memorial && !intro;
+  }, [paused, busTicket, focusOpen, playing, chatOpen, match, memorial, intro]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -586,6 +593,25 @@ export function GameWorld({
     return () => window.removeEventListener('keydown', onKey);
   }, [panel, chatOpen, playing, match, busTicket, focusOpen, memorial, react]);
 
+  // First time here and signed out: the welcome, once the world has drawn
+  // (and auth has had its say, so a signed-in visitor never sees it flash).
+  useEffect(() => {
+    if (authLoading || user || !pos) return;
+    try { if (localStorage.getItem(INTRO_SEEN)) return; } catch { return; }
+    setIntro(true);
+  }, [authLoading, user, pos]);
+  const closeIntro = useCallback(() => {
+    setIntro(false);
+    try { localStorage.setItem(INTRO_SEEN, '1'); } catch { /* ignore */ }
+  }, []);
+  const introGo = (stop: IntroStop) => {
+    closeIntro();
+    const sc = scene();
+    if (stop === 'keeper' && skills[0]) sc?.travelTo(featureNodeId(skills[0]));
+    else if (stop === 'history') sc?.travelToPlace('ngoMon');
+    else if (stop === 'games') sc?.travelToPlay('piano');
+  };
+
   // Inside a skill, Esc leaves it. (Not Backspace for Menu — the spelling
   // round uses it to take a letter back.)
   useEffect(() => {
@@ -656,6 +682,9 @@ export function GameWorld({
 
       {/* The title card, until the map has drawn and your buddy stands in it. */}
       {!pos && <WorldLoading />}
+      {!panel && intro && pos && (
+        <WorldIntro onGo={introGo} onSignIn={() => { closeIntro(); void signInWithGoogle(); }} onClose={closeIntro} />
+      )}
 
       {/* ── HUD (DOM, on top of the canvas) ── the world's own controls, in the
              same pixel kit as the buildings' screens, stepping aside while a
@@ -746,6 +775,11 @@ export function GameWorld({
           {/* Signed out, you're on your own: say so, plainly, and sign in from
               here — Google brings you straight back to the world. (Signed in,
               the chat sits at the bottom left.) */}
+          {!user && (
+            <PixelButton tone="paper" onClick={() => setIntro(true)} title={intl.formatMessage({ id: 'world.intro.welcome.title' })} aria-label={intl.formatMessage({ id: 'world.intro.welcome.title' })} className="!px-2.5 !py-0 !h-[2.6rem]">
+              <PixelIcon name="info" size={2} />
+            </PixelButton>
+          )}
           {!user && (
             <PixelButton tone="gold" onClick={() => void signInWithGoogle()} title={intl.formatMessage({ id: 'world.liveSignIn' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px]">
               👥 <span className="hidden sm:inline"><FormattedMessage id="world.liveSignInButton" /></span>
