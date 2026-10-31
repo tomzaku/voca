@@ -774,7 +774,7 @@ export function GameWorld({
                 <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
                 <div className="absolute left-0 top-[3.6rem] z-40 w-52 px-notch px-frame p-2 space-y-1">
                   {/* Day or night, and the language — in the bar on wider screens. */}
-                  <div className="sm:hidden flex items-center gap-2 pb-1 mb-1 border-b border-white/10"><DayNightButton /><LanguageButton /></div>
+                  <div className="sm:hidden flex items-center gap-2 pb-1 mb-1 border-b border-white/10"><LanguageButton /><DayNightButton /></div>
                   {([['/', 'world.menuApp'], ['/settings', 'world.menuSettings']] as const).map(([to, label]) => (
                     <Link key={to} to={to} className="px-pick px-notch block px-3 py-2 px-title !text-[14px]">
                       <FormattedMessage id={label} />
@@ -841,6 +841,8 @@ export function GameWorld({
               <span className="sm:hidden"><FormattedMessage id="world.liveSignInShort" /></span>
             </PixelButton>
           )}
+          {/* On a phone these two live in the ⋮ menu, to leave the bar room. */}
+          <span className="hidden sm:contents"><LanguageButton /><DayNightButton /></span>
           <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton
             tone={drawerOpen ? 'gold' : 'paper'}
@@ -852,8 +854,6 @@ export function GameWorld({
             <PixelIcon name="compass" size={2} />
             <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
           </PixelButton>
-          {/* On a phone these two live in the ⋮ menu, to leave the bar room. */}
-          <span className="hidden sm:contents"><DayNightButton /><LanguageButton /></span>
         </div>
       )}
 
