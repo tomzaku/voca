@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Phaser from 'phaser';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
@@ -110,8 +110,8 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
   children: ReactNode;
 }) {
   return (
-    <div className="px absolute bottom-2 left-1/2 -translate-x-1/2 z-20 w-[min(94%,420px)] px-in-up">
-      <div className="px-notch px-frame p-3.5">
+    <div className="px absolute bottom-[calc(3.75rem+var(--sab))] sm:bottom-[calc(0.5rem+var(--sab))] left-1/2 -translate-x-1/2 z-20 w-[min(94%,420px)] max-h-[calc(100%-8rem-var(--sat)-var(--sab))] flex flex-col px-in-up">
+      <div className="px-notch px-frame p-3.5 overflow-y-auto min-h-0">
         <div className="flex items-center gap-2.5 mb-3">
           <span className="px-inset px-notch w-10 h-10 shrink-0 flex items-center justify-center" style={{ color }}>
             {emoji ? <span className="text-[18px] leading-none">{emoji}</span> : icon && <PixelIcon name={icon} size={2} />}
@@ -345,11 +345,15 @@ export function GameWorld({
     const measure = () => {
       const el = frameRef.current;
       if (!el) return;
-      setVpH(Math.max(MIN_H, Math.floor(window.innerHeight - el.getBoundingClientRect().top)));
+      // The visible area where there is one: on a phone it shrinks for the
+      // keyboard, so the chat box stays above it.
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      setVpH(Math.max(MIN_H, Math.floor(h - el.getBoundingClientRect().top)));
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    window.visualViewport?.addEventListener('resize', measure);
+    return () => { window.removeEventListener('resize', measure); window.visualViewport?.removeEventListener('resize', measure); };
   }, []);
 
   // ── Phaser lifecycle: one game per buddy identity ──
@@ -715,7 +719,12 @@ export function GameWorld({
     <div
       ref={frameRef}
       className="relative overflow-hidden select-none touch-none"
-      style={{ background: '#1c120c', height: vpH }}
+      // The phone's notch, home bar and rounded corners, for the HUD to keep clear of.
+      style={{
+        background: '#1c120c', height: vpH,
+        '--sat': 'env(safe-area-inset-top, 0px)', '--sab': 'env(safe-area-inset-bottom, 0px)',
+        '--sal': 'env(safe-area-inset-left, 0px)', '--sar': 'env(safe-area-inset-right, 0px)',
+      } as CSSProperties}
     >
       {/* Phaser mounts its canvas here (fills the frame via Scale.RESIZE). */}
 
@@ -731,7 +740,7 @@ export function GameWorld({
       {/* Local development only: the position readout, in the map generator's
           tiles, for saying exactly where something on the map is wrong. */}
       {import.meta.env.DEV && debugPos && (
-        <div className="absolute top-[3.6rem] right-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white">
+        <div className="absolute top-[3.6rem] right-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white hidden sm:block">
           you {debugPos.buddy.join(', ')}
           {debugPos.cursor && <> · cursor {debugPos.cursor.join(', ')}</>}
           <span className="text-white/50"> · P logs it</span>
@@ -743,7 +752,7 @@ export function GameWorld({
              progress: your streak and the river's lanterns. ── */}
       {!panel && (
         // Above the minimap (z-20), so the menu opens over it.
-        <div className="px absolute top-2 left-2 z-30 flex items-start gap-2">
+        <div className="px absolute top-[calc(0.5rem+var(--sat))] left-[calc(0.5rem+var(--sal))] z-30 flex items-start gap-2">
           <div className="relative">
             <PixelButton
               tone={menuOpen ? 'gold' : 'paper'}
@@ -759,6 +768,8 @@ export function GameWorld({
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
                 <div className="absolute left-0 top-[3.6rem] z-40 w-52 px-notch px-frame p-2 space-y-1">
+                  {/* Day or night, and the language — in the bar on wider screens. */}
+                  <div className="sm:hidden flex items-center gap-2 pb-1 mb-1 border-b border-white/10"><DayNightButton /><LanguageButton /></div>
                   {([['/', 'world.menuApp'], ['/settings', 'world.menuSettings']] as const).map(([to, label]) => (
                     <Link key={to} to={to} className="px-pick px-notch block px-3 py-2 px-title !text-[14px]">
                       <FormattedMessage id={label} />
@@ -799,10 +810,10 @@ export function GameWorld({
         </div>
       )}
       {!panel && (
-        <div className="px absolute top-2 right-2 z-20 flex items-center gap-2">
+        <div className="px absolute top-[calc(0.5rem+var(--sat))] right-[calc(0.5rem+var(--sar))] z-20 flex flex-wrap justify-end items-center gap-2 max-w-[calc(100%-13.5rem)] sm:max-w-none">
           {user && !animalId && (
             <Link to="/companion" className="px-btn px-notch px-title !text-[13px] px-3 h-[2.6rem] inline-flex items-center gap-1.5" data-tone="gold">
-              <PixelIcon name="paw" size={2} /> <FormattedMessage id="world.chooseBuddy" />
+              <PixelIcon name="paw" size={2} /> <span className="hidden sm:inline"><FormattedMessage id="world.chooseBuddy" /></span>
             </Link>
           )}
           {/* The focus timer, while it runs: its time, and back to it. */}
@@ -836,15 +847,16 @@ export function GameWorld({
             <PixelIcon name="compass" size={2} />
             <span className="hidden sm:inline"><FormattedMessage id="world.travel" /></span>
           </PixelButton>
-          <DayNightButton />
-          <LanguageButton />
+          {/* On a phone these two live in the ⋮ menu, to leave the bar room. */}
+          <span className="hidden sm:contents"><DayNightButton /><LanguageButton /></span>
         </div>
       )}
 
       {/* ── Zoom ── wheel/pinch work on the canvas; these are the discoverable
-          version of the same thing, and show where you are in the range. */}
+          version of the same thing, and show where you are in the range. On
+          a phone, pinching is the way, and the room goes to the cards. */}
       {!panel && (
-        <div className="px absolute bottom-2 right-2 z-20 px-notch px-frame p-1.5 flex flex-col items-center gap-1">
+        <div className="px absolute bottom-[calc(0.5rem+var(--sab))] right-[calc(0.5rem+var(--sar))] z-20 px-notch px-frame p-1.5 hidden sm:flex flex-col items-center gap-1">
           <PixelButton
             tone="paper"
             onClick={() => zoomBy(1)}
@@ -879,7 +891,7 @@ export function GameWorld({
       {drawerOpen && (
         <>
           <div className="absolute inset-0 z-10" onClick={() => setDrawerOpen(false)} />
-          <div className="px absolute top-14 right-2 bottom-2 z-20 w-[min(80%,280px)] px-notch px-frame flex flex-col px-in-side">
+          <div className="px absolute top-[calc(3.5rem+var(--sat))] right-[calc(0.5rem+var(--sar))] bottom-[calc(0.5rem+var(--sab))] z-20 w-[min(80%,280px)] px-notch px-frame flex flex-col px-in-side">
             <div className="flex items-center justify-between px-3.5 pt-3 pb-2">
               <span className="px-title text-[var(--px-gold)]"><FormattedMessage id="world.fastTravel" /></span>
             </div>
@@ -944,7 +956,7 @@ export function GameWorld({
         const height = Math.max(28, Math.round((MINIMAP_W * h) / snap.worldW));
         const here = snap.nodes.filter((n) => n.y >= area.top && n.y < area.bottom);
         return (
-          <div className="px absolute top-[4.25rem] left-2 z-20 px-notch px-frame p-2 pointer-events-none">
+          <div className="px absolute top-[calc(4.25rem+var(--sat))] left-[calc(0.5rem+var(--sal))] z-20 px-notch px-frame p-2 pointer-events-none hidden sm:block [@media(max-height:520px)]:hidden">
             <svg
               width={MINIMAP_W}
               height={height}
@@ -1064,7 +1076,7 @@ export function GameWorld({
 
       {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
       {!panel && user && (
-        <div className="px absolute left-2 bottom-2 z-30 flex flex-col gap-1.5 w-[calc(100%-5rem)] max-w-[520px] pointer-events-none">
+        <div className="px absolute left-[calc(0.5rem+var(--sal))] bottom-[calc(0.5rem+var(--sab))] z-30 flex flex-col gap-1.5 w-[calc(100%-5rem)] max-w-[520px] pointer-events-none">
           {/* The history: open, the recent lines to scroll back through;
               closed, the newest few, each fading after a while. See-through,
               so the world stays in view. */}
