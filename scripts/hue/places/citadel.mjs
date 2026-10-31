@@ -21,7 +21,7 @@ export const SEARCHLIGHTS = [[51, 36.6, -50], [53.4, 36.4, -24], [55, 36.3, 0], 
 export const LABELS = [
   { text: 'Ngọ Môn', x: 55, y: 34.5, place: 'ngoMon' },
   { text: 'Kỳ Đài', x: 55, y: 44, place: 'kyDai' },
-  { text: 'Phu Văn Lâu', x: 55, y: 49.3, place: 'phuVanLau' },
+  { text: 'Phu Văn Lâu', x: 55, y: 48.8, place: 'phuVanLau' },
   { text: 'Nghênh Lương Đình', x: 55, y: 58.3, place: 'nghenhLuong' },
   { text: 'Tàng Thư Lâu', x: 36, y: 21, place: 'tangThuLau' },
   { text: 'Hồ Tịnh Tâm', x: 55, y: 7.5, place: 'tinhTam' },
@@ -193,11 +193,12 @@ export function drawCitadel() {
       for (let y = front - h + 3; y < front; y += 4) for (let x = x0; x < x0 + w; x++) if (x % 7 === (y % 8 < 4 ? 0 : 3)) cv.set(x, y, brickLine);
       cv.rect(x0 + w, front - h + 2, 2, h - 2, [0, 0, 0], 0.25);
     };
-    tier(76, up(fl)[1] - 5, 12, 18);
-    tier(40, up(fl)[1] - 21, 10, 12);
-    cv.rect(bw / 2 - 4, up(fl)[1] - 14, 8, 9, [44, 32, 28]);     // the door in the middle tier
+    // (The detailed art's tiers, at half its size.)
+    tier(84, up(fl)[1] - 4, 20, 20);
+    tier(48, up(fl)[1] - 27, 16, 14);
+    cv.rect(bw / 2 - 5, up(fl)[1] - 15, 10, 11, [44, 32, 28]);   // the door in the middle tier
     const poleX = bw / 2 - 1;
-    const poleFoot = up(fl)[1] - 38;
+    const poleFoot = up(fl)[1] - 49;
     cv.rect(poleX, 4, 2, poleFoot - 4, [214, 214, 210]);
     cv.set(poleX, 3, [236, 200, 90]); cv.set(poleX + 1, 3, [236, 200, 90]);
     cv.spec = { kind: 'kyDai' };
@@ -227,7 +228,7 @@ export function drawCitadel() {
     cv.rect(16, 12, 32, 8, red);
     for (let x = 18; x < 46; x += 5) cv.rect(x, 12, 2, 8, col);
     roof(cv, 10, 4, 44, 9, ROOF.imperial, 4);
-    place(named(cv, 'phuVanLau'), 53, 49, 1);
+    place(named(cv, 'phuVanLau'), 53, 48, 1);
   }
   stoneSpan(52, 54, 6, 3);
   {

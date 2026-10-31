@@ -5,6 +5,7 @@
 
 import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
 import { light } from '../hills.mjs';
+import { BASTION, CITADEL } from '../layout.mjs';
 
 export const K = 2;          // detail pixels per map pixel
 const T2 = 32;               // a tile, in detail pixels
@@ -236,86 +237,137 @@ export function market() {
   return cv;
 }
 
-/** Kỳ Đài: the flag tower — three tiers of old brick stepping back and up,
- *  each with its top, its front face and a crenellated parapet; an arched
- *  door and a stone plaque in the front, stairs up the side, cannons on the
- *  lower terrace, a stone balustrade round the top; the tall flagpole with
- *  its gold finial and guy ropes, where the map's pole was — the streak's
- *  flag flies from it. Six tiles by ten. */
+/** Kỳ Đài: the flag tower. Its bastion is a trapezoid out from the front
+ *  wall — wide at the wall, narrower at its face, the moat bending round it
+ *  — so both slanting sides show as well as the face: old brick in courses,
+ *  damp and moss where it meets the water, a parapet along the front. On its
+ *  paved top, cannons to the river and two more tiers stepping up, a door
+ *  and plaque in the middle one, stairs up its west side, a balustrade round
+ *  the top; then the tall flagpole with its gold finial and guy ropes, where
+ *  the map's pole was — the streak's flag flies from it. Ten tiles by twelve,
+ *  the map's own canvas doubled (places/citadel.mjs draws the same shape). */
 export function kyDai() {
-  const cv = new Canvas(6 * T2, 10 * T2);
-  const W = cv.w, H = cv.h;
+  const POLE = 7;
+  const cv = new Canvas((BASTION.x1 - BASTION.x0) * T2, (POLE + BASTION.y1 - BASTION.y0) * T2);
+  const W = cv.w;
+  const baseY = POLE * T2;
+  const at = ([x, y]) => [(x - BASTION.x0) * T2, baseY + (y - BASTION.y0) * T2];
+  const [bl, br, fr, fl] = BASTION.poly.map(at);
+  const wallTop = baseY + (CITADEL.wall.y1 - 1 - BASTION.y0) * T2;
+  const rise = 20;
+  const up = ([x, y]) => [x, y - rise];
   const brick = [150, 92, 74], brickLight = [178, 120, 96], brickDark = [116, 70, 56], mortar = [128, 84, 68];
   const top = [168, 126, 104], topLight = [190, 150, 126];
   const moss = [86, 104, 70];
-  /** A brick face: courses, staggered joints, damp and moss at its foot. */
-  const face = (x0, y0, w, h) => {
-    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
-      const course = Math.floor((y - y0) / 4);
-      let c = (y - y0) % 4 === 0 || (x + (course % 2) * 4) % 8 === 0 ? mortar : mix(brick, brickDark, hash(Math.floor((x + (course % 2) * 4) / 8), course) * 0.5);
-      const foot = (y - y0) / h;
-      if (foot > 0.7 && hash(x, y) < (foot - 0.7) * 1.6) c = mix(c, moss, 0.6);
-      if (hash(x * 3, y) < 0.02) c = brickLight;
-      cv.set(x, y, c);
+  const inside = (x, y, pts) => {
+    let k = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i], [xj, yj] = pts[j];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) k = !k;
     }
-    cv.rect(x0, y0, w, 1, brickLight);
+    return k;
   };
-  /** A tier's top: worn paving, its front edge a parapet of merlons. */
-  const terrace = (x0, y0, w, h) => {
-    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
-      cv.set(x, y, (x % 10 === 0 || (y - y0) % 6 === 0) ? mix(top, mortar, 0.5) : mix(top, topLight, hash(Math.floor(x / 10), Math.floor((y - y0) / 6)) * 0.6));
+  const fillPoly = (pts, color) => {
+    const ys = pts.map((p) => p[1]), xs = pts.map((p) => p[0]);
+    for (let y = Math.floor(Math.min(...ys)); y < Math.ceil(Math.max(...ys)); y++) {
+      for (let x = Math.floor(Math.min(...xs)); x < Math.ceil(Math.max(...xs)); x++) {
+        if (inside(x + 0.5, y + 0.5, pts)) cv.set(x, y, color(x, y));
+      }
     }
-    for (let x = x0; x < x0 + w; x += 8) { cv.rect(x, y0 + h - 4, 5, 4, brickLight); cv.rect(x, y0 + h - 4, 5, 1, topLight); }
   };
-  // The three tiers, back to front so each stands before the one above it.
-  const tiers = [
-    { x: 0, w: W, top: 250, faceTop: 266, bottom: H },
-    { x: 28, w: W - 56, top: 214, faceTop: 228, bottom: 254 },
-    { x: 52, w: W - 104, top: 186, faceTop: 196, bottom: 218 },
-  ];
-  for (const t of [...tiers].reverse()) {
-    terrace(t.x, t.top, t.w, t.faceTop - t.top);
-    face(t.x, t.faceTop, t.w, t.bottom - t.faceTop);
-    cv.rect(t.x + t.w, t.faceTop + 2, 3, t.bottom - t.faceTop, [0, 0, 0], 0.25);   // its shadow to the east
+  /** Brick in courses, staggered joints, damp and moss low down (`foot` is
+   *  where the face meets the ground, or the water, at that column). */
+  const brickAt = (dim, foot, h) => (x, y) => {
+    const course = Math.floor(y / 4);
+    let c = y % 4 === 0 || (x + (course % 2) * 4) % 8 === 0 ? mortar : mix(brick, brickDark, hash(Math.floor((x + (course % 2) * 4) / 8), course) * 0.5);
+    const f = 1 - (foot(x) - y) / h;
+    if (f > 0.6 && hash(x, y) < (f - 0.6) * 1.8) c = mix(c, moss, 0.6);
+    if (hash(x * 3, y) < 0.02) c = brickLight;
+    return dim ? mix(c, brickDark, dim) : c;
+  };
+  const lerpY = (a, b) => (x) => a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]);
+  /** Worn paving: slabs, the odd darker one. */
+  const paving = (x, y) => (x % 10 === 0 || y % 6 === 0) ? mix(top, mortar, 0.5) : mix(top, topLight, hash(Math.floor(x / 10), Math.floor(y / 6)) * 0.6);
+
+  // The bastion: the slanting sides (the west catching the light, the east
+  // in shade), the face, then the top running back into the wall's.
+  fillPoly([up(bl), bl, fl, up(fl)], brickAt(0.1, lerpY(bl, fl), rise));
+  fillPoly([up(br), br, fr, up(fr)], brickAt(0.35, lerpY(br, fr), rise));
+  fillPoly([up(fl), fl, fr, up(fr)], brickAt(0, () => fl[1], rise));
+  for (const [a, b] of [[up(bl), up(fl)], [up(fl), up(fr)], [up(fr), up(br)]]) {
+    const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+    for (let i = 0; i <= n; i++) cv.set(Math.round(a[0] + ((b[0] - a[0]) * i) / n), Math.round(a[1] + ((b[1] - a[1]) * i) / n) + 1, brickLight);
   }
-  // The front: an arched door, a plaque above it.
-  const cx = W / 2;
-  cv.rect(cx - 10, H - 30, 20, 28, [44, 32, 28]);
-  for (let j = 0; j < 6; j++) cv.rect(cx - 10 + j, H - 30 - Math.round(Math.sqrt(36 - (6 - j) ** 2)), 20 - j * 2, 1, [44, 32, 28]);
-  cv.rect(cx - 12, H - 38, 24, 2, brickLight);
-  cv.rect(cx - 16, H - 50, 32, 9, [196, 188, 170]);
-  cv.rect(cx - 15, H - 49, 30, 7, [170, 160, 140]);
-  for (let i = 0; i < 5; i++) cv.rect(cx - 12 + i * 5, H - 47, 3, 1, [110, 100, 88]);
-  // Stairs up the west side of the lower tiers.
-  for (let i = 0; i < 9; i++) {
-    const x = 10 + i * 2, y = H - 8 - i * 6;
-    cv.rect(x, y, 12, 2, topLight);
-    cv.rect(x, y + 2, 12, 4, mix(brick, brickDark, 0.3));
+  fillPoly([[bl[0], wallTop], [br[0], wallTop], up(br), up(fr), up(fl), up(bl)], paving);
+  // The parapet: merlons along the face and both sides.
+  for (let x = up(fl)[0] + 2; x < up(fr)[0] - 4; x += 10) { cv.rect(x, up(fl)[1] - 5, 6, 5, brickLight); cv.rect(x, up(fl)[1] - 5, 6, 1, topLight); }
+  for (const [a, b] of [[up(bl), up(fl)], [up(br), up(fr)]]) {
+    for (let t = 0.15; t < 0.95; t += 0.18) {
+      const x = Math.round(a[0] + (b[0] - a[0]) * t), y = Math.round(a[1] + (b[1] - a[1]) * t);
+      cv.rect(x - 3, y - 5, 6, 5, brickLight); cv.rect(x - 3, y - 5, 6, 1, topLight);
+    }
   }
-  // Cannons on the lower terrace, their barrels to the river.
-  for (const x of [40, 64, W - 76, W - 52]) {
-    cv.rect(x, 256, 10, 5, [70, 52, 40]);
-    cv.ellipse(x + 2, 262, 2.5, 2.5, [50, 40, 32]);
-    cv.ellipse(x + 8, 262, 2.5, 2.5, [50, 40, 32]);
-    cv.rect(x + 3, 252, 4, 9, [58, 60, 64]);
-    cv.rect(x + 3, 252, 1, 9, [96, 100, 108]);
+
+  // The two tiers on top, the lower first so the upper stands on it: each a
+  // paved top and a brick face, its parapet, its shadow to the east.
+  const front = up(fl)[1];
+  const tiers = [{ w: 168, front: front - 8, h: 40, depth: 40 }, { w: 96, front: front - 54, h: 32, depth: 28 }];
+  for (const t of tiers) {
+    const x0 = W / 2 - t.w / 2, faceTop = t.front - t.h, topY = faceTop - t.depth;
+    cv.rect(x0 + t.w, faceTop + 4, 4, t.h, [0, 0, 0], 0.22);
+    for (let y = topY; y < faceTop; y++) for (let x = x0; x < x0 + t.w; x++) cv.set(x, y, mix(paving(x, y), [204, 184, 160], 0.45));
+    for (let y = faceTop; y < t.front; y++) for (let x = x0; x < x0 + t.w; x++) cv.set(x, y, brickAt(0, () => t.front + 999, 999)(x, y));
+    // Its edges drawn in, so it stands up off the terrace below.
+    cv.rect(x0 - 1, topY - 1, t.w + 2, 1, OUTLINE);
+    cv.rect(x0 - 1, topY, 1, t.h + t.depth, OUTLINE);
+    cv.rect(x0 + t.w, topY, 1, t.h + t.depth, OUTLINE);
+    cv.rect(x0 - 1, t.front, t.w + 2, 1, OUTLINE);
+    cv.rect(x0, faceTop, t.w, 1, mix(OUTLINE, brickDark, 0.5));
+    cv.rect(x0, faceTop + 1, t.w, 1, brickLight);
+    for (let x = x0 + 2; x < x0 + t.w - 4; x += 8) { cv.rect(x, faceTop - 4, 5, 4, brickLight); cv.rect(x, faceTop - 4, 5, 1, topLight); }
   }
-  // The top platform's stone balustrade, the pole's plinth.
-  cv.rect(56, 186, W - 112, 2, [214, 208, 196]);
-  for (let x = 56; x < W - 56; x += 4) cv.rect(x, 188, 2, 5, [200, 194, 182]);
-  cv.rect(cx - 8, 192, 16, 6, [200, 194, 182]);
-  cv.rect(cx - 8, 192, 16, 1, [228, 224, 214]);
-  // The flagpole: where the map's was (its right edge is where the flag hangs).
-  const px = 94;
-  cv.rect(px, 8, 4, 186, [222, 222, 218]);
-  cv.rect(px, 8, 1, 186, [250, 250, 248]);
-  cv.rect(px + 3, 8, 1, 186, [170, 170, 166]);
-  for (let y = 40; y < 190; y += 30) cv.rect(px - 1, y, 6, 2, [180, 180, 176]);
+  // The middle tier's front: an arched door, a plaque above it.
+  const cx = W / 2, t1 = tiers[0];
+  const dark = [44, 32, 28];
+  cv.rect(cx - 9, t1.front - 22, 18, 22, dark);
+  for (let j = 0; j < 5; j++) cv.rect(cx - 9 + j, t1.front - 22 - Math.round(Math.sqrt(25 - (5 - j) ** 2)), 18 - j * 2, 1, dark);
+  cv.rect(cx - 16, t1.front - 36, 32, 7, [196, 188, 170]);
+  cv.rect(cx - 15, t1.front - 35, 30, 5, [170, 160, 140]);
+  for (let i = 0; i < 5; i++) cv.rect(cx - 12 + i * 5, t1.front - 33, 3, 1, [110, 100, 88]);
+  // Stairs up the middle tier's west side.
+  for (let i = 0; i < 8; i++) {
+    const x = W / 2 - t1.w / 2 - 14 + i * 2, y = t1.front - 4 - i * 5;
+    cv.rect(x, y, 10, 2, topLight);
+    cv.rect(x, y + 2, 10, 3, mix(brick, brickDark, 0.3));
+  }
+  // Cannons on the bastion top, their barrels to the river.
+  for (const x of [up(fl)[0] - 8, up(fl)[0] + 14, up(fr)[0] - 24, up(fr)[0] - 2]) {
+    const y = front - 12;
+    cv.rect(x, y, 10, 5, [70, 52, 40]);
+    cv.ellipse(x + 2, y + 6, 2.5, 2.5, [50, 40, 32]);
+    cv.ellipse(x + 8, y + 6, 2.5, 2.5, [50, 40, 32]);
+    cv.rect(x + 3, y - 4, 4, 9, [58, 60, 64]);
+    cv.rect(x + 3, y - 4, 1, 9, [96, 100, 108]);
+  }
+  // The top tier's stone balustrade, the pole's plinth.
+  const t2 = tiers[1], bx0 = W / 2 - t2.w / 2 + 4, bx1 = W / 2 + t2.w / 2 - 4;
+  const balY = t2.front - t2.h - t2.depth + 2;
+  cv.rect(bx0, balY, bx1 - bx0, 2, [214, 208, 196]);
+  for (let x = bx0; x < bx1; x += 4) cv.rect(x, balY + 2, 2, 5, [200, 194, 182]);
+  const plinthY = t2.front - t2.h - 12;
+  cv.rect(cx - 8, plinthY, 16, 6, [200, 194, 182]);
+  cv.rect(cx - 8, plinthY, 16, 1, [228, 224, 214]);
+  // The flagpole: where the map's is (its right edge is where the flag hangs).
+  const px = cx - 2;
+  cv.rect(px, 8, 4, plinthY - 8, [222, 222, 218]);
+  cv.rect(px, 8, 1, plinthY - 8, [250, 250, 248]);
+  cv.rect(px + 3, 8, 1, plinthY - 8, [170, 170, 166]);
+  for (let y = 40; y < plinthY - 4; y += 30) cv.rect(px - 1, y, 6, 2, [180, 180, 176]);
   cv.ellipse(px + 2, 5, 3.5, 3.5, [236, 196, 90]);
   cv.set(px + 1, 3, [255, 236, 160]);
   outline(cv);
   // The guy ropes, after the outline: fine lines, not outlined ones.
-  for (const [ax, ay] of [[60, 186], [W - 60, 186]]) {
+  for (const [ax, ay] of [[bx0, balY], [bx1, balY]]) {
     const n = Math.max(Math.abs(ax - px - 2), Math.abs(ay - 20));
     for (let i = 0; i <= n; i++) cv.set(Math.round(px + 2 + ((ax - px - 2) * i) / n), Math.round(20 + ((ay - 20) * i) / n), [70, 66, 62], 0.55);
   }
