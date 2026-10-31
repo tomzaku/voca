@@ -371,7 +371,7 @@ export function GameWorld({
     game.scene.add(RoomScene.KEY, RoomScene, false);
     const onNear = (id: string | null) => {
       setNearestId(id);
-      // A keeper's place tells its story as you walk up — Đông Ba, the boat…
+      // A keeper's place tells its story as you walk up — Tàng Thư Lâu, the market…
       const feature = id?.startsWith(FEATURE_ID_PREFIX) ? id.slice(FEATURE_ID_PREFIX.length) : null;
       const place = feature && (ROOMS[feature]?.place ?? KEEPER_PLACES[feature]);
       if (place) setPlaceToast((t) => ({ id: place, n: (t?.n ?? 0) + 1 }));

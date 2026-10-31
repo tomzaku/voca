@@ -5,6 +5,6 @@ import { defineActivity } from '../activity';
 
 export default defineActivity({
   id: 'read-aloud', skill: 'speaking', kind: 'tool', key: 'ReadAloud',
-  emoji: '📖', place: 'Cồn Hến', order: 60,
+  emoji: '📖', place: 'Chợ Đông Ba', order: 60,
   Screen: ReadAloudTool,
 });

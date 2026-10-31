@@ -5,6 +5,6 @@ import { defineActivity } from '../activity';
 
 export default defineActivity({
   id: 'podcast', skill: 'listening', kind: 'learn', key: 'Podcast',
-  emoji: '📻', place: 'Thuyền rồng', order: 10,
+  emoji: '📻', place: 'Duyệt Thị Đường', order: 10,
   Screen: Podcast,
 });

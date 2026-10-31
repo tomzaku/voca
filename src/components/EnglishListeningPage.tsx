@@ -469,7 +469,7 @@ function DictationTab() {
     }
   }, [current, playState]);
 
-  // Graded by lib/listeningRules (shared with the world's dragon boat).
+  // Graded by lib/listeningRules (shared with the world's royal theatre).
   const { words: gradedWords, accuracy, passed } = useMemo(
     () => (current ? gradeDictation(current.text, typed) : { words: [], accuracy: 0, passed: false }),
     [current, typed],

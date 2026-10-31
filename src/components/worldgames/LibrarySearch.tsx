@@ -14,7 +14,7 @@ import { WordPage } from './WordPage';
 // the header's search (lib/wordSearch: query clean-up, cache-first lookup,
 // "did you mean" for non-words, the typed-out examples), but drawn as a HUD
 // in the world: the search bar docked on top, the word's page opening in the
-// middle, and "learn it" sending the word to the Đông Ba stall instead of
+// middle, and "learn it" sending the word to the archive's word desk instead of
 // leaving the game for the flash card.
 
 type State =

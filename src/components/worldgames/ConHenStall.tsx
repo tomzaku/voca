@@ -8,7 +8,7 @@ import { speakText, stopSpeaking } from '../../lib/tts';
 import { playCorrect, playSelect } from '../../lib/sfx';
 import { HudBanner, HudCenter, HudDock, HudTop, PixelBar, PixelButton, PixelIcon } from './pixel';
 
-// The Speak building — a chè stall on Cồn Hến. The seller asks one of the
+// The Speak building — a chè stall in Đông Ba market. The seller asks one of the
 // Speak page's Short Conversation questions (same bank, same "practised"
 // marks in useSpeakingProgress, next question by conversationRules) and you
 // answer out loud. Recording and on-device transcription are the flash

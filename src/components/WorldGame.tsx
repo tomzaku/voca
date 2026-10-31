@@ -107,7 +107,7 @@ export function WorldGame() {
 
   // Search lives in the library: the header's search (button, ⌘K, "/") opens
   // it here instead of the app's modal, and "learn it" hands the word to the
-  // Đông Ba stall, which plays it next.
+  // archive's word desk, which plays it next.
   useEffect(() => useWordSearch.subscribe((s, prev) => {
     if (s.openCount === prev.openCount) return;
     const found = findActivity('search');

@@ -5,7 +5,7 @@
 // the half of vocabulary that actually gets used in conversation.
 //
 // Recording and on-device transcription live in useVoiceRecorder, shared with
-// the world's Cồn Hến stall; this file decides whether what was heard is the
+// the world's Đông Ba chè stall; this file decides whether what was heard is the
 // word.
 //
 // It lives in its own file rather than inside GuessGame.tsx with the others

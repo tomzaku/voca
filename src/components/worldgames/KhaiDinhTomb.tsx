@@ -12,7 +12,7 @@ import { WordPage } from './WordPage';
 // The same lists as the History page (useProgressQuery: the server's filtered,
 // paged rows, with the store standing in until they land; the same filters,
 // counts, buckets and "why it's here" lines), carved into a side panel; a
-// word opens its page in the middle, with "learn it" sending it to Đông Ba.
+// word opens its page in the middle, with "learn it" sending it to Tàng Thư Lâu.
 
 /** Each bucket's colour in the world's palette. */
 const BUCKET_COLOR: Record<WordBucket, string> = {

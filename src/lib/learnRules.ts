@@ -1,6 +1,6 @@
 // The rules of the Learn page's guess games, with no UI: what each game hands
 // the player, what counts as a right answer, and whether one miss ends the
-// round. The flash card's GuessGame and the world's Đông Ba stall both play by
+// round. The flash card's GuessGame and the world's archive desk both play by
 // these, so a word is as hard to guess in the city as on the card.
 
 import type { RealGuessGameMode } from '../hooks/useGuessGame';

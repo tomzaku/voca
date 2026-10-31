@@ -7,9 +7,9 @@ import { speakText, stopSpeaking } from '../../lib/tts';
 import { playCorrect, playSelect, playWrong } from '../../lib/sfx';
 import { HudActionBar, HudBanner, HudCenter, HudDock, HudSlot, HudTop, PixelButton, PixelChip, PixelIcon } from './pixel';
 
-// The Listening building — a dragon boat moored off Lê Lợi park. Two of the
+// The Listening building — Duyệt Thị Đường, the royal theatre. Two of the
 // Listen page's drills, on the same sentences and clips and graded by the
-// same rules (lib/listeningRules): Dictation, where the boatman says a
+// same rules (lib/listeningRules): Dictation, where Ông Sáu says a
 // sentence and you type it, and Comprehension, where a clip plays and its
 // questions sit on hotkeys 1–4. Switch between them in the top bar.
 
@@ -69,7 +69,7 @@ function Dictation({ onScore }: { onScore: (n: ReactNode) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const current = order[index % order.length];
 
-  // The boatman says each new sentence as it comes up.
+  // Ông Sáu says each new sentence as it comes up.
   useEffect(() => {
     speech.toggle(current.text);
     inputRef.current?.focus();

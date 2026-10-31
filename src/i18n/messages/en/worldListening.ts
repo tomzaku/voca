@@ -3,11 +3,11 @@ import type { Catalog } from '../..';
 // Listening: its activities' names and screens.
 
 export default {
-  'world.boatSays': 'The boatman says',
+  'world.boatSays': 'Ông Sáu says',
   'world.boatNextClip': 'Next clip',
   'world.boatPassed': '{passed}/{attempted} sentences',
   'world.actDictation': 'Dictation',
-  'world.actDictationBlurb': 'Type the sentence the boatman says',
+  'world.actDictationBlurb': 'Type the sentence Ông Sáu says',
   'world.actComprehension': 'Comprehension',
   'world.actComprehensionBlurb': 'Hear a clip, answer its questions',
   'world.actPodcast': 'Podcast',
@@ -21,8 +21,8 @@ export default {
   'world.ilPlay': 'Play recording',
   'world.ilHandIn': 'Hand in',
   'world.ilSections': 'Sections',
-  'world.keeperListening': 'Ông Sáu · the boatman',
-  'world.klDictation': 'Welcome aboard. Let’s warm up your ears — I’ll say a sentence, you write it down.',
+  'world.keeperListening': 'Ông Sáu · the court musician',
+  'world.klDictation': 'Welcome to the royal theatre. Let’s warm up your ears — I’ll say a sentence, you write it down.',
   'world.klDictationGo': 'Start dictation',
   'world.klClip': 'Sharp ears! Ready for something longer? Listen to a clip and answer its questions.',
   'world.klClipGo': 'Hear a clip',

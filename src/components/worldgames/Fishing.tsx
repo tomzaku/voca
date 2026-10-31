@@ -123,7 +123,7 @@ export function Fishing({ onClose }: { onClose: () => void }) {
         <div className="flex items-start justify-between gap-2 mb-3">
           <div>
             <p className="px-title !text-[18px] text-[var(--px-gold)]">🎣 <FormattedMessage id="world.fishTitle" /></p>
-            <p className="text-[13px] text-[var(--px-muted)]"><FormattedMessage id="places.goLim" /></p>
+            <p className="text-[13px] text-[var(--px-muted)]"><FormattedMessage id="places.dragonBoat" /></p>
           </div>
           <button onClick={onClose} className="px-title !text-[12px] text-[var(--px-muted)] hover:text-[var(--px-text)] mt-1">
             <FormattedMessage id="world.focusLeave" />

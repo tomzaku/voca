@@ -9,7 +9,7 @@ export interface WorldApi {
   /** Words the activities draw from: the collection you study, or all you have. */
   wordPool: string[];
   openActivity: (id: string) => void;
-  /** Hand a word to the Đông Ba stall, which plays it next. */
+  /** Hand a word to the archive's word desk, which plays it next. */
   learnWord: (word: string) => void;
   /** Has this learner ever chosen a collection. */
   chosen: boolean;

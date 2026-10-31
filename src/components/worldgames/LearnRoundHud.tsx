@@ -16,7 +16,7 @@ import {
 // banner on top, the guess game docked at the bottom, the word revealed in
 // the middle once it's solved or given away. The rules are the flash card's
 // (useLearnRound for picking and grading, learnRules for the games); the
-// buildings that use this — Đông Ba's stall, Thiên Mụ's review — only bring
+// buildings that use this — Tàng Thư Lâu's desk, Thiên Mụ's review — only bring
 // their own top bar and what to show when there's nothing left to play.
 
 export type LearnRound = ReturnType<typeof useLearnRound>;

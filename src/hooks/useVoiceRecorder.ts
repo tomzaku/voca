@@ -6,7 +6,7 @@ import { stopSpeaking } from '../lib/tts';
 // Whisper running on-device (lib/whisperStt), so it costs no AI credits, sends
 // no audio anywhere, and works offline once the model is cached — but that
 // model is a ~40MB first download, which is why `modelProgress` is exposed.
-// The flash card's Speak game and the world's Cồn Hến stall both record
+// The flash card's Speak game and the world's Đông Ba chè stall both record
 // through this; each decides what a transcript means.
 
 export type RecorderPhase =

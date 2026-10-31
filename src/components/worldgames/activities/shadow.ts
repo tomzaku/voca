@@ -5,6 +5,6 @@ import { defineActivity } from '../activity';
 
 export default defineActivity({
   id: 'shadow', skill: 'speaking', kind: 'learn', key: 'Shadow',
-  emoji: '🔁', place: 'Cồn Hến', order: 20,
+  emoji: '🔁', place: 'Chợ Đông Ba', order: 20,
   Screen: Shadowing,
 });

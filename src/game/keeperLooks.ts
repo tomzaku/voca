@@ -15,11 +15,11 @@ export interface KeeperDress {
 }
 
 export const KEEPER_DRESS: Record<string, KeeperDress> = {
-  // Cô Ba the word-seller, a book in hand.
-  vocabulary: { look: { hair: 'longhair', hairColor: 'dark', outfit: 'aoDai', outfitColor: 'red', hat: 'none' }, prop: 'book' },
-  // Chú Năm, who keeps the tea stall, a cup ready to pour.
-  speaking: { look: { hair: 'shorthair', hairColor: 'dark', outfit: 'everyday', outfitColor: 'blue', hat: 'none' }, prop: 'teacup' },
-  // Ông Sáu the boatman, listening in.
+  // Chú Tư the archivist of Tàng Thư Lâu, a book in hand.
+  vocabulary: { look: { hair: 'shorthair', hairColor: 'dark', outfit: 'everyday', outfitColor: 'green', hat: 'none' }, prop: 'book' },
+  // Cô Ba, who sells chè at Đông Ba market, a cup ready to pour.
+  speaking: { look: { hair: 'longhair', hairColor: 'dark', outfit: 'aoDai', outfitColor: 'red', hat: 'none' }, prop: 'teacup' },
+  // Ông Sáu the court musician of Duyệt Thị Đường, listening in.
   listening: { look: { hair: 'shorthair', hairColor: 'grey', outfit: 'aoThe', outfitColor: 'brown', hat: 'none' }, prop: 'headphones' },
   // Thầy Đồ the scholar, in áo the and khăn đóng, his brush in hand.
   writing: { look: { hair: 'shorthair', hairColor: 'grey', outfit: 'aoThe', outfitColor: 'black', hat: 'khanDong' }, prop: 'brush' },

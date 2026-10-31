@@ -95,14 +95,15 @@ export const WEST_GATE_Y = 30;                                // the gate Kim Lo
 export const EAST_GATE_Y = 36;                                // Đông Ba's, to the market
 export const NGO_MON = { x: 49, y: 34, w: 12, h: 6 };         // in the Imperial City's south wall
 
-// The skills' keepers — one person per skill, at its home landmark (see
-// src/game/features.ts). Their menus reach every activity, including those
-// whose landmarks (Thiên Mụ, Quốc Học, the library…) have no keeper of
+// The skills' keepers — one person per skill, at a landmark that suits it
+// (see src/game/features.ts): words in the court's archive, talk in the
+// market, listening in the royal theatre. Their menus reach every activity,
+// including those whose landmarks (Thiên Mụ, Quốc Học…) have no keeper of
 // their own.
 export const FEATURES = [
-  ['vocabulary', 91, 47.5, 'Chợ Đông Ba'],
-  ['speaking', 111, 40.6, 'Cồn Hến'],
-  ['listening', 49, 59.5, 'Thuyền rồng'],
+  ['vocabulary', 34, 26.8, 'Tàng Thư Lâu'],      // on its island, beside the bridge
+  ['speaking', 91, 47.5, 'Chợ Đông Ba'],
+  ['listening', 64, 23.3, 'Duyệt Thị Đường'],    // on the paved way before its door
   ['writing', 20, 44.5, 'Văn Miếu'],
   ['you', 13, 12.5, 'Nhà vườn An Hiên'],
   // One keeper for every collection and level, before the throne hall.

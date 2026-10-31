@@ -5,7 +5,7 @@ import { HudCenter, HudTop, PixelIcon } from './pixel';
 import { LearnRoundHud } from './LearnRoundHud';
 import { PLAYABLE_GAMES, useGameLabel } from './learnGames';
 
-// The Learn building — a stall in Đông Ba market. The same rounds as the
+// The Learn building — the archivist's desk in Tàng Thư Lâu. The same rounds as the
 // flash card: new and struggling words picked by pickNextWords (or one sent
 // over from the library), played and graded by LearnRoundHud. The stall's
 // top bar is your score: the game, the streak and the points.

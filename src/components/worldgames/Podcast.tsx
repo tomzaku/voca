@@ -7,7 +7,7 @@ import { splitSentences } from '../../lib/listeningRules';
 import { playSelect } from '../../lib/sfx';
 import { HudCenter, HudDock, PixelButton, PixelChip, PixelIcon } from './pixel';
 
-// Podcasts on the dragon boat — the Listen page's episodes, read aloud a
+// Podcasts at the royal theatre — the Listen page's episodes, read aloud a
 // sentence at a time (lib/listeningRules splitSentences, the role-plays'
 // script player) so the line being said lights up and any line can be
 // replayed. Hide the text to listen first; the key words and discussion

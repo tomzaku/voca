@@ -1,6 +1,6 @@
 import type { Catalog } from '../..';
 
-// Vocabulary: its activities' names and screens, and Cô Ba the word-seller's lines.
+// Vocabulary: its activities' names and screens, and Chú Tư the archivist's lines.
 
 export default {
   'world.featureQuizzes': 'Quizzes',
@@ -12,22 +12,22 @@ export default {
   'world.learnEmpty': 'No words to learn here yet — pick a collection first.',
   'world.learnTypeHere': 'Type the word…',
   'world.learnBackspace': 'Undo',
-  'world.searchLearnHere': 'Learn it at Đông Ba',
+  'world.searchLearnHere': 'Learn it at Tàng Thư Lâu',
   'world.searchSave': 'Save',
   'world.searchSaved': 'Saved',
   'world.searchHint': 'Enter to look up · ⌘K or / opens the library from anywhere',
   'world.reviewNothingDue': 'Nothing is due right now.',
   'world.reviewAllDone': 'All caught up — {kept} of {total} remembered.',
   'world.reviewNextDue': 'Next review {when}.',
-  'world.reviewNoneScheduled': 'Words join the review once you answer them at Đông Ba.',
-  'world.reviewLearnMore': 'Learn new words at Đông Ba',
+  'world.reviewNoneScheduled': 'Words join the review once you answer them at Tàng Thư Lâu.',
+  'world.reviewLearnMore': 'Learn new words at Tàng Thư Lâu',
   'world.reviewBacklog': '{count} due',
   'world.reviewMoreDue': '{count, plural, one {# more word is} other {# more words are}} due — come back for another sitting.',
   'world.climbFoot': 'The foot of the hill',
   'world.climbSlope': 'Halfway up',
   'world.climbSummit': 'The summit',
   'world.actLearn': 'New words',
-  'world.actLearnBlurb': 'Guess words one by one at the market stall',
+  'world.actLearnBlurb': 'Guess words one by one in the archive',
   'world.actReview': 'Review due words',
   'world.actReviewBlurb': 'Clear the words that are due today',
   'world.actQuiz': 'Quiz Arena',
@@ -40,8 +40,8 @@ export default {
   'world.actWordsBlurb': 'Every word you’ve met, by how well you know it',
   'world.actCollections': 'Collections',
   'world.actCollectionsBlurb': 'Pick the word list you study',
-  'world.keeperVocabulary': 'Cô Ba · the word-seller',
-  'world.kvWelcome': 'Welcome to Đông Ba market! Every word you learn here comes from a list — pick one to start, and I’ll take it from there.',
+  'world.keeperVocabulary': 'Chú Tư · the archivist',
+  'world.kvWelcome': 'Welcome to Tàng Thư Lâu, the court’s archive! Every word you learn here comes from a list — pick one to start, and I’ll take it from there.',
   'world.kvDue': '{due, plural, one {# word is} other {# words are}} waiting for review. Let’s clear {n} now, while they’re fresh.',
   'world.kvLearn': 'Nothing is due — well done. Shall we learn some new words from {name}?',
   'world.kvListDone': 'You’ve finished {name}! Pick a new list and we’ll keep going.',

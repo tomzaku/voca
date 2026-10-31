@@ -9,7 +9,7 @@ import { CONV_VOICE_A, CONV_VOICE_B } from '../../lib/tts';
 import { playCorrect, playSelect } from '../../lib/sfx';
 import { HudCenter, HudDock, PixelBar, PixelButton, PixelChip, PixelIcon } from './pixel';
 
-// Role-play on Cồn Hến: the Speak page's Daily Dialogues (everyday) and
+// Role-play at Đông Ba market: the Speak page's Daily Dialogues (everyday) and
 // IELTS Speaking (academic) scripts, played by the same script player
 // (useScriptPlayer) and marked practised in the same store. Listen to both
 // voices, or take a side: your lines are hidden and playback waits on each so

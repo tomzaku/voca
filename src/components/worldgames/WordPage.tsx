@@ -7,7 +7,7 @@ import { HudCenter, PixelButton, PixelChip, PixelIcon } from './pixel';
 
 // A word's full page in the world — the library's search result and a row
 // opened from the tomb's history. Saving goes through the same store as the
-// app's bookmark, and "learn it" hands the word to the Đông Ba stall.
+// app's bookmark, and "learn it" hands the word to the archive's word desk.
 
 /** A word's page, as the library would keep it. */
 export function WordPage({ data, onLearn, onSearch, besideSide = false }: { data: VocabularyWord; onLearn: (word: string) => void; onSearch: (word: string) => void; besideSide?: boolean }) {

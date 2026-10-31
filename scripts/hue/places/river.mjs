@@ -42,6 +42,10 @@ export const LABELS = [
   { text: 'Cầu Dã Viên', x: 35.4, y: 55, place: 'daVien', theme: 'desert', anchor: 'left' },
   { text: 'Cầu Phú Xuân', x: 69.4, y: 55, place: 'phuXuan', theme: 'desert', anchor: 'left' },
   { text: 'Cầu Trường Tiền', x: 78.4, y: 55, place: 'truongTien', theme: 'desert', anchor: 'left' },
+  // Named here since their keepers moved on (to Đông Ba and the royal
+  // theatre): the islet, and the dragon boat at its landing.
+  { text: 'Cồn Hến', x: 111, y: 39.4, place: 'conHen', theme: 'forest' },
+  { text: 'Thuyền rồng', x: 45, y: 57.4, place: 'dragonBoat', theme: 'desert' },
 ];
 
 export function drawRiver() {

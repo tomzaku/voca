@@ -6,7 +6,7 @@ import { vocabularyAdvice } from '../../../lib/keeperAdvice';
 import { defineKeeper } from '../keeper';
 import { useWorld } from '../world';
 
-// Cô Ba the word-seller, at Đông Ba market.
+// Chú Tư the archivist, at Tàng Thư Lâu.
 
 function useDue() {
   const progress = useVocabularyStore((s) => s.progress);

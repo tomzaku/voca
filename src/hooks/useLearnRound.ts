@@ -11,7 +11,7 @@ import type { AnswerVia, VocabularyWord } from '../types';
  * How a Learn round is written down, wherever it was played: a solve is a
  * successful review ('known', with the round's wrong attempts), giving up is
  * a lapse ('skipped'), and a solve or a "know it" also counts towards the
- * learner's team. The flash card and the world's Đông Ba stall both record
+ * learner's team. The flash card and the world's archive desk both record
  * through this.
  */
 export function useLearnRecorder() {

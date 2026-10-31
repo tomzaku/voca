@@ -4,7 +4,7 @@ import { isPracticed, useSpeakingProgress } from '../../../hooks/useSpeakingProg
 import { speakingAdvice } from '../../../lib/keeperAdvice';
 import { defineKeeper } from '../keeper';
 
-// Chú Năm, who keeps the tea stall on Cồn Hến.
+// Cô Ba, who sells chè at Đông Ba market.
 
 function useLeft() {
   const progress = useSpeakingProgress((s) => s.questions);

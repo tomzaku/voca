@@ -122,100 +122,6 @@ function bolts(cv, x, y, colours) {
   });
 }
 
-// ── Vocabulary: inside the Đông Ba market hall ──
-async function vocabulary() {
-  const W = 384, H = 192, FLOOR = 84;
-  const cv = new Canvas(W, H);
-
-  // Back wall: warm plaster under a beamed ceiling.
-  for (let y = 0; y < FLOOR; y++) for (let x = 0; x < W; x++) {
-    cv.set(x, y, mix([226, 208, 172], [208, 188, 150], hash(x >> 2, y >> 2) * 0.6));
-  }
-  cv.rect(0, 0, W, 10, WOOD.dark);
-  for (let x = 4; x < W; x += 24) cv.rect(x, 0, 6, 10, WOOD.base);
-  cv.rect(0, 10, W, 2, [60, 38, 24]);
-  cv.rect(0, 26, W, 4, WOOD.base);
-  cv.rect(0, 26, W, 1, WOOD.light);
-  // Dark wainscot along the foot of the wall.
-  cv.rect(0, FLOOR - 16, W, 16, WOOD.dark);
-  for (let x = 0; x < W; x += 12) cv.rect(x, FLOOR - 16, 1, 16, [70, 44, 28]);
-  cv.rect(0, FLOOR - 16, W, 2, WOOD.light);
-
-  for (const x of [28, 132, 244, 348]) pillar(cv, x, 12, FLOOR);
-
-  // The market's name board, high in the middle: red, gold-framed, with
-  // gold strokes standing in for the characters.
-  const bx = 160, by = 34, bw = 64, bh = 20;
-  cv.rect(bx - 2, by - 2, bw + 4, bh + 4, GOLD.dark);
-  cv.rect(bx, by, bw, bh, LACQUER.base);
-  cv.rect(bx, by, bw, 1, LACQUER.light);
-  for (let i = 0; i < 4; i++) {
-    const gx = bx + 7 + i * 14;
-    cv.rect(gx, by + 5, 8, 2, GOLD.base);
-    cv.rect(gx + 3, by + 5, 2, 11, GOLD.base);
-    cv.rect(gx, by + 11, 8, 2, GOLD.light);
-  }
-
-  // Wares on the wall: hats on the left, a striped cloth hanging on the right.
-  for (const x of [52, 76, 100]) hat(cv, x, 38);
-  for (let y = 36; y < 62; y++) for (let x = 268; x < 330; x++) {
-    const band = Math.floor((x - 268) / 6) % 3;
-    cv.set(x, y, [[86, 128, 132], [196, 150, 84], [150, 66, 60]][band]);
-  }
-  cv.rect(266, 34, 66, 2, WOOD.dark);
-
-  // Floor: terracotta tiles, each a shade of its own, darker toward the edges.
-  for (let y = FLOOR; y < H; y++) for (let x = 0; x < W; x++) {
-    const tx = x >> 4, ty = (y - FLOOR) >> 4;
-    const joint = (x & 15) === 0 || ((y - FLOOR) & 15) === 0;
-    let c = mix([184, 104, 72], [164, 88, 60], hash(tx, ty));
-    if ((tx + ty) % 2 === 0) c = shade(c, 1.05);
-    if (joint) c = shade(c, 0.8);
-    cv.set(x, y, mix(c, [196, 120, 86], hash(x, y) * 0.15));
-  }
-  cv.rect(0, FLOOR, W, 2, [0, 0, 0], 0.25);
-
-  // Stalls: fruit on the left, cloth on the right, words in the middle.
-  counter(cv, 12, 96, 104, 26);
-  basket(cv, 30, 92, [232, 150, 48]);
-  basket(cv, 56, 92, [128, 176, 72]);
-  basket(cv, 82, 92, [212, 64, 104]);
-  basket(cv, 104, 93, [240, 204, 72]);
-  counter(cv, 268, 96, 104, 26);
-  bolts(cv, 278, 90, [[86, 128, 132], [150, 66, 60], [210, 190, 140]]);
-  bolts(cv, 306, 90, [[196, 150, 84], [104, 92, 140]]);
-  bolts(cv, 334, 90, [[150, 66, 60], [86, 128, 132], [226, 214, 190], [196, 150, 84]]);
-  // The word-seller's counter: books and scrolls, under the name board.
-  counter(cv, 164, 92, 56, 20);
-  for (let i = 0; i < 4; i++) {
-    const c = [[150, 66, 60], [86, 128, 132], [196, 150, 84], [104, 92, 140]][i];
-    cv.rect(170 + i * 6, 80 - (i % 2) * 2, 5, 12 + (i % 2) * 2, c);
-    cv.rect(170 + i * 6, 80 - (i % 2) * 2, 5, 1, mix(c, [255, 255, 255], 0.35));
-  }
-  cv.rect(198, 86, 16, 4, [236, 226, 200]);
-  cv.rect(197, 85, 2, 6, WOOD.light);
-  cv.rect(213, 85, 2, 6, WOOD.light);
-
-  // Floor baskets and a crate by the stalls.
-  basket(cv, 128, 132, [232, 150, 48]);
-  basket(cv, 256, 134, [128, 176, 72]);
-  cv.rect(18, 136, 18, 12, WOOD.base);
-  cv.rect(18, 136, 18, 2, WOOD.light);
-  cv.rect(18, 141, 18, 1, WOOD.dark);
-
-  for (const [x, len] of [[60, 12], [112, 6], [196, 4], [272, 6], [324, 12]]) lantern(cv, x, 12, len);
-
-  // A soft warm vignette, so the eye rests in the middle.
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2);
-    const v = Math.max(0, Math.hypot(dx, dy * 0.8) - 0.55);
-    if (v > 0) cv.set(x, y, [40, 22, 14], Math.min(0.45, v * 0.8));
-  }
-
-  await cv.save('vocabulary.png');
-  console.log(`vocabulary.png ${W}×${H}`);
-}
-
 // ── The tailor's (tiệm may): where you're dressed before stepping into Huế ──
 async function tailor() {
   const W = 384, H = 192, FLOOR = 84;
@@ -307,23 +213,6 @@ async function tailor() {
 
 // ── Shared pieces for the skills' rooms ──
 
-/** Sky over the far bank and the river — for rooms that open onto the water. */
-function riverView(cv, W, top, horizon, waterTo) {
-  for (let y = top; y < horizon; y++) for (let x = 0; x < W; x++) {
-    cv.set(x, y, mix([196, 222, 230], [228, 236, 222], (y - top) / (horizon - top)));
-  }
-  // The far bank: a band of trees, soft-edged.
-  for (let x = 0; x < W; x++) {
-    const h = 6 + Math.round(4 * Math.sin(x / 11) + 3 * Math.sin(x / 5.3) + hash(x, 1) * 2);
-    for (let y = horizon - h; y < horizon + 2; y++) cv.set(x, y, mix([92, 132, 96], [70, 108, 78], hash(x >> 1, y)));
-  }
-  for (let y = horizon + 2; y < waterTo; y++) for (let x = 0; x < W; x++) {
-    let c = mix([104, 160, 162], [86, 142, 148], (y - horizon) / (waterTo - horizon));
-    if (hash(x >> 3, y) > 0.93) c = [170, 212, 204];
-    cv.set(x, y, c);
-  }
-}
-
 /** Wooden deck or floor planks, laid across. */
 function planks(cv, W, y0, y1, base = [168, 116, 72]) {
   for (let y = y0; y < y1; y++) for (let x = 0; x < W; x++) {
@@ -366,75 +255,219 @@ function stool(cv, x, y) {
   cv.rect(x + 7, y + 3, 2, 5, WOOD.dark);
 }
 
-// ── Speaking: Chú Năm's tea stall on Cồn Hến ──
+// ── Speaking: Cô Ba's chè stall in the Đông Ba market hall ──
 async function speaking() {
-  const W = 384, H = 192, FLOOR = 92;
+  const W = 384, H = 192, FLOOR = 84;
   const cv = new Canvas(W, H);
-  riverView(cv, W, 0, 46, FLOOR);
-  // A thatched awning along the top, on bamboo posts.
-  for (let y = 0; y < 16; y++) for (let x = 0; x < W; x++) {
-    const c = mix([196, 164, 96], [160, 128, 70], hash(x >> 1, y) * 0.8);
-    cv.set(x, y, (y + (x >> 2)) % 5 === 0 ? shade(c, 0.85) : c);
+
+  // Back wall: warm plaster under a beamed ceiling.
+  for (let y = 0; y < FLOOR; y++) for (let x = 0; x < W; x++) {
+    cv.set(x, y, mix([226, 208, 172], [208, 188, 150], hash(x >> 2, y >> 2) * 0.6));
   }
-  for (let x = 0; x < W; x += 3) cv.rect(x, 16, 2, 2 + (hash(x, 3) > 0.5 ? 2 : 0), [150, 118, 62]);
-  for (const x of [20, 140, 238, 358]) { cv.rect(x, 16, 5, FLOOR - 16, [176, 160, 96]); cv.rect(x, 16, 1, FLOOR - 16, [206, 194, 130]); for (let y = 24; y < FLOOR; y += 14) cv.rect(x, y, 5, 1, [130, 112, 60]); }
-  // A rail at the water's edge.
-  cv.rect(0, FLOOR - 12, W, 2, [176, 160, 96]);
-  for (let x = 6; x < W; x += 18) cv.rect(x, FLOOR - 12, 2, 12, [150, 132, 74]);
-  // Floor: a bamboo deck over the bank.
-  planks(cv, W, FLOOR, H, [186, 160, 104]);
-  // The stall's cart of chè: pots and bright bowls.
-  counter(cv, 12, 100, 96, 22);
-  for (const [i, c] of [[0, [196, 92, 132]], [1, [240, 196, 64]], [2, [78, 156, 106]], [3, [236, 228, 210]], [4, [128, 72, 152]]]) {
-    cv.oval(26 + i * 16, 96, 6, 3, [60, 60, 66]);
-    cv.oval(26 + i * 16, 95, 5, 2, c);
+  cv.rect(0, 0, W, 10, WOOD.dark);
+  for (let x = 4; x < W; x += 24) cv.rect(x, 0, 6, 10, WOOD.base);
+  cv.rect(0, 10, W, 2, [60, 38, 24]);
+  cv.rect(0, 26, W, 4, WOOD.base);
+  cv.rect(0, 26, W, 1, WOOD.light);
+  // Dark wainscot along the foot of the wall.
+  cv.rect(0, FLOOR - 16, W, 16, WOOD.dark);
+  for (let x = 0; x < W; x += 12) cv.rect(x, FLOOR - 16, 1, 16, [70, 44, 28]);
+  cv.rect(0, FLOOR - 16, W, 2, WOOD.light);
+
+  for (const x of [28, 132, 244, 348]) pillar(cv, x, 12, FLOOR);
+
+  // The market's name board, high in the middle: red, gold-framed, with
+  // gold strokes standing in for the characters.
+  const bx = 160, by = 34, bw = 64, bh = 20;
+  cv.rect(bx - 2, by - 2, bw + 4, bh + 4, GOLD.dark);
+  cv.rect(bx, by, bw, bh, LACQUER.base);
+  cv.rect(bx, by, bw, 1, LACQUER.light);
+  for (let i = 0; i < 4; i++) {
+    const gx = bx + 7 + i * 14;
+    cv.rect(gx, by + 5, 8, 2, GOLD.base);
+    cv.rect(gx + 3, by + 5, 2, 11, GOLD.base);
+    cv.rect(gx, by + 11, 8, 2, GOLD.light);
   }
-  // Tea tables and stools out front.
-  teaTable(cv, 168, 128); stool(cv, 154, 136); stool(cv, 204, 136);
-  teaTable(cv, 270, 112); stool(cv, 256, 120); stool(cv, 306, 120);
-  for (const [x, len] of [[80, 4], [196, 2], [300, 4]]) lantern(cv, x, 16, len);
-  vignette(cv, W, H);
+
+  // Wares on the wall: hats on the left, a striped cloth hanging on the right.
+  for (const x of [52, 76, 100]) hat(cv, x, 38);
+  for (let y = 36; y < 62; y++) for (let x = 268; x < 330; x++) {
+    const band = Math.floor((x - 268) / 6) % 3;
+    cv.set(x, y, [[86, 128, 132], [196, 150, 84], [150, 66, 60]][band]);
+  }
+  cv.rect(266, 34, 66, 2, WOOD.dark);
+
+  // Floor: terracotta tiles, each a shade of its own, darker toward the edges.
+  for (let y = FLOOR; y < H; y++) for (let x = 0; x < W; x++) {
+    const tx = x >> 4, ty = (y - FLOOR) >> 4;
+    const joint = (x & 15) === 0 || ((y - FLOOR) & 15) === 0;
+    let c = mix([184, 104, 72], [164, 88, 60], hash(tx, ty));
+    if ((tx + ty) % 2 === 0) c = shade(c, 1.05);
+    if (joint) c = shade(c, 0.8);
+    cv.set(x, y, mix(c, [196, 120, 86], hash(x, y) * 0.15));
+  }
+  cv.rect(0, FLOOR, W, 2, [0, 0, 0], 0.25);
+
+  // Stalls: fruit on the left, cloth on the right, words in the middle.
+  counter(cv, 12, 96, 104, 26);
+  basket(cv, 30, 92, [232, 150, 48]);
+  basket(cv, 56, 92, [128, 176, 72]);
+  basket(cv, 82, 92, [212, 64, 104]);
+  basket(cv, 104, 93, [240, 204, 72]);
+  counter(cv, 268, 96, 104, 26);
+  bolts(cv, 278, 90, [[86, 128, 132], [150, 66, 60], [210, 190, 140]]);
+  bolts(cv, 306, 90, [[196, 150, 84], [104, 92, 140]]);
+  bolts(cv, 334, 90, [[150, 66, 60], [86, 128, 132], [226, 214, 190], [196, 150, 84]]);
+  // Cô Ba's counter under the name board: her pots of chè and bright bowls.
+  counter(cv, 164, 92, 56, 20);
+  for (const [i, c] of [[0, [196, 92, 132]], [1, [240, 196, 64]], [2, [78, 156, 106]], [3, [128, 72, 152]]]) {
+    cv.oval(174 + i * 12, 88, 5, 3, [60, 60, 66]);
+    cv.oval(174 + i * 12, 87, 4, 2, c);
+  }
+  // Stools out front, for sitting down to talk.
+  stool(cv, 150, 140); stool(cv, 222, 140);
+
+  // Floor baskets and a crate by the stalls.
+  basket(cv, 128, 132, [232, 150, 48]);
+  basket(cv, 256, 134, [128, 176, 72]);
+  cv.rect(18, 136, 18, 12, WOOD.base);
+  cv.rect(18, 136, 18, 2, WOOD.light);
+  cv.rect(18, 141, 18, 1, WOOD.dark);
+
+  for (const [x, len] of [[60, 12], [112, 6], [196, 4], [272, 6], [324, 12]]) lantern(cv, x, 12, len);
+
+  // A soft warm vignette, so the eye rests in the middle.
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2);
+    const v = Math.max(0, Math.hypot(dx, dy * 0.8) - 0.55);
+    if (v > 0) cv.set(x, y, [40, 22, 14], Math.min(0.45, v * 0.8));
+  }
+
   await cv.save('speaking.png');
   console.log(`speaking.png ${W}×${H}`);
 }
 
-// ── Listening: the dragon boat's deck, on the Perfume River ──
-async function listening() {
-  const W = 384, H = 192, DECK = 100;
+// ── Vocabulary: Tàng Thư Lâu, the court's archive ──
+async function vocabulary() {
+  const W = 384, H = 192, FLOOR = 88;
   const cv = new Canvas(W, H);
-  riverView(cv, W, 0, 50, DECK);
-  // Thiên Mụ's tower on the far bank: seven tiers, narrowing.
-  for (let t = 0; t < 7; t++) {
-    const w = 14 - t * 1.4, y = 46 - t * 5;
-    cv.rect(Math.round(300 - w / 2), y - 4, Math.round(w), 4, [214, 150, 120]);
-    cv.rect(Math.round(300 - w / 2) - 1, y - 5, Math.round(w) + 2, 1, [120, 84, 70]);
+  // Dark timber walls under a beamed ceiling.
+  for (let y = 0; y < FLOOR; y++) for (let x = 0; x < W; x++) cv.set(x, y, mix([132, 92, 60], [116, 80, 52], hash(x >> 3, y >> 2) * 0.6));
+  cv.rect(0, 0, W, 10, WOOD.dark);
+  for (let x = 4; x < W; x += 24) cv.rect(x, 0, 6, 10, WOOD.base);
+  cv.rect(0, 10, W, 2, [60, 38, 24]);
+  for (const x of [24, 132, 244, 352]) pillar(cv, x, 12, FLOOR);
+
+  // Shelves from floor to beam between the pillars: rows of bound books and
+  // scroll cases, each its own colour and height.
+  const spines = [[150, 66, 60], [86, 128, 132], [196, 150, 84], [104, 92, 140], [120, 84, 52], [226, 214, 190], [70, 96, 70]];
+  for (const [x0, x1] of [[36, 128], [256, 348]]) {
+    cv.rect(x0, 16, x1 - x0, FLOOR - 16, WOOD.dark);
+    for (const sy of [30, 48, 66, 84]) {
+      cv.rect(x0, sy, x1 - x0, 2, WOOD.light);
+      for (let x = x0 + 2, k = 0; x < x1 - 4; k++) {
+        const scroll = hash(x, sy) > 0.8;
+        const w = scroll ? 6 : 3 + Math.floor(hash(sy, x) * 3);
+        const h = scroll ? 6 : 10 + Math.floor(hash(x, sy + 1) * 5);
+        const c = spines[(k + sy) % spines.length];
+        if (scroll) { cv.oval(x + 3, sy - 4, 3, 3, [226, 214, 190]); cv.set(x + 3, sy - 4, [150, 120, 70]); }
+        else { cv.rect(x, sy - h, w, h, c); cv.rect(x, sy - h, w, 1, mix(c, [255, 255, 255], 0.3)); cv.rect(x + w - 1, sy - h, 1, h, shade(c, 0.7)); }
+        x += w + 1;
+      }
+    }
   }
-  cv.rect(299, 6, 2, 6, [120, 84, 70]);
-  // The cabin roof overhead: red lacquer beams with gold trim.
-  cv.rect(0, 0, W, 12, LACQUER.dark);
-  cv.rect(0, 12, W, 3, GOLD.base);
-  for (let x = 6; x < W; x += 20) cv.rect(x, 0, 4, 12, LACQUER.base);
-  for (const x of [36, 186, 336]) pillar(cv, x, 15, DECK);
-  // The railing: red posts, gold rail.
-  cv.rect(0, DECK - 14, W, 3, GOLD.dark);
-  cv.rect(0, DECK - 14, W, 1, GOLD.light);
-  for (let x = 4; x < W; x += 16) cv.rect(x, DECK - 14, 3, 14, LACQUER.base);
-  planks(cv, W, DECK, H, [150, 96, 60]);
-  // The dragon's head rearing at the prow, on the left.
-  cv.rect(0, 60, 26, 40, [214, 164, 60]);
-  for (let i = 0; i < 8; i++) cv.rect(26 + i, 60 + i * 2, 1, 40 - i * 4, [214, 164, 60]);
-  cv.rect(4, 52, 16, 10, [226, 180, 72]);
-  cv.rect(18, 56, 8, 3, [190, 60, 40]);       // tongue
-  cv.rect(10, 55, 2, 2, [40, 30, 30]);         // eye
-  for (let y = 64; y < 100; y += 5) cv.rect(2, y, 22, 1, [180, 130, 44]);   // scales
-  // Instruments for ca Huế: a đàn tranh on a low stand, a drum.
-  cv.rect(150, 128, 70, 5, WOOD.light);
-  cv.rect(150, 133, 70, 2, WOOD.dark);
-  for (let i = 0; i < 9; i++) cv.rect(154 + i * 7, 127, 1, 1, [236, 228, 210]);
-  cv.rect(152, 135, 3, 6, WOOD.dark); cv.rect(215, 135, 3, 6, WOOD.dark);
-  cv.oval(256, 140, 10, 6, [150, 44, 36]); cv.oval(256, 137, 9, 3, [226, 204, 160]);
-  for (const [x, len] of [[90, 4], [140, 8], [240, 8], [290, 4]]) lantern(cv, x, 15, len);
+
+  // The archive's name board, high in the middle, and a hanging scroll under it.
+  const bx = 160, by = 18, bw = 64, bh = 18;
+  cv.rect(bx - 2, by - 2, bw + 4, bh + 4, GOLD.dark);
+  cv.rect(bx, by, bw, bh, LACQUER.base);
+  cv.rect(bx, by, bw, 1, LACQUER.light);
+  for (let i = 0; i < 3; i++) { const gx = bx + 12 + i * 16; cv.rect(gx, by + 5, 8, 2, GOLD.base); cv.rect(gx + 3, by + 5, 2, 9, GOLD.base); cv.rect(gx, by + 10, 8, 2, GOLD.light); }
+  cv.rect(173, 42, 38, 2, WOOD.dark);
+  cv.rect(175, 44, 34, 30, [240, 232, 210]);
+  for (let i = 0; i < 3; i++) { cv.rect(189, 48 + i * 8, 6, 2, [40, 36, 40]); cv.rect(191, 46 + i * 8, 2, 6, [40, 36, 40]); }
+  cv.rect(173, 74, 38, 2, WOOD.dark);
+
+  // A dark skirting where the wall meets the floor of polished boards.
+  cv.rect(0, FLOOR - 6, W, 6, [70, 44, 28]);
+  cv.rect(0, FLOOR - 6, W, 1, WOOD.light);
+  planks(cv, W, FLOOR, H, [170, 124, 80]);
+
+  // The keeper's reading desk on the left: an open book, an ink stone, a
+  // stack waiting to be put back.
+  counter(cv, 14, 100, 92, 22);
+  cv.rect(30, 94, 26, 6, [240, 232, 210]); cv.rect(42, 94, 2, 6, [200, 186, 160]);
+  for (let i = 0; i < 3; i++) cv.rect(34 + (i % 2) * 12, 96 + (i >> 1) * 2, 6, 1, [90, 80, 80]);
+  cv.rect(62, 95, 9, 5, [40, 40, 46]);
+  for (let i = 0; i < 4; i++) { const c = spines[i * 2 % spines.length]; cv.rect(78, 96 - i * 3, 20, 3, c); cv.rect(78, 96 - i * 3, 20, 1, mix(c, [255, 255, 255], 0.3)); }
+  // A ladder against the right-hand shelves, and a chest of scrolls.
+  for (const lx of [330, 344]) cv.rect(lx, 30, 2, 70, WOOD.light);
+  for (let y = 36; y < 100; y += 10) cv.rect(330, y, 16, 2, WOOD.base);
+  cv.rect(290, 126, 36, 16, LACQUER.dark); cv.rect(290, 126, 36, 3, GOLD.base); cv.rect(306, 132, 4, 4, GOLD.light);
+
+  for (const [x, len] of [[90, 6], [192, 2], [296, 6]]) lantern(cv, x, 12, len);
   vignette(cv, W, H);
+  await cv.save('vocabulary.png');
+  console.log(`vocabulary.png ${W}×${H}`);
+}
+
+// ── Listening: Duyệt Thị Đường, the royal theatre ──
+async function listening() {
+  const W = 384, H = 192, STAGE = 96;
+  const cv = new Canvas(W, H);
+  // The back of the stage: a red wall, a gold-framed painted screen.
+  for (let y = 0; y < STAGE; y++) for (let x = 0; x < W; x++) cv.set(x, y, mix(LACQUER.dark, [96, 26, 22], hash(x >> 3, y >> 2) * 0.5));
+  cv.rect(112, 18, 160, 56, GOLD.dark);
+  cv.rect(115, 21, 154, 50, [220, 196, 140]);
+  // On the screen: hills and a river in ink, a red sun.
+  for (let x = 115; x < 269; x++) {
+    const h = 14 + Math.round(8 * Math.sin((x - 115) / 17) + 5 * Math.sin((x - 115) / 7));
+    for (let y = 71 - h; y < 71; y++) cv.set(x, y, mix([120, 130, 110], [92, 104, 88], (y - 71 + h) / h));
+  }
+  for (let x = 115; x < 269; x++) if (hash(x >> 2, 3) > 0.4) cv.set(x, 66, [170, 190, 180]);
+  cv.oval(200, 32, 6, 6, [200, 70, 50]);
+  // The proscenium: a gold-trimmed red arch and curtains drawn to the sides.
+  cv.rect(0, 0, W, 12, LACQUER.base);
+  cv.rect(0, 12, W, 3, GOLD.base);
+  for (let x = 8; x < W; x += 24) { cv.rect(x, 3, 10, 6, GOLD.dark); cv.rect(x + 2, 4, 6, 4, GOLD.light); }
+  for (const [x0, dir] of [[0, 1], [W - 56, -1]]) {
+    for (let x = 0; x < 56; x++) for (let y = 15; y < STAGE + 6; y++) {
+      const fold = Math.sin((x * dir + y * 0.08) / 3.2);
+      const c = mix([176, 40, 40], [120, 24, 28], (fold + 1) / 2);
+      // Gathered at the foot: narrower toward the middle as it falls.
+      const reach = 56 - Math.max(0, (y - 40) * 0.25);
+      if ((dir === 1 ? x : 56 - x) < reach) cv.set(x0 + x, y, c);
+    }
+    cv.rect(dir === 1 ? 40 : W - 48, 58, 8, 4, GOLD.base);   // the tie-back
+  }
+  for (const x of [60, 316]) pillar(cv, x, 15, STAGE + 6);
+
+  // The stage floor, raised: polished boards with a gold edge.
+  planks(cv, W, STAGE - 4, STAGE + 10, [150, 96, 60]);
+  cv.rect(0, STAGE + 10, W, 3, GOLD.dark);
+  cv.rect(0, STAGE + 10, W, 1, GOLD.light);
+  cv.rect(0, STAGE + 13, W, 4, LACQUER.dark);
+  // The court musicians' instruments on stage: a big drum on its stand, a
+  // đàn tranh, a pair of small drums.
+  cv.rect(96, 72, 3, 22, WOOD.dark); cv.rect(129, 72, 3, 22, WOOD.dark);
+  cv.oval(114, 74, 15, 11, LACQUER.base); cv.oval(114, 74, 11, 9, [226, 204, 160]);
+  for (const a of [0, 1, 2, 3, 4, 5]) cv.set(114 + Math.round(13 * Math.cos(a)), 74 + Math.round(10 * Math.sin(a)), GOLD.light);
+  cv.rect(160, 86, 64, 4, WOOD.light); cv.rect(160, 90, 64, 2, WOOD.dark);
+  for (let i = 0; i < 9; i++) cv.rect(164 + i * 7, 85, 1, 1, [236, 228, 210]);
+  for (const dx of [0, 18]) { cv.oval(264 + dx, 88, 7, 4, LACQUER.base); cv.oval(264 + dx, 86, 6, 2, [226, 204, 160]); }
+
+  // The audience floor below: stone tiles, and rows of low stools facing the stage.
+  for (let y = STAGE + 17; y < H; y++) for (let x = 0; x < W; x++) {
+    const tx = x >> 4, ty = (y - STAGE) >> 4;
+    const joint = (x & 15) === 0 || ((y - STAGE - 17) & 15) === 0;
+    let c = mix([170, 150, 120], [152, 134, 108], hash(tx, ty));
+    if (joint) c = shade(c, 0.85);
+    cv.set(x, y, c);
+  }
+  for (const y of [140, 164]) for (let x = 140; x < 250; x += 26) stool(cv, x, y);
+
+  for (const [x, len] of [[90, 4], [150, 8], [234, 8], [294, 4]]) lantern(cv, x, 15, len);
+  vignette(cv, W, H, [30, 10, 10]);
   await cv.save('listening.png');
   console.log(`listening.png ${W}×${H}`);
 }

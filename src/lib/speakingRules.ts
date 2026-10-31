@@ -1,6 +1,6 @@
 // The rules of the Speak page's scripted practice, with no UI: how long a
 // candidate's IELTS turn runs, how a Part 2 cue card reads, and which lines
-// make good shadowing. The Speak page and the world's Cồn Hến both use them.
+// make good shadowing. The Speak page and the world's Đông Ba market both use them.
 
 import type { Dialogue } from '../data/englishDialogues';
 import type { IeltsConversation } from '../data/englishIelts';

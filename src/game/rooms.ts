@@ -27,26 +27,23 @@ export interface RoomDef {
 }
 
 export const ROOMS: Record<string, RoomDef> = {
+  // Tàng Thư Lâu, the court's archive: shelves of books, the keeper's desk.
   vocabulary: {
-    id: 'vocabulary',
-    url: 'game/rooms/vocabulary.png',
-    w: 384, h: 192,
-    keeper: { x: 72, y: 158 },
-    buddy: { x: 312, y: 160 },
-    edge: 0x2a1a12,
-    place: 'dongBa',
+    id: 'vocabulary', url: 'game/rooms/vocabulary.png', w: 384, h: 192,
+    keeper: { x: 64, y: 156 }, buddy: { x: 316, y: 164 },
+    edge: 0x221810, place: 'tangThuLau',
   },
-  // Chú Năm's tea stall on Cồn Hến, over the river.
+  // Cô Ba's chè stall in the Đông Ba market hall.
   speaking: {
     id: 'speaking', url: 'game/rooms/speaking.png', w: 384, h: 192,
-    keeper: { x: 64, y: 150 }, buddy: { x: 330, y: 162 },
-    edge: 0x2a2014, place: 'conHen',
+    keeper: { x: 72, y: 158 }, buddy: { x: 312, y: 160 },
+    edge: 0x2a1a12, place: 'dongBa',
   },
-  // The dragon boat's deck, Thiên Mụ's tower across the water.
+  // Duyệt Thị Đường, the royal theatre: the stage, its drums, the stools below.
   listening: {
     id: 'listening', url: 'game/rooms/listening.png', w: 384, h: 192,
-    keeper: { x: 60, y: 156 }, buddy: { x: 322, y: 164 },
-    edge: 0x24160e, place: 'dragonBoat',
+    keeper: { x: 60, y: 160 }, buddy: { x: 322, y: 164 },
+    edge: 0x1e0a0a, place: 'duyetThiDuong',
   },
   // Văn Miếu's hall of stelae, the scholar at his desk.
   writing: {

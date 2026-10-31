@@ -4,7 +4,7 @@ import { DongBaStall } from '../DongBaStall';
 import { useWorld } from '../world';
 import { defineActivity } from '../activity';
 
-// New words at the Đông Ba stall. They come from the collection you study,
+// New words at the archivist's desk in Tàng Thư Lâu. They come from the collection you study,
 // so a learner who hasn't picked one picks it first; studying it opens the stall.
 
 function Screen() {
@@ -17,6 +17,6 @@ function Screen() {
 
 export default defineActivity({
   id: 'learn', skill: 'vocabulary', kind: 'learn', key: 'Learn',
-  emoji: '🏮', place: 'Chợ Đông Ba', order: 10,
+  emoji: '📚', place: 'Tàng Thư Lâu', order: 10,
   Screen,
 });

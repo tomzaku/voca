@@ -3,7 +3,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { speakText, stopSpeaking } from '../../lib/tts';
 import { HudCenter, PixelButton, PixelIcon } from './pixel';
 
-// Read aloud on Cồn Hến — the Speak page's Read Aloud: type or paste
+// Read aloud at Đông Ba market — the Speak page's Read Aloud: type or paste
 // anything and hear it in the voice chosen in Settings (lib/tts).
 
 export function ReadAloudTool() {

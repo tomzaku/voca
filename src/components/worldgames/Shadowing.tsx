@@ -9,7 +9,7 @@ import { speakText, stopSpeaking } from '../../lib/tts';
 import { playCorrect, playSelect, playWrong } from '../../lib/sfx';
 import { HudBanner, HudDock, HudTop, PixelButton, PixelIcon } from './pixel';
 
-// Shadowing on Cồn Hến: hear a line from the Speak page's dialogues and say
+// Shadowing at Đông Ba market: hear a line from the Speak page's dialogues and say
 // it straight back. Your recording is transcribed on-device (the flash card's
 // useVoiceRecorder) and lined up with the sentence word by word (the
 // listening drills' gradeDictation), so you see which words came through.

@@ -1,11 +1,11 @@
 import type en from '../en/worldListening';
 
 export default {
-  'world.boatSays': 'Người lái đò nói',
+  'world.boatSays': 'Ông Sáu nói',
   'world.boatNextClip': 'Đoạn tiếp theo',
   'world.boatPassed': '{passed}/{attempted} câu',
   'world.actDictation': 'Chép chính tả',
-  'world.actDictationBlurb': 'Gõ lại câu người lái đò nói',
+  'world.actDictationBlurb': 'Gõ lại câu ông Sáu nói',
   'world.actComprehension': 'Nghe hiểu',
   'world.actComprehensionBlurb': 'Nghe đoạn băng, trả lời câu hỏi',
   'world.actPodcast': 'Podcast',
@@ -19,8 +19,8 @@ export default {
   'world.ilPlay': 'Phát băng',
   'world.ilHandIn': 'Nộp bài',
   'world.ilSections': 'Các phần',
-  'world.keeperListening': 'Ông Sáu · người lái đò',
-  'world.klDictation': 'Lên thuyền nào. Khởi động đôi tai trước — ông đọc một câu, con chép lại.',
+  'world.keeperListening': 'Ông Sáu · nhạc công cung đình',
+  'world.klDictation': 'Mời vào nhà hát. Khởi động đôi tai trước — ông đọc một câu, con chép lại.',
   'world.klDictationGo': 'Bắt đầu chép chính tả',
   'world.klClip': 'Tai thính lắm! Thử đoạn dài hơn nhé? Nghe một đoạn băng rồi trả lời câu hỏi.',
   'world.klClipGo': 'Nghe một đoạn',

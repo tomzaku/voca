@@ -10,6 +10,6 @@ function Screen() {
 
 export default defineActivity({
   id: 'comprehension', skill: 'listening', kind: 'practice', key: 'Comprehension',
-  emoji: '🐉', place: 'Thuyền rồng', order: 30,
+  emoji: '🎭', place: 'Duyệt Thị Đường', order: 30,
   Screen,
 });

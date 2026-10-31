@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { preloadTts, speakText, stopSpeaking } from '../lib/tts';
 
 // Playing a two-person script, headless — Daily Dialogue and IELTS Speaking
-// on the Speak page, and the world's role-plays on Cồn Hến. A script can be
+// on the Speak page, and the world's role-plays at Đông Ba market. A script can be
 // listened to with two voices, or role-played: the learner takes one side,
 // and playback stops on each of those lines so they say it first.
 

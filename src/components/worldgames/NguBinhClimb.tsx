@@ -10,7 +10,7 @@ import { HudBanner, HudCenter, HudDock, HudTop, PixelBar, PixelButton, PixelChip
 // you know" test as onboarding and Find my level (useLevelTest: the same
 // phases, the same unlock rule, the same recommendation), played as a climb:
 // each round is a stretch of the hill, and the summit names your level.
-// "Study" makes that level the active collection and sends you to Đông Ba.
+// "Study" makes that level the active collection and sends you to Tàng Thư Lâu.
 
 /** Where on the hill each round is. */
 const STAGES = ['world.climbFoot', 'world.climbSlope', 'world.climbSummit'];

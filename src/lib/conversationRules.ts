@@ -1,6 +1,6 @@
 // The rules of a Short Conversation, with no UI: which question to ask next,
 // and which of its useful phrases an answer actually used. The Speak page's
-// question bank and the world's Cồn Hến stall both ask from the same bank and
+// question bank and the world's Đông Ba chè stall both ask from the same bank and
 // mark practice in the same store (useSpeakingProgress).
 
 import type { SpeakingQuestion } from '../data/englishSpeaking';

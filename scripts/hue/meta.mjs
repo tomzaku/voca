@@ -89,8 +89,8 @@ export function writeMeta(shelters = []) {
   // Ga Huế, on the platform between the station and its tracks.
   point('play', 62, 64.6, { game: 'piano' });
   point('play', 27.5, 73.3, { game: 'race' });
-  // Fishing off the ironwood boardwalk, at its east end.
-  point('play', 72.5, 62.5, { game: 'fish' });
+  // Fishing off the dragon boat's landing, the boat alongside.
+  point('play', 48.6, 58.8, { game: 'fish' });
   for (const [x, y] of FARMERS) point('farmer', x, y);
 
   // The bus stops, named by their place's story id.
