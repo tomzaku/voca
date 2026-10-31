@@ -163,11 +163,11 @@ export function drawRiver() {
   // Cồn Hến footbridge, from the Gia Hội bank out to the islet.
   plankDeck(101, 39, 7, 2, true);
 
-  // The dragon-boat wharf below the citadel, west of Phu Văn Lâu's landing, and
-  // a boat moored alongside it.
+  // The dragon-boat wharf, out from the south bank's park opposite Phu Văn
+  // Lâu, and a boat moored alongside it.
   {
-    plankDeck(48, 53, 2, 9);
-    const x0 = 48 * T, x1 = 50 * T, y0 = 54 * T + 32;
+    plankDeck(48, 57, 2, 6);
+    const x0 = 48 * T, x1 = 50 * T, y0 = 57 * T + 6;
     for (const [px, py] of [[x0, y0], [x1 - 2, y0], [x0, y0 + 40], [x1 - 2, y0 + 40]]) ground.rect(px, py, 2, 3, [96, 66, 44]);
   }
   {
