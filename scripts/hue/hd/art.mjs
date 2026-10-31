@@ -237,10 +237,11 @@ export function market() {
   return cv;
 }
 
-/** Kỳ Đài: the flag tower. Its bastion is a trapezoid out from the front
- *  wall — wide at the wall, narrower at its face, the moat bending round it
- *  — so both slanting sides show as well as the face: old brick in courses,
- *  damp and moss where it meets the water, a parapet along the front. On its
+/** Kỳ Đài: the flag tower. Its bastion is an arrowhead out from the front
+ *  wall — straight flanks, then two faces meeting in a point aimed at the
+ *  river, the moat bending round it in a V — so both faces show: old brick
+ *  in courses, damp and moss where it meets the water, a parapet along
+ *  them. On its
  *  paved top, cannons to the river and two more tiers stepping up, a door
  *  and plaque in the middle one, stairs up its west side, a balustrade round
  *  the top; then the tall flagpole with its gold finial and guy ropes, where
@@ -252,7 +253,7 @@ export function kyDai() {
   const W = cv.w;
   const baseY = POLE * T2;
   const at = ([x, y]) => [(x - BASTION.x0) * T2, baseY + (y - BASTION.y0) * T2];
-  const [bl, br, fr, fl] = BASTION.poly.map(at);
+  const [bl, br, fr, tip, fl] = BASTION.poly.map(at);
   const wallTop = baseY + (CITADEL.wall.y1 - 1 - BASTION.y0) * T2;
   const rise = 20;
   const up = ([x, y]) => [x, y - rise];
@@ -289,29 +290,29 @@ export function kyDai() {
   /** Worn paving: slabs, the odd darker one. */
   const paving = (x, y) => (x % 10 === 0 || y % 6 === 0) ? mix(top, mortar, 0.5) : mix(top, topLight, hash(Math.floor(x / 10), Math.floor(y / 6)) * 0.6);
 
-  // The bastion: the slanting sides (the west catching the light, the east
-  // in shade), the face, then the top running back into the wall's.
-  fillPoly([up(bl), bl, fl, up(fl)], brickAt(0.1, lerpY(bl, fl), rise));
-  fillPoly([up(br), br, fr, up(fr)], brickAt(0.35, lerpY(br, fr), rise));
-  fillPoly([up(fl), fl, fr, up(fr)], brickAt(0, () => fl[1], rise));
-  for (const [a, b] of [[up(bl), up(fl)], [up(fl), up(fr)], [up(fr), up(br)]]) {
+  // The bastion: its two faces (the west catching the light, the east in
+  // shade), then the top running back into the wall's. The flanks run
+  // straight out from the wall, so from the front they're only an edge.
+  fillPoly([up(fl), fl, tip, up(tip)], brickAt(0, lerpY(fl, tip), rise));
+  fillPoly([up(tip), tip, fr, up(fr)], brickAt(0.3, lerpY(tip, fr), rise));
+  for (const [a, b] of [[up(fl), up(tip)], [up(tip), up(fr)]]) {
     const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
     for (let i = 0; i <= n; i++) cv.set(Math.round(a[0] + ((b[0] - a[0]) * i) / n), Math.round(a[1] + ((b[1] - a[1]) * i) / n) + 1, brickLight);
   }
-  fillPoly([[bl[0], wallTop], [br[0], wallTop], up(br), up(fr), up(fl), up(bl)], paving);
-  // The parapet: merlons along the face and both sides.
-  for (let x = up(fl)[0] + 2; x < up(fr)[0] - 4; x += 10) { cv.rect(x, up(fl)[1] - 5, 6, 5, brickLight); cv.rect(x, up(fl)[1] - 5, 6, 1, topLight); }
-  for (const [a, b] of [[up(bl), up(fl)], [up(br), up(fr)]]) {
-    for (let t = 0.15; t < 0.95; t += 0.18) {
-      const x = Math.round(a[0] + (b[0] - a[0]) * t), y = Math.round(a[1] + (b[1] - a[1]) * t);
-      cv.rect(x - 3, y - 5, 6, 5, brickLight); cv.rect(x - 3, y - 5, 6, 1, topLight);
-    }
+  fillPoly([[bl[0], wallTop], [br[0], wallTop], up(br), up(fr), up(tip), up(fl), up(bl)], paving);
+  // The parapet: merlons along both faces, up to the point.
+  const edgeY = (x) => up(fl)[1] + ((up(tip)[1] - up(fl)[1]) * (x < tip[0] ? x : W - x)) / tip[0];
+  for (let x = 2; x < W - 8; x += 10) {
+    const y = Math.round(edgeY(x + 3));
+    cv.rect(x, y - 5, 6, 5, brickLight); cv.rect(x, y - 5, 6, 1, topLight);
   }
 
   // The two tiers on top, the lower first so the upper stands on it: each a
-  // paved top and a brick face, its parapet, its shadow to the east.
-  const front = up(fl)[1];
-  const tiers = [{ w: 168, front: front - 8, h: 40, depth: 40 }, { w: 96, front: front - 54, h: 32, depth: 28 }];
+  // paved top and a brick face, its parapet, its shadow to the east. The
+  // lower stands just behind the parapet where its corners meet it (the
+  // map's canvas works it out the same way, at half the size).
+  const front = 2 * (Math.floor(edgeY(W / 2 - 84) / 2) - 2);
+  const tiers = [{ w: 168, front, h: 40, depth: 40 }, { w: 96, front: front - 46, h: 32, depth: 28 }];
   for (const t of tiers) {
     const x0 = W / 2 - t.w / 2, faceTop = t.front - t.h, topY = faceTop - t.depth;
     cv.rect(x0 + t.w, faceTop + 4, 4, t.h, [0, 0, 0], 0.22);

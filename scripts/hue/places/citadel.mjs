@@ -151,8 +151,8 @@ export function drawCitadel() {
     for (let x = 14; x < pw - 10; x += 10) glow(ox + x, oy + 47, [255, 240, 196], 2, nightOver);
   }
 
-  // Kỳ Đài: the brick bastion out from the front wall — a trapezoid, its
-  // slanting sides and its face all showing — and on it two more tiers
+  // Kỳ Đài: the brick bastion out from the front wall — an arrowhead, its two
+  // faces showing where they meet in the point — and on it two more tiers
   // stepping up to the tall flagpole. Drawn after Ngọ Môn because it stands
   // in front of it.
   {
@@ -163,7 +163,7 @@ export function drawCitadel() {
     const baseY = POLE * T;
     // The footprint in canvas pixels, where it meets the water…
     const at = ([x, y]) => [(x - BASTION.x0) * T, baseY + (y - BASTION.y0) * T];
-    const [bl, br, fr, fl] = BASTION.poly.map(at);
+    const [bl, br, fr, tip, fl] = BASTION.poly.map(at);
     const wallTop = baseY + (CITADEL.wall.y1 - 1 - BASTION.y0) * T;   // the wall row's top edge
     const rise = 10;                                     // a little taller than the wall
     const brick = [148, 90, 72], brickTop = [176, 116, 92], brickLine = [120, 70, 56];
@@ -178,13 +178,15 @@ export function drawCitadel() {
     };
     const up = ([x, y]) => [x, y - rise];
     const coursed = (base) => (x, y) => (y % 4 === 0 || (x + (y % 8 < 4 ? 0 : 3)) % 7 === 0) ? brickLine : base;
-    // …its sides and face, then its top, paved, running back into the wall's.
-    fillPoly([up(bl), bl, fl, up(fl)], coursed(brickSide));
-    fillPoly([up(br), br, fr, up(fr)], coursed(brickSide));
-    fillPoly([up(fl), fl, fr, up(fr)], coursed(brick));
-    fillPoly([[bl[0], wallTop], [br[0], wallTop], up(br), up(fr), up(fl), up(bl)],
+    // …its two faces (the west catching the light), then its top, paved,
+    // running back into the wall's. The flanks run straight out from the
+    // wall, so from the front they're only an edge.
+    fillPoly([up(fl), fl, tip, up(tip)], coursed(brick));
+    fillPoly([up(tip), tip, fr, up(fr)], coursed(brickSide));
+    fillPoly([[bl[0], wallTop], [br[0], wallTop], up(br), up(fr), up(tip), up(fl), up(bl)],
       (x, y) => (y % 6 === 0 || x % 10 === 0) ? pavingLine : paving);
-    for (let x = up(fl)[0]; x < up(fr)[0]; x += 6) cv.rect(x, up(fl)[1] - 2, 3, 2, brickTop);   // the parapet
+    const edgeY = (x) => up(fl)[1] + ((up(tip)[1] - up(fl)[1]) * (x < tip[0] ? x : bw - x)) / tip[0];
+    for (let x = 1; x < bw - 3; x += 6) cv.rect(x, Math.round(edgeY(x + 1.5)) - 2, 3, 2, brickTop);   // the parapet
     // The two tiers on top, each a box: its top, then its face.
     const tier = (w, front, h, depth) => {
       const x0 = bw / 2 - w / 2;
@@ -193,12 +195,14 @@ export function drawCitadel() {
       for (let y = front - h + 3; y < front; y += 4) for (let x = x0; x < x0 + w; x++) if (x % 7 === (y % 8 < 4 ? 0 : 3)) cv.set(x, y, brickLine);
       cv.rect(x0 + w, front - h + 2, 2, h - 2, [0, 0, 0], 0.25);
     };
-    // (The detailed art's tiers, at half its size.)
-    tier(84, up(fl)[1] - 4, 20, 20);
-    tier(48, up(fl)[1] - 27, 16, 14);
-    cv.rect(bw / 2 - 5, up(fl)[1] - 15, 10, 11, [44, 32, 28]);   // the door in the middle tier
+    // (The detailed art's tiers, at half its size.) The lower one stands
+    // just behind the parapet where its corners meet it.
+    const front = Math.floor(edgeY(bw / 2 - 42)) - 2;
+    tier(84, front, 20, 20);
+    tier(48, front - 23, 16, 14);
+    cv.rect(bw / 2 - 5, front - 11, 10, 11, [44, 32, 28]);     // the door in the middle tier
     const poleX = bw / 2 - 1;
-    const poleFoot = up(fl)[1] - 49;
+    const poleFoot = front - 45;
     cv.rect(poleX, 4, 2, poleFoot - 4, [214, 214, 210]);
     cv.set(poleX, 3, [236, 200, 90]); cv.set(poleX + 1, 3, [236, 200, 90]);
     cv.spec = { kind: 'kyDai' };
@@ -216,7 +220,7 @@ export function drawCitadel() {
   // the little pavilion at the water's edge where the court took the cool
   // air — one behind the other on the axis that runs from the throne hall
   // through Ngọ Môn and Kỳ Đài down to the water.
-  stoneSpan(52, 49, 6, 3);
+  stoneSpan(52, 50, 6, 2);
   {
     const cv = new Canvas(4 * T, 3 * T);
     const red = [150, 46, 38], col = [196, 70, 52];

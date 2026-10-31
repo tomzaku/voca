@@ -189,7 +189,7 @@ export function furnishStreets() {
   for (const [tx, ty, kind] of [
     [86.4, 51.3, 'bike'], [87.3, 51.3, 'bike'], [88.2, 51.3, 'bike'], [91.5, 51.3, 'cyclo'], [93.2, 51.3, 'cyclo'],
     [24.5, 66.9, 'bike'], [25.4, 66.9, 'bike'], [28, 66.9, 'cyclo'],
-    [37, 72.9, 'bike'], [37.9, 72.9, 'bike'],
+    [36.5, 66.9, 'bike'], [37.4, 66.9, 'bike'],
     [58.5, 65.6, 'bike'], [59.4, 65.6, 'bike'], [62, 65.6, 'cyclo'],
   ]) {
     const x = Math.round(tx * T), y = Math.round(ty * T);

@@ -15,6 +15,8 @@ const T2 = 32;
 const TERRA = { base: [184, 108, 74], line: [156, 88, 60], light: [214, 140, 100], eave: [110, 62, 44], ridge: [128, 72, 50] };
 const SLATE = { base: [96, 98, 110], line: [80, 82, 94], light: [126, 128, 142], eave: [56, 58, 68], ridge: [68, 70, 80] };
 const DARK = { base: [116, 102, 92], line: [98, 86, 78], light: [146, 130, 116], eave: [70, 60, 54], ridge: [84, 72, 64] };
+const RED_TILE = { base: [192, 76, 54], line: [164, 60, 44], light: [222, 110, 80], eave: [118, 40, 32], ridge: [140, 50, 38] };
+const CORAL = [198, 74, 68], CORAL_DARK = [164, 54, 50], CORAL_LIGHT = [218, 104, 94];
 const BRICK = [146, 108, 88], BRICK_DARK = [118, 84, 68], BRICK_LIGHT = [172, 134, 110];
 
 /** Stone courses: a wall of dressed stone, its joints staggered. */
@@ -25,6 +27,22 @@ function stoneWall(cv, x, y, w, h, base = [178, 170, 156]) {
     cv.set(x + i, y + j, joint ? mix(base, [0, 0, 0], 0.2) : mix(base, [255, 255, 255], (hash(Math.floor((i + (row % 2) * 7) / 14), row) - 0.5) * 0.12));
   }
   cv.rect(x, y, w, 2, mix(base, [255, 255, 255], 0.2));
+}
+
+/** Rubble stone: each pixel takes the stone whose jittered centre is
+ *  nearest, with a mortar joint where two stones meet. */
+function rubble(cv, x0, y0, w, h) {
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    let d1 = 1e9, d2 = 1e9, id = 0;
+    const gx = Math.floor(i / 7), gy = Math.floor(j / 6);
+    for (let v = gy - 1; v <= gy + 1; v++) for (let u = gx - 1; u <= gx + 1; u++) {
+      const d = Math.hypot(i - (u + hash(u, v * 3)) * 7, (j - (v + hash(u * 5, v)) * 6) * 1.2);
+      if (d < d1) { d2 = d1; d1 = d; id = u * 31 + v; } else if (d < d2) d2 = d;
+    }
+    let c = d2 - d1 < 1.2 ? [118, 108, 90] : mix([206, 196, 166], [164, 152, 122], hash(id, 7));
+    if (j < 2) c = [214, 206, 182];
+    cv.set(x0 + i, y0 + j, c);
+  }
 }
 
 /** An arched opening, dark, a lighter voussoir edge. */
@@ -276,30 +294,133 @@ export function gaHue() {
   return cv;
 }
 
-/** Quốc Học: 12 × 5 tiles — the oxblood school with its white trim, two
- *  rows of tall windows, and the white portico at the middle. */
+/** Quốc Học: 12 × 5 tiles — the school as it stands: coral-red walls
+ *  picked out in white, a hipped roof of red tile, the pediment over the
+ *  middle bay; tall shuttered windows under white hoods upstairs, arched
+ *  ones below, all on a footing of rubble stone. */
 export function quocHoc() {
   const cv = new Canvas(12 * T2, 5 * T2);
   const W = cv.w, H = cv.h, cx = W / 2;
-  const by = H - 88;
-  cv.rect(4, by, W - 8, 88, [156, 60, 52]);
-  for (let x = 4; x < W - 4; x += 44) cv.rect(x, by, 4, 88, [240, 236, 226]);
-  cv.rect(4, by + 42, W - 8, 4, [240, 236, 226]);
-  for (let x = 14; x < W - 20; x += 22) {
-    if (Math.abs(x + 5 - cx) < 44) continue;
-    for (const wy of [by + 10, by + 54]) {
-      cv.rect(x, wy, 10, 24, [240, 236, 226]);
-      cv.rect(x + 2, wy + 2, 6, 20, [64, 104, 88]);
-      cv.rect(x + 2, wy + 11, 6, 1, [240, 236, 226]);
+  const top = 54, floor = 104, foot = H - 12;
+  const WHITE = [244, 238, 228], WHITE_DARK = [214, 204, 192];
+  const SHUTTER = [112, 64, 46], SHUTTER_DARK = [82, 44, 32];
+  for (let y = top; y < foot; y++) for (let x = 4; x < W - 4; x++) {
+    cv.set(x, y, mix(CORAL, CORAL_DARK, hash(x, y) * 0.2 + ((y - top) / (foot - top)) * 0.2));
+  }
+  rubble(cv, 2, foot, W - 4, H - foot);
+  cv.rect(4, top, W - 8, 4, WHITE);
+  cv.rect(4, floor, W - 8, 4, WHITE);
+  cv.rect(4, floor + 4, W - 8, 1, WHITE_DARK);
+  for (let x = 20; x < W - 20; x += 24) {
+    if (Math.abs(x + 7 - cx) < 40) continue;
+    // Upstairs: a tall shuttered window, a white hood on brackets, a sill.
+    cv.rect(x - 4, top + 10, 22, 4, WHITE);
+    cv.rect(x - 2, top + 14, 2, 3, WHITE_DARK); cv.rect(x + 14, top + 14, 2, 3, WHITE_DARK);
+    cv.rect(x, top + 16, 14, 26, SHUTTER);
+    for (let y = top + 17; y < top + 42; y += 3) cv.rect(x, y, 14, 1, SHUTTER_DARK);
+    cv.rect(x + 6, top + 16, 2, 26, SHUTTER_DARK);
+    cv.rect(x - 3, top + 42, 20, 3, WHITE);
+    // Below: an arched window in a white surround.
+    for (let y = floor + 12; y < foot - 4; y++) for (let i = -10; i < 10; i++) {
+      const dy = floor + 19 - y;
+      if (dy > 0 && (i + 0.5) ** 2 + dy * dy > 100) continue;
+      const inner = Math.abs(i + 0.5) < 7 && (dy <= 0 || (i + 0.5) ** 2 + dy * dy <= 49);
+      cv.set(x + 7 + i, y, !inner ? WHITE : Math.abs(i + 0.5) < 1 || y % 3 === 0 ? SHUTTER_DARK : SHUTTER);
+    }
+    cv.rect(x - 4, foot - 4, 22, 3, WHITE);
+    cv.rect(x - 7, top + 4, 2, foot - top - 4, CORAL_LIGHT);           // pilasters
+  }
+  tiledRoof(cv, 0, 12, W, top - 10, RED_TILE, 18);
+  // The middle bay stands forward under its pediment.
+  const bx = cx - 38, bw = 76;
+  for (let y = top - 6; y < foot; y++) for (let x = bx; x < bx + bw; x++) cv.set(x, y, mix(CORAL_LIGHT, CORAL, hash(x, y) * 0.3));
+  for (let i = 0; i < 30; i++) {
+    const half = Math.round((bw / 2 + 4) * (1 - i / 30));
+    cv.rect(cx - half, top - 6 - i, half * 2, 1, i < 3 || i === 29 ? WHITE : mix(CORAL, CORAL_DARK, 0.15));
+    cv.set(cx - half, top - 6 - i, WHITE); cv.set(cx - half + 1, top - 6 - i, WHITE);
+    cv.set(cx + half - 1, top - 6 - i, WHITE); cv.set(cx + half - 2, top - 6 - i, WHITE);
+  }
+  cv.ellipse(cx, top - 18, 7, 5, WHITE);
+  cv.ellipse(cx, top - 18, 5, 3.5, [196, 160, 80]);
+  cv.rect(bx - 2, top - 6, bw + 4, 4, WHITE);
+  for (const x of [bx, bx + bw - 6]) cv.rect(x, top - 2, 6, foot - top + 2, WHITE_DARK);
+  for (let x = bx + 12; x < bx + bw - 12; x += 18) {
+    cv.rect(x - 2, top + 8, 16, 3, WHITE);
+    cv.rect(x, top + 12, 12, 28, SHUTTER);
+    for (let y = top + 13; y < top + 40; y += 3) cv.rect(x, y, 12, 1, SHUTTER_DARK);
+  }
+  cv.rect(bx - 2, floor, bw + 4, 4, WHITE);
+  door(cv, cx, foot, 22, 30);
+  for (let x = cx - 18; x < cx + 18; x++) cv.set(x, foot - 34 - Math.round(Math.sqrt(Math.max(0, 324 - (x - cx) ** 2)) / 3), WHITE);
+  cv.rect(cx - 16, foot, 32, H - foot, STONE_LIGHT);
+  for (let y = foot + 3; y < H; y += 3) cv.rect(cx - 16, y, 32, 1, STONE_DARK);
+  outline(cv);
+  return cv;
+}
+
+/** Quốc Học's gate on its wall, 12 × 3 tiles: four red pillars under two
+ *  tiers of tiled roof, a balustrade between them pierced with white
+ *  squares, the name board over the way in; either side, the low red wall
+ *  in white-framed panels, lotus buds on its posts. The middle is open. */
+export function quocHocGate() {
+  const cv = new Canvas(12 * T2, 3 * T2);
+  const W = cv.w, H = cv.h, cx = W / 2;
+  const WHITE = [244, 238, 228], WHITE_DARK = [210, 200, 190];
+  const wallTop = H - 30;
+  // The wall, in panels, either side of the gate.
+  for (const [x0, x1] of [[2, cx - 66], [cx + 66, W - 2]]) {
+    for (let y = wallTop; y < H - 2; y++) for (let x = x0; x < x1; x++) cv.set(x, y, mix(CORAL, CORAL_DARK, hash(x, y) * 0.25 + (y - wallTop) / 60));
+    cv.rect(x0, wallTop - 4, x1 - x0, 4, WHITE);
+    for (let x = x0 + 3; x < x1 - 2; x += 6) disc(cv, x, wallTop - 5, 1.5, WHITE);
+    cv.rect(x0, H - 6, x1 - x0, 4, CORAL_DARK);
+    const posts = [x0, x1 - 8];
+    for (let x = x0 + 40; x < x1 - 30; x += 44) posts.push(x);
+    for (let p = 0; p < posts.length - 1; p++) {
+      const a = posts[p] + 12, b = posts[p + 1] - 4;
+      if (b - a < 10) continue;
+      cv.rect(a, wallTop + 6, b - a, 14, WHITE); cv.rect(a + 1, wallTop + 7, b - a - 2, 12, CORAL);
+      const m = Math.round((a + b) / 2);
+      if (p % 2) { cv.rect(m - 5, wallTop + 7, 10, 12, WHITE); cv.rect(m - 3, wallTop + 9, 6, 8, CORAL_DARK); cv.rect(m - 1, wallTop + 9, 2, 8, WHITE); cv.rect(m - 3, wallTop + 12, 6, 2, WHITE); }
+    }
+    for (const x of posts) {
+      cv.rect(x, wallTop - 14, 8, H - 2 - wallTop + 14, CORAL);
+      cv.rect(x, wallTop - 14, 2, H - 2 - wallTop + 14, CORAL_LIGHT);
+      cv.rect(x - 1, wallTop - 16, 10, 3, WHITE);
+      // A lotus bud.
+      cv.ellipse(x + 4, wallTop - 21, 4, 5, WHITE);
+      cv.rect(x + 3, wallTop - 28, 2, 3, WHITE);
+      cv.set(x + 2, wallTop - 21, WHITE_DARK); cv.set(x + 6, wallTop - 21, WHITE_DARK);
     }
   }
-  tiledRoof(cv, 0, by - 56, W, 58, SLATE, 16);
-  // The portico.
-  cv.rect(cx - 38, by - 10, 76, 98, [156, 60, 52]);
-  for (let i = 0; i < 24; i++) cv.rect(cx - 38 + i * 1.5, by - 10 - i, 76 - i * 3, 1, [244, 240, 232]);
-  for (let x = cx - 34; x < cx + 34; x += 14) { cv.rect(x, by + 12, 6, 76, [248, 246, 240]); cv.rect(x + 4, by + 12, 2, 76, [214, 210, 200]); }
-  cv.rect(cx - 42, by + 6, 84, 6, [240, 236, 226]);
-  door(cv, cx, H, 20, 32);
+  // The gate: four pillars, the outer two passages narrow, the middle wide.
+  const base = H - 2;
+  for (const x of [cx - 64, cx - 34, cx + 28, cx + 58]) {
+    cv.rect(x, 40, 6, base - 40, CORAL);
+    cv.rect(x, 40, 2, base - 40, CORAL_LIGHT);
+    cv.rect(x + 5, 40, 1, base - 40, CORAL_DARK);
+    cv.rect(x + 1, base - 10, 4, 6, WHITE);
+  }
+  // Over the side passages, panels pierced with white squares.
+  for (const [x0, x1] of [[cx - 58, cx - 34], [cx + 34, cx + 58]]) {
+    cv.rect(x0, 40, x1 - x0, 20, CORAL);
+    for (let x = x0 + 3; x < x1 - 5; x += 8) { cv.rect(x, 44, 5, 5, WHITE); cv.set(x + 2, 46, CORAL_DARK); }
+  }
+  // The lintel over the middle and its name board.
+  cv.rect(cx - 34, 40, 68, 12, CORAL);
+  cv.rect(cx - 22, 42, 44, 8, [176, 52, 40]);
+  cv.rect(cx - 22, 42, 44, 1, GOLD); cv.rect(cx - 22, 49, 44, 1, GOLD);
+  for (let x = cx - 18; x < cx + 18; x += 3) cv.rect(x, 45, 2, 2, GOLD);
+  // Iron gate leaves folded back against the inner pillars.
+  for (const x of [cx - 28, cx + 22]) for (let i = 0; i < 6; i += 2) cv.rect(x + i, 58, 1, base - 60, [70, 46, 40]);
+  // The lower roof, the balustrade on it, the upper roof on two posts.
+  tiledRoof(cv, cx - 82, 28, 164, 14, RED_TILE, 6);
+  cv.rect(cx - 60, 18, 120, 10, CORAL);
+  cv.rect(cx - 60, 18, 120, 2, WHITE);
+  for (let x = cx - 56; x < cx + 54; x += 7) { cv.rect(x, 21, 4, 4, WHITE); cv.set(x + 1, 22, CORAL_DARK); }
+  for (const x of [cx - 30, cx + 24]) { cv.rect(x, 8, 6, 12, CORAL); cv.rect(x, 8, 2, 12, CORAL_LIGHT); }
+  tiledRoof(cv, cx - 46, 2, 92, 10, RED_TILE, 4);
+  ridgeDecor(cv, cx - 40, cx + 40, 2, RED_TILE);
+  for (const [x, y] of [[cx, -1], [cx - 84, 28], [cx + 82, 28]]) cv.ellipse(x, y + 1, 3, 3, WHITE_DARK);
   outline(cv);
   return cv;
 }
@@ -383,19 +504,7 @@ export function anDinh() {
 
   // The pavilion in front, on its terrace.
   const tl = cx - 62, tw = 124, ty = H - 34;
-  // Rubble stone: each pixel takes the stone whose jittered centre is
-  // nearest, with a mortar joint where two stones meet.
-  for (let j = 0; j < H - ty; j++) for (let i = 0; i < tw; i++) {
-    let d1 = 1e9, d2 = 1e9, id = 0;
-    const gx = Math.floor(i / 7), gy = Math.floor(j / 6);
-    for (let v = gy - 1; v <= gy + 1; v++) for (let u = gx - 1; u <= gx + 1; u++) {
-      const d = Math.hypot(i - (u + hash(u, v * 3)) * 7, (j - (v + hash(u * 5, v)) * 6) * 1.2);
-      if (d < d1) { d2 = d1; d1 = d; id = u * 31 + v; } else if (d < d2) d2 = d;
-    }
-    let c = d2 - d1 < 1.2 ? [118, 108, 90] : mix([206, 196, 166], [164, 152, 122], hash(id, 7));
-    if (j < 2) c = [214, 206, 182];
-    cv.set(tl + i, ty + j, c);
-  }
+  rubble(cv, tl, ty, tw, H - ty);
   balustrade(tl - 2, ty - 9, tw + 4);
   const px = cx - 34, pw = 68, pb = ty - 9;
   cv.rect(px, pb - 2, pw, 2, [196, 120, 52]);

@@ -4,9 +4,9 @@
 import { Canvas, hash, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
 import { drawn, ground, mark, place, solid, used } from '../core/world.mjs';
-import { HOUSE, facade, hall, roof } from '../draw/buildings.mjs';
+import { HOUSE, hall, roof } from '../draw/buildings.mjs';
 import { K, parterre } from '../hd/art.mjs';
-import { anDinh, halve } from '../hd/landmarks.mjs';
+import { anDinh, halve, quocHoc, quocHocGate } from '../hd/landmarks.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
@@ -37,31 +37,15 @@ export function drawSouthBank() {
     place(cv, 23, 68, 3);
   }
 
-  // Quốc Học: the maroon colonial school with white trim and a portico.
+  // Quốc Học: the red school behind its wall and gate, which open on the
+  // forecourt; the gate's middle passage is the way in.
   {
-    const w = 12, h = 5;
-    const cv = new Canvas(w * T, h * T);
-    const pw = w * T, ph = h * T;
-    const bodyY = ph - 44;
-    facade(cv, 2, bodyY, pw - 4, 44, {
-      wall: [156, 60, 52], windows: true, windowStep: 11, windowFrame: [240, 236, 226], glass: [64, 104, 88], door: false,
-    });
-    for (let x = 2; x < pw - 2; x += 22) cv.rect(x, bodyY + 2, 2, 40, [236, 230, 218]);
-    cv.rect(2, bodyY + 20, pw - 4, 2, [236, 230, 218]);
-    for (let wx = 7; wx < pw - 10; wx += 11) {
-      if (Math.abs(wx - pw / 2) < 20) continue;
-      cv.rect(wx, bodyY + 25, 5, 8, [240, 236, 226]);
-      cv.rect(wx + 1, bodyY + 26, 3, 6, [64, 104, 88]);
-    }
-    roof(cv, 2, bodyY - 30, pw - 4, 30, ROOF.slate, 8);
-    const px = pw / 2 - 18;
-    cv.rect(px, bodyY - 4, 36, 48, [156, 60, 52]);
-    for (let x = px + 2; x < px + 36; x += 8) cv.rect(x, bodyY + 6, 3, 36, [244, 240, 232]);
-    for (let i = 0; i < 12; i++) cv.rect(px + i * 1.5, bodyY - 4 - i, 36 - i * 3, 1, [240, 236, 226]);
-    cv.rect(px - 2, bodyY + 4, 40, 3, [240, 236, 226]);
-    cv.rect(pw / 2 - 5, bodyY + 30, 10, 12, [60, 40, 32]);
+    const cv = halve(quocHoc());
     cv.spec = { kind: 'quocHoc' };
     place(cv, 35, 67, 3);
+    const gate = halve(quocHocGate());
+    gate.spec = { kind: 'quocHocGate' };
+    place(gate, 35, 71, 1, { gaps: [40, 41], shadow: false });
   }
 
   // Lê Lợi park: flower beds between the bridges.
