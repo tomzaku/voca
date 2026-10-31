@@ -902,10 +902,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Receptionist', text: "I'll put you down for Thursday, then. See you then, Daniel." },
     ],
     questions: [
-      { question: 'Which membership does the receptionist recommend?', options: ['Off-peak', 'Standard', 'Premium', 'Student'], correctIndex: 1 },
-      { question: 'How much is the Standard membership per month?', options: ['£25', '£38', '£52', '£15'], correctIndex: 1 },
-      { question: "How is the caller's surname spelled?", options: ['Whitfield', 'Whitford', 'Witford', 'Whiteford'], correctIndex: 1 },
-      { question: 'What must the caller bring to the induction?', options: ['A passport', 'A bank card', 'A passport-sized photo', 'A swimming cap'], correctIndex: 2 },
+      { question: 'Which membership does the receptionist recommend?', options: ['Standard', 'Off-peak', 'Premium', 'Student'], correctIndex: 0 },
+      { question: 'How much is the Standard membership per month?', options: ['£25', '£52', '£38', '£15'], correctIndex: 2 },
+      { question: "How is the caller's surname spelled?", options: ['Whitfield', 'Whiteford', 'Witford', 'Whitford'], correctIndex: 3 },
+      { question: 'What must the caller bring to the induction?', options: ['A passport', 'A passport-sized photo', 'A bank card', 'A swimming cap'], correctIndex: 1 },
     ],
     tips: [
       'When several prices are listed in a row, note each one against its option — the question will only ask about one.',
@@ -935,10 +935,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Officer', text: "Here at Central, platform one, next to the ticket office." },
     ],
     questions: [
-      { question: 'What time did the passenger\'s train leave?', options: ['8:15', '8:50', '8:05', '4:00'], correctIndex: 0 },
-      { question: 'What colour is the bag?', options: ['Black', 'Red', 'Navy blue', 'Light blue'], correctIndex: 2 },
-      { question: 'What is the reference number?', options: ['L4472', 'L4427', 'L7442', 'L4742'], correctIndex: 0 },
-      { question: 'How long will found items be kept?', options: ['One month', 'Three months', 'Six months', 'One year'], correctIndex: 1 },
+      { question: 'What time did the passenger\'s train leave?', options: ['4:00', '8:50', '8:05', '8:15'], correctIndex: 3 },
+      { question: 'What colour is the bag?', options: ['Navy blue', 'Red', 'Black', 'Light blue'], correctIndex: 0 },
+      { question: 'What is the reference number?', options: ['L4427', 'L4472', 'L7442', 'L4742'], correctIndex: 1 },
+      { question: 'How long will found items be kept?', options: ['One month', 'Six months', 'Three months', 'One year'], correctIndex: 2 },
     ],
     tips: [
       'Speakers often correct themselves ("not black, quite a dark blue") — the corrected detail is the answer.',
@@ -970,9 +970,9 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Assistant', text: "Noted. I'll email your confirmation shortly." },
     ],
     questions: [
-      { question: 'Which course does the customer book?', options: ['Thai', 'Italian', 'Vegetarian Basics', 'Baking'], correctIndex: 2 },
-      { question: 'How much will the customer pay?', options: ['£65', '£75', '£130', '£150'], correctIndex: 1 },
-      { question: 'What should the customer bring?', options: ['Ingredients', 'A knife set', 'An apron and a container', 'Lunch'], correctIndex: 2 },
+      { question: 'Which course does the customer book?', options: ['Vegetarian Basics', 'Italian', 'Thai', 'Baking'], correctIndex: 0 },
+      { question: 'How much will the customer pay?', options: ['£65', '£130', '£75', '£150'], correctIndex: 2 },
+      { question: 'What should the customer bring?', options: ['Ingredients', 'A knife set', 'Lunch', 'An apron and a container'], correctIndex: 3 },
       { question: 'Where can the customer park?', options: ['On site', 'On Mill Lane', 'At the station', 'On the high street'], correctIndex: 1 },
     ],
     tips: [
@@ -1005,10 +1005,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Agent', text: "Done. I'll meet you outside the building." },
     ],
     questions: [
-      { question: 'What is the house number of the flat?', options: ['4', '14', '40', '42'], correctIndex: 1 },
-      { question: 'Which bill is included in the rent?', options: ['Electricity', 'Internet', 'Water', 'Council tax'], correctIndex: 2 },
-      { question: 'What furniture is missing?', options: ['Beds', 'A sofa', 'Wardrobes', 'Desks'], correctIndex: 3 },
-      { question: 'When will the student view the flat?', options: ['Wednesday at 5:30', 'Friday at 12:00', 'Wednesday at 12:00', 'Friday at 5:30'], correctIndex: 0 },
+      { question: 'What is the house number of the flat?', options: ['4', '42', '40', '14'], correctIndex: 3 },
+      { question: 'Which bill is included in the rent?', options: ['Water', 'Internet', 'Electricity', 'Council tax'], correctIndex: 0 },
+      { question: 'What furniture is missing?', options: ['Beds', 'Desks', 'Wardrobes', 'A sofa'], correctIndex: 1 },
+      { question: 'When will the student view the flat?', options: ['Wednesday at 12:00', 'Friday at 12:00', 'Wednesday at 5:30', 'Friday at 5:30'], correctIndex: 2 },
     ],
     tips: [
       'Listen for "but", "except" and "separate" — they mark what is NOT included.',
@@ -1041,8 +1041,8 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
     questions: [
       { question: "What is the patient's date of birth?", options: ['3 September 1998', '9 March 1998', '3 September 1989', '30 September 1998'], correctIndex: 0 },
       { question: "What is the patient's house number?", options: ['7', '17', '27', '47'], correctIndex: 2 },
-      { question: 'What condition does the patient have?', options: ['Diabetes', 'Asthma', 'High blood pressure', 'An allergy'], correctIndex: 1 },
-      { question: 'What will the patient bring as proof of address?', options: ['A utility bill', 'A passport', 'A tenancy agreement', 'A bank statement'], correctIndex: 2 },
+      { question: 'What condition does the patient have?', options: ['Diabetes', 'An allergy', 'High blood pressure', 'Asthma'], correctIndex: 3 },
+      { question: 'What will the patient bring as proof of address?', options: ['A utility bill', 'A tenancy agreement', 'A passport', 'A bank statement'], correctIndex: 1 },
     ],
     tips: [
       'Dates can be said in different orders — note day, month and year separately.',
@@ -1072,10 +1072,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Manager', text: "A fifty-pound deposit by bank transfer now, and the rest on the day." },
     ],
     questions: [
-      { question: 'Which room will the customer hire?', options: ['The main hall', 'The Garden Room', 'The kitchen', 'The meeting room'], correctIndex: 1 },
+      { question: 'Which room will the customer hire?', options: ['The main hall', 'The meeting room', 'The kitchen', 'The Garden Room'], correctIndex: 3 },
       { question: 'How many guests are expected?', options: ['About 45', 'About 60', 'About 70', 'About 18'], correctIndex: 0 },
       { question: 'What is the total cost of the room?', options: ['£120', '£150', '£180', '£50'], correctIndex: 1 },
-      { question: 'When must music stop?', options: ['10:00', '10:30', '11:00', '11:30'], correctIndex: 1 },
+      { question: 'When must music stop?', options: ['10:00', '11:00', '10:30', '11:30'], correctIndex: 2 },
     ],
     tips: [
       'Ages, dates and capacities often sound like answers — match each number to what it describes.',
@@ -1105,10 +1105,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Adviser', text: "Two-fifteen on Thursday it is." },
     ],
     questions: [
-      { question: 'What is the overdraft limit in the first year?', options: ['£50', '£250', '£500', '£1,000'], correctIndex: 2 },
+      { question: 'What is the overdraft limit in the first year?', options: ['£500', '£250', '£50', '£1,000'], correctIndex: 0 },
       { question: 'Which document does the student NOT have yet?', options: ['Passport', 'Visa', 'University letter', 'Council tax letter'], correctIndex: 2 },
-      { question: 'How long does the card take to arrive?', options: ['1–2 days', '2 days', '5–7 working days', 'Two weeks'], correctIndex: 2 },
-      { question: 'When is the appointment?', options: ['Thursday at 2:15', 'Tuesday at 2:15', 'Thursday at 2:50', 'Friday at 2:15'], correctIndex: 0 },
+      { question: 'How long does the card take to arrive?', options: ['1–2 days', '2 days', 'Two weeks', '5–7 working days'], correctIndex: 3 },
+      { question: 'When is the appointment?', options: ['Tuesday at 2:15', 'Thursday at 2:15', 'Thursday at 2:50', 'Friday at 2:15'], correctIndex: 1 },
     ],
     tips: [
       'Questions with "NOT" reward listening for what the speaker lacks, not what they have.',
@@ -1138,8 +1138,8 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Agent', text: "Of course." },
     ],
     questions: [
-      { question: 'How much does the chosen tour cost?', options: ['$42', '$58', '$68', '$86'], correctIndex: 2 },
-      { question: 'Which day will the tourist go?', options: ['Today', 'Tomorrow', 'Tuesday', 'Wednesday'], correctIndex: 3 },
+      { question: 'How much does the chosen tour cost?', options: ['$42', '$58', '$86', '$68'], correctIndex: 3 },
+      { question: 'Which day will the tourist go?', options: ['Wednesday', 'Tomorrow', 'Tuesday', 'Today'], correctIndex: 0 },
       { question: 'Where does the coach leave from?', options: ['The train station', 'The town hall', 'The tourist centre', 'The second lake'], correctIndex: 1 },
       { question: 'What does the agent advise bringing?', options: ['A packed lunch', 'A swimsuit', 'A waterproof jacket', 'A camera'], correctIndex: 2 },
     ],
@@ -1159,10 +1159,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Manager', text: "Good evening and welcome to Ashworth Hall. I'm Claire, the residence manager, and I'll run through a few essentials. Each corridor has eight bedrooms sharing one kitchen, and kitchens are cleaned by our staff twice a week — on Mondays and Thursdays — though you're expected to wash your own dishes every day. Laundry is in the basement; machines take your student card, and a wash costs two pounds fifty, with drying another pound. Post is delivered to the reception desk, not to your room, and parcels can be collected between nine and five on weekdays. If you have a maintenance problem, like a broken light or a dripping tap, report it through the online form rather than calling us; urgent issues such as a flood can be reported by phone any time. A fire alarm test happens every Wednesday at eleven in the morning — if it rings for longer than a minute, it's real, so leave immediately by the nearest stairs, never the lift. Quiet hours run from eleven at night until seven in the morning. Finally, guests may stay overnight for a maximum of three nights a month, and they must be signed in at reception." },
     ],
     questions: [
-      { question: 'How many bedrooms share a kitchen?', options: ['Six', 'Eight', 'Ten', 'Twelve'], correctIndex: 1 },
+      { question: 'How many bedrooms share a kitchen?', options: ['Eight', 'Six', 'Ten', 'Twelve'], correctIndex: 0 },
       { question: 'How should non-urgent maintenance problems be reported?', options: ['By phone', 'At reception', 'Through the online form', 'By email to Claire'], correctIndex: 2 },
-      { question: 'When is the weekly fire alarm test?', options: ['Monday at 11 AM', 'Wednesday at 11 AM', 'Thursday at 11 AM', 'Wednesday at 11 PM'], correctIndex: 1 },
-      { question: 'How many nights a month may a guest stay?', options: ['One', 'Two', 'Three', 'Seven'], correctIndex: 2 },
+      { question: 'When is the weekly fire alarm test?', options: ['Monday at 11 AM', 'Wednesday at 11 PM', 'Thursday at 11 AM', 'Wednesday at 11 AM'], correctIndex: 3 },
+      { question: 'How many nights a month may a guest stay?', options: ['One', 'Three', 'Two', 'Seven'], correctIndex: 1 },
     ],
     tips: [
       'Rules in Section 2 often come with exceptions ("rather than", "except") — the exception is a favourite question.',
@@ -1180,9 +1180,9 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Guide', text: "Welcome to the Kingsley Botanic Gardens. We're standing at the main gate, and before we set off I'll give you a sense of the layout. Directly ahead is the Glasshouse, home to over two thousand tropical species; it's kept at twenty-six degrees all year, so you may want to remove a layer before going in. To the left of the Glasshouse is the Rose Garden, which was originally planted in eighteen ninety-two and is at its best in June. Beyond that, following the path down the hill, you'll reach the Lake, where you can hire rowing boats in summer for eight pounds per half hour. On the right-hand side of the main path is the Children's Discovery Zone, with a maze and a small treehouse. The café sits between the Discovery Zone and the Herb Garden, and I'd recommend it — all the salad leaves are grown on site. Please note that dogs are welcome on leads everywhere except inside the Glasshouse and the Discovery Zone. Our free guided tours leave from this gate at eleven and two each day, and the gardens close at dusk, which this time of year is about six o'clock." },
     ],
     questions: [
-      { question: 'What temperature is the Glasshouse kept at?', options: ['16°C', '20°C', '26°C', '30°C'], correctIndex: 2 },
-      { question: 'When was the Rose Garden first planted?', options: ['1829', '1892', '1902', '1992'], correctIndex: 1 },
-      { question: 'Where is the café?', options: ['Next to the Lake', 'Inside the Glasshouse', 'Between the Discovery Zone and the Herb Garden', 'At the main gate'], correctIndex: 2 },
+      { question: 'What temperature is the Glasshouse kept at?', options: ['16°C', '20°C', '30°C', '26°C'], correctIndex: 3 },
+      { question: 'When was the Rose Garden first planted?', options: ['1892', '1829', '1902', '1992'], correctIndex: 0 },
+      { question: 'Where is the café?', options: ['Next to the Lake', 'Between the Discovery Zone and the Herb Garden', 'Inside the Glasshouse', 'At the main gate'], correctIndex: 1 },
       { question: 'Where are dogs NOT allowed?', options: ['The Rose Garden', 'The Lake', 'The Glasshouse', 'The Herb Garden'], correctIndex: 2 },
     ],
     tips: [
@@ -1201,9 +1201,9 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Organiser', text: "Thanks so much for coming, everyone. This is the twelfth year of the Harbour Festival, and we're expecting around fifteen thousand visitors over the weekend, which is up from about eleven thousand last year. You've each been given a coloured lanyard. Green lanyards are for the information tents, blue are for stewarding the car parks, and yellow are for the children's area. If you're on yellow, you must have completed the safeguarding check — if you haven't, please see me afterwards. Shifts last four hours, and every volunteer gets a free meal voucher for the food stalls and a festival T-shirt, which you need to wear while on duty. Please arrive at the volunteer tent, which is behind the main stage, thirty minutes before your shift starts so we can brief you. If you need to cancel, text the volunteer coordinator, Ben, rather than emailing, as he won't be checking his inbox over the weekend. And one last thing — the most common question visitors ask is where the toilets are, so please memorise that there are blocks by the north entrance and next to the harbour wall." },
     ],
     questions: [
-      { question: 'How many visitors are expected this year?', options: ['11,000', '12,000', '15,000', '50,000'], correctIndex: 2 },
-      { question: 'What colour lanyard is for car park stewards?', options: ['Green', 'Blue', 'Yellow', 'Red'], correctIndex: 1 },
-      { question: 'Where is the volunteer tent?', options: ['By the north entrance', 'Next to the harbour wall', 'Behind the main stage', 'In the car park'], correctIndex: 2 },
+      { question: 'How many visitors are expected this year?', options: ['15,000', '12,000', '11,000', '50,000'], correctIndex: 0 },
+      { question: 'What colour lanyard is for car park stewards?', options: ['Green', 'Yellow', 'Blue', 'Red'], correctIndex: 2 },
+      { question: 'Where is the volunteer tent?', options: ['By the north entrance', 'Next to the harbour wall', 'In the car park', 'Behind the main stage'], correctIndex: 3 },
       { question: 'How should volunteers cancel a shift?', options: ['Email Ben', 'Text Ben', 'Call the organiser', 'Tell the information tent'], correctIndex: 1 },
     ],
     tips: [
@@ -1222,10 +1222,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Narrator', text: "Welcome to the Thornbury Museum of Local History. This guide will take about ninety minutes if you visit every gallery, but feel free to skip ahead. The museum is arranged chronologically, starting on the lower ground floor with the Stone Age gallery, where the highlight is a five-thousand-year-old wooden canoe found in the river in nineteen sixty-four. The ground floor covers the Roman and medieval periods; don't miss the mosaic floor, which was moved here piece by piece from a farm just outside town. On the first floor you'll find the Industrial Revolution gallery, centred on the town's wool mills — there's a working loom that is demonstrated at twelve and three each day. The top floor is our temporary exhibition space; currently it's showing photographs of the town from the nineteen fifties, and that exhibition closes at the end of next month. Photography is allowed throughout the museum, but please don't use flash in the Stone Age gallery, as light damages the canoe. Lockers are available by the entrance for a one-pound coin, which is returned when you collect your belongings." },
     ],
     questions: [
-      { question: 'What is the highlight of the Stone Age gallery?', options: ['A mosaic floor', 'A wooden canoe', 'A working loom', 'Stone tools'], correctIndex: 1 },
-      { question: 'Where did the mosaic floor come from?', options: ['The river', 'A farm outside town', 'A church', 'A Roman villa abroad'], correctIndex: 1 },
-      { question: 'What is shown in the temporary exhibition?', options: ['Wool mill machinery', 'Medieval coins', 'Photographs from the 1950s', 'Paintings of the river'], correctIndex: 2 },
-      { question: 'Where is flash photography forbidden?', options: ['Everywhere', 'The Stone Age gallery', 'The Industrial gallery', 'The temporary exhibition'], correctIndex: 1 },
+      { question: 'What is the highlight of the Stone Age gallery?', options: ['A mosaic floor', 'Stone tools', 'A working loom', 'A wooden canoe'], correctIndex: 3 },
+      { question: 'Where did the mosaic floor come from?', options: ['A farm outside town', 'The river', 'A church', 'A Roman villa abroad'], correctIndex: 0 },
+      { question: 'What is shown in the temporary exhibition?', options: ['Wool mill machinery', 'Photographs from the 1950s', 'Medieval coins', 'Paintings of the river'], correctIndex: 1 },
+      { question: 'Where is flash photography forbidden?', options: ['Everywhere', 'The Industrial gallery', 'The Stone Age gallery', 'The temporary exhibition'], correctIndex: 2 },
     ],
     tips: [
       'Floor-by-floor descriptions map neatly onto matching questions — write the floor next to each gallery name.',
@@ -1243,10 +1243,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Presenter', text: "And now some local news. From next Monday, the city's new bike-sharing scheme, CityCycle, launches with four hundred bikes at fifty docking stations. To use it, you'll need to download the CityCycle app and register a payment card. Rides cost one pound to unlock and then ten pence a minute, although the first fifteen minutes of every ride are free for annual members. Annual membership is sixty pounds, or thirty-five for students and over-sixty-fives. A quarter of the fleet — so one hundred bikes — are electric, and these cost an extra five pence per minute. Bikes must be returned to a docking station; leaving one elsewhere results in a twenty-pound fine. The council says the scheme is aimed mainly at commuters, and stations have been placed near all three railway stations and the main hospital. Helmets aren't provided, but they're strongly recommended. The scheme will be reviewed after six months, and if it's successful, the council plans to double the number of stations." },
     ],
     questions: [
-      { question: 'How many bikes will the scheme start with?', options: ['50', '100', '400', '500'], correctIndex: 2 },
-      { question: 'How much is annual membership for students?', options: ['£35', '£60', '£20', '£15'], correctIndex: 0 },
-      { question: 'What happens if a bike is not returned to a docking station?', options: ['The account is closed', 'A £20 fine', 'A £5 charge', 'Nothing'], correctIndex: 1 },
-      { question: 'When will the scheme be reviewed?', options: ['After one month', 'After three months', 'After six months', 'After one year'], correctIndex: 2 },
+      { question: 'How many bikes will the scheme start with?', options: ['400', '100', '50', '500'], correctIndex: 0 },
+      { question: 'How much is annual membership for students?', options: ['£20', '£60', '£35', '£15'], correctIndex: 2 },
+      { question: 'What happens if a bike is not returned to a docking station?', options: ['The account is closed', 'Nothing', 'A £5 charge', 'A £20 fine'], correctIndex: 3 },
+      { question: 'When will the scheme be reviewed?', options: ['After one month', 'After six months', 'After three months', 'After one year'], correctIndex: 1 },
     ],
     tips: [
       'Fractions ("a quarter of the fleet") are often restated as numbers — both forms may appear in the options.',
@@ -1264,10 +1264,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Adviser', text: "Hello everyone. The annual careers fair takes place next Thursday in the Sports Hall, from ten until four. This year we have over ninety employers attending, from engineering firms to charities. The hall will be divided into four zones: Zone A for technology, Zone B for finance and law, Zone C for public sector and charities, and Zone D for creative industries. Last year the queues were longest at lunchtime, so I'd recommend arriving early or after two. Bring several printed copies of your CV — at least ten — though many employers will also scan a QR code linking to your online profile. Dress is smart casual; you don't need a suit. Between eleven and one, there will be short talks in Lecture Theatre Two on topics such as writing cover letters and preparing for video interviews. If you'd like your CV checked before the fair, our team runs drop-in sessions every afternoon this week at the Careers Centre, which is on the first floor of the Student Union building. Finally, don't forget to fill in the feedback form — everyone who does is entered into a draw for a fifty-pound book voucher." },
     ],
     questions: [
-      { question: 'Where is the careers fair held?', options: ['The Student Union', 'The Sports Hall', 'Lecture Theatre Two', 'The Careers Centre'], correctIndex: 1 },
-      { question: 'Which zone is for finance and law?', options: ['Zone A', 'Zone B', 'Zone C', 'Zone D'], correctIndex: 1 },
+      { question: 'Where is the careers fair held?', options: ['The Student Union', 'The Careers Centre', 'Lecture Theatre Two', 'The Sports Hall'], correctIndex: 3 },
+      { question: 'Which zone is for finance and law?', options: ['Zone B', 'Zone A', 'Zone C', 'Zone D'], correctIndex: 0 },
       { question: 'What does the adviser say about clothing?', options: ['A suit is required', 'Smart casual is fine', 'Wear university colours', 'Anything is acceptable'], correctIndex: 1 },
-      { question: 'What is the prize for completing the feedback form?', options: ['A free CV check', 'A £50 book voucher', 'A job interview', 'A £10 coffee voucher'], correctIndex: 1 },
+      { question: 'What is the prize for completing the feedback form?', options: ['A free CV check', 'A job interview', 'A £50 book voucher', 'A £10 coffee voucher'], correctIndex: 2 },
     ],
     tips: [
       'Venue names repeat in this kind of talk; tie each to its event (fair, talks, CV checks).',
@@ -1285,9 +1285,9 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Farmer', text: "Morning, everyone, and welcome to Hilltop Farm's open day. My family has farmed here for four generations, and today we're showing you how a modern dairy farm works. We have about two hundred and forty cows, and milking happens twice a day, at five in the morning and four in the afternoon — so if you want to watch, the viewing gallery opens at quarter to four. Tractor rides around the farm leave every thirty minutes from the big red barn; they're free, but children under five must sit on an adult's lap. In the small animal area you can feed the lambs and goats, but please only use the feed bags we sell at the entrance, at one pound each, because other food can make the animals ill. Our farm shop sells our own cheese and ice cream — the strawberry ice cream won a national award last year. Hand-washing stations are next to every animal pen, and please do use them, especially before eating. The picnic field is beside the duck pond, and the open day finishes at five." },
     ],
     questions: [
-      { question: 'How many cows does the farm have?', options: ['About 140', 'About 200', 'About 240', 'About 420'], correctIndex: 2 },
-      { question: 'When does the viewing gallery open for afternoon milking?', options: ['3:45', '4:00', '4:15', '5:00'], correctIndex: 0 },
-      { question: 'Where do tractor rides leave from?', options: ['The farm shop', 'The duck pond', 'The red barn', 'The entrance'], correctIndex: 2 },
+      { question: 'How many cows does the farm have?', options: ['About 240', 'About 200', 'About 140', 'About 420'], correctIndex: 0 },
+      { question: 'When does the viewing gallery open for afternoon milking?', options: ['4:15', '4:00', '3:45', '5:00'], correctIndex: 2 },
+      { question: 'Where do tractor rides leave from?', options: ['The farm shop', 'The duck pond', 'The entrance', 'The red barn'], correctIndex: 3 },
       { question: 'Which product won a national award?', options: ['Cheddar cheese', 'Strawberry ice cream', 'Fresh milk', 'Goat\'s cheese'], correctIndex: 1 },
     ],
     tips: [
@@ -1306,10 +1306,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Spokesperson', text: "Good evening. I'm here to explain the changes coming to our library service from the first of April. First, the central library will close for refurbishment for approximately eight weeks. During that time, a temporary library will operate from the old post office building on Market Street, though it will hold only about a third of the usual stock. Second, opening hours at the branch libraries will be extended — they'll now open on Sundays from ten until two. Third, late fees for children's books are being abolished completely, while adult late fees will stay at twenty pence a day. We're also introducing self-service machines at every branch, so you can borrow and return books without queuing; staff will still be available to help. When the central library reopens, it will have a new café, a dedicated teenage zone and a makerspace with 3D printers, which will be free to use after a short training session. Finally, the mobile library van, which visits rural villages, will now come weekly instead of fortnightly." },
     ],
     questions: [
-      { question: 'How long will the central library be closed?', options: ['About four weeks', 'About six weeks', 'About eight weeks', 'About three months'], correctIndex: 2 },
-      { question: 'Where will the temporary library be?', options: ['A school', 'The old post office', 'The town hall', 'A branch library'], correctIndex: 1 },
+      { question: 'How long will the central library be closed?', options: ['About four weeks', 'About six weeks', 'About three months', 'About eight weeks'], correctIndex: 3 },
+      { question: 'Where will the temporary library be?', options: ['The old post office', 'A school', 'The town hall', 'A branch library'], correctIndex: 0 },
       { question: 'What is changing about late fees?', options: ['All fees are abolished', "Children's late fees are abolished", 'Adult fees are rising', 'Fees are halved'], correctIndex: 1 },
-      { question: 'How often will the mobile library visit villages?', options: ['Daily', 'Weekly', 'Fortnightly', 'Monthly'], correctIndex: 1 },
+      { question: 'How often will the mobile library visit villages?', options: ['Daily', 'Fortnightly', 'Weekly', 'Monthly'], correctIndex: 2 },
     ],
     tips: [
       'Talks about change compare old and new — always check whether an option describes before or after.',
@@ -1339,10 +1339,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Maya', text: "Let's rehearse on Tuesday in the library, then." },
     ],
     questions: [
-      { question: 'How do the students decide to open the presentation?', options: ['With statistics', 'With a photograph', 'With a question', 'With a video'], correctIndex: 1 },
-      { question: 'What did the tutor advise?', options: ['Use more statistics', 'Focus on solutions', 'Compare more countries', 'Keep it under ten minutes'], correctIndex: 1 },
-      { question: 'What concern does Maya have about biodegradable plastics?', options: ['They are too expensive', 'They only break down in industrial composting', 'They are toxic', 'There is no research on them'], correctIndex: 1 },
-      { question: 'How will the presentation end?', options: ['With a photo', 'With a summary of statistics', 'With a question for the audience', 'With a video clip'], correctIndex: 2 },
+      { question: 'How do the students decide to open the presentation?', options: ['With a photograph', 'With statistics', 'With a question', 'With a video'], correctIndex: 0 },
+      { question: 'What did the tutor advise?', options: ['Use more statistics', 'Compare more countries', 'Focus on solutions', 'Keep it under ten minutes'], correctIndex: 2 },
+      { question: 'What concern does Maya have about biodegradable plastics?', options: ['They are too expensive', 'There is no research on them', 'They are toxic', 'They only break down in industrial composting'], correctIndex: 3 },
+      { question: 'How will the presentation end?', options: ['With a photo', 'With a question for the audience', 'With a summary of statistics', 'With a video clip'], correctIndex: 1 },
     ],
     tips: [
       'In planning discussions, the first suggestion is often changed — wait until both speakers agree.',
@@ -1372,10 +1372,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Supervisor', text: "Yes — aim for twenty-five per group. And submit the ethics form by the end of next week." },
     ],
     questions: [
-      { question: 'How long after learning do participants recall the words?', options: ['Ten minutes', 'Twenty minutes', 'Thirty minutes', 'One day'], correctIndex: 1 },
-      { question: 'What is the supervisor\'s main concern about the music?', options: ['It is too loud', 'The lyrics may interfere with word recall', 'It is too modern', 'Participants may know the songs'], correctIndex: 1 },
-      { question: 'What change does the supervisor suggest?', options: ['Remove the music group', 'Use only silence', 'Add an instrumental music group', 'Use a different memory task'], correctIndex: 2 },
-      { question: 'How many participants per group should Hannah aim for?', options: ['20', '25', '30', '60'], correctIndex: 1 },
+      { question: 'How long after learning do participants recall the words?', options: ['Ten minutes', 'One day', 'Thirty minutes', 'Twenty minutes'], correctIndex: 3 },
+      { question: 'What is the supervisor\'s main concern about the music?', options: ['The lyrics may interfere with word recall', 'It is too loud', 'It is too modern', 'Participants may know the songs'], correctIndex: 0 },
+      { question: 'What change does the supervisor suggest?', options: ['Remove the music group', 'Add an instrumental music group', 'Use only silence', 'Use a different memory task'], correctIndex: 1 },
+      { question: 'How many participants per group should Hannah aim for?', options: ['20', '30', '25', '60'], correctIndex: 2 },
     ],
     tips: [
       'Numbers are revised during the conversation — the final agreed figure is what counts.',
@@ -1403,10 +1403,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Tutor', text: "Around two thousand words of the ten thousand total. And book an introduction session at the archive — they require one before you can handle original documents." },
     ],
     questions: [
-      { question: 'What is the problem with the textile industry topic?', options: ['Too few sources', 'Too much already written about it', 'It is too recent', 'The tutor dislikes it'], correctIndex: 1 },
-      { question: 'Why is the parks topic attractive?', options: ['It is short', 'Unused primary sources exist', 'There are many textbooks on it', 'Aisha lives near a park'], correctIndex: 1 },
-      { question: 'How long should the literature review be?', options: ['1,000 words', '2,000 words', '5,000 words', '10,000 words'], correctIndex: 1 },
-      { question: 'What must Aisha do before handling archive documents?', options: ['Get a letter from her tutor', 'Pay a fee', 'Attend an introduction session', 'Submit her proposal'], correctIndex: 2 },
+      { question: 'What is the problem with the textile industry topic?', options: ['Too much already written about it', 'Too few sources', 'It is too recent', 'The tutor dislikes it'], correctIndex: 0 },
+      { question: 'Why is the parks topic attractive?', options: ['It is short', 'There are many textbooks on it', 'Unused primary sources exist', 'Aisha lives near a park'], correctIndex: 2 },
+      { question: 'How long should the literature review be?', options: ['1,000 words', '10,000 words', '5,000 words', '2,000 words'], correctIndex: 3 },
+      { question: 'What must Aisha do before handling archive documents?', options: ['Get a letter from her tutor', 'Attend an introduction session', 'Pay a fee', 'Submit her proposal'], correctIndex: 1 },
     ],
     tips: [
       'When several options are discussed, note a quick plus/minus for each — questions ask why one was rejected.',
@@ -1436,10 +1436,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Lecturer', text: "The twenty-first, but I'll look at an outline if you send it by the tenth." },
     ],
     questions: [
-      { question: 'Which part of the field trip went well?', options: ['Sediment sampling', 'Beach profiling', 'Interviewing residents', 'Water testing'], correctIndex: 1 },
-      { question: 'Why were fewer sediment samples collected?', options: ['Equipment was lost', 'The tide came in early because they started late', 'It rained', 'They ran out of bags'], correctIndex: 1 },
-      { question: 'What does the lecturer advise about the missing data?', options: ['Go back and collect it', 'Leave it out', 'Acknowledge the limitation in the report', 'Use data from another group'], correctIndex: 2 },
-      { question: 'By when should the outline be sent?', options: ['The 1st', 'The 10th', 'The 12th', 'The 21st'], correctIndex: 1 },
+      { question: 'Which part of the field trip went well?', options: ['Sediment sampling', 'Water testing', 'Interviewing residents', 'Beach profiling'], correctIndex: 3 },
+      { question: 'Why were fewer sediment samples collected?', options: ['The tide came in early because they started late', 'Equipment was lost', 'It rained', 'They ran out of bags'], correctIndex: 0 },
+      { question: 'What does the lecturer advise about the missing data?', options: ['Go back and collect it', 'Acknowledge the limitation in the report', 'Leave it out', 'Use data from another group'], correctIndex: 1 },
+      { question: 'By when should the outline be sent?', options: ['The 1st', 'The 12th', 'The 10th', 'The 21st'], correctIndex: 2 },
     ],
     tips: [
       'Cause-and-effect chains (minibus broke → started late → tide) often hide the answer one step back.',
@@ -1469,10 +1469,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Professor', text: "Precisely. Fifteen hundred words, due Monday." },
     ],
     questions: [
-      { question: 'In how many countries did the chain fail?', options: ['Two', 'Three', 'Five', 'All of them'], correctIndex: 1 },
-      { question: 'Why does Tom reject price as the main reason?', options: ['Prices were lower than at home', 'Competitors charged similar prices', 'Customers never mentioned price', 'The case gives no price data'], correctIndex: 1 },
-      { question: 'What problem was there with location in one country?', options: ['Rents were too high', 'People buy coffee from street vendors', 'Malls were closed on Sundays', 'There was no parking'], correctIndex: 1 },
-      { question: 'Which framework does the professor prefer?', options: ['PESTLE', 'SWOT', 'The four Ps', "Porter's Five Forces"], correctIndex: 2 },
+      { question: 'In how many countries did the chain fail?', options: ['Three', 'Two', 'Five', 'All of them'], correctIndex: 0 },
+      { question: 'Why does Tom reject price as the main reason?', options: ['Prices were lower than at home', 'Customers never mentioned price', 'Competitors charged similar prices', 'The case gives no price data'], correctIndex: 2 },
+      { question: 'What problem was there with location in one country?', options: ['Rents were too high', 'There was no parking', 'Malls were closed on Sundays', 'People buy coffee from street vendors'], correctIndex: 3 },
+      { question: 'Which framework does the professor prefer?', options: ['PESTLE', 'The four Ps', 'SWOT', "Porter's Five Forces"], correctIndex: 1 },
     ],
     tips: [
       'Students often disagree — the answer is the view the evidence (or the tutor) supports.',
@@ -1500,10 +1500,10 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'TA', text: "No more than a hundred and fifty words. Write it last, once you know what you found." },
     ],
     questions: [
-      { question: 'What was wrong with the method section?', options: ['It was too short', 'It was written as instructions', 'It had no units', 'It was in the wrong place'], correctIndex: 1 },
-      { question: 'What should the discussion section do?', options: ['Repeat the results', 'Explain the results', 'List equipment', 'Summarise the method'], correctIndex: 1 },
-      { question: 'Where should raw data tables go?', options: ['In the results', 'In the discussion', 'In the appendix', 'In the abstract'], correctIndex: 2 },
-      { question: 'What is the maximum length of the abstract?', options: ['100 words', '150 words', '200 words', '250 words'], correctIndex: 1 },
+      { question: 'What was wrong with the method section?', options: ['It was too short', 'It was in the wrong place', 'It had no units', 'It was written as instructions'], correctIndex: 3 },
+      { question: 'What should the discussion section do?', options: ['Explain the results', 'Repeat the results', 'List equipment', 'Summarise the method'], correctIndex: 0 },
+      { question: 'Where should raw data tables go?', options: ['In the results', 'In the appendix', 'In the discussion', 'In the abstract'], correctIndex: 1 },
+      { question: 'What is the maximum length of the abstract?', options: ['100 words', '200 words', '150 words', '250 words'], correctIndex: 2 },
     ],
     tips: [
       'Advice conversations follow a problem → fix pattern; questions often test the fix.',
@@ -1533,14 +1533,161 @@ export const ieltsListeningSections: IeltsListeningSection[] = [
       { speaker: 'Nadia', text: "I'll draft the recommendations if you do the charts." },
     ],
     questions: [
-      { question: "According to Ethan's survey, what was the biggest advantage?", options: ['Re-watching lectures', 'Flexibility', 'Lower cost', 'Language support'], correctIndex: 1 },
-      { question: "Why might Nadia's results differ?", options: ['Her sample was too small', 'Her interviewees were mostly international students', 'She asked different questions', 'She interviewed staff'], correctIndex: 1 },
-      { question: 'What was the most common disadvantage in both studies?', options: ['Technical problems', 'Isolation', 'Cost', 'Poor teaching'], correctIndex: 1 },
+      { question: "According to Ethan's survey, what was the biggest advantage?", options: ['Flexibility', 'Re-watching lectures', 'Lower cost', 'Language support'], correctIndex: 0 },
+      { question: "Why might Nadia's results differ?", options: ['Her sample was too small', 'She asked different questions', 'Her interviewees were mostly international students', 'She interviewed staff'], correctIndex: 2 },
+      { question: 'What was the most common disadvantage in both studies?', options: ['Technical problems', 'Poor teaching', 'Cost', 'Isolation'], correctIndex: 3 },
       { question: 'How will they present the two data sets?', options: ['Combined into one', 'Separately, compared in the discussion', 'Only the survey', 'Only the interviews'], correctIndex: 1 },
     ],
     tips: [
       'Keep track of whose research says what — questions name a speaker.',
       '"A close second" means it is NOT the top answer.',
+    ],
+  },
+  {
+    id: 'ielts-l-28',
+    title: 'Section 4 — Lecture on the History of Tea',
+    section: 'Section 4',
+    topic: 'Lecture',
+    description: 'A lecture tracing how tea spread from China to the rest of the world.',
+    duration: '4 min',
+    transcript: [
+      { speaker: 'Lecturer', text: "Today's lecture looks at how tea became one of the world's most popular drinks. Tea originated in south-west China, where it was first used as a medicine rather than a daily drink. By the Tang dynasty, around the eighth century, it had become part of everyday life, and a writer named Lu Yu produced the first book devoted entirely to tea, describing how to grow, prepare and serve it. Tea reached Japan in the ninth century, brought by Buddhist monks who used it to stay awake during long meditation — which explains the close link between tea and Zen practice. Europe encountered tea much later. The Dutch were the first to import it commercially, in the early sixteen-hundreds, and it was initially so expensive that it was kept in locked boxes. In Britain, tea became fashionable partly thanks to Catherine of Braganza, a Portuguese princess who married King Charles the Second and brought her tea-drinking habit to the court. Taxes on tea were extremely high in the eighteenth century, which led to widespread smuggling; when the tax was cut dramatically in seventeen eighty-four, smuggling almost disappeared overnight. Finally, to break China's monopoly, the British began growing tea in India, particularly in Assam, where a native variety of the plant was discovered in the eighteen-twenties." },
+    ],
+    questions: [
+      { question: 'How was tea first used in China?', options: ['As a daily drink', 'As currency', 'In religious ceremonies', 'As a medicine'], correctIndex: 3 },
+      { question: 'Why did Buddhist monks in Japan drink tea?', options: ['To stay awake while meditating', 'For its taste', 'As a gift to guests', 'To cure illness'], correctIndex: 0 },
+      { question: 'Who first imported tea commercially into Europe?', options: ['The Portuguese', 'The Dutch', 'The British', 'The Spanish'], correctIndex: 1 },
+      { question: 'What happened after the tea tax was cut in 1784?', options: ['Prices rose', 'Tea became illegal', 'Smuggling almost disappeared', 'India began growing tea'], correctIndex: 2 },
+    ],
+    tips: [
+      'History lectures move in time order — use dates as anchors to find your place.',
+      'Watch for the person credited versus the country mentioned near them (Catherine was Portuguese; the Dutch imported first).',
+    ],
+  },
+  {
+    id: 'ielts-l-29',
+    title: 'Section 4 — Lecture on Sleep and Memory',
+    section: 'Section 4',
+    topic: 'Lecture',
+    description: 'A psychology lecture on the role of sleep in forming long-term memories.',
+    duration: '4 min',
+    transcript: [
+      { speaker: 'Lecturer', text: "This afternoon we're examining the relationship between sleep and memory. For a long time, sleep was thought of simply as rest — a period when the brain switched off. We now know that's far from true. Sleep occurs in cycles of roughly ninety minutes, and each cycle contains two main types: slow-wave sleep, which is deep sleep, and REM, or rapid eye movement, sleep, when most vivid dreaming happens. Research suggests these two stages support different kinds of memory. Slow-wave sleep appears especially important for factual memory — names, dates, vocabulary — because during this stage the brain replays the day's experiences and transfers them from the hippocampus to the cortex for long-term storage. REM sleep, on the other hand, seems to strengthen procedural memory, meaning skills like playing an instrument or riding a bike. One well-known study found that students who slept after learning a list of word pairs remembered about twenty percent more than those who stayed awake for the same period. The practical implication for students is clear: staying up all night before an exam is counterproductive. Even a short nap of around twenty minutes can improve recall, although longer naps risk waking you from deep sleep, leaving you feeling groggy — a state known as sleep inertia." },
+    ],
+    questions: [
+      { question: 'How long is a typical sleep cycle?', options: ['About 90 minutes', 'About 60 minutes', 'About 20 minutes', 'About 120 minutes'], correctIndex: 0 },
+      { question: 'Which type of memory does slow-wave sleep mainly support?', options: ['Procedural memory', 'Emotional memory', 'Factual memory', 'Short-term memory'], correctIndex: 2 },
+      { question: 'How much more did students who slept remember?', options: ['About 10%', 'Twice as much', 'About 50%', 'About 20%'], correctIndex: 3 },
+      { question: 'What is "sleep inertia"?', options: ['Being unable to fall asleep', 'Feeling groggy after waking from deep sleep', 'Dreaming during REM', 'Sleeping too long at night'], correctIndex: 1 },
+    ],
+    tips: [
+      '"On the other hand" introduces a contrast — pair each sleep stage with its memory type.',
+      'Definitions of technical terms ("a state known as…") usually come right before or after the term.',
+    ],
+  },
+  {
+    id: 'ielts-l-30',
+    title: 'Section 4 — Lecture on Bees and Pollination',
+    section: 'Section 4',
+    topic: 'Lecture',
+    description: 'A biology lecture on why bee populations are declining and why it matters.',
+    duration: '4 min',
+    transcript: [
+      { speaker: 'Lecturer', text: "Today we turn to pollinators, and bees in particular. Around three-quarters of the world's leading food crops depend to some extent on animal pollination, and bees are by far the most important pollinators. Most people think of the honeybee, but there are over twenty thousand bee species, and many wild species, such as bumblebees, are actually more efficient pollinators of certain crops — tomatoes, for instance, which need to be vibrated to release their pollen, something honeybees can't do. Unfortunately, bee populations have declined sharply in many regions. Scientists point to several causes acting together. The first is habitat loss: modern farming often means huge fields of a single crop, which provide food for only a few weeks a year. The second is pesticides, particularly a group called neonicotinoids, which can impair bees' ability to navigate back to the hive; the European Union restricted their outdoor use in twenty eighteen. The third is disease, including a parasitic mite called Varroa that has spread worldwide. What can be done? Farmers are being encouraged to plant wildflower strips along field edges, and even urban gardeners can help by growing flowers that bloom at different times of the year, so that bees have food from early spring to late autumn." },
+    ],
+    questions: [
+      { question: 'What proportion of leading food crops depend partly on animal pollination?', options: ['About a quarter', 'About half', 'Nearly all', 'About three-quarters'], correctIndex: 3 },
+      { question: 'Why are bumblebees better pollinators of tomatoes?', options: ['They can vibrate flowers to release pollen', 'They fly further', 'They live longer', 'They are larger'], correctIndex: 0 },
+      { question: 'What effect can neonicotinoids have on bees?', options: ['They shorten their wings', 'They impair navigation back to the hive', 'They spread Varroa', 'They reduce honey production'], correctIndex: 1 },
+      { question: 'What does the lecturer suggest urban gardeners do?', options: ['Keep beehives', 'Avoid all flowers', 'Grow flowers that bloom at different times', 'Use natural pesticides'], correctIndex: 2 },
+    ],
+    tips: [
+      'Lectures that list "several causes acting together" usually test one question per cause.',
+      'Proportions may be spoken as fractions ("three-quarters") — match them to percentages if needed.',
+    ],
+  },
+  {
+    id: 'ielts-l-31',
+    title: 'Section 4 — Lecture on the Design of Cities for Walking',
+    section: 'Section 4',
+    topic: 'Lecture',
+    description: 'An urban studies lecture on what makes a city walkable.',
+    duration: '4 min',
+    transcript: [
+      { speaker: 'Lecturer', text: "In today's session I want to explore walkability — what makes people choose to walk in a city rather than drive. Researchers generally agree on a few key factors. The first is density and mix of uses. When homes, shops, schools and workplaces are close together, walking becomes practical. A useful rule of thumb is that most people will happily walk around four hundred metres, or about five minutes, to reach daily services. The second factor is street connectivity. A grid of short blocks offers many possible routes, whereas cul-de-sacs, common in suburbs built since the nineteen-fifties, force long detours even when the destination is physically close. The third factor is the quality of the walking environment itself: wide pavements, street trees, and buildings with windows and doors facing the street, which make walkers feel safer because they sense people are watching — what the writer Jane Jacobs called 'eyes on the street'. Interestingly, studies have found that perceived safety matters more to walkers than actual crime statistics. Cities like Copenhagen have shown that change is possible: by gradually converting car parking into pedestrian space over several decades, the city centre now has far more foot traffic, and local businesses have benefited rather than suffered." },
+    ],
+    questions: [
+      { question: 'How far will most people happily walk to daily services?', options: ['About 400 metres', 'About 200 metres', 'About 800 metres', 'About 1 kilometre'], correctIndex: 0 },
+      { question: 'Why do cul-de-sacs reduce walking?', options: ['They are unsafe', 'They have no pavements', 'They force long detours', 'They are too noisy'], correctIndex: 2 },
+      { question: "What did Jane Jacobs' phrase 'eyes on the street' refer to?", options: ['CCTV cameras', 'Police patrols', 'Street lighting', 'Buildings with windows and doors facing the street'], correctIndex: 3 },
+      { question: 'What happened to businesses in central Copenhagen?', options: ['Many closed', 'They benefited', 'They moved to the suburbs', 'They were unaffected'], correctIndex: 1 },
+    ],
+    tips: [
+      '"Interestingly" and "surprisingly" flag a finding that goes against expectations — often tested.',
+      'Quoted phrases from named writers are frequent targets; note what they describe.',
+    ],
+  },
+  {
+    id: 'ielts-l-32',
+    title: 'Section 4 — Lecture on Deep-Sea Exploration',
+    section: 'Section 4',
+    topic: 'Lecture',
+    description: 'A marine science lecture on how we explore the deep ocean.',
+    duration: '4 min',
+    transcript: [
+      { speaker: 'Lecturer', text: "It's often said that we know more about the surface of the Moon than about our own ocean floor, and there's some truth in that. Although modern satellites have mapped the ocean floor at low resolution, only around a quarter of it has been mapped in high detail. The deep sea — generally defined as water below two hundred metres, where sunlight no longer penetrates — makes up the largest living space on Earth. Exploring it is difficult mainly because of pressure: at the bottom of the Mariana Trench, nearly eleven kilometres down, the pressure is more than a thousand times that at the surface. Early exploration relied on crewed submersibles; the famous Trieste reached the trench's deepest point in nineteen sixty, but the two men aboard could see very little because sediment clouded the water. Today, most research is carried out by remotely operated vehicles, controlled from a ship by a cable, and autonomous underwater vehicles, which follow pre-programmed routes without any cable. These have revealed remarkable ecosystems, such as communities around hydrothermal vents that depend not on sunlight but on chemicals released from the sea floor — a process called chemosynthesis. Ironically, just as we're discovering these habitats, interest in mining the deep sea for metals used in batteries is growing, raising serious environmental concerns." },
+    ],
+    questions: [
+      { question: 'How much of the ocean floor has been mapped in high detail?', options: ['About 5%', 'Nearly all', 'About half', 'About a quarter'], correctIndex: 3 },
+      { question: 'How is the deep sea defined in the lecture?', options: ['Below 200 m', 'Below 100 m', 'Below 1,000 m', 'Below 11 km'], correctIndex: 0 },
+      { question: 'Why could the Trieste crew see very little?', options: ['There were no lights', 'Sediment clouded the water', 'The windows were too small', 'They were too deep for cameras'], correctIndex: 1 },
+      { question: 'What do hydrothermal vent communities depend on?', options: ['Sunlight', 'Falling plankton', 'Chemicals from the sea floor', 'Warm currents'], correctIndex: 2 },
+    ],
+    tips: [
+      'Definitions with numbers ("below two hundred metres") are easy marks — note them immediately.',
+      'Contrasting technologies (ROVs vs AUVs) are often tested by their distinguishing feature.',
+    ],
+  },
+  {
+    id: 'ielts-l-33',
+    title: 'Section 4 — Lecture on the Psychology of Habits',
+    section: 'Section 4',
+    topic: 'Lecture',
+    description: 'A lecture explaining how habits form and how they can be changed.',
+    duration: '4 min',
+    transcript: [
+      { speaker: 'Lecturer', text: "Today we're looking at habits — behaviours we perform automatically, with little conscious thought. Researchers estimate that around forty percent of our daily actions are habitual. A widely used model describes habits as a loop of three parts: a cue, a routine, and a reward. The cue triggers the behaviour — for example, arriving home from work. The routine is the behaviour itself, such as switching on the television, and the reward is the benefit the brain receives, perhaps relaxation. Over time, the brain begins to anticipate the reward as soon as it notices the cue, which is why habits feel so hard to resist. How long does it take to form a new habit? You may have heard the figure of twenty-one days, but that figure has little scientific basis. A study at University College London found that the average was actually sixty-six days, with a huge range depending on the person and the behaviour. Simpler habits, like drinking a glass of water at breakfast, formed far more quickly than complex ones such as daily exercise. As for breaking bad habits, simply relying on willpower tends to fail. A more effective approach is to keep the cue and the reward but replace the routine — or to change the environment so the cue never appears, for instance by keeping your phone in another room while you study." },
+    ],
+    questions: [
+      { question: 'What proportion of daily actions are estimated to be habitual?', options: ['About 40%', 'About 21%', 'About 14%', 'About 66%'], correctIndex: 0 },
+      { question: 'In the example, what is the cue?', options: ['Switching on the TV', 'Feeling relaxed', 'Arriving home from work', 'Eating dinner'], correctIndex: 2 },
+      { question: 'What was the average time to form a habit in the UCL study?', options: ['21 days', '40 days', '90 days', '66 days'], correctIndex: 3 },
+      { question: 'Which approach to breaking habits does the lecturer say tends to fail?', options: ['Replacing the routine', 'Relying on willpower', 'Changing the environment', 'Removing the cue'], correctIndex: 1 },
+    ],
+    tips: [
+      'A popular figure that the lecturer then corrects ("little scientific basis") is a classic distractor.',
+      'Three-part models invite matching questions — note an example for each part.',
+    ],
+  },
+  {
+    id: 'ielts-l-34',
+    title: 'Section 4 — Lecture on Renewable Energy Storage',
+    section: 'Section 4',
+    topic: 'Lecture',
+    description: 'An engineering lecture on ways to store electricity from wind and solar power.',
+    duration: '4 min',
+    transcript: [
+      { speaker: 'Lecturer', text: "Wind and solar power have grown enormously, but they share one major limitation: they're intermittent. The sun doesn't shine at night, and the wind doesn't blow on demand. So today I'll outline the main ways of storing energy so it can be used later. The oldest and still the largest form of storage worldwide is pumped hydro. When electricity is cheap and plentiful, water is pumped uphill into a reservoir; when demand rises, it's released downhill through turbines. It's very efficient — around eighty percent of the energy is recovered — but it needs specific geography: two reservoirs at different heights, close together. The second option is lithium-ion batteries, the same technology as in phones and electric cars. Their cost has fallen by roughly ninety percent over the past decade, and they respond within milliseconds, which makes them ideal for stabilising the grid. However, they typically store energy for only a few hours, so they can't cover a windless week. That's where newer ideas come in. One is green hydrogen — using surplus electricity to split water, storing the hydrogen, and burning it or using it in fuel cells later. It can store energy for months, but at present over half the energy is lost in the conversion process. Most experts believe the future grid will combine all of these, each doing what it does best." },
+    ],
+    questions: [
+      { question: 'What is the largest form of energy storage worldwide?', options: ['Lithium-ion batteries', 'Compressed air', 'Green hydrogen', 'Pumped hydro'], correctIndex: 3 },
+      { question: 'What is the main limitation of pumped hydro?', options: ['It needs specific geography', 'Low efficiency', 'It is very slow', 'It is very new'], correctIndex: 0 },
+      { question: 'Why are lithium-ion batteries good for stabilising the grid?', options: ['They store energy for months', 'They respond within milliseconds', 'They are made of water', 'They need no maintenance'], correctIndex: 1 },
+      { question: 'What is the main drawback of green hydrogen?', options: ['It only stores energy for hours', 'It needs mountains', 'Over half the energy is lost in conversion', 'It cannot be stored'], correctIndex: 2 },
+    ],
+    tips: [
+      'Each technology has a strength and a weakness — expect a question on each side.',
+      '"However" in a lecture almost always introduces a limitation worth noting.',
     ],
   },
 ];
