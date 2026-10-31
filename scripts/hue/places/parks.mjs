@@ -10,7 +10,7 @@ import { P } from '../core/palette.mjs';
 import { deck, drawn, glow, ground, mark, place, used } from '../core/world.mjs';
 import { plankDeck } from '../draw/buildings.mjs';
 import { T, isWater } from '../layout.mjs';
-import { PARK_PATHS } from '../roads.mjs';
+import { PARK_PATHS, ROADS, roadHit } from '../roads.mjs';
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
@@ -85,11 +85,17 @@ export function drawParks() {
     for (let x = x0 + 1.5, i = 0; x < x1 - 1; x += 2.5, i++) {
       const px = Math.round(x * T), py = Math.round((y + Math.sin(x * 0.7) * 0.3) * T) + (north ? -11 : 12);
       if (isWater(px, py) || isWater(px - 8, py) || isWater(px + 8, py)) continue;   // not in the pond
+      // Nor on a bridge, a landing or a gate's paved way the path passes through.
+      const tx = Math.floor(px / T), ty = Math.floor(py / T);
+      if (deck[ty]?.[tx] || deck[ty]?.[tx + 1] || deck[ty]?.[tx - 1] || ROADS.some((r) => r.kind !== 'path' && [[0, 0], [8, 0], [-8, 0], [0, 8], [0, -8]].some(([dx, dy]) => roadHit(r, px + dx, py + dy)))) continue;
       if (i % 3 === 0) flowerBed(px, py);
       else if (i % 3 === 1) bench(px, py + (north ? 2 : -2));
       else parkLamp(px, py);
     }
   }
+
+  // A plank footbridge carries the north park's path over the Đông Ba canal.
+  plankDeck(80, 53, 4, 2, true);
 
   // Cầu bán nguyệt: the half-moon bridge, seen side-on from the river — a
   // steep stone arch over the pond, the deck and its balustrade riding high

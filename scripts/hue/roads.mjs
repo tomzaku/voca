@@ -26,15 +26,15 @@ const ringAround = (cx, cy, rx, ry, n) => Array.from({ length: n + 2 }, (_, i) =
   const a = (i / n) * Math.PI * 2;
   return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
 });
-/** The parks' paths: [from x, to x, at y] — the north park's under Lê
- *  Duẩn, the south park's above Lê Lợi, broken where the bridges and the
- *  dragon-boat wharf come down to the bank; the north path runs on through
- *  Nghênh Lương Đình's landing. */
+/** The parks' paths: [from x, to x, at y] — each one unbroken, passing
+ *  under the bridges, through the landings and the gates' paved ways: the
+ *  north park's under Lê Duẩn (over the Đông Ba canal on a footbridge), the
+ *  south park's above Lê Lợi either side of the walking street, and the gate
+ *  parks' between the Citadel's moat and Lê Duẩn. */
 export const PARK_PATHS = [
-  [1, 18, 54], [24, 31, 54], [36, 65, 54], [70, 74, 54], [84, 95, 54],
-  [1, 18, 64.2], [24, 31, 64.2], [36, 52, 64.2], [79, 96, 64.2],
-  // The gate parks, between the Citadel's moat and Lê Duẩn.
-  [29, 35.5, 49.6], [38.5, 46.5, 49.6], [49.5, 52.5, 49.6], [57.5, 60.5, 49.6], [63.5, 71.5, 49.6], [74.5, 79, 49.6],
+  [1, 95, 54],
+  [1, 53.5, 64.2], [75, 96, 64.2],
+  [29, 79, 49.4],
 ];
 /** A gently winding line from x0 to x1 about row y. */
 const wavy = (x0, x1, y) => Array.from({ length: Math.max(2, Math.round(x1 - x0) + 1) }, (_, i) => {
