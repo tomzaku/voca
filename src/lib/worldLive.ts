@@ -70,6 +70,7 @@ interface Handlers {
 /** One connection to the shared world. */
 export class WorldLive {
   private channel: RealtimeChannel | null = null;
+  private closed = false;
   private peers = new Map<string, Peer>();
   private early = new Map<string, { x: number; y: number; facing: Facing }>();
   private last = { x: 0, y: 0, facing: 'down' as Facing, moving: false, at: 0 };
@@ -77,8 +78,14 @@ export class WorldLive {
 
   constructor(private me: { id: string; name: string; look: Look }, private on: Handlers) {}
 
-  connect() {
+  /** Join, once any earlier connection's channel is gone: the client hands
+   *  back an existing channel of the same name, and one still being removed
+   *  would be torn down under us, leaving us in no channel at all. */
+  async connect() {
     if (!supabase || this.channel) return;
+    const topic = `realtime:${CHANNEL}`;
+    for (const old of supabase.getChannels().filter((c) => c.topic === topic)) await supabase.removeChannel(old);
+    if (this.closed || this.channel) return;
     const ch = supabase.channel(CHANNEL, { config: { presence: { key: this.me.id }, broadcast: { self: false } } });
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState<{ name: string; look: unknown }>();
@@ -138,6 +145,7 @@ export class WorldLive {
   }
 
   disconnect() {
+    this.closed = true;
     if (this.channel && supabase) supabase.removeChannel(this.channel);
     this.channel = null;
     for (const id of this.peers.keys()) this.on.peer(id, null);

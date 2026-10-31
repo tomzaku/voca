@@ -398,10 +398,13 @@ export function GameWorld({
   }, [animal.id, animal.name, stage, buddyName, locale]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
-  // Join the shared world while signed in.
+  // Join the shared world while signed in — keyed on the account, not the
+  // user object, which auth replaces on every session refresh (a rejoin each
+  // time you came back to the tab).
+  const userId = user?.id;
   useEffect(() => {
-    if (!user) return;
-    const live = new WorldLive({ id: user.id, ...meRef.current }, {
+    if (!userId) return;
+    const live = new WorldLive({ id: userId, ...meRef.current }, {
       peer: (id, peer) => {
         scene()?.setPeer(id, peer);
         setOnline(live.count());
@@ -433,12 +436,12 @@ export function GameWorld({
         }
       },
     });
-    live.connect();
+    void live.connect();
     liveRef.current = live;
     bus.plug(live);
     const beat = setInterval(() => live.heartbeat(), 2500);
     return () => { clearInterval(beat); live.disconnect(); liveRef.current = null; bus.plug(null); };
-  }, [user, bus]);
+  }, [userId, bus]);
   /** Ask someone to a game; they have half a minute to answer. */
   const askToPlay = (to: string, name: string, game: MatchGame) => {
     const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
