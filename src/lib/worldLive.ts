@@ -71,6 +71,7 @@ interface Handlers {
 export class WorldLive {
   private channel: RealtimeChannel | null = null;
   private peers = new Map<string, Peer>();
+  private early = new Map<string, { x: number; y: number; facing: Facing }>();
   private last = { x: 0, y: 0, facing: 'down' as Facing, moving: false, at: 0 };
   blocked = loadBlocked();
 
@@ -82,23 +83,36 @@ export class WorldLive {
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState<{ name: string; look: unknown }>();
       const here = new Set(Object.keys(state));
+      let arrived = false;
       for (const [id, metas] of Object.entries(state)) {
         if (id === this.me.id || this.blocked.has(id)) continue;
         const meta = metas[metas.length - 1];
         const prev = this.peers.get(id);
+        if (!prev) arrived = true;
+        // A position that came before they were announced, kept for now.
+        const early = this.early.get(id);
         const peer: Peer = {
           id, name: String(meta.name ?? '').slice(0, 24) || 'Buddy', look: parseLook(meta.look),
-          x: prev?.x ?? -9999, y: prev?.y ?? -9999, facing: prev?.facing ?? 'down', moving: false,
+          x: prev?.x ?? early?.x ?? -9999, y: prev?.y ?? early?.y ?? -9999,
+          facing: prev?.facing ?? early?.facing ?? 'down', moving: prev?.moving ?? false,
         };
+        this.early.delete(id);
         this.peers.set(id, peer);
         if (peer.x > -9999) this.on.peer(id, peer);
       }
       for (const id of [...this.peers.keys()]) if (!here.has(id)) { this.peers.delete(id); this.on.peer(id, null); }
+      // Someone new: tell them where I am now, not at the next heartbeat.
+      if (arrived) this.sendPos(true);
     });
     ch.on('broadcast', { event: 'pos' }, ({ payload }) => {
       const p = payload as { id: string; x: number; y: number; facing: Facing; moving: boolean };
+      if (typeof p?.id !== 'string' || this.blocked.has(p.id) || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
       const peer = this.peers.get(p.id);
-      if (!peer || this.blocked.has(p.id) || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return;
+      // Broadcasts can beat presence: keep where they are until they're announced.
+      if (!peer) {
+        if (this.early.size < 200) this.early.set(p.id, { x: p.x, y: p.y, facing: p.facing });
+        return;
+      }
       Object.assign(peer, { x: p.x, y: p.y, facing: p.facing, moving: !!p.moving });
       this.on.peer(p.id, peer);
     });
@@ -139,13 +153,18 @@ export class WorldLive {
   /** Where I am: sent when it's changed, at most a few times a second, and
    *  now and then while standing so newcomers see me. */
   move(x: number, y: number, facing: Facing, moving: boolean) {
+    // Starting or stopping goes out at once, so others stop where I stopped
+    // (turns wait for the next update: Realtime allows ten messages a second).
+    const changed = moving !== this.last.moving;
     Object.assign(this.last, { x, y, facing, moving });
-    this.sendPos(false);
+    this.sendPos(changed);
   }
 
   private sendPos(force: boolean) {
     const now = Date.now(), l = this.last;
-    if (!this.channel || (!force && now - l.at < (l.moving ? 150 : 2500))) return;
+    // Idle: a little under the heartbeat's own interval, or every other beat
+    // would be skipped.
+    if (!this.channel || (!force && now - l.at < (l.moving ? 150 : 2000))) return;
     l.at = now;
     this.channel.send({ type: 'broadcast', event: 'pos', payload: { id: this.me.id, x: Math.round(l.x), y: Math.round(l.y), facing: l.facing, moving: l.moving } });
   }

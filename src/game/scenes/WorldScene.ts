@@ -1162,6 +1162,9 @@ export class WorldScene extends Phaser.Scene {
   private others = new Map<string, {
     rig: Phaser.GameObjects.Container; sprite: Dressed; label: Phaser.GameObjects.Text;
     tx: number; ty: number; facing: string; moving: boolean; bubble?: Phaser.GameObjects.Container;
+    /** The look they're dressed in, to re-dress only when it changes —
+     *  re-dressing rebuilds the sprite, which blinks. */
+    lookKey: string;
   }>();
 
   /** Someone arrived, moved or changed (`peer`), or left (null). */
@@ -1175,11 +1178,12 @@ export class WorldScene extends Phaser.Scene {
       const sprite = new Dressed(this, 0, 2, peer.look).setScale(this.spec.baseScale * 1.3);
       const label = this.nameText(peer.name, 6, 10, '#cfe8ff');
       rig.add([sprite, label]);
-      o = { rig, sprite, label, tx: peer.x, ty: peer.y, facing: peer.facing, moving: peer.moving };
+      o = { rig, sprite, label, tx: peer.x, ty: peer.y, facing: peer.facing, moving: peer.moving, lookKey: JSON.stringify(peer.look) };
       this.others.set(id, o);
     }
     if (o.label.text !== peer.name) o.label.setText(peer.name);
-    o.sprite.setLook(peer.look);
+    const lookKey = JSON.stringify(peer.look);
+    if (lookKey !== o.lookKey) { o.lookKey = lookKey; o.sprite.setLook(peer.look); }
     // Far off (a teleport, a bus ride): jump there; near: walk.
     if (Math.hypot(peer.x - o.rig.x, peer.y - o.rig.y) > this.tilePx * 12) o.rig.setPosition(peer.x, peer.y);
     Object.assign(o, { tx: peer.x, ty: peer.y, facing: peer.facing, moving: peer.moving });
@@ -1200,7 +1204,9 @@ export class WorldScene extends Phaser.Scene {
   private moveOthers(dt: number) {
     for (const o of this.others.values()) {
       const dx = o.tx - o.rig.x, dy = o.ty - o.rig.y, d = Math.hypot(dx, dy);
-      const step = Math.min(d, SPEED * 1.6 * dt);
+      // At least walking pace, and quicker the further behind — someone on a
+      // bike outruns a walk, and would fall behind and then jump.
+      const step = Math.min(d, Math.max(SPEED * 1.2, d * 8) * dt);
       if (d > 0.5) o.rig.setPosition(o.rig.x + (dx / d) * step, o.rig.y + (dy / d) * step);
       const walking = d > 2 || o.moving;
       const view = o.facing === 'down' ? 'front' : o.facing === 'up' ? 'back' : 'side';
