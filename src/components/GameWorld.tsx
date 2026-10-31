@@ -677,7 +677,7 @@ export function GameWorld({
       )}
       {!panel && (
         <div className="px absolute top-2 right-2 z-20 flex items-center gap-2">
-          {!animalId && (
+          {user && !animalId && (
             <Link to="/companion" className="px-btn px-notch px-title !text-[13px] px-3 py-2 inline-flex items-center gap-1.5" data-tone="gold">
               <PixelIcon name="paw" size={2} /> <FormattedMessage id="world.chooseBuddy" />
             </Link>
