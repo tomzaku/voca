@@ -78,9 +78,15 @@ const GARMENTS = {
   everyday: ['red', 'blue', 'green', 'yellow', 'black'],
   aoDai: ['purple', 'white', 'red', 'blue', 'yellow', 'pink', 'green'],
   aoThe: ['black', 'navy', 'brown'],
+  aoBaBa: ['black', 'brown', 'white', 'navy'],
+  uniform: ['white'],
+  jeans: ['red', 'blue', 'green', 'yellow', 'black', 'white', 'pink'],
+  longBao: ['yellow', 'red'],
 };
 const TROUSERS = [[196, 190, 180], [238, 234, 226]];
-const HATS = ['nonLa', 'khanDong'];
+const DENIM = [[44, 70, 120], [70, 104, 160]];
+const GOLD = [[196, 146, 30], [246, 206, 90]];
+const HATS = ['nonLa', 'khanDong', 'cap', 'mandarin', 'crown'];
 const PROPS = ['book', 'teacup', 'brush', 'scroll', 'headphones'];
 
 // The body's clothes, by colour: [ref, kind, shade].
@@ -116,12 +122,33 @@ const lum = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 function body(garment, colour, base) {
   const out = new Uint8ClampedArray(base);
   const tunic = COLOURS[colour];
-  if (garment === 'everyday') {
-    // Just the shirt: the trousers stay the pack's own.
+  // Shirt and trousers recoloured on their own: everyday clothes (the pack's
+  // trousers), jeans (denim), the áo bà ba (one colour, top to toe), the
+  // school uniform (white shirt, navy trousers).
+  const split = {
+    everyday: [tunic, null], jeans: [tunic, DENIM], aoBaBa: [tunic, tunic], uniform: [COLOURS.white, COLOURS.navy],
+  }[garment];
+  if (split) {
+    const [shirt, pants] = split;
     for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) {
       const p = px(base, x, y);
       const c = p[3] && cloth(p);
-      if (c && c[1] === 'shirt') put(out, x, y, tunic[c[2]]);
+      if (!c) continue;
+      if (c[1] === 'shirt') put(out, x, y, shirt[c[2]]);
+      else if (pants) put(out, x, y, pants[c[2]]);
+    }
+    return out;
+  }
+  if (garment === 'longBao') {
+    // The emperor's robe: one colour from the collar to the feet, its collar
+    // and hem trimmed in gold.
+    let top = F, bottom = -1;
+    for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) if (px(base, x, y)[3] && cloth(px(base, x, y))) { top = Math.min(top, y); bottom = Math.max(bottom, y); }
+    for (let y = 0; y < F; y++) for (let x = 0; x < F; x++) {
+      const p = px(base, x, y);
+      const c = p[3] && cloth(p);
+      if (!c) continue;
+      put(out, x, y, (y === top || y === bottom ? GOLD : tunic)[c[2]]);
     }
     return out;
   }
@@ -201,6 +228,38 @@ function hat(id, base) {
         put(out, x, y, edge ? line : (x + r) % 3 === 0 ? fold : navy);
       }
     }
+  } else if (id === 'cap') {
+    // A red cap: the crown over the head, its bill out in front (to the right,
+    // the way the side view faces).
+    const red = [214, 52, 52], light = [240, 96, 90], line = [70, 18, 22];
+    for (let r = 0; r < 3; r++) {
+      const y = h.top - 1 + r;
+      for (let x = h.l + (r === 0 ? 1 : 0); x <= h.r - (r === 0 ? 1 : 0); x++) {
+        const edge = r === 0 || x === h.l || x === h.r;
+        put(out, x, y, edge ? line : x < h.cx ? light : red);
+      }
+    }
+    for (let x = h.r; x <= h.r + 3; x++) put(out, x, h.top + 1, x === h.r + 3 ? line : red);
+  } else if (id === 'mandarin') {
+    // The mandarin's hat (mũ cánh chuồn): a black crown on the head, a wing
+    // standing out on either side.
+    const black = [30, 28, 36], sheen = [70, 68, 84], gold = [232, 186, 70];
+    for (let r = 0; r < 4; r++) {
+      const y = h.top - 2 + r;
+      for (let x = h.l + 1; x <= h.r - 1; x++) put(out, x, y, r === 0 ? black : (x + r) % 4 === 0 ? sheen : black);
+    }
+    put(out, Math.round(h.cx), h.top - 1, gold);
+    for (const [x0, dir] of [[h.l, -1], [h.r, 1]]) {
+      for (let k = 0; k < 4; k++) put(out, x0 + dir * k, h.top - 1, black);
+      put(out, x0 + dir * 3, h.top - 2, black);
+      put(out, x0 + dir * 3, h.top, black);
+    }
+  } else if (id === 'crown') {
+    // A gold crown, three points over a band set with a red stone.
+    const gold = [240, 194, 64], dark = [168, 120, 24], ruby = [214, 40, 56];
+    for (let x = h.l + 1; x <= h.r - 1; x++) { put(out, x, h.top, dark); put(out, x, h.top - 1, gold); }
+    for (const x of [h.l + 1, Math.round(h.cx), h.r - 1]) { put(out, x, h.top - 2, gold); put(out, x, h.top - 3, dark); }
+    put(out, Math.round(h.cx), h.top - 1, ruby);
   }
   return out;
 }

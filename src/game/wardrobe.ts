@@ -12,8 +12,12 @@ export const GARMENTS = {
   everyday: ['red', 'blue', 'green', 'yellow', 'black'],
   aoDai: ['purple', 'white', 'red', 'blue', 'yellow', 'pink', 'green'],
   aoThe: ['black', 'navy', 'brown'],
+  aoBaBa: ['black', 'brown', 'white', 'navy'],
+  uniform: ['white'],
+  jeans: ['red', 'blue', 'green', 'yellow', 'black', 'white', 'pink'],
+  longBao: ['yellow', 'red'],
 } as const;
-export const HATS = ['none', 'nonLa', 'khanDong'] as const;
+export const HATS = ['none', 'nonLa', 'khanDong', 'cap', 'mandarin', 'crown'] as const;
 
 export type Garment = keyof typeof GARMENTS;
 export const GARMENT_IDS = Object.keys(GARMENTS) as Garment[];
