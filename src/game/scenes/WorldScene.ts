@@ -6,7 +6,7 @@ import {
 import { featureNodeId, type WorldFeature } from '../features';
 import { Dressed, loadWardrobe } from '../dressed';
 import { KEEPER_DRESS, propLayers } from '../keeperLooks';
-import { RIDE_SCALE, RIDE_SPEED, RIDE_VIEWS, SEAT, SEAT_FACING, drawRide, drawRideFront, type Ride, type RideView } from '../vehicles';
+import { RIDE_SCALE, RIDE_SPEED, RIDE_VIEWS, SEAT, SEAT_FACING, drawRide, drawRideFront, drawTram, type Ride, type RideView } from '../vehicles';
 import type { Look } from '../wardrobe';
 import { t } from '../../i18n';
 import { defaultMap, type DetailPatch } from '../maps';
@@ -43,6 +43,9 @@ export interface WorldProgress {
 }
 
 const SPEED = 360;      // buddy speed, px/s
+const TRAM_SPEED = 170;  // the tram, px/s
+const TRAM_DWELL = 3500; // how long it halts at a stop, ms
+const TILE = 16;         // the map's tile, in its own px (it's drawn at SCALE)
 const REACH = 110;      // distance at which a building "opens"
 const PLACE_REACH = 170; // a named place lights up, and tells its story, from a little further
 /** A place name at rest — there but quiet — and lit, once you're there. */
@@ -117,6 +120,9 @@ interface MapMeta {
   sprays: { x: number; y: number }[];
   /** Farmers at work in the rice paddies. */
   farmers: { x: number; y: number }[];
+  /** The tram's loop (world px) and its stops, in order round it. */
+  tramPath: { x: number; y: number }[];
+  tramStops: { id: string; name: string; x: number; y: number; side: number }[];
 }
 
 interface MapSlot {
@@ -388,6 +394,7 @@ export class WorldScene extends Phaser.Scene {
     this.setRide(this.args.ride ?? 'walk');
     this.spawnTraffic();
     this.spawnFarmers();
+    this.spawnTram();
     this.spawnAmbient();
     this.targetMark = this.add
       .circle(0, 0, 8)
@@ -874,6 +881,8 @@ export class WorldScene extends Phaser.Scene {
       smokes: [],
       sprays: [],
       farmers: [],
+      tramPath: [],
+      tramStops: [],
     };
     const lanterns: { x: number; y: number; order: number }[] = [];
     type TiledProp = { name: string; value: unknown };
@@ -910,6 +919,15 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'farmer':
           meta.farmers.push({ x, y });
+          break;
+        case 'tramPath':
+          meta.tramPath = String(get('path') ?? '').split(' ').filter(Boolean)
+            .map((p) => p.split(',').map(Number)).map(([tx, ty]) => ({ x: tx * TILE * SCALE, y: ty * TILE * SCALE }));
+          break;
+        case 'tramStop':
+          meta.tramStops[Number(get('order') ?? meta.tramStops.length)] = {
+            id: String(get('id') ?? ''), name: String(get('name') ?? ''), x, y, side: Number(get('side') ?? 1),
+          };
           break;
         case 'animal':
           meta.animals.push({ x, y, kind: String(get('kind') ?? 'chicken') });
@@ -1119,6 +1137,132 @@ export class WorldScene extends Phaser.Scene {
       this.buddy.addAt(this.driver, 2);   // over the frame, in the saddle
     }
     this.applyAnim(false);
+  }
+
+  // ── The tram ──
+
+  /** The tram, and the buddy's journey on it. `s` is how far round the loop
+   *  it is (px); it halts `dwell` ms at each stop. */
+  private tram?: {
+    sprite: Phaser.GameObjects.Image;
+    segs: { ax: number; ay: number; bx: number; by: number; len: number; s0: number }[];
+    length: number;
+    stopsAt: number[];
+    s: number;
+    dwell: number;
+    halted: number;
+  };
+  /** The buddy's journey: waiting at a stop, or riding to `dest`. */
+  private journey: { state: 'waiting' | 'riding'; at: number; dest: number } | null = null;
+  /** The stop the buddy is standing at, if any. */
+  private atStop = -1;
+
+  private spawnTram() {
+    const path = this.meta.tramPath, stops = this.meta.tramStops.filter(Boolean);
+    if (path.length < 2 || !stops.length) return;
+    for (const v of ['side', 'front', 'back'] as const) {
+      const key = `tram-${v}`;
+      if (!this.textures.exists(key)) this.textures.addCanvas(key, drawTram(v))?.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    const segs: NonNullable<WorldScene['tram']>['segs'] = [];
+    let s0 = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i], b = path[i + 1], len = Math.hypot(b.x - a.x, b.y - a.y);
+      segs.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y, len, s0 });
+      s0 += len;
+    }
+    // Where along the loop each stop is: the nearest point on it.
+    const stopsAt = stops.map((st) => {
+      let best = 0, bestD = Infinity;
+      for (const g of segs) {
+        const t = Phaser.Math.Clamp(((st.x - g.ax) * (g.bx - g.ax) + (st.y - g.ay) * (g.by - g.ay)) / (g.len * g.len), 0, 1);
+        const d = Math.hypot(st.x - (g.ax + (g.bx - g.ax) * t), st.y - (g.ay + (g.by - g.ay) * t));
+        if (d < bestD) { bestD = d; best = g.s0 + t * g.len; }
+      }
+      return best;
+    });
+    const sprite = this.add.image(path[0].x, path[0].y, 'tram-side').setOrigin(0.5, 0.75).setScale(SCALE).setDepth(DEPTH_BUDDY - 1);
+    this.tinted.push(sprite);
+    this.tram = { sprite, segs, length: s0, stopsAt, s: stopsAt[0] + 1, dwell: 0, halted: -1 };
+  }
+
+  /** Where the tram is now, and which way it faces. */
+  private tramAt(s: number) {
+    const t = this.tram!;
+    const g = t.segs.find((seg) => s >= seg.s0 && s < seg.s0 + seg.len) ?? t.segs[t.segs.length - 1];
+    const f = (s - g.s0) / g.len;
+    return { x: g.ax + (g.bx - g.ax) * f, y: g.ay + (g.by - g.ay) * f, dx: g.bx - g.ax, dy: g.by - g.ay };
+  }
+
+  /** Run the tram round its loop, halting at each stop; take the buddy on
+   *  when it halts where they wait, and set them down where they're going. */
+  private moveTram(dtMs: number) {
+    const t = this.tram;
+    if (!t) return;
+    if (t.dwell > 0) {
+      t.dwell -= dtMs;
+      const j = this.journey;
+      if (j?.state === 'waiting' && t.halted === j.at) {
+        this.journey = { state: 'riding', at: j.at, dest: j.dest };
+        this.buddy.setVisible(false);
+        this.emitJourney();
+      } else if (j?.state === 'riding' && t.halted === j.dest && t.dwell < 2200) {
+        const st = this.meta.tramStops[j.dest];
+        this.journey = null;
+        this.buddy.setPosition(st.x, st.y + st.side * this.tilePx * 1.3).setVisible(true);
+        this.route = [];
+        this.emitJourney();
+      }
+      return;
+    }
+    const prev = t.s;
+    t.s = (t.s + TRAM_SPEED * (dtMs / 1000)) % t.length;
+    // A stop passed: halt at it.
+    t.stopsAt.forEach((at, i) => {
+      const crossed = prev <= at ? (t.s >= at || t.s < prev) : (t.s >= at && t.s < prev);
+      if (crossed && t.halted !== i) { t.s = at; t.dwell = TRAM_DWELL; t.halted = i; }
+    });
+    const p = this.tramAt(t.s);
+    t.sprite.setPosition(p.x, p.y);
+    const view = Math.abs(p.dx) >= Math.abs(p.dy) ? 'side' : p.dy > 0 ? 'front' : 'back';
+    t.sprite.setTexture(`tram-${view}`).setFlipX(view === 'side' && p.dx < 0);
+    if (t.dwell <= 0 && t.halted >= 0 && Math.abs(t.s - t.stopsAt[t.halted]) > 4) t.halted = -1;
+  }
+
+  private emitJourney() {
+    const j = this.journey;
+    this.game.events.emit(WORLD_EVENTS.tram, j && {
+      ...j, stops: this.meta.tramStops.map((st) => ({ id: st.id, name: st.name })),
+    });
+  }
+
+  /** Which stop (if any) the buddy is standing at — told to React. */
+  private checkTramStop() {
+    if (!this.tram || this.journey?.state === 'riding') return;
+    let near = -1;
+    this.meta.tramStops.forEach((st, i) => {
+      if (Math.hypot(this.buddy.x - st.x, this.buddy.y - st.y) < this.tilePx * 2.4) near = i;
+    });
+    if (near === this.atStop) return;
+    this.atStop = near;
+    if (near < 0 && this.journey?.state === 'waiting') { this.journey = null; this.emitJourney(); }
+    const st = this.meta.tramStops[near];
+    this.game.events.emit(WORLD_EVENTS.tramStop, st ? { index: near, id: st.id, name: st.name } : null);
+  }
+
+  /** With a ticket: wait at this stop for the tram, heading for the next stop
+   *  unless told otherwise. */
+  boardTram(at: number) {
+    if (!this.tram) return;
+    this.journey = { state: 'waiting', at, dest: (at + 1) % this.meta.tramStops.length };
+    this.emitJourney();
+  }
+
+  /** Change where the buddy gets off. */
+  setTramDest(dest: number) {
+    if (!this.journey || dest === this.journey.at) return;
+    this.journey = { ...this.journey, dest };
+    this.emitJourney();
   }
 
   /** Farmers in the rice paddies, in nón lá and working clothes, bent over
@@ -1509,13 +1653,21 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
+    // The tram goes round; on board, the buddy goes with it, and walks nowhere.
+    this.moveTram(dtMs);
+    this.checkTramStop();
+    const onTram = this.journey?.state === 'riding';
+    if (onTram && this.tram) { this.buddy.setPosition(this.tram.sprite.x, this.tram.sprite.y); this.route = []; }
+
     let vx = 0, vy = 0;
     const left = this.cursors.left.isDown || this.wasd.A.isDown;
     const right = this.cursors.right.isDown || this.wasd.D.isDown;
     const up = this.cursors.up.isDown || this.wasd.W.isDown;
     const down = this.cursors.down.isDown || this.wasd.S.isDown;
 
-    if (left || right || up || down) {
+    if (onTram) {
+      // Riding: nothing to do but look out of the window.
+    } else if (left || right || up || down) {
       this.route = []; // keyboard overrides tap-to-walk
       vx = (right ? 1 : 0) - (left ? 1 : 0);
       vy = (down ? 1 : 0) - (up ? 1 : 0);

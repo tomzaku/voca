@@ -159,3 +159,46 @@ export function drawRide(ride: Exclude<Ride, 'walk'>, frame: number, view: RideV
   px(24, 17, INK); px(25, 18, INK);
   return cv;
 }
+
+/** Huế's tram, in heritage red and cream: side-on (facing right — mirrored
+ *  for left), coming towards the camera, or going away. Its windows show
+ *  the passengers' heads, a pantograph on the roof, the route's sign. */
+export function drawTram(view: RideView): HTMLCanvasElement {
+  const side = view === 'side';
+  const w = side ? 52 : 26, h = side ? 30 : 34;
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d')!;
+  const px: Px = (x, y, c) => { if (x >= 0 && y >= 0 && x < w && y < h) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); } };
+  const rect = (x: number, y: number, rw: number, rh: number, c: string) => { for (let j = 0; j < rh; j++) for (let i = 0; i < rw; i++) px(x + i, y + j, c); };
+  const red = '#b8352a', redDark = '#86241c', cream = '#f2e6c8', creamDark = '#d8c8a0', glass = '#3a5068', head = '#2a1a14';
+  if (side) {
+    rect(4, 8, 44, 3, '#5c5c64');                     // the roof
+    rect(22, 2, 8, 1, '#3c3c44'); px(23, 3, '#3c3c44'); px(28, 3, '#3c3c44'); rect(24, 4, 4, 1, '#3c3c44'); rect(25, 5, 2, 3, '#3c3c44');   // pantograph
+    rect(3, 11, 46, 7, cream);
+    rect(3, 11, 46, 1, '#fff6e0');
+    for (let x = 6; x < 46; x += 8) { rect(x, 12, 6, 5, glass); px(x + 2, 15, head); px(x + 3, 15, head); px(x + 2, 14, head); }
+    rect(3, 18, 46, 6, red);
+    rect(3, 18, 46, 1, '#d8584a');
+    rect(3, 23, 46, 1, redDark);
+    rect(46, 12, 3, 5, glass);                        // the cab's window, at the front
+    rect(47, 20, 2, 2, '#ffe28a');                    // headlamp
+    rect(18, 19, 16, 2, '#f0c050');                   // gold band and the route's number
+    for (const x of [10, 40]) { rect(x - 3, 24, 7, 4, '#2a2a2e'); px(x, 26, '#9a9aa0'); }
+    rect(1, 28, 50, 1, '#00000040');
+  } else {
+    rect(3, 4, 20, 3, '#5c5c64');
+    rect(9, 0, 8, 1, '#3c3c44'); rect(12, 1, 2, 3, '#3c3c44');
+    rect(2, 7, 22, 12, cream);
+    rect(4, 9, 18, 8, glass);
+    if (view === 'front') { px(10, 13, head); px(11, 13, head); px(10, 12, head); px(15, 14, head); px(16, 14, head); }
+    else { rect(5, 10, 16, 6, '#506880'); }
+    rect(2, 19, 22, 10, red);
+    rect(2, 19, 22, 1, '#d8584a');
+    rect(8, 21, 10, 3, view === 'front' ? '#f0c050' : creamDark);
+    if (view === 'front') { rect(4, 25, 3, 2, '#ffe28a'); rect(19, 25, 3, 2, '#ffe28a'); }
+    else { rect(4, 25, 3, 2, '#e8483a'); rect(19, 25, 3, 2, '#e8483a'); }
+    rect(3, 29, 4, 4, '#2a2a2e'); rect(19, 29, 4, 4, '#2a2a2e');
+  }
+  return cv;
+}

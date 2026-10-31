@@ -39,6 +39,11 @@ export interface WorldSnapshot {
 }
 
 /** Events the game emits on `game.events` for the React shell. */
+/** A tram stop, as the world reports it. */
+export interface TramStopInfo { index: number; id: string; name: string }
+/** Where a tram journey is: waiting at a stop, or on board heading for one. */
+export interface TramRide { state: 'waiting' | 'riding'; at: number; dest: number; stops: { id: string; name: string }[] }
+
 export const WORLD_EVENTS = {
   /** Buddy walked within reach of a station (payload: station id or null). */
   near: 'world:near',
@@ -51,6 +56,10 @@ export const WORLD_EVENTS = {
   /** Buddy came within reach of a named place on the map (payload: its
    *  `places` id, or null on leaving). */
   landmark: 'world:landmark',
+  /** The buddy came to a tram stop, or left it (payload: TramStopInfo or null). */
+  tramStop: 'world:tramStop',
+  /** The buddy's tram journey changed (payload: TramRide or null when off). */
+  tram: 'world:tram',
   /** Local development only: where the buddy and the pointer are, in the map
    *  generator's tiles (payload: { buddy: [x, y], cursor: [x, y] | null }). */
   debug: 'world:debug',

@@ -14,8 +14,7 @@ import { KEEPER_PLACES } from '../game/mapPlaces';
 import { keeperLookFor, type BuddyLook, type VillagerLook } from '../game/textures';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import {
-  WORLD_EVENTS,
-  type WorldArea, type WorldSnapshot, type WorldStation,
+  WORLD_EVENTS, type TramRide, type TramStopInfo, type WorldArea, type WorldSnapshot, type WorldStation,
 } from '../game/types';
 import { COLLECTIONS_KEEPER, FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
@@ -25,6 +24,7 @@ import { RideButton } from './worldgames/RideButton';
 import { RIDES, type Ride } from '../game/vehicles';
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
+import { TramTicket } from './worldgames/TramTicket';
 
 export type { WorldStation } from '../game/types';
 
@@ -170,6 +170,10 @@ export function GameWorld({
   // The story of the place a room stands in, as a toast: shown on stepping
   // in, and again from the skill bar's ⓘ (`n` restarts its clock).
   const [placeToast, setPlaceToast] = useState<{ id: string; n: number } | null>(null);
+  // The tram: the stop the buddy is at, the ticket booth, and the journey.
+  const [tramStop, setTramStop] = useState<TramStopInfo | null>(null);
+  const [ticket, setTicket] = useState(false);
+  const [tramRide, setTramRide] = useState<TramRide | null>(null);
   const showPlace = (id: string) => setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
   const hidePlace = useCallback(() => setPlaceToast(null), []);
 
@@ -233,8 +237,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused;
-  }, [paused]);
+    if (kb) kb.enabled = !paused && !ticket;
+  }, [paused, ticket]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -304,6 +308,8 @@ export function GameWorld({
     game.events.on(WORLD_EVENTS.moved, onMoved);
     game.events.on(WORLD_EVENTS.area, onArea);
     game.events.on(WORLD_EVENTS.zoom, onZoom);
+    game.events.on(WORLD_EVENTS.tramStop, setTramStop);
+    game.events.on(WORLD_EVENTS.tram, setTramRide);
     if (import.meta.env.DEV) game.events.on(WORLD_EVENTS.debug, setDebugPos);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
@@ -318,6 +324,8 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.moved, onMoved);
       game.events.off(WORLD_EVENTS.area, onArea);
       game.events.off(WORLD_EVENTS.zoom, onZoom);
+      game.events.off(WORLD_EVENTS.tramStop, setTramStop);
+      game.events.off(WORLD_EVENTS.tram, setTramRide);
       if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
       game.destroy(true);
     };
@@ -675,6 +683,38 @@ export function GameWorld({
           <PixelButton tone="gold" block onClick={() => onOpenFeature(nearestFeature)}>
             <FormattedMessage id="world.enter" /> <span className="hidden sm:inline opacity-70">↵</span>
           </PixelButton>
+        </WorldCard>
+      )}
+
+      {/* ── The tram: at a stop, buy a ticket; waiting, then riding, choose
+             where to get off. ── */}
+      {!panel && !nearestFeature && tramStop && !tramRide && !ticket && (
+        <WorldCard emoji="🚋" title={tramStop.name} subtitle={<FormattedMessage id="world.tramStop" />}>
+          <PixelButton tone="gold" block onClick={() => setTicket(true)}>
+            <FormattedMessage id="world.tramBuy" />
+          </PixelButton>
+        </WorldCard>
+      )}
+      {!panel && ticket && tramStop && (
+        <TramTicket
+          stop={tramStop.name}
+          onBoard={() => { scene()?.boardTram(tramStop.index); setTicket(false); }}
+          onClose={() => setTicket(false)}
+        />
+      )}
+      {!panel && tramRide && (
+        <WorldCard
+          emoji="🚋"
+          title={<FormattedMessage id={tramRide.state === 'waiting' ? 'world.tramWaiting' : 'world.tramRiding'} />}
+          subtitle={<FormattedMessage id="world.tramGetOff" />}
+        >
+          <div className="grid grid-cols-2 gap-1.5">
+            {tramRide.stops.map((st, i) => i === tramRide.at ? null : (
+              <PixelButton key={st.id} tone={i === tramRide.dest ? 'jade' : 'paper'} onClick={() => scene()?.setTramDest(i)} className="!text-[13px] !px-2 !py-2">
+                {st.name}
+              </PixelButton>
+            ))}
+          </div>
         </WorldCard>
       )}
 
