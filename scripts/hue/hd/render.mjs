@@ -18,7 +18,7 @@ import { shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
 import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, ladder, lamp, market, paddy, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
-import { anDinh, cheStall, gaHue, gardenHouse, gateTower, haiBaTrung, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, quocHocGate, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
+import { anDinh, cheStall, gaHue, gardenHouse, gateTower, haiBaTrung, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, quocHocGate, saigonMorin, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
 import { biDinh, biDinhKhaiDinh, biDinhMinhMang, daiHongMon, grave, minhLau, obelisk, thienDinh, tombGate, tombHall, xungKhiem } from './tombs.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
 
@@ -29,7 +29,7 @@ const LADDER = ladder(6);
 
 const BUILDINGS = {
   ngoMon, thaiHoa, hienLam, thienMuTower, thienMuHall, vanMieu, stele, tangThuLau,
-  gaHue, haiBaTrung, quocHoc, quocHocGate, anDinh, gateTower, sideGateTower, phuVanLau, nghenhLuong, cheStall,
+  gaHue, haiBaTrung, quocHoc, quocHocGate, saigonMorin, anDinh, gateTower, sideGateTower, phuVanLau, nghenhLuong, cheStall,
   biDinh, biDinhKhaiDinh, biDinhMinhMang, daiHongMon, grave, minhLau, thienDinh, tombGate, xungKhiem,
   market, kyDai, fountain, halfMoon, theMieu, thaiMieu, dienTho, truongSanh, canChanh, sideHall, daiCungMon, duyetThiDuong, tinhTamPavilion };
 

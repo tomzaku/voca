@@ -6,7 +6,7 @@ import { P, ROOF } from '../core/palette.mjs';
 import { drawn, ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, hall, roof } from '../draw/buildings.mjs';
 import { K, parterre } from '../hd/art.mjs';
-import { anDinh, haiBaTrung, halve, quocHoc, quocHocGate } from '../hd/landmarks.mjs';
+import { anDinh, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
@@ -14,6 +14,7 @@ export const LABELS = [
   { text: 'Ga Huế', x: 13.5, y: 68.5, place: 'gaHue' },
   { text: 'Trường Hai Bà Trưng', x: 28, y: 67.5, place: 'haiBaTrung' },
   { text: 'Trường Quốc Học', x: 41, y: 67.5, place: 'quocHoc' },
+  { text: 'Saigon Morin', x: 75.5, y: 68, place: 'saigonMorin' },
   { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
   { text: 'Vỹ Dạ', x: 108, y: 61, place: 'vyDa', theme: 'forest', anchor: 'left' },
   { text: 'Ngự Bình', x: 52, y: 91.6, place: 'nguBinh', theme: 'forest', anchor: 'left' },
@@ -65,7 +66,15 @@ export function drawSouthBank() {
   }
 
   // Shophouses east of Hùng Vương, the old Phố Tây.
-  for (const [x, pal] of [[71, ROOF.terra], [76, ROOF.dark], [81, ROOF.plum]]) place(HOUSE(pal, [222, 206, 176]), x, 71, 2);
+  for (const [x, pal] of [[81, ROOF.plum]]) place(HOUSE(pal, [222, 206, 176]), x, 71, 2);
+
+  // Hotel Saigon Morin, on the corner of Lê Lợi and Hùng Vương where
+  // Trường Tiền comes ashore.
+  {
+    const cv = halve(saigonMorin());
+    cv.spec = { kind: 'saigonMorin' };
+    place(cv, 71, 67, 3);
+  }
 
   // Cung An Định: the European-style palace on the An Cựu canal, with a knot
   // garden behind it, off Lê Lợi, and another in front running down to the

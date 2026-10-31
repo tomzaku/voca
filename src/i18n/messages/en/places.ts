@@ -127,6 +127,11 @@ export default {
   'places.haiBaTrungAbout': 'The old Đồng Khánh school beside Quốc Học on Lê Lợi: founded in 1917, it was the first secondary school for girls in Huế.',
   'places.haiBaTrungFact': 'Emperor Khải Định was there when its first stone was laid, on 15 July 1917. For decades its students in white áo dài along the river were one of the sights of Huế.',
 
+  'places.saigonMorin': 'Khách sạn Saigon Morin',
+  'places.saigonMorinEn': 'Hotel Saigon Morin',
+  'places.saigonMorinAbout': 'Huế’s oldest hotel, opened in 1901 at the south end of Trường Tiền bridge, and named for the Morin brothers who later ran it.',
+  'places.saigonMorinFact': 'Charlie Chaplin and Paulette Goddard stayed here in 1936, on the honeymoon trip that took them through Indochina.',
+
   'places.anDinh': 'Cung An Định',
   'places.anDinhEn': 'An Định Palace',
   'places.anDinhAbout': 'A European-style palace on the An Cựu river, rebuilt by Emperor Khải Định in the years around 1920.',

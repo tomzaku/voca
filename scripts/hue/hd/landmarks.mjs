@@ -416,6 +416,57 @@ export function haiBaTrung() {
   return cv;
 }
 
+/** Hotel Saigon Morin: 9 × 5 tiles — Huế's oldest hotel, at the south end
+ *  of Trường Tiền: four storeys of cream picked out in white, green
+ *  shutters, iron balconies, an arcade along the street, and its name along
+ *  the parapet. */
+export function saigonMorin() {
+  const cv = new Canvas(9 * T2, 5 * T2);
+  const W = cv.w, H = cv.h, cx = W / 2;
+  const CREAM = [242, 228, 192], CREAM_DARK = [222, 204, 164], WHITE = [250, 246, 236], WHITE_DARK = [220, 214, 200];
+  const SHUTTER = [70, 112, 88], SHUTTER_DARK = [50, 84, 66], IRON = [52, 50, 54];
+  const top = 26, foot = H - 6, floors = [top + 8, top + 36, top + 64], ground = top + 92;
+  for (let y = top; y < foot; y++) for (let x = 4; x < W - 4; x++) cv.set(x, y, mix(CREAM, CREAM_DARK, hash(x, y) * 0.2 + ((y - top) / (foot - top)) * 0.25));
+  // The parapet, with the name board raised in the middle.
+  cv.rect(2, top - 6, W - 4, 8, WHITE);
+  for (let x = 6; x < W - 6; x += 5) cv.rect(x, top - 4, 3, 4, WHITE_DARK);
+  cv.rect(cx - 50, top - 18, 100, 14, WHITE);
+  cv.rect(cx - 46, top - 15, 92, 8, [168, 40, 36]);
+  for (let x = cx - 42; x < cx + 42; x += 5) cv.rect(x, top - 13, 3, 4, [250, 220, 130]);
+  for (const y of floors.slice(1).concat(ground)) { cv.rect(2, y - 4, W - 4, 3, WHITE); cv.rect(2, y - 1, W - 4, 1, WHITE_DARK); }
+  for (let x = 14; x < W - 14; x += 20) {
+    for (const [f, y] of floors.entries()) {
+      // A tall window, shutters folded open either side, a white hood.
+      cv.rect(x - 1, y - 2, 14, 2, WHITE);
+      cv.rect(x + 2, y, 8, 20, [64, 72, 84]);
+      cv.rect(x + 2, y + 9, 8, 1, WHITE_DARK);
+      for (const sx of [x - 1, x + 10]) { cv.rect(sx, y, 3, 20, SHUTTER); for (let yy = y + 1; yy < y + 20; yy += 3) cv.rect(sx, yy, 3, 1, SHUTTER_DARK); }
+      // Iron balconies on the middle bays.
+      if (Math.abs(x + 6 - cx) < 56 && f < 2) {
+        cv.rect(x - 3, y + 20, 18, 2, WHITE_DARK);
+        for (let i = x - 3; i < x + 15; i += 2) cv.rect(i, y + 15, 1, 5, IRON);
+        cv.rect(x - 3, y + 14, 18, 1, IRON);
+      } else cv.rect(x - 1, y + 20, 14, 2, WHITE);
+    }
+    // The arcade along the street.
+    for (let y = ground + 4; y < foot; y++) for (let i = -7; i < 7; i++) {
+      const dy = ground + 11 - y;
+      if (dy > 0 && (i + 0.5) ** 2 + dy * dy > 49) continue;
+      cv.set(x + 6 + i, y, y > foot - 8 ? [128, 108, 90] : [96, 76, 64]);
+    }
+    for (let a = 0; a <= 14; a++) { const t = Math.PI * (a / 14); cv.set(x + 6 - Math.cos(t) * 8, ground + 11 - Math.sin(t) * 8, WHITE); }
+    cv.rect(x - 4, top + 2, 2, foot - top - 2, WHITE_DARK);           // pilasters
+  }
+  // Awnings over the café tables along the arcade.
+  for (let x = 12; x < W - 12; x += 40) {
+    for (let i = 0; i < 16; i++) cv.rect(x + i * 2, ground + 2, 2, 6, i % 2 ? [250, 246, 236] : [176, 52, 44]);
+  }
+  cv.rect(0, foot, W, H - foot, STONE);
+  cv.rect(0, foot, W, 1, STONE_LIGHT);
+  outline(cv);
+  return cv;
+}
+
 /** Quốc Học's gate on its wall, 12 × 3 tiles: four red pillars under two
  *  tiers of tiled roof, a balustrade between them pierced with white
  *  squares, the name board over the way in; either side, the low red wall

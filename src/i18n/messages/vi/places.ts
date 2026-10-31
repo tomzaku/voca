@@ -121,6 +121,11 @@ export default {
   'places.haiBaTrungAbout': 'Trường Đồng Khánh xưa, cạnh Quốc Học trên đường Lê Lợi: lập năm 1917, là trường trung học đầu tiên dành cho nữ sinh ở Huế.',
   'places.haiBaTrungFact': 'Vua Khải Định có mặt khi đặt viên đá đầu tiên, ngày 15 tháng 7 năm 1917. Suốt nhiều thập niên, tà áo dài trắng của nữ sinh trường bên bờ sông là một nét riêng của Huế.',
 
+  'places.saigonMorin': 'Khách sạn Saigon Morin',
+  'places.saigonMorinEn': 'Hotel Saigon Morin',
+  'places.saigonMorinAbout': 'Khách sạn lâu đời nhất Huế, mở năm 1901 ở đầu cầu Trường Tiền phía nam, mang tên anh em nhà Morin, những người về sau điều hành nó.',
+  'places.saigonMorinFact': 'Vua hề Charlie Chaplin và Paulette Goddard từng ở đây năm 1936, trong chuyến trăng mật qua Đông Dương.',
+
   'places.anDinh': 'Cung An Định',
   'places.anDinhEn': 'An Định Palace',
   'places.anDinhAbout': 'Cung điện kiểu châu Âu bên bờ sông An Cựu, được vua Khải Định xây lại vào khoảng năm 1920.',
