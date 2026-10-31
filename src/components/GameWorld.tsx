@@ -27,6 +27,7 @@ import { BusTicket } from './worldgames/BusTicket';
 import { FocusZone } from './worldgames/FocusZone';
 import { StreetPiano } from './worldgames/StreetPiano';
 import { TypeRace } from './worldgames/TypeRace';
+import { Fishing } from './worldgames/Fishing';
 import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
 import { setRainSound } from '../lib/rainSound';
@@ -106,6 +107,9 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
     </div>
   );
 }
+
+/** The playground's games, by the id the map's `play` points give them. */
+const PLAYS: Record<string, { emoji: string }> = { piano: { emoji: '🎹' }, race: { emoji: '🚆' }, fish: { emoji: '🎣' } };
 
 /** One foldable section of the travel drawer. `onTitle`, when given, makes
  *  the title itself a destination (a skill's keeper); the chevron folds. */
@@ -724,15 +728,16 @@ export function GameWorld({
       {/* ── The playground: the street piano, the type race ── */}
       {!panel && !nearestFeature && atPlay && !playing && !busRide && busTicket === null && (
         <WorldCard
-          emoji={atPlay === 'piano' ? '🎹' : '🚆'}
-          title={<FormattedMessage id={atPlay === 'piano' ? 'world.pianoTitle' : 'world.raceTitle'} />}
-          subtitle={<FormattedMessage id={atPlay === 'piano' ? 'world.pianoBlurb' : 'world.raceBlurb'} />}
+          emoji={PLAYS[atPlay]?.emoji ?? '🎲'}
+          title={<FormattedMessage id={`world.${atPlay}Title`} />}
+          subtitle={<FormattedMessage id={`world.${atPlay}Blurb`} />}
         >
           <PixelButton tone="gold" block onClick={() => setPlaying(atPlay)}><FormattedMessage id="world.play" /></PixelButton>
         </WorldCard>
       )}
       {!panel && playing === 'piano' && <StreetPiano onClose={() => setPlaying(null)} />}
       {!panel && playing === 'race' && <TypeRace onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'fish' && <Fishing onClose={() => setPlaying(null)} />}
 
       {/* ── The Focus Zone on Ngự Bình ── */}
       {!panel && !nearestFeature && atFocus && !focusOpen && !busRide && busTicket === null && (
