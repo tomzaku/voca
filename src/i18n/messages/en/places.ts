@@ -8,6 +8,11 @@ import type { Catalog } from '../..';
 
 export default {
   'places.didYouKnow': 'Did you know?',
+  'places.expand': 'Read more',
+  'places.memorial': 'Memorial to the Throne',
+  'places.imperialNote': 'In the emperor’s red',
+  'places.readMore': 'Read more on Wikipedia',
+  'places.photoBy': 'Photo: {author}, {license}',
   'places.close': 'Close',
 
   'places.anHien': 'Nhà vườn An Hiên',
@@ -44,16 +49,19 @@ export default {
   'places.thaiHoaEn': 'Hall of Supreme Harmony',
   'places.thaiHoaAbout': 'The throne hall of the Imperial City, built in 1805. Emperors were crowned here and held the court’s great ceremonies.',
   'places.thaiHoaFact': 'Its roof rests on 80 ironwood columns, lacquered red and painted with golden dragons.',
+  'places.thaiHoaMore': 'First built under Emperor Gia Long, it was moved to where it stands now in 1833. Coronations, royal birthdays and the receiving of envoys all took place here. In the courtyard before it, the mandarins stood in rows by rank — civil officials on one side, military on the other — their places marked by small stone posts.',
 
   'places.ngoMon': 'Ngọ Môn',
   'places.ngoMonEn': 'The Noon Gate',
   'places.ngoMonAbout': 'The main entrance to the Imperial City, built in 1833 under Emperor Minh Mạng. On its stone base sits Lầu Ngũ Phụng, the Five Phoenix pavilion.',
   'places.ngoMonFact': 'In 1945 Bảo Đại, Vietnam’s last emperor, gave up the throne on this gate — the end of more than 140 years of Nguyễn rule.',
+  'places.ngoMonMore': 'It has five passages — the middle one for the emperor alone, the two beside it for mandarins, the outer two for soldiers, horses and elephants. From the Five Phoenix pavilion above, the emperor watched the court’s great ceremonies; its roof is tiled in yellow, the emperor’s colour, over the middle, and green on either side.',
 
   'places.thienMu': 'Chùa Thiên Mụ',
   'places.thienMuEn': 'Thiên Mụ Pagoda',
   'places.thienMuAbout': 'Founded in 1601 by Lord Nguyễn Hoàng on a hill above the Perfume River, Huế’s oldest pagoda is the city’s best-known symbol. Its seven-storey Phước Duyên tower was added in 1844.',
   'places.thienMuFact': 'The name means “Heavenly Lady”, after a legend of an old woman who foretold that a lord would build a pagoda on this hill.',
+  'places.thienMuMore': 'Each of the Phước Duyên tower’s seven storeys is dedicated to a Buddha. The pagoda also keeps a great bronze bell cast in 1710, and the car that carried the monk Thích Quảng Đức to Saigon in 1963, where his protest made news around the world.',
 
   'places.vanMieu': 'Văn Miếu',
   'places.vanMieuEn': 'Temple of Literature',
@@ -64,6 +72,7 @@ export default {
   'places.dongBaEn': 'Đông Ba Market',
   'places.dongBaAbout': 'Huế’s biggest and busiest market, by the Perfume River near Trường Tiền bridge. It has traded here since the late 1800s — food, cloth, conical hats and everything in between.',
   'places.dongBaFact': 'It’s the place to try bún bò Huế, the city’s spicy beef noodle soup, at the market’s food stalls.',
+  'places.dongBaMore': 'It began beside the Đông Ba gate of the Citadel, which gave it its name, and moved to the riverbank in 1899 under Emperor Thành Thái. Rebuilt after the war, it sells nearly everything — conical hats, silk, Huế sesame candy (mè xửng) — and its stalls are busy from first light.',
 
   'places.conHen': 'Cồn Hến',
   'places.conHenEn': 'Hến Islet',
@@ -74,6 +83,7 @@ export default {
   'places.kyDaiEn': 'The Flag Tower',
   'places.kyDaiAbout': 'The Flag Tower stands in the middle of the Citadel’s front wall, facing the Perfume River. First built in 1807 under Emperor Gia Long, its three brick tiers carry Huế’s tallest flagpole.',
   'places.kyDaiFact': 'The flag at the top of its pole can be seen from across the Perfume River.',
+  'places.kyDaiMore': 'Its base rises in three brick tiers, about 17 metres high, with the flagpole on top. Across a century of wars the tower has been damaged and rebuilt more than once, and today it is one of the city’s best-known sights.',
 
   'places.dragonBoat': 'Thuyền rồng',
   'places.dragonBoatEn': 'Dragon boats',
@@ -84,6 +94,7 @@ export default {
   'places.truongTienEn': 'Trường Tiền Bridge',
   'places.truongTienAbout': 'Huế’s best-known bridge over the Perfume River, finished at the turn of the 20th century. At night it glows in changing colours.',
   'places.truongTienFact': 'An old folk verse counts its arches: “sáu vài mười hai nhịp” — six pairs, twelve arches.',
+  'places.truongTienMore': 'Built at the end of the 1890s under Emperor Thành Thái, it was one of the first steel bridges in Indochina, about 400 metres long. Storms and wars have broken it several times — a typhoon in 1904, and fighting in 1946 and 1968 — and each time it has been rebuilt.',
 
   'places.songHuong': 'Sông Hương',
   'places.songHuongEn': 'The Perfume River',
@@ -119,6 +130,7 @@ export default {
   'places.khaiDinhEn': 'Tomb of Emperor Khải Định',
   'places.khaiDinhAbout': 'The tomb of Emperor Khải Định, built from 1920 to 1931 on a hillside south of Huế. Unlike the older royal tombs, it’s made of concrete and mixes Vietnamese, Chinese and European styles.',
   'places.khaiDinhFact': 'Inside, the Thiên Định palace is covered in mosaics made from broken porcelain and glass.',
+  'places.khaiDinhMore': 'It climbs the slope of Châu Chữ mountain by long flights of steps, past a courtyard of stone mandarins, horses and elephants standing guard. At the top, a gilded bronze statue of the emperor sits under a canopy, his remains laid deep beneath it.',
 
   'places.nguBinh': 'Núi Ngự Bình',
   'places.nguBinhEn': 'Ngự Bình Mountain',
@@ -196,12 +208,14 @@ export default {
   'places.cuaHuuFact': '“Hữu” means “right”: facing the river, as the Citadel does, this side is on your right.',
   'places.tuDuc': 'Lăng Tự Đức',
   'places.tuDucEn': 'Tomb of Emperor Tự Đức',
-  'places.tuDucAbout': 'Tự Đức’s tomb, built in the 1860s, is a walled garden of lakes, pavilions and pines. The emperor came here to rest, read and write poetry long before he was buried here.',
+  'places.tuDucAbout': 'Tự Đức’s tomb, built in the 1860s, is a walled garden of lakes, pavilions and pines. The emperor came here to rest, read and write poetry while he was still alive.',
   'places.tuDucFact': 'He wrote the long inscription on his own stele himself — an honest look back at his reign and its troubles.',
+  'places.tuDucMore': 'Tự Đức reigned for 36 years, longer than any other Nguyễn emperor. He built the tomb from 1864 to 1867 and used it while he lived as a retreat, fishing on Lưu Khiêm lake from the Xung Khiêm pavilion. He was buried somewhere else in secret, and where his body truly lies is still not known.',
   'places.minhMang': 'Lăng Minh Mạng',
   'places.minhMangEn': 'Tomb of Emperor Minh Mạng',
   'places.minhMangAbout': 'Minh Mạng’s tomb, finished in 1843 under his son Thiệu Trị, lays everything along one long straight axis — gates, courts, temple, pavilion and bridges — between two lakes.',
   'places.minhMangFact': 'Seen from above, its lakes, bridges and buildings are said to trace the outline of a person lying at rest.',
+  'places.minhMangMore': 'Begun in 1840, the year before the emperor died, it lies among pine hills where two rivers meet to form the Perfume River. Its axis runs some 700 metres through about forty buildings, and many think it the most harmonious of all the royal tombs.',
   'places.tuCamThanh': 'Tử Cấm Thành',
   'places.tuCamThanhEn': 'The Purple Forbidden City',
   'places.tuCamThanhAbout': 'The innermost enclosure of the Imperial City, behind Thái Hòa: the emperor’s own home and household, closed to everyone else.',

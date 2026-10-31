@@ -2,6 +2,11 @@ import type en from '../en/places';
 
 export default {
   'places.didYouKnow': 'Bạn có biết?',
+  'places.expand': 'Xem thêm',
+  'places.memorial': 'Tấu sớ',
+  'places.imperialNote': 'Châu phê',
+  'places.readMore': 'Đọc thêm trên Wikipedia',
+  'places.photoBy': 'Ảnh: {author}, {license}',
   'places.close': 'Đóng',
 
   'places.anHien': 'Nhà vườn An Hiên',
@@ -38,16 +43,19 @@ export default {
   'places.thaiHoaEn': 'Hall of Supreme Harmony',
   'places.thaiHoaAbout': 'Chính điện của Hoàng Thành, xây năm 1805. Các vua đăng quang và cử hành những đại lễ của triều đình tại đây.',
   'places.thaiHoaFact': 'Mái điện đặt trên 80 cột gỗ lim sơn son, vẽ rồng vàng.',
+  'places.thaiHoaMore': 'Điện được dựng từ thời vua Gia Long, đến năm 1833 thì dời về vị trí hiện nay. Lễ đăng quang, lễ mừng thọ vua và lễ đón sứ thần đều diễn ra ở đây. Trên sân Đại Triều Nghi phía trước, các quan đứng thành hàng theo phẩm trật — quan văn một bên, quan võ một bên — chỗ đứng đánh dấu bằng những bia đá nhỏ.',
 
   'places.ngoMon': 'Ngọ Môn',
   'places.ngoMonEn': 'The Noon Gate',
   'places.ngoMonAbout': 'Cổng chính vào Hoàng Thành, xây năm 1833 dưới thời vua Minh Mạng. Trên nền đá là lầu Ngũ Phụng.',
   'places.ngoMonFact': 'Năm 1945, vua Bảo Đại — vị vua cuối cùng của Việt Nam — thoái vị trên lầu này, khép lại hơn 140 năm triều Nguyễn.',
+  'places.ngoMonMore': 'Cổng có năm lối đi — lối giữa chỉ dành cho vua, hai lối bên cho các quan, hai lối ngoài cùng cho lính, ngựa và voi. Từ lầu Ngũ Phụng phía trên, vua ngự xem các đại lễ của triều đình; mái lầu lợp ngói vàng — màu của vua — ở giữa, và ngói xanh hai bên.',
 
   'places.thienMu': 'Chùa Thiên Mụ',
   'places.thienMuEn': 'Thiên Mụ Pagoda',
   'places.thienMuAbout': 'Do chúa Nguyễn Hoàng dựng năm 1601 trên đồi bên sông Hương, ngôi chùa cổ nhất Huế là biểu tượng quen thuộc của thành phố. Tháp Phước Duyên bảy tầng được xây thêm năm 1844.',
   'places.thienMuFact': 'Tên chùa có nghĩa là “bà mụ nhà trời”, từ truyền thuyết về một bà lão báo trước rằng sẽ có chúa dựng chùa trên đồi này.',
+  'places.thienMuMore': 'Mỗi tầng của tháp Phước Duyên thờ một vị Phật. Chùa còn giữ một quả chuông đồng lớn đúc năm 1710, và chiếc xe đã đưa hòa thượng Thích Quảng Đức vào Sài Gòn năm 1963, nơi sự kiện của ngài làm chấn động thế giới.',
 
   'places.vanMieu': 'Văn Miếu',
   'places.vanMieuEn': 'Temple of Literature',
@@ -58,6 +66,7 @@ export default {
   'places.dongBaEn': 'Đông Ba Market',
   'places.dongBaAbout': 'Chợ lớn và nhộn nhịp nhất Huế, bên sông Hương gần cầu Trường Tiền. Chợ họp ở đây từ cuối thế kỷ 19 — đồ ăn, vải vóc, nón lá và đủ thứ khác.',
   'places.dongBaFact': 'Đây là nơi để thử bún bò Huế ở những quầy ăn trong chợ.',
+  'places.dongBaMore': 'Chợ ban đầu họp cạnh cửa Đông Ba của Kinh thành — nên mang tên ấy — và dời ra bờ sông năm 1899 dưới triều vua Thành Thái. Được xây lại sau chiến tranh, chợ bán gần như mọi thứ — nón lá, vải lụa, mè xửng — và các sạp hàng tấp nập từ tinh mơ.',
 
   'places.conHen': 'Cồn Hến',
   'places.conHenEn': 'Hến Islet',
@@ -68,6 +77,7 @@ export default {
   'places.kyDaiEn': 'The Flag Tower',
   'places.kyDaiAbout': 'Kỳ Đài nằm giữa mặt thành phía trước Kinh Thành, nhìn ra sông Hương. Xây lần đầu năm 1807 dưới thời vua Gia Long, ba tầng gạch đỡ cột cờ cao nhất Huế.',
   'places.kyDaiFact': 'Lá cờ trên đỉnh cột có thể nhìn thấy từ bên kia sông Hương.',
+  'places.kyDaiMore': 'Đài gồm ba tầng gạch cao khoảng 17 mét, trên cùng là cột cờ. Qua hơn một thế kỷ chiến tranh, Kỳ Đài nhiều lần hư hại và được xây lại, và ngày nay là một trong những biểu tượng nổi tiếng nhất của thành phố.',
 
   'places.dragonBoat': 'Thuyền rồng',
   'places.dragonBoatEn': 'Dragon boats',
@@ -78,6 +88,7 @@ export default {
   'places.truongTienEn': 'Trường Tiền Bridge',
   'places.truongTienAbout': 'Cây cầu nổi tiếng nhất Huế bắc qua sông Hương, hoàn thành vào khoảng chuyển giao thế kỷ 20. Ban đêm cầu đổi màu lung linh.',
   'places.truongTienFact': 'Câu hò xưa đếm nhịp cầu: “Cầu Trường Tiền sáu vài mười hai nhịp”.',
+  'places.truongTienMore': 'Được xây vào cuối những năm 1890 dưới triều vua Thành Thái, đây là một trong những cây cầu thép đầu tiên ở Đông Dương, dài khoảng 400 mét. Bão lũ và chiến tranh đã nhiều lần làm cầu gãy — trận bão năm 1904, rồi chiến sự năm 1946 và 1968 — và lần nào cầu cũng được dựng lại.',
 
   'places.songHuong': 'Sông Hương',
   'places.songHuongEn': 'The Perfume River',
@@ -113,6 +124,7 @@ export default {
   'places.khaiDinhEn': 'Tomb of Emperor Khải Định',
   'places.khaiDinhAbout': 'Lăng vua Khải Định, xây từ năm 1920 đến 1931 trên sườn đồi phía nam Huế. Khác các lăng cổ, lăng làm bằng bê tông và kết hợp phong cách Việt, Hoa và châu Âu.',
   'places.khaiDinhFact': 'Bên trong, cung Thiên Định được trang trí bằng tranh ghép từ mảnh sành sứ và thủy tinh.',
+  'places.khaiDinhMore': 'Lăng men theo sườn núi Châu Chữ qua những bậc thang dài, ngang sân chầu có các tượng quan, ngựa và voi bằng đá đứng canh. Trên cùng, pho tượng đồng mạ vàng của vua ngồi dưới bửu tán, thi hài ngài đặt sâu bên dưới.',
 
   'places.nguBinh': 'Núi Ngự Bình',
   'places.nguBinhEn': 'Ngự Bình Mountain',
@@ -192,10 +204,12 @@ export default {
   'places.tuDucEn': 'Tomb of Emperor Tự Đức',
   'places.tuDucAbout': 'Lăng vua Tự Đức, xây những năm 1860, là một khu vườn có tường bao với hồ nước, đình tạ và rừng thông. Vua thường đến đây nghỉ ngơi, đọc sách và làm thơ từ lúc còn sống.',
   'places.tuDucFact': 'Vua tự viết bài văn dài khắc trên tấm bia của mình — nhìn lại thẳng thắn triều đại và những khó khăn của mình.',
+  'places.tuDucMore': 'Vua Tự Đức trị vì 36 năm, lâu nhất trong các vua Nguyễn. Vua xây lăng từ năm 1864 đến 1867 và dùng nơi này làm chốn nghỉ ngơi khi còn sống, câu cá trên hồ Lưu Khiêm từ thủy tạ Xung Khiêm. Vua được an táng bí mật ở một nơi khác, và đến nay vẫn chưa ai biết chắc thi hài ngài nằm ở đâu.',
   'places.minhMang': 'Lăng Minh Mạng',
   'places.minhMangEn': 'Tomb of Emperor Minh Mạng',
   'places.minhMangAbout': 'Lăng vua Minh Mạng, hoàn thành năm 1843 dưới thời con trai là vua Thiệu Trị, xếp mọi công trình — cổng, sân, điện, lầu và cầu — trên một trục thẳng dài giữa hai hồ nước.',
   'places.minhMangFact': 'Người ta nói nhìn từ trên cao, hồ, cầu và các công trình của lăng như hình một người đang nằm nghỉ.',
+  'places.minhMangMore': 'Khởi công năm 1840, một năm trước khi vua mất, lăng nằm giữa những đồi thông nơi hai dòng sông gặp nhau thành sông Hương. Trục lăng dài khoảng 700 mét, qua chừng bốn mươi công trình, và nhiều người xem đây là lăng hài hòa nhất trong các lăng vua.',
   'places.tuCamThanh': 'Tử Cấm Thành',
   'places.tuCamThanhEn': 'The Purple Forbidden City',
   'places.tuCamThanhAbout': 'Vòng thành trong cùng của Hoàng Thành, phía sau điện Thái Hòa: nơi ở và sinh hoạt của vua và hoàng gia, người ngoài không được vào.',

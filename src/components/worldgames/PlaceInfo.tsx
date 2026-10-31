@@ -1,15 +1,16 @@
 import { useEffect } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { PixelIcon } from './pixel';
+import { PixelButton, PixelIcon } from './pixel';
 
 // The story of the real place a skill's room stands in, as a toast under the
 // skill bar's top-right corner: it shows as you step into the room (and again
 // from the bar's ⓘ), then goes by itself after TOAST_MS — a little of the
-// real city for someone who hasn't been, without standing in the way.
+// real city for someone who hasn't been, without standing in the way. Read
+// more opens its memorial (PlaceMemorial): the story at length, and photos.
 
 export const TOAST_MS = 10_000;
 
-export function PlaceInfo({ id, onClose }: { id: string; onClose: () => void }) {
+export function PlaceInfo({ id, onClose, onExpand }: { id: string; onClose: () => void; onExpand: () => void }) {
   useEffect(() => {
     const t = setTimeout(onClose, TOAST_MS);
     return () => clearTimeout(t);
@@ -35,6 +36,9 @@ export function PlaceInfo({ id, onClose }: { id: string; onClose: () => void }) 
           <span className="px-title !text-[11px] text-[var(--px-accent)] mr-1.5"><FormattedMessage id="places.didYouKnow" /></span>
           <FormattedMessage id={`places.${id}Fact`} />
         </p>
+        <PixelButton tone="gold" block onClick={onExpand} className="mt-3 !py-1.5 !text-[13px]">
+          <FormattedMessage id="places.expand" />
+        </PixelButton>
         {/* How long it has left, running down. */}
         <div className="mt-3 h-1 bg-[#0d0a08] overflow-hidden">
           <div className="h-full bg-[var(--px-gold)] origin-left" style={{ animation: `px-drain ${TOAST_MS}ms linear forwards` }} />

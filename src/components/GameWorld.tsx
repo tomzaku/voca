@@ -19,6 +19,7 @@ import {
 import { COLLECTIONS_KEEPER, FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 import { PlaceInfo } from './worldgames/PlaceInfo';
+import { PlaceMemorial } from './worldgames/PlaceMemorial';
 import { RideButton } from './worldgames/RideButton';
 import { RIDES, type Ride } from '../game/vehicles';
 import { LookSprite } from './worldgames/LookSprite';
@@ -244,6 +245,9 @@ export function GameWorld({
   const [atBusStop, setAtBusStop] = useState(-1);
   const showPlace = (id: string) => setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
   const hidePlace = useCallback(() => setPlaceToast(null), []);
+  // A place's memorial, opened from its card: its story at length.
+  const [memorial, setMemorial] = useState<string | null>(null);
+  const closeMemorial = useCallback(() => setMemorial(null), []);
 
   // ── Getting about: walk, bicycle or xích lô — remembered on this device ──
   const [ride, setRideState] = useState<Ride>(() => {
@@ -305,8 +309,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen && !match;
-  }, [paused, busTicket, focusOpen, playing, chatOpen, match]);
+    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen && !match && !memorial;
+  }, [paused, busTicket, focusOpen, playing, chatOpen, match, memorial]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -1019,7 +1023,8 @@ export function GameWorld({
         </WorldCard>
       )}
 
-      {placeToast && <PlaceInfo key={placeToast.n} id={placeToast.id} onClose={hidePlace} />}
+      {placeToast && <PlaceInfo key={placeToast.n} id={placeToast.id} onClose={hidePlace} onExpand={() => { setMemorial(placeToast.id); setPlaceToast(null); }} />}
+      {memorial && <PlaceMemorial id={memorial} onClose={closeMemorial} />}
 
       {/* ── Inside a skill: a bar across the top says where you are and holds
              the two ways out (Menu, Leave); the activity's HUD docks below it
