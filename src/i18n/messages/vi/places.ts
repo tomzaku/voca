@@ -109,6 +109,7 @@ export default {
   'places.quocHocEn': 'Quốc Học High School',
   'places.quocHocAbout': 'Thành lập năm 1896, Quốc Học là một trong những ngôi trường lâu đời và nổi tiếng nhất Việt Nam, dãy nhà đỏ nhìn ra sông Hương.',
   'places.quocHocFact': 'Hồ Chí Minh từng học ở đây một thời gian ngắn khi còn trẻ, và Đại tướng Võ Nguyên Giáp cũng là học trò của trường.',
+  'places.quocHocMore': 'Trường được lập dưới triều vua Thành Thái, dạy tiếng Pháp bên cạnh chữ Quốc ngữ và chữ Hán; vị hiệu trưởng đầu tiên là Ngô Đình Khả. Nhiều học trò của trường về sau trở thành những nhân vật lớn ở cả hai phía trong thế kỷ chia cắt — như Phạm Văn Đồng và Ngô Đình Diệm. Ngày nay trường là trường chuyên, vẫn trong những dãy nhà đỏ dài bên bờ sông.',
 
   'places.walkingStreet': 'Phố đi bộ',
   'places.walkingStreetEn': 'The walking street',

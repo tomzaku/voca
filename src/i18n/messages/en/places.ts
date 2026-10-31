@@ -115,6 +115,7 @@ export default {
   'places.quocHocEn': 'Quốc Học High School',
   'places.quocHocAbout': 'Founded in 1896, Quốc Học is one of Vietnam’s oldest and most famous schools, its red buildings facing the Perfume River.',
   'places.quocHocFact': 'Hồ Chí Minh studied here briefly as a young man, and General Võ Nguyên Giáp was a student here too.',
+  'places.quocHocMore': 'It was founded under Emperor Thành Thái as a school teaching French alongside Vietnamese and Chinese learning, and its first headmaster was Ngô Đình Khả. Among its students were future leaders from both sides of Vietnam’s divided century — Phạm Văn Đồng as well as Ngô Đình Diệm. Today it is a high school for gifted students, still in its long red buildings by the river.',
 
   'places.walkingStreet': 'Phố đi bộ',
   'places.walkingStreetEn': 'The walking street',

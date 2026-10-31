@@ -85,4 +85,11 @@ export const PLACE_DETAILS: Record<string, PlaceDetail> = {
     ],
     wiki: { vi: 'https://vi.wikipedia.org/wiki/Lăng_Minh_Mạng' },
   },
+  quocHoc: {
+    photos: [
+      { src: 'places/quocHoc-1.webp', w: 800, h: 589, author: 'Francisco Anzola', license: 'CC BY 2.0', page: 'https://commons.wikimedia.org/wiki/File:Quoc_Hoc_main_building_(side)_(7165969089).jpg' },
+      { src: 'places/quocHoc-2.webp', w: 800, h: 533, author: 'Lưu Ly', license: 'Public domain', page: 'https://commons.wikimedia.org/wiki/File:Qu%E1%BB%91c_H%E1%BB%8Dc_Hu%E1%BA%BF.jpg' },
+    ],
+    wiki: { en: 'https://en.wikipedia.org/wiki/Quốc_Học_–_Huế_High_School_for_the_Gifted', vi: 'https://vi.wikipedia.org/wiki/Trường_Trung_học_phổ_thông_chuyên_Quốc_Học_–_Huế' },
+  },
 };
