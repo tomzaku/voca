@@ -61,8 +61,8 @@ export function WorldGame() {
   const [open, setOpen] = useState<{ skill: WorldSkill; activity: WorldActivity | null } | null>(
     () => (useCompanion.getState().dress === null ? findActivity('wardrobe') : null),
   );
-  // The collections' keeper's list, open on a collection when one was picked
-  // from the travel drawer. Only one of `open` and `hall` is ever set.
+  // The collections' keeper's list, when it's open (`focus`, a collection to
+  // open it on). Only one of `open` and `hall` is ever set.
   const [hall, setHall] = useState<{ focus: string | null } | null>(null);
   // The keeper talking — on coming back from an activity, with how it went.
   // Walking in goes straight to their menu. "Something else" (or picking an
@@ -94,7 +94,6 @@ export function WorldGame() {
       else if (e.kind === 'wrong') tally.current = { ...tally.current, total: tally.current.total + 1 };
     });
   }, [activityId]);
-  const openCollection = (id: string) => { setOpen(null); setHall({ focus: id }); };
 
   // The tailor's: what the buddy wears (null until the first visit, which is
   // where the world starts), and what's being tried on.
@@ -226,12 +225,10 @@ export function WorldGame() {
       <WorldContext.Provider value={world}>
         <Suspense fallback={<div className="relative h-screen"><WorldLoading /></div>}>
           <GameWorld
-            stations={stations}
             skills={WORLD_SKILLS}
             onOpenFeature={openSkill}
             onOpenProfile={openProfile}
             onOpenActivity={openActivity}
-            onOpenCollection={openCollection}
             paused={open !== null || hall !== null}
             panel={hall ? {
               title: intl.formatMessage({ id: COLLECTIONS_KEEPER.nameId }),
@@ -275,7 +272,6 @@ export function WorldGame() {
                   />
                 ),
             }}
-            onCreate={() => setForm({ editingId: null, name: '', words: [] })}
           />
         </Suspense>
       </WorldContext.Provider>

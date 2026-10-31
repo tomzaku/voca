@@ -69,7 +69,7 @@ export const ROADS = [
   // north), a street in to it from Cửa An Hòa, and a lane round from the
   // east, from Cửa Kẻ Trài.
   road('stone', 1.4, ringAround(55, 9.8, 8.8, 3.2, 40)),
-  road('street', 2, [[30, 13], [47.6, 13]]),
+  road('street', 2, [[26, 13], [47.6, 13]]),
   road('lane', 1, [[76.5, 21.5], [76.5, 11.6], [63.4, 11.6]]),
   // The Imperial City: the lane behind Thái Hòa, the court before it, the
   // way in through Ngọ Môn and up to Đại Cung Môn

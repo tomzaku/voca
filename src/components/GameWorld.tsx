@@ -14,24 +14,20 @@ import { KEEPER_PLACES } from '../game/mapPlaces';
 import { keeperLookFor, type BuddyLook, type VillagerLook } from '../game/textures';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import {
-  WORLD_EVENTS, type TramRide, type TramStopInfo, type WorldArea, type WorldSnapshot, type WorldStation,
+  WORLD_EVENTS, type BusRide, type WorldArea, type WorldSnapshot,
 } from '../game/types';
 import { COLLECTIONS_KEEPER, FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
-import { KIND_META } from './worldgames/collectionKinds';
 import { PlaceInfo } from './worldgames/PlaceInfo';
 import { RideButton } from './worldgames/RideButton';
 import { RIDES, type Ride } from '../game/vehicles';
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
-import { TramTicket } from './worldgames/TramTicket';
+import { BusTicket } from './worldgames/BusTicket';
 
 export type { WorldStation } from '../game/types';
 
 interface Props {
-  /** Your collections and the levels — listed in the travel drawer; on the
-   *  map they're one keeper's (COLLECTIONS_KEEPER). */
-  stations: WorldStation[];
   /** The skills, whose keepers the scene places; their activities fill the
    *  travel drawer. */
   skills: WorldSkill[];
@@ -39,9 +35,6 @@ interface Props {
   onOpenFeature: (f: WorldFeature) => void;
   /** Your portrait in the status bar: you — your clothes and your buddy. */
   onOpenProfile: () => void;
-  /** A collection picked from the travel drawer: open the collections'
-   *  keeper on it. */
-  onOpenCollection: (id: string) => void;
   /** An activity picked straight from the travel drawer. */
   onOpenActivity: (activityId: string) => void;
   /** True while an in-game panel covers the world: freeze the buddy's controls
@@ -65,7 +58,6 @@ interface Props {
     /** Dress the buddy in this for now — the tailor's, as you try things on. */
     dress?: Look;
   } | null;
-  onCreate: () => void;
 }
 
 const MIN_H = 360; // viewport height floor
@@ -143,7 +135,7 @@ function DrawerSection({ title, open, onToggle, onTitle, children }: {
  * collection or an app-page building.
  */
 export function GameWorld({
-  stations, skills, onOpenFeature, onOpenProfile, onOpenActivity, onOpenCollection, paused = false, panel = null, onCreate,
+  skills, onOpenFeature, onOpenProfile, onOpenActivity, paused = false, panel = null,
 }: Props) {
   const intl = useIntl();
   const features = useMemo<WorldFeature[]>(() => [...skills, COLLECTIONS_KEEPER], [skills]);
@@ -170,10 +162,13 @@ export function GameWorld({
   // The story of the place a room stands in, as a toast: shown on stepping
   // in, and again from the skill bar's ⓘ (`n` restarts its clock).
   const [placeToast, setPlaceToast] = useState<{ id: string; n: number } | null>(null);
-  // The tram: the stop the buddy is at, the ticket booth, and the journey.
-  const [tramStop, setTramStop] = useState<TramStopInfo | null>(null);
-  const [ticket, setTicket] = useState(false);
-  const [tramRide, setTramRide] = useState<TramRide | null>(null);
+  // The bus: the stop a ticket's being bought for, and the journey on it.
+  const [busTicket, setBusTicket] = useState<{ index: number; place: string } | null>(null);
+  const [busRide, setBusRide] = useState<BusRide | null>(null);
+  // The stops (their place ids), read from the scene as the drawer opens.
+  const [busStops, setBusStops] = useState<string[]>([]);
+  // The stop whose shelter the buddy is standing at (-1 for none).
+  const [atBusStop, setAtBusStop] = useState(-1);
   const showPlace = (id: string) => setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
   const hidePlace = useCallback(() => setPlaceToast(null), []);
 
@@ -237,8 +232,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused && !ticket;
-  }, [paused, ticket]);
+    if (kb) kb.enabled = !paused && busTicket === null;
+  }, [paused, busTicket]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -308,8 +303,8 @@ export function GameWorld({
     game.events.on(WORLD_EVENTS.moved, onMoved);
     game.events.on(WORLD_EVENTS.area, onArea);
     game.events.on(WORLD_EVENTS.zoom, onZoom);
-    game.events.on(WORLD_EVENTS.tramStop, setTramStop);
-    game.events.on(WORLD_EVENTS.tram, setTramRide);
+    game.events.on(WORLD_EVENTS.bus, setBusRide);
+    game.events.on(WORLD_EVENTS.busStop, setAtBusStop);
     if (import.meta.env.DEV) game.events.on(WORLD_EVENTS.debug, setDebugPos);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
@@ -324,8 +319,8 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.moved, onMoved);
       game.events.off(WORLD_EVENTS.area, onArea);
       game.events.off(WORLD_EVENTS.zoom, onZoom);
-      game.events.off(WORLD_EVENTS.tramStop, setTramStop);
-      game.events.off(WORLD_EVENTS.tram, setTramRide);
+      game.events.off(WORLD_EVENTS.bus, setBusRide);
+      game.events.off(WORLD_EVENTS.busStop, setAtBusStop);
       if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
       game.destroy(true);
     };
@@ -402,6 +397,7 @@ export function GameWorld({
   // Progress changes (an answer, a new day of study) re-hoist the flag and
   // refloat the lanterns in the running scene.
   useEffect(() => { scene()?.setProgress(progress); }, [progress]);
+  useEffect(() => { if (drawerOpen || atBusStop >= 0) setBusStops(scene()?.busStops() ?? []); }, [drawerOpen, atBusStop]);
 
   // The first position report means the scene is live — grab the layout then.
   useEffect(() => {
@@ -526,7 +522,7 @@ export function GameWorld({
           <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton
             tone={drawerOpen ? 'gold' : 'paper'}
-            onClick={() => setDrawerOpen((o) => !o)}
+            onClick={() => { setPlaceToast(null); setDrawerOpen((o) => !o); }}
             title={intl.formatMessage({ id: 'world.fastTravel' })}
             aria-label={intl.formatMessage({ id: 'world.fastTravel' })}
             className="!px-3 !py-2"
@@ -578,14 +574,29 @@ export function GameWorld({
           <div className="px absolute top-14 right-2 bottom-2 z-20 w-[min(80%,280px)] px-notch px-frame flex flex-col px-in-side">
             <div className="flex items-center justify-between px-3.5 pt-3 pb-2">
               <span className="px-title text-[var(--px-gold)]"><FormattedMessage id="world.fastTravel" /></span>
-              <PixelButton tone="jade" onClick={() => { setDrawerOpen(false); onCreate(); }} className="!px-2.5 !py-1.5 !text-[12px]">
-                <PixelIcon name="plus" size={1} /> <FormattedMessage id="world.new" />
-              </PixelButton>
             </div>
             <div className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-3">
+              {/* By bus: every stop in the city — picking one buys a ticket
+                  (a word) and the bus drives you there. */}
+              <DrawerSection
+                open={!folded.has('bus')}
+                onToggle={() => toggleFold('bus')}
+                title={<><span className="text-[14px] leading-none">🚌</span> <FormattedMessage id="world.bus" /></>}
+              >
+                {busStops.map((place, i) => (
+                  <button
+                    key={place}
+                    disabled={!!busRide}
+                    onClick={() => { setDrawerOpen(false); setBusTicket({ index: i, place }); }}
+                    className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left"
+                  >
+                    <span className="flex-1 min-w-0 truncate text-[14px] font-bold">{intl.formatMessage({ id: `places.${place}` })}</span>
+                    <span className="text-[12px] leading-none">🚏</span>
+                  </button>
+                ))}
+              </DrawerSection>
               {/* A drawer of sections: each skill with its activities (picking
-                  one walks to the keeper and opens it), then your collections
-                  and the levels. Every section folds. */}
+                  one walks to the keeper and opens it). Every section folds. */}
               <p className="px-title !text-[11px] text-[var(--px-muted)] px-1"><FormattedMessage id="world.skills" /></p>
               {skills.map((skill) => (
                 <DrawerSection
@@ -612,25 +623,6 @@ export function GameWorld({
                   ))}
                 </DrawerSection>
               ))}
-              {(['mine', 'joined', 'level', 'topic'] as const).map((kind) => {
-                const group = stations.filter((s) => s.kind === kind);
-                if (group.length === 0) return null;
-                return (
-                  <DrawerSection
-                    key={kind}
-                    open={!folded.has(kind)}
-                    onToggle={() => toggleFold(kind)}
-                    title={<><PixelIcon name={KIND_META[kind].icon} size={2} /> <FormattedMessage id={KIND_META[kind].groupId} /></>}
-                  >
-                    {group.map((s) => (
-                      <button key={s.id} onClick={() => { travelTo(featureNodeId(COLLECTIONS_KEEPER)); onOpenCollection(s.id); }} data-on={s.active} className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left">
-                        <span className="flex-1 min-w-0 truncate text-[14px] font-bold">{s.name}</span>
-                        <span className="shrink-0 px-num text-[13px] text-[var(--px-muted)]">{s.pct}%</span>
-                      </button>
-                    ))}
-                  </DrawerSection>
-                );
-              })}
             </div>
           </div>
         </>
@@ -686,35 +678,37 @@ export function GameWorld({
         </WorldCard>
       )}
 
-      {/* ── The tram: at a stop, buy a ticket; waiting, then riding, choose
-             where to get off. ── */}
-      {!panel && !nearestFeature && tramStop && !tramRide && !ticket && (
-        <WorldCard emoji="🚋" title={tramStop.name} subtitle={<FormattedMessage id="world.tramStop" />}>
-          <PixelButton tone="gold" block onClick={() => setTicket(true)}>
-            <FormattedMessage id="world.tramBuy" />
+      {/* ── The bus: buying the ticket, then the ride. ── */}
+      {/* At a stop's shelter: the bus is in the Travel drawer. */}
+      {!panel && !nearestFeature && atBusStop >= 0 && !busRide && busTicket === null && !drawerOpen && busStops[atBusStop] && (
+        <WorldCard
+          emoji="🚏"
+          title={intl.formatMessage({ id: `places.${busStops[atBusStop]}` })}
+          subtitle={<FormattedMessage id="world.busStopHere" />}
+        >
+          <PixelButton
+            tone="gold"
+            block
+            onClick={() => { setFolded((f) => { const n = new Set(f); n.delete('bus'); return n; }); setPlaceToast(null); setDrawerOpen(true); }}
+          >
+            🚌 <FormattedMessage id="world.busTake" />
           </PixelButton>
         </WorldCard>
       )}
-      {!panel && ticket && tramStop && (
-        <TramTicket
-          stop={tramStop.name}
-          onBoard={() => { scene()?.boardTram(tramStop.index); setTicket(false); }}
-          onClose={() => setTicket(false)}
+      {!panel && busTicket !== null && (
+        <BusTicket
+          stop={intl.formatMessage({ id: `places.${busTicket.place}` })}
+          onBoard={() => { scene()?.busTo(busTicket.index); setBusTicket(null); }}
+          onClose={() => setBusTicket(null)}
         />
       )}
-      {!panel && tramRide && (
+      {!panel && busRide && (
         <WorldCard
-          emoji="🚋"
-          title={<FormattedMessage id={tramRide.state === 'waiting' ? 'world.tramWaiting' : 'world.tramRiding'} />}
-          subtitle={<FormattedMessage id="world.tramGetOff" />}
+          emoji="🚌"
+          title={<FormattedMessage id="world.busRiding" />}
+          subtitle={<FormattedMessage id="world.busTo" values={{ place: intl.formatMessage({ id: `places.${busRide.place}` }) }} />}
         >
-          <div className="grid grid-cols-2 gap-1.5">
-            {tramRide.stops.map((st, i) => i === tramRide.at ? null : (
-              <PixelButton key={st.id} tone={i === tramRide.dest ? 'jade' : 'paper'} onClick={() => scene()?.setTramDest(i)} className="!text-[13px] !px-2 !py-2">
-                {st.name}
-              </PixelButton>
-            ))}
-          </div>
+          <p className="text-[13px] text-[var(--px-muted)]"><FormattedMessage id="world.busHint" /></p>
         </WorldCard>
       )}
 

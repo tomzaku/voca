@@ -146,7 +146,6 @@ export function renderDetail(write) {
     const redraw = [];
     const forest = [];
     const ladderTiles = [];
-    let rails = null;
     for (const e of drawn) {
       if (e.type === 'structure') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
@@ -157,9 +156,7 @@ export function renderDetail(write) {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const art = tree(e.kind, e.cv.w, e.cv.h, e.tx * 131 + e.ty * 17);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
-      } else if (e.type === 'rail') {
-        rails = e.loop;
-      } else if (e.type === 'tramStop') {
+      } else if (e.type === 'busShelter') {
         continue;                                   // drawn as the map has it
       } else if (e.type === 'paddy') {
         if (!inside(e, e.w, e.h)) continue;
@@ -259,24 +256,6 @@ export function renderDetail(write) {
       else if (e.type === 'bed') flowerBed(g, X, Y);
       else if (e.type === 'bench') bench(g, X, Y);
       else if (e.type === 'parkLamp') parkLamp(g, X, Y);
-    }
-    // The tram's rails, last on the ground: over the streets and the bridges'
-    // decks, finer than the map's.
-    if (rails) {
-      for (let i = 0; i < rails.length - 1; i++) {
-        const [ax, ay] = rails[i], [bx, by] = rails[i + 1];
-        const horizontal = ay === by, n = Math.round(Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * T * K);
-        for (let k = 0; k <= n; k++) {
-          const X = Math.round(((ax + ((bx - ax) * k) / n) * T - ox) * K), Y = Math.round(((ay + ((by - ay) * k) / n) * T - oy) * K);
-          if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
-          for (const s of [-6, 6]) {
-            const [rx, ry] = horizontal ? [X, Y + s] : [X + s, Y];
-            g.set(rx, ry, [206, 210, 216]);
-            if (horizontal) { g.set(rx, ry + 1, [150, 154, 160]); g.set(rx, ry + (s > 0 ? 2 : -1), [70, 72, 78]); }
-            else { g.set(rx + 1, ry, [150, 154, 160]); g.set(rx + (s > 0 ? 2 : -1), ry, [70, 72, 78]); }
-          }
-        }
-      }
     }
     write(key, g, o);
     return { key, x: ox, y: oy, ground: `hue-detail-${key}-ground.png`, over: `hue-detail-${key}-over.png` };

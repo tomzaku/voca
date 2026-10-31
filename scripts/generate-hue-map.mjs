@@ -13,6 +13,7 @@
 //
 // Same contract as every world template (see src/game/scenes/WorldScene.ts):
 //   - `walls` tile layer — any tile blocks movement (hidden, collision only)
+//   - `roads` tile layer — where a bus may drive (hidden; scripts/hue/bus.mjs)
 //   - `meta` object layer — `spawn`, `label`, and `station` points with a
 //     `region` (public | system | feature) and `slot`. Feature stations here
 //     also name their `feature` id and a `place`, so the building a page lives
@@ -76,7 +77,6 @@ import { paintGrass } from './hue/paint/terrain.mjs';
 import { furnishStreets, paintRoads } from './hue/paint/roads.mjs';
 import { paintWater } from './hue/paint/water.mjs';
 import { drawFields } from './hue/places/fields.mjs';
-import { drawTram } from './hue/places/tram.mjs';
 import { drawParks } from './hue/places/parks.mjs';
 import { drawRiver } from './hue/places/river.mjs';
 import { drawCitadel, drawCitadelGrounds } from './hue/places/citadel.mjs';
@@ -89,6 +89,7 @@ import { buildNeighbourhoods } from './hue/fill/neighbourhoods.mjs';
 import { launchBoats } from './hue/fill/boats.mjs';
 import { plantGreenery } from './hue/fill/greenery.mjs';
 import { buildWalls, walls } from './hue/collision.mjs';
+import { busRoads, checkBus, drawBusStops } from './hue/bus.mjs';
 import { nextId, objects, writeMeta } from './hue/meta.mjs';
 import { checkReach, seen } from './hue/check.mjs';
 import { renderDetail } from './hue/hd/render.mjs';
@@ -111,14 +112,17 @@ drawDongBa();
 drawSouthBank();
 drawTombs();
 furnishStreets();
-drawTram();
+const shelters = drawBusStops();
 drawFields();
 buildNeighbourhoods();
 launchBoats();
 plantGreenery();
 buildWalls();
-writeMeta();
+writeMeta(shelters);
 checkReach();
+// Where the buses drive, and that every stop can be reached by road.
+const roads = busRoads();
+for (const m of checkBus(roads)) { console.error(m); process.exitCode = 1; }
 
 // ── 11. Write ──
 const tile = new Canvas(T, T);
@@ -127,7 +131,7 @@ tile.rect(0, 0, T, T, [200, 60, 60]);
 const tmj = {
   compressionlevel: -1, width: W, height: H, tilewidth: T, tileheight: T, infinite: false,
   orientation: 'orthogonal', renderorder: 'right-down', tiledversion: '1.10.2', type: 'map', version: '1.10',
-  nextlayerid: 6, nextobjectid: nextId,
+  nextlayerid: 7, nextobjectid: nextId,
   tilesets: [{
     firstgid: 1, name: 'hue', image: 'hue-tiles.png', imagewidth: T, imageheight: T,
     tilewidth: T, tileheight: T, columns: 1, tilecount: 1, margin: 0, spacing: 0,
@@ -137,6 +141,7 @@ const tmj = {
     { id: 2, name: 'over', type: 'imagelayer', image: 'hue-over.png', x: 0, y: 0, opacity: 1, visible: true },
     { id: 5, name: 'night', type: 'imagelayer', image: 'hue-night.png', x: 0, y: 0, opacity: 1, visible: false },
     { id: 3, name: 'walls', type: 'tilelayer', x: 0, y: 0, width: W, height: H, opacity: 0.5, visible: false, data: walls },
+    { id: 6, name: 'roads', type: 'tilelayer', x: 0, y: 0, width: W, height: H, opacity: 0.5, visible: false, data: roads },
     { id: 4, name: 'meta', type: 'objectgroup', x: 0, y: 0, opacity: 1, visible: true, draworder: 'topdown', objects },
   ],
 };

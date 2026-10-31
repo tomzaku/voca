@@ -5,7 +5,7 @@ import { rand } from './core/canvas.mjs';
 import { BOATS } from './fill/boats.mjs';
 import { PARK_PATHS } from './roads.mjs';
 import { FARMERS } from './places/fields.mjs';
-import { TRAM_LOOP, TRAM_STOPS } from './places/tram.mjs';
+import { BUS_STOPS } from './bus.mjs';
 import { FEATURES, ISLETS, RIVER, RIVER_BRIDGES, SPAWN, T, W, isWater, isletE, onIslet, riverHalfWidth } from './layout.mjs';
 import { FLAG, LABELS as CITADEL_LABELS } from './places/citadel.mjs';
 import { LABELS as DONG_BA_LABELS } from './places/dongBa.mjs';
@@ -32,7 +32,7 @@ export const point = (type, tx, ty, props = {}) => objects.push({
 // the districts' (`anchor: 'left'`) start at `x`.
 const LABELS = [CITADEL_LABELS, IMPERIAL_LABELS, RIVER_LABELS, PARK_LABELS, KIM_LONG_LABELS, DONG_BA_LABELS, SOUTH_BANK_LABELS, TOMB_LABELS].flat();
 
-export function writeMeta() {
+export function writeMeta(shelters = []) {
   point('spawn', ...SPAWN);
   // The first label names the (single) area; `hidden` keeps it off the map.
   point('label', 2, 2, { text: 'Huế', theme: 'forest', hidden: 'true' });
@@ -84,9 +84,11 @@ export function writeMeta() {
   point('spray', 72, 63.3);
   for (const [x, y] of FARMERS) point('farmer', x, y);
 
-  // The tram's loop (as "x,y x,y …" in tiles) and its stops, in order.
-  point('tramPath', TRAM_LOOP[0][0], TRAM_LOOP[0][1], { path: TRAM_LOOP.map((p) => p.join(',')).join(' ') });
-  TRAM_STOPS.forEach((s, i) => point('tramStop', s.x, s.y, { id: s.id, name: s.name, order: i, side: s.side }));
+  // The bus stops, named by their place's story id.
+  BUS_STOPS.forEach((s, i) => {
+    const [sx, sy] = shelters[i] ?? [s.x, s.y];
+    point('busStop', s.x, s.y, { place: s.place, order: i, sx: Math.round(sx * T), sy: Math.round(sy * T) });
+  });
 
   FEATURES.forEach(([feature, x, y, place], slot) => point('station', x, y, { region: 'feature', slot, feature, place }));
 }
