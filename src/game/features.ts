@@ -24,9 +24,6 @@ export interface WorldFeature {
   emoji: string;
   /** Iconify (Lucide) name, for app-side lists. */
   icon: string;
-  /** The activity walking in starts, in place of the keeper's menu (Back
-   *  still leads to it). */
-  entry?: string;
 }
 
 /** Learn: battle the creeps. Practice: face the boss. Tool: look things up. */
@@ -57,7 +54,7 @@ export const featureNodeId = (f: WorldFeature) => `${FEATURE_ID_PREFIX}${f.id}`;
  *  belongs to, in src/components/worldgames/activities/. */
 export const SKILLS: WorldFeature[] = [
   { id: 'vocabulary', nameId: 'world.skillVocabulary', blurbId: 'world.skillVocabularyBlurb', route: '/', emoji: '📚', icon: 'lucide:sparkles' },
-  { id: 'speaking', nameId: 'world.skillSpeaking', blurbId: 'world.skillSpeakingBlurb', route: '/speaking', emoji: '🎤', icon: 'lucide:mic', entry: 'ipa' },
+  { id: 'speaking', nameId: 'world.skillSpeaking', blurbId: 'world.skillSpeakingBlurb', route: '/speaking', emoji: '🎤', icon: 'lucide:mic' },
   { id: 'listening', nameId: 'world.skillListening', blurbId: 'world.skillListeningBlurb', route: '/listening', emoji: '🎧', icon: 'lucide:headphones' },
   { id: 'writing', nameId: 'world.skillWriting', blurbId: 'world.skillWritingBlurb', route: '/writing/improve', emoji: '🖌️', icon: 'lucide:pen-line' },
   { id: 'you', nameId: 'world.skillYou', blurbId: 'world.skillYouBlurb', route: '/companion', emoji: '🐾', icon: 'lucide:paw-print' },
