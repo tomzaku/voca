@@ -8,7 +8,7 @@ import { Dressed, loadWardrobe } from '../dressed';
 import { KEEPER_DRESS, propLayers } from '../keeperLooks';
 import { RIDE_SCALE, RIDE_SPEED, RIDE_VIEWS, SEAT, SEAT_FACING, drawBus, drawRide, drawRideFront, type Ride, type RideView } from '../vehicles';
 import type { Look } from '../wardrobe';
-import { REACTION_ICONS, REACTION_MS, type Reaction } from '../reactions';
+import { REACTION_ICONS, REACTION_MS, type Gesture } from '../reactions';
 import { t } from '../../i18n';
 import { defaultMap, type DetailPatch } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
@@ -1305,7 +1305,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** A reaction (../reactions): its pixel icon popping up in a bubble, and
    *  the buddy's move to go with it — a sway, a hop, a nod, a shake. */
-  react(id: string | null, reaction: Reaction) {
+  react(id: string | null, reaction: Gesture) {
     const o = id ? this.others.get(id) : null;
     const target = id ? o?.rig : this.buddy;
     const sprite = id ? o?.sprite : this.sprite;
@@ -1343,7 +1343,7 @@ export class WorldScene extends Phaser.Scene {
       case 'clap': this.tweens.add({ targets: sprite, y: base.y - 3, duration: beat(5), yoyo: true, repeat: 4, ease: 'quad.out', onComplete: done }); break;
       case 'agree': this.tweens.add({ targets: sprite, scaleY: base.scaleY * 0.88, duration: beat(3), yoyo: true, repeat: 2, ease: 'sine.inOut', onComplete: done }); break;
       case 'disagree': this.tweens.add({ targets: sprite, x: { from: base.x - 3, to: base.x + 3 }, duration: beat(5), yoyo: true, repeat: 4, ease: 'sine.inOut', onComplete: done }); break;
-      case 'heart': this.tweens.add({ targets: sprite, y: base.y - 9, duration: beat(1.5), yoyo: true, ease: 'quad.out', onComplete: done }); break;
+      case 'heart': case 'flower': this.tweens.add({ targets: sprite, y: base.y - 9, duration: beat(1.5), yoyo: true, ease: 'quad.out', onComplete: done }); break;
     }
   }
   /** Where a reacting sprite stood before its move. */

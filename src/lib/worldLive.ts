@@ -1,7 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { parseLook, type Look } from '../game/wardrobe';
-import { REACTION_MS, isReaction, type Reaction } from '../game/reactions';
+import { REACTION_MS, isGift, isReaction, type Gift, type Reaction } from '../game/reactions';
 
 // The shared world: everyone in Huế at once, over a Supabase Realtime channel
 // — no tables. Presence says who's here (their name and how they're
@@ -21,6 +21,8 @@ export type LiveMessage =
   | { kind: 'wave'; from: string; to?: string }
   /** A gesture for everyone around (../game/reactions). */
   | { kind: 'react'; from: string; reaction: Reaction }
+  /** A gift for one player, seen by everyone around. */
+  | { kind: 'gift'; from: string; to: string; gift: Gift }
   | { kind: 'chat'; from: string; text: string }
   | { kind: 'invite'; from: string; to: string; game: string; id: string }
   | { kind: 'reply'; from: string; to: string; id: string; ok: boolean }
@@ -131,12 +133,13 @@ export class WorldLive {
     ch.on('broadcast', { event: 'msg' }, ({ payload }) => {
       const m = payload as LiveMessage;
       if (!m || this.blocked.has(m.from) || !this.peers.has(m.from)) return;
-      if ('to' in m && m.to && m.to !== this.me.id && m.kind !== 'wave') return;
+      if ('to' in m && m.to && m.to !== this.me.id && m.kind !== 'wave' && m.kind !== 'gift') return;
       if (m.kind === 'chat') this.on.message({ ...m, text: cleanChat(String(m.text ?? '')) });
       else if (m.kind === 'wave') this.on.message(m);
-      else if (m.kind === 'react') {
+      else if (m.kind === 'react' || m.kind === 'gift') {
         const now = Date.now();
-        if (!isReaction(m.reaction) || now - (this.reacted.get(m.from) ?? 0) < REACTION_MS * 0.8) return;
+        const ok = m.kind === 'react' ? isReaction(m.reaction) : isGift(m.gift) && typeof m.to === 'string';
+        if (!ok || now - (this.reacted.get(m.from) ?? 0) < REACTION_MS * 0.8) return;
         this.reacted.set(m.from, now);
         this.on.message(m);
       }

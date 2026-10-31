@@ -8,12 +8,20 @@ export const REACTIONS: Reaction[] = ['wave', 'dance', 'clap', 'agree', 'disagre
 
 export const isReaction = (v: unknown): v is Reaction => REACTIONS.includes(v as Reaction);
 
+/** Gifts: given to one player (from their card), seen by everyone around. */
+export type Gift = 'flower';
+export const GIFTS: Gift[] = ['flower'];
+export const isGift = (v: unknown): v is Gift => GIFTS.includes(v as Gift);
+
+/** Anything the scene can show over a buddy: a reaction or a gift. */
+export type Gesture = Reaction | Gift;
+
 /** How long one reaction plays, and so the least time between two — the
  *  sender holds back and the receiver drops anything quicker. */
 export const REACTION_MS = 900;
 
 /** Each one's icon ('#' = a pixel, as PixelIcon draws them) and its colour. */
-export const REACTION_ICONS: Record<Reaction, { rows: readonly string[]; color: string }> = {
+export const REACTION_ICONS: Record<Gesture, { rows: readonly string[]; color: string }> = {
   // An open palm, thumb out.
   wave: {
     color: '#e8a93a',
@@ -80,6 +88,21 @@ export const REACTION_ICONS: Record<Reaction, { rows: readonly string[]; color: 
       '...##...',
       '...###..',
       '....##..',
+    ],
+  },
+  // A five-petalled flower on its stem, a leaf to one side.
+  flower: {
+    color: '#e46aa0',
+    rows: [
+      '..#.#..',
+      '.#####.',
+      '###.###',
+      '.#####.',
+      '..#.#..',
+      '...#...',
+      '.#.#...',
+      '..##...',
+      '...#...',
     ],
   },
   heart: {

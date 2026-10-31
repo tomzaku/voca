@@ -24,7 +24,7 @@ import { RideButton } from './worldgames/RideButton';
 import { LanguageButton } from './worldgames/LanguageButton';
 import { DayNightButton } from './worldgames/DayNightButton';
 import { RIDES, type Ride } from '../game/vehicles';
-import { REACTIONS, REACTION_ICONS, REACTION_MS, type Reaction } from '../game/reactions';
+import { REACTIONS, REACTION_ICONS, REACTION_MS, type Gift, type Reaction } from '../game/reactions';
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
 import { WorldIntro, type IntroStop } from './worldgames/WorldIntro';
@@ -122,6 +122,16 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+/** One group on a player's card: a small heading over its buttons. */
+function PeerSection({ title, children }: { title: ReactNode; children: ReactNode }) {
+  return (
+    <div className="mb-2">
+      <p className="px-title !text-[11px] text-[var(--px-muted)] mb-1">{title}</p>
+      <div className="grid grid-cols-2 gap-1.5">{children}</div>
     </div>
   );
 }
@@ -447,6 +457,14 @@ export function GameWorld({
         const b = busyRef.current;
         if (m.kind === 'wave') scene()?.react(m.from, 'wave');
         else if (m.kind === 'react') scene()?.react(m.from, m.reaction);
+        else if (m.kind === 'gift') {
+          // Over the giver, and over whoever it's for — you, with a note.
+          scene()?.react(m.from, m.gift);
+          if (m.to === userId) {
+            scene()?.react(null, m.gift);
+            setGiftNote({ key: Date.now(), name: live.peer(m.from)?.name ?? '?' });
+          } else scene()?.react(m.to, m.gift);
+        }
         else if (m.kind === 'chat' && !chatHiddenRef.current) {
           scene()?.bubble(m.from, m.text);
           const name = live.peer(m.from)?.name ?? '?';
@@ -518,6 +536,22 @@ export function GameWorld({
     scene()?.react(null, reaction);
     liveRef.current?.send({ kind: 'react', reaction });
   }, []);
+
+  /** Give someone a gift: over you both, for everyone around to see. */
+  const give = (to: string, gift: Gift) => {
+    const now = Date.now();
+    if (now - lastReact.current < REACTION_MS) return;
+    lastReact.current = now;
+    scene()?.react(null, gift);
+    scene()?.react(to, gift);
+    liveRef.current?.send({ kind: 'gift', to, gift });
+  };
+  const [giftNote, setGiftNote] = useState<{ key: number; name: string } | null>(null);
+  useEffect(() => {
+    if (!giftNote) return;
+    const t = setTimeout(() => setGiftNote(null), 4000);
+    return () => clearTimeout(t);
+  }, [giftNote]);
 
   const sendChat = () => {
     const text = chatText.trim();
@@ -949,31 +983,45 @@ export function GameWorld({
       )}
 
       {/* ── The bus: buying the ticket, then the ride. ── */}
-      {/* ── Another player, tapped: a game, or a wave. Blocking is hidden for
-          now (rarely used); the connection still honours a block list. ── */}
+      {/* ── Another player, tapped: what you can do together, grouped — learn
+          (a call with a dialogue to follow), play, or just say hi. Blocking is
+          hidden for now (rarely used); the connection still honours a block
+          list. ── */}
       {!panel && peerCard && (
-        <WorldCard emoji="👤" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
-          <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+        <WorldCard icon="person" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
+          <PeerSection title={<FormattedMessage id="world.peerLearn" />}>
+            <PixelButton tone="gold" onClick={() => askToPlay(peerCard.id, peerCard.name, 'talk')} className="!px-2 !text-[13px] col-span-2">
+              <PixelIcon name="mic" size={2} /> <FormattedMessage id="world.talkInvite" />
+            </PixelButton>
+          </PeerSection>
+          <PeerSection title={<FormattedMessage id="world.peerPlay" />}>
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'duel')} className="!px-2 !text-[13px]">
               <PixelIcon name="sword" size={2} /> <FormattedMessage id="world.duelTitle" />
             </PixelButton>
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'race')} className="!px-2 !text-[13px]">
               <PixelIcon name="train" size={2} /> <FormattedMessage id="world.raceTitle" />
             </PixelButton>
-            {/* A voice call, with a sample dialogue to follow (TalkCall). */}
-            <PixelButton tone="gold" onClick={() => askToPlay(peerCard.id, peerCard.name, 'talk')} className="!px-2 !text-[13px] col-span-2">
-              <PixelIcon name="mic" size={2} /> <FormattedMessage id="world.talkInvite" />
+          </PeerSection>
+          <PeerSection title={<FormattedMessage id="world.peerHi" />}>
+            <PixelButton tone="paper" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !text-[13px]">
+              <span style={{ color: REACTION_ICONS.wave.color }}><PixelIcon rows={REACTION_ICONS.wave.rows} size={2} /></span> <FormattedMessage id="world.liveWave" />
             </PixelButton>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <PixelButton tone="gold" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !text-[13px]">
-              <PixelIcon rows={REACTION_ICONS.wave.rows} size={2} /> <FormattedMessage id="world.liveWave" />
+            <PixelButton tone="paper" onClick={() => { give(peerCard.id, 'flower'); setPeerCard(null); }} className="!px-2 !text-[13px]">
+              <span style={{ color: REACTION_ICONS.flower.color }}><PixelIcon rows={REACTION_ICONS.flower.rows} size={2} /></span> <FormattedMessage id="world.giveFlower" />
             </PixelButton>
-            <PixelButton tone="paper" onClick={() => setPeerCard(null)} className="!px-2 !text-[13px]">
-              <FormattedMessage id="world.busNotNow" />
-            </PixelButton>
-          </div>
+          </PeerSection>
+          <PixelButton tone="paper" block onClick={() => setPeerCard(null)} className="!py-2 !text-[13px] mt-1">
+            <FormattedMessage id="world.busNotNow" />
+          </PixelButton>
         </WorldCard>
+      )}
+
+      {/* A gift for you: who it's from, for a moment. */}
+      {giftNote && (
+        <div key={giftNote.key} className="px absolute top-16 left-1/2 -translate-x-1/2 z-30 px-notch px-frame px-in-up px-3 py-2 flex items-center gap-2 pointer-events-none">
+          <span style={{ color: REACTION_ICONS.flower.color }}><PixelIcon rows={REACTION_ICONS.flower.rows} size={2} /></span>
+          <span className="text-[14px]"><FormattedMessage id="world.gotFlower" values={{ name: giftNote.name }} /></span>
+        </div>
       )}
 
       {/* ── Games with another player: asking, being asked, and playing. ── */}
