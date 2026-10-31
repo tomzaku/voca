@@ -3,6 +3,17 @@
 // They paint in currentColor; `size` is the pixel scale.
 
 const GRIDS = {
+  // Chess, as a knight.
+  knight: [
+    '...###..',
+    '..#####.',
+    '.###.##.',
+    '.######.',
+    '....###.',
+    '...####.',
+    '..#####.',
+    '.#######',
+  ],
   // Back: out of an activity, to its keeper.
   back: [
     '...#....',
