@@ -33,6 +33,7 @@ export default {
   'world.busRight': 'Đúng rồi! Vé của bạn đây.',
   'world.busWrong': 'Đáp án là {word}. Vé của bạn đây.',
   'world.busFree': 'Chưa có từ nào để hỏi — chuyến này miễn phí.',
+  'world.busComing': 'Xe buýt đang tới…',
   'world.busBoard': 'Lên xe',
   'world.busNotNow': 'Để sau',
   'world.busRiding': 'Đang đi xe buýt',

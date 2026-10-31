@@ -36,6 +36,7 @@ export default {
   'world.busWrong': 'It was {word}. Here’s your ticket anyway.',
   'world.busFree': 'No words to ask you yet — this ride is on us.',
   'world.busBoard': 'Board the bus',
+  'world.busComing': 'The bus is coming…',
   'world.busNotNow': 'Not now',
   'world.busRiding': 'On the bus',
   'world.busTo': 'To {place}',

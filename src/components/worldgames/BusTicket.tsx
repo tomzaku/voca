@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { buildMcq, loadQuizData, shuffle, type McqQuestion } from '../../lib/quizEngine';
 import { WORD_LIST } from '../../lib/wordService';
@@ -10,7 +10,11 @@ import { useWorld } from './world';
 // conductor reads out a definition and you pick the word — right or wrong you
 // get your ticket (a wrong answer shows the right word), and the bus takes
 // you. Nothing is written to your progress; it's a moment's practice, not a
-// test. With no words to ask yet, the ride is free.
+// test. With no words to ask yet, the ride is free. Either way the bus comes
+// by itself a moment later — no second button to press.
+
+/** How long the bus takes to come once you have your ticket. */
+const ARRIVES_MS = 2000;
 
 type Stage =
   | { kind: 'loading' }
@@ -41,7 +45,16 @@ export function BusTicket({ stop, onBoard, onClose }: { stop: string; onBoard: (
     if (option === q.word) playCorrect(); else playWrong();
     setStage({ kind: 'answered', q, picked: option });
   };
-  const board = () => { playSelect(); onBoard(); };
+  // Ticket in hand (or a free ride): the bus comes.
+  // (The latest onBoard, so the parent re-rendering doesn't restart the wait.)
+  const ticketed = stage.kind === 'answered' || stage.kind === 'free';
+  const boardRef = useRef(onBoard);
+  useEffect(() => { boardRef.current = onBoard; });
+  useEffect(() => {
+    if (!ticketed) return;
+    const t = setTimeout(() => { playSelect(); boardRef.current(); }, ARRIVES_MS);
+    return () => clearTimeout(t);
+  }, [ticketed]);
 
   return (
     <div className="px absolute inset-0 z-40 flex items-center justify-center p-3 bg-black/30" onKeyDown={(e) => e.stopPropagation()}>
@@ -54,7 +67,7 @@ export function BusTicket({ stop, onBoard, onClose }: { stop: string; onBoard: (
         {stage.kind === 'free' && (
           <>
             <p className="text-[15px] mb-4"><FormattedMessage id="world.busFree" /></p>
-            <PixelButton tone="jade" block onClick={board}><FormattedMessage id="world.busBoard" /></PixelButton>
+            <BusComing />
           </>
         )}
 
@@ -80,15 +93,30 @@ export function BusTicket({ stop, onBoard, onClose }: { stop: string; onBoard: (
                     ? <FormattedMessage id="world.busRight" />
                     : <FormattedMessage id="world.busWrong" values={{ word: <b>{stage.q.word}</b> }} />}
                 </p>
-                <PixelButton tone="jade" block onClick={board}><FormattedMessage id="world.busBoard" /></PixelButton>
+                <BusComing />
               </>
             )}
           </>
         )}
 
-        <button onClick={onClose} className="mt-3 w-full text-center text-[13px] text-[var(--px-muted)] hover:text-[var(--px-text)]">
-          <FormattedMessage id="world.busNotNow" />
-        </button>
+        {/* Until you have a ticket, you can still walk away. */}
+        {!ticketed && stage.kind !== 'loading' && (
+          <button onClick={onClose} className="mt-3 w-full text-center text-[13px] text-[var(--px-muted)] hover:text-[var(--px-text)]">
+            <FormattedMessage id="world.busNotNow" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The bus on its way: a line, and the moment it has left to arrive. */
+function BusComing() {
+  return (
+    <div>
+      <p className="px-title !text-[13px] text-[var(--px-gold)] mb-1.5"><FormattedMessage id="world.busComing" /></p>
+      <div className="h-1.5 bg-[#0d0a08] overflow-hidden">
+        <div className="h-full bg-[var(--px-gold)] origin-left" style={{ animation: `px-drain ${ARRIVES_MS}ms linear forwards` }} />
       </div>
     </div>
   );
