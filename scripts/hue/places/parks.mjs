@@ -65,7 +65,7 @@ export function drawParks() {
     cv.rect(4, 21, 24, 3, [58, 34, 24]);
     cv.rect(5, 24, 2, 6, [58, 34, 24]); cv.rect(25, 24, 2, 6, [58, 34, 24]);
     cv.rect(11, 27, 10, 2, [150, 100, 60]);                  // the stool
-    place(cv, 66, 63, 1, { shadow: false });
+    place(cv, 61, 62, 1, { shadow: false });
   }
 
   // Phố đi bộ: red lanterns strung across the walking street on poles.
@@ -132,14 +132,17 @@ export function drawParks() {
   // Cầu đi bộ gỗ lim: an ironwood boardwalk out over the river's edge, from
   // the south park round under Phú Xuân bridge, steps down to it at each end.
   {
-    const x0 = 57, x1 = 74;
-    plankDeck(x0, 62, x1 - x0 + 1, 1, true);
-    for (const x of [x0, x1]) plankDeck(x, 63, 1, 1);
-    for (let x = x0 * T; x < (x1 + 1) * T; x += 3 * T) {
-      ground.rect(x, 62 * T - 4, 1, 4, [70, 52, 40]);
-      ground.rect(x - 1, 62 * T - 6, 3, 2, [255, 226, 160]);
-      glow(x, 62 * T - 5, [255, 214, 140], 2);
+    // Two stretches, either side of Phú Xuân bridge's foot, so the bridge's
+    // road comes down to Lê Lợi unbroken.
+    for (const [x0, x1] of [[57, 65], [70, 74]]) {
+      plankDeck(x0, 62, x1 - x0 + 1, 1, true);
+      for (const x of [x0, x1]) plankDeck(x, 63, 1, 1);
+      for (let x = x0 * T; x < (x1 + 1) * T; x += 3 * T) {
+        ground.rect(x, 62 * T - 4, 1, 4, [70, 52, 40]);
+        ground.rect(x - 1, 62 * T - 6, 3, 2, [255, 226, 160]);
+        glow(x, 62 * T - 5, [255, 214, 140], 2);
+      }
+      drawn.push({ type: 'boardwalk', x: x0 * T, y: 62 * T, w: (x1 - x0 + 1) * T, h: T });
     }
-    drawn.push({ type: 'boardwalk', x: x0 * T, y: 62 * T, w: (x1 - x0 + 1) * T, h: T });
   }
 }
