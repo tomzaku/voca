@@ -73,7 +73,16 @@ export const CANAL_HW = 1.3 * T;
 // the wall, and the water still passes in front of it.
 export const CITADEL = { moat: { x0: 28, y0: 3, x1: 80, y1: 48 }, wall: { x0: 30, y0: 5, x1: 78, y1: 45 } };
 export const IMPERIAL = { moat: { x0: 41, y0: 15, x1: 69, y1: 41 }, wall: { x0: 42, y0: 16, x1: 68, y1: 40 } };
-export const BASTION = { x0: 52, x1: 58, y0: 43, y1: 46 };   // Kỳ Đài, out from the front wall
+// Kỳ Đài's bastion, as Huế's is: a trapezoid out from the front wall, wide
+// where it leaves the wall and narrower at its face. The moat's outer bank
+// bends round it (MOAT_NOTCH), so the water follows the bastion in a V
+// rather than running straight past. Corners in tiles; the box is its
+// footprint on the map (the wall it replaces, and the solid tiles).
+export const BASTION = {
+  x0: 50, x1: 60, y0: 43, y1: 48,
+  poly: [[50, 45], [60, 45], [58, 47.625], [52, 47.625]],
+};
+export const MOAT_NOTCH = [[50, 47.9], [60, 47.9], [58.5, 49], [51.5, 49]];
 // The Citadel's ten gates, each 2 tiles wide: `at` is the left column of a
 // north or south gate, the top row of a west or east one. `place` is its
 // story (src/game/mapPlaces.ts); the label is the name Huế calls it by.
@@ -135,9 +144,19 @@ export const LAKES = [
 ];
 
 export const inBox = (tx, ty, b) => tx >= b.x0 && tx < b.x1 && ty >= b.y0 && ty < b.y1;
+/** Is (x, y) inside the polygon `pts` (even-odd rule)? */
+export const inPoly = (x, y, pts) => {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+};
 export const inMoat = (x, y) => {
   const tx = x / T, ty = y / T;
-  const citadel = inBox(tx, ty, CITADEL.moat) && !inBox(tx, ty, CITADEL.wall) && !inBox(tx, ty, BASTION);
+  const citadel = (inBox(tx, ty, CITADEL.moat) || inPoly(tx, ty, MOAT_NOTCH))
+    && !inBox(tx, ty, CITADEL.wall) && !inPoly(tx, ty, BASTION.poly);
   const imperial = inBox(tx, ty, IMPERIAL.moat) && !inBox(tx, ty, IMPERIAL.wall);
   return citadel || imperial;
 };

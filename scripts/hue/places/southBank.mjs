@@ -4,8 +4,9 @@
 import { Canvas, hash, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
 import { drawn, ground, mark, place, solid, used } from '../core/world.mjs';
-import { HOUSE, facade, hall, palace, roof } from '../draw/buildings.mjs';
+import { HOUSE, facade, hall, roof } from '../draw/buildings.mjs';
 import { K, parterre } from '../hd/art.mjs';
+import { anDinh, halve } from '../hd/landmarks.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
@@ -80,23 +81,16 @@ export function drawSouthBank() {
   {
     const knot = (ty, h, bedRows) => {
       const art = parterre(10 * T * K, h * K, { top: 0, bottom: bedRows * T * K, walk: 2 * T * K });
-      for (let y = 0; y < h; y++) for (let x = 0; x < 10 * T; x++) {
-        const s = [0, 0, 0];
-        for (let k = 0; k < 4; k++) {
-          const i = ((y * K + (k >> 1)) * art.w + x * K + (k & 1)) * 4;
-          for (let c = 0; c < 3; c++) s[c] += art.d[i + c] / 4;
-        }
-        ground.set(87 * T + x, ty * T + y, s);
-      }
+      ground.blit(halve(art), 87 * T, ty * T);
       drawn.push({ type: 'parterre', art, x: 87 * T, y: ty * T, w: 10 * T, h });
       mark(used, 86, ty, 12, Math.ceil(h / T));
       for (const tx of [87, 93]) mark(solid, tx, ty, 4, bedRows);
     };
     knot(67, 3 * T, 2);                    // behind, between the street and the palace
     knot(75, 3 * T + 3, 2);                // in front, down to the canal
-    const cv = palace({ w: 8, h: 5, roofPal: ROOF.slate, wall: [234, 220, 190], pillar: [196, 172, 120] });
+    const cv = halve(anDinh());
     cv.spec = { kind: 'anDinh' };
-    place(cv, 88, 70, 3);
+    place(cv, 88, 69, 3);
   }
 
 

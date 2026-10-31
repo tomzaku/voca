@@ -304,24 +304,134 @@ export function quocHoc() {
   return cv;
 }
 
-/** Cung An Định: 8 × 5 tiles — the European-style palace: a pale façade of
- *  columns and arched windows, balustrades, a slate roof, a pediment. */
+/** Cung An Định: 8 × 6 tiles — Khải Định's palace as it stands: an ochre
+ *  façade picked out in cream, two storeys of arched windows behind
+ *  red-brown shutters, a balustraded parapet, a crowned tower at each end;
+ *  and in front, on its curved terrace of rubble stone, the orange pavilion
+ *  with its lattice frieze and dark, dragon-ridged roof. The map draws it at
+ *  half size (places/southBank.mjs). */
 export function anDinh() {
-  const cv = new Canvas(8 * T2, 5 * T2);
+  const cv = new Canvas(8 * T2, 6 * T2);
   const W = cv.w, H = cv.h, cx = W / 2;
-  plaster(cv, 6, 60, W - 12, H - 66, [236, 222, 192]);
-  for (let x = 14; x < W - 14; x += 20) {
-    arch(cv, x + 6, H - 50, 12, 22, [250, 242, 222]);
-    arch(cv, x + 6, H - 10, 12, 22, [250, 242, 222]);
-    cv.rect(x - 4, 64, 3, H - 70, [214, 200, 170]);
+  const OCHRE = [232, 190, 70], OCHRE_DARK = [204, 158, 52], CREAM = [246, 236, 206], CREAM_DARK = [214, 200, 166];
+  const SHUTTER = [138, 62, 44], SHUTTER_DARK = [104, 44, 32];
+  const wall = (x, y, w, h) => {
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      let c = mix(OCHRE, OCHRE_DARK, hash(x + i, y + j) * 0.18 + (j / h) * 0.25);
+      if (i < 2 || i >= w - 2) c = mix(c, [0, 0, 0], 0.1);
+      cv.set(x + i, y + j, c);
+    }
+  };
+  // An arched window: a cream surround, shutters of slats, a keystone.
+  const win = (x, bottom, w = 12, h = 24) => {
+    const r = w / 2, top = bottom - h;
+    for (let y = top - 3; y < bottom + 2; y++) for (let i = -r - 3; i < r + 3; i++) {
+      const dy = top + r - y;
+      if (dy > 0 && i * i + dy * dy > (r + 3) ** 2) continue;
+      cv.set(x + r + i, y, CREAM);
+    }
+    for (let y = top; y < bottom; y++) for (let i = -r; i < r; i++) {
+      const dy = top + r - y;
+      if (dy > 0 && (i + 0.5) ** 2 + dy * dy > r * r) continue;
+      cv.set(x + r + i, y, Math.abs(i + 0.5) < 1 ? SHUTTER_DARK : y % 3 === 0 ? SHUTTER_DARK : SHUTTER);
+    }
+    cv.rect(x + r - 2, top - 4, 4, 3, CREAM_DARK);
+    cv.rect(x - 3, bottom + 1, w + 6, 2, CREAM_DARK);
+  };
+  const balustrade = (x, y, w) => {
+    cv.rect(x, y, w, 2, CREAM);
+    for (let i = x + 1; i < x + w - 1; i += 3) cv.rect(i, y + 2, 2, 5, CREAM_DARK);
+    cv.rect(x, y + 7, w, 2, CREAM);
+  };
+
+  // The main block: two storeys under a parapet, cream bands between them.
+  const top = 62, mid = 118, foot = H - 8;
+  cv.rect(10, top - 8, W - 20, 6, [92, 90, 96]);                        // the low roof behind the parapet
+  wall(12, top, W - 24, foot - top);
+  balustrade(10, top - 3, W - 20);
+  cv.rect(10, top + 6, W - 20, 3, CREAM);
+  cv.rect(10, mid, W - 20, 5, CREAM);
+  cv.rect(10, mid + 5, W - 20, 1, CREAM_DARK);
+  for (let x = 80; x < W - 80; x += 20) {
+    win(x, mid - 6);
+    win(x, foot - 6, 12, 30);
+    cv.rect(x - 6, top + 9, 2, foot - top - 9, CREAM_DARK);              // pilasters
   }
-  cv.rect(6, H - 46, W - 12, 4, [214, 200, 170]);
-  for (let x = 8; x < W - 8; x += 4) cv.rect(x, H - 50, 2, 4, [246, 238, 220]);
-  cv.rect(0, H - 6, W, 6, [180, 172, 158]);
-  tiledRoof(cv, 0, 20, W, 42, SLATE, 12);
-  for (let i = 0; i < 18; i++) cv.rect(cx - 30 + i * 1.7, 40 - i, 60 - i * 3.4, 1, [244, 234, 210]);
-  disc(cv, cx, 32, 5, [214, 186, 110]);
+  cv.rect(W - 86, top + 9, 2, foot - top - 9, CREAM_DARK);
+  // The end towers: a storey higher, quoined in cream, crowned.
+  for (const tx of [16, W - 70]) {
+    wall(tx, 34, 54, foot - 34);
+    for (let y = 34; y < foot; y += 8) { cv.rect(tx, y, 5, 5, CREAM); cv.rect(tx + 49, y, 5, 5, CREAM); }
+    cv.rect(tx - 2, 32, 58, 4, CREAM);
+    cv.rect(tx - 2, top + 6, 58, 3, CREAM);
+    cv.rect(tx - 2, mid, 58, 5, CREAM);
+    balustrade(tx + 6, 25, 42);
+    for (const b of [mid - 6, foot - 6]) { win(tx + 12, b); win(tx + 30, b); }
+    win(tx + 21, top - 2, 12, 20);
+    // The crown: stepped cream tiers to a finial.
+    const c0 = tx + 27;
+    cv.rect(c0 - 14, 18, 28, 7, CREAM);
+    cv.rect(c0 - 14, 23, 28, 2, CREAM_DARK);
+    cv.rect(c0 - 9, 11, 18, 7, OCHRE);
+    cv.rect(c0 - 10, 10, 20, 2, CREAM);
+    cv.rect(c0 - 5, 5, 10, 5, CREAM);
+    cv.rect(c0 - 1, 0, 2, 5, [120, 104, 80]);
+    for (const dx of [-12, 10]) cv.rect(c0 + dx, 14, 2, 4, CREAM);
+  }
+  cv.rect(0, foot, W, H - foot, [178, 170, 156]);
+  cv.rect(0, foot, W, 1, [206, 200, 188]);
+
+  // The pavilion in front, on its terrace.
+  const tl = cx - 62, tw = 124, ty = H - 34;
+  // Rubble stone: each pixel takes the stone whose jittered centre is
+  // nearest, with a mortar joint where two stones meet.
+  for (let j = 0; j < H - ty; j++) for (let i = 0; i < tw; i++) {
+    let d1 = 1e9, d2 = 1e9, id = 0;
+    const gx = Math.floor(i / 7), gy = Math.floor(j / 6);
+    for (let v = gy - 1; v <= gy + 1; v++) for (let u = gx - 1; u <= gx + 1; u++) {
+      const d = Math.hypot(i - (u + hash(u, v * 3)) * 7, (j - (v + hash(u * 5, v)) * 6) * 1.2);
+      if (d < d1) { d2 = d1; d1 = d; id = u * 31 + v; } else if (d < d2) d2 = d;
+    }
+    let c = d2 - d1 < 1.2 ? [118, 108, 90] : mix([206, 196, 166], [164, 152, 122], hash(id, 7));
+    if (j < 2) c = [214, 206, 182];
+    cv.set(tl + i, ty + j, c);
+  }
+  balustrade(tl - 2, ty - 9, tw + 4);
+  const px = cx - 34, pw = 68, pb = ty - 9;
+  cv.rect(px, pb - 2, pw, 2, [196, 120, 52]);
+  for (let x = px + 2; x < px + pw; x += 15) column(cv, x, pb - 42, 40, [222, 130, 52]);
+  // The balcony rail round the upper floor, and the lattice frieze.
+  cv.rect(px, pb - 22, pw, 2, CREAM);
+  for (let x = px + 1; x < px + pw - 1; x += 3) cv.rect(x, pb - 20, 2, 5, CREAM_DARK);
+  cv.rect(px, pb - 15, pw, 2, CREAM);
+  for (let y = pb - 52; y < pb - 42; y++) for (let x = px; x < px + pw; x++) {
+    cv.set(x, y, (x + y) % 4 === 0 || (x - y) % 4 === 0 ? [140, 64, 32] : [226, 136, 56]);
+  }
+  cv.rect(px, pb - 42, pw, 2, [176, 92, 40]);
+  // Its roof: dark tile, curving up at the corners, the ridge crested.
+  const DARK_ROOF = { base: [86, 84, 84], line: [70, 68, 70], light: [118, 116, 114], eave: [50, 48, 50], ridge: [70, 66, 62] };
+  tiledRoof(cv, px - 12, pb - 74, pw + 24, 22, DARK_ROOF, 10);
+  ridgeDecor(cv, px - 2, px + pw + 2, pb - 78, DARK_ROOF);
+  for (let i = -3; i <= 3; i++) cv.rect(cx + i * 3, pb - 84 + Math.abs(i), 2, 6 - Math.abs(i), [150, 140, 120]);
   outline(cv);
+  return cv;
+}
+
+/** Halve a detail canvas back to the map's own size: a pixel takes the mean
+ *  of the opaque detail pixels under it, if at least half of them are. */
+export function halve(art) {
+  const cv = new Canvas(art.w / 2, art.h / 2);
+  for (let y = 0; y < cv.h; y++) for (let x = 0; x < cv.w; x++) {
+    const s = [0, 0, 0];
+    let n = 0;
+    for (let k = 0; k < 4; k++) {
+      const i = ((y * 2 + (k >> 1)) * art.w + x * 2 + (k & 1)) * 4;
+      if (!art.d[i + 3]) continue;
+      for (let c = 0; c < 3; c++) s[c] += art.d[i + c];
+      n++;
+    }
+    if (n >= 2) cv.set(x, y, s.map((v) => v / n));
+  }
   return cv;
 }
 

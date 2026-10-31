@@ -6,7 +6,7 @@ import { Canvas, mix } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
 import { glow, ground, night, nightOver, place } from '../core/world.mjs';
 import { HOUSE, archBridge, citadelGate, palace, plankDeck, roof, stoneSpan, wallRing } from '../draw/buildings.mjs';
-import { BASTION, CITADEL, EAST_GATE_Y, GATES, IMPERIAL, LIBRARY, NGO_MON, SOUTH_GATES, T, gatesOn } from '../layout.mjs';
+import { BASTION, CITADEL, EAST_GATE_Y, GATES, IMPERIAL, LIBRARY, NGO_MON, SOUTH_GATES, T, gatesOn, inPoly } from '../layout.mjs';
 
 /** Name a building's canvas, so the detailed renders (../hd) draw it as itself. */
 const named = (cv, kind) => { cv.spec = { ...cv.spec, kind }; return cv; };
@@ -21,7 +21,7 @@ export const SEARCHLIGHTS = [[51, 36.6, -50], [53.4, 36.4, -24], [55, 36.3, 0], 
 export const LABELS = [
   { text: 'Ngọ Môn', x: 55, y: 34.5, place: 'ngoMon' },
   { text: 'Kỳ Đài', x: 55, y: 44, place: 'kyDai' },
-  { text: 'Phu Văn Lâu', x: 55, y: 48.3, place: 'phuVanLau' },
+  { text: 'Phu Văn Lâu', x: 55, y: 49.3, place: 'phuVanLau' },
   { text: 'Nghênh Lương Đình', x: 55, y: 58.3, place: 'nghenhLuong' },
   { text: 'Tàng Thư Lâu', x: 36, y: 21, place: 'tangThuLau' },
   { text: 'Hồ Tịnh Tâm', x: 55, y: 7.5, place: 'tinhTam' },
@@ -151,28 +151,60 @@ export function drawCitadel() {
     for (let x = 14; x < pw - 10; x += 10) glow(ox + x, oy + 47, [255, 240, 196], 2, nightOver);
   }
 
-  // Kỳ Đài: a three-tier brick bastion in the front wall with a tall flagpole.
-  // Drawn after Ngọ Môn because it stands in front of it.
+  // Kỳ Đài: the brick bastion out from the front wall — a trapezoid, its
+  // slanting sides and its face all showing — and on it two more tiers
+  // stepping up to the tall flagpole. Drawn after Ngọ Môn because it stands
+  // in front of it.
   {
+    const POLE = 7;                                      // rows of pole above the bastion's box
     const bw = (BASTION.x1 - BASTION.x0) * T;
     const baseRows = BASTION.y1 - BASTION.y0;
-    const cv = new Canvas(bw, (7 + baseRows) * T);   // 7 rows of pole above the base
-    const baseY = 7 * T;
+    const cv = new Canvas(bw, (POLE + baseRows) * T);
+    const baseY = POLE * T;
+    // The footprint in canvas pixels, where it meets the water…
+    const at = ([x, y]) => [(x - BASTION.x0) * T, baseY + (y - BASTION.y0) * T];
+    const [bl, br, fr, fl] = BASTION.poly.map(at);
+    const wallTop = baseY + (CITADEL.wall.y1 - 1 - BASTION.y0) * T;   // the wall row's top edge
+    const rise = 10;                                     // a little taller than the wall
     const brick = [148, 90, 72], brickTop = [176, 116, 92], brickLine = [120, 70, 56];
-    for (let tier = 0; tier < 3; tier++) {
-      const ins = tier * 9, top = baseY + tier * 9;
-      cv.rect(ins, top, bw - ins * 2, baseRows * T - tier * 9, brick);
-      cv.rect(ins, top, bw - ins * 2, 3, brickTop);
-      for (let y = top + 5; y < baseRows * T + baseY; y += 4) for (let x = ins; x < bw - ins; x++) if (x % 7 === (y % 8 < 4 ? 0 : 3)) cv.set(x, y, brickLine);
-    }
+    const brickSide = [128, 76, 60], paving = [164, 118, 96], pavingLine = [142, 100, 80];
+    const fillPoly = (pts, color) => {
+      const ys = pts.map((p) => p[1]), xs = pts.map((p) => p[0]);
+      for (let y = Math.floor(Math.min(...ys)); y < Math.ceil(Math.max(...ys)); y++) {
+        for (let x = Math.floor(Math.min(...xs)); x < Math.ceil(Math.max(...xs)); x++) {
+          if (inPoly(x + 0.5, y + 0.5, pts)) cv.set(x, y, color(x, y));
+        }
+      }
+    };
+    const up = ([x, y]) => [x, y - rise];
+    const coursed = (base) => (x, y) => (y % 4 === 0 || (x + (y % 8 < 4 ? 0 : 3)) % 7 === 0) ? brickLine : base;
+    // …its sides and face, then its top, paved, running back into the wall's.
+    fillPoly([up(bl), bl, fl, up(fl)], coursed(brickSide));
+    fillPoly([up(br), br, fr, up(fr)], coursed(brickSide));
+    fillPoly([up(fl), fl, fr, up(fr)], coursed(brick));
+    fillPoly([[bl[0], wallTop], [br[0], wallTop], up(br), up(fr), up(fl), up(bl)],
+      (x, y) => (y % 6 === 0 || x % 10 === 0) ? pavingLine : paving);
+    for (let x = up(fl)[0]; x < up(fr)[0]; x += 6) cv.rect(x, up(fl)[1] - 2, 3, 2, brickTop);   // the parapet
+    // The two tiers on top, each a box: its top, then its face.
+    const tier = (w, front, h, depth) => {
+      const x0 = bw / 2 - w / 2;
+      cv.rect(x0, front - h - depth, w, depth, brickTop);
+      cv.rect(x0, front - h, w, h, brick);
+      for (let y = front - h + 3; y < front; y += 4) for (let x = x0; x < x0 + w; x++) if (x % 7 === (y % 8 < 4 ? 0 : 3)) cv.set(x, y, brickLine);
+      cv.rect(x0 + w, front - h + 2, 2, h - 2, [0, 0, 0], 0.25);
+    };
+    tier(76, up(fl)[1] - 5, 12, 18);
+    tier(40, up(fl)[1] - 21, 10, 12);
+    cv.rect(bw / 2 - 4, up(fl)[1] - 14, 8, 9, [44, 32, 28]);     // the door in the middle tier
     const poleX = bw / 2 - 1;
-    cv.rect(poleX, 4, 2, baseY + 16, [214, 214, 210]);
+    const poleFoot = up(fl)[1] - 38;
+    cv.rect(poleX, 4, 2, poleFoot - 4, [214, 214, 210]);
     cv.set(poleX, 3, [236, 200, 90]); cv.set(poleX + 1, 3, [236, 200, 90]);
     cv.spec = { kind: 'kyDai' };
-    place(cv, BASTION.x0, BASTION.y0 - 7, baseRows);
+    place(cv, BASTION.x0, BASTION.y0 - POLE, baseRows);
     // The flag itself isn't painted: WorldScene flies it, waving, at the top
     // of this pole (the `flag` meta point).
-    const top = (BASTION.y0 - 7) * T + 6;
+    const top = (BASTION.y0 - POLE) * T + 6;
     FLAG.x = BASTION.x0 + (poleX + 2) / T;
     FLAG.y = top / T;
   }
@@ -183,7 +215,7 @@ export function drawCitadel() {
   // the little pavilion at the water's edge where the court took the cool
   // air — one behind the other on the axis that runs from the throne hall
   // through Ngọ Môn and Kỳ Đài down to the water.
-  stoneSpan(52, 48, 6, 3);
+  stoneSpan(52, 49, 6, 3);
   {
     const cv = new Canvas(4 * T, 3 * T);
     const red = [150, 46, 38], col = [196, 70, 52];
@@ -195,7 +227,7 @@ export function drawCitadel() {
     cv.rect(16, 12, 32, 8, red);
     for (let x = 18; x < 46; x += 5) cv.rect(x, 12, 2, 8, col);
     roof(cv, 10, 4, 44, 9, ROOF.imperial, 4);
-    place(named(cv, 'phuVanLau'), 53, 48, 1);
+    place(named(cv, 'phuVanLau'), 53, 49, 1);
   }
   stoneSpan(52, 54, 6, 3);
   {
