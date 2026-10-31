@@ -118,6 +118,8 @@ interface MapMeta {
   sprays: { x: number; y: number }[];
   /** Farmers at work in the rice paddies. */
   farmers: { x: number; y: number }[];
+  /** Where the Focus Zone is offered (Ngự Bình). */
+  focus: { x: number; y: number }[];
   /** The bus stops, in order: where the bus halts (on the road), where the
    *  shelter stands (`sx, sy`), and their place's story id. */
   busStops: { place: string; x: number; y: number; sx: number; sy: number }[];
@@ -881,6 +883,7 @@ export class WorldScene extends Phaser.Scene {
       smokes: [],
       sprays: [],
       farmers: [],
+      focus: [],
       busStops: [],
     };
     const lanterns: { x: number; y: number; order: number }[] = [];
@@ -918,6 +921,9 @@ export class WorldScene extends Phaser.Scene {
           break;
         case 'farmer':
           meta.farmers.push({ x, y });
+          break;
+        case 'focus':
+          meta.focus.push({ x, y });
           break;
         case 'busStop':
           meta.busStops[Number(get('order') ?? meta.busStops.length)] = {
@@ -1141,6 +1147,50 @@ export class WorldScene extends Phaser.Scene {
   private roadTiles: boolean[][] = [];
   /** The bus on its way: the path (world px) and how far along it is. */
   private bus?: { sprite: Phaser.GameObjects.Image; path: { x: number; y: number }[]; i: number; dest: number };
+
+  // ── The Focus Zone ──
+
+  /** Whether the buddy is at the Focus Zone, told to React. */
+  private atFocus = false;
+
+  private checkFocus() {
+    const near = !this.bus && this.meta.focus.some((f) => Math.hypot(this.buddy.x - f.x, this.buddy.y - f.y) < this.tilePx * 2.6);
+    if (near === this.atFocus) return;
+    this.atFocus = near;
+    this.game.events.emit(WORLD_EVENTS.focus, near);
+  }
+
+  /** Rain across the screen, for focusing to: fine streaks falling at a
+   *  slant, the light a little greyer. */
+  private rain?: { g: Phaser.GameObjects.Graphics; veil: Phaser.GameObjects.Rectangle; drops: { x: number; y: number; v: number; len: number }[] };
+
+  setRain(on: boolean) {
+    if (!on) { this.rain?.g.destroy(); this.rain?.veil.destroy(); this.rain = undefined; return; }
+    if (this.rain || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const veil = this.add.rectangle(0, 0, 1, 1, 0x5a6a7a, 0.16).setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH_OVER + 3);
+    const g = this.add.graphics().setScrollFactor(0).setDepth(DEPTH_OVER + 4);
+    const drops = Array.from({ length: 140 }, () => ({ x: Math.random(), y: Math.random(), v: 0.9 + Math.random() * 0.5, len: 0.012 + Math.random() * 0.016 }));
+    this.rain = { g, veil, drops };
+  }
+
+  /** The rain falls over what's on screen: unscrolled objects are still
+   *  zoomed about the screen's middle, so the visible area, in their own
+   *  coordinates, is the screen shrunk by the zoom. Drops live in 0–1 of it. */
+  private drawRain(dtMs: number) {
+    const r = this.rain;
+    if (!r) return;
+    const cam = this.cameras.main, z = cam.zoom, dt = dtMs / 1000;
+    const w = cam.width / z, h = cam.height / z;
+    const x0 = (cam.width - w) / 2, y0 = (cam.height - h) / 2;
+    r.veil.setPosition(x0, y0).setSize(w, h);
+    r.g.clear().lineStyle(1.5 / z * 2, 0xdfe8f2, 0.55);
+    for (const d of r.drops) {
+      d.y += d.v * dt; d.x -= d.v * dt * 0.18;
+      if (d.y > 1) { d.y = -d.len; d.x = Math.random() * 1.1; }
+      const x = x0 + d.x * w, y = y0 + d.y * h, len = d.len * h;
+      r.g.lineBetween(x, y, x + len * 0.18, y - len);
+    }
+  }
 
   /** The stop whose shelter the buddy is at (-1 for none), told to React. */
   private atBusStop = -1;
@@ -1641,6 +1691,8 @@ export class WorldScene extends Phaser.Scene {
     // On the bus, the buddy goes with it, and walks nowhere.
     this.moveBus(dtMs);
     this.checkBusStop();
+    this.checkFocus();
+    this.drawRain(dtMs);
     const onBus = !!this.bus;
 
     let vx = 0, vy = 0;

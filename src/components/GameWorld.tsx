@@ -24,6 +24,11 @@ import { RIDES, type Ride } from '../game/vehicles';
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
 import { BusTicket } from './worldgames/BusTicket';
+import { FocusZone } from './worldgames/FocusZone';
+import { useFocus } from '../hooks/useFocus';
+import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
+import { setRainSound } from '../lib/rainSound';
+import { playWin } from '../lib/sfx';
 
 export type { WorldStation } from '../game/types';
 
@@ -167,6 +172,22 @@ export function GameWorld({
   const [busRide, setBusRide] = useState<BusRide | null>(null);
   // The stops (their place ids), read from the scene as the drawer opens.
   const [busStops, setBusStops] = useState<string[]>([]);
+  // The Focus Zone: whether the buddy is at it, whether its window is open,
+  // and the timer (which runs on whether or not it is).
+  const [atFocus, setAtFocus] = useState(false);
+  const [focusOpen, setFocusOpen] = useState(false);
+  const focusTimer = useFocus((s) => s.timer);
+  const rain = useFocus((s) => s.rain);
+  const [focusNow, setFocusNow] = useState(() => Date.now());
+  // Each second: move a pomodoro on when its phase ends (with a chime), and
+  // keep the status bar's clock fresh.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (useFocus.getState().tick()) playWin();
+      setFocusNow(Date.now());
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
   // The stop whose shelter the buddy is standing at (-1 for none).
   const [atBusStop, setAtBusStop] = useState(-1);
   const showPlace = (id: string) => setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
@@ -232,8 +253,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused && busTicket === null;
-  }, [paused, busTicket]);
+    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen;
+  }, [paused, busTicket, focusOpen]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -305,6 +326,7 @@ export function GameWorld({
     game.events.on(WORLD_EVENTS.zoom, onZoom);
     game.events.on(WORLD_EVENTS.bus, setBusRide);
     game.events.on(WORLD_EVENTS.busStop, setAtBusStop);
+    game.events.on(WORLD_EVENTS.focus, setAtFocus);
     if (import.meta.env.DEV) game.events.on(WORLD_EVENTS.debug, setDebugPos);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
@@ -321,12 +343,19 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.zoom, onZoom);
       game.events.off(WORLD_EVENTS.bus, setBusRide);
       game.events.off(WORLD_EVENTS.busStop, setAtBusStop);
+      game.events.off(WORLD_EVENTS.focus, setAtFocus);
       if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
       game.destroy(true);
     };
   }, [animal.id, animal.name, stage, buddyName, locale]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
+  // Rain to focus to: heard, and seen over the world.
+  useEffect(() => {
+    setRainSound(rain);
+    scene()?.setRain(rain);
+    return () => setRainSound(false);
+  }, [rain]);
 
   // Getting on or off a ride happens in the running scene; B and the button
   // both step to the next one.
@@ -519,6 +548,12 @@ export function GameWorld({
               <PixelIcon name="paw" size={2} /> <FormattedMessage id="world.chooseBuddy" />
             </Link>
           )}
+          {/* The focus timer, while it runs: its time, and back to it. */}
+          {focusTimer.running && !focusOpen && (
+            <PixelButton tone="paper" onClick={() => setFocusOpen(true)} title={intl.formatMessage({ id: 'world.focusTitle' })} className="!px-2.5 !py-1.5 !text-[13px] px-num">
+              🧘 {clock(focusTimer.mode === 'pomodoro' ? secondsLeft(focusTimer, focusNow) : secondsCounted(focusTimer, focusNow))}
+            </PixelButton>
+          )}
           <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton
             tone={drawerOpen ? 'gold' : 'paper'}
@@ -679,6 +714,14 @@ export function GameWorld({
       )}
 
       {/* ── The bus: buying the ticket, then the ride. ── */}
+      {/* ── The Focus Zone on Ngự Bình ── */}
+      {!panel && !nearestFeature && atFocus && !focusOpen && !busRide && (
+        <WorldCard emoji="🧘" title={<FormattedMessage id="world.focusTitle" />} subtitle={<FormattedMessage id="world.focusBlurb" />}>
+          <PixelButton tone="gold" block onClick={() => setFocusOpen(true)}><FormattedMessage id="world.enter" /></PixelButton>
+        </WorldCard>
+      )}
+      {!panel && focusOpen && <FocusZone onClose={() => setFocusOpen(false)} />}
+
       {/* At a stop's shelter: the bus is in the Travel drawer. */}
       {!panel && !nearestFeature && atBusStop >= 0 && !busRide && busTicket === null && !drawerOpen && busStops[atBusStop] && (
         <WorldCard

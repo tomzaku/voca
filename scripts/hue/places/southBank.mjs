@@ -100,4 +100,15 @@ export function drawSouthBank() {
       }
     }
   }
+  // The focus pavilion on Ngự Bình's north slope, over the lane round the hill:
+  // where the Focus Zone is (meta.mjs puts its `focus` point on the lane).
+  {
+    const cv = new Canvas(2 * T, 2 * T);
+    cv.rect(2, 24, 28, 8, [184, 176, 164]);
+    cv.rect(2, 24, 28, 2, [206, 198, 186]);
+    for (const x of [5, 15, 25]) cv.rect(x, 13, 2, 11, [196, 70, 52]);
+    roof(cv, 1, 4, 30, 10, ROOF.glazed, 4);
+    cv.spec = { kind: 'nghenhLuong' };
+    place(cv, 56, 84, 1);
+  }
 }

@@ -82,6 +82,8 @@ export function writeMeta(shelters = []) {
   }
   for (const [x, y] of [[11.5, 46.4], [20, 43.6], [62.9, 27.9], [66.1, 27.9]]) point('smoke', x, y);
   point('spray', 72, 63.3);
+  // The Focus Zone, on the lane under Ngự Bình's pavilion.
+  point('focus', 57, 83.4);
   for (const [x, y] of FARMERS) point('farmer', x, y);
 
   // The bus stops, named by their place's story id.

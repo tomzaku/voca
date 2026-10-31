@@ -56,6 +56,8 @@ export const WORLD_EVENTS = {
   landmark: 'world:landmark',
   /** The buddy boarded a bus, or got off it (payload: BusRide, or null). */
   bus: 'world:bus',
+  /** The buddy came to the Focus Zone on Ngự Bình, or left it (payload: boolean). */
+  focus: 'world:focus',
   /** The buddy came to a bus stop's shelter, or left it (payload: the stop's
    *  index, or -1). */
   busStop: 'world:busStop',

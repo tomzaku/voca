@@ -65,7 +65,7 @@ export function plantGreenery() {
   plantAround('bangRed', 88, 81, 6, 2);
   plantAround('banyan', 70, 83, 6, 1);
   // Pines on Ngự Bình and around Thiên Mụ.
-  for (const [x, y] of [[53, 86], [56, 85], [59, 86], [51, 89], [61, 89], [55, 90], [58, 91], [1, 36], [1, 41], [8, 36]]) pine(x, y);
+  for (const [x, y] of [[53, 86], [59, 86], [51, 89], [61, 89], [55, 90], [58, 91], [1, 36], [1, 41], [8, 36]]) pine(x, y);
   // A few flame trees for a warm accent.
   for (const [x, y] of [[24, 9], [100, 26], [44, 71], [109, 77]]) if (canPlant(x, y)) tree(x, y, 'flame');
   // Trees along the lanes, every few steps on both sides.
