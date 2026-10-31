@@ -183,7 +183,7 @@ export function GameWorld({
   const [busStops, setBusStops] = useState<string[]>([]);
   // ── The shared world ── everyone in Huế at once (lib/worldLive): their
   // buddies walk here, wave and chat; you can block anyone.
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signInWithGoogle, signOut } = useAuth();
   const liveRef = useRef<WorldLive | null>(null);
   const [online, setOnline] = useState(0);
   const [peerCard, setPeerCard] = useState<{ id: string; name: string } | null>(null);
@@ -648,6 +648,13 @@ export function GameWorld({
                       <FormattedMessage id={label} />
                     </Link>
                   ))}
+                  {/* The app's own bar (and its sign out) is hidden here. */}
+                  <button
+                    onClick={() => { setMenuOpen(false); void (user ? signOut() : signInWithGoogle()); }}
+                    className="px-pick px-notch block w-full text-left px-3 py-2 px-title !text-[14px]"
+                  >
+                    <FormattedMessage id={user ? 'settings.signOut' : 'world.liveSignInShort'} />
+                  </button>
                 </div>
               </>
             )}
