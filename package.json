@@ -25,7 +25,8 @@
     "deploy:writing-templates": "supabase functions deploy writing-templates",
     "notify:test": "node scripts/test-reminder.mjs",
     "doodles:backfill": "node scripts/backfill-doodles.mjs",
-    "map:hue": "node scripts/generate-hue-map.mjs"
+    "map:hue": "node scripts/generate-hue-map.mjs",
+    "words:chain": "node scripts/build-chain-words.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
@@ -68,6 +69,7 @@
     "vite": "^7.3.1",
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "^4.1.10",
+    "word-list": "^4.1.0",
     "workbox-precaching": "^7.4.1",
     "workbox-routing": "^7.4.1"
   }

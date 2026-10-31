@@ -10,14 +10,20 @@ import { PixelButton, PixelIcon } from './pixel';
 
 // Word Chain (nối từ) with another player: take turns to say a word starting
 // with the last letter of the one before (lib/wordChain). The host goes
-// first, from a word the host's side picks. The dictionary — the bundled
-// CEFR list and the app's own word list — loads with the game, so it stays
-// out of the world's first download; words that arrive before it has are
-// kept and played in order once it's in.
+// first, from a word the host's side picks.
+//
+// The dictionary is public/game/words-en.txt — ~270k English words from the
+// `word-list` package (scripts/build-chain-words.mjs) — fetched when the game
+// opens, so it stays out of the world's first download. Should that fail, the
+// bundled CEFR list (~8500 common words) stands in. Words that arrive before
+// it has loaded are kept and played in order once it's in.
 
 let dictionary: Promise<Set<string>> | null = null;
-const loadDictionary = () => (dictionary ??= import('../../data/cefrWords').then(({ CEFR_WORDS }) =>
-  chainDictionary([...CEFR_WORDS.map((w) => w.word.toLowerCase()), ...WORD_LIST.map((w) => w.word.toLowerCase())])));
+const loadDictionary = () => (dictionary ??= fetch(`${import.meta.env.BASE_URL}game/words-en.txt`)
+  .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+  .then((text) => text.split('\n'))
+  .catch(() => import('../../data/cefrWords').then(({ CEFR_WORDS }) => CEFR_WORDS.map((w) => w.word.toLowerCase())))
+  .then((words) => chainDictionary([...words, ...WORD_LIST.map((w) => w.word.toLowerCase())])));
 
 /** A starting word: common, ending in a letter that's easy to go on from. */
 async function firstWord() {
@@ -39,7 +45,12 @@ export function WordChain({ link, onClose }: { link: MatchLink; onClose: () => v
   const gameRef = useRef<ChainState | null>(null);
   const dictRef = useRef<Set<string> | null>(null);
   const inbox = useRef<{ move: number; word: string | null }[]>([]);
-  const setGame = (g: ChainState) => { gameRef.current = g; setGameState(g); };
+  /** A new state — and when its turn began, if this is a new turn. */
+  const setGame = (g: ChainState) => {
+    if (g.moves !== gameRef.current?.moves || !gameRef.current) { setSince(Date.now()); setTyped(''); }
+    gameRef.current = g;
+    setGameState(g);
+  };
 
   /** Play their words that are next, in order — once the dictionary's here. */
   const playInbox = () => {
@@ -70,8 +81,6 @@ export function WordChain({ link, onClose }: { link: MatchLink; onClose: () => v
     (first) => { setGame(initialChain(first)); playInbox(); },
   );
 
-  // A new turn starts the clock.
-  useEffect(() => { setSince(Date.now()); setTyped(''); }, [game?.moves]);
   const myTurn = !!game && !!dict && game.loser === null && game.turn === me;
 
   const say = (word: string | null) => {
@@ -82,15 +91,22 @@ export function WordChain({ link, onClose }: { link: MatchLink; onClose: () => v
     setGame(next);
   };
 
+  // The clock: ticking while the game runs, the bar redrawn each tick. One
+  // interval for the whole game — typing doesn't restart it.
+  const running = !!game && game.loser === null;
   useEffect(() => {
-    if (!game || game.loser !== null) return;
-    const t = setInterval(() => {
-      const n = Date.now();
-      setNow(n);
-      if (myTurn && n - since >= CHAIN_SECONDS * 1000) say(null);
-    }, 200);
+    if (!running) return;
+    const t = setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(t);
-  });
+  }, [running]);
+  // My turn runs out: nothing said in time.
+  const sayRef = useRef(say);
+  useEffect(() => { sayRef.current = say; });
+  useEffect(() => {
+    if (!myTurn) return;
+    const t = setTimeout(() => sayRef.current(null), Math.max(0, CHAIN_SECONDS * 1000 - (Date.now() - since)));
+    return () => clearTimeout(t);
+  }, [myTurn, since]);
 
   const result = game?.loser != null ? (game.loser === me ? 'lost' : 'won') : null;
   useEffect(() => { if (result === 'won') playWin(); }, [result]);
