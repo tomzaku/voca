@@ -1,10 +1,11 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { parseLook, type Look } from '../game/wardrobe';
+import { REACTION_MS, isReaction, type Reaction } from '../game/reactions';
 
 // The shared world: everyone in Huế at once, over a Supabase Realtime channel
 // — no tables. Presence says who's here (their name and how they're
-// dressed); broadcasts carry where they walk, waves, chat and invites to play
+// dressed); broadcasts carry where they walk, reactions, chat and invites to play
 // together. Positions are the world's own pixels (every client draws the map
 // at the same scale), sent a few times a second while moving.
 //
@@ -18,6 +19,8 @@ export interface Peer { id: string; name: string; look: Look; x: number; y: numb
 
 export type LiveMessage =
   | { kind: 'wave'; from: string; to?: string }
+  /** A gesture for everyone around (../game/reactions). */
+  | { kind: 'react'; from: string; reaction: Reaction }
   | { kind: 'chat'; from: string; text: string }
   | { kind: 'invite'; from: string; to: string; game: string; id: string }
   | { kind: 'reply'; from: string; to: string; id: string; ok: boolean }
@@ -74,6 +77,8 @@ export class WorldLive {
   private peers = new Map<string, Peer>();
   private early = new Map<string, { x: number; y: number; facing: Facing }>();
   private last = { x: 0, y: 0, facing: 'down' as Facing, moving: false, at: 0 };
+  /** When each peer last reacted, to drop a flood. */
+  private reacted = new Map<string, number>();
   blocked = loadBlocked();
 
   constructor(private me: { id: string; name: string; look: Look }, private on: Handlers) {}
@@ -107,7 +112,7 @@ export class WorldLive {
         this.peers.set(id, peer);
         if (peer.x > -9999) this.on.peer(id, peer);
       }
-      for (const id of [...this.peers.keys()]) if (!here.has(id)) { this.peers.delete(id); this.on.peer(id, null); }
+      for (const id of [...this.peers.keys()]) if (!here.has(id)) { this.peers.delete(id); this.reacted.delete(id); this.on.peer(id, null); }
       // Someone new: tell them where I am now, not at the next heartbeat.
       if (arrived) this.sendPos(true);
     });
@@ -129,6 +134,12 @@ export class WorldLive {
       if ('to' in m && m.to && m.to !== this.me.id && m.kind !== 'wave') return;
       if (m.kind === 'chat') this.on.message({ ...m, text: cleanChat(String(m.text ?? '')) });
       else if (m.kind === 'wave') this.on.message(m);
+      else if (m.kind === 'react') {
+        const now = Date.now();
+        if (!isReaction(m.reaction) || now - (this.reacted.get(m.from) ?? 0) < REACTION_MS * 0.8) return;
+        this.reacted.set(m.from, now);
+        this.on.message(m);
+      }
       // Games: only ones we know, with an id that's a plain short string.
       else if (typeof m.id !== 'string' || m.id.length > 40) return;
       else if (m.kind === 'invite') { if (MATCH_GAMES.includes(m.game as MatchGame)) this.on.message(m); }

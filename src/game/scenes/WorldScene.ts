@@ -8,6 +8,7 @@ import { Dressed, loadWardrobe } from '../dressed';
 import { KEEPER_DRESS, propLayers } from '../keeperLooks';
 import { RIDE_SCALE, RIDE_SPEED, RIDE_VIEWS, SEAT, SEAT_FACING, drawBus, drawRide, drawRideFront, type Ride, type RideView } from '../vehicles';
 import type { Look } from '../wardrobe';
+import { REACTION_ICONS, REACTION_MS, type Reaction } from '../reactions';
 import { t } from '../../i18n';
 import { defaultMap, type DetailPatch } from '../maps';
 import { worldPalette, FONT, type WorldPalette } from '../palette';
@@ -1230,12 +1231,62 @@ export class WorldScene extends Phaser.Scene {
     g.fillStyle(0xfff8e8, 0.96).fillRoundedRect(-w / 2, -h, w, h, 6).lineStyle(2, 0x1c120c, 1).strokeRoundedRect(-w / 2, -h, w, h, 6);
     g.fillStyle(0xfff8e8, 1).fillTriangle(-5, -1, 5, -1, 0, 7);
     t.setPosition(0, -pad);
-    const b = this.add.container(0, -64, [g, t]);
-    (target as Phaser.GameObjects.Container).add(b);
-    if (id) { const o = this.others.get(id); if (o) o.bubble = b; } else this.myBubble = b;
-    this.tweens.add({ targets: b, alpha: 0, delay: Math.min(9000, 2500 + text.length * 80), duration: 600, onComplete: () => b.destroy() });
+    this.hang(id, target, this.add.container(0, -64, [g, t]), Math.min(9000, 2500 + text.length * 80));
   }
   private myBubble?: Phaser.GameObjects.Container;
+
+  /** Put a bubble over a buddy in place of the last one, fading after `ms`. */
+  private hang(id: string | null, target: Phaser.GameObjects.Container, b: Phaser.GameObjects.Container, ms: number) {
+    target.add(b);
+    if (id) { const o = this.others.get(id); if (o) o.bubble = b; } else this.myBubble = b;
+    this.tweens.add({ targets: b, alpha: 0, delay: ms, duration: 600, onComplete: () => b.destroy() });
+  }
+
+  /** A reaction (../reactions): its pixel icon popping up in a bubble, and
+   *  the buddy's move to go with it — a sway, a hop, a nod, a shake. */
+  react(id: string | null, reaction: Reaction) {
+    const o = id ? this.others.get(id) : null;
+    const target = id ? o?.rig : this.buddy;
+    const sprite = id ? o?.sprite : this.sprite;
+    if (!target || !sprite) return;
+    (id ? o?.bubble : this.myBubble)?.destroy();
+
+    // The icon, a few screen pixels to each of its own, in a round bubble.
+    const { rows, color } = REACTION_ICONS[reaction];
+    const px = 3, pad = 6, iw = Math.max(...rows.map((r) => r.length)) * px, ih = rows.length * px;
+    const w = iw + pad * 2, h = ih + pad * 2;
+    const g = this.add.graphics();
+    g.fillStyle(0xfff8e8, 0.96).fillRoundedRect(-w / 2, -h, w, h, 6).lineStyle(2, 0x1c120c, 1).strokeRoundedRect(-w / 2, -h, w, h, 6);
+    g.fillStyle(0xfff8e8, 1).fillTriangle(-5, -1, 5, -1, 0, 7);
+    g.fillStyle(Phaser.Display.Color.HexStringToColor(color).color, 1);
+    rows.forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') g.fillRect(-iw / 2 + x * px, -h + pad + y * px, px, px); }));
+    const b = this.add.container(0, -64, [g]).setScale(0.4);
+    this.tweens.add({ targets: b, scale: 1, duration: 220, ease: 'back.out' });
+    this.hang(id, target, b, REACTION_MS + 900);
+
+    // The move. Relative to where the sprite stands now (a ride seats it
+    // higher), and put back exactly at the end, whatever cut it short.
+    this.tweens.killTweensOf(sprite);
+    const base = this.reactBase.get(sprite) ?? { x: sprite.x, y: sprite.y, angle: 0, scaleY: sprite.scaleY };
+    this.reactBase.set(sprite, base);
+    sprite.setPosition(base.x, base.y).setAngle(0).setScale(sprite.scaleX, base.scaleY);
+    const done = () => { sprite.setAngle(0).setScale(sprite.scaleX, base.scaleY).setPosition(base.x, base.y); this.reactBase.delete(sprite); };
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { done(); return; }
+    const beat = (n: number) => Math.round(REACTION_MS / n / 2);
+    switch (reaction) {
+      case 'wave': this.tweens.add({ targets: sprite, angle: { from: -7, to: 7 }, duration: beat(3), yoyo: true, repeat: 2, ease: 'sine.inOut', onComplete: done }); break;
+      case 'dance':
+        this.tweens.add({ targets: sprite, angle: { from: -14, to: 14 }, duration: beat(3), yoyo: true, repeat: 2, ease: 'sine.inOut', onComplete: done });
+        this.tweens.add({ targets: sprite, y: base.y - 7, duration: beat(6), yoyo: true, repeat: 5, ease: 'quad.out' });
+        break;
+      case 'clap': this.tweens.add({ targets: sprite, y: base.y - 3, duration: beat(5), yoyo: true, repeat: 4, ease: 'quad.out', onComplete: done }); break;
+      case 'agree': this.tweens.add({ targets: sprite, scaleY: base.scaleY * 0.88, duration: beat(3), yoyo: true, repeat: 2, ease: 'sine.inOut', onComplete: done }); break;
+      case 'disagree': this.tweens.add({ targets: sprite, x: { from: base.x - 3, to: base.x + 3 }, duration: beat(5), yoyo: true, repeat: 4, ease: 'sine.inOut', onComplete: done }); break;
+      case 'heart': this.tweens.add({ targets: sprite, y: base.y - 9, duration: beat(1.5), yoyo: true, ease: 'quad.out', onComplete: done }); break;
+    }
+  }
+  /** Where a reacting sprite stood before its move. */
+  private reactBase = new Map<Dressed, { x: number; y: number; angle: number; scaleY: number }>();
 
   // ── The playground ──
 
