@@ -133,6 +133,7 @@ export default {
   'world.intro.games.go': 'Go to the street piano',
   'world.liveBlock': 'Block',
   'world.liveSay': 'Say something…',
+  'world.matchSay': 'Say something to {name}…',
   'world.liveSend': 'Send',
   'world.liveHideChat': 'Hide chat',
   'world.liveShowChat': 'Show chat',

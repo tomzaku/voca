@@ -4,12 +4,13 @@ import { useCompanion } from '../../hooks/useCompanion';
 import { DEFAULT_LOOK, type Look } from '../../game/wardrobe';
 import type { MatchLink } from '../../lib/worldLive';
 import { LookSprite } from './LookSprite';
+import { MatchChat } from './MatchChat';
 import { PixelButton, PixelIcon, PixelLoader, type PixelIconName } from './pixel';
 
 // The frame the turn-based games with another player share (Word Caro, Word
 // Chain, Ô ăn quan): a window over the world, the two of you along the top
 // with whose turn it is, then the game — and the ending: who won, or that
-// they left, and the way back.
+// they left, and the way back. Under it all, a chat between the two of you.
 
 export function MatchWindow({ link, icon, title, onClose, turn, mine, theirs, started, left, result, children }: {
   link: MatchLink;
@@ -66,6 +67,8 @@ export function MatchWindow({ link, icon, title, onClose, turn, mine, theirs, st
             <PixelButton tone="jade" block onClick={onClose}><FormattedMessage id="world.duelDone" /></PixelButton>
           </div>
         )}
+        {/* Talk while you play — just the two of you. */}
+        {started && !left && <MatchChat link={link} />}
       </div>
     </div>
   );

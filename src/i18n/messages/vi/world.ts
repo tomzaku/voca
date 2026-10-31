@@ -131,6 +131,7 @@ export default {
   'world.intro.games.go': 'Đến chỗ đàn piano',
   'world.liveBlock': 'Chặn',
   'world.liveSay': 'Nói gì đó…',
+  'world.matchSay': 'Nhắn gì đó cho {name}…',
   'world.liveSend': 'Gửi',
   'world.liveHideChat': 'Ẩn trò chuyện',
   'world.liveShowChat': 'Hiện trò chuyện',

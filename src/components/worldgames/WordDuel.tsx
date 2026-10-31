@@ -7,6 +7,7 @@ import { DUEL_QUESTIONS, DUEL_SECONDS, duelPoints, duelResult, parseQuestions, t
 import type { MatchLink } from '../../lib/worldLive';
 import { playCorrect, playWin, playWrong } from '../../lib/sfx';
 import { LookSprite } from './LookSprite';
+import { MatchChat } from './MatchChat';
 import { PixelButton, PixelIcon, PixelLoader } from './pixel';
 import { useWorld } from './world';
 import { duelQuestions } from './duelQuestions';
@@ -130,6 +131,8 @@ export function WordDuel({ link, onClose }: { link: MatchLink; onClose: () => vo
             <PixelButton tone="jade" block onClick={onClose}><FormattedMessage id="world.duelDone" /></PixelButton>
           </div>
         )}
+        {/* Talk while you play — just the two of you. */}
+        {questions && !left && <MatchChat link={link} />}
       </div>
     </div>
   );
