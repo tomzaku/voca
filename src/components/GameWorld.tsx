@@ -856,7 +856,8 @@ export function GameWorld({
       )}
 
       {/* ── The bus: buying the ticket, then the ride. ── */}
-      {/* ── Another player, tapped: wave, or block. ── */}
+      {/* ── Another player, tapped: a game, or a wave. Blocking is hidden for
+          now (rarely used); the connection still honours a block list. ── */}
       {!panel && peerCard && (
         <WorldCard emoji="👤" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
           <div className="grid grid-cols-2 gap-1.5 mb-1.5">
@@ -867,12 +868,9 @@ export function GameWorld({
               🚆 <FormattedMessage id="world.raceTitle" />
             </PixelButton>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             <PixelButton tone="gold" onClick={() => { liveRef.current?.send({ kind: 'wave', to: peerCard.id }); scene()?.bubble(null, '👋'); setPeerCard(null); }} className="!px-2 !text-[13px]">
               👋 <FormattedMessage id="world.liveWave" />
-            </PixelButton>
-            <PixelButton tone="bad" onClick={() => { liveRef.current?.block(peerCard.id); setPeerCard(null); }} className="!px-2 !text-[13px]">
-              <FormattedMessage id="world.liveBlock" />
             </PixelButton>
             <PixelButton tone="paper" onClick={() => setPeerCard(null)} className="!px-2 !text-[13px]">
               <FormattedMessage id="world.busNotNow" />
