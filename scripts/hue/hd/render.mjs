@@ -115,6 +115,20 @@ function roadAt(X, Y, mx, my, roads) {
   return c;
 }
 
+/** Paving in detail, the walking street's slabs (`w, h` detail px; `X0, Y0`
+ *  where it starts on the map, so its joints line up with the street's). */
+function paving(w, h, X0, Y0) {
+  const cv = new Canvas(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const X = X0 + x, Y = Y0 + y;
+    const row = Math.floor(Y / 16), col = Math.floor((X + (row % 2) * 8) / 16);
+    let c = (Y % 16 === 0 || (X + (row % 2) * 8) % 16 === 0) ? P.stoneJoint : mix(P.stone, P.stoneJoint, hash(col, row) * 0.4 + hash(X, Y) * 0.1);
+    if (x < 2 || y < 2 || x >= w - 2 || y >= h - 2) c = P.stoneEdge;
+    cv.set(x, y, c);
+  }
+  return cv;
+}
+
 /** Lift a thing out: wherever its old pixels were, mark the patch to be
  *  shaded afresh as ground. */
 function liftOut(clear, overD, W, H, ox, oy, e) {
@@ -176,9 +190,9 @@ export function renderDetail(write) {
         if (!inside(e, e.w, e.h)) continue;
         redraw.push({ e, art: boardwalk(e.w * K, e.h * K), bottom: e.y, overTo: 0 });
       } else if (e.type === 'span') {
-        // Narrow causeways only: a wide landing is a floor, not a walkway.
-        if (Math.min(e.w, e.h) > 2 * T || !inside(e, e.w, e.h)) continue;
-        redraw.push({ e, art: causeway(e.w * K, e.h * K), bottom: e.y, overTo: 0 });
+        if (!inside(e, e.w, e.h)) continue;
+        // A wide landing is paved like the walking street; a narrow one is a causeway.
+        redraw.push({ e, art: e.paved ? paving(e.w * K, e.h * K, e.x * K, e.y * K) : causeway(e.w * K, e.h * K), bottom: e.y - 1500, overTo: 0 });
       } else if (inside(e, 1, 1)) {
         redraw.push({ e, bottom: e.y });
       }

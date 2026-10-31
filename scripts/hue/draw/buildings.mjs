@@ -97,14 +97,23 @@ export function plankDeck(tx, ty, tw, th, horizontal = false) {
 /** A short stone causeway over a moat or canal. */
 export function stoneSpan(tx, ty, tw, th) {
   const x0 = tx * T, y0 = ty * T, x1 = (tx + tw) * T, y1 = (ty + th) * T;
+  // A wide landing is paved like the walking street — slabs in staggered
+  // courses, a darker edge all round; a narrow causeway is plain stone.
+  const paved = Math.min(tw, th) > 2;
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
+      if (paved) {
+        const rim = x === x0 || x === x1 - 1 || y === y0 || y === y1 - 1;
+        const joint = (y % 8 === 0) || ((x + (Math.floor(y / 8) % 2) * 6) % 12 === 0);
+        ground.set(x, y, rim ? P.stoneEdge : joint ? P.stoneJoint : mix(P.stone, P.stoneJoint, hash(x, y) * 0.25));
+        continue;
+      }
       const edge = (tw <= th) ? (x === x0 || x === x1 - 1) : (y === y0 || y === y1 - 1);
       ground.set(x, y, edge ? P.stoneEdge : P.stone);
     }
   }
   mark(deck, tx, ty, tw, th);
-  drawn.push({ type: 'span', x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+  drawn.push({ type: 'span', x: x0, y: y0, w: x1 - x0, h: y1 - y0, paved });
 }
 
 /** A road bridge's deck in the streets' own style — parapets with posts
