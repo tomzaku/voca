@@ -15,7 +15,7 @@ import { ROADS, roadGap, roadHit } from './roads.mjs';
  *  shelter's top-left tile goes, when the nearest free spot isn't right. */
 export const BUS_STOPS = [
   { place: 'dongBa', x: 90, y: 52.4 },
-  { place: 'kyDai', x: 55, y: 52.4 },
+  { place: 'kyDai', x: 51, y: 52.4, shelter: [49, 53] },  // on the grass at the kerb, beside Nghênh Lương Đình's landing
   { place: 'vanMieu', x: 20, y: 49 },
   { place: 'thienMu', x: 3, y: 44 },
   { place: 'tinhTam', x: 47, y: 13 },

@@ -103,14 +103,21 @@ export function stoneSpan(tx, ty, tw, th) {
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
       if (paved) {
-        const rim = x === x0 || x === x1 - 1 || y === y0 || y === y1 - 1;
+        // A raised kerb all round: a dark line where it meets the ground, its
+        // lit top, then the slabs.
+        const e = Math.min(x - x0, x1 - 1 - x, y - y0, y1 - 1 - y);
         const joint = (y % 8 === 0) || ((x + (Math.floor(y / 8) % 2) * 6) % 12 === 0);
-        ground.set(x, y, rim ? P.stoneEdge : joint ? P.stoneJoint : mix(P.stone, P.stoneJoint, hash(x, y) * 0.25));
+        ground.set(x, y, e === 0 ? [118, 110, 98] : e === 1 ? [226, 220, 208] : e === 2 ? P.stoneEdge : joint ? P.stoneJoint : mix(P.stone, P.stoneJoint, hash(x, y) * 0.25));
         continue;
       }
       const edge = (tw <= th) ? (x === x0 || x === x1 - 1) : (y === y0 || y === y1 - 1);
       ground.set(x, y, edge ? P.stoneEdge : P.stone);
     }
+  }
+  // The kerb's shadow on the ground beside and below it.
+  if (paved) {
+    for (let y = y0 + 2; y < y1 + 2; y++) ground.set(x1, y, P.shadow, 0.25);
+    for (let x = x0 + 2; x <= x1; x++) ground.set(x, y1, P.shadow, 0.25);
   }
   mark(deck, tx, ty, tw, th);
   drawn.push({ type: 'span', x: x0, y: y0, w: x1 - x0, h: y1 - y0, paved });

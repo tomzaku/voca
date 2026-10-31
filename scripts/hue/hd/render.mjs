@@ -123,7 +123,10 @@ function paving(w, h, X0, Y0) {
     const X = X0 + x, Y = Y0 + y;
     const row = Math.floor(Y / 16), col = Math.floor((X + (row % 2) * 8) / 16);
     let c = (Y % 16 === 0 || (X + (row % 2) * 8) % 16 === 0) ? P.stoneJoint : mix(P.stone, P.stoneJoint, hash(col, row) * 0.4 + hash(X, Y) * 0.1);
-    if (x < 2 || y < 2 || x >= w - 2 || y >= h - 2) c = P.stoneEdge;
+    const e = Math.min(x, y, w - 1 - x, h - 1 - y);
+    if (e < 2) c = [118, 110, 98];
+    else if (e < 4) c = [226, 220, 208];
+    else if (e < 6) c = P.stoneEdge;
     cv.set(x, y, c);
   }
   return cv;

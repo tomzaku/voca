@@ -31,7 +31,7 @@ const ringAround = (cx, cy, rx, ry, n) => Array.from({ length: n + 2 }, (_, i) =
  *  dragon-boat wharf and Phu Văn Lâu's landing come down to the water. */
 export const PARK_PATHS = [
   [1, 18, 54], [24, 31, 54], [36, 47.5, 54], [60, 65, 54], [70, 74, 54], [84, 95, 54],
-  [1, 18, 64.2], [24, 31, 64.2], [36, 53, 64.2], [79, 96, 64.2],
+  [1, 18, 64.2], [24, 31, 64.2], [36, 52, 64.2], [79, 96, 64.2],
   // The gate parks, between the Citadel's moat and Lê Duẩn.
   [29, 35.5, 49.6], [38.5, 46.5, 49.6], [49.5, 52.5, 49.6], [57.5, 60.5, 49.6], [63.5, 71.5, 49.6], [74.5, 79, 49.6],
 ];
@@ -106,7 +106,7 @@ export const ROADS = [
   box(35, 72, 12, 1, 'stone'),                                    // Quốc Học's forecourt
   // Phố đi bộ Nguyễn Đình Chiểu: the walking street along the south bank,
   // from under Phú Xuân bridge to Trường Tiền, by the ironwood boardwalk.
-  road('stone', 1.6, [[56.5, 64.2], [75, 64.2]], { court: true }),
+  road('stone', 1.6, [[53.5, 64.2], [75, 64.2]], { court: true }),       // from the bus stop to Trường Tiền
 ];
 
 /** Where (x, y) px lies on a road: its signed offset from the centre line and
