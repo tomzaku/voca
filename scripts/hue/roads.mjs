@@ -34,7 +34,7 @@ const ringAround = (cx, cy, rx, ry, n) => Array.from({ length: n + 2 }, (_, i) =
 export const PARK_PATHS = [
   [1, 95, 54],
   [1, 53.5, 64.2], [75, 96, 64.2],
-  [29, 79, 49.4],
+  [29, 79, 50.2],                       // clear of the moat's V round Kỳ Đài
 ];
 /** A gently winding line from x0 to x1 about row y. */
 const wavy = (x0, x1, y) => Array.from({ length: Math.max(2, Math.round(x1 - x0) + 1) }, (_, i) => {

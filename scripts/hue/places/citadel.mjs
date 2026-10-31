@@ -206,7 +206,7 @@ export function drawCitadel() {
     cv.rect(poleX, 4, 2, poleFoot - 4, [214, 214, 210]);
     cv.set(poleX, 3, [236, 200, 90]); cv.set(poleX + 1, 3, [236, 200, 90]);
     cv.spec = { kind: 'kyDai' };
-    place(cv, BASTION.x0, BASTION.y0 - POLE, baseRows);
+    place(cv, BASTION.x0, BASTION.y0 - POLE, baseRows - 1);   // the point's last sliver is in the water
     // The flag itself isn't painted: WorldScene flies it, waving, at the top
     // of this pole (the `flag` meta point).
     const top = (BASTION.y0 - POLE) * T + 6;
@@ -220,7 +220,7 @@ export function drawCitadel() {
   // the little pavilion at the water's edge where the court took the cool
   // air — one behind the other on the axis that runs from the throne hall
   // through Ngọ Môn and Kỳ Đài down to the water.
-  stoneSpan(52, 50, 6, 2);
+  stoneSpan(52, 50, 6, 2, { paved: true });                // shallow: the moat's V comes down behind it
   {
     const cv = new Canvas(4 * T, 3 * T);
     const red = [150, 46, 38], col = [196, 70, 52];
@@ -232,7 +232,8 @@ export function drawCitadel() {
     cv.rect(16, 12, 32, 8, red);
     for (let x = 18; x < 46; x += 5) cv.rect(x, 12, 2, 8, col);
     roof(cv, 10, 4, 44, 9, ROOF.imperial, 4);
-    place(named(cv, 'phuVanLau'), 53, 48, 1);
+    // Open on all sides, as the real one is: the park's path runs through under it.
+    place(named(cv, 'phuVanLau'), 53, 48, 1, { gaps: [53, 54, 55, 56] });
   }
   stoneSpan(52, 54, 6, 3);
   {

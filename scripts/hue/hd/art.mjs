@@ -341,9 +341,9 @@ export function kyDai() {
     cv.rect(x, y, 10, 2, topLight);
     cv.rect(x, y + 2, 10, 3, mix(brick, brickDark, 0.3));
   }
-  // Cannons on the bastion top, their barrels to the river.
-  for (const x of [up(fl)[0] - 8, up(fl)[0] + 14, up(fr)[0] - 24, up(fr)[0] - 2]) {
-    const y = front - 12;
+  // Cannons along the parapet, their barrels to the river.
+  for (const x of [20, 44, cx - 34, cx + 24, W - 54, W - 30]) {
+    const y = Math.round(edgeY(x + 5)) - 14;
     cv.rect(x, y, 10, 5, [70, 52, 40]);
     cv.ellipse(x + 2, y + 6, 2.5, 2.5, [50, 40, 32]);
     cv.ellipse(x + 8, y + 6, 2.5, 2.5, [50, 40, 32]);

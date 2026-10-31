@@ -97,12 +97,11 @@ export function plankDeck(tx, ty, tw, th, horizontal = false) {
   mark(deck, mx, my, Math.ceil(tx + tw) - mx, Math.ceil(ty + th) - my);
 }
 
-/** A short stone causeway over a moat or canal. */
-export function stoneSpan(tx, ty, tw, th) {
+/** A short stone causeway over a moat or canal — or, `paved`, a landing. */
+export function stoneSpan(tx, ty, tw, th, { paved = Math.min(tw, th) > 2 } = {}) {
   const x0 = tx * T, y0 = ty * T, x1 = (tx + tw) * T, y1 = (ty + th) * T;
   // A wide landing is paved like the walking street — slabs in staggered
   // courses, a darker edge all round; a narrow causeway is plain stone.
-  const paved = Math.min(tw, th) > 2;
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
       if (paved) {
