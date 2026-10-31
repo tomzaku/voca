@@ -30,7 +30,10 @@ export function shade(x, y) {
   if (r.kind === 'stone') {
     const joint = (y % 8 === 0) || ((x + (Math.floor(y / 8) % 2) * 6) % 12 === 0);
     c = joint ? P.stoneJoint : mix(P.stone, P.stoneJoint, hash(x, y) * 0.25);
-    if (e < 1) c = P.stoneEdge;
+    // A raised kerb along its sides, as the landings have.
+    if (e < 1) c = [118, 110, 98];
+    else if (e < 2) c = [226, 220, 208];
+    else if (e < 3) c = P.stoneEdge;
   } else if (r.kind === 'path') {
     // A park path: fine gravel, its edge a darker line where the grass begins.
     c = hash(x, y) < 0.18 ? [200, 186, 156] : hash(x * 3, y) < 0.08 ? [240, 232, 214] : [222, 210, 182];

@@ -98,6 +98,9 @@ function roadAt(X, Y, mx, my, roads) {
     return h < 0.16 ? [200, 186, 156] : h < 0.22 ? [244, 236, 220] : mix([222, 210, 182], [212, 198, 168], noise(X, Y, 6));
   }
   if (r.kind === 'stone') {
+    if (e < 1) return [118, 110, 98];
+    if (e < 2) return [226, 220, 208];
+    if (e < 3) return P.stoneEdge;
     const row = Math.floor(Y / 16), col = Math.floor((X + (row % 2) * 8) / 16);
     if (Y % 16 === 0 || (X + (row % 2) * 8) % 16 === 0) return P.stoneJoint;
     return mix(P.stone, P.stoneJoint, hash(col, row) * 0.4 + hash(X, Y) * 0.1);
