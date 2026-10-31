@@ -45,7 +45,7 @@ export interface BusRide { state: 'riding'; place: string }
 export const WORLD_EVENTS = {
   /** Buddy walked within reach of a station (payload: station id or null). */
   near: 'world:near',
-  /** Buddy moved, throttled (payload: { x, y, areaIndex }). */
+  /** Buddy moved, throttled (payload: { x, y, areaIndex, facing, moving }). */
   moved: 'world:moved',
   /** Buddy crossed a gate into another area (payload: { index, area }). */
   area: 'world:area',
@@ -56,6 +56,8 @@ export const WORLD_EVENTS = {
   landmark: 'world:landmark',
   /** The buddy boarded a bus, or got off it (payload: BusRide, or null). */
   bus: 'world:bus',
+  /** Another player's buddy was tapped (payload: their id). */
+  peer: 'world:peer',
   /** The buddy came to one of the playground's games, or left it (payload:
    *  its id — 'piano', 'race' — or null). */
   play: 'world:play',

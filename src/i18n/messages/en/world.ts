@@ -86,4 +86,12 @@ export default {
   'world.fishLost': '{why, select, early {Too soon — it swam off.} late {Too slow — it let go.} other {It got away!}} Hold to cast again.',
   'world.fishCreel': 'Your creel',
   'world.fishEmpty': 'Nothing yet.',
+  'world.liveChat': 'Chat with players nearby',
+  'world.livePeer': 'Another player in Huế',
+  'world.liveWave': 'Wave',
+  'world.liveBlock': 'Block',
+  'world.liveSay': 'Say something…',
+  'world.liveSend': 'Send',
+  'world.liveHideChat': 'Hide chat',
+  'world.liveShowChat': 'Show chat',
 } satisfies Catalog;

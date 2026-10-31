@@ -84,4 +84,12 @@ export default {
   'world.fishLost': '{why, select, early {Sớm quá — cá bơi đi mất.} late {Chậm quá — cá nhả mồi.} other {Cá sổng mất rồi!}} Giữ để quăng tiếp.',
   'world.fishCreel': 'Giỏ cá',
   'world.fishEmpty': 'Chưa có con nào.',
+  'world.liveChat': 'Trò chuyện với người chơi gần đây',
+  'world.livePeer': 'Một người chơi khác ở Huế',
+  'world.liveWave': 'Vẫy tay',
+  'world.liveBlock': 'Chặn',
+  'world.liveSay': 'Nói gì đó…',
+  'world.liveSend': 'Gửi',
+  'world.liveHideChat': 'Ẩn trò chuyện',
+  'world.liveShowChat': 'Hiện trò chuyện',
 } satisfies Record<keyof typeof en, string>;

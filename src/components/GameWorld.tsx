@@ -32,6 +32,8 @@ import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
 import { setRainSound } from '../lib/rainSound';
 import { playWin } from '../lib/sfx';
+import { useAuth } from '../hooks/useAuth';
+import { WorldLive, type Facing, type LiveMessage } from '../lib/worldLive';
 
 export type { WorldStation } from '../game/types';
 
@@ -178,6 +180,23 @@ export function GameWorld({
   const [busRide, setBusRide] = useState<BusRide | null>(null);
   // The stops (their place ids), read from the scene as the drawer opens.
   const [busStops, setBusStops] = useState<string[]>([]);
+  // ── The shared world ── everyone in Huế at once (lib/worldLive): their
+  // buddies walk here, wave and chat; you can block anyone.
+  const { user } = useAuth();
+  const liveRef = useRef<WorldLive | null>(null);
+  const [online, setOnline] = useState(0);
+  const [peerCard, setPeerCard] = useState<{ id: string; name: string } | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatText, setChatText] = useState('');
+  const [chatHidden, setChatHidden] = useState(false);
+  const chatHiddenRef = useRef(chatHidden);
+  useEffect(() => { chatHiddenRef.current = chatHidden; }, [chatHidden]);
+  // The latest of me, for the connection to announce.
+  const meRef = useRef({ name: '', look: DEFAULT_LOOK });
+  useEffect(() => {
+    meRef.current = { name: buddyName || animal.name, look: worn ?? DEFAULT_LOOK };
+    liveRef.current?.updateMe(meRef.current);
+  }, [buddyName, animal.name, worn]);
   // The Focus Zone: whether the buddy is at it, whether its window is open,
   // and the timer (which runs on whether or not it is).
   const [atFocus, setAtFocus] = useState(false);
@@ -262,8 +281,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing;
-  }, [paused, busTicket, focusOpen, playing]);
+    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen;
+  }, [paused, busTicket, focusOpen, playing, chatOpen]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -320,7 +339,10 @@ export function GameWorld({
     };
     // Arriving at a named place tells its story (leaving lets it fade).
     const onLandmark = (id: string | null) => { if (id) setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 })); };
-    const onMoved = (p: { x: number; y: number; areaIndex: number }) => setPos(p);
+    const onMoved = (p: { x: number; y: number; areaIndex: number; facing?: Facing; moving?: boolean }) => {
+      setPos(p);
+      liveRef.current?.move(p.x, p.y, p.facing ?? 'down', !!p.moving);
+    };
     const onArea = ({ area }: { index: number; area: WorldArea }) => {
       arrivalKey.current += 1;
       setArrival({ name: area.name, key: arrivalKey.current });
@@ -337,6 +359,8 @@ export function GameWorld({
     game.events.on(WORLD_EVENTS.busStop, setAtBusStop);
     game.events.on(WORLD_EVENTS.focus, setAtFocus);
     game.events.on(WORLD_EVENTS.play, setAtPlay);
+    const onPeer = (id: string) => { const p = liveRef.current?.peer(id); if (p) setPeerCard({ id, name: p.name }); };
+    game.events.on(WORLD_EVENTS.peer, onPeer);
     if (import.meta.env.DEV) game.events.on(WORLD_EVENTS.debug, setDebugPos);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
@@ -355,12 +379,36 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.busStop, setAtBusStop);
       game.events.off(WORLD_EVENTS.focus, setAtFocus);
       game.events.off(WORLD_EVENTS.play, setAtPlay);
+      game.events.off(WORLD_EVENTS.peer, onPeer);
       if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
       game.destroy(true);
     };
   }, [animal.id, animal.name, stage, buddyName, locale]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
+  // Join the shared world while signed in.
+  useEffect(() => {
+    if (!user) return;
+    const live = new WorldLive({ id: user.id, ...meRef.current }, {
+      peer: (id, peer) => { scene()?.setPeer(id, peer); setOnline(live.count()); },
+      message: (m: LiveMessage) => {
+        if (m.kind === 'wave') scene()?.bubble(m.from, '👋');
+        else if (m.kind === 'chat' && !chatHiddenRef.current) scene()?.bubble(m.from, m.text);
+      },
+    });
+    live.connect();
+    liveRef.current = live;
+    const beat = setInterval(() => live.heartbeat(), 2500);
+    return () => { clearInterval(beat); live.disconnect(); liveRef.current = null; };
+  }, [user]);
+  const sendChat = () => {
+    const text = chatText.trim();
+    if (!text) return;
+    liveRef.current?.send({ kind: 'chat', text });
+    scene()?.bubble(null, text);
+    setChatText('');
+  };
+
   // Rain to focus to: heard, and seen over the world.
   useEffect(() => {
     setRainSound(rain);
@@ -565,6 +613,12 @@ export function GameWorld({
               🧘 {clock(focusTimer.mode === 'pomodoro' ? secondsLeft(focusTimer, focusNow) : secondsCounted(focusTimer, focusNow))}
             </PixelButton>
           )}
+          {/* The shared world: who's here, and the chat bar. */}
+          {user && (
+            <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-1.5 !text-[13px] px-num">
+              💬 {online}
+            </PixelButton>
+          )}
           <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton
             tone={drawerOpen ? 'gold' : 'paper'}
@@ -725,6 +779,42 @@ export function GameWorld({
       )}
 
       {/* ── The bus: buying the ticket, then the ride. ── */}
+      {/* ── Another player, tapped: wave, or block. ── */}
+      {!panel && peerCard && (
+        <WorldCard emoji="👤" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
+          <div className="grid grid-cols-3 gap-1.5">
+            <PixelButton tone="gold" onClick={() => { liveRef.current?.send({ kind: 'wave', to: peerCard.id }); scene()?.bubble(null, '👋'); setPeerCard(null); }} className="!px-2 !text-[13px]">
+              👋 <FormattedMessage id="world.liveWave" />
+            </PixelButton>
+            <PixelButton tone="bad" onClick={() => { liveRef.current?.block(peerCard.id); setPeerCard(null); }} className="!px-2 !text-[13px]">
+              <FormattedMessage id="world.liveBlock" />
+            </PixelButton>
+            <PixelButton tone="paper" onClick={() => setPeerCard(null)} className="!px-2 !text-[13px]">
+              <FormattedMessage id="world.busNotNow" />
+            </PixelButton>
+          </div>
+        </WorldCard>
+      )}
+
+      {/* ── The chat bar ── */}
+      {!panel && chatOpen && (
+        <div className="px absolute left-1/2 -translate-x-1/2 bottom-2 z-30 w-[min(94%,460px)] px-notch px-frame p-2 flex gap-1.5 px-in-up" onKeyDown={(e) => e.stopPropagation()}>
+          <input
+            autoFocus
+            value={chatText}
+            maxLength={120}
+            onChange={(e) => setChatText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') sendChat(); if (e.key === 'Escape') setChatOpen(false); }}
+            placeholder={intl.formatMessage({ id: 'world.liveSay' })}
+            className="px-inset px-notch flex-1 min-w-0 px-3 py-2 text-[14px] bg-transparent outline-none"
+          />
+          <PixelButton tone="jade" onClick={sendChat} className="!px-3 !text-[13px]"><FormattedMessage id="world.liveSend" /></PixelButton>
+          <PixelButton tone="paper" onClick={() => setChatHidden((h) => !h)} title={intl.formatMessage({ id: chatHidden ? 'world.liveShowChat' : 'world.liveHideChat' })} className="!px-2.5 !text-[13px]">
+            {chatHidden ? '🔕' : '🔔'}
+          </PixelButton>
+        </div>
+      )}
+
       {/* ── The playground: the street piano, the type race ── */}
       {!panel && !nearestFeature && atPlay && !playing && !busRide && busTicket === null && (
         <WorldCard

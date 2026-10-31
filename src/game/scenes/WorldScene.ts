@@ -347,6 +347,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.on(
       'pointerdown',
       (pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+        if (this.tapPeer(pointer)) return;
         if (over.length > 0) return; // a station handled it
         // Two fingers down is a pinch starting, not a tap to walk. Checked on
         // the pointers themselves because pinchStart isn't set until the first
@@ -1010,9 +1011,9 @@ export class WorldScene extends Phaser.Scene {
     root.setInteractive({ useHandCursor: true });
     root.on(
       'pointerdown',
-      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+      (p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
         event.stopPropagation();
-        this.routeTo(x, y + 50);
+        if (!this.tapPeer(p)) this.routeTo(x, y + 50);
       },
     );
 
@@ -1153,6 +1154,82 @@ export class WorldScene extends Phaser.Scene {
   private roadTiles: boolean[][] = [];
   /** The bus on its way: the path (world px) and how far along it is. */
   private bus?: { sprite: Phaser.GameObjects.Image; path: { x: number; y: number }[]; i: number; dest: number };
+
+  // ── Other players ──
+
+  /** Everyone else in the world: their buddy, dressed, named, walking to
+   *  where they last said they were. */
+  private others = new Map<string, {
+    rig: Phaser.GameObjects.Container; sprite: Dressed; label: Phaser.GameObjects.Text;
+    tx: number; ty: number; facing: string; moving: boolean; bubble?: Phaser.GameObjects.Container;
+  }>();
+
+  /** Someone arrived, moved or changed (`peer`), or left (null). */
+  setPeer(id: string, peer: { name: string; look: Look; x: number; y: number; facing: string; moving: boolean } | null) {
+    let o = this.others.get(id);
+    if (!peer) { o?.rig.destroy(); this.others.delete(id); return; }
+    if (!this.ready) return;
+    if (!o) {
+      const rig = this.add.container(peer.x, peer.y).setDepth(DEPTH_BUDDY - 0.5);
+      rig.add(this.add.ellipse(0, 2, 23, 6, 0x000000, 0.22));
+      const sprite = new Dressed(this, 0, 2, peer.look).setScale(this.spec.baseScale * 1.3);
+      const label = this.nameText(peer.name, 6, 10, '#cfe8ff');
+      rig.add([sprite, label]);
+      o = { rig, sprite, label, tx: peer.x, ty: peer.y, facing: peer.facing, moving: peer.moving };
+      this.others.set(id, o);
+    }
+    if (o.label.text !== peer.name) o.label.setText(peer.name);
+    o.sprite.setLook(peer.look);
+    // Far off (a teleport, a bus ride): jump there; near: walk.
+    if (Math.hypot(peer.x - o.rig.x, peer.y - o.rig.y) > this.tilePx * 12) o.rig.setPosition(peer.x, peer.y);
+    Object.assign(o, { tx: peer.x, ty: peer.y, facing: peer.facing, moving: peer.moving });
+  }
+
+  /** A tap on someone opens their card rather than walking there. Checked by
+   *  hand in the ground's and the stations' tap handlers, since players
+   *  often stand on a station's square and that would take the tap. */
+  private tapPeer(p: Phaser.Input.Pointer) {
+    for (const [id, o] of this.others) {
+      const dx = p.worldX - o.rig.x, dy = p.worldY - o.rig.y;
+      if (Math.abs(dx) < 18 && dy > -54 && dy < 8) { this.game.events.emit(WORLD_EVENTS.peer, id); return true; }
+    }
+    return false;
+  }
+
+  /** Walk the others towards where they are. */
+  private moveOthers(dt: number) {
+    for (const o of this.others.values()) {
+      const dx = o.tx - o.rig.x, dy = o.ty - o.rig.y, d = Math.hypot(dx, dy);
+      const step = Math.min(d, SPEED * 1.6 * dt);
+      if (d > 0.5) o.rig.setPosition(o.rig.x + (dx / d) * step, o.rig.y + (dy / d) * step);
+      const walking = d > 2 || o.moving;
+      const view = o.facing === 'down' ? 'front' : o.facing === 'up' ? 'back' : 'side';
+      o.sprite.playClip(walking ? 'walk' : 'idle', true, view).setFlipX(view === 'side' && o.facing === 'left');
+      o.rig.setDepth(DEPTH_BUDDY - 0.5 + o.rig.y / 100000);
+    }
+  }
+
+  /** A speech bubble over a buddy — another player's (`id`) or yours (null):
+   *  a wave, or chat. It fades after a while. */
+  bubble(id: string | null, text: string) {
+    const target = id ? this.others.get(id)?.rig : this.buddy;
+    if (!target) return;
+    const prev = id ? this.others.get(id)?.bubble : this.myBubble;
+    prev?.destroy();
+    const t = this.add.text(0, 0, text, {
+      fontFamily: FONT, fontSize: '12px', color: '#1c120c', wordWrap: { width: 160 }, align: 'center', resolution: this.args.dpr,
+    }).setOrigin(0.5, 1);
+    const pad = 6, w = t.width + pad * 2, h = t.height + pad * 2;
+    const g = this.add.graphics();
+    g.fillStyle(0xfff8e8, 0.96).fillRoundedRect(-w / 2, -h, w, h, 6).lineStyle(2, 0x1c120c, 1).strokeRoundedRect(-w / 2, -h, w, h, 6);
+    g.fillStyle(0xfff8e8, 1).fillTriangle(-5, -1, 5, -1, 0, 7);
+    t.setPosition(0, -pad);
+    const b = this.add.container(0, -64, [g, t]);
+    (target as Phaser.GameObjects.Container).add(b);
+    if (id) { const o = this.others.get(id); if (o) o.bubble = b; } else this.myBubble = b;
+    this.tweens.add({ targets: b, alpha: 0, delay: Math.min(9000, 2500 + text.length * 80), duration: 600, onComplete: () => b.destroy() });
+  }
+  private myBubble?: Phaser.GameObjects.Container;
 
   // ── The playground ──
 
@@ -1707,6 +1784,7 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
+    this.moveOthers(dt);
     // On the bus, the buddy goes with it, and walks nowhere.
     this.moveBus(dtMs);
     this.checkBusStop();
@@ -1776,7 +1854,7 @@ export class WorldScene extends Phaser.Scene {
     if (time - this.lastMoveEmit > 100) {
       this.lastMoveEmit = time;
       this.game.events.emit(WORLD_EVENTS.moved, {
-        x: this.buddy.x, y: this.buddy.y, areaIndex: this.areaIndex,
+        x: this.buddy.x, y: this.buddy.y, areaIndex: this.areaIndex, facing: this.facing, moving,
       });
       if (import.meta.env.DEV) this.game.events.emit(WORLD_EVENTS.debug, this.debugPosition());
     }
