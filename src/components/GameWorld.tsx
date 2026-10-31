@@ -37,6 +37,7 @@ import { TalkCall } from './worldgames/TalkCall';
 import { WordCaro } from './worldgames/WordCaro';
 import { WordChain } from './worldgames/WordChain';
 import { OAnQuan } from './worldgames/OAnQuan';
+import { Poker } from './worldgames/Poker';
 import { Fishing } from './worldgames/Fishing';
 import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
@@ -128,7 +129,7 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 }
 
 /** Each thing two players can do together, by its mark. */
-const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', chain: 'link', oan: 'stones' };
+const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', chain: 'link', oan: 'stones', poker: 'cards' };
 
 /** One group on a player's card: a small heading over its buttons. */
 function PeerSection({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -1027,8 +1028,11 @@ export function GameWorld({
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'chain')} className="!px-2 !text-[13px]">
               <PixelIcon name="link" size={2} /> <FormattedMessage id="world.chainTitle" />
             </PixelButton>
-            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'oan')} className="!px-2 !text-[13px] col-span-2">
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'oan')} className="!px-2 !text-[13px]">
               <PixelIcon name="stones" size={2} /> <FormattedMessage id="world.oanTitle" />
+            </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'poker')} className="!px-2 !text-[13px]">
+              <PixelIcon name="cards" size={2} /> <FormattedMessage id="world.pokerTitle" />
             </PixelButton>
           </PeerSection>
           <PeerSection title={<FormattedMessage id="world.peerHi" />}>
@@ -1073,6 +1077,7 @@ export function GameWorld({
       {link?.game === 'caro' && <WordCaro key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'chain' && <WordChain key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'oan' && <OAnQuan key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'poker' && <Poker key={link.id} link={link} onClose={endMatch} />}
 
       {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
       {!panel && user && (
