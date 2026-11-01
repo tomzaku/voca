@@ -2,7 +2,8 @@
 // Each player hides a fleet on their own 8×8 sea, ships straight across or
 // down and never touching (not even at a corner). Then you take turns firing
 // at a square of the other's sea; they say miss, hit, or sunk (and which
-// ship). Whoever loses every ship first loses.
+// ship). A hit earns another shot — the turn only passes on a miss. Whoever
+// loses every ship first loses.
 //
 // A fleet never leaves its owner's device: the other side only ever learns
 // what a shot tells them, and the whole fleet once the game is over.
@@ -82,6 +83,14 @@ export function takeShot(fleet: Ship[], shotAt: Set<number>, cell: number): Shot
   const sunk = cells.every((i) => after.has(i)) ? cells : null;
   const lost = fleet.every((s) => (shipCells(s) ?? []).every((i) => after.has(i)));
   return { cell, hit: true, sunk, lost };
+}
+
+/** Who fires next, given the shots so far in order: the first player to
+ *  start, then whoever fired last again after a hit, the other after a miss. */
+export function firesNext<T>(shots: { by: T; hit: boolean }[], first: T, second: T): T {
+  const last = shots[shots.length - 1];
+  if (!last) return first;
+  return last.hit ? last.by : last.by === first ? second : first;
 }
 
 /** A fleet as it arrives from the other player, or null if it isn't one. */

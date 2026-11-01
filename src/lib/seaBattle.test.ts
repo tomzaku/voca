@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FLEET, SEA, canPlace, fleetReady, parseFleet, randomFleet, shipCells, takeShot, type Ship } from './seaBattle';
+import { FLEET, SEA, canPlace, firesNext, fleetReady, parseFleet, randomFleet, shipCells, takeShot, type Ship } from './seaBattle';
 
 describe('shipCells', () => {
   it('runs across or down from its bow, and not off the sea', () => {
@@ -45,5 +45,14 @@ describe('parseFleet', () => {
     expect(parseFleet(JSON.parse(JSON.stringify(f)))).toEqual(f);
     expect(parseFleet(f.slice(1))).toBeNull();
     expect(parseFleet('nope')).toBeNull();
+  });
+});
+
+describe('firesNext', () => {
+  it('keeps the turn after a hit and passes it on a miss', () => {
+    expect(firesNext([], 'a', 'b')).toBe('a');
+    expect(firesNext([{ by: 'a', hit: true }], 'a', 'b')).toBe('a');
+    expect(firesNext([{ by: 'a', hit: true }, { by: 'a', hit: false }], 'a', 'b')).toBe('b');
+    expect(firesNext([{ by: 'a', hit: false }, { by: 'b', hit: false }], 'a', 'b')).toBe('a');
   });
 });

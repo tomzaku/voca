@@ -183,6 +183,20 @@
 @keyframes px-chat-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
 .px-chat-fade { animation: px-chat-fade 14s linear both; }
 
+/* Sea Battle: a shell bursting on a ship, a splash in open water, a ship
+   going down, and the toast that says what happened. */
+@keyframes px-burst { 0% { transform: scale(0.2); opacity: 1; background: #fff3b0; } 40% { background: #ff8a3d; } 100% { transform: scale(1.9); opacity: 0; background: #c0392b; } }
+.px-burst { animation: px-burst 0.55s steps(6) both; }
+@keyframes px-splash { 0% { transform: scale(0.2); opacity: 0.9; } 100% { transform: scale(1.6); opacity: 0; } }
+.px-splash { animation: px-splash 0.5s steps(5) both; }
+@keyframes px-pop { 0% { transform: scale(2.2); } 60% { transform: scale(0.85); } 100% { transform: scale(1); } }
+.px-pop { animation: px-pop 0.3s steps(4) both; }
+@keyframes px-sink { 0%, 50% { filter: brightness(2.2); } 25%, 75% { filter: brightness(0.6); } 100% { filter: none; } }
+.px-sink { animation: px-sink 0.9s steps(4) both; }
+@keyframes px-toast { 0% { transform: translate(-50%, 10px) scale(0.8); opacity: 0; } 12%, 80% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(-50%, -8px); opacity: 0; } }
+.px-toast { animation: px-toast 1.8s steps(12) both; }
+
 @media (prefers-reduced-motion: reduce) {
+  .px-burst, .px-splash, .px-pop, .px-sink { animation: none !important; }
   .px-blink, .px-hop, .px-rise, .px-shake, .px-in-up, .px-in-down, .px-in-side, .px-sprite { animation: none !important; }
 }
