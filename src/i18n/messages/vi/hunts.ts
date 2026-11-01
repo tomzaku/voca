@@ -196,7 +196,6 @@ export default {
 
   // ── Saved sets, and the results ──
   'hunt.sets.open': 'Mở bộ câu hỏi đã lưu…',
-  'hunt.sets.option': '{title} ({n})',
   'hunt.sets.confirmReplace': 'Thay các câu hỏi hiện tại bằng bộ đã lưu?',
   'hunt.results.title': 'Kết quả',
   'hunt.results.refresh': 'Làm mới',
@@ -266,4 +265,6 @@ export default {
   'hunt.editor.problem.noPicture': 'Ứng dụng chưa có hình cho từ này — hãy thử từ khác',
   'hunt.editor.addIt': 'Thêm câu hỏi',
   'hunt.editor.clearForm': 'Xóa trắng',
+  'hunt.teacher.stationN': 'Trạm {n}',
+  'hunt.editor.questionsN': '{n} câu hỏi',
 } satisfies Record<keyof typeof en, string>;

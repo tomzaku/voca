@@ -196,7 +196,6 @@ export default {
 
   // ── Saved sets, and the results ──
   'hunt.sets.open': 'Open a saved set…',
-  'hunt.sets.option': '{title} ({n})',
   'hunt.sets.confirmReplace': 'Replace the questions here with the saved set?',
   'hunt.results.title': 'Results',
   'hunt.results.refresh': 'Refresh',
@@ -266,4 +265,6 @@ export default {
   'hunt.editor.problem.noPicture': 'The app has no picture of this word yet — try another word',
   'hunt.editor.addIt': 'Add question',
   'hunt.editor.clearForm': 'Clear',
+  'hunt.teacher.stationN': 'Station {n}',
+  'hunt.editor.questionsN': '{n, plural, one {# question} other {# questions}}',
 } satisfies Catalog;

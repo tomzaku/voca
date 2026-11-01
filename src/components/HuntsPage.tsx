@@ -14,6 +14,7 @@ import {
 } from '../lib/hunt';
 import { createSet, fetchSet, listSets, saveSet, type SetSummary } from '../lib/questionSetsApi';
 import { QuestionEditor } from './hunt/QuestionEditor';
+import { Selector } from './Selector';
 import { createHunt, deleteHunt, listHunts, type HuntMode, type HuntSummary } from '../lib/huntsApi';
 
 const DURATIONS = [10, 15, 20, 30, 45, 60];
@@ -291,20 +292,20 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
             {Array.from({ length: count }, (_, i) => (
               <div key={i} className="flex items-center gap-2">
                 <span className="w-6 text-xs font-bold text-text-muted">{i + 1}</span>
-                <select
+                <Selector
+                  block
                   value={places[i]}
-                  onChange={(e) => setPlaces((p) => {
+                  options={HUNT_PLACES.map((p) => ({ value: p, label: intl.formatMessage({ id: `places.${p}` }) }))}
+                  onChange={(v) => setPlaces((p) => {
                     const next = [...p];
                     // Swap rather than duplicate: two stations can't share a place.
-                    const j = next.indexOf(e.target.value);
+                    const j = next.indexOf(v);
                     if (j >= 0) next[j] = next[i];
-                    next[i] = e.target.value;
+                    next[i] = v;
                     return next;
                   })}
-                  className="flex-1 bg-bg-tertiary border border-border rounded-lg px-2 py-1.5 text-sm text-text-primary"
-                >
-                  {HUNT_PLACES.map((p) => <option key={p} value={p}>{intl.formatMessage({ id: `places.${p}` })}</option>)}
-                </select>
+                  ariaLabel={intl.formatMessage({ id: 'hunt.teacher.stationN' }, { n: i + 1 })}
+                />
               </div>
             ))}
           </div>
@@ -315,19 +316,18 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <span className={label + ' !mb-0'}><FormattedMessage id="hunt.editor.title" /></span>
           {sets.length > 0 && (
-            <select
+            // An action, not a setting: it stays on its prompt, and picking a
+            // set loads it.
+            <Selector
+              align="right"
               value=""
-              onChange={(e) => void openSet(e.target.value)}
-              className="bg-bg-tertiary border border-border rounded-lg px-2 py-1 text-xs text-text-primary max-w-[60%]"
-              aria-label={intl.formatMessage({ id: 'hunt.sets.open' })}
-            >
-              <option value="">{intl.formatMessage({ id: 'hunt.sets.open' })}</option>
-              {sets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {intl.formatMessage({ id: 'hunt.sets.option' }, { title: s.title, n: s.questionCount })}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: intl.formatMessage({ id: 'hunt.sets.open' }), icon: 'lucide:folder-open' },
+                ...sets.map((s) => ({ value: s.id, label: s.title, description: intl.formatMessage({ id: 'hunt.editor.questionsN' }, { n: s.questionCount }) })),
+              ]}
+              onChange={(v) => { if (v) void openSet(v); }}
+              ariaLabel={intl.formatMessage({ id: 'hunt.sets.open' })}
+            />
           )}
         </div>
         <p className="text-xs text-text-muted mb-3"><FormattedMessage id="hunt.editor.hint" /></p>

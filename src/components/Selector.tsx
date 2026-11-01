@@ -15,6 +15,10 @@ interface Props<T extends string> {
   ariaLabel?: string;
   /** Extra classes for the trigger button. */
   className?: string;
+  /** Which edge the menu lines up with — `right` for a trigger at the right of its row. */
+  align?: 'left' | 'right';
+  /** Fill the row: the trigger stretches, its label left and chevron right. */
+  block?: boolean;
 }
 
 /**
@@ -25,7 +29,7 @@ interface Props<T extends string> {
  * give the surrounding card enough room below the trigger (it scrolls at
  * max-h-72 when the option list is long).
  */
-export function Selector<T extends string>({ value, options, onChange, ariaLabel, className = '' }: Props<T>) {
+export function Selector<T extends string>({ value, options, onChange, ariaLabel, className = '', align = 'left', block = false }: Props<T>) {
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.value === value) ?? options[0];
 
@@ -35,7 +39,7 @@ export function Selector<T extends string>({ value, options, onChange, ariaLabel
   };
 
   return (
-    <div className="relative">
+    <div className={`relative ${block ? 'flex-1 min-w-0' : ''}`}>
       <button
         type="button"
         aria-label={ariaLabel}
@@ -43,10 +47,10 @@ export function Selector<T extends string>({ value, options, onChange, ariaLabel
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
-        className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary text-text-primary ${className}`}
+        className={`btn-3d flex items-center gap-1.5 px-3 py-1.5 text-xs bg-bg-tertiary text-text-primary ${block ? 'w-full' : ''} ${className}`}
       >
         {current.icon && <Icon icon={current.icon} className="text-base text-accent-purple" />}
-        <span>{current.label}</span>
+        <span className={block ? 'flex-1 min-w-0 truncate text-left' : ''}>{current.label}</span>
         <Icon
           icon="lucide:chevron-down"
           className={`text-sm text-text-muted transition-transform ${open ? 'rotate-180' : ''}`}
@@ -60,7 +64,7 @@ export function Selector<T extends string>({ value, options, onChange, ariaLabel
           <div
             role="listbox"
             aria-label={ariaLabel}
-            className="absolute left-0 top-full mt-1.5 z-40 min-w-[12rem] max-h-72 overflow-y-auto rounded-xl border-2 border-border bg-bg-card shadow-xl p-1 animate-fade-in"
+            className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-1.5 z-40 min-w-[12rem] ${block ? 'w-full' : ''} max-h-72 overflow-y-auto rounded-xl border-2 border-border bg-bg-card shadow-xl p-1 animate-fade-in`}
           >
             {options.map((o) => {
               const selected = o.value === value;

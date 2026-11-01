@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCollections } from '../../hooks/useCollections';
+import { Selector } from '../Selector';
 import { getCollections } from '../../lib/collections';
 import { doodleKey, fetchDoodles, readLocalDoodle } from '../../lib/doodles';
 import { generateWordData, WORD_LIST } from '../../lib/wordService';
@@ -187,22 +188,19 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
       <div className="rounded-xl border border-border bg-bg-secondary/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <span className={label + ' !mb-0'}><FormattedMessage id="hunt.editor.generateTitle" /></span>
-          <select
+          {/* An action, not a setting: it stays on its prompt, and picking a
+              collection fills the words. Hers first, then the built-in ones. */}
+          <Selector
+            align="right"
             value=""
-            onChange={(e) => fillFrom(e.target.value)}
-            className="bg-bg-tertiary border border-border rounded-lg px-2 py-1 text-xs text-text-primary max-w-[60%]"
-            aria-label={intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}
-          >
-            <option value="">{intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}</option>
-            {mine.length > 0 && (
-              <optgroup label={intl.formatMessage({ id: 'hunt.teacher.myCollections' })}>
-                {mine.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </optgroup>
-            )}
-            <optgroup label={intl.formatMessage({ id: 'hunt.teacher.builtIn' })}>
-              {builtIn.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </optgroup>
-          </select>
+            options={[
+              { value: '', label: intl.formatMessage({ id: 'hunt.teacher.fillFrom' }), icon: 'lucide:library' },
+              ...mine.map((c) => ({ value: c.id, label: c.name, description: intl.formatMessage({ id: 'hunt.teacher.myCollections' }) })),
+              ...builtIn.map((c) => ({ value: c.id, label: c.name, description: intl.formatMessage({ id: 'hunt.teacher.builtIn' }) })),
+            ]}
+            onChange={(v) => { if (v) fillFrom(v); }}
+            ariaLabel={intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}
+          />
         </div>
         <textarea
           value={wordsText}
@@ -296,15 +294,12 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
       <div className="rounded-xl border-2 border-dashed border-border p-3 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="hunt.editor.addTitle" /></span>
-          <select
+          <Selector<HuntQuestionType>
             value={addType}
-            onChange={(e) => setAddType(e.target.value as HuntQuestionType)}
-            className="bg-bg-tertiary border border-border rounded-lg px-2 py-2 text-sm text-text-primary"
-            aria-label={intl.formatMessage({ id: 'hunt.editor.addType' })}
-          >
-            {HUNT_TYPES.map((t) => <option key={t} value={t}>{intl.formatMessage({ id: `hunt.typeName.${t}` })}</option>)}
-            <option value="custom">{intl.formatMessage({ id: 'hunt.typeName.custom' })}</option>
-          </select>
+            options={[...HUNT_TYPES, 'custom' as const].map((t) => ({ value: t, label: intl.formatMessage({ id: `hunt.typeName.${t}` }) }))}
+            onChange={setAddType}
+            ariaLabel={intl.formatMessage({ id: 'hunt.editor.addType' })}
+          />
           {addType !== 'custom' && (
             <label className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer select-none">
               <input type="checkbox" checked={addAuto} onChange={(e) => setAddAuto(e.target.checked)} className="w-4 h-4 accent-[var(--color-accent-cyan)]" />
