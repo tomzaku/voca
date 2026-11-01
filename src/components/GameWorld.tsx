@@ -63,6 +63,9 @@ interface Props {
   onOpenProfile: () => void;
   /** An activity picked straight from the travel drawer. */
   onOpenActivity: (activityId: string) => void;
+  /** The buddy reached a named place on the map, or left it (its `places` id,
+   *  or null) — a treasure hunt's station opens when its landmark is reached. */
+  onLandmark?: (place: string | null) => void;
   /** True while an in-game panel covers the world: freeze the buddy's controls
    *  so the panel's own keyboard (typing, space, arrows) isn't swallowed. */
   paused?: boolean;
@@ -188,9 +191,12 @@ function DrawerSection({ title, open, onToggle, onTitle, children }: {
  * collection or an app-page building.
  */
 export function GameWorld({
-  skills, onOpenFeature, onOpenProfile, onOpenActivity, paused = false, panel = null,
+  skills, onOpenFeature, onOpenProfile, onOpenActivity, onLandmark, paused = false, panel = null,
 }: Props) {
   const intl = useIntl();
+  // The scene's listeners are bound once; a ref keeps them on the latest callback.
+  const onLandmarkRef = useRef(onLandmark);
+  useEffect(() => { onLandmarkRef.current = onLandmark; });
   const features = useMemo<WorldFeature[]>(() => [...skills, COLLECTIONS_KEEPER], [skills]);
   // Phaser text is drawn once, so a language switch rebuilds the scene.
   const locale = intl.locale;
@@ -406,7 +412,10 @@ export function GameWorld({
       if (place) setPlaceToast((t) => ({ id: place, n: (t?.n ?? 0) + 1 }));
     };
     // Arriving at a named place tells its story (leaving lets it fade).
-    const onLandmark = (id: string | null) => { if (id) setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 })); };
+    const onLandmark = (id: string | null) => {
+      onLandmarkRef.current?.(id);
+      if (id) setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
+    };
     const onMoved = (p: { x: number; y: number; areaIndex: number; facing?: Facing; moving?: boolean }) => {
       setPos(p);
       liveRef.current?.move(p.x, p.y, p.facing ?? 'down', !!p.moving);

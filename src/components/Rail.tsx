@@ -48,6 +48,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/review', labelId: 'app.navReview', icon: 'lucide:swords' },
       { to: '/history', labelId: 'app.navHistory', icon: 'lucide:history' },
       { to: '/collections', labelId: 'app.navCollections', icon: 'lucide:library' },
+      { to: '/hunts', labelId: 'app.navHunts', icon: 'lucide:map' },
     ],
   },
   {

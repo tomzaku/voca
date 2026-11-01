@@ -6,6 +6,7 @@ export default {
   'app.navReview': 'Ôn tập',
   'app.navHistory': 'Lịch sử',
   'app.navCollections': 'Bộ sưu tập',
+  'app.navHunts': 'Truy tìm kho báu',
   'app.navSpeak': 'Nói',
   'app.navConversation': 'Hội thoại',
   'app.navDialogue': 'Đoạn hội thoại',

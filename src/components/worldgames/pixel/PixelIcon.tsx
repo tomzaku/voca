@@ -405,6 +405,25 @@ const GRIDS = {
     '.#..##',
     '#...##',
   ],
+  // A treasure hunt's prize, shut until a team spells its word.
+  chest: [
+    '.########.',
+    '#........#',
+    '#.######.#',
+    '##########',
+    '#...##...#',
+    '#...##...#',
+    '#........#',
+    '##########',
+  ],
+  // Opening the chest.
+  key: [
+    '.###.......',
+    '#...#......',
+    '#...#######',
+    '#...#..#.#.',
+    '.###...#.#.',
+  ],
 } as const;
 
 export type PixelIconName = keyof typeof GRIDS;

@@ -26,6 +26,10 @@ import { LevelTestPage } from './components/LevelTestPage';
 import { TakeQuiz } from './components/TakeQuiz';
 import { QuizResults } from './components/QuizResults';
 import { MyQuizzes } from './components/MyQuizzes';
+import { HuntsPage } from './components/HuntsPage';
+import { HuntBoard } from './components/HuntBoard';
+import { HuntCards } from './components/HuntCards';
+import { HuntPlay } from './components/HuntPlay';
 import { ProComparisonPage } from './components/ProComparisonPage';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
@@ -87,6 +91,11 @@ export default function App() {
             <Route path="/quizzes" element={<MyQuizzes />} />
             <Route path="/quiz/:id" element={<TakeQuiz />} />
             <Route path="/quiz/:id/results" element={<QuizResults />} />
+            {/* Treasure hunts: the teacher's list and board, and a student's phone. */}
+            <Route path="/hunts" element={<HuntsPage />} />
+            <Route path="/hunts/:id" element={<HuntBoard />} />
+            <Route path="/hunts/:id/cards" element={<HuntCards />} />
+            <Route path="/hunt/:code" element={<HuntPlay />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/profile" element={<ProfilePage />} />

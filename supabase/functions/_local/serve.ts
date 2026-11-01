@@ -24,6 +24,7 @@ import aiWordDialogues from '../ai-word-dialogues/index.ts';
 import chat from '../chat/index.ts';
 import collections from '../collections/index.ts';
 import doodles from '../doodles/index.ts';
+import hunts from '../hunts/index.ts';
 import ieltsSubmissions from '../ielts-submissions/index.ts';
 import me from '../me/index.ts';
 import mindmap from '../mindmap/index.ts';
@@ -56,6 +57,7 @@ const RESOURCES: Record<string, Handler> = {
   chat,
   collections,
   doodles,
+  hunts,
   'ielts-submissions': ieltsSubmissions,
   me,
   mindmap,

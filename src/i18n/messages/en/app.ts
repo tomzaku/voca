@@ -6,6 +6,7 @@ export default {
   'app.navReview': 'Review',
   'app.navHistory': 'History',
   'app.navCollections': 'Collections',
+  'app.navHunts': 'Treasure Hunt',
   'app.navSpeak': 'Speak',
   'app.navConversation': 'Conversation',
   'app.navDialogue': 'Dialogue',

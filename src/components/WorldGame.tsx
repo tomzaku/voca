@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
 import { hasChosenCollection, useCollections } from '../hooks/useCollections';
@@ -26,6 +26,8 @@ import { KEEPERS } from './worldgames/keepers';
 import { KeeperMenu, KeeperTalk } from './worldgames/KeeperTalk';
 import { CollectionsHall } from './worldgames/CollectionsHall';
 import { WorldLoading } from './worldgames/WorldLoading';
+import { HuntHud, HuntWindow } from './worldgames/HuntHud';
+import { useHunt } from '../hooks/useHunt';
 
 // The world pulls in Phaser (~1 MB) — only load it when the page mounts.
 const GameWorld = lazy(() => import('./GameWorld').then((m) => ({ default: m.GameWorld })));
@@ -39,6 +41,25 @@ const GameWorld = lazy(() => import('./GameWorld').then((m) => ({ default: m.Gam
 export function WorldGame() {
   const intl = useIntl();
   const enabled = useGameMode((s) => s.enabled);
+
+  // A treasure hunt played here (/world?hunt=CODE): a banner says where the
+  // team goes next, reaching that landmark opens the station, and its
+  // question shows in a window over the map. See worldgames/HuntHud.
+  const [search] = useSearchParams();
+  const huntCode = search.get('hunt')?.toUpperCase() || null;
+  const hunt = useHunt(huntCode);
+  const [huntOpen, setHuntOpen] = useState(false);
+  const closeHunt = useCallback(() => setHuntOpen(false), []);
+  const { found: huntFound } = hunt;
+  const huntTarget = hunt.play?.hunt.status === 'live' && hunt.play.team.phase === 'find' ? hunt.play.team.place : null;
+  // Where the buddy stands, not just where it arrives: the target can become
+  // the very place you're on (the hunt starting, a teammate finishing the
+  // last station) without you taking a step.
+  const [landmark, setLandmark] = useState<string | null>(null);
+  useEffect(() => {
+    if (!huntTarget || landmark !== huntTarget) return;
+    void huntFound(huntTarget).then((r) => { if (r === 'found') setHuntOpen(true); });
+  }, [landmark, huntTarget, huntFound]);
   const setActive = useCollections((s) => s.setActive);
   const { stations, mine } = useWorldStations();
 
@@ -60,7 +81,8 @@ export function WorldGame() {
   // A learner's first time in the world begins at the tailor's.
   // `mode`: which of an activity's modes is showing (its first if unset).
   const [open, setOpen] = useState<{ skill: WorldSkill; activity: WorldActivity | null; mode?: string } | null>(
-    () => (useCompanion.getState().dress === null ? findActivity('wardrobe') : null),
+    // …unless they've come for a treasure hunt, which shouldn't wait on a fitting.
+    () => (useCompanion.getState().dress === null && !huntCode ? findActivity('wardrobe') : null),
   );
   // The collections' keeper's list, when it's open (`focus`, a collection to
   // open it on). Only one of `open` and `hall` is ever set.
@@ -227,7 +249,8 @@ export function WorldGame() {
     return <Screen key={m?.id} />;
   };
 
-  if (!enabled) return <Navigate to="/collections" replace />;
+  // A hunt brings students who've never switched the world on — let them in.
+  if (!enabled && !huntCode) return <Navigate to="/collections" replace />;
 
   if (quiz) {
     // Same shareable quiz engine as elsewhere — with progress recording on so
@@ -246,8 +269,14 @@ export function WorldGame() {
             onOpenFeature={openSkill}
             onOpenProfile={openProfile}
             onOpenActivity={openActivity}
-            paused={open !== null || hall !== null}
-            panel={hall ? {
+            onLandmark={huntCode ? setLandmark : undefined}
+            paused={open !== null || hall !== null || huntOpen}
+            panel={huntOpen && huntCode ? {
+              title: hunt.play?.hunt.title ?? intl.formatMessage({ id: 'hunt.title' }),
+              emoji: '🗺️',
+              onClose: closeHunt,
+              content: <HuntWindow hunt={hunt} onClose={closeHunt} />,
+            } : hall ? {
               title: intl.formatMessage({ id: COLLECTIONS_KEEPER.nameId }),
               emoji: COLLECTIONS_KEEPER.emoji,
               onClose: () => setHall(null),
@@ -284,6 +313,8 @@ export function WorldGame() {
           />
         </Suspense>
       </WorldContext.Provider>
+
+      {huntCode && !huntOpen && !open && !hall && <HuntHud code={huntCode} hunt={hunt} onOpen={() => setHuntOpen(true)} />}
 
       {/* Create / edit collection — a modal over the map. */}
       {form && (
