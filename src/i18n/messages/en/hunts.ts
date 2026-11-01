@@ -286,4 +286,10 @@ export default {
   'hunt.solo.players': 'Players',
   'hunt.solo.lobbyHint': 'Everyone plays for themselves: each student finds every station and answers there. They start at different stations so they spread out. The clock ({min} min) starts when you press Start.',
   'hunt.try.noteSolo': 'Practice only: nothing is recorded. In class a wrong answer means a 10-second wait — here there’s no wait.',
+  'hunt.rename': 'Change name',
+  'hunt.solo.waitStartBody': 'Get ready — you’ll each start at a different station!',
+  'hunt.feedSolo.found': '{who} found station {n}',
+  'hunt.feedSolo.solve': '{who} answered at station {n}',
+  'hunt.feedSolo.miss': '{who} missed one',
+  'hunt.feedSolo.finish': '{who} opened the treasure! 🏆',
 } satisfies Catalog;

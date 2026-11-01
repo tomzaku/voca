@@ -14,6 +14,7 @@
 //   POST   /hunts/start { id }            → { board }   opens the race, starts the clock
 //   POST   /hunts/end   { id }            → { board }   stops it early
 //   POST   /hunts/move  { id, player, team } → { board }  balance the teams by hand
+//   PATCH  /hunts/player { id, player, name } → { board } rename a student (a typo, a silly name)
 //
 // A student, no account needed:
 //   GET    /hunts/preview ?code=          → { preview } what a code opens, before joining
@@ -22,6 +23,7 @@
 //   POST   /hunts/found  { token, card }  → { result, play }  scanned a card / reached a place
 //   POST   /hunts/answer { token, answer }→ { correct, play }   answer: string, or string[] for matching
 //   GET    /hunts/image  ?token=&key=     → { image }   a picture question's picture
+//   PATCH  /hunts/me     { token, name }   → { play }    rename yourself
 //
 // The tables (see the flat_hunts migration): a hunt has its stations, its own
 // copy of the questions — made from a question set when it's created, so
@@ -594,6 +596,18 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
         return jsonResponse(200, { image: data.doodle as string });
       }
 
+      // A guest's name is whatever they typed on joining; this is how they fix it.
+      case 'PATCH /me': {
+        const b = await body();
+        const { player, hunt } = await playerFor(db, b.token);
+        const name = str(b.name, MAX_NAME);
+        if (!name) return jsonResponse(400, { error: 'Please type your name.' });
+        if (effectiveStatus(hunt, Date.now()) === 'ended') return jsonResponse(400, { error: 'This hunt has finished.' });
+        const { error } = await db.from('hunt_players').update({ name }).eq('id', player.id);
+        if (error) throw new Error(error.message);
+        return jsonResponse(200, { play: await play(db, hunt, { ...player, name }) });
+      }
+
       case 'GET /play': {
         const { player, hunt } = await playerFor(db, q('token'));
         return jsonResponse(200, { play: await play(db, hunt, player) });
@@ -830,6 +844,18 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
           .single();
         if (error) throw new Error(error.message);
         return jsonResponse(200, { board: await board(db, { ...(data as HuntRow), stations: h.stations }) });
+      }
+
+      case 'PATCH /player': {
+        const b = await body();
+        const h = await owned(b.id);
+        if (typeof b.player !== 'string' || !UUID.test(b.player)) return jsonResponse(400, { error: '"player" is required.' });
+        const name = str(b.name, MAX_NAME);
+        if (!name) return jsonResponse(400, { error: '"name" is required.' });
+        // Only a player of this hunt — the filter on hunt_id is the ownership check.
+        const { error } = await db.from('hunt_players').update({ name }).eq('id', b.player).eq('hunt_id', h.id);
+        if (error) throw new Error(error.message);
+        return jsonResponse(200, { board: await board(db, h) });
       }
 
       case 'POST /move': {

@@ -7,6 +7,7 @@ import { useHunt, useTick } from '../hooks/useHunt';
 import { previewHunt, type Play, type Preview } from '../lib/huntsApi';
 import { clock, secondsUntil } from '../lib/hunt';
 import { HuntQuestion, TreasureLock } from './hunt/HuntQuestion';
+import { EditableName } from './hunt/EditableName';
 import { PhaseLabel, RaceTrack, SOLO_COLOR, TEAM_COLOR } from './hunt/teams';
 
 /**
@@ -164,7 +165,9 @@ function Race({ play, hunt }: { play: Play; hunt: ReturnType<typeof useHunt> }) 
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wider opacity-80"><FormattedMessage id={solo ? 'hunt.solo.playing' : 'hunt.youAreOn'} /></p>
-            <p className="text-2xl font-display font-extrabold truncate">{myName}</p>
+            <p className="text-2xl font-display font-extrabold truncate">
+              {solo ? <EditableName name={me.name} onSave={hunt.rename} inputClassName="!text-base" /> : myName}
+            </p>
           </div>
           {status === 'live' && (
             <div className="text-right">
@@ -176,7 +179,10 @@ function Race({ play, hunt }: { play: Play; hunt: ReturnType<typeof useHunt> }) 
         <p className="text-xs mt-2 opacity-90 truncate">
           {solo
             ? me.rank && status !== 'lobby' ? <FormattedMessage id="hunt.solo.place" values={{ rank: me.rank, of: me.of }} /> : <FormattedMessage id="hunt.solo.classmates" values={{ n: me.of }} />
-            : <>{me.name} · {play.teammates.filter((n) => n !== me.name).join(', ') || intl.formatMessage({ id: 'hunt.noTeammates' })}</>}
+            : <>
+              <EditableName name={me.name} onSave={hunt.rename} className="font-bold" />
+              {' · '}{play.teammates.filter((n) => n !== me.name).join(', ') || intl.formatMessage({ id: 'hunt.noTeammates' })}
+            </>}
         </p>
       </div>
 
@@ -225,7 +231,7 @@ function Stage({ play, hunt, cooldown }: { play: Play; hunt: ReturnType<typeof u
       <div className="text-center py-4">
         <div className="text-4xl mb-3 animate-bounce" aria-hidden>⏳</div>
         <p className="font-display font-extrabold text-lg text-text-primary"><FormattedMessage id="hunt.waitStart" /></p>
-        <p className="text-sm text-text-muted mt-1"><FormattedMessage id="hunt.waitStartBody" /></p>
+        <p className="text-sm text-text-muted mt-1"><FormattedMessage id={play.hunt.play === 'solo' ? 'hunt.solo.waitStartBody' : 'hunt.waitStartBody'} /></p>
       </div>
     );
   }

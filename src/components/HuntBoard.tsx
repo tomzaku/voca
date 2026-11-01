@@ -6,8 +6,9 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { useTick } from '../hooks/useHunt';
 import { clock, secondsUntil } from '../lib/hunt';
-import { endHunt, fetchBoard, huntLink, movePlayer, startHunt, type Board } from '../lib/huntsApi';
+import { endHunt, fetchBoard, huntLink, movePlayer, renamePlayer, startHunt, type Board } from '../lib/huntsApi';
 import { QrCode } from './hunt/QrCode';
+import { EditableName } from './hunt/EditableName';
 import { HuntResults } from './hunt/HuntResults';
 import { PhaseLabel, RaceTrack, SOLO_COLOR, TEAM_COLOR } from './hunt/teams';
 
@@ -78,7 +79,8 @@ export function HuntBoard() {
 
   const { hunt, teams, outcome } = board;
   const left = secondsUntil(hunt.endsAt, 0, now);
-  const players = teams.reduce((n, t) => n + t.players.length, 0);
+  // From the server's own count: a solo hunt has no teams to add up.
+  const players = hunt.playerCount ?? 0;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
@@ -122,7 +124,17 @@ export function HuntBoard() {
         )}
       </div>
 
-      {hunt.status === 'lobby' && <Lobby board={board} busy={busy} onMove={(p, t) => void act(() => movePlayer(hunt.id, p, t))} />}
+      {hunt.status === 'lobby' && (
+        <Lobby
+          board={board}
+          busy={busy}
+          onMove={(p, t) => void act(() => movePlayer(hunt.id, p, t))}
+          onRename={async (p, name) => {
+            try { setBoard(await renamePlayer(hunt.id, p, name)); return true; }
+            catch (err) { toast.error((err as Error).message); return false; }
+          }}
+        />
+      )}
 
       {hunt.status !== 'lobby' && (
         <>
@@ -175,13 +187,19 @@ export function HuntBoard() {
               <ul className="space-y-1">
                 {board.feed.map((e, i) => (
                   <li key={`${e.at}-${i}`} className="text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: TEAM_COLOR[e.team] }} />
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: hunt.play === 'solo' ? SOLO_COLOR : TEAM_COLOR[e.team] }} />
                     <span className="text-text-muted tabular-nums text-xs w-14 shrink-0">{new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                     <span className="text-text-primary">
-                      <FormattedMessage
-                        id={`hunt.feed.${e.kind}`}
-                        values={{ who: e.player ?? '—', team: teams[e.team].name, n: teams[e.team].order.indexOf(e.station) + 1 }}
-                      />
+                      {/* Solo has no teams to name, and no shared route to count a
+                          station along — so it's the student and the station itself. */}
+                      {hunt.play === 'solo' ? (
+                        <FormattedMessage id={`hunt.feedSolo.${e.kind}`} values={{ who: e.player ?? '—', n: e.station + 1 }} />
+                      ) : (
+                        <FormattedMessage
+                          id={`hunt.feed.${e.kind}`}
+                          values={{ who: e.player ?? '—', team: teams[e.team]?.name ?? '', n: (teams[e.team]?.order.indexOf(e.station) ?? e.station) + 1 }}
+                        />
+                      )}
                       {e.given && <span className="text-accent-red"> — “{e.given}”</span>}
                     </span>
                   </li>
@@ -197,7 +215,13 @@ export function HuntBoard() {
   );
 }
 
-function Lobby({ board, busy, onMove }: { board: Board; busy: boolean; onMove: (player: string, team: 0 | 1) => void }) {
+function Lobby({ board, busy, onMove, onRename }: {
+  board: Board;
+  busy: boolean;
+  onMove: (player: string, team: 0 | 1) => void;
+  /** Fix a student's name — they joined as guests, with whatever they typed. */
+  onRename: (player: string, name: string) => Promise<boolean>;
+}) {
   const intl = useIntl();
   const { hunt, teams } = board;
   const link = huntLink(hunt.code);
@@ -228,7 +252,9 @@ function Lobby({ board, busy, onMove }: { board: Board; busy: boolean; onMove: (
             ) : (
               <ul className="flex flex-wrap gap-1.5">
                 {board.standings.map((p) => (
-                  <li key={p.id} className="rounded-xl bg-bg-tertiary px-3 py-1.5 font-bold text-text-primary">{p.name}</li>
+                  <li key={p.id} className="rounded-xl bg-bg-tertiary px-3 py-1.5 font-bold text-text-primary">
+                    <EditableName name={p.name} onSave={(name) => onRename(p.id, name)} />
+                  </li>
                 ))}
               </ul>
             )}
@@ -246,7 +272,9 @@ function Lobby({ board, busy, onMove }: { board: Board; busy: boolean; onMove: (
               <ul className="space-y-1.5">
                 {t.players.map((p) => (
                   <li key={p.id} className="flex items-center gap-2 rounded-xl bg-bg-tertiary px-3 py-2">
-                    <span className="flex-1 font-bold text-text-primary truncate">{p.name}</span>
+                    <span className="flex-1 min-w-0 font-bold text-text-primary">
+                      <EditableName name={p.name} onSave={(name) => onRename(p.id, name)} />
+                    </span>
                     <button
                       disabled={busy}
                       onClick={() => onMove(p.id, t.team === 0 ? 1 : 0)}

@@ -12,6 +12,7 @@ import { ApiError } from '../lib/api';
 import {
   fetchHuntImage,
   fetchPlay,
+  renameMe,
   forgetHunt,
   huntToken,
   joinHunt,
@@ -43,6 +44,8 @@ export interface HuntHandle {
   join: (name: string) => Promise<boolean>;
   found: (card: string) => Promise<FoundResult | null>;
   answer: (text: string | string[]) => Promise<boolean | null>;
+  /** Change the name you joined with. */
+  rename: (name: string) => Promise<boolean>;
   /** A picture question's picture — fetched once, then kept for the page's life. */
   image: (key: string) => Promise<string>;
   leave: () => void;
@@ -186,13 +189,25 @@ export function useHunt(code: string | null): HuntHandle {
     return p;
   }, [token]);
 
+  const rename = useCallback(async (name: string) => {
+    if (!token) return false;
+    try {
+      setPlay(await renameMe(token, name));
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(message(err));
+      return false;
+    }
+  }, [token, setPlay]);
+
   const leave = useCallback(() => {
     if (code) forgetHunt(code);
     setToken(null);
     setPlay(null);
   }, [code, setPlay]);
 
-  return { token, play, skewMs, loading, error, busy, feedback, join, found, answer, image, leave };
+  return { token, play, skewMs, loading, error, busy, feedback, join, found, answer, rename, image, leave };
 }
 
 /** Re-renders every second while `on` — for countdowns. */

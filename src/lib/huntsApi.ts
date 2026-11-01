@@ -204,6 +204,11 @@ export async function endHunt(id: string): Promise<Board> {
   return (await request.post<{ board: Board }>('/hunts/end', { id })).board;
 }
 
+/** Rename a student — a typo, or a name that shouldn't be on the projector. */
+export async function renamePlayer(id: string, player: string, name: string): Promise<Board> {
+  return (await request.patch<{ board: Board }>('/hunts/player', { id, player, name })).board;
+}
+
 export async function movePlayer(id: string, player: string, team: 0 | 1): Promise<Board> {
   return (await request.post<{ board: Board }>('/hunts/move', { id, player, team })).board;
 }
@@ -216,6 +221,11 @@ export async function previewHunt(code: string): Promise<Preview> {
 
 export async function joinHunt(code: string, name: string): Promise<{ token: string; play: Play }> {
   return request.post<{ token: string; play: Play }>('/hunts/join', { code, name }, { allowAnon: true });
+}
+
+/** A student fixing their own name. */
+export async function renameMe(token: string, name: string): Promise<Play> {
+  return (await request.patch<{ play: Play }>('/hunts/me', { token, name }, { allowAnon: true })).play;
 }
 
 export async function fetchPlay(token: string, signal?: AbortSignal): Promise<Play> {

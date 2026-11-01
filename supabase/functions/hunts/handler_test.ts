@@ -501,3 +501,31 @@ Deno.test('a team hunt still says who won as a team, and has no leaderboard', as
   eq([p.standings, p.outcome.champion, p.me.rank], [[], null, null]);
   ok(p.rival, 'rival team shown');
 });
+
+Deno.test('a guest renames themselves; the teacher can rename anyone in her hunt', async () => {
+  const { call, db } = setup();
+  const hunt = await newHunt(call, db);
+  const ann = (await call('POST', '/join', { code: hunt.code, name: 'Anm' })).body;
+  const r = await call('PATCH', '/me', { token: ann.token, name: '  Ann  ' });
+  eq([r.status, r.body.play.me.name], [200, 'Ann']);
+  eq((await call('PATCH', '/me', { token: ann.token, name: '   ' })).status, 400);
+  eq((await call('PATCH', '/me', { token: '0123456789abcdef0123456789abcdef', name: 'X' })).status, 401);
+  eq((await call('PATCH', '/me', { token: ann.token, name: 'x'.repeat(200) })).body.play.me.name.length, 30);
+
+  const b = await call('PATCH', '/player', { id: hunt.id, player: ann.play.me.id, name: 'Annie' }, TEACHER);
+  eq(b.status, 200);
+  eq(b.body.board.teams[0].players.map((p: { name: string }) => p.name), ['Annie']);
+  eq((await call('PATCH', '/player', { id: hunt.id, player: ann.play.me.id, name: 'Hacked' }, STRANGER)).status, 404);
+  eq((await call('PATCH', '/player', { id: hunt.id, player: ann.play.me.id, name: '' }, TEACHER)).status, 400);
+
+  // A player of another hunt isn't touched through this one.
+  const other = await newHunt(call, db);
+  const bao = (await call('POST', '/join', { code: other.code, name: 'Bao' })).body;
+  await call('PATCH', '/player', { id: hunt.id, player: bao.play.me.id, name: 'Nope' }, TEACHER);
+  eq(db.tables.hunt_players.find((p) => p.id === bao.play.me.id)!.name, 'Bao');
+
+  // Not once the hunt is over.
+  await call('POST', '/start', { id: hunt.id }, TEACHER);
+  await call('POST', '/end', { id: hunt.id }, TEACHER);
+  eq((await call('PATCH', '/me', { token: ann.token, name: 'Late' })).status, 400);
+});

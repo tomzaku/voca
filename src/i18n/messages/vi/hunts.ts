@@ -286,4 +286,10 @@ export default {
   'hunt.solo.players': 'Người chơi',
   'hunt.solo.lobbyHint': 'Mỗi người tự chơi: học sinh tự tìm từng trạm và trả lời ở đó. Các em bắt đầu ở các trạm khác nhau nên sẽ tản ra. Đồng hồ ({min} phút) chạy khi bạn bấm Bắt đầu.',
   'hunt.try.noteSolo': 'Chỉ để thử: không ghi lại gì. Trong lớp, trả lời sai phải chờ 10 giây — ở đây không phải chờ.',
+  'hunt.rename': 'Đổi tên',
+  'hunt.solo.waitStartBody': 'Sẵn sàng nhé — mỗi bạn sẽ bắt đầu ở một trạm khác nhau!',
+  'hunt.feedSolo.found': '{who} tìm thấy trạm {n}',
+  'hunt.feedSolo.solve': '{who} trả lời đúng ở trạm {n}',
+  'hunt.feedSolo.miss': '{who} trả lời sai',
+  'hunt.feedSolo.finish': '{who} đã mở kho báu! 🏆',
 } satisfies Record<keyof typeof en, string>;
