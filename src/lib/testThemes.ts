@@ -1,5 +1,5 @@
 // How each test theme looks on a student's screen. The server only stores the
-// name (supabase/functions/_shared/tests.ts lists the same six); everything
+// name (supabase/functions/_shared/tests.ts lists the same eleven); everything
 // visual is here.
 //
 // A themed test is its own little world, so its colours are fixed hex values
@@ -7,8 +7,13 @@
 // The question itself still sits on an ordinary card, so it reads the same
 // whatever's behind it.
 
-export type TestTheme = 'classic' | 'ocean' | 'space' | 'jungle' | 'candy' | 'castle';
-export const TEST_THEMES: TestTheme[] = ['classic', 'ocean', 'space', 'jungle', 'candy', 'castle'];
+export type TestTheme =
+  | 'classic' | 'ocean' | 'space' | 'jungle' | 'candy' | 'castle'
+  | 'arctic' | 'beach' | 'sports' | 'music' | 'farm';
+export const TEST_THEMES: TestTheme[] = [
+  'classic', 'ocean', 'space', 'jungle', 'candy', 'castle',
+  'arctic', 'beach', 'sports', 'music', 'farm',
+];
 
 /** How the background pieces move: bubbles rise, stars twinkle, leaves sway, sweets fall. */
 export type DecoMotion = 'rise' | 'twinkle' | 'sway' | 'fall';
@@ -77,6 +82,46 @@ export const THEME_LOOKS: Record<TestTheme, ThemeLook> = {
     deco: ['lucide:crown', 'lucide:shield', 'lucide:swords', 'lucide:castle', 'lucide:gem'],
     motion: 'twinkle',
     runner: 'lucide:crown',
+  },
+  arctic: {
+    icon: 'lucide:snowflake',
+    background: 'linear-gradient(180deg, #38bdf8 0%, #0e7490 50%, #164e63 100%)',
+    tiles: ['#2563eb', '#0891b2', '#7c3aed', '#db2777'],
+    deco: ['lucide:snowflake', 'lucide:snowflake', 'lucide:cloud-snow', 'lucide:snowflake', 'lucide:mountain-snow'],
+    motion: 'fall',
+    runner: 'lucide:snowflake',
+  },
+  beach: {
+    icon: 'lucide:tree-palm',
+    background: 'linear-gradient(180deg, #f59e0b 0%, #f97316 35%, #0ea5e9 70%, #0369a1 100%)',
+    tiles: ['#0ea5e9', '#f43f5e', '#16a34a', '#a855f7'],
+    deco: ['lucide:sun', 'lucide:tree-palm', 'lucide:sailboat', 'lucide:shell', 'lucide:umbrella'],
+    motion: 'sway',
+    runner: 'lucide:sailboat',
+  },
+  sports: {
+    icon: 'lucide:trophy',
+    background: 'linear-gradient(180deg, #22c55e 0%, #15803d 50%, #052e16 100%)',
+    tiles: ['#ef4444', '#2563eb', '#f59e0b', '#7c3aed'],
+    deco: ['lucide:volleyball', 'lucide:trophy', 'lucide:medal', 'lucide:target', 'lucide:dumbbell'],
+    motion: 'rise',
+    runner: 'lucide:bike',
+  },
+  music: {
+    icon: 'lucide:music',
+    background: 'linear-gradient(160deg, #f472b6 0%, #9333ea 45%, #312e81 100%)',
+    tiles: ['#f59e0b', '#06b6d4', '#22c55e', '#ef4444'],
+    deco: ['lucide:music', 'lucide:music-2', 'lucide:guitar', 'lucide:headphones', 'lucide:mic'],
+    motion: 'rise',
+    runner: 'lucide:music-2',
+  },
+  farm: {
+    icon: 'lucide:tractor',
+    background: 'linear-gradient(180deg, #0ea5e9 0%, #65a30d 55%, #365314 100%)',
+    tiles: ['#dc2626', '#ea580c', '#2563eb', '#7c3aed'],
+    deco: ['lucide:wheat', 'lucide:carrot', 'lucide:apple', 'lucide:egg', 'lucide:wheat'],
+    motion: 'sway',
+    runner: 'lucide:tractor',
   },
 };
 
