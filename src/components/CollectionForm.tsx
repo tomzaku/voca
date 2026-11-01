@@ -12,7 +12,7 @@ function chatGptWordsUrl(topic: string): string {
   const prompt = `List English vocabulary words for this request: "${topic}".
 
 Rules:
-- Output ONLY the words, one per line
+- Output ONLY the words, on a single line, separated by commas
 - lowercase, no numbering, no bullets, no explanations, no duplicates
 
 I will paste your answer directly into a vocabulary app.`;
@@ -110,7 +110,9 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
       />
 
       {/* AI helper: describe a topic → ChatGPT opens with a prompt whose
-          answer (one word per line) pastes straight into the box below. */}
+          answer pastes straight into the box below. The answer is one
+          comma-separated line: copied one-per-line lists arrive with Markdown
+          line breaks (a trailing `\`) or get merged into a single line. */}
       <div className="p-3 rounded-xl bg-bg-tertiary/60 border border-border space-y-2">
         <p className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted uppercase tracking-wider">
           <Icon icon="lucide:sparkles" className="text-accent-purple" />
