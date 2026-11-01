@@ -40,7 +40,7 @@ import {
  * Generating happens here, while the teacher is signed in to look the words
  * up; the cards are plain data after that, so editing costs nothing.
  */
-export function QuestionEditor({ questions, onChange, pictures, onPictures, needed, initialWords }: {
+export function QuestionEditor({ questions, onChange, pictures, onPictures, needed, initialWords, sourceName, onImport }: {
   questions: EditableQuestion[];
   onChange: (next: EditableQuestion[]) => void;
   /** Picture questions' pictures, by word — for the previews only; the server shows its own. */
@@ -50,6 +50,10 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
   needed: number;
   /** Words to start the generator with — a collection's own, when testing it. */
   initialWords?: string[];
+  /** Where `initialWords` came from, for "30 words from Family". */
+  sourceName?: string;
+  /** Opens the question bank. Left out, there's no import choice — no saved sets to import from. */
+  onImport?: () => void;
 }) {
   const intl = useIntl();
   const mine = useCollections((s) => s.mine);
@@ -70,6 +74,12 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
   // Bumped after each hand-written question is added, so the form below
   // starts blank again for the next one.
   const [draftN, setDraftN] = useState(0);
+  // Which way of adding questions is open. With none yet, nothing is: she
+  // picks one of three. After that a toolbar opens them one at a time.
+  const [panel, setPanel] = useState<'generate' | 'write' | null>(null);
+  // The word list is folded to one line until she asks to see it.
+  const [showWords, setShowWords] = useState(false);
+  const [wordsSource, setWordsSource] = useState(sourceName ?? '');
 
   // Words looked up once per visit to the form: generating again, or adding
   // one more question about a word, doesn't ask twice.
@@ -147,6 +157,8 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
       const pics = types.includes('image') ? await loadPictures(usable) : {};
       const room = Math.max(0, MAX_QUESTIONS - questions.length);
       keep(generateQuestions({ words: usable, types, count: Math.min(count, room), data: data.current, wrongPool: wrongPool(usable), pictures: pics }));
+      // Done: fold the panel away so the new questions are what she sees.
+      setPanel(null);
     } finally {
       setBusy(null);
     }
@@ -198,95 +210,254 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
     if (!col) return;
     const pick = [...col.words].sort(() => Math.random() - 0.5).slice(0, 30).map((w) => (typeof w === 'string' ? w : w.word));
     setWordsText(pick.join('\n'));
+    setWordsSource(col.name);
   };
 
   const label = 'block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5';
   const input = 'w-full bg-bg-tertiary border-2 border-border rounded-xl px-3 py-2.5 text-text-primary focus:outline-none focus:border-accent-cyan';
-  const chip = (on: boolean) => `px-3 py-1.5 rounded-xl text-sm font-bold border-2 transition-colors ${on ? 'border-accent-cyan bg-accent-cyan/15 text-text-primary' : 'border-border text-text-muted'}`;
+  const full = questions.length >= MAX_QUESTIONS;
+  const toggle = (p: 'generate' | 'write') => setPanel((x) => (x === p ? null : p));
+
+  /** A panel's frame: its title, and a close once there's a list to go back to. */
+  const frame = (title: string, body: React.ReactNode) => (
+    <div className="rounded-2xl border-2 border-accent-cyan/40 bg-bg-secondary/40 p-4 space-y-4 animate-fade-in">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-display font-bold text-text-primary">{title}</span>
+        <button
+          type="button"
+          onClick={() => setPanel(null)}
+          aria-label={intl.formatMessage({ id: 'hunt.editor.close' })}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:bg-bg-tertiary hover:text-text-primary"
+        >
+          <Icon icon="lucide:x" />
+        </button>
+      </div>
+      {body}
+    </div>
+  );
+
+  const generatePanel = frame(intl.formatMessage({ id: 'hunt.editor.generateTitle' }), (
+    <>
+      {/* The words, folded to a line: most teachers never need to touch them. */}
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Icon icon="lucide:book-open" className="text-accent-cyan" />
+          <span className="text-sm text-text-primary font-semibold">
+            {wordsSource
+              ? <FormattedMessage id="hunt.editor.wordsFrom" values={{ n: words.length, name: wordsSource }} />
+              : <FormattedMessage id="hunt.editor.wordsCount" values={{ n: words.length }} />}
+          </span>
+          <button type="button" onClick={() => setShowWords((v) => !v)} className="text-xs font-bold text-accent-cyan hover:underline">
+            <FormattedMessage id={showWords ? 'hunt.editor.doneWords' : words.length ? 'hunt.editor.editWords' : 'hunt.editor.addWords'} />
+          </button>
+        </div>
+        {(showWords || !words.length) && (
+          <div className="mt-2 space-y-2">
+            <textarea
+              value={wordsText}
+              onChange={(e) => { setWordsText(e.target.value); setWordsSource(''); }}
+              rows={4}
+              placeholder={intl.formatMessage({ id: 'hunt.teacher.wordsPlaceholder' })}
+              aria-label={intl.formatMessage({ id: 'hunt.teacher.words' }, { n: words.length })}
+              className={input + ' text-sm'}
+            />
+            {/* An action, not a setting: picking a collection replaces the words. Hers first, then the built-in ones. */}
+            <Selector
+              value=""
+              options={[
+                { value: '', label: intl.formatMessage({ id: 'hunt.teacher.fillFrom' }), icon: 'lucide:library' },
+                ...mine.map((c) => ({ value: c.id, label: c.name, description: intl.formatMessage({ id: 'hunt.teacher.myCollections' }) })),
+                ...builtIn.map((c) => ({ value: c.id, label: c.name, description: intl.formatMessage({ id: 'hunt.teacher.builtIn' }) })),
+              ]}
+              onChange={(v) => { if (v) fillFrom(v); }}
+              ariaLabel={intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}
+            />
+          </div>
+        )}
+      </div>
+
+      <div>
+        <span className={label}><FormattedMessage id="hunt.editor.types" /></span>
+        <div className="flex flex-wrap gap-1.5">
+          {HUNT_TYPES.map((t) => {
+            const on = types.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setTypes((ts) => (ts.includes(t) ? ts.filter((x) => x !== t) : HUNT_TYPES.filter((x) => ts.includes(x) || x === t)))}
+                className={`pl-2 pr-3 py-1.5 rounded-xl text-sm font-bold border-2 flex items-center gap-1.5 transition-colors ${
+                  on ? 'border-accent-cyan bg-accent-cyan/15 text-text-primary' : 'border-border text-text-muted hover:border-border-light'
+                }`}
+              >
+                <Icon icon={on ? 'lucide:square-check' : 'lucide:square'} className={on ? 'text-accent-cyan' : ''} />
+                <FormattedMessage id={`hunt.typeName.${t}`} />
+              </button>
+            );
+          })}
+        </div>
+        {types.includes('image') && <p className="text-xs text-text-muted mt-1.5"><FormattedMessage id="hunt.editor.pictureHint" /></p>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-text-secondary">
+          <FormattedMessage id="hunt.editor.howMany" />
+          <input
+            type="range"
+            min={5}
+            max={MAX_GENERATE}
+            step={1}
+            value={count}
+            onChange={(e) => setCount(Number(e.target.value))}
+            className="accent-[var(--color-accent-cyan)]"
+          />
+          <span className="font-bold text-text-primary tabular-nums w-6">{count}</span>
+        </label>
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => void generate()}
+          disabled={!words.length || !types.length || Boolean(busy) || full}
+          className="px-4 py-2.5 rounded-xl bg-accent-cyan text-bg-primary text-sm font-display font-extrabold flex items-center gap-1.5 disabled:opacity-40"
+        >
+          <Icon icon={busy ? 'lucide:loader-2' : 'lucide:sparkles'} className={busy ? 'animate-spin' : ''} />
+          <FormattedMessage id={questions.length ? 'hunt.editor.generateMore' : 'hunt.editor.generate'} values={{ n: count }} />
+        </button>
+      </div>
+    </>
+  ));
+
+  // Pick the kind, then either a word for the app to make it from, or write it yourself.
+  const writePanel = frame(intl.formatMessage({ id: 'hunt.editor.writeTitle' }), (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Selector<HuntQuestionType>
+          value={addType}
+          options={[...HUNT_TYPES, 'custom' as const].map((t) => ({ value: t, label: intl.formatMessage({ id: `hunt.typeName.${t}` }) }))}
+          onChange={setAddType}
+          ariaLabel={intl.formatMessage({ id: 'hunt.editor.addType' })}
+        />
+        {addType !== 'custom' && (
+          <label className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer select-none">
+            <input type="checkbox" checked={addAuto} onChange={(e) => setAddAuto(e.target.checked)} className="w-4 h-4 accent-[var(--color-accent-cyan)]" />
+            <FormattedMessage id="hunt.editor.fromWord" />
+          </label>
+        )}
+      </div>
+      {auto && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={addWord}
+            onChange={(e) => setAddWord(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addOne(); } }}
+            maxLength={40}
+            placeholder={intl.formatMessage({ id: 'hunt.editor.addWord' })}
+            className="flex-1 min-w-[140px] bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm text-text-primary"
+          />
+          <button
+            type="button"
+            onClick={() => void addOne()}
+            disabled={Boolean(busy) || full || !addWord.trim()}
+            className="px-3 py-2 rounded-xl bg-accent-cyan text-bg-primary text-sm font-bold flex items-center gap-1.5 disabled:opacity-40"
+          >
+            <Icon icon="lucide:wand-2" />
+            <FormattedMessage id="hunt.editor.make" />
+          </button>
+        </div>
+      )}
+      {/* Written by hand: the form for this kind, right here — no extra click. */}
+      {!auto && (
+        <>
+          <p className="text-xs text-text-muted"><FormattedMessage id={`hunt.editor.writeHint.${addType}`} /></p>
+          {!full && (
+            <EditForm
+              key={`${addType}-${draftN}`}
+              question={blankQuestion(addType)}
+              adding
+              onSave={(q) => { onChange([...questions, q]); setDraftN((n) => n + 1); }}
+              onCancel={() => setDraftN((n) => n + 1)}
+              checkPicture={checkPicture}
+            />
+          )}
+        </>
+      )}
+    </>
+  ));
+
+  // ── Nothing yet: one clear choice of three ────────────────────────────
+  if (!questions.length && !panel) {
+    const choice = (icon: string, title: React.ReactNode, hint: React.ReactNode, onClick: () => void, primary = false) => (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`relative text-left rounded-2xl border-2 p-4 flex flex-col gap-2 transition-all hover:-translate-y-0.5 ${
+          primary ? 'border-accent-cyan bg-accent-cyan/10' : 'border-border hover:border-border-light'
+        }`}
+      >
+        {primary && (
+          <span className="absolute top-3 right-3 text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-accent-cyan text-bg-primary">
+            <FormattedMessage id="hunt.editor.recommended" />
+          </span>
+        )}
+        <span className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${primary ? 'bg-accent-cyan text-bg-primary' : 'bg-bg-tertiary text-text-primary'}`}>
+          <Icon icon={icon} />
+        </span>
+        <span className="font-display font-bold text-text-primary">{title}</span>
+        <span className="text-xs text-text-muted leading-relaxed">{hint}</span>
+      </button>
+    );
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-text-secondary"><FormattedMessage id="hunt.editor.startHint" /></p>
+        <div className={`grid gap-3 ${onImport ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+          {choice(
+            'lucide:sparkles',
+            wordsSource
+              ? <FormattedMessage id="hunt.editor.startGenerateFrom" values={{ name: wordsSource }} />
+              : <FormattedMessage id="hunt.editor.startGenerate" />,
+            <FormattedMessage id="hunt.editor.startGenerateHint" />,
+            () => setPanel('generate'),
+            true,
+          )}
+          {onImport && choice('lucide:library', <FormattedMessage id="hunt.editor.startImport" />, <FormattedMessage id="hunt.editor.startImportHint" />, onImport)}
+          {choice('lucide:pencil', <FormattedMessage id="hunt.editor.startWrite" />, <FormattedMessage id="hunt.editor.startWriteHint" />, () => setPanel('write'))}
+        </div>
+      </div>
+    );
+  }
+
+  const tool = (on: boolean) => `px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border-2 transition-colors disabled:opacity-40 ${
+    on ? 'border-accent-cyan bg-accent-cyan/15 text-text-primary' : 'border-transparent bg-bg-tertiary text-text-primary hover:text-accent-cyan'
+  }`;
+  const short = questions.length > 0 && ready < needed;
 
   return (
     <div className="space-y-4">
-      {/* Generate a set from words. */}
-      <div className="rounded-xl border border-border bg-bg-secondary/40 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className={label + ' !mb-0'}><FormattedMessage id="hunt.editor.generateTitle" /></span>
-          {/* An action, not a setting: it stays on its prompt, and picking a
-              collection fills the words. Hers first, then the built-in ones. */}
-          <Selector
-            align="right"
-            value=""
-            options={[
-              { value: '', label: intl.formatMessage({ id: 'hunt.teacher.fillFrom' }), icon: 'lucide:library' },
-              ...mine.map((c) => ({ value: c.id, label: c.name, description: intl.formatMessage({ id: 'hunt.teacher.myCollections' }) })),
-              ...builtIn.map((c) => ({ value: c.id, label: c.name, description: intl.formatMessage({ id: 'hunt.teacher.builtIn' }) })),
-            ]}
-            onChange={(v) => { if (v) fillFrom(v); }}
-            ariaLabel={intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}
-          />
-        </div>
-        <textarea
-          value={wordsText}
-          onChange={(e) => setWordsText(e.target.value)}
-          rows={3}
-          placeholder={intl.formatMessage({ id: 'hunt.teacher.wordsPlaceholder' })}
-          aria-label={intl.formatMessage({ id: 'hunt.teacher.words' }, { n: words.length })}
-          className={input + ' text-sm'}
-        />
-        <div className="flex flex-wrap gap-1.5">
-          {HUNT_TYPES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTypes((ts) => (ts.includes(t) ? ts.filter((x) => x !== t) : HUNT_TYPES.filter((x) => ts.includes(x) || x === t)))}
-              className={chip(types.includes(t))}
-            >
-              <FormattedMessage id={`hunt.typeName.${t}`} />
+      {/* With questions: the list leads, and the ways to add more sit in one row above it. */}
+      {questions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={`mr-auto text-sm font-bold ${short ? 'text-accent-red' : 'text-text-primary'}`}>
+            {short
+              ? <FormattedMessage id="hunt.editor.count" values={{ n: ready, needed }} />
+              : <FormattedMessage id="hunt.editor.countPlain" values={{ n: ready }} />}
+          </p>
+          <button type="button" onClick={() => toggle('generate')} disabled={full} className={tool(panel === 'generate')}>
+            <Icon icon="lucide:sparkles" /> <FormattedMessage id="hunt.editor.toolGenerate" />
+          </button>
+          {onImport && (
+            <button type="button" onClick={onImport} disabled={full} className={tool(false)}>
+              <Icon icon="lucide:library" /> <FormattedMessage id="hunt.editor.toolImport" />
             </button>
-          ))}
-        </div>
-        {types.includes('image') && <p className="text-xs text-text-muted"><FormattedMessage id="hunt.editor.pictureHint" /></p>}
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-text-secondary">
-            <FormattedMessage id="hunt.editor.howMany" />
-            <input
-              type="range"
-              min={5}
-              max={MAX_GENERATE}
-              step={1}
-              value={count}
-              onChange={(e) => setCount(Number(e.target.value))}
-              className="accent-[var(--color-accent-cyan)]"
-            />
-            <span className="font-bold text-text-primary tabular-nums w-6">{count}</span>
-          </label>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={() => void generate()}
-            disabled={!words.length || !types.length || Boolean(busy) || questions.length >= MAX_QUESTIONS}
-            className="px-4 py-2.5 rounded-xl bg-accent-cyan text-bg-primary text-sm font-display font-extrabold flex items-center gap-1.5 disabled:opacity-40"
-          >
-            <Icon icon="lucide:sparkles" />
-            <FormattedMessage id={questions.length ? 'hunt.editor.generateMore' : 'hunt.editor.generate'} values={{ n: count }} />
+          )}
+          <button type="button" onClick={() => toggle('write')} disabled={full} className={tool(panel === 'write')}>
+            <Icon icon="lucide:pencil" /> <FormattedMessage id="hunt.editor.toolWrite" />
           </button>
         </div>
-      </div>
+      )}
 
-      {/* The set, as students will see it. */}
-      <div className="flex items-center justify-between gap-2">
-        <p className={`text-sm font-bold ${ready < needed ? 'text-accent-red' : 'text-text-primary'}`}>
-          <FormattedMessage id="hunt.editor.count" values={{ n: ready, needed }} />
-        </p>
-        {questions.length > 0 && (
-          <button
-            type="button"
-            onClick={() => { if (window.confirm(intl.formatMessage({ id: 'hunt.editor.confirmClear' }))) onChange([]); }}
-            className="text-xs font-bold text-text-muted hover:text-accent-red"
-          >
-            <FormattedMessage id="hunt.editor.clear" />
-          </button>
-        )}
-      </div>
+      {panel === 'generate' && generatePanel}
+      {panel === 'write' && writePanel}
 
       {busy && <p className="text-sm text-text-muted flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />{busy}</p>}
 
@@ -312,64 +483,17 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
         ))}
       </div>
 
-      {/* Add one more: pick the kind, then either a word for the app to make
-          it from, or write it yourself. */}
-      <div className="rounded-xl border-2 border-dashed border-border p-3 space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="hunt.editor.addTitle" /></span>
-          <Selector<HuntQuestionType>
-            value={addType}
-            options={[...HUNT_TYPES, 'custom' as const].map((t) => ({ value: t, label: intl.formatMessage({ id: `hunt.typeName.${t}` }) }))}
-            onChange={setAddType}
-            ariaLabel={intl.formatMessage({ id: 'hunt.editor.addType' })}
-          />
-          {addType !== 'custom' && (
-            <label className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer select-none">
-              <input type="checkbox" checked={addAuto} onChange={(e) => setAddAuto(e.target.checked)} className="w-4 h-4 accent-[var(--color-accent-cyan)]" />
-              <FormattedMessage id="hunt.editor.fromWord" />
-            </label>
-          )}
+      {questions.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => { if (window.confirm(intl.formatMessage({ id: 'hunt.editor.confirmClear' }))) { onChange([]); setPanel(null); } }}
+            className="text-xs font-bold text-text-muted hover:text-accent-red"
+          >
+            <FormattedMessage id="hunt.editor.clear" />
+          </button>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {auto && (
-            <input
-              value={addWord}
-              onChange={(e) => setAddWord(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addOne(); } }}
-              maxLength={40}
-              placeholder={intl.formatMessage({ id: 'hunt.editor.addWord' })}
-              className="flex-1 min-w-[140px] bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm text-text-primary"
-            />
-          )}
-          {auto && (
-            <button
-              type="button"
-              onClick={() => void addOne()}
-              disabled={Boolean(busy) || questions.length >= MAX_QUESTIONS || !addWord.trim()}
-              className="px-3 py-2 rounded-xl bg-accent-cyan/15 text-sm font-bold text-text-primary flex items-center gap-1.5 disabled:opacity-40"
-            >
-              <Icon icon="lucide:wand-2" />
-              <FormattedMessage id="hunt.editor.make" />
-            </button>
-          )}
-        </div>
-        {/* Written by hand: the form for this kind, right here — no extra click. */}
-        {!auto && (
-          <>
-            <p className="text-xs text-text-muted"><FormattedMessage id={`hunt.editor.writeHint.${addType}`} /></p>
-            {questions.length < MAX_QUESTIONS && (
-              <EditForm
-                key={`${addType}-${draftN}`}
-                question={blankQuestion(addType)}
-                adding
-                onSave={(q) => { onChange([...questions, q]); setDraftN((n) => n + 1); }}
-                onCancel={() => setDraftN((n) => n + 1)}
-                checkPicture={checkPicture}
-              />
-            )}
-          </>
-        )}
-      </div>
+      )}
     </div>
   );
 }

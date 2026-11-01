@@ -402,18 +402,7 @@ function CreateHunt({ onCancel, existing }: {
       )}
 
       {!live && <div>
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className={label + ' !mb-0'}><FormattedMessage id="hunt.editor.title" /></span>
-          {sets.some((s) => s.id !== setId) && (
-            <button
-              type="button"
-              onClick={() => setImporting(true)}
-              className="px-3 py-1.5 rounded-xl bg-bg-tertiary text-xs font-bold text-text-primary flex items-center gap-1.5 hover:text-accent-cyan"
-            >
-              <Icon icon="lucide:download" /> <FormattedMessage id="hunt.import.open" />
-            </button>
-          )}
-        </div>
+        <span className={label}><FormattedMessage id="hunt.editor.title" /></span>
         {importing && (
           <ImportQuestions
             // Her other sets — this hunt's own is already on screen.
@@ -435,6 +424,8 @@ function CreateHunt({ onCancel, existing }: {
           pictures={pictures}
           onPictures={addPictures}
           needed={treasureOk ? count : 3}
+          // Her other sets — this hunt's own is already on screen.
+          onImport={sets.some((s) => s.id !== setId) ? () => setImporting(true) : undefined}
         />
         <p className="mt-3 text-xs text-text-muted flex items-center gap-1.5">
           <Icon icon="lucide:save" />

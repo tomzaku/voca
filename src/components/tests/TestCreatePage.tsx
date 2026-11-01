@@ -201,18 +201,7 @@ export function TestCreatePage() {
       {/* Step 1 stays mounted while hidden, so the editor keeps its words and lookups. */}
       <div className={`rounded-2xl border border-border bg-bg-card p-5 space-y-5 ${step === 1 ? '' : 'hidden'}`}>
         <div>
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-            <span className={label + ' !mb-0'}><FormattedMessage id="tests.questionsLabel" /></span>
-            {sets.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setImporting(true)}
-                className="px-3 py-1.5 rounded-xl bg-bg-tertiary text-xs font-bold text-text-primary flex items-center gap-1.5 hover:text-accent-cyan"
-              >
-                <Icon icon="lucide:library" /> <FormattedMessage id="tests.importBank" />
-              </button>
-            )}
-          </div>
+          <span className={label}><FormattedMessage id="tests.questionsLabel" /></span>
           {importing && (
             <ImportQuestions
               sets={sets}
@@ -233,6 +222,8 @@ export function TestCreatePage() {
             onPictures={addPictures}
             needed={1}
             initialWords={col.words}
+            sourceName={col.name}
+            onImport={sets.length ? () => setImporting(true) : undefined}
           />
           <p className="mt-3 text-xs text-text-muted flex items-center gap-1.5">
             <Icon icon="lucide:save" />
