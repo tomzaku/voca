@@ -66,6 +66,8 @@ export default {
   'tests.previewClose': 'Đóng xem trước',
   'tests.previewDone': 'Hết phần xem trước.',
   'tests.previewAgain': 'Chơi lại',
+  'tests.previewMine': 'Câu hỏi của tôi',
+  'tests.previewEveryKind': 'Mọi dạng câu hỏi',
   'tests.theme.classic': 'Cổ điển',
   'tests.theme.ocean': 'Đại dương',
   'tests.theme.space': 'Vũ trụ',

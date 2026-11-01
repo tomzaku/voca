@@ -66,6 +66,8 @@ export default {
   'tests.previewClose': 'Close preview',
   'tests.previewDone': 'That’s the end of the preview.',
   'tests.previewAgain': 'Play again',
+  'tests.previewMine': 'My questions',
+  'tests.previewEveryKind': 'Every question type',
   'tests.theme.classic': 'Classic',
   'tests.theme.ocean': 'Ocean',
   'tests.theme.space': 'Space',

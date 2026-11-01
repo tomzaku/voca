@@ -229,9 +229,16 @@ function ThemePreview({ theme, instant, questions, loadImage, onClose }: {
   onClose: () => void;
 }) {
   const intl = useIntl();
-  const list = questions.length ? questions.slice(0, 10) : SAMPLES;
+  // Her own questions when she has some — with a switch to one of every kind.
+  const [own, setOwn] = useState(questions.length > 0);
+  const list = own && questions.length ? questions.slice(0, 10) : SAMPLES;
   const [at, setAt] = useState(0);
   const [marks, setMarks] = useState<Record<string, Check>>({});
+  const switchTo = (mine: boolean) => { setOwn(mine); setAt(0); setMarks({}); };
+  const image = useCallback(
+    async (key: string) => (key === SAMPLE_IMAGE ? SUITCASE : loadImage ? loadImage(key) : Promise.reject(new Error('No picture'))),
+    [loadImage],
+  );
   const look = themeLook(theme);
   const onStage = !!look.background;
 
@@ -279,6 +286,24 @@ function ThemePreview({ theme, instant, questions, loadImage, onClose }: {
             </button>
           </div>
 
+          {questions.length > 0 && (
+            <div className={`inline-flex rounded-full p-1 text-xs font-bold ${onStage ? 'bg-black/25' : 'bg-bg-tertiary'}`}>
+              {[true, false].map((mine) => (
+                <button
+                  key={String(mine)}
+                  type="button"
+                  onClick={() => switchTo(mine)}
+                  aria-pressed={own === mine}
+                  className={`px-3 py-1.5 rounded-full transition-colors ${
+                    own === mine ? 'bg-white text-gray-900' : onStage ? 'text-white/85 hover:text-white' : 'text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  <FormattedMessage id={mine ? 'tests.previewMine' : 'tests.previewEveryKind'} />
+                </button>
+              ))}
+            </div>
+          )}
+
           {p ? (
             <>
               <div className="flex items-center gap-3">
@@ -292,7 +317,7 @@ function ThemePreview({ theme, instant, questions, loadImage, onClose }: {
                   cooldown={0}
                   busy={!!mark}
                   onAnswer={(a) => answer(p, a)}
-                  loadImage={loadImage}
+                  loadImage={image}
                   tileColors={look.tiles}
                   reveal={mark ? { given: mark.given, answer: mark.answer } : undefined}
                 />
@@ -326,14 +351,43 @@ function ThemePreview({ theme, instant, questions, loadImage, onClose }: {
   );
 }
 
-const sample = (id: string, prompt: string, answer: string, options: string[]): PreviewQuestion => ({
-  question: { id, type: 'definition', prompt, options, image: null, slotPrompts: null, say: null, scrambled: null, length: null },
+type SampleFields = Partial<Omit<PublicQuestion, 'type'>>;
+const sample = (id: string, type: PublicQuestion['type'], q: SampleFields, answer: string, more: Partial<PreviewQuestion> = {}): PreviewQuestion => ({
+  question: { id, type, prompt: '', options: null, image: null, slotPrompts: null, say: null, scrambled: null, length: null, ...q },
   answer,
+  ...more,
 });
 
-/** For a teacher who hasn't written questions yet — or the owner's view of a sent test. */
+/** The key the sample picture question asks for; the preview answers it with SUITCASE. */
+const SAMPLE_IMAGE = 'sample-picture';
+
+/** A suitcase, drawn — the sample picture question's picture. */
+const SUITCASE = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">'
+  + '<rect x="44" y="18" width="32" height="18" rx="6" fill="none" stroke="#1f2937" stroke-width="6"/>'
+  + '<rect x="16" y="34" width="88" height="66" rx="12" fill="#f97316" stroke="#1f2937" stroke-width="6"/>'
+  + '<line x1="40" y1="34" x2="40" y2="100" stroke="#1f2937" stroke-width="6"/>'
+  + '<line x1="80" y1="34" x2="80" y2="100" stroke="#1f2937" stroke-width="6"/>'
+  + '<circle cx="34" cy="106" r="6" fill="#1f2937"/><circle cx="86" cy="106" r="6" fill="#1f2937"/></svg>',
+)}`;
+
+/**
+ * One of every kind a test can ask — for a teacher who hasn't written
+ * questions yet, the owner's view of a sent test, or "show me everything".
+ */
 const SAMPLES: PreviewQuestion[] = [
-  sample('s1', 'A journey for pleasure, often to another country', 'trip', ['trip', 'ticket', 'luggage', 'border']),
-  sample('s2', 'The bags you take with you when you travel', 'luggage', ['passport', 'luggage', 'souvenir', 'hostel']),
-  sample('s3', 'A small object you buy to remember a place', 'souvenir', ['map', 'guide', 'souvenir', 'visa']),
+  sample('s-definition', 'definition', { prompt: 'A journey for pleasure, often to another country', options: ['trip', 'ticket', 'luggage', 'border'] }, 'trip'),
+  sample('s-sentence', 'sentence', { prompt: 'Please show your ___ at passport control.', options: ['souvenir', 'passport', 'hostel', 'map'] }, 'passport'),
+  sample('s-listen', 'listen', { say: 'airport', options: ['airline', 'airport', 'aircraft', 'airway'] }, 'airport'),
+  sample('s-image', 'image', { image: SAMPLE_IMAGE, options: ['backpack', 'suitcase', 'wallet', 'umbrella'] }, 'suitcase'),
+  sample('s-unscramble', 'unscramble', { prompt: 'Where you sleep on holiday', scrambled: 'LTEOH', length: 5 }, 'hotel'),
+  sample('s-spell', 'spell', { say: 'luggage', length: 7 }, 'luggage'),
+  sample(
+    's-match',
+    'match',
+    { slotPrompts: ['A plane leaves from here', 'A small present you bring home', 'Money for a journey'], options: ['fare', 'airport', 'souvenir'] },
+    'airport · souvenir · fare',
+    { slots: ['airport', 'souvenir', 'fare'] },
+  ),
+  sample('s-custom', 'custom', { prompt: 'What do we call a person who travels for fun?' }, 'tourist', { accept: ['traveller', 'traveler'] }),
 ];
