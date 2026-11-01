@@ -1262,7 +1262,9 @@ export function GameWorld({
              character stays put until you leave. ── */}
       {panel && (
         <div className={`absolute inset-0 z-30 animate-fade-in ${roomId ? '' : 'bg-black/20'}`}>
-          <div className="px absolute top-0 inset-x-0 z-10 px-frame px-3 h-[3.25rem] flex items-center gap-3">
+          {/* The bar's frame runs up under the notch; its contents and the
+              activity's HUD (laid out from the layer's top) start below it. */}
+          <div className="px absolute top-0 inset-x-0 z-10 px-frame pt-[var(--sat)] pl-[calc(0.75rem+var(--sal))] pr-[calc(0.75rem+var(--sar))] h-[calc(3.25rem+var(--sat))] flex items-center gap-3">
             <span className="text-[20px] leading-none shrink-0">{panel.emoji}</span>
             <span className="px-title !text-[16px] text-[var(--px-gold)] truncate">{panel.title}</span>
             <span className="flex-1" />
@@ -1283,7 +1285,7 @@ export function GameWorld({
               <span className="hidden sm:inline opacity-60 !text-[11px]">Esc</span>
             </PixelButton>
           </div>
-          {panel.content}
+          <div className="absolute inset-x-0 bottom-0 top-[var(--sat)]">{panel.content}</div>
         </div>
       )}
     </div>
