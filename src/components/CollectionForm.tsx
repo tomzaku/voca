@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCollections } from '../hooks/useCollections';
+import { splitWordList } from '../lib/wordList';
 
 /** ChatGPT URL pre-filled with a prompt that yields a paste-ready word list. */
 function chatGptWordsUrl(topic: string): string {
@@ -19,8 +20,7 @@ I will paste your answer directly into a vocabulary app.`;
 /** Parse a free-form words input (newlines/commas) into clean single words. */
 export function parseWords(input: string): string[] {
   const seen = new Set<string>();
-  for (const raw of input.split(/[\n,;]+/)) {
-    const w = raw.trim().toLowerCase();
+  for (const w of splitWordList(input)) {
     if (/^[a-z]+(?:[ '-][a-z]+)*$/.test(w) && w.length >= 2) seen.add(w);
   }
   return [...seen].slice(0, 1000);

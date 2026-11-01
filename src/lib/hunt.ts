@@ -6,6 +6,7 @@
 
 import type { MiniWordData } from './quizShare';
 import { blankSentence } from './quizEngine';
+import { splitWordList } from './wordList';
 
 export type HuntQuestionType =
   | 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'image' | 'match' | 'custom';
@@ -333,7 +334,7 @@ export function pickPlaces(n: number, rand: Rand = Math.random): string[] {
 
 /** Words from the teacher's text box: one per line or comma, de-duplicated, lower-case, capped. */
 export function parseWords(text: string): string[] {
-  return [...new Set(text.split(/[\n,;]+/).map((w) => w.trim().toLowerCase()).filter(Boolean))].slice(0, MAX_WORDS);
+  return [...new Set(splitWordList(text))].slice(0, MAX_WORDS);
 }
 
 /**
