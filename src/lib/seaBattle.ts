@@ -50,6 +50,28 @@ export function canPlace(ship: Ship, others: Ship[]): boolean {
   return cells.every((i) => around(i).every((j) => !taken.has(j)));
 }
 
+/** Where `ship` fits nearest to where it is now, without touching `others`
+ *  — at most `reach` squares away (rows plus columns), or null if nowhere.
+ *  So a turn or a drop that's blocked slides over instead of failing. */
+export function nearestFit(ship: Ship, others: Ship[], reach = SEA * 2): Ship | null {
+  const r0 = rowOf(ship.at), c0 = colOf(ship.at);
+  let best: Ship | null = null, bestD = Infinity;
+  for (let at = 0; at < SEA * SEA; at++) {
+    const d = Math.abs(rowOf(at) - r0) + Math.abs(colOf(at) - c0);
+    if (d > reach || d >= bestD) continue;
+    const s = { ...ship, at };
+    if (canPlace(s, others)) { best = s; bestD = d; }
+  }
+  return best;
+}
+
+/** A ship moved so its square `grab` (0 = bow) sits on `cell`, kept on the sea. */
+export function dragTo(ship: Ship, grab: number, cell: number): Ship {
+  const r = Math.min(Math.max(rowOf(cell) - (ship.down ? grab : 0), 0), SEA - (ship.down ? ship.size : 1));
+  const c = Math.min(Math.max(colOf(cell) - (ship.down ? 0 : grab), 0), SEA - (ship.down ? 1 : ship.size));
+  return { ...ship, at: r * SEA + c };
+}
+
 /** A whole fleet, placed at random. */
 export function randomFleet(rand: () => number = Math.random): Ship[] {
   // Retrying from scratch is rare on an 8×8 sea, and always ends.

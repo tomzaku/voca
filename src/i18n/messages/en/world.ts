@@ -235,7 +235,7 @@ export default {
   'world.chain.short': '{name}: “{word}” is too short — three letters at least.',
   'world.chain.time': '{name} ran out of time.',
   'world.seaTitle': 'Sea Battle',
-  'world.seaPlace': 'Hide your fleet — tap a ship, then tap the sea to move it.',
+  'world.seaPlace': 'Hide your fleet — drag a ship to move it, tap it to turn it.',
   'world.seaRotate': 'Rotate',
   'world.seaShuffle': 'Shuffle',
   'world.seaReady': 'Ready',

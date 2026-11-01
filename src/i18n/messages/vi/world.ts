@@ -233,7 +233,7 @@ export default {
   'world.chain.short': '{name}: “{word}” ngắn quá — ít nhất ba chữ cái.',
   'world.chain.time': '{name} đã hết giờ.',
   'world.seaTitle': 'Bắn tàu',
-  'world.seaPlace': 'Giấu hạm đội — chạm một tàu, rồi chạm biển để dời nó.',
+  'world.seaPlace': 'Giấu hạm đội — kéo tàu để dời, chạm vào tàu để xoay.',
   'world.seaRotate': 'Xoay',
   'world.seaShuffle': 'Xếp lại',
   'world.seaReady': 'Sẵn sàng',

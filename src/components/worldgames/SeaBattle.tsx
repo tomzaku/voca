@@ -1,15 +1,15 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useMatch } from '../../hooks/useMatch';
-import { FLEET, SEA, canPlace, firesNext, parseFleet, parseResult, randomFleet, shipCells, takeShot, type Ship, type ShotResult } from '../../lib/seaBattle';
+import { FLEET, SEA, dragTo, firesNext, nearestFit, parseFleet, parseResult, randomFleet, shipCells, takeShot, type Ship, type ShotResult } from '../../lib/seaBattle';
 import { playCorrect, playSelect, playWin, playWrong } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
 import { MatchWindow } from './MatchWindow';
 import { PixelButton } from './pixel';
 
 // Sea Battle with another player (lib/seaBattle). First each of you hides a
-// fleet — it starts shuffled; tap a ship to pick it, tap the sea to move it,
-// rotate or shuffle. Once both are ready you fire, the host first, and a hit
+// fleet — it starts shuffled; drag a ship to move it, tap it to turn it, or
+// shuffle. Once both are ready you fire, the host first, and a hit
 // fires again. Your fleet stays on your device: a shot goes over, and the
 // side it was fired at answers miss, hit or sunk. A shot or a "ready" is sent
 // again until it's answered, so a dropped message only slows the game down.
@@ -20,6 +20,8 @@ import { PixelButton } from './pixel';
 
 const RESEND_MS = 2000;
 const TOAST_MS = 1800;
+/** How far a dropped ship may slide to find room. */
+const DROP_REACH = 2;
 const WATER = '#1f4f6b', HULL = '#9aa3ad', DARK = '#123447', WRECK = '#5a2a2a';
 
 /** Where a square sits in its ship, to round off the bow and stern. */
@@ -75,6 +77,78 @@ function SeaGrid({ square, onTap, can, max, fxKey = 0 }: {
             {mark && <span key={fx ? fxKey : undefined} className={fx ? 'px-pop relative z-10' : 'relative'}>{mark}</span>}
           </button>
         );
+      })}
+    </div>
+  );
+}
+
+const shipAt = (ships: Ship[], i: number) => ships.findIndex((s) => shipCells(s)?.includes(i));
+
+/** Hiding the fleet: drag a ship to move it, tap one to turn it. Pointer
+ *  events, so a finger works the same as a mouse — the grid captures the
+ *  pointer and holds off scrolling while a ship is in hand. The ship follows
+ *  by the square you grabbed it by, gold where it fits and red where not. */
+function FleetEditor({ fleet, picked, onPick, onMove, onRotate, max }: {
+  fleet: Ship[];
+  picked: number | null;
+  onPick: (i: number | null) => void;
+  onMove: (i: number, to: Ship) => void;
+  onRotate: (i: number) => void;
+  max: number;
+}) {
+  const grid = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<{ ship: number; grab: number; from: number; to: Ship; moved: boolean } | null>(null);
+
+  const cellAt = (e: PointerEvent) => {
+    const r = grid.current!.getBoundingClientRect();
+    const clamp = (n: number) => Math.min(Math.max(n, 0), SEA - 1);
+    return clamp(Math.floor(((e.clientY - r.top) / r.height) * SEA)) * SEA + clamp(Math.floor(((e.clientX - r.left) / r.width) * SEA));
+  };
+  const down = (e: PointerEvent) => {
+    const cell = cellAt(e), i = shipAt(fleet, cell);
+    if (i < 0) { onPick(null); return; }
+    e.preventDefault();
+    grid.current!.setPointerCapture(e.pointerId);
+    setDrag({ ship: i, grab: shipCells(fleet[i])!.indexOf(cell), from: cell, to: fleet[i], moved: false });
+    onPick(i);
+    playSelect();
+  };
+  const move = (e: PointerEvent) => {
+    if (!drag) return;
+    const cell = cellAt(e);
+    if (!drag.moved && cell === drag.from) return;
+    const to = dragTo(fleet[drag.ship], drag.grab, cell);
+    if (!drag.moved || to.at !== drag.to.at) setDrag({ ...drag, to, moved: true });
+  };
+  const up = () => {
+    if (!drag) return;
+    setDrag(null);
+    if (drag.moved) onMove(drag.ship, drag.to); else onRotate(drag.ship);
+  };
+
+  // Where it would land if let go now: the same slide the drop makes.
+  const landing = drag?.moved ? nearestFit(drag.to, fleet.filter((_, k) => k !== drag.ship), DROP_REACH) : null;
+  const shown = landing ?? drag?.to ?? null;
+  const ghost = drag?.moved && shown ? new Set(shipCells(shown)) : null;
+  const fits = !!landing;
+
+  return (
+    <div
+      ref={grid}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={() => setDrag(null)}
+      className="grid gap-[2px] p-[3px] mx-auto px-notch select-none"
+      style={{ gridTemplateColumns: `repeat(${SEA}, minmax(0, 1fr))`, maxWidth: max, background: DARK, touchAction: 'none' }}
+    >
+      {Array.from({ length: SEA * SEA }, (_, i) => {
+        const at = shipAt(fleet, i), lifted = drag?.moved && at === drag.ship;
+        const style: CSSProperties = ghost?.has(i)
+          ? { background: fits ? 'var(--px-gold)' : 'var(--px-bad)', opacity: 0.85, ...hullShape(shown!, i) }
+          : at >= 0 ? { background: picked === at ? 'var(--px-gold)' : HULL, opacity: lifted ? 0.3 : 1, ...hullShape(fleet[at], i) }
+          : { background: WATER };
+        return <div key={i} className={`aspect-square ${at >= 0 ? 'cursor-grab' : ''}`} style={style} />;
       })}
     </div>
   );
@@ -185,23 +259,14 @@ export function SeaBattle({ link, onClose }: { link: MatchLink; onClose: () => v
     link.send({ kind: 'shot', ...shot });
   };
 
-  // ── Hiding the fleet ──
-  const shipAt = (ships: Ship[], i: number) => ships.findIndex((s) => shipCells(s)?.includes(i));
-  const move = (i: number) => {
-    const at = shipAt(fleet, i);
-    if (picked === null || (at >= 0 && at !== picked)) { setPicked(at >= 0 ? at : null); if (at >= 0) playSelect(); return; }
-    if (at === picked) { setPicked(null); return; }
-    const next = { ...fleet[picked], at: i };
-    if (!canPlace(next, fleet.filter((_, k) => k !== picked))) { playWrong(); return; }
-    setFleet(fleet.map((s, k) => (k === picked ? next : s)));
-    playSelect();
+  // ── Hiding the fleet ── a blocked drop or turn slides to the nearest
+  // spot that fits rather than failing; a drop only a square or so away.
+  const place = (i: number, to: Ship, reach: number) => {
+    const fit = nearestFit(to, fleet.filter((_, k) => k !== i), reach);
+    if (!fit) { playWrong(); return; }
+    setFleet(fleet.map((s, k) => (k === i ? fit : s)));
   };
-  const rotate = () => {
-    if (picked === null) return;
-    const next = { ...fleet[picked], down: !fleet[picked].down };
-    if (!canPlace(next, fleet.filter((_, k) => k !== picked))) { playWrong(); return; }
-    setFleet(fleet.map((s, k) => (k === picked ? next : s)));
-  };
+  const rotate = (i: number | null) => { if (i !== null) place(i, { ...fleet[i], down: !fleet[i].down }, SEA * 2); };
 
   /** The newest shot's effect, on whichever sea it landed. */
   const fxOn = (mine: boolean, i: number): Pick<Square, 'fx' | 'sinking'> =>
@@ -253,10 +318,12 @@ export function SeaBattle({ link, onClose }: { link: MatchLink; onClose: () => v
       <div className="relative">
         {!battle ? (
           <>
-            <SeaGrid square={mySquare} onTap={ready ? undefined : move} max={320} />
+            {ready
+              ? <SeaGrid square={mySquare} max={320} />
+              : <FleetEditor fleet={fleet} picked={picked} onPick={setPicked} onMove={(i, to) => place(i, to, DROP_REACH)} onRotate={rotate} max={320} />}
             {!ready && (
               <div className="grid grid-cols-3 gap-1.5 mt-3">
-                <PixelButton tone="paper" disabled={picked === null} onClick={rotate} className="!text-[13px] !px-2"><FormattedMessage id="world.seaRotate" /></PixelButton>
+                <PixelButton tone="paper" disabled={picked === null} onClick={() => rotate(picked)} className="!text-[13px] !px-2"><FormattedMessage id="world.seaRotate" /></PixelButton>
                 <PixelButton tone="paper" onClick={() => { setFleet(randomFleet()); setPicked(null); }} className="!text-[13px] !px-2"><FormattedMessage id="world.seaShuffle" /></PixelButton>
                 <PixelButton tone="jade" onClick={() => { setReady(true); setPicked(null); if (theyReady) begin(); }} className="!text-[13px] !px-2"><FormattedMessage id="world.seaReady" /></PixelButton>
               </div>

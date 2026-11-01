@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FLEET, SEA, canPlace, firesNext, fleetReady, parseFleet, randomFleet, shipCells, takeShot, type Ship } from './seaBattle';
+import { FLEET, SEA, canPlace, dragTo, firesNext, nearestFit, fleetReady, parseFleet, randomFleet, shipCells, takeShot, type Ship } from './seaBattle';
 
 describe('shipCells', () => {
   it('runs across or down from its bow, and not off the sea', () => {
@@ -54,5 +54,31 @@ describe('firesNext', () => {
     expect(firesNext([{ by: 'a', hit: true }], 'a', 'b')).toBe('a');
     expect(firesNext([{ by: 'a', hit: true }, { by: 'a', hit: false }], 'a', 'b')).toBe('b');
     expect(firesNext([{ by: 'a', hit: false }, { by: 'b', hit: false }], 'a', 'b')).toBe('a');
+  });
+});
+
+describe('nearestFit', () => {
+  const others: Ship[] = [{ size: 2, at: 2 * SEA, down: false }];
+  it('keeps a ship where it is when it fits', () => {
+    const s: Ship = { size: 3, at: 5 * SEA, down: false };
+    expect(nearestFit(s, others)).toEqual(s);
+  });
+  it('slides a blocked ship to the closest spot that fits', () => {
+    const turned: Ship = { size: 3, at: 0, down: true };
+    const fit = nearestFit(turned, others)!;
+    expect(canPlace(fit, others)).toBe(true);
+    expect(fit.down).toBe(true);
+    expect(fit.at).toBe(3);
+  });
+  it('gives up beyond its reach', () => {
+    expect(nearestFit({ size: 3, at: 0, down: true }, others, 0)).toBeNull();
+  });
+});
+
+describe('dragTo', () => {
+  it('moves the grabbed square onto the cell, staying on the sea', () => {
+    expect(dragTo({ size: 3, at: 0, down: false }, 1, 2 * SEA + 4)).toEqual({ size: 3, at: 2 * SEA + 3, down: false });
+    expect(dragTo({ size: 3, at: 0, down: false }, 0, SEA - 1)).toEqual({ size: 3, at: SEA - 3, down: false });
+    expect(dragTo({ size: 3, at: 0, down: true }, 2, 1)).toEqual({ size: 3, at: 1, down: true });
   });
 });
