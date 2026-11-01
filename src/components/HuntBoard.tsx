@@ -94,6 +94,9 @@ export function HuntBoard() {
           </p>
         </div>
         {live && <div className="text-4xl font-display font-extrabold tabular-nums text-text-primary">{clock(left)}</div>}
+        <Link to={`/hunts/${hunt.id}/try`} className="px-4 py-2.5 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary flex items-center gap-1.5">
+          <Icon icon="lucide:gamepad-2" /> <FormattedMessage id="hunt.try.button" />
+        </Link>
         {hunt.mode === 'qr' && (
           <Link to={`/hunts/${hunt.id}/cards`} className="px-4 py-2.5 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary flex items-center gap-1.5">
             <Icon icon="lucide:printer" /> <FormattedMessage id="hunt.teacher.printCards" />
@@ -227,6 +230,17 @@ function Lobby({ board, busy, onMove }: { board: Board; busy: boolean; onMove: (
         <p className="sm:col-span-2 text-sm text-text-muted">
           <FormattedMessage id="hunt.teacher.lobbyHint" values={{ need: hunt.need, min: hunt.durationMin }} />
         </p>
+        <Link
+          to={`/hunts/${hunt.id}/try`}
+          className="sm:col-span-2 rounded-2xl border-2 border-dashed border-accent-cyan/50 bg-accent-cyan/5 p-4 flex items-center gap-3 hover:bg-accent-cyan/10 transition-colors"
+        >
+          <Icon icon="lucide:gamepad-2" className="text-2xl text-accent-cyan shrink-0" />
+          <span className="flex-1">
+            <span className="block font-bold text-text-primary"><FormattedMessage id="hunt.try.callout" /></span>
+            <span className="block text-xs text-text-muted"><FormattedMessage id="hunt.try.calloutBody" /></span>
+          </span>
+          <Icon icon="lucide:chevron-right" className="text-text-muted" />
+        </Link>
       </div>
     </div>
   );

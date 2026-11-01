@@ -8,6 +8,8 @@
 //   DELETE /hunts      ?id=               → { ok }      idempotent
 //   GET    /hunts/board ?id=              → { board }   the projector's view
 //   GET    /hunts/results ?id=            → { results } every question and every student, how they did
+//   GET    /hunts/stations ?id=           → { rehearsal } every station with its questions AND answers — her
+//                                          own hunt, for playing it through as a student before class
 //   POST   /hunts/start { id }            → { board }   opens the race, starts the clock
 //   POST   /hunts/end   { id }            → { board }   stops it early
 //   POST   /hunts/move  { id, player, team } → { board }  balance the teams by hand
@@ -725,6 +727,23 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
 
       case 'GET /results':
         return jsonResponse(200, { results: await results(db, await owned(q('id'))) });
+
+      // The teacher's rehearsal: the whole hunt, answers included, so she can
+      // play it through as a student would — graded on her device, recorded
+      // nowhere. Owner only: these are the answers.
+      case 'GET /stations': {
+        const h = await owned(q('id'));
+        return jsonResponse(200, {
+          rehearsal: {
+            title: h.title,
+            mode: h.mode,
+            treasure: h.treasure,
+            need: h.need,
+            teamNames: h.team_names,
+            stations: h.stations.map((s, index) => ({ index, place: s.place, clue: s.clue, letter: s.letter, questions: s.questions })),
+          },
+        });
+      }
 
       case 'POST /start': {
         const h = await owned((await body()).id);

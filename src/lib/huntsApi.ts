@@ -10,6 +10,7 @@
 // local copy to fall back on: a failure is shown, and the next poll retries.
 
 import { request } from './api';
+import type { Rehearsal } from './rehearsal';
 
 export type HuntMode = 'qr' | 'world';
 export type HuntStatus = 'lobby' | 'live' | 'ended';
@@ -170,6 +171,11 @@ export interface Results {
 
 export async function fetchResults(id: string): Promise<Results> {
   return (await request.get<{ results: Results }>('/hunts/results', { params: { id } })).results;
+}
+
+/** Her own hunt, answers included — for playing it through as a student before class. */
+export async function fetchRehearsal(id: string): Promise<Rehearsal> {
+  return (await request.get<{ rehearsal: Rehearsal }>('/hunts/stations', { params: { id } })).rehearsal;
 }
 
 export async function endHunt(id: string): Promise<Board> {

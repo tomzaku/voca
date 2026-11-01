@@ -414,3 +414,19 @@ Deno.test('picture and matching questions, end to end', async () => {
   }
   eq((await call('GET', `/play?token=${token}`)).body.play.team.position, 2);
 });
+
+Deno.test('the teacher can rehearse her own hunt, answers included — nobody else can', async () => {
+  const { call, db } = setup();
+  const hunt = await newHunt(call, db);
+  const r = await call('GET', `/stations?id=${hunt.id}`, undefined, TEACHER);
+  eq(r.status, 200);
+  eq([r.body.rehearsal.treasure, r.body.rehearsal.stations.length], ['GOLD', 4]);
+  eq(r.body.rehearsal.stations[0].clue, 'clue 0');
+  eq(r.body.rehearsal.stations[0].questions.map((q: { answer: string }) => q.answer), ['w0', 'w4']);
+  ok(r.body.rehearsal.stations[0].questions.every((q: { id: string }) => q.id), 'questions carry their ids');
+  ok(!('card' in r.body.rehearsal.stations[0]), 'card codes stay on the print page');
+  eq((await call('GET', `/stations?id=${hunt.id}`, undefined, STRANGER)).status, 404);
+  eq((await call('GET', `/stations?id=${hunt.id}`)).status, 401);
+  // A rehearsal joins nobody and records nothing.
+  eq([db.tables.hunt_players.length, db.tables.hunt_answers.length, db.tables.hunt_finds.length], [0, 0, 0]);
+});

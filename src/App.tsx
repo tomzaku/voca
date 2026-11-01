@@ -30,6 +30,7 @@ import { HuntsPage } from './components/HuntsPage';
 import { HuntBoard } from './components/HuntBoard';
 import { HuntCards } from './components/HuntCards';
 import { HuntPlay } from './components/HuntPlay';
+import { HuntTry } from './components/HuntTry';
 import { ProComparisonPage } from './components/ProComparisonPage';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="/hunts" element={<HuntsPage />} />
             <Route path="/hunts/:id" element={<HuntBoard />} />
             <Route path="/hunts/:id/cards" element={<HuntCards />} />
+            <Route path="/hunts/:id/try" element={<HuntTry />} />
             <Route path="/hunt/:code" element={<HuntPlay />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/login" element={<LoginPage />} />

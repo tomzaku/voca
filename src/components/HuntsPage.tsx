@@ -19,6 +19,22 @@ import { createHunt, deleteHunt, listHunts, type HuntMode, type HuntSummary } fr
 const DURATIONS = [10, 15, 20, 30, 45, 60];
 
 /**
+ * Hiding places to suggest, one per card. In English whatever the app's
+ * language: the clue is written in English on purpose — reading it is part
+ * of the challenge — so the examples show the kind of sentence to write.
+ */
+const CLUE_EXAMPLES = [
+  'Under the teacher’s desk',
+  'Behind the classroom door',
+  'Inside the red box on the bookshelf',
+  'Taped under a chair in the back row',
+  'Next to the window',
+  'On top of the cupboard',
+  'Beside the whiteboard',
+  'Under the rubbish bin',
+];
+
+/**
  * A teacher's treasure hunts, at /hunts: the ones they've made, and the form
  * to make another. A hunt's questions are built and reviewed here (see
  * QuestionEditor), while the teacher is signed in to look the words up — so
@@ -115,6 +131,8 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
     intl.formatMessage({ id: 'hunt.teamBlue' }),
   ]);
   const [clues, setClues] = useState<string[]>([]);
+  // Clues are optional, so they stay folded away until she asks for them.
+  const [showClues, setShowClues] = useState(false);
   const [places, setPlaces] = useState<string[]>(() => pickPlaces(8));
   const [saving, setSaving] = useState(false);
   const [questions, setQuestions] = useState<EditableQuestion[]>([]);
@@ -220,9 +238,28 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
         </p>
       </div>
 
-      {treasureOk && mode === 'qr' && (
+      {treasureOk && mode === 'qr' && !showClues && (
+        <button
+          type="button"
+          onClick={() => setShowClues(true)}
+          className="w-full text-left rounded-xl border-2 border-dashed border-border px-4 py-3 hover:border-accent-cyan transition-colors"
+        >
+          <span className="block text-sm font-bold text-text-primary">
+            <Icon icon="lucide:plus" className="inline -mt-0.5 mr-1" />
+            <FormattedMessage id="hunt.teacher.addClues" />
+          </span>
+          <span className="block text-xs text-text-muted mt-0.5"><FormattedMessage id="hunt.teacher.addCluesHint" /></span>
+        </button>
+      )}
+
+      {treasureOk && mode === 'qr' && showClues && (
         <div>
-          <span className={label}><FormattedMessage id="hunt.teacher.clues" /></span>
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className={label + ' !mb-0'}><FormattedMessage id="hunt.teacher.clues" /></span>
+            <button type="button" onClick={() => setShowClues(false)} className="text-xs font-bold text-text-muted hover:text-text-primary">
+              <FormattedMessage id="hunt.teacher.hideClues" />
+            </button>
+          </div>
           <p className="text-xs text-text-muted mb-2"><FormattedMessage id="hunt.teacher.cluesHint" /></p>
           <div className="space-y-1.5">
             {Array.from({ length: count }, (_, i) => (
@@ -232,7 +269,7 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
                   value={clues[i] ?? ''}
                   onChange={(e) => setClues((c) => { const next = [...c]; next[i] = e.target.value; return next; })}
                   maxLength={160}
-                  placeholder={intl.formatMessage({ id: 'hunt.teacher.cluePlaceholder' })}
+                  placeholder={intl.formatMessage({ id: 'hunt.teacher.cluePlaceholder' }, { example: CLUE_EXAMPLES[i % CLUE_EXAMPLES.length] })}
                   className={input + ' !py-2 font-normal'}
                 />
               </div>
@@ -343,6 +380,24 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
           ))}
         </div>
       </div>
+
+      {/* The game in plain words, from her own settings — what a teacher
+          new to it needs before pressing Create. */}
+      {treasureOk && (
+        <div className="rounded-xl bg-accent-cyan/5 border border-accent-cyan/30 p-4">
+          <p className="text-sm font-bold text-text-primary mb-2 flex items-center gap-1.5">
+            <Icon icon="lucide:info" className="text-accent-cyan" /> <FormattedMessage id="hunt.howTo.title" />
+          </p>
+          <ol className="list-decimal pl-5 space-y-1 text-sm text-text-secondary">
+            <li><FormattedMessage id="hunt.howTo.stations" values={{ word: cleanTreasure, n: count, mode }} /></li>
+            <li><FormattedMessage id="hunt.howTo.need" values={{ need }} /></li>
+            <li><FormattedMessage id="hunt.howTo.wrong" /></li>
+            <li><FormattedMessage id="hunt.howTo.questions" values={{ total: askable.length, per: Math.max(1, Math.floor(askable.length / count)) }} /></li>
+            <li><FormattedMessage id="hunt.howTo.final" values={{ word: cleanTreasure, n: count, min: duration }} /></li>
+            <li><FormattedMessage id="hunt.howTo.try" /></li>
+          </ol>
+        </div>
+      )}
 
       <div className="flex gap-2 justify-end">
         {onCancel && (
