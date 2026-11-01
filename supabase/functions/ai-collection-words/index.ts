@@ -1,9 +1,9 @@
 // A word list for a new collection, generated from a topic — the Pro
 // alternative to "Ask ChatGPT" and pasting the answer back.
 //
-//   POST /ai-collection-words { topic } → { words }
+//   POST /ai-collection-words { topic, count? } → { words }
 //
-// `topic` is the user's free-text request ("family", "200 IELTS collocations"),
+// `topic` is the user's free-text request ("family", "IELTS collocations"),
 // so it goes in a body. The reply is cleaned into bare lower-case words here,
 // so the client gets a list, not prose; it still re-parses before saving.
 //
@@ -22,14 +22,21 @@ import {
   underRateLimit,
 } from '../_shared/ai.ts';
 
-/** Matches the collection form's cap per generation; a request for "1000 words" gets this many. */
+/** Matches the collection form's count box. */
+const DEFAULT_WORDS = 30;
 const MAX_WORDS = 300;
 
-function prompt(topic: string): string {
-  return `List English vocabulary words or short phrases for this request: "${topic}".
+/** Caller's count, clamped — an unbounded one is an unbounded token bill. */
+function wordCount(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_WORDS) : DEFAULT_WORDS;
+}
+
+function prompt(topic: string, count: number): string {
+  return `List ${count} English vocabulary words or short phrases for this request: "${topic}".
 
 Rules:
-- If the request names a number, give that many (at most ${MAX_WORDS}); otherwise give about 30
+- Give exactly ${count} words
 - Output ONLY the words, one per line
 - lowercase, no numbering, no bullets, no explanations, no duplicates`;
 }
@@ -64,8 +71,11 @@ export default async function handler(req: Request): Promise<Response> {
   if (denied) return denied;
 
   let topic: string;
+  let count: number;
   try {
-    topic = reqStr((await req.json() ?? {}) as Record<string, unknown>, 'topic', 200);
+    const params = (await req.json() ?? {}) as Record<string, unknown>;
+    topic = reqStr(params, 'topic', 200);
+    count = wordCount(params.count);
   } catch (err) {
     return jsonResponse(400, { error: err instanceof BadRequest ? err.message : 'Invalid JSON body.' });
   }
@@ -73,10 +83,10 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     const text = await callProvider(
       'You generate vocabulary lists for a language-learning app. Return ONLY the list.',
-      [{ role: 'user', content: prompt(topic) }],
+      [{ role: 'user', content: prompt(topic, count) }],
       4000,
     );
-    const words = [...new Set(text.split(/[\n,;]+/).map(clean).filter(Boolean))].slice(0, MAX_WORDS);
+    const words = [...new Set(text.split(/[\n,;]+/).map(clean).filter(Boolean))].slice(0, count);
     return jsonResponse(200, { words });
   } catch (err) {
     return jsonResponse(502, { error: (err as Error).message || 'AI provider error.' });

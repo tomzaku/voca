@@ -7,11 +7,22 @@ import { useIsPro } from '../hooks/useProStatus';
 import { generateCollectionWords } from '../lib/collectionWordsApi';
 import { splitWordList } from '../lib/wordList';
 
+/** How many words the AI helper asks for; the server caps a generation at the max. */
+const DEFAULT_WORD_COUNT = 30;
+const MAX_WORD_COUNT = 300;
+
+/** The count box's text as a usable number — blank or junk falls back to the default. */
+function wordCount(input: string): number {
+  const n = Math.round(Number(input));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_WORD_COUNT) : DEFAULT_WORD_COUNT;
+}
+
 /** ChatGPT URL pre-filled with a prompt that yields a paste-ready word list. */
-function chatGptWordsUrl(topic: string): string {
-  const prompt = `List English vocabulary words for this request: "${topic}".
+function chatGptWordsUrl(topic: string, count: number): string {
+  const prompt = `List ${count} English vocabulary words for this request: "${topic}".
 
 Rules:
+- Give exactly ${count} words
 - Output ONLY the words, on a single line, separated by commas
 - lowercase, no numbering, no bullets, no explanations, no duplicates
 
@@ -55,6 +66,7 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
   const [name, setName] = useState(initialName);
   const [wordsInput, setWordsInput] = useState(initialWords.join('\n'));
   const [aiTopic, setAiTopic] = useState('');
+  const [aiCount, setAiCount] = useState(String(DEFAULT_WORD_COUNT));
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const { isPro } = useIsPro();
@@ -65,7 +77,7 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
     if (!topic || generating) return;
     setGenerating(true);
     try {
-      const { text, added } = insertWords(wordsInput, '', parseWords((await generateCollectionWords(topic)).join('\n')));
+      const { text, added } = insertWords(wordsInput, '', parseWords((await generateCollectionWords(topic, wordCount(aiCount))).join('\n')));
       setWordsInput(text);
       toast.success(intl.formatMessage({ id: 'collections.generated' }, { count: added }));
     } catch (err) {
@@ -118,13 +130,25 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
           <Icon icon="lucide:sparkles" className="text-accent-purple" />
           <FormattedMessage id="collections.needWords" />
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             value={aiTopic}
             onChange={(e) => setAiTopic(e.target.value)}
             placeholder={intl.formatMessage({ id: 'collections.aiTopicPlaceholder' })}
             maxLength={200}
-            className="flex-1 min-w-0 bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/50"
+            className="flex-1 min-w-[10rem] bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/50"
+          />
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={MAX_WORD_COUNT}
+            value={aiCount}
+            onChange={(e) => setAiCount(e.target.value)}
+            onBlur={() => setAiCount(String(wordCount(aiCount)))}
+            aria-label={intl.formatMessage({ id: 'collections.aiWordCount' })}
+            title={intl.formatMessage({ id: 'collections.aiWordCount' })}
+            className="w-16 shrink-0 bg-bg-card border border-border rounded-lg px-2 py-2 text-sm text-center text-text-primary focus:outline-none focus:border-accent-purple/50"
           />
           {isPro && (
             <button
@@ -140,7 +164,7 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
             </button>
           )}
           <a
-            href={aiTopic.trim() ? chatGptWordsUrl(aiTopic.trim()) : undefined}
+            href={aiTopic.trim() ? chatGptWordsUrl(aiTopic.trim(), wordCount(aiCount)) : undefined}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => { if (!aiTopic.trim()) e.preventDefault(); }}
