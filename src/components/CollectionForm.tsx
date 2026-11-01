@@ -114,6 +114,24 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
       <textarea
         value={wordsInput}
         onChange={(e) => setWordsInput(e.target.value)}
+        onPaste={(e) => {
+          // Clean a paste as it lands, so the box shows exactly what will be
+          // saved — no ChatGPT backslashes, bullets or glosses to wonder about.
+          // A single fragment (one word, a typo fix) pastes normally.
+          const text = e.clipboardData.getData('text');
+          if (!/[\n,;]/.test(text.trim())) return;
+          const el = e.currentTarget;
+          const before = wordsInput.slice(0, el.selectionStart);
+          const after = wordsInput.slice(el.selectionEnd);
+          const existing = new Set(parseWords(before + '\n' + after));
+          const pasted = parseWords(text).filter((w) => !existing.has(w));
+          e.preventDefault();
+          if (!pasted.length) return;
+          const head = before.trimEnd();
+          const tail = after.trimStart();
+          const block = pasted.join('\n');
+          setWordsInput([head, block, tail].filter(Boolean).join('\n'));
+        }}
         placeholder={intl.formatMessage({ id: 'collections.wordsPlaceholder' }) + '\nserendipity\nebullient\nmeticulous'}
         rows={6}
         className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2.5 text-sm font-code text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50 resize-y"
