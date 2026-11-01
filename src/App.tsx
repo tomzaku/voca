@@ -26,7 +26,7 @@ import { LevelTestPage } from './components/LevelTestPage';
 import { TakeQuiz } from './components/TakeQuiz';
 import { QuizResults } from './components/QuizResults';
 import { MyQuizzes } from './components/MyQuizzes';
-import { HuntsPage } from './components/HuntsPage';
+import { HuntEdit, HuntsPage } from './components/HuntsPage';
 import { HuntBoard } from './components/HuntBoard';
 import { HuntCards } from './components/HuntCards';
 import { HuntPlay } from './components/HuntPlay';
@@ -97,6 +97,7 @@ export default function App() {
             <Route path="/hunts/:id" element={<HuntBoard />} />
             <Route path="/hunts/:id/cards" element={<HuntCards />} />
             <Route path="/hunts/:id/try" element={<HuntTry />} />
+            <Route path="/hunts/:id/edit" element={<HuntEdit />} />
             <Route path="/hunt/:code" element={<HuntPlay />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/login" element={<LoginPage />} />

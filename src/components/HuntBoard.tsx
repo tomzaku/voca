@@ -96,6 +96,11 @@ export function HuntBoard() {
           </p>
         </div>
         {live && <div className="text-4xl font-display font-extrabold tabular-nums text-text-primary">{clock(left)}</div>}
+        {!outcome.over && hunt.status !== 'ended' && (
+          <Link to={`/hunts/${hunt.id}/edit`} className="px-4 py-2.5 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary flex items-center gap-1.5">
+            <Icon icon="lucide:pencil" /> <FormattedMessage id="hunt.edit.button" />
+          </Link>
+        )}
         <Link to={`/hunts/${hunt.id}/try`} className="px-4 py-2.5 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary flex items-center gap-1.5">
           <Icon icon="lucide:gamepad-2" /> <FormattedMessage id="hunt.try.button" />
         </Link>

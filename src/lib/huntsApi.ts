@@ -164,6 +164,14 @@ export async function createHunt(h: NewHunt): Promise<HuntSummary> {
   return (await request.post<{ hunt: HuntSummary }>('/hunts', h, { timeout: 15000 })).hunt;
 }
 
+/**
+ * Changes a hunt. Before it starts, any field of `NewHunt`; while it runs, only
+ * `title`, `teamNames`, `durationMin` and `clues` (the server refuses the rest).
+ */
+export async function updateHunt(id: string, changes: Partial<NewHunt>): Promise<Board> {
+  return (await request.patch<{ board: Board }>('/hunts', { id, ...changes }, { timeout: 15000 })).board;
+}
+
 export async function deleteHunt(id: string): Promise<void> {
   await request.delete('/hunts', { params: { id } });
 }

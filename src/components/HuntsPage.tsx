@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -12,10 +12,10 @@ import {
   TREASURE_IDEAS,
   type EditableQuestion,
 } from '../lib/hunt';
-import { createSet, fetchSet, listSets, saveSet, type SetSummary } from '../lib/questionSetsApi';
+import { createSet, fetchSet, listSets, saveSet, type QuestionSet, type SetSummary } from '../lib/questionSetsApi';
 import { QuestionEditor } from './hunt/QuestionEditor';
 import { Selector } from './Selector';
-import { createHunt, deleteHunt, listHunts, type HuntMode, type HuntSummary, type PlayStyle } from '../lib/huntsApi';
+import { createHunt, deleteHunt, fetchBoard, listHunts, updateHunt, type Board, type HuntMode, type HuntSummary, type PlayStyle } from '../lib/huntsApi';
 
 const DURATIONS = [10, 15, 20, 30, 45, 60];
 
@@ -118,33 +118,91 @@ export function HuntsPage() {
   );
 }
 
-function CreateHunt({ onCancel }: { onCancel?: () => void }) {
+/**
+ * Changing a hunt, at /hunts/:id/edit: the create form, filled in. Before the
+ * start everything is open; once it's running only what can't trip a student
+ * mid-way (the server enforces the same line); once it's over, nothing.
+ */
+export function HuntEdit() {
+  const { id = '' } = useParams<{ id: string }>();
+  const intl = useIntl();
+  const [loaded, setLoaded] = useState<{ board: Board; set: QuestionSet | null } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const board = await fetchBoard(id);
+      // Her set may have been deleted since; she'll pick or write another.
+      const set = board.hunt.setId ? await fetchSet(board.hunt.setId).catch(() => null) : null;
+      if (alive) setLoaded({ board, set });
+    })().catch((err) => { if (alive) setError((err as Error).message); });
+    return () => { alive = false; };
+  }, [id]);
+
+  if (!loaded) {
+    return (
+      <div className="flex justify-center py-24 text-text-muted">
+        {error ?? <div className="w-10 h-10 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />}
+      </div>
+    );
+  }
+  const over = loaded.board.outcome.over || loaded.board.hunt.status === 'ended';
+  return (
+    <div className="max-w-page mx-auto px-4 py-8 space-y-6">
+      <div className="flex items-center gap-3">
+        <Link to={`/hunts/${id}`} className="p-2 rounded-xl bg-bg-tertiary text-text-muted" aria-label={intl.formatMessage({ id: 'hunt.teacher.back' })}>
+          <Icon icon="lucide:arrow-left" />
+        </Link>
+        <h1 className="text-2xl font-display font-extrabold text-text-primary truncate">
+          <FormattedMessage id="hunt.edit.title" values={{ title: loaded.board.hunt.title }} />
+        </h1>
+      </div>
+      {over
+        ? <p className="rounded-xl bg-bg-tertiary px-4 py-3 text-sm text-text-muted"><FormattedMessage id="hunt.edit.over" /></p>
+        : <CreateHunt existing={loaded} />}
+    </div>
+  );
+}
+
+function CreateHunt({ onCancel, existing }: {
+  onCancel?: () => void;
+  /** Editing: the hunt as it stands, and the set its questions came from. */
+  existing?: { board: Board; set: QuestionSet | null };
+}) {
   const intl = useIntl();
   const navigate = useNavigate();
+  const was = existing?.board.hunt;
+  const stations = existing?.board.stations ?? [];
+  // Running: what the race is made of is fixed — only the words around it move.
+  const live = was?.status === 'live';
 
-  const [title, setTitle] = useState(() => intl.formatMessage({ id: 'hunt.title' }));
-  const [mode, setMode] = useState<HuntMode>('qr');
-  const [play, setPlay] = useState<PlayStyle>('teams');
+  const [title, setTitle] = useState(() => was?.title ?? intl.formatMessage({ id: 'hunt.title' }));
+  const [mode, setMode] = useState<HuntMode>(was?.mode ?? 'qr');
+  const [play, setPlay] = useState<PlayStyle>(was?.play ?? 'teams');
   const solo = play === 'solo';
-  const [treasure, setTreasure] = useState('GOLD');
-  const [need, setNeed] = useState(2);
-  const [duration, setDuration] = useState(20);
-  const [teamNames, setTeamNames] = useState<[string, string]>(() => [
+  const [treasure, setTreasure] = useState(was?.treasure.toUpperCase() ?? 'GOLD');
+  const [need, setNeed] = useState(was?.need ?? 2);
+  const [duration, setDuration] = useState(was?.durationMin ?? 20);
+  const [teamNames, setTeamNames] = useState<[string, string]>(() => was?.teamNames ?? [
     intl.formatMessage({ id: 'hunt.teamRed' }),
     intl.formatMessage({ id: 'hunt.teamBlue' }),
   ]);
-  const [clues, setClues] = useState<string[]>([]);
+  const [clues, setClues] = useState<string[]>(() => stations.map((s) => s.clue));
   // Clues are optional, so they stay folded away until she asks for them.
-  const [showClues, setShowClues] = useState(false);
-  const [places, setPlaces] = useState<string[]>(() => pickPlaces(8));
+  const [showClues, setShowClues] = useState(() => stations.some((s) => s.clue));
+  const [places, setPlaces] = useState<string[]>(() => {
+    const kept = stations.map((s) => s.place).filter((p): p is string => !!p);
+    return [...kept, ...pickPlaces(8).filter((p) => !kept.includes(p))].slice(0, 8);
+  });
   const [saving, setSaving] = useState(false);
-  const [questions, setQuestions] = useState<EditableQuestion[]>([]);
+  const [questions, setQuestions] = useState<EditableQuestion[]>(existing?.set?.questions ?? []);
   const [pictures, setPictures] = useState<Record<string, string>>({});
   const addPictures = useCallback((add: Record<string, string>) => setPictures((p) => ({ ...p, ...add })), []);
   // The question set these questions are saved as: a saved one she opened, or
   // a new one made when the hunt is created.
-  const [setId, setSetId] = useState<string | null>(null);
-  const [savedName, setSavedName] = useState('');
+  const [setId, setSetId] = useState<string | null>(existing?.set?.id ?? null);
+  const [savedName, setSavedName] = useState(existing?.set?.title ?? '');
   const [sets, setSets] = useState<SetSummary[]>([]);
   useEffect(() => {
     listSets().then(setSets).catch(() => { /* no saved sets to offer — she can still make one */ });
@@ -167,12 +225,22 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
   const count = cleanTreasure.length;
   const treasureOk = count >= 3 && count <= 8;
   const askable = questions.filter((q) => !problemOf(q));
-  const ready = title.trim() && treasureOk && askable.length >= count && !saving;
+  const ready = title.trim() && treasureOk && (live || askable.length >= count) && !saving;
 
   const create = async () => {
     if (!ready) return;
     setSaving(true);
     try {
+      if (was && live) {
+        await updateHunt(was.id, {
+          title: title.trim(),
+          durationMin: duration,
+          teamNames,
+          clues: mode === 'qr' ? clues.slice(0, count) : undefined,
+        });
+        navigate(`/hunts/${was.id}`);
+        return;
+      }
       // Save the questions first — the set is what the hunt is made from, and
       // what she can play again another day.
       // A new set is named after the hunt; an opened one keeps its own name.
@@ -181,7 +249,7 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
         ? await saveSet(setId, name, questionsToSave(questions))
         : await createSet(name, questionsToSave(questions));
       setSetId(set.id);
-      const hunt = await createHunt({
+      const fields = {
         title: title.trim(),
         mode,
         play,
@@ -192,8 +260,11 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
         need,
         durationMin: duration,
         teamNames,
-      });
-      navigate(`/hunts/${hunt.id}`);
+      };
+      // Editing rebuilds the stations from the set just saved, keeping the
+      // printed cards' codes.
+      const id = was ? (await updateHunt(was.id, fields), was.id) : (await createHunt(fields)).id;
+      navigate(`/hunts/${id}`);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -212,6 +283,14 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
         <input id="hunt-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className={input} />
       </div>
 
+      {live && (
+        <p className="rounded-xl bg-accent-yellow/10 border border-accent-yellow/40 px-3 py-2 text-xs text-text-secondary">
+          <FormattedMessage id="hunt.edit.liveNote" />
+        </p>
+      )}
+
+      {/* Locked while it runs: changing these would move students mid-race. */}
+      <fieldset disabled={live} className={`space-y-5 ${live ? 'opacity-50' : ''}`}>
       <div>
         <span className={label}><FormattedMessage id="hunt.teacher.where" /></span>
         <div className="grid sm:grid-cols-2 gap-2">
@@ -257,6 +336,8 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
         </p>
       </div>
 
+      </fieldset>
+
       {treasureOk && mode === 'qr' && !showClues && (
         <button
           type="button"
@@ -298,7 +379,7 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
       )}
 
       {treasureOk && mode === 'world' && (
-        <div>
+        <fieldset disabled={live} className={live ? 'opacity-50' : ''}>
           <div className="flex items-center justify-between mb-1.5">
             <span className={label + ' !mb-0'}><FormattedMessage id="hunt.teacher.places" /></span>
             <button type="button" onClick={() => setPlaces(pickPlaces(8))} className="text-xs font-bold text-accent-cyan flex items-center gap-1">
@@ -326,10 +407,10 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
               </div>
             ))}
           </div>
-        </div>
+        </fieldset>
       )}
 
-      <div>
+      {!live && <div>
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <span className={label + ' !mb-0'}><FormattedMessage id="hunt.editor.title" /></span>
           {sets.length > 0 && (
@@ -361,24 +442,25 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
             ? <FormattedMessage id="hunt.sets.savesTo" values={{ title: savedName }} />
             : <FormattedMessage id="hunt.sets.reuse" />}
         </p>
-      </div>
+        {was && <p className="mt-1 text-xs text-text-muted"><FormattedMessage id="hunt.edit.cardsKept" values={{ n: was.stations }} /></p>}
+      </div>}
 
       <div className="grid sm:grid-cols-2 gap-4">
         {/* Solo: a student clears their own station with one right answer —
             there are no teammates to wait for. */}
         {!solo && (
-          <div>
+          <fieldset disabled={live} className={live ? 'opacity-50' : ''}>
             <span className={label}><FormattedMessage id="hunt.teacher.need" /></span>
             <div className="flex gap-1.5">
               {[1, 2, 3].map((n) => <button key={n} type="button" onClick={() => setNeed(n)} className={chip(need === n)}>{n}</button>)}
             </div>
             <p className="text-xs text-text-muted mt-1"><FormattedMessage id="hunt.teacher.needHint" /></p>
-          </div>
+          </fieldset>
         )}
         <div>
           <span className={label}><FormattedMessage id="hunt.teacher.duration" /></span>
           <div className="flex flex-wrap gap-1.5">
-            {DURATIONS.map((d) => <button key={d} type="button" onClick={() => setDuration(d)} className={chip(duration === d)}>{d}′</button>)}
+            {(DURATIONS.includes(duration) ? DURATIONS : [...DURATIONS, duration].sort((a, b) => a - b)).map((d) => <button key={d} type="button" onClick={() => setDuration(d)} className={chip(duration === d)}>{d}′</button>)}
           </div>
         </div>
       </div>
@@ -412,14 +494,14 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
             <li><FormattedMessage id="hunt.howTo.wrong" /></li>
             <li><FormattedMessage id="hunt.howTo.questions" values={{ total: askable.length, per: Math.max(1, Math.floor(askable.length / count)), play }} /></li>
             <li><FormattedMessage id="hunt.howTo.final" values={{ word: cleanTreasure, n: count, min: duration, play }} /></li>
-            <li><FormattedMessage id="hunt.howTo.try" /></li>
+            {!was && <li><FormattedMessage id="hunt.howTo.try" /></li>}
           </ol>
         </div>
       )}
 
       <div className="flex gap-2 justify-end">
-        {onCancel && (
-          <button type="button" onClick={onCancel} className="px-4 py-2.5 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary">
+        {(onCancel || was) && (
+          <button type="button" onClick={onCancel ?? (() => navigate(`/hunts/${was!.id}`))} className="px-4 py-2.5 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary">
             <FormattedMessage id="hunt.teacher.cancel" />
           </button>
         )}
@@ -431,7 +513,9 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
         >
           {saving
             ? <><span className="w-4 h-4 rounded-full border-2 border-bg-primary/30 border-t-bg-primary animate-spin" /> <FormattedMessage id="hunt.teacher.saving" /></>
-            : <><Icon icon="lucide:map" /> <FormattedMessage id="hunt.teacher.create" /></>}
+            : was
+              ? <><Icon icon="lucide:check" /> <FormattedMessage id="hunt.edit.save" /></>
+              : <><Icon icon="lucide:map" /> <FormattedMessage id="hunt.teacher.create" /></>}
         </button>
       </div>
     </div>

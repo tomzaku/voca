@@ -163,7 +163,7 @@ Deno.test('delete is idempotent and takes every row of the hunt with it', async 
 Deno.test('unknown routes are 404', async () => {
   const { call } = setup();
   eq((await call('GET', '/nope', undefined, TEACHER)).status, 404);
-  eq((await call('PATCH', '', {}, TEACHER)).status, 404);
+  eq((await call('PUT', '', {}, TEACHER)).status, 404);
 });
 
 // ── Joining ─────────────────────────────────────────────────────────────────
@@ -528,4 +528,76 @@ Deno.test('a guest renames themselves; the teacher can rename anyone in her hunt
   await call('POST', '/start', { id: hunt.id }, TEACHER);
   await call('POST', '/end', { id: hunt.id }, TEACHER);
   eq((await call('PATCH', '/me', { token: ann.token, name: 'Late' })).status, 400);
+});
+
+// ── Editing ─────────────────────────────────────────────────────────────────
+
+Deno.test('before it starts, anything can change — and printed cards keep working', async () => {
+  const { call, db } = setup();
+  const hunt = await newHunt(call, db);
+  const cards = db.tables.hunt_stations.map((s) => s.card);
+  const ann = (await call('POST', '/join', { code: hunt.code, name: 'Ann' })).body;
+
+  // A new question in the set arrives when the hunt is rebuilt.
+  const setId = makeSet(db, [...EIGHT, mcq(8), mcq(9)]);
+  const r = await call('PATCH', '', { id: hunt.id, title: ' 5B ', setId, treasure: 'goldie', need: 1, clues: ['a', 'b'] }, TEACHER);
+  eq(r.status, 200, JSON.stringify(r.body));
+  eq([r.body.board.hunt.title, r.body.board.hunt.stations, r.body.board.hunt.need], ['5B', 6, 1]);
+  eq(db.tables.hunt_stations.map((s) => s.letter).join(''), 'GOLDIE');
+  // The first four cards are the ones already printed; two new ones for the extras.
+  eq(db.tables.hunt_stations.slice(0, 4).map((s) => s.card), cards);
+  eq(new Set(db.tables.hunt_stations.map((s) => s.card)).size, 6);
+  eq(db.tables.hunt_stations.map((s) => s.clue), ['a', 'b', '', '', '', '']);
+  ok(db.tables.hunt_questions.some((q) => q.answer === 'w9'), 'new question copied');
+  eq(db.tables.hunt_questions.length, 10);
+  // Whoever had joined is still in.
+  eq((await call('GET', `/play?token=${ann.token}`)).status, 200);
+
+  // Switching to solo puts everyone on one list; back to teams splits them.
+  await call('POST', '/join', { code: hunt.code, name: 'Bao' });
+  eq((await call('PATCH', '', { id: hunt.id, play: 'solo' }, TEACHER)).body.board.standings.length, 2);
+  eq(db.tables.hunt_players.map((p) => p.team), [0, 0]);
+  eq(db.tables.hunts[0].need, 1);
+  await call('PATCH', '', { id: hunt.id, play: 'teams', need: 2 }, TEACHER);
+  eq(db.tables.hunt_players.map((p) => p.team).sort(), [0, 1]);
+  // Untouched clues survive a rebuild.
+  eq(db.tables.hunt_stations.map((s) => s.clue), ['a', 'b', '', '', '', '']);
+});
+
+Deno.test('while it runs, only the name, team names, clock and clues', async () => {
+  freeze();
+  try {
+    const { call, db } = setup();
+    const hunt = await newHunt(call, db);
+    await call('POST', '/join', { code: hunt.code, name: 'Ann' });
+    await call('POST', '/start', { id: hunt.id }, TEACHER);
+    const questions = JSON.stringify(db.tables.hunt_questions);
+
+    eq((await call('PATCH', '', { id: hunt.id, treasure: 'silver' }, TEACHER)).status, 400);
+    eq((await call('PATCH', '', { id: hunt.id, play: 'solo' }, TEACHER)).status, 400);
+    const r = await call('PATCH', '', {
+      id: hunt.id, title: 'Renamed', teamNames: ['Lions', 'Tigers'], durationMin: 30, clues: ['under the desk'],
+    }, TEACHER);
+    eq(r.status, 200, JSON.stringify(r.body));
+    eq([r.body.board.hunt.title, r.body.board.hunt.teamNames], ['Renamed', ['Lions', 'Tigers']]);
+    eq(Date.parse(r.body.board.hunt.endsAt) - Date.parse(r.body.board.hunt.startedAt), 30 * 60_000);
+    eq(db.tables.hunt_stations.map((s) => s.clue), ['under the desk', 'clue 1', 'clue 2', 'clue 3']);
+    eq(JSON.stringify(db.tables.hunt_questions), questions, 'questions untouched');
+
+    // Over: nothing.
+    await call('POST', '/end', { id: hunt.id }, TEACHER);
+    eq((await call('PATCH', '', { id: hunt.id, title: 'Late' }, TEACHER)).status, 400);
+  } finally {
+    thaw();
+  }
+});
+
+Deno.test('only her own hunt, with her own set, and a name', async () => {
+  const { call, db } = setup();
+  const hunt = await newHunt(call, db);
+  eq((await call('PATCH', '', { id: hunt.id, title: 'Mine now' }, STRANGER)).status, 404);
+  eq((await call('PATCH', '', { id: hunt.id, setId: makeSet(db, EIGHT, STRANGER) }, TEACHER)).status, 404);
+  eq((await call('PATCH', '', { id: hunt.id, title: '  ' }, TEACHER)).status, 400);
+  eq((await call('PATCH', '', { id: hunt.id, durationMin: 9999 }, TEACHER)).body.board.hunt.durationMin, 180);
+  eq(db.tables.hunts[0].title, 'Class 5A');
 });

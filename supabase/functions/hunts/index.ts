@@ -6,6 +6,8 @@
 //   GET    /hunts                         → { hunts }   their own, newest first
 //   POST   /hunts      { title, mode, play, treasure, setId, clues, places, need, durationMin, teamNames } → { hunt }
 //                      play: 'teams' (two teams race) or 'solo' (every student for themselves)
+//   PATCH  /hunts      { id, …any create field } → { board }  change it — everything before
+//                                          the start; name, team names, clock and clues while running
 //   DELETE /hunts      ?id=               → { ok }      idempotent
 //   GET    /hunts/board ?id=              → { board }   the projector's view
 //   GET    /hunts/results ?id=            → { results } every question and every student, how they did
@@ -58,6 +60,7 @@ import {
   Invalid,
   isCorrect,
   isLive,
+  MAX_CLUE,
   MAX_NAME,
   MAX_PLAYERS,
   MAX_SET_QUESTIONS,
@@ -286,6 +289,35 @@ function toSummary(h: HuntRow, playerCount?: number) {
 /** The status, with a live hunt whose clock has run out reported as ended. */
 function effectiveStatus(h: HuntRow, now: number): HuntRow['status'] {
   return h.status === 'live' && !isLive(h, now) ? 'ended' : h.status;
+}
+
+// ── Writing a hunt's stations ───────────────────────────────────────────────
+
+/** Her set's questions — 404 for anyone else's, as for a missing one. */
+async function setQuestions(db: SupabaseClient, setId: unknown, owner: string): Promise<{ id: string; questions: StoredQuestion[] }> {
+  if (typeof setId !== 'string' || !UUID.test(setId)) throw new HttpError(400, '"setId" is required.');
+  const { data: set, error } = await db.from('question_sets').select('id, owner_id').eq('id', setId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!set || set.owner_id !== owner) throw new HttpError(404, 'Question set not found.');
+  const { data: rows, error: qError } = await db
+    .from('questions')
+    .select('id, type, prompt, answer, options, accept, say, scrambled, image_word, pair_prompts, pair_words, word')
+    .eq('set_id', set.id)
+    .order('position')
+    .limit(MAX_SET_QUESTIONS);
+  if (qError) throw new Error(qError.message);
+  return { id: set.id as string, questions: ((rows ?? []) as (QuestionColumns & { id: string })[]).map(fromColumns) };
+}
+
+/** A hunt's stations and its own copy of their questions, each remembering where it came from. */
+async function writeStations(db: SupabaseClient, huntId: string, stations: Station[]) {
+  const { error: sError } = await db.from('hunt_stations').insert(stations.map((s, station) => ({
+    hunt_id: huntId, station, card: s.card, place: s.place, clue: s.clue, letter: s.letter,
+  })));
+  if (sError) throw new Error(sError.message);
+  const { error: hqError } = await db.from('hunt_questions').insert(stations.flatMap((s, station) =>
+    s.questions.map((qq, position) => ({ hunt_id: huntId, station, position, source_id: qq.id ?? null, ...questionColumns(qq) }))));
+  if (hqError) throw new Error(hqError.message);
 }
 
 // ── Whose race a player is in ───────────────────────────────────────────────
@@ -712,20 +744,9 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
         const play: PlayStyle = b.play === 'solo' ? 'solo' : 'teams';
         const treasure = cleanTreasure(b.treasure);
 
-        // The set it plays — hers, and only hers.
-        if (typeof b.setId !== 'string' || !UUID.test(b.setId)) return jsonResponse(400, { error: '"setId" is required.' });
-        const { data: set, error: setError } = await db.from('question_sets').select('id, owner_id').eq('id', b.setId).maybeSingle();
-        if (setError) throw new Error(setError.message);
-        if (!set || set.owner_id !== owner) return jsonResponse(404, { error: 'Question set not found.' });
-        const { data: qRows, error: qError } = await db
-          .from('questions')
-          .select('id, type, prompt, answer, options, accept, say, scrambled, image_word, pair_prompts, pair_words, word')
-          .eq('set_id', set.id)
-          .order('position')
-          .limit(MAX_SET_QUESTIONS);
-        if (qError) throw new Error(qError.message);
+        const set = await setQuestions(db, b.setId, owner);
         const stations = buildStations(
-          ((qRows ?? []) as (QuestionColumns & { id: string })[]).map(fromColumns),
+          set.questions,
           treasure,
           mode,
           uniqueCodes(treasure.length),
@@ -767,20 +788,103 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
         if (!row) throw new Error('Could not find a free join code.');
 
         try {
-          const { error: sError } = await db.from('hunt_stations').insert(stations.map((s, station) => ({
-            hunt_id: row!.id, station, card: s.card, place: s.place, clue: s.clue, letter: s.letter,
-          })));
-          if (sError) throw new Error(sError.message);
-          // The hunt's own copy of each question, remembering where it came from.
-          const { error: hqError } = await db.from('hunt_questions').insert(stations.flatMap((s, station) =>
-            s.questions.map((qq, position) => ({ hunt_id: row!.id, station, position, source_id: qq.id ?? null, ...questionColumns(qq) }))));
-          if (hqError) throw new Error(hqError.message);
+          await writeStations(db, row.id, stations);
         } catch (err) {
           // A hunt without its stations would strand a class; better none and a retry.
           await db.from('hunts').delete().eq('id', row.id);
           throw err;
         }
         return jsonResponse(200, { hunt: toSummary(row, 0) });
+      }
+
+      // Changing a hunt. Before it starts, anything: a change to what the race
+      // is made of (questions, treasure word, places, mode, style) rebuilds the
+      // stations — keeping each station's card code, so cards already printed
+      // still work while the number of stations stays the same. Once it's
+      // running, only what can't trip a student mid-way: the name, team names,
+      // the clock, and card clues (a typo). Once it's over, nothing.
+      case 'PATCH /': {
+        const b = await body();
+        const h = await owned(b.id);
+        const now = Date.now();
+        const status = effectiveStatus(h, now);
+        if (status === 'ended') return jsonResponse(400, { error: 'This hunt has finished — it can’t be changed.' });
+
+        const has = (k: string) => Object.prototype.hasOwnProperty.call(b, k);
+        const STRUCTURE = ['mode', 'play', 'treasure', 'setId', 'places', 'need'];
+        const locked = STRUCTURE.filter(has);
+        if (status !== 'lobby' && locked.length) {
+          return jsonResponse(400, { error: 'This hunt has started — only its name, team names, time limit and clues can change now.' });
+        }
+
+        const update: Record<string, unknown> = {};
+        if (has('title')) {
+          const title = str(b.title, MAX_TITLE);
+          if (!title) return jsonResponse(400, { error: 'Give the hunt a name.' });
+          update.title = title;
+        }
+        if (has('teamNames')) update.team_names = cleanTeamNames(b.teamNames);
+        if (has('durationMin')) {
+          update.duration_min = clampInt(b.durationMin, 5, 180, h.duration_min);
+          // A running clock moves with it: the end is always start + limit.
+          if (status === 'live' && h.started_at) {
+            update.ends_at = new Date(Date.parse(h.started_at) + (update.duration_min as number) * 60_000).toISOString();
+          }
+        }
+
+        const clues = has('clues') && Array.isArray(b.clues) ? b.clues : null;
+        if (status === 'lobby' && (locked.length || clues)) {
+          const mode = has('mode') ? (b.mode === 'world' ? 'world' : 'qr') : h.mode;
+          const play: PlayStyle = has('play') ? (b.play === 'solo' ? 'solo' : 'teams') : (h.play ?? 'teams');
+          const treasure = has('treasure') ? cleanTreasure(b.treasure) : h.treasure;
+          const setId = has('setId') ? b.setId : h.set_id;
+          if (!setId) return jsonResponse(400, { error: 'This hunt’s question set was deleted — choose one.' });
+          // The questions are re-read from the set, so edits saved to it arrive.
+          const set = await setQuestions(db, setId, owner);
+          const kept = h.stations.map((s) => s.card);
+          const cards = [...kept.slice(0, treasure.length)];
+          for (const c of uniqueCodes(treasure.length + kept.length)) if (cards.length < treasure.length && !cards.includes(c)) cards.push(c);
+          const stations = buildStations(set.questions, treasure, mode, cards, {
+            clues: clues ?? h.stations.map((s) => s.clue),
+            places: has('places') ? b.places : h.stations.map((s) => s.place),
+          });
+          // Nobody has played yet, so the old copy can simply go.
+          const { error: dq } = await db.from('hunt_questions').delete().eq('hunt_id', h.id);
+          if (dq) throw new Error(dq.message);
+          const { error: ds } = await db.from('hunt_stations').delete().eq('hunt_id', h.id);
+          if (ds) throw new Error(ds.message);
+          await writeStations(db, h.id, stations);
+          Object.assign(update, {
+            mode,
+            play,
+            treasure,
+            set_id: set.id,
+            need: play === 'solo' ? 1 : has('need') ? clampInt(b.need, 1, 5, 2) : h.need,
+          });
+          // Switching style reshapes the roster: solo is one list; teams split it.
+          if (play !== (h.play ?? 'teams')) {
+            const players = await loadPlayers(db, h.id);
+            const toTeam = (team: number, ids: string[]) => ids.length
+              ? db.from('hunt_players').update({ team }).in('id', ids)
+              : Promise.resolve({ error: null });
+            const results = play === 'solo'
+              ? [await toTeam(0, players.map((p) => p.id))]
+              : [await toTeam(0, players.filter((_, i) => i % 2 === 0).map((p) => p.id)), await toTeam(1, players.filter((_, i) => i % 2 === 1).map((p) => p.id))];
+            for (const r of results) if (r.error) throw new Error(r.error.message);
+          }
+        } else if (clues) {
+          // Running: just the words of each clue, nothing that moves a student.
+          for (const [i, clue] of clues.slice(0, h.stations.length).entries()) {
+            const { error } = await db.from('hunt_stations').update({ clue: str(clue, MAX_CLUE) }).eq('hunt_id', h.id).eq('station', i);
+            if (error) throw new Error(error.message);
+          }
+        }
+
+        if (Object.keys(update).length) {
+          const { error } = await db.from('hunts').update(update).eq('id', h.id);
+          if (error) throw new Error(error.message);
+        }
+        return jsonResponse(200, { board: await board(db, await owned(h.id)) });
       }
 
       case 'DELETE /': {
