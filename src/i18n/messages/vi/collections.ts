@@ -101,7 +101,7 @@ export default {
   'collections.all': 'Tất cả',
   'collections.noWordsMatch': 'Không có từ nào khớp.',
   'collections.showMoreWords': 'Xem thêm từ (còn {count})',
-  'collections.leaderboard': 'Bảng xếp hạng',
+  'collections.leaderboard': 'Tiến độ học',
   'collections.privateBoardHint': 'Danh sách này đang riêng tư nên bảng chỉ có mình bạn. Hãy chia sẻ để mọi người tham gia và xuất hiện ở đây.',
   'collections.joinToAppear': 'Tham gia để có tên trên bảng này — những người học khác sẽ thấy tên, ảnh đại diện và số từ bạn biết trong danh sách. Ngoài ra không chia sẻ gì khác.',
   'collections.joinThisCollection': 'Tham gia bộ sưu tập này',

@@ -101,7 +101,7 @@ export default {
   'collections.all': 'All',
   'collections.noWordsMatch': 'No words match.',
   'collections.showMoreWords': 'Show more words ({count} left)',
-  'collections.leaderboard': 'Leaderboard',
+  'collections.leaderboard': 'Learning progress',
   'collections.privateBoardHint': 'This list is private, so the board is just you. Share it and everyone who joins shows up here.',
   'collections.joinToAppear': 'Join to appear on this board — the other learners will see your name, avatar and how many of these words you know. Nothing else is shared.',
   'collections.joinThisCollection': 'Join this collection',
