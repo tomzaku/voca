@@ -13,15 +13,18 @@ import {
   generateQuestions,
   HUNT_PLACES,
   HUNT_TYPES,
+  importQuestions,
   isPlainWord,
   makeQuestion,
   MAX_GENERATE,
+  MAX_QUESTIONS,
   MAX_WORDS,
   newKey,
   parseWords,
   pickPlaces,
   problemOf,
   questionKey,
+  sameQuestion,
   scramble,
   secondsUntil,
   questionsToSave,
@@ -377,5 +380,28 @@ describe('a question she writes herself, of any kind', () => {
   it('needs its wrong answers where students pick', () => {
     expect(problemOf(write('definition', { prompt: 'A baby cat', answer: 'kitten' }))).toBe('noWrong');
     expect(problemOf(write('listen', { answer: 'umbrella' }))).toBe('noWrong');
+  });
+});
+
+describe('importing questions from other sets', () => {
+  const q = (id: string, answer: string, prompt = `Means ${answer}?`): EditableQuestion => ({ id, type: 'custom', prompt, answer });
+
+  it('adds fresh copies after hers, skipping ones she already has', () => {
+    const mine = [q('a', 'cat')];
+    const out = importQuestions(mine, [q('x', 'CAT', ' means cat? '), q('y', 'dog'), q('z', 'dog')]);
+    expect(out.map((x) => x.answer)).toEqual(['cat', 'dog']);
+    expect(out[0]).toBe(mine[0]);
+    expect(out[1].id).not.toBe('y');
+  });
+
+  it('stops at what a set holds', () => {
+    const full = Array.from({ length: MAX_QUESTIONS - 1 }, (_, i) => q(`m${i}`, `w${i}`));
+    expect(importQuestions(full, [q('x', 'new1'), q('y', 'new2')])).toHaveLength(MAX_QUESTIONS);
+  });
+
+  it('tells a different question apart by any part of it', () => {
+    expect(sameQuestion(q('a', 'cat'), q('b', 'cat'))).toBe(true);
+    expect(sameQuestion(q('a', 'cat'), q('b', 'cat', 'Purrs?'))).toBe(false);
+    expect(sameQuestion({ ...q('a', 'cat'), type: 'spell' }, q('b', 'cat'))).toBe(false);
   });
 });

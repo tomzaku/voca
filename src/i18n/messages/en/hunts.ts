@@ -195,8 +195,18 @@ export default {
   'hunt.editor.problem.dupWords': 'A word is used twice',
 
   // ── Saved sets, and the results ──
-  'hunt.sets.open': 'Open a saved set…',
-  'hunt.sets.confirmReplace': 'Replace the questions here with the saved set?',
+  'hunt.import.open': 'Import questions',
+  'hunt.import.title': 'Import questions',
+  'hunt.import.hint': 'Tick the questions to add from your saved sets. They’re copied in — the other set stays as it is.',
+  'hunt.import.none': 'You don’t have any other saved sets yet.',
+  'hunt.import.empty': 'This set has no questions.',
+  'hunt.import.failed': 'Couldn’t load this set — tap to try again.',
+  'hunt.import.already': 'already added',
+  'hunt.import.all': 'All questions in “{title}”',
+  'hunt.import.picked': '{n, plural, =0 {Nothing picked yet} one {# question picked} other {# questions picked}}',
+  'hunt.import.tooMany': 'Only {room} more fit in this hunt — untick some.',
+  'hunt.import.button': '{n, plural, =0 {Import} other {Import #}}',
+  'hunt.import.done': '{n, plural, one {# question added} other {# questions added}}',
   'hunt.results.title': 'Results',
   'hunt.results.refresh': 'Refresh',
   'hunt.results.loading': 'Reading the answers…',
@@ -242,7 +252,7 @@ export default {
   'hunt.try.backToBoard': 'Back to the board',
 
   // ── Adding a question by kind, and the saved-set note ──
-  'hunt.sets.reuse': 'These questions are saved too, so you can reuse them in your next hunt (“Open a saved set”).',
+  'hunt.sets.reuse': 'These questions are saved too, so you can import them into your next hunt.',
   'hunt.sets.savesTo': 'Your changes are saved to the set “{title}”.',
   'hunt.editor.addTitle': 'Add a question',
   'hunt.editor.fromWord': 'Make it from a word',

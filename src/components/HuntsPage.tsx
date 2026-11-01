@@ -6,6 +6,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import {
   HUNT_PLACES,
+  importQuestions,
   pickPlaces,
   problemOf,
   questionsToSave,
@@ -13,6 +14,7 @@ import {
   type EditableQuestion,
 } from '../lib/hunt';
 import { createSet, fetchSet, listSets, saveSet, type QuestionSet, type SetSummary } from '../lib/questionSetsApi';
+import { ImportQuestions } from './hunt/ImportQuestions';
 import { QuestionEditor } from './hunt/QuestionEditor';
 import { Selector } from './Selector';
 import { createHunt, deleteHunt, fetchBoard, listHunts, updateHunt, type Board, type HuntMode, type HuntSummary, type PlayStyle } from '../lib/huntsApi';
@@ -199,27 +201,16 @@ function CreateHunt({ onCancel, existing }: {
   const [questions, setQuestions] = useState<EditableQuestion[]>(existing?.set?.questions ?? []);
   const [pictures, setPictures] = useState<Record<string, string>>({});
   const addPictures = useCallback((add: Record<string, string>) => setPictures((p) => ({ ...p, ...add })), []);
-  // The question set these questions are saved as: a saved one she opened, or
-  // a new one made when the hunt is created.
+  // The question set these questions are saved as: the hunt's own when
+  // editing, or a new one made when the hunt is created. Importing copies
+  // questions in from other sets; it never switches which set this is.
   const [setId, setSetId] = useState<string | null>(existing?.set?.id ?? null);
-  const [savedName, setSavedName] = useState(existing?.set?.title ?? '');
+  const savedName = existing?.set?.title ?? '';
   const [sets, setSets] = useState<SetSummary[]>([]);
+  const [importing, setImporting] = useState(false);
   useEffect(() => {
     listSets().then(setSets).catch(() => { /* no saved sets to offer — she can still make one */ });
   }, []);
-
-  const openSet = async (id: string) => {
-    if (!id) return;
-    if (questions.length && !window.confirm(intl.formatMessage({ id: 'hunt.sets.confirmReplace' }))) return;
-    try {
-      const set = await fetchSet(id);
-      setQuestions(set.questions);
-      setSetId(set.id);
-      setSavedName(set.title);
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  };
 
   const cleanTreasure = treasure.toUpperCase().replace(/[^A-Z]/g, '');
   const count = cleanTreasure.length;
@@ -413,21 +404,30 @@ function CreateHunt({ onCancel, existing }: {
       {!live && <div>
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <span className={label + ' !mb-0'}><FormattedMessage id="hunt.editor.title" /></span>
-          {sets.length > 0 && (
-            // An action, not a setting: it stays on its prompt, and picking a
-            // set loads it.
-            <Selector
-              align="right"
-              value=""
-              options={[
-                { value: '', label: intl.formatMessage({ id: 'hunt.sets.open' }), icon: 'lucide:folder-open' },
-                ...sets.map((s) => ({ value: s.id, label: s.title, description: intl.formatMessage({ id: 'hunt.editor.questionsN' }, { n: s.questionCount }) })),
-              ]}
-              onChange={(v) => { if (v) void openSet(v); }}
-              ariaLabel={intl.formatMessage({ id: 'hunt.sets.open' })}
-            />
+          {sets.some((s) => s.id !== setId) && (
+            <button
+              type="button"
+              onClick={() => setImporting(true)}
+              className="px-3 py-1.5 rounded-xl bg-bg-tertiary text-xs font-bold text-text-primary flex items-center gap-1.5 hover:text-accent-cyan"
+            >
+              <Icon icon="lucide:download" /> <FormattedMessage id="hunt.import.open" />
+            </button>
           )}
         </div>
+        {importing && (
+          <ImportQuestions
+            // Her other sets — this hunt's own is already on screen.
+            sets={sets.filter((s) => s.id !== setId)}
+            current={questions}
+            onImport={(picked) => {
+              const next = importQuestions(questions, picked);
+              setQuestions(next);
+              setImporting(false);
+              toast.success(intl.formatMessage({ id: 'hunt.import.done' }, { n: next.length - questions.length }));
+            }}
+            onClose={() => setImporting(false)}
+          />
+        )}
         <p className="text-xs text-text-muted mb-3"><FormattedMessage id="hunt.editor.hint" /></p>
         <QuestionEditor
           questions={questions}

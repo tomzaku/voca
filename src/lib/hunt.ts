@@ -338,3 +338,27 @@ export function questionKey(q: {
 }): string {
   return `${q.type}|${q.prompt}|${q.say ?? ''}|${q.scrambled ?? ''}|${q.image ?? ''}|${(q.slotPrompts ?? []).join('/')}`;
 }
+
+/** Two questions ask the same thing the same way — whatever their row ids. */
+export function sameQuestion(a: DraftQuestion, b: DraftQuestion): boolean {
+  const norm = (q: DraftQuestion) => JSON.stringify([
+    q.type, q.prompt.trim().toLowerCase(), q.answer.trim().toLowerCase(), q.say ?? '', q.scrambled ?? '',
+    q.imageWord ?? '', q.slotPrompts ?? [], q.slots ?? [],
+  ]);
+  return norm(a) === norm(b);
+}
+
+/**
+ * Questions picked from her other sets, added after the ones she has: each a
+ * fresh copy (so editing it here leaves the other set alone), any she already
+ * has skipped, and no more than a set holds.
+ */
+export function importQuestions(current: EditableQuestion[], picked: EditableQuestion[], rand: Rand = Math.random): EditableQuestion[] {
+  const out = [...current];
+  for (const q of picked) {
+    if (out.length >= MAX_QUESTIONS) break;
+    if (out.some((x) => sameQuestion(x, q))) continue;
+    out.push({ ...q, id: newKey(rand) });
+  }
+  return out;
+}

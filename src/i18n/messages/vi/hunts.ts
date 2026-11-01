@@ -195,8 +195,18 @@ export default {
   'hunt.editor.problem.dupWords': 'Một từ bị dùng hai lần',
 
   // ── Saved sets, and the results ──
-  'hunt.sets.open': 'Mở bộ câu hỏi đã lưu…',
-  'hunt.sets.confirmReplace': 'Thay các câu hỏi hiện tại bằng bộ đã lưu?',
+  'hunt.import.open': 'Nhập câu hỏi',
+  'hunt.import.title': 'Nhập câu hỏi',
+  'hunt.import.hint': 'Chọn những câu hỏi muốn thêm từ các bộ đã lưu. Câu hỏi được sao chép — bộ kia vẫn giữ nguyên.',
+  'hunt.import.none': 'Bạn chưa có bộ câu hỏi nào khác.',
+  'hunt.import.empty': 'Bộ này chưa có câu hỏi.',
+  'hunt.import.failed': 'Không tải được bộ này — bấm để thử lại.',
+  'hunt.import.already': 'đã có',
+  'hunt.import.all': 'Tất cả câu hỏi trong “{title}”',
+  'hunt.import.picked': '{n, plural, =0 {Chưa chọn câu nào} other {Đã chọn # câu}}',
+  'hunt.import.tooMany': 'Chỉ còn chỗ cho {room} câu nữa — hãy bỏ chọn bớt.',
+  'hunt.import.button': '{n, plural, =0 {Nhập} other {Nhập # câu}}',
+  'hunt.import.done': '{n, plural, other {Đã thêm # câu hỏi}}',
   'hunt.results.title': 'Kết quả',
   'hunt.results.refresh': 'Làm mới',
   'hunt.results.loading': 'Đang đọc câu trả lời…',
@@ -242,7 +252,7 @@ export default {
   'hunt.try.backToBoard': 'Quay lại bảng',
 
   // ── Adding a question by kind, and the saved-set note ──
-  'hunt.sets.reuse': 'Các câu hỏi này cũng được lưu lại để dùng cho lần truy tìm sau (“Mở bộ câu hỏi đã lưu”).',
+  'hunt.sets.reuse': 'Các câu hỏi này cũng được lưu lại để nhập vào lần truy tìm sau.',
   'hunt.sets.savesTo': 'Thay đổi được lưu vào bộ “{title}”.',
   'hunt.editor.addTitle': 'Thêm câu hỏi',
   'hunt.editor.fromWord': 'Tạo từ một từ',
