@@ -43,6 +43,7 @@ export function TestCreatePage() {
   const [missing, setMissing] = useState(false);
   const [title, setTitle] = useState('');
   const [due, setDue] = useState(defaultDue);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [questions, setQuestions] = useState<EditableQuestion[]>([]);
   const [pictures, setPictures] = useState<Record<string, string>>({});
   const addPictures = useCallback((add: Record<string, string>) => setPictures((p) => ({ ...p, ...add })), []);
@@ -90,7 +91,7 @@ export function TestCreatePage() {
         ? await saveSet(setId, name, questionsToSave(questions))
         : await createSet(name, questionsToSave(questions));
       setSetId(set.id);
-      const test = await createTest({ collectionId: col.id, setId: set.id, title: title.trim(), dueAt: new Date(due).toISOString() });
+      const test = await createTest({ collectionId: col.id, setId: set.id, title: title.trim(), dueAt: new Date(due).toISOString(), showLeaderboard });
       toast.success(intl.formatMessage({ id: 'tests.sent' }));
       navigate(`/tests/${test.id}`, { replace: true });
     } catch (err) {
@@ -148,6 +149,14 @@ export function TestCreatePage() {
             />
           </div>
         </div>
+
+<label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" checked={showLeaderboard} onChange={(e) => setShowLeaderboard(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
+            <span>
+              <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.leaderboardToggle" /></span>
+              <span className="block text-xs text-text-muted"><FormattedMessage id="tests.leaderboardHint" /></span>
+            </span>
+          </label>
 
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">

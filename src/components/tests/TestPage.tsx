@@ -13,6 +13,7 @@ import {
   submitTest,
   updateTest,
   type Answers,
+  type Leader,
   type ReviewItem,
   type TestQuestion,
   type TestResults,
@@ -56,7 +57,7 @@ const shown = (a: string | string[] | undefined) => (Array.isArray(a) ? a.join('
 export function TestPage() {
   const { id = '' } = useParams();
   const { user, loading: authLoading } = useAuth();
-  const [data, setData] = useState<{ test: TestSummary; questions: TestQuestion[]; review: ReviewItem[] | null } | null>(null);
+  const [data, setData] = useState<{ test: TestSummary; questions: TestQuestion[]; review: ReviewItem[] | null; leaderboard: Leader[] } | null>(null);
   const [error, setError] = useState<{ notFound: boolean; message: string } | null>(null);
 
   useEffect(() => {
@@ -99,9 +100,42 @@ export function TestPage() {
       {data.test.isOwner
         ? <OwnerView test={data.test} onChange={(test) => setData({ ...data, test })} />
         : data.review
-          ? <Review test={data.test} questions={data.questions} review={data.review} />
-          : <TakeTest test={data.test} questions={data.questions} onDone={(test, review) => setData({ ...data, test, review })} />}
+          ? <Review test={data.test} questions={data.questions} review={data.review} leaderboard={data.leaderboard} />
+          : <TakeTest test={data.test} questions={data.questions} leaderboard={data.leaderboard} onDone={(test, review, leaderboard) => setData({ ...data, test, review, leaderboard })} />}
     </div>
+  );
+}
+
+/**
+ * The test's top three, when the teacher shows it. Before a student hands in
+ * it's the score to beat; after, it's where they landed — their own row, if
+ * they made it, is marked.
+ */
+function Leaderboard({ leaders, test }: { leaders: Leader[]; test: TestSummary }) {
+  if (!test.showLeaderboard) return null;
+  const medal = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
+  return (
+    <section className="rounded-2xl border border-border bg-bg-card p-4 space-y-2">
+      <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
+        <Icon icon="lucide:trophy" className="text-accent-yellow" />
+        <FormattedMessage id="tests.topThree" />
+      </h2>
+      {leaders.length === 0
+        ? <p className="text-xs text-text-muted"><FormattedMessage id="tests.topThreeEmpty" /></p>
+        : (
+          <ol className="space-y-1">
+            {leaders.map((l, i) => (
+              <li key={i} className={`flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm ${l.isMe ? 'bg-accent-green/15' : ''}`}>
+                <Icon icon="lucide:medal" className={`text-lg shrink-0 ${medal[i]}`} />
+                <span className="flex-1 min-w-0 truncate font-semibold text-text-primary">
+                  {l.name}{l.isMe && <span className="text-text-muted font-normal"> (<FormattedMessage id="tests.you" />)</span>}
+                </span>
+                <span className="font-bold tabular-nums text-text-primary">{l.score}/{l.total}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+    </section>
   );
 }
 
@@ -125,10 +159,11 @@ function Header({ test }: { test: TestSummary }) {
 
 // ── Student ────────────────────────────────────────────────────────────────
 
-function TakeTest({ test, questions, onDone }: {
+function TakeTest({ test, questions, leaderboard, onDone }: {
   test: TestSummary;
   questions: TestQuestion[];
-  onDone: (test: TestSummary, review: ReviewItem[]) => void;
+  leaderboard: Leader[];
+  onDone: (test: TestSummary, review: ReviewItem[], leaderboard: Leader[]) => void;
 }) {
   const intl = useIntl();
   const [answers, setAnswers] = useState<Answers>(() => readDraft(test.id));
@@ -152,7 +187,7 @@ function TakeTest({ test, questions, onDone }: {
     try {
       const res = await submitTest(test.id, answers);
       writeDraft(test.id, null);
-      onDone(res.test, res.review);
+      onDone(res.test, res.review, res.leaderboard);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -183,6 +218,7 @@ function TakeTest({ test, questions, onDone }: {
             <FormattedMessage id={answered ? 'tests.continue' : 'tests.start'} />
           </button>
         </div>
+        <Leaderboard leaders={leaderboard} test={test} />
       </>
     );
   }
@@ -252,7 +288,7 @@ function TakeTest({ test, questions, onDone }: {
   );
 }
 
-function Review({ test, questions, review }: { test: TestSummary; questions: TestQuestion[]; review: ReviewItem[] }) {
+function Review({ test, questions, review, leaderboard }: { test: TestSummary; questions: TestQuestion[]; review: ReviewItem[]; leaderboard: Leader[] }) {
   const result = test.myResult;
   const revealed = review.some((r) => r.answer !== null);
   const byId = new Map(questions.map((q) => [q.id, q]));
@@ -265,6 +301,7 @@ function Review({ test, questions, review }: { test: TestSummary; questions: Tes
           <p className="text-4xl font-display font-extrabold text-text-primary mt-1">{result.score}/{result.total}</p>
         </div>
       )}
+      <Leaderboard leaders={leaderboard} test={test} />
       {!revealed && <p className="text-xs text-text-muted"><FormattedMessage id="tests.answersAfterDue" /></p>}
       <ol className="space-y-2">
         {review.map((r, i) => {
@@ -326,6 +363,14 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
     }
   };
 
+  const toggleLeaderboard = async (on: boolean) => {
+    try {
+      onChange(await updateTest(test.id, { showLeaderboard: on }));
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   const remove = async () => {
     if (!window.confirm(intl.formatMessage({ id: 'tests.confirmDelete' }))) return;
     try {
@@ -352,6 +397,13 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
           </button>
         </div>
         <p className="text-xs text-text-muted"><FormattedMessage id="tests.shareHint" /></p>
+<label className="flex items-start gap-3 cursor-pointer pt-1">
+            <input type="checkbox" checked={test.showLeaderboard} onChange={(e) => void toggleLeaderboard(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
+            <span>
+              <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.leaderboardToggle" /></span>
+              <span className="block text-xs text-text-muted"><FormattedMessage id="tests.leaderboardHint" /></span>
+            </span>
+          </label>
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <input
             type="datetime-local"

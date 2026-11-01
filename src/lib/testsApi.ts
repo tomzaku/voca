@@ -14,6 +14,8 @@ export interface TestSummary {
   isOwner: boolean;
   title: string;
   dueAt: string;
+  /** Students see the top three on the test page. */
+  showLeaderboard: boolean;
   questionCount: number;
   createdAt: string;
   submittedCount: number;
@@ -50,21 +52,29 @@ export interface TestResults {
   }[];
 }
 
+/** One of the top three hand-ins. `isMe` marks the caller's own. */
+export interface Leader {
+  name: string;
+  score: number;
+  total: number;
+  isMe: boolean;
+}
+
 export type Answers = Record<string, string | string[]>;
 
 export async function listTests(collectionId: string): Promise<TestSummary[]> {
   return (await request.get<{ tests: TestSummary[] }>('/tests', { params: { collection: collectionId } })).tests;
 }
 
-export async function fetchTest(id: string): Promise<{ test: TestSummary; questions: TestQuestion[]; review: ReviewItem[] | null }> {
+export async function fetchTest(id: string): Promise<{ test: TestSummary; questions: TestQuestion[]; review: ReviewItem[] | null; leaderboard: Leader[] }> {
   return request.get(`/tests/${id}`);
 }
 
-export async function createTest(fields: { collectionId: string; setId: string; title: string; dueAt: string }): Promise<TestSummary> {
+export async function createTest(fields: { collectionId: string; setId: string; title: string; dueAt: string; showLeaderboard: boolean }): Promise<TestSummary> {
   return (await request.post<{ test: TestSummary }>('/tests', fields)).test;
 }
 
-export async function updateTest(id: string, fields: { title?: string; dueAt?: string }): Promise<TestSummary> {
+export async function updateTest(id: string, fields: { title?: string; dueAt?: string; showLeaderboard?: boolean }): Promise<TestSummary> {
   return (await request.patch<{ test: TestSummary }>(`/tests/${id}`, fields)).test;
 }
 
@@ -72,7 +82,7 @@ export async function deleteTest(id: string): Promise<void> {
   await request.delete(`/tests/${id}`);
 }
 
-export async function submitTest(id: string, answers: Answers): Promise<{ test: TestSummary; review: ReviewItem[] }> {
+export async function submitTest(id: string, answers: Answers): Promise<{ test: TestSummary; review: ReviewItem[]; leaderboard: Leader[] }> {
   return request.post(`/tests/${id}/submit`, { answers });
 }
 

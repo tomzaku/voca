@@ -3,8 +3,8 @@
 // grading rules are pure and live in _shared/tests.ts.
 //
 // The teacher (the collection's owner):
-//   POST   /tests            { collectionId, setId, title, dueAt } → { test }
-//   PATCH  /tests/:id        { title?, dueAt? }   → { test }
+//   POST   /tests            { collectionId, setId, title, dueAt, showLeaderboard? } → { test }
+//   PATCH  /tests/:id        { title?, dueAt?, showLeaderboard? } → { test }
 //   DELETE /tests/:id                             → { ok }   idempotent
 //   GET    /tests/:id/results                     → { results }  everyone's score, who hasn't
 //                                                    taken it, and how each question went
@@ -12,9 +12,12 @@
 // Anyone in the collection — its owner, a member, or (when it's public) any
 // signed-in visitor holding the link:
 //   GET    /tests ?collection=                    → { tests }  newest first
-//   GET    /tests/:id                             → { test, questions, review }
-//   POST   /tests/:id/submit { answers }          → { test, review }   answers: { [questionId]: string | string[] }
+//   GET    /tests/:id                             → { test, questions, review, leaderboard }
+//   POST   /tests/:id/submit { answers }          → { test, review, leaderboard }   answers: { [questionId]: string | string[] }
 //   GET    /tests/:id/image ?key=                 → { image }  a picture question's picture
+//
+// `leaderboard` is the top three hand-ins, best score first and earliest on a
+// tie — or empty when the teacher hasn't turned it on.
 //
 // `review` is null until you've submitted. After that it's your answers, each
 // marked right or wrong — and, once the due date passes, the right answer
@@ -51,6 +54,7 @@ const MAX_QUESTIONS = 100;
 const LIST_LIMIT = 50;
 /** A class's every answer to one test, with room to spare. */
 const RESULTS_LIMIT = 20_000;
+const LEADERS = 3;
 
 interface TestRow {
   id: string;
@@ -59,6 +63,7 @@ interface TestRow {
   set_id: string | null;
   title: string;
   due_at: string;
+  show_leaderboard: boolean;
   question_count: number;
   created_at: string;
 }
@@ -92,6 +97,7 @@ function toSummary(t: TestRow, me: string, extra: { submittedCount: number; memb
     collectionId: t.collection_id,
     title: t.title,
     dueAt: t.due_at,
+    showLeaderboard: t.show_leaderboard,
     questionCount: t.question_count,
     createdAt: t.created_at,
     submittedCount: extra.submittedCount,
@@ -207,6 +213,20 @@ export default async function handler(req: Request): Promise<Response> {
     });
   };
 
+  /** The top hand-ins, when the teacher shows them. */
+  const leaderboard = async (t: TestRow) => {
+    if (!t.show_leaderboard) return [];
+    const { data, error } = await db
+      .from('collection_test_submissions')
+      .select('user_id, name, score, total')
+      .eq('test_id', t.id)
+      .order('score', { ascending: false })
+      .order('submitted_at', { ascending: true })
+      .limit(LEADERS);
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((r) => ({ name: r.name as string, score: r.score as number, total: r.total as number, isMe: r.user_id === me }));
+  };
+
   /** The caller's own answers, marked — with the right answers once it's closed. */
   const review = async (t: TestRow, questions: StoredQuestion[]) => {
     const { data, error } = await db
@@ -281,7 +301,7 @@ export default async function handler(req: Request): Promise<Response> {
 
         const { data, error } = await db
           .from('collection_tests')
-          .insert({ collection_id: cid, owner_id: me, set_id: setId, title, due_at: dueAt, question_count: questions.length })
+          .insert({ collection_id: cid, owner_id: me, set_id: setId, title, due_at: dueAt, show_leaderboard: b.showLeaderboard === true, question_count: questions.length })
           .select('*')
           .single();
         if (error) throw new Error(error.message);
@@ -305,6 +325,7 @@ export default async function handler(req: Request): Promise<Response> {
           test,
           questions: questions.map((q) => ({ id: q.id!, ...publicQuestion(q) })),
           review: test.myResult ? await review(t, questions) : null,
+          leaderboard: await leaderboard(t),
         });
       }
 
@@ -318,6 +339,7 @@ export default async function handler(req: Request): Promise<Response> {
           patch.title = title;
         }
         if ('dueAt' in b) patch.due_at = cleanDue(b.dueAt, Date.now());
+        if ('showLeaderboard' in b) patch.show_leaderboard = b.showLeaderboard === true;
         const { data, error } = Object.keys(patch).length
           ? await db.from('collection_tests').update(patch).eq('id', t.id).select('*').single()
           : { data: t, error: null };
@@ -361,7 +383,11 @@ export default async function handler(req: Request): Promise<Response> {
           await db.from('collection_test_submissions').delete().eq('test_id', t.id).eq('user_id', me);
           throw new Error(answersError.message);
         }
-        return jsonResponse(200, { test: await summary(t, await collection(col.id)), review: await review(t, questions) });
+        return jsonResponse(200, {
+          test: await summary(t, await collection(col.id)),
+          review: await review(t, questions),
+          leaderboard: await leaderboard(t),
+        });
       }
 
       case 'GET :id/results': {

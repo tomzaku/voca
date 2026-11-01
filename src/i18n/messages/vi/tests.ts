@@ -52,6 +52,12 @@ export default {
   'tests.youSaid': 'Bạn trả lời {answer}',
   'tests.rightAnswer': 'đáp án: {answer}',
 
+  'tests.leaderboardToggle': 'Cho học sinh xem top 3',
+  'tests.leaderboardHint': 'Mọi học sinh đều thấy ba điểm cao nhất — kèm tên — trước và sau khi nộp bài.',
+  'tests.topThree': 'Top 3',
+  'tests.topThreeEmpty': 'Chưa ai nộp bài — hãy là người đầu tiên.',
+  'tests.you': 'bạn',
+
   // ── The teacher's results ──
   'tests.shareLink': 'Chia sẻ với lớp',
   'tests.copy': 'Sao chép',

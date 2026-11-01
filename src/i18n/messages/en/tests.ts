@@ -52,6 +52,12 @@ export default {
   'tests.youSaid': 'You said {answer}',
   'tests.rightAnswer': 'answer: {answer}',
 
+  'tests.leaderboardToggle': 'Show students the top 3',
+  'tests.leaderboardHint': 'Every student sees the three best scores — names included — before and after they hand in.',
+  'tests.topThree': 'Top 3',
+  'tests.topThreeEmpty': 'No one has handed it in yet — be the first.',
+  'tests.you': 'you',
+
   // ── The teacher's results ──
   'tests.shareLink': 'Share with your class',
   'tests.copy': 'Copy',
