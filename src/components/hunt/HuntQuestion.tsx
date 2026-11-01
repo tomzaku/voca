@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { usePicture } from '../../hooks/useHunt';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { speakText, stopSpeaking } from '../../lib/tts';
@@ -6,24 +7,28 @@ import type { PublicQuestion } from '../../lib/huntsApi';
 import { questionKey } from '../../lib/hunt';
 
 /**
- * One station question on a student's phone: four options to tap, or a word
- * to type. Grading is the server's — this only collects the answer. A wrong
- * answer locks the student out for a few seconds (`cooldown`), which the
- * server enforces too; the countdown is just so they know.
+ * One station question on a student's phone: options to tap, a word to type,
+ * a picture to name, or meanings to match with words. Grading is the
+ * server's — this only collects the answer. A wrong answer locks the student
+ * out for a few seconds (`cooldown`), which the server enforces too; the
+ * countdown is just so they know.
  */
 interface QuestionProps {
   question: PublicQuestion;
   /** Seconds before another answer is taken. */
   cooldown: number;
   busy: boolean;
-  onAnswer: (answer: string) => void;
+  /** A string — or, for matching, one word per meaning, in order. */
+  onAnswer: (answer: string | string[]) => void;
+  /** Fetches a picture question's picture by its key. */
+  loadImage?: (key: string) => Promise<string>;
 }
 
 export function HuntQuestion(props: QuestionProps) {
   return <QuestionBody key={questionKey(props.question)} {...props} />;
 }
 
-function QuestionBody({ question, cooldown, busy, onAnswer }: QuestionProps) {
+function QuestionBody({ question, cooldown, busy, onAnswer, loadImage }: QuestionProps) {
   const intl = useIntl();
   const [typed, setTyped] = useState('');
   const locked = busy || cooldown > 0;
@@ -60,6 +65,8 @@ function QuestionBody({ question, cooldown, busy, onAnswer }: QuestionProps) {
         </button>
       )}
 
+      {question.image && <Picture imageKey={question.image} load={loadImage} />}
+
       {question.scrambled && (
         <div className="flex flex-wrap gap-1.5" aria-label={question.scrambled}>
           {[...question.scrambled].map((c, i) => (
@@ -70,7 +77,9 @@ function QuestionBody({ question, cooldown, busy, onAnswer }: QuestionProps) {
         </div>
       )}
 
-      {question.options ? (
+      {question.slotPrompts && question.options ? (
+        <MatchBoard prompts={question.slotPrompts} bank={question.options} locked={locked} onAnswer={onAnswer} />
+      ) : question.options ? (
         <div className="grid grid-cols-2 gap-2">
           {question.options.map((o) => (
             <button
@@ -174,6 +183,88 @@ export function TreasureLock({ letters, cooldown, busy, onAnswer }: {
           <FormattedMessage id="hunt.cooldown" values={{ n: cooldown }} />
         </p>
       )}
+    </div>
+  );
+}
+
+function Picture({ imageKey, load }: { imageKey: string; load?: (key: string) => Promise<string> }) {
+  const intl = useIntl();
+  const src = usePicture(imageKey, load);
+  return (
+    <div className="flex justify-center">
+      <div className="w-44 h-44 rounded-2xl bg-white border border-border flex items-center justify-center overflow-hidden">
+        {src === null
+          ? <div className="w-8 h-8 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />
+          : src
+            ? <img src={src} alt={intl.formatMessage({ id: 'hunt.pictureAlt' })} className="w-full h-full object-contain" />
+            : <Icon icon="lucide:image-off" className="text-3xl text-text-muted" />}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Matching: each meaning gets a word from the bank. A word placed on one
+ * meaning leaves the bank, so it can't be used twice; tapping a placed word
+ * puts it back. Sent only when every meaning has one.
+ */
+function MatchBoard({ prompts, bank, locked, onAnswer }: {
+  prompts: string[];
+  bank: string[];
+  locked: boolean;
+  onAnswer: (answer: string[]) => void;
+}) {
+  const [placed, setPlaced] = useState<(string | null)[]>(() => prompts.map(() => null));
+  const [picked, setPicked] = useState<string | null>(null);
+  const free = bank.filter((w) => !placed.includes(w));
+  const full = placed.every(Boolean);
+
+  const place = (i: number) => {
+    if (locked) return;
+    if (placed[i]) { setPlaced((p) => p.map((w, j) => (j === i ? null : w))); return; }
+    if (picked) { setPlaced((p) => p.map((w, j) => (j === i ? picked : w))); setPicked(null); }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5 min-h-[40px]">
+        {free.map((w) => (
+          <button
+            key={w}
+            type="button"
+            disabled={locked}
+            onClick={() => setPicked((p) => (p === w ? null : w))}
+            className={`px-3 py-2 rounded-xl border-2 font-bold text-sm transition-colors ${picked === w ? 'border-accent-cyan bg-accent-cyan/20 text-text-primary' : 'border-border bg-bg-tertiary text-text-primary'}`}
+          >
+            {w}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-text-muted"><FormattedMessage id="hunt.matchHint" /></p>
+      <div className="space-y-2">
+        {prompts.map((p, i) => (
+          <button
+            key={i}
+            type="button"
+            disabled={locked}
+            onClick={() => place(i)}
+            className={`w-full text-left rounded-xl border-2 px-3 py-2.5 transition-colors ${placed[i] ? 'border-accent-green/60 bg-accent-green/10' : picked ? 'border-accent-cyan border-dashed' : 'border-border'}`}
+          >
+            <span className="block text-sm text-text-secondary leading-snug">{p}</span>
+            <span className={`block mt-1 font-display font-extrabold ${placed[i] ? 'text-text-primary' : 'text-text-muted'}`}>
+              {placed[i] ?? '…'}
+            </span>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        disabled={locked || !full}
+        onClick={() => onAnswer(placed as string[])}
+        className="w-full py-3 rounded-xl bg-accent-cyan text-bg-primary font-display font-extrabold disabled:opacity-40"
+      >
+        <FormattedMessage id="hunt.check" />
+      </button>
     </div>
   );
 }

@@ -4,7 +4,7 @@
 //
 // The teacher, signed in:
 //   GET    /hunts                         → { hunts }   their own, newest first
-//   POST   /hunts      { title, mode, treasure, stations, need, durationMin, teamNames } → { hunt }
+//   POST   /hunts      { title, mode, treasure, stations, images, need, durationMin, teamNames } → { hunt }
 //   DELETE /hunts      ?id=               → { ok }      idempotent
 //   GET    /hunts/board ?id=              → { board }   the projector's view
 //   POST   /hunts/start { id }            → { board }   opens the race, starts the clock
@@ -16,7 +16,8 @@
 //   POST   /hunts/join   { code, name }   → { token, play }
 //   GET    /hunts/play   ?token=          → { play }    my team's place in the race
 //   POST   /hunts/found  { token, card }  → { result, play }  scanned a card / reached a place
-//   POST   /hunts/answer { token, answer }→ { correct, play }
+//   POST   /hunts/answer { token, answer }→ { correct, play }   answer: string, or string[] for matching
+//   GET    /hunts/image  ?token=&key=     → { image }   a picture question's picture
 //
 // WHY A TOKEN AND NOT THE SESSION. A class of children opening a link on their
 // phones won't have accounts, and shouldn't need one. Joining hands back a
@@ -34,7 +35,11 @@
 import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
 import {
   clampInt,
+  cleanImages,
   cleanStations,
+  IMAGE_KEY,
+  imageKeys,
+  MAX_SLOTS,
   cleanTeamNames,
   cleanTreasure,
   cooldownUntil,
@@ -389,6 +394,23 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
         return jsonResponse(200, { token, play: await play(db, h, data as PlayerRow) });
       }
 
+      // A picture question's picture, by its key — fetched once per question,
+      // so the doodles never ride along on the poll.
+      case 'GET /image': {
+        const { hunt } = await playerFor(db, q('token'));
+        const key = q('key');
+        if (!IMAGE_KEY.test(key)) return jsonResponse(400, { error: '"key" is required.' });
+        const { data, error } = await db
+          .from('hunt_images')
+          .select('data')
+          .eq('hunt_id', hunt.id)
+          .eq('key', key)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        if (!data) return jsonResponse(404, { error: 'Picture not found.' });
+        return jsonResponse(200, { image: data.data as string });
+      }
+
       case 'GET /play': {
         const { player, hunt } = await playerFor(db, q('token'));
         return jsonResponse(200, { play: await play(db, hunt, player) });
@@ -421,15 +443,18 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
         const { player, hunt } = await playerFor(db, b.token);
         const now = Date.now();
         if (!isLive(hunt, now)) return jsonResponse(400, { error: 'The hunt isn’t running.' });
-        const answer = str(b.answer, 60);
-        if (!answer) return jsonResponse(400, { error: '"answer" is required.' });
+        // A string, or — for a matching question — one word per meaning.
+        const answer = Array.isArray(b.answer)
+          ? b.answer.slice(0, MAX_SLOTS).map((a) => str(a, 60))
+          : str(b.answer, 60);
+        if (!answer.length) return jsonResponse(400, { error: '"answer" is required.' });
         const players = await loadPlayers(db, hunt.id);
         const state = teamState(hunt.stations, player.team, hunt.need, players, await loadProgress(db, hunt.id));
 
         if (state.phase === 'final') {
           const misses = await loadMisses(db, hunt.id, player.id, FINAL);
           if (cooldownUntil(misses, player.id, FINAL, now)) return jsonResponse(400, { error: 'Wait a moment before trying again.' });
-          const correct = isCorrect({ answer: hunt.treasure }, answer);
+          const correct = typeof answer === 'string' && isCorrect({ answer: hunt.treasure }, answer);
           await append(db, hunt.id, { team: player.team, station: FINAL, player_id: player.id, kind: correct ? 'finish' : 'miss' });
           return jsonResponse(200, { correct, play: await play(db, hunt, player) });
         }
@@ -491,6 +516,7 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
           mode,
           uniqueCodes(treasure.length),
         );
+        const images = cleanImages(b.images, imageKeys(stations));
         const { count, error: countError } = await db
           .from('hunts')
           .select('id', { count: 'exact', head: true })
@@ -517,7 +543,19 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
             })
             .select('*')
             .single();
-          if (!error) return jsonResponse(200, { hunt: toSummary(data as HuntRow, 0) });
+          if (!error) {
+            const rows = Object.entries(images).map(([key, data_]) => ({ hunt_id: (data as HuntRow).id, key, data: data_ }));
+            if (rows.length) {
+              const { error: imgError } = await db.from('hunt_images').insert(rows);
+              if (imgError) {
+                // A hunt whose pictures didn't save would show students blank
+                // questions; better no hunt and a retry.
+                await db.from('hunts').delete().eq('id', (data as HuntRow).id);
+                throw new Error(imgError.message);
+              }
+            }
+            return jsonResponse(200, { hunt: toSummary(data as HuntRow, 0) });
+          }
           if (error.code !== '23505') throw new Error(error.message);
         }
         throw new Error('Could not find a free join code.');

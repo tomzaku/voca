@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { clock, questionKey, secondsUntil } from '../../lib/hunt';
 import { speakText, stopSpeaking } from '../../lib/tts';
-import { useTick, type HuntHandle } from '../../hooks/useHunt';
+import { usePicture, useTick, type HuntHandle } from '../../hooks/useHunt';
 import type { Play, PublicQuestion } from '../../lib/huntsApi';
-import { HudCenter, PixelButton, PixelIcon, PixelLetter, PixelLoader } from './pixel';
+import { HudCenter, PixelButton, PixelChip, PixelIcon, PixelLetter, PixelLoader } from './pixel';
 import { TEAM_PX } from '../hunt/teams';
 
 // A treasure hunt played in the world (/world?hunt=CODE). The same race as the
@@ -118,7 +118,7 @@ export function HuntWindow({ hunt, onClose }: { hunt: HuntHandle; onClose: () =>
 
   if (!play) return <HudCenter><PixelLoader label={<FormattedMessage id="hunt.loadingQuestion" />} /></HudCenter>;
   const cooldown = secondsUntil(play.team.cooldownUntil, hunt.skewMs, now);
-  const answer = (a: string) => void hunt.answer(a);
+  const answer = (a: string | string[]) => void hunt.answer(a);
 
   return (
     <HudCenter wide>
@@ -131,7 +131,7 @@ export function HuntWindow({ hunt, onClose }: { hunt: HuntHandle; onClose: () =>
           <p className="text-[15px] text-[var(--px-muted)]"><FormattedMessage id="hunt.helpTeammates" values={{ n: play.team.need - play.team.solved }} /></p>
         </div>
       ) : play.team.question ? (
-        <PixelQuestion question={play.team.question} cooldown={cooldown} busy={hunt.busy} onAnswer={answer} />
+        <PixelQuestion question={play.team.question} cooldown={cooldown} busy={hunt.busy} onAnswer={answer} loadImage={hunt.image} />
       ) : (
         <PixelLoader label={<FormattedMessage id="hunt.loadingQuestion" />} />
       )}
@@ -143,7 +143,8 @@ interface PixelQuestionProps {
   question: PublicQuestion;
   cooldown: number;
   busy: boolean;
-  onAnswer: (a: string) => void;
+  onAnswer: (a: string | string[]) => void;
+  loadImage?: (key: string) => Promise<string>;
 }
 
 /** A new question remounts — a clean box, and its word read out. */
@@ -151,7 +152,7 @@ function PixelQuestion(props: PixelQuestionProps) {
   return <PixelQuestionBody key={questionKey(props.question)} {...props} />;
 }
 
-function PixelQuestionBody({ question, cooldown, busy, onAnswer }: PixelQuestionProps) {
+function PixelQuestionBody({ question, cooldown, busy, onAnswer, loadImage }: PixelQuestionProps) {
   const intl = useIntl();
   const [typed, setTyped] = useState('');
   const locked = busy || cooldown > 0;
@@ -170,10 +171,13 @@ function PixelQuestionBody({ question, cooldown, busy, onAnswer }: PixelQuestion
           <PixelIcon name="speaker" size={2} /> <FormattedMessage id="hunt.listenAgain" />
         </PixelButton>
       )}
+      {question.image && <PixelPicture imageKey={question.image} load={loadImage} />}
       {question.scrambled && (
         <div className="flex flex-wrap gap-1.5">{[...question.scrambled].map((c, i) => <PixelLetter key={i} char={c} state="given" />)}</div>
       )}
-      {question.options ? (
+      {question.slotPrompts && question.options ? (
+        <PixelMatch prompts={question.slotPrompts} bank={question.options} locked={locked} onAnswer={onAnswer} />
+      ) : question.options ? (
         <div className="grid grid-cols-2 gap-2">
           {question.options.map((o) => (
             <button key={o} disabled={locked} onClick={() => onAnswer(o)} className="px-slot px-notch min-h-[56px] px-3 py-3 text-left text-[18px] font-bold disabled:opacity-50">
@@ -230,6 +234,50 @@ function PixelLock({ letters, cooldown, busy, onAnswer }: { letters: string[]; c
         <PixelButton type="submit" disabled={locked || !typed.trim()}><PixelIcon name="key" size={2} /></PixelButton>
       </form>
       {cooldown > 0 && <p className="px-title text-[var(--px-bad)]"><FormattedMessage id="hunt.cooldown" values={{ n: cooldown }} /></p>}
+    </div>
+  );
+}
+
+function PixelPicture({ imageKey, load }: { imageKey: string; load?: (key: string) => Promise<string> }) {
+  const src = usePicture(imageKey, load);
+  return (
+    <div className="flex justify-center">
+      <div className="px-inset px-notch w-40 h-40 bg-[#f4ecd8] flex items-center justify-center overflow-hidden">
+        {src === null ? <PixelLoader label="" /> : src ? <img src={src} alt="" className="w-full h-full object-contain" /> : <PixelIcon name="close" size={3} className="text-[var(--px-muted)]" />}
+      </div>
+    </div>
+  );
+}
+
+/** Matching, in the world's kit: tap a word, then the meaning it goes with. */
+function PixelMatch({ prompts, bank, locked, onAnswer }: {
+  prompts: string[];
+  bank: string[];
+  locked: boolean;
+  onAnswer: (a: string[]) => void;
+}) {
+  const [placed, setPlaced] = useState<(string | null)[]>(() => prompts.map(() => null));
+  const [picked, setPicked] = useState<string | null>(null);
+  const free = bank.filter((w) => !placed.includes(w));
+  const place = (i: number) => {
+    if (locked) return;
+    if (placed[i]) { setPlaced((p) => p.map((w, j) => (j === i ? null : w))); return; }
+    if (picked) { setPlaced((p) => p.map((w, j) => (j === i ? picked : w))); setPicked(null); }
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+        {free.map((w) => <PixelChip key={w} on={picked === w} onClick={() => !locked && setPicked((p) => (p === w ? null : w))}>{w}</PixelChip>)}
+      </div>
+      {prompts.map((p, i) => (
+        <button key={i} disabled={locked} onClick={() => place(i)} data-on={Boolean(placed[i])} className="px-pick px-notch w-full text-left px-3 py-2">
+          <span className="block text-[14px] text-[var(--px-muted)] leading-snug">{p}</span>
+          <span className="block px-title mt-0.5">{placed[i] ?? '…'}</span>
+        </button>
+      ))}
+      <PixelButton block disabled={locked || !placed.every(Boolean)} onClick={() => onAnswer(placed as string[])}>
+        <FormattedMessage id="hunt.check" />
+      </PixelButton>
     </div>
   );
 }

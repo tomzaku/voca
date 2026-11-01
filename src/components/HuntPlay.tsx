@@ -258,7 +258,7 @@ function Stage({ play, hunt, cooldown }: { play: Play; hunt: ReturnType<typeof u
         <p className="text-xs font-bold text-text-muted"><PhaseLabel phase="solve" solved={team.solved} need={team.need} /></p>
       </div>
       {team.question ? (
-        <HuntQuestion question={team.question} cooldown={cooldown} busy={hunt.busy} onAnswer={(a) => void hunt.answer(a)} />
+        <HuntQuestion question={team.question} cooldown={cooldown} busy={hunt.busy} onAnswer={(a) => void hunt.answer(a)} loadImage={hunt.image} />
       ) : team.iSolved ? (
         <div className="text-center py-4">
           <div className="text-4xl mb-2" aria-hidden>✅</div>

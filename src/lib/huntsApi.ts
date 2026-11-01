@@ -64,9 +64,14 @@ export interface Board {
 }
 
 export interface PublicQuestion {
-  type: 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'custom';
+  type: 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'image' | 'match' | 'custom';
   prompt: string;
+  /** Choices to tap — or, for `match`, the bank of words to place. */
   options: string[] | null;
+  /** `image`: the key to fetch its picture with (fetchHuntImage). */
+  image: string | null;
+  /** `match`: the meanings, each to be given a word from `options`. */
+  slotPrompts: string[] | null;
   say: string | null;
   scrambled: string | null;
   length: number | null;
@@ -114,6 +119,8 @@ export interface NewHunt {
   mode: HuntMode;
   treasure: string;
   stations: DraftStation[];
+  /** Picture questions' pictures, by key (data: URIs). */
+  images: Record<string, string>;
   need: number;
   durationMin: number;
   teamNames: [string, string];
@@ -169,8 +176,14 @@ export async function reportFound(token: string, card: string): Promise<{ result
   return request.post<{ result: FoundResult; play: Play }>('/hunts/found', { token, card }, { allowAnon: true });
 }
 
-export async function submitAnswer(token: string, answer: string): Promise<{ correct: boolean; play: Play }> {
+/** A word or phrase — or, for a matching question, one word per meaning, in order. */
+export async function submitAnswer(token: string, answer: string | string[]): Promise<{ correct: boolean; play: Play }> {
   return request.post<{ correct: boolean; play: Play }>('/hunts/answer', { token, answer }, { allowAnon: true });
+}
+
+/** A picture question's picture, as a data: URI. */
+export async function fetchHuntImage(token: string, key: string): Promise<string> {
+  return (await request.get<{ image: string }>('/hunts/image', { params: { token, key }, allowAnon: true, timeout: 15000 })).image;
 }
 
 // ── This device's place in a hunt ──

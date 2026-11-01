@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../lib/api';
 import {
+  fetchHuntImage,
   fetchPlay,
   forgetHunt,
   huntToken,
@@ -41,7 +42,9 @@ export interface HuntHandle {
   feedback: Feedback | null;
   join: (name: string) => Promise<boolean>;
   found: (card: string) => Promise<FoundResult | null>;
-  answer: (text: string) => Promise<boolean | null>;
+  answer: (text: string | string[]) => Promise<boolean | null>;
+  /** A picture question's picture — fetched once, then kept for the page's life. */
+  image: (key: string) => Promise<string>;
   leave: () => void;
 }
 
@@ -149,7 +152,7 @@ export function useHunt(code: string | null): HuntHandle {
     }
   }, [token, setPlay]);
 
-  const answer = useCallback(async (text: string) => {
+  const answer = useCallback(async (text: string | string[]) => {
     if (!token) return null;
     setBusy(true);
     try {
@@ -169,13 +172,27 @@ export function useHunt(code: string | null): HuntHandle {
     }
   }, [token, refresh, setPlay]);
 
+  // Pictures are fetched by key and never change, so one request each is plenty.
+  const pictures = useRef(new Map<string, Promise<string>>());
+  const image = useCallback((key: string) => {
+    if (!token) return Promise.reject(new Error('Not in a hunt.'));
+    let p = pictures.current.get(key);
+    if (!p) {
+      p = fetchHuntImage(token, key);
+      // A failed fetch isn't kept, so the next look tries again.
+      p.catch(() => pictures.current.delete(key));
+      pictures.current.set(key, p);
+    }
+    return p;
+  }, [token]);
+
   const leave = useCallback(() => {
     if (code) forgetHunt(code);
     setToken(null);
     setPlay(null);
   }, [code, setPlay]);
 
-  return { token, play, skewMs, loading, error, busy, feedback, join, found, answer, leave };
+  return { token, play, skewMs, loading, error, busy, feedback, join, found, answer, image, leave };
 }
 
 /** Re-renders every second while `on` — for countdowns. */
@@ -187,4 +204,19 @@ export function useTick(on: boolean): number {
     return () => window.clearInterval(id);
   }, [on]);
   return now;
+}
+
+/**
+ * A picture question's picture: null while it loads, '' if it couldn't be
+ * fetched (the question's choices still work), else its data: URI.
+ */
+export function usePicture(key: string | null, load: ((key: string) => Promise<string>) | undefined): string | null {
+  const [got, setGot] = useState<{ key: string; src: string } | null>(null);
+  useEffect(() => {
+    if (!key || !load) return;
+    let alive = true;
+    load(key).then((src) => alive && setGot({ key, src }), () => alive && setGot({ key, src: '' }));
+    return () => { alive = false; };
+  }, [key, load]);
+  return got && got.key === key ? got.src : null;
 }

@@ -19,9 +19,13 @@
 //
 // No imports, on purpose: the edge function and vitest both load this file.
 
-/** The kinds built from a word list, and `custom` — one the teacher wrote herself. */
-export type QuestionType = 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'custom';
-export const QUESTION_TYPES: QuestionType[] = ['definition', 'sentence', 'listen', 'unscramble', 'spell', 'custom'];
+/**
+ * The kinds built from a word list; `image` (which word is this picture?),
+ * `match` (pair each meaning with its word), and `custom` — one the teacher
+ * wrote herself.
+ */
+export type QuestionType = 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'image' | 'match' | 'custom';
+export const QUESTION_TYPES: QuestionType[] = ['definition', 'sentence', 'listen', 'unscramble', 'spell', 'image', 'match', 'custom'];
 
 /** One question, answer included. Stored on the hunt; never sent as-is. */
 export interface StoredQuestion {
@@ -37,6 +41,12 @@ export interface StoredQuestion {
   answer: string;
   /** Other answers that also count — "colour" for "color". Typed questions only. */
   accept?: string[];
+  /** `image`: the key of its picture in `hunt_images` — opaque, never the word. */
+  image?: string;
+  /** `match`: the meanings to pair, in order… */
+  slotPrompts?: string[];
+  /** …and the word that belongs with each. `options` is the bank they're picked from. */
+  slots?: string[];
 }
 
 export interface Station {
@@ -90,6 +100,13 @@ export const MAX_PROMPT = 400;
 export const MAX_OPTIONS = 6;
 export const MAX_ANSWER = 40;
 export const MAX_ACCEPT = 5;
+export const MIN_SLOTS = 2;
+export const MAX_SLOTS = 6;
+export const MAX_IMAGES = 40;
+/** A doodle thumbnail is 10–20 KB; this is room for one, not for a photo. */
+export const MAX_IMAGE_CHARS = 80_000;
+export const IMAGE_KEY = /^[a-z0-9]{8,24}$/;
+const DATA_URI = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 
 // Codes are read off a projector or a card and typed in, so the alphabet drops
 // the characters that get confused for each other (0/O, 1/I/L).
@@ -122,7 +139,16 @@ export function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ');
 }
 
-export function isCorrect(q: { answer: string; accept?: string[] }, given: string): boolean {
+/**
+ * Whether `given` answers `q`. A matching question takes one word per meaning,
+ * in order, and is right only when every pair is; anything else takes a string.
+ */
+export function isCorrect(q: { answer: string; accept?: string[]; slots?: string[] }, given: string | string[]): boolean {
+  if (q.slots) {
+    return Array.isArray(given) && given.length === q.slots.length &&
+      q.slots.every((s, i) => normalize(given[i] ?? '') === normalize(s));
+  }
+  if (typeof given !== 'string') return false;
   const g = normalize(given);
   return [q.answer, ...(q.accept ?? [])].some((a) => normalize(a) === g);
 }
@@ -238,7 +264,12 @@ export function questionIndex(
 export interface PublicQuestion {
   type: QuestionType;
   prompt: string;
+  /** Choices to tap — or, for `match`, the bank of words to place. */
   options: string[] | null;
+  /** Key for GET /hunts/image. */
+  image: string | null;
+  /** `match`: the meanings, each to be given a word from `options`. */
+  slotPrompts: string[] | null;
   say: string | null;
   scrambled: string | null;
   /** Letters in the answer, for typed answers — the boxes to fill. */
@@ -250,6 +281,8 @@ export function publicQuestion(q: StoredQuestion): PublicQuestion {
     type: q.type,
     prompt: q.prompt,
     options: q.options ?? null,
+    image: q.image ?? null,
+    slotPrompts: q.slotPrompts ?? null,
     say: q.say ?? null,
     scrambled: q.scrambled ?? null,
     // A teacher's own typed question may accept answers of other lengths, so
@@ -319,8 +352,10 @@ function cleanQuestion(v: unknown): StoredQuestion | null {
   if (!v || typeof v !== 'object') return null;
   const q = v as Record<string, unknown>;
   const type = QUESTION_TYPES.find((t) => t === q.type);
+  if (!type) return null;
+  if (type === 'match') return cleanMatch(q);
   const answer = str(q.answer, MAX_ANSWER);
-  if (!type || !answer) return null;
+  if (!answer) return null;
   const out: StoredQuestion = { type, prompt: str(q.prompt, MAX_PROMPT), answer };
   if (Array.isArray(q.options)) {
     const options = [...new Set(q.options.map((o) => str(o, MAX_ANSWER)).filter(Boolean))].slice(0, MAX_OPTIONS);
@@ -332,6 +367,12 @@ function cleanQuestion(v: unknown): StoredQuestion | null {
   if (say) out.say = say;
   const scrambled = str(q.scrambled, MAX_ANSWER);
   if (scrambled) out.scrambled = scrambled;
+  if (type === 'image') {
+    const image = str(q.image, 24);
+    // A picture question is a picture and a choice; without either it's nothing.
+    if (!IMAGE_KEY.test(image) || !out.options) return null;
+    out.image = image;
+  }
   // Alternatives only mean something when the answer is typed.
   if (!out.options && Array.isArray(q.accept)) {
     const accept = [...new Set(q.accept.map((a) => str(a, MAX_ANSWER)).filter(Boolean))]
@@ -339,8 +380,56 @@ function cleanQuestion(v: unknown): StoredQuestion | null {
       .slice(0, MAX_ACCEPT);
     if (accept.length) out.accept = accept;
   }
-  // Nothing to read and nothing to hear is a question with no question in it.
-  if (!out.prompt && !out.say && !out.scrambled) return null;
+  // Nothing to read, hear or see is a question with no question in it.
+  if (!out.prompt && !out.say && !out.scrambled && !out.image) return null;
+  return out;
+}
+
+/**
+ * A matching question: 2–6 meanings, each with its word, and a bank of words
+ * that holds every one of them (and may hold decoys). Its `answer` is made
+ * here, for the teacher's board — grading goes by `slots`.
+ */
+function cleanMatch(q: Record<string, unknown>): StoredQuestion | null {
+  const prompts = Array.isArray(q.slotPrompts) ? q.slotPrompts.map((p) => str(p, MAX_PROMPT)) : [];
+  const slots = Array.isArray(q.slots) ? q.slots.map((p) => str(p, MAX_ANSWER)) : [];
+  if (prompts.length !== slots.length || slots.length < MIN_SLOTS || slots.length > MAX_SLOTS) return null;
+  if (prompts.some((p) => !p) || slots.some((p) => !p)) return null;
+  const bank = Array.isArray(q.options)
+    ? [...new Set(q.options.map((o) => str(o, MAX_ANSWER)).filter(Boolean))].slice(0, MAX_SLOTS + 2)
+    : [];
+  if (!slots.every((s) => bank.some((b) => normalize(b) === normalize(s)))) return null;
+  return {
+    type: 'match',
+    prompt: str(q.prompt, MAX_PROMPT),
+    options: bank,
+    slotPrompts: prompts,
+    slots,
+    answer: slots.join(' · '),
+  };
+}
+
+/** Every picture key the stations ask for. */
+export function imageKeys(stations: Station[]): Set<string> {
+  return new Set(stations.flatMap((s) => s.questions.map((q) => q.image).filter((k): k is string => Boolean(k))));
+}
+
+/**
+ * The pictures a teacher sent, keyed as the questions use them. Only keys some
+ * question needs are kept, and each must be a small image data: URI — a hunt
+ * isn't a way to store anything else.
+ */
+export function cleanImages(raw: unknown, needed: Set<string>): Record<string, string> {
+  const given = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  if (needed.size > MAX_IMAGES) throw new Invalid(`A hunt can hold up to ${MAX_IMAGES} pictures.`);
+  const out: Record<string, string> = {};
+  for (const key of needed) {
+    const v = given[key];
+    if (typeof v !== 'string' || v.length > MAX_IMAGE_CHARS || !DATA_URI.test(v)) {
+      throw new Invalid('A picture question is missing its picture.');
+    }
+    out[key] = v;
+  }
   return out;
 }
 

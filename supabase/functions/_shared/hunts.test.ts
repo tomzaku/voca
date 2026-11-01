@@ -8,7 +8,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  cleanImages,
   cleanStations,
+  imageKeys,
   cleanTeamNames,
   cleanTreasure,
   clampInt,
@@ -383,5 +385,66 @@ describe('a teacher’s own questions', () => {
 
   it('need some question text', () => {
     expect(() => cleanStations(station([{ type: 'custom', prompt: '  ', answer: 'blue' }]), 'ABC', 'qr', ['X', 'Y', 'Z'])).toThrow(/Station 1/);
+  });
+});
+
+describe('matching questions', () => {
+  const match = { type: 'match', prompt: '', slotPrompts: ['a big grey animal', 'a pet that purrs'], slots: ['elephant', 'cat'], options: ['cat', 'dog', 'elephant'] };
+  const clean = (m: unknown) => cleanStations([{ clue: '', questions: [m] }, { clue: '', questions: [q('b')] }, { clue: '', questions: [q('c')] }], 'ABC', 'qr', ['X', 'Y', 'Z'])[0].questions[0];
+
+  it('are right only when every pair is', () => {
+    const m = clean(match);
+    expect(isCorrect(m, ['Elephant', ' cat'])).toBe(true);
+    expect(isCorrect(m, ['cat', 'elephant'])).toBe(false);
+    expect(isCorrect(m, ['elephant'])).toBe(false);
+    expect(isCorrect(m, 'elephant')).toBe(false);
+  });
+
+  it('send the meanings and the bank, never the pairing', () => {
+    const p = publicQuestion(clean(match));
+    expect(p.slotPrompts).toEqual(match.slotPrompts);
+    expect(p.options).toEqual(match.options);
+    expect(p).not.toHaveProperty('slots');
+    expect(p).not.toHaveProperty('answer');
+  });
+
+  it('need every word in the bank, and as many words as meanings', () => {
+    expect(() => clean({ ...match, options: ['cat', 'dog'] })).toThrow(/Station 1/);
+    expect(() => clean({ ...match, slots: ['cat'] })).toThrow(/Station 1/);
+    expect(() => clean({ ...match, slotPrompts: ['one'], slots: ['cat'], options: ['cat'] })).toThrow(/Station 1/);
+  });
+
+  it('a plain answer never satisfies an array question, and vice versa', () => {
+    expect(isCorrect({ answer: 'cat' }, ['cat'])).toBe(false);
+  });
+});
+
+describe('picture questions', () => {
+  const pic = { type: 'image', prompt: '', image: 'abcd1234efgh', options: ['cat', 'dog'], answer: 'cat' };
+  const stations = (x: unknown) => cleanStations([{ clue: '', questions: [x] }, { clue: '', questions: [q('b')] }, { clue: '', questions: [q('c')] }], 'ABC', 'qr', ['X', 'Y', 'Z']);
+
+  it('keep their picture key and send it, not the word', () => {
+    const s = stations(pic);
+    expect(s[0].questions[0].image).toBe('abcd1234efgh');
+    expect(publicQuestion(s[0].questions[0])).toMatchObject({ image: 'abcd1234efgh', options: ['cat', 'dog'] });
+    expect([...imageKeys(s)]).toEqual(['abcd1234efgh']);
+  });
+
+  it('need a well-formed key and choices', () => {
+    expect(() => stations({ ...pic, image: '../etc' })).toThrow(/Station 1/);
+    expect(() => stations({ ...pic, options: undefined })).toThrow(/Station 1/);
+  });
+
+  const png = 'data:image/png;base64,iVBORw0KGgo=';
+
+  it('keep only the pictures a question asks for', () => {
+    expect(cleanImages({ abcd1234efgh: png, other1234567: png }, new Set(['abcd1234efgh']))).toEqual({ abcd1234efgh: png });
+  });
+
+  it('refuse a missing picture, a non-image, or an oversized one', () => {
+    const need = new Set(['abcd1234efgh']);
+    expect(() => cleanImages({}, need)).toThrow(Invalid);
+    expect(() => cleanImages({ abcd1234efgh: 'data:text/html;base64,PHNjcmlwdD4=' }, need)).toThrow(Invalid);
+    expect(() => cleanImages({ abcd1234efgh: 'data:image/png;base64,' + 'A'.repeat(90_000) }, need)).toThrow(Invalid);
   });
 });

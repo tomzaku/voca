@@ -1,33 +1,45 @@
-// Building a hunt's stations — and, the part that matters most, that what the
-// create page builds is what the server accepts. A builder and a validator
-// written apart drift; this runs the one through the other.
+// A hunt's question list — generated, edited, dealt round the stations — and,
+// the part that matters most, that what the create page sends is what the
+// server accepts. A builder and a validator written apart drift; this runs
+// the one through the other.
 
 import { describe, expect, it } from 'vitest';
 import {
-  buildQuestion,
-  buildStations,
+  blankCustom,
+  clock,
+  dealQuestions,
+  fromForm,
+  generateQuestions,
   HUNT_PLACES,
   HUNT_TYPES,
   isPlainWord,
-  MIN_WORDS,
-  pickPlaces,
-  QUESTIONS_PER_STATION,
-  scramble,
-  TREASURE_IDEAS,
-  clock,
-  MAX_WORDS,
-  parseWords,
-  questionKey,
-  secondsUntil,
-  customToDraft,
-  dealQuestions,
-  emptyCustom,
-  isComplete,
+  makeQuestion,
+  MAX_GENERATE,
   MAX_STATION_QUESTIONS,
-  type CustomQuestion,
+  MAX_WORDS,
+  newKey,
+  parseWords,
+  picturesInUse,
+  pickPlaces,
+  problemOf,
+  questionKey,
+  scramble,
+  secondsUntil,
+  stationsFromQuestions,
+  toForm,
+  TREASURE_IDEAS,
+  type Ctx,
+  type EditableQuestion,
 } from './hunt';
 import type { MiniWordData } from './quizShare';
-import { cleanStations, cleanTreasure, isCorrect, publicQuestion } from '../../supabase/functions/_shared/hunts';
+import {
+  cleanImages,
+  cleanStations,
+  cleanTreasure,
+  imageKeys,
+  isCorrect,
+  publicQuestion,
+} from '../../supabase/functions/_shared/hunts';
 
 const data = (definition: string, examples: string[] = []): MiniWordData => ({ definition, examples });
 
@@ -40,6 +52,7 @@ const DATA: Record<string, MiniWordData> = {
   lotus: data('a water flower'),
 };
 const WORDS = Object.keys(DATA);
+const PNG = 'data:image/png;base64,iVBORw0KGgo=';
 
 /** A repeatable rand, so a failing case can be re-run. */
 function seeded(seed = 1) {
@@ -49,6 +62,14 @@ function seeded(seed = 1) {
     return (s - 1) / 2147483646;
   };
 }
+
+const ctx = (extra: Partial<Ctx> = {}): Ctx => ({
+  data: DATA,
+  wrongPool: [...WORDS, 'castle', 'garden', 'school'],
+  pictures: { river: PNG, lotus: PNG },
+  rand: seeded(),
+  ...extra,
+});
 
 describe('scramble', () => {
   it('keeps the letters and never returns the word itself', () => {
@@ -77,103 +98,210 @@ describe('isPlainWord', () => {
   });
 });
 
-describe('buildQuestion', () => {
-  const wrong = ['bridge', 'market', 'temple', 'lotus'];
-
-  it('makes a definition question with the word among four options', () => {
-    const q = buildQuestion('definition', 'river', DATA.river, wrong, seeded())!;
-    expect(q.prompt).toBe(DATA.river.definition);
-    expect(q.options).toHaveLength(4);
-    expect(q.options).toContain('river');
-    expect(q.answer).toBe('river');
+describe('newKey', () => {
+  it('fits the server’s picture-key shape', () => {
+    for (let i = 0; i < 20; i++) expect(newKey(seeded(i + 1))).toMatch(/^[a-z0-9]{12}$/);
   });
+});
 
-  it('never offers the answer twice', () => {
-    const q = buildQuestion('definition', 'river', DATA.river, ['river', ...wrong], seeded())!;
+describe('makeQuestion', () => {
+  it('makes a meaning question with the word among four options', () => {
+    const q = makeQuestion('definition', 'river', ctx())!.question;
+    expect(q).toMatchObject({ type: 'definition', prompt: DATA.river.definition, answer: 'river', word: 'river' });
+    expect(q.options).toHaveLength(4);
     expect(q.options!.filter((o) => o === 'river')).toHaveLength(1);
   });
 
   it('blanks the word out of a sentence, or gives up when there is none', () => {
-    expect(buildQuestion('sentence', 'river', DATA.river, wrong)!.prompt).toBe('The _____ runs through Huế.');
-    expect(buildQuestion('sentence', 'bridge', DATA.bridge, wrong)).toBeNull();
+    expect(makeQuestion('sentence', 'river', ctx())!.question.prompt).toBe('The _____ runs through Huế.');
+    expect(makeQuestion('sentence', 'bridge', ctx())).toBeNull();
   });
 
   it('keeps a listening question’s word out of its prompt', () => {
-    const q = buildQuestion('listen', 'river', DATA.river, wrong)!;
-    expect(q.prompt).toBe('');
-    expect(q.say).toBe('river');
+    const q = makeQuestion('listen', 'river', ctx())!.question;
+    expect([q.prompt, q.say]).toEqual(['', 'river']);
   });
 
   it('only unscrambles and spells single plain words', () => {
-    expect(buildQuestion('unscramble', 'ice cream', DATA['ice cream'], wrong)).toBeNull();
-    expect(buildQuestion('spell', 'ice cream', DATA['ice cream'], wrong)).toBeNull();
-    const u = buildQuestion('unscramble', 'river', DATA.river, wrong, seeded())!;
-    expect(u.options).toBeUndefined();
-    expect(u.scrambled).toHaveLength(5);
+    expect(makeQuestion('unscramble', 'ice cream', ctx())).toBeNull();
+    expect(makeQuestion('spell', 'ice cream', ctx())).toBeNull();
+    expect(makeQuestion('unscramble', 'river', ctx())!.question.scrambled).toHaveLength(5);
+  });
+
+  it('makes a picture question only for a word with a picture, under a fresh key', () => {
+    expect(makeQuestion('image', 'bridge', ctx())).toBeNull();
+    const built = makeQuestion('image', 'river', ctx())!;
+    expect(built.question.image).toMatch(/^[a-z0-9]{12}$/);
+    expect(built.picture).toEqual({ key: built.question.image, data: PNG });
+    expect(built.question.prompt).toBe('');
+  });
+
+  it('makes a matching board of the word and three others, each with its meaning', () => {
+    const q = makeQuestion('match', 'river', ctx())!.question;
+    expect(q.slots).toHaveLength(4);
+    expect(q.slots).toContain('river');
+    q.slots!.forEach((w, i) => expect(q.slotPrompts![i]).toBe(DATA[w].definition));
+    expect([...q.options!].sort()).toEqual([...q.slots!].sort());
+  });
+
+  it('is null for a word it has no data for', () => {
+    expect(makeQuestion('definition', 'nothing', ctx())).toBeNull();
   });
 });
 
-describe('buildStations', () => {
-  it('makes one station per letter, cycling through the kinds', () => {
-    const s = buildStations({ words: WORDS, data: DATA, count: 6, rand: seeded() });
-    expect(s).toHaveLength(6);
-    expect(s.map((x) => x.type)).toEqual([...HUNT_TYPES, HUNT_TYPES[0]]);
+describe('generateQuestions', () => {
+  it('makes as many as asked, cycling the kinds', () => {
+    const qs = generateQuestions({ ...ctx(), words: WORDS, types: ['definition', 'listen'], count: 6 });
+    expect(qs.map((b) => b.question.type)).toEqual(['definition', 'listen', 'definition', 'listen', 'definition', 'listen']);
   });
 
-  it('fills every station with a question per word, up to the cap', () => {
-    const s = buildStations({ words: WORDS, data: DATA, count: 5, rand: seeded() });
-    for (const st of s) expect(st.questions).toHaveLength(Math.min(WORDS.length, QUESTIONS_PER_STATION));
+  it('gives a word a different kind when it comes round again', () => {
+    const qs = generateQuestions({ ...ctx(), words: ['river', 'market'], types: ['definition', 'listen'], count: 4 });
+    const kinds = (w: string) => qs.filter((b) => b.question.word === w).map((b) => b.question.type).sort();
+    expect(kinds('river')).toEqual(['definition', 'listen']);
+    expect(kinds('market')).toEqual(['definition', 'listen']);
   });
 
-  it('falls back to a definition when a kind can’t use a word', () => {
-    const s = buildStations({ words: WORDS, data: DATA, count: 2, types: ['spell'], rand: seeded() });
-    const phrase = s[0].questions.find((q) => q.answer === 'ice cream')!;
-    expect(phrase.type).toBe('definition');
+  it('falls back to the meaning when a kind can’t use a word', () => {
+    const qs = generateQuestions({ ...ctx(), words: ['ice cream'], types: ['spell'], count: 1 });
+    expect(qs[0].question.type).toBe('definition');
   });
 
-  it('skips words with no data, and refuses a list that’s too short', () => {
-    expect(() => buildStations({ words: ['river', 'nothing', 'none', 'nada'], data: DATA, count: 3 })).toThrow();
-    const ok = buildStations({ words: [...WORDS, 'missing'], data: DATA, count: 3 });
-    expect(ok[0].questions.every((q) => q.answer !== 'missing')).toBe(true);
+  it('never makes more than the cap', () => {
+    expect(generateQuestions({ ...ctx(), words: WORDS, types: HUNT_TYPES, count: 99 })).toHaveLength(MAX_GENERATE);
   });
 
-  it('carries the clues and places it was given', () => {
-    const s = buildStations({ words: WORDS, data: DATA, count: 3, clues: [' under the desk ', 'by the door'], places: ['ngoMon', 'kyDai', 'dongBa'] });
-    expect(s.map((x) => x.clue)).toEqual(['under the desk', 'by the door', '']);
+  it('makes nothing from no words or no kinds', () => {
+    expect(generateQuestions({ ...ctx(), words: [], types: HUNT_TYPES, count: 5 })).toEqual([]);
+    expect(generateQuestions({ ...ctx(), words: WORDS, types: [], count: 5 })).toEqual([]);
+  });
+});
+
+describe('editing', () => {
+  const def = makeQuestion('definition', 'river', ctx())!.question;
+
+  it('round-trips a question through the form unchanged in meaning', () => {
+    const back = fromForm(def, toForm(def), seeded(3));
+    expect(back).toMatchObject({ id: def.id, type: 'definition', prompt: def.prompt, answer: 'river' });
+    expect([...back.options!].sort()).toEqual([...def.options!].sort());
+  });
+
+  it('takes a new prompt and answers, dropping blanks and repeats', () => {
+    const f = { ...toForm(def), prompt: ' A stream ', answer: 'creek', wrong: ['pond', 'CREEK', '', 'Pond', 'lake'] };
+    const q = fromForm(def, f, seeded());
+    expect(q.prompt).toBe('A stream');
+    expect([...q.options!].sort()).toEqual(['creek', 'lake', 'pond']);
+  });
+
+  it('re-scrambles an unscramble question for its new answer', () => {
+    const u = makeQuestion('unscramble', 'river', ctx())!.question;
+    const q = fromForm(u, { ...toForm(u), answer: 'lotus' }, seeded());
+    expect([...q.scrambled!].sort().join('')).toBe('LOSTU');
+  });
+
+  it('keeps a picture question’s picture', () => {
+    const p = makeQuestion('image', 'river', ctx())!.question;
+    expect(fromForm(p, toForm(p)).image).toBe(p.image);
+  });
+
+  it('edits a matching board pair by pair, dropping half-filled ones', () => {
+    const m = makeQuestion('match', 'river', ctx())!.question;
+    const f = toForm(m);
+    expect(f.pairs).toHaveLength(4);
+    const q = fromForm(m, { ...f, pairs: [{ prompt: 'hot', word: 'fire' }, { prompt: 'cold', word: 'ice' }, { prompt: 'x', word: '' }] });
+    expect(q.slots).toEqual(['fire', 'ice']);
+    expect(q.slotPrompts).toEqual(['hot', 'cold']);
+  });
+
+  it('makes her own question typed when it has no wrong answers, with its alternatives', () => {
+    const q = fromForm(blankCustom(), { prompt: 'Sky?', answer: 'blue', wrong: ['', ''], accept: ['azure', ' Blue ', ''], pairs: [] });
+    expect(q.options).toBeUndefined();
+    expect(q.accept).toEqual(['azure']);
+    const c = fromForm(blankCustom(), { prompt: 'Sky?', answer: 'blue', wrong: ['red'], accept: ['azure'], pairs: [] });
+    expect(c.options).toHaveLength(2);
+    expect(c.accept).toBeUndefined();
+  });
+});
+
+describe('problemOf', () => {
+  it('flags what the server would refuse', () => {
+    expect(problemOf(blankCustom())).toBe('noAnswer');
+    expect(problemOf({ ...blankCustom(), answer: 'x' })).toBe('noPrompt');
+    expect(problemOf({ type: 'definition', prompt: 'p', answer: 'x', options: ['x'] })).toBe('noWrong');
+    expect(problemOf({ type: 'match', prompt: '', answer: '', slots: ['a'], slotPrompts: ['b'] })).toBe('fewPairs');
+    expect(problemOf({ type: 'match', prompt: '', answer: '', slots: ['a', 'A'], slotPrompts: ['b', 'c'] })).toBe('dupWords');
+  });
+
+  it('passes every generated question', () => {
+    for (const b of generateQuestions({ ...ctx(), words: WORDS, types: HUNT_TYPES, count: 30 })) {
+      expect(problemOf(b.question)).toBeNull();
+    }
+  });
+});
+
+describe('dealQuestions', () => {
+  it('deals round the stations so none is empty', () => {
+    expect(dealQuestions([1, 2, 3, 4, 5], 3)).toEqual([[1, 4], [2, 5], [3]]);
+    expect(dealQuestions([], 2)).toEqual([[], []]);
+  });
+});
+
+describe('stationsFromQuestions', () => {
+  const qs = generateQuestions({ ...ctx(), words: WORDS, types: ['definition', 'listen'], count: 7 }).map((b) => b.question);
+
+  it('deals the askable questions, with the clues or places', () => {
+    const s = stationsFromQuestions([...qs, blankCustom()], 3, { clues: [' desk ', 'door'], places: ['ngoMon', 'kyDai', 'dongBa'] });
+    expect(s.map((x) => x.questions.length)).toEqual([3, 2, 2]);
+    expect(s.map((x) => x.clue)).toEqual(['desk', 'door', '']);
     expect(s.map((x) => x.place)).toEqual(['ngoMon', 'kyDai', 'dongBa']);
+    expect(s[0].questions[0]).not.toHaveProperty('id');
+    expect(s[0].questions[0]).not.toHaveProperty('word');
   });
 
-  it('needs at least MIN_WORDS words', () => {
-    const three = Object.fromEntries(WORDS.slice(0, MIN_WORDS - 1).map((w) => [w, DATA[w]]));
-    expect(() => buildStations({ words: Object.keys(three), data: three, count: 3 })).toThrow();
+  it('wants one per station', () => {
+    expect(() => stationsFromQuestions(qs.slice(0, 2), 3)).toThrow(/3 questions/);
+  });
+
+  it('keeps a station under the server’s cap', () => {
+    const many = Array.from({ length: 40 }, () => makeQuestion('definition', 'river', ctx())!.question);
+    expect(Math.max(...stationsFromQuestions(many, 3).map((s) => s.questions.length))).toBe(MAX_STATION_QUESTIONS);
   });
 });
 
-describe('what the builder makes, the server accepts', () => {
+describe('picturesInUse', () => {
+  it('uploads only the pictures a question still uses', () => {
+    const q = makeQuestion('image', 'river', ctx())!;
+    expect(picturesInUse([q.question], { [q.question.image!]: PNG, gone: PNG })).toEqual({ [q.question.image!]: PNG });
+  });
+});
+
+describe('what the editor sends, the server accepts', () => {
   for (const treasure of TREASURE_IDEAS) {
     for (const mode of ['qr', 'world'] as const) {
       it(`${treasure} (${mode})`, () => {
         const t = cleanTreasure(treasure);
-        const stations = buildStations({
-          words: WORDS,
-          data: DATA,
-          count: t.length,
-          places: mode === 'world' ? pickPlaces(t.length, seeded(t.length)) : undefined,
-          extraWrong: ['castle', 'garden', 'school'],
-          rand: seeded(t.length),
-        });
+        const built = generateQuestions({ ...ctx({ rand: seeded(t.length) }), words: WORDS, types: HUNT_TYPES, count: 30 });
+        const pictures = Object.fromEntries(built.flatMap((b) => (b.picture ? [[b.picture.key, b.picture.data]] : [])));
+        const own: EditableQuestion = fromForm(blankCustom(), { prompt: 'Sky?', answer: 'grey', wrong: [], accept: ['gray'], pairs: [] });
+        const questions = [...built.map((b) => b.question), own];
+        const stations = stationsFromQuestions(questions, t.length, { places: mode === 'world' ? pickPlaces(t.length, seeded()) : undefined });
+
         // A JSON round trip, as the request makes.
-        const sent = JSON.parse(JSON.stringify(stations));
-        const cards = Array.from({ length: t.length }, (_, i) => `C${i}`);
-        const clean = cleanStations(sent, t, mode, cards);
-        // No question lost on the way in.
+        const clean = cleanStations(JSON.parse(JSON.stringify(stations)), t, mode, Array.from({ length: t.length }, (_, i) => `C${i}`));
         clean.forEach((s, i) => expect(s.questions).toHaveLength(stations[i].questions.length));
-        // And each one answerable — by the right answer, not by a wrong one.
+        expect(Object.keys(cleanImages(picturesInUse(questions, pictures), imageKeys(clean))).sort())
+          .toEqual([...imageKeys(clean)].sort());
+
+        // Each one answerable — by the right answer, not by a wrong one — and
+        // never carrying its answer to the student.
         for (const s of clean) {
           for (const q of s.questions) {
-            expect(isCorrect(q, q.answer)).toBe(true);
-            if (q.options) for (const o of q.options.filter((x) => x !== q.answer)) expect(isCorrect(q, o)).toBe(false);
-            expect(publicQuestion(q)).not.toHaveProperty('answer');
+            const right = q.slots ?? q.answer;
+            expect(isCorrect(q, right)).toBe(true);
+            if (q.options && !q.slots) for (const o of q.options.filter((x) => x !== q.answer)) expect(isCorrect(q, o)).toBe(false);
+            const pub = publicQuestion(q);
+            expect(pub).not.toHaveProperty('answer');
+            expect(pub).not.toHaveProperty('slots');
           }
         }
       });
@@ -198,7 +326,6 @@ describe('secondsUntil', () => {
   it('counts down on the server’s clock, not the phone’s', () => {
     const ends = '2026-11-01T09:01:00Z';
     expect(secondsUntil(ends, 0, now)).toBe(60);
-    // The server is 10s ahead of this phone: 10s less to go.
     expect(secondsUntil(ends, 10_000, now)).toBe(50);
   });
 
@@ -237,87 +364,7 @@ describe('questionKey', () => {
   it('is the same for the same question, different for another', () => {
     expect(questionKey(q)).toBe(questionKey({ ...q }));
     expect(questionKey(q)).not.toBe(questionKey({ ...q, say: 'bridge' }));
-    expect(questionKey(q)).not.toBe(questionKey({ ...q, type: 'spell' }));
-  });
-});
-
-const mine = (prompt: string, answer: string, wrong: string[] = [], accept: string[] = []): CustomQuestion => ({ prompt, answer, wrong, accept });
-
-describe('customToDraft', () => {
-  it('is multiple choice when wrong answers are given', () => {
-    const d = customToDraft(mine(' Capital of France? ', ' Paris ', ['London', ' ', 'Rome']), seeded());
-    expect(d).toMatchObject({ type: 'custom', prompt: 'Capital of France?', answer: 'Paris' });
-    expect([...d.options!].sort()).toEqual(['London', 'Paris', 'Rome']);
-    expect(d.accept).toBeUndefined();
-  });
-
-  it('drops a wrong answer that repeats the right one, or another wrong one', () => {
-    const d = customToDraft(mine('Q', 'cat', ['CAT', 'dog', 'Dog ']), seeded());
-    expect([...d.options!].sort()).toEqual(['cat', 'dog']);
-  });
-
-  it('is typed when there are none, with its alternatives', () => {
-    const d = customToDraft(mine('Sky colour?', 'blue', [], [' azure ', 'Blue', '']));
-    expect(d.options).toBeUndefined();
-    expect(d.accept).toEqual(['azure']);
-  });
-});
-
-describe('isComplete', () => {
-  it('needs a question and an answer', () => {
-    expect(isComplete(emptyCustom())).toBe(false);
-    expect(isComplete(mine('Q', ' '))).toBe(false);
-    expect(isComplete(mine('Q', 'a'))).toBe(true);
-  });
-});
-
-describe('dealQuestions', () => {
-  it('deals round the stations so none is empty', () => {
-    expect(dealQuestions([1, 2, 3, 4, 5], 3)).toEqual([[1, 4], [2, 5], [3]]);
-    expect(dealQuestions([], 2)).toEqual([[], []]);
-  });
-});
-
-describe('buildStations with the teacher’s own questions', () => {
-  const six = Array.from({ length: 6 }, (_, i) => mine(`Question ${i}?`, `a${i}`, i % 2 ? [`x${i}`, `y${i}`] : []));
-
-  it('uses only hers, no word list needed', () => {
-    const s = buildStations({ source: 'mine', words: [], data: {}, custom: six, count: 3, rand: seeded() });
-    expect(s.map((x) => x.type)).toEqual(['custom', 'custom', 'custom']);
-    expect(s.flatMap((x) => x.questions)).toHaveLength(6);
-    for (const st of s) expect(st.questions).toHaveLength(2);
-  });
-
-  it('wants at least one per station, and skips unfinished ones', () => {
-    expect(() => buildStations({ source: 'mine', words: [], data: {}, custom: [six[0], six[1], emptyCustom()], count: 3 })).toThrow(/3 questions/);
-  });
-
-  it('mixes hers in first, then fills from the words', () => {
-    const s = buildStations({ source: 'both', words: WORDS, data: DATA, custom: six.slice(0, 2), count: 4, rand: seeded() });
-    expect(s[0].questions[0].type).toBe('custom');
-    expect(s[2].questions.every((q) => q.type !== 'custom')).toBe(true);
-    expect(s[0].questions.length).toBe(1 + WORDS.length);
-  });
-
-  it('ignores them when the source is the words', () => {
-    const s = buildStations({ source: 'words', words: WORDS, data: DATA, custom: six, count: 3, rand: seeded() });
-    expect(s.flatMap((x) => x.questions).some((q) => q.type === 'custom')).toBe(false);
-  });
-
-  it('keeps up to the server’s cap of hers on one station', () => {
-    const many = Array.from({ length: 40 }, (_, i) => mine(`Q${i}`, `a${i}`));
-    const s = buildStations({ source: 'mine', words: [], data: {}, custom: many, count: 3 });
-    expect(Math.max(...s.map((x) => x.questions.length))).toBe(MAX_STATION_QUESTIONS);
-  });
-
-  it('survive the server’s validation, and grade as she meant', () => {
-    const qs = [...six, mine('Sky colour?', 'blue', [], ['azure'])];
-    const stations = buildStations({ source: 'both', words: WORDS, data: DATA, custom: qs, count: 4, rand: seeded() });
-    const clean = cleanStations(JSON.parse(JSON.stringify(stations)), 'GOLD', 'qr', ['A', 'B', 'C', 'D']);
-    clean.forEach((s, i) => expect(s.questions).toHaveLength(stations[i].questions.length));
-    const sky = clean.flatMap((s) => s.questions).find((q) => q.prompt === 'Sky colour?')!;
-    expect(isCorrect(sky, 'Azure')).toBe(true);
-    expect(isCorrect(sky, 'red')).toBe(false);
-    expect(JSON.stringify(publicQuestion(sky))).not.toContain('azure');
+    expect(questionKey({ ...q, image: 'a' })).not.toBe(questionKey({ ...q, image: 'b' }));
+    expect(questionKey({ ...q, slotPrompts: ['x'] })).not.toBe(questionKey({ ...q, slotPrompts: ['y'] }));
   });
 });

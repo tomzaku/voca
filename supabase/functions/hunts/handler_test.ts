@@ -18,8 +18,10 @@ type Row = Record<string, unknown>;
 
 const UNIQUE: Record<string, string[]> = { hunts: ['code'], hunt_players: ['token_hash'] };
 
+const many = (v: Row | Row[]) => (Array.isArray(v) ? v : [v]);
+
 export class FakeDb {
-  tables: Record<string, Row[]> = { hunts: [], hunt_players: [], hunt_events: [] };
+  tables: Record<string, Row[]> = { hunts: [], hunt_players: [], hunt_events: [], hunt_images: [] };
   serial = 0;
   from(table: string) {
     if (!(table in this.tables)) throw new Error(`unknown table ${table}`);
@@ -40,7 +42,7 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
   private sort: { col: string; asc: boolean } | null = null;
   private max = Infinity;
   private op: 'select' | 'insert' | 'update' | 'delete' = 'select';
-  private payload: Row | null = null;
+  private payload: Row | Row[] | null = null;
   private returning = false;
   private one: 'single' | 'maybe' | null = null;
   private counting = false;
@@ -55,7 +57,7 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
     } else this.returning = true;
     return this;
   }
-  insert(row: Row) { this.op = 'insert'; this.payload = row; return this; }
+  insert(row: Row | Row[]) { this.op = 'insert'; this.payload = row; return this; }
   update(patch: Row) { this.op = 'update'; this.payload = patch; return this; }
   delete() { this.op = 'delete'; return this; }
   eq(col: string, v: unknown) { this.filters.push((r) => r[col] === v); return this; }
@@ -70,21 +72,24 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string; co
     const match = (r: Row) => this.filters.every((f) => f(r));
     let out: Row[];
     if (this.op === 'insert') {
-      const row = this.db.defaults(this.table, structuredClone(this.payload!));
-      for (const col of UNIQUE[this.table] ?? []) {
-        if (rows.some((r) => r[col] === row[col])) return { data: null, error: { message: 'duplicate', code: '23505' } };
+      out = [];
+      for (const given of many(this.payload!)) {
+        const row = this.db.defaults(this.table, structuredClone(given));
+        for (const col of UNIQUE[this.table] ?? []) {
+          if (rows.some((r) => r[col] === row[col])) return { data: null, error: { message: 'duplicate', code: '23505' } };
+        }
+        rows.push(row);
+        out.push(row);
       }
-      rows.push(row);
-      out = [row];
     } else if (this.op === 'update') {
       out = rows.filter(match);
-      for (const r of out) Object.assign(r, this.payload);
+      for (const r of out) Object.assign(r, this.payload as Row);
     } else if (this.op === 'delete') {
       const gone = rows.filter(match);
       this.db.tables[this.table] = rows.filter((r) => !match(r));
       // Cascades, as the foreign keys do.
       if (this.table === 'hunts') {
-        for (const t of ['hunt_players', 'hunt_events']) {
+        for (const t of ['hunt_players', 'hunt_events', 'hunt_images']) {
           this.db.tables[t] = this.db.tables[t].filter((r) => !gone.some((g) => g.id === r.hunt_id));
         }
       }
@@ -444,7 +449,59 @@ Deno.test('a hunt of the teacher’s own questions grades her alternatives, and 
   const cards = (db.tables.hunts[0].stations as Station[]).map((s) => s.card);
   await call('POST', '/found', { token, card: cards[0] });
   const p = (await call('GET', `/play?token=${token}`)).body.play;
-  eq(p.team.question, { type: 'custom', prompt: 'Colour 0?', options: null, say: null, scrambled: null, length: null });
+  eq(p.team.question, { type: 'custom', prompt: 'Colour 0?', options: null, image: null, slotPrompts: null, say: null, scrambled: null, length: null });
   ok(!JSON.stringify(p).includes('gray') && !JSON.stringify(p).includes('grey'), 'answer leaked');
   eq((await call('POST', '/answer', { token, answer: 'Gray' })).body.correct, true);
+});
+
+Deno.test('picture and matching questions, end to end', async () => {
+  const { call, db } = setup();
+  const png = 'data:image/png;base64,iVBORw0KGgo=';
+  const stationsWith = [
+    { clue: '', place: null, questions: [{ type: 'image', prompt: '', image: 'pic00000cat1', options: ['cat', 'dog'], answer: 'cat' }] },
+    { clue: '', place: null, questions: [{ type: 'match', prompt: '', slotPrompts: ['purrs', 'barks'], slots: ['cat', 'dog'], options: ['dog', 'cat', 'cow'] }] },
+    { clue: '', place: null, questions: [{ type: 'definition', prompt: 'x', options: ['a', 'b'], answer: 'a' }] },
+  ];
+  // The picture has to come with the hunt.
+  const missing = await call('POST', '', { title: 'P', treasure: 'CAT', stations: stationsWith, need: 1 }, TEACHER);
+  eq(missing.status, 400);
+  eq(db.tables.hunts.length, 0);
+
+  const r = await call('POST', '', { title: 'P', treasure: 'CAT', stations: stationsWith, images: { pic00000cat1: png, junk00000000: png }, need: 1 }, TEACHER);
+  eq(r.status, 200, JSON.stringify(r.body));
+  eq(db.tables.hunt_images.map((i) => i.key), ['pic00000cat1']);
+
+  const token = (await call('POST', '/join', { code: r.body.hunt.code, name: 'Ann' })).body.token;
+  await call('POST', '/start', { id: r.body.hunt.id }, TEACHER);
+  const cards = (db.tables.hunts[0].stations as Station[]).map((s) => s.card);
+
+  // The picture: fetched by key, never by word, and only by a player of this hunt.
+  await call('POST', '/found', { token, card: cards[0] });
+  let p = (await call('GET', `/play?token=${token}`)).body.play;
+  eq(p.team.question.image, 'pic00000cat1');
+  ok(!JSON.stringify(p).includes('base64'), 'picture rides on the poll');
+  eq((await call('GET', `/image?token=${token}&key=pic00000cat1`)).body.image, png);
+  eq((await call('GET', `/image?token=${token}&key=nope00000000`)).status, 404);
+  eq((await call('GET', `/image?token=0123456789abcdef0123456789abcdef&key=pic00000cat1`)).status, 401);
+  eq((await call('POST', '/answer', { token, answer: 'cat' })).body.correct, true);
+
+  // Matching: the whole pairing at once, in the order of the meanings.
+  await call('POST', '/found', { token, card: cards[1] });
+  p = (await call('GET', `/play?token=${token}`)).body.play;
+  eq(p.team.question.slotPrompts, ['purrs', 'barks']);
+  ok(!JSON.stringify(p.team.question).includes('slots'), 'pairing leaked');
+  eq((await call('POST', '/answer', { token, answer: ['dog', 'cat'] })).body.correct, false);
+  // Past the miss's cooldown, measured from when the miss really happened.
+  clock = realNow() + COOLDOWN_MS + 1;
+  freeze();
+  try {
+    eq((await call('POST', '/answer', { token, answer: ['cat', 'dog'] })).body.correct, true);
+  } finally {
+    thaw();
+  }
+  eq((await call('GET', `/play?token=${token}`)).body.play.team.position, 2);
+
+  // Deleting the hunt takes its pictures.
+  await call('DELETE', `?id=${r.body.hunt.id}`, undefined, TEACHER);
+  eq(db.tables.hunt_images.length, 0);
 });
