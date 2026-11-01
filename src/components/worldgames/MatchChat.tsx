@@ -3,7 +3,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { cleanChat, type MatchLink } from '../../lib/worldLive';
 import { PixelButton } from './pixel';
 
-// Talking while you play: a chat between the two of you, under the game. It
+// Talking while you play: a chat between the two of you, docked under the game. It
 // goes over the match's own line (link.send), so only the other player sees
 // it — not everyone around — and through the same filter as the world's chat.
 // No quicker than a line every few hundred milliseconds.
@@ -39,7 +39,7 @@ export function MatchChat({ link }: { link: MatchLink }) {
   };
 
   return (
-    <div className="mt-3 px-inset px-notch p-2">
+    <div className="px-inset px-notch p-2">
       {lines.length > 0 && (
         <div ref={box} className="max-h-24 overflow-y-auto mb-1.5 space-y-0.5">
           {lines.map((l) => (
