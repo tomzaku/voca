@@ -27,8 +27,14 @@
 export type QuestionType = 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'image' | 'match' | 'custom';
 export const QUESTION_TYPES: QuestionType[] = ['definition', 'sentence', 'listen', 'unscramble', 'spell', 'image', 'match', 'custom'];
 
-/** One question, answer included. Stored on the hunt; never sent as-is. */
+/**
+ * One question, answer included — a row of `questions` (a set's) or of
+ * `hunt_questions` (a hunt's copy), in the shape the rules use. Never sent to
+ * a student as-is; `publicQuestion` is what they get.
+ */
 export interface StoredQuestion {
+  /** The row's id, once it's stored. */
+  id?: string;
   type: QuestionType;
   /** What the student reads: a definition, or a sentence with a blank. */
   prompt: string;
@@ -41,8 +47,10 @@ export interface StoredQuestion {
   answer: string;
   /** Other answers that also count — "colour" for "color". Typed questions only. */
   accept?: string[];
-  /** `image`: the key of its picture in `hunt_images` — opaque, never the word. */
-  image?: string;
+  /** `image`: the word whose picture (in `word_doodles`) is shown. Never sent — it's the answer. */
+  imageWord?: string;
+  /** The word the app made it from, if it did. */
+  word?: string;
   /** `match`: the meanings to pair, in order… */
   slotPrompts?: string[];
   /** …and the word that belongs with each. `options` is the bank they're picked from. */
@@ -91,7 +99,10 @@ export const COOLDOWN_MS = 10_000;
 
 export const MIN_STATIONS = 3;
 export const MAX_STATIONS = 8;
-export const MAX_QUESTIONS = 12;
+/** Questions one station holds; the rest of a set waits for another hunt. */
+export const MAX_STATION_QUESTIONS = 12;
+/** Questions one set holds. */
+export const MAX_SET_QUESTIONS = 60;
 export const MAX_PLAYERS = 80;
 export const MAX_NAME = 30;
 export const MAX_TITLE = 80;
@@ -102,11 +113,9 @@ export const MAX_ANSWER = 40;
 export const MAX_ACCEPT = 5;
 export const MIN_SLOTS = 2;
 export const MAX_SLOTS = 6;
-export const MAX_IMAGES = 40;
-/** A doodle thumbnail is 10–20 KB; this is room for one, not for a photo. */
-export const MAX_IMAGE_CHARS = 80_000;
-export const IMAGE_KEY = /^[a-z0-9]{8,24}$/;
-const DATA_URI = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A word to show the picture of: letters, with the odd space, hyphen or apostrophe. */
+const PICTURE_WORD = /^[\p{L}][\p{L}' -]{0,59}$/u;
 
 // Codes are read off a projector or a card and typed in, so the alphabet drops
 // the characters that get confused for each other (0/O, 1/I/L).
@@ -266,7 +275,7 @@ export interface PublicQuestion {
   prompt: string;
   /** Choices to tap — or, for `match`, the bank of words to place. */
   options: string[] | null;
-  /** Key for GET /hunts/image. */
+  /** Key for GET /hunts/image — the question's own id, never its word. */
   image: string | null;
   /** `match`: the meanings, each to be given a word from `options`. */
   slotPrompts: string[] | null;
@@ -281,7 +290,7 @@ export function publicQuestion(q: StoredQuestion): PublicQuestion {
     type: q.type,
     prompt: q.prompt,
     options: q.options ?? null,
-    image: q.image ?? null,
+    image: q.imageWord && q.id ? q.id : null,
     slotPrompts: q.slotPrompts ?? null,
     say: q.say ?? null,
     scrambled: q.scrambled ?? null,
@@ -368,11 +377,13 @@ function cleanQuestion(v: unknown): StoredQuestion | null {
   const scrambled = str(q.scrambled, MAX_ANSWER);
   if (scrambled) out.scrambled = scrambled;
   if (type === 'image') {
-    const image = str(q.image, 24);
+    const word = str(q.imageWord, 60).toLowerCase();
     // A picture question is a picture and a choice; without either it's nothing.
-    if (!IMAGE_KEY.test(image) || !out.options) return null;
-    out.image = image;
+    if (!PICTURE_WORD.test(word) || !out.options) return null;
+    out.imageWord = word;
   }
+  const source = str(q.word, 60);
+  if (source) out.word = source;
   // Alternatives only mean something when the answer is typed.
   if (!out.options && Array.isArray(q.accept)) {
     const accept = [...new Set(q.accept.map((a) => str(a, MAX_ANSWER)).filter(Boolean))]
@@ -381,7 +392,7 @@ function cleanQuestion(v: unknown): StoredQuestion | null {
     if (accept.length) out.accept = accept;
   }
   // Nothing to read, hear or see is a question with no question in it.
-  if (!out.prompt && !out.say && !out.scrambled && !out.image) return null;
+  if (!out.prompt && !out.say && !out.scrambled && !out.imageWord) return null;
   return out;
 }
 
@@ -399,7 +410,7 @@ function cleanMatch(q: Record<string, unknown>): StoredQuestion | null {
     ? [...new Set(q.options.map((o) => str(o, MAX_ANSWER)).filter(Boolean))].slice(0, MAX_SLOTS + 2)
     : [];
   if (!slots.every((s) => bank.some((b) => normalize(b) === normalize(s)))) return null;
-  return {
+  const out: StoredQuestion = {
     type: 'match',
     prompt: str(q.prompt, MAX_PROMPT),
     options: bank,
@@ -407,64 +418,114 @@ function cleanMatch(q: Record<string, unknown>): StoredQuestion | null {
     slots,
     answer: slots.join(' · '),
   };
-}
-
-/** Every picture key the stations ask for. */
-export function imageKeys(stations: Station[]): Set<string> {
-  return new Set(stations.flatMap((s) => s.questions.map((q) => q.image).filter((k): k is string => Boolean(k))));
-}
-
-/**
- * The pictures a teacher sent, keyed as the questions use them. Only keys some
- * question needs are kept, and each must be a small image data: URI — a hunt
- * isn't a way to store anything else.
- */
-export function cleanImages(raw: unknown, needed: Set<string>): Record<string, string> {
-  const given = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
-  if (needed.size > MAX_IMAGES) throw new Invalid(`A hunt can hold up to ${MAX_IMAGES} pictures.`);
-  const out: Record<string, string> = {};
-  for (const key of needed) {
-    const v = given[key];
-    if (typeof v !== 'string' || v.length > MAX_IMAGE_CHARS || !DATA_URI.test(v)) {
-      throw new Invalid('A picture question is missing its picture.');
-    }
-    out[key] = v;
-  }
+  const source = str(q.word, 60);
+  if (source) out.word = source;
   return out;
 }
 
 /**
- * The stations a teacher sent, trusted for nothing: cut to size, every
- * question checked. The card codes and letters are the server's to assign —
- * `cards` are fresh random codes, one per station.
+ * A set's questions as a teacher sent them, trusted for nothing: each checked
+ * and cut to size, the unusable ones dropped. Order is kept — it's hers.
  */
-export function cleanStations(
-  raw: unknown,
+export function cleanQuestions(raw: unknown): StoredQuestion[] {
+  if (!Array.isArray(raw)) throw new Invalid('"questions" must be a list.');
+  return raw.slice(0, MAX_SET_QUESTIONS).map(cleanQuestion).filter((q): q is StoredQuestion => q !== null);
+}
+
+/**
+ * Questions dealt round the stations like cards: station 1 gets the 1st, the
+ * 4th, the 7th… So each gets its share and a mix of kinds, and none is left
+ * empty while there are at least as many questions as stations.
+ */
+export function dealQuestions<T>(questions: T[], count: number): T[][] {
+  const out: T[][] = Array.from({ length: count }, () => []);
+  questions.forEach((q, i) => out[i % count].push(q));
+  return out.map((qs) => qs.slice(0, MAX_STATION_QUESTIONS));
+}
+
+/**
+ * A hunt's stations: one per letter of the treasure word, the set's questions
+ * dealt round them, each with its card code (server-made), and its clue
+ * (classroom) or landmark (world) from what the teacher sent.
+ */
+export function buildStations(
+  questions: StoredQuestion[],
   treasure: string,
   mode: 'qr' | 'world',
   cards: string[],
+  where: { clues?: unknown; places?: unknown },
 ): Station[] {
-  if (!Array.isArray(raw)) throw new Invalid('"stations" must be a list.');
-  if (raw.length !== treasure.length) {
-    throw new Invalid('There must be one station per letter of the treasure word.');
+  const count = treasure.length;
+  if (questions.length < count) {
+    throw new Invalid(`This set has ${questions.length} usable questions — a ${count}-letter treasure needs at least ${count}.`);
   }
-  const places = new Set<string>();
-  return raw.map((v, i) => {
-    const s = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-    const questions = (Array.isArray(s.questions) ? s.questions : [])
-      .slice(0, MAX_QUESTIONS)
-      .map(cleanQuestion)
-      .filter((q): q is StoredQuestion => q !== null);
-    if (!questions.length) throw new Invalid(`Station ${i + 1} has no usable questions.`);
+  const clues = Array.isArray(where.clues) ? where.clues : [];
+  const places = Array.isArray(where.places) ? where.places : [];
+  const seen = new Set<string>();
+  const dealt = dealQuestions(questions, count);
+  return dealt.map((qs, i) => {
     let place: string | null = null;
     if (mode === 'world') {
-      place = str(s.place, 40);
+      place = str(places[i], 40);
       if (!/^[a-zA-Z]+$/.test(place)) throw new Invalid(`Station ${i + 1} needs a place on the map.`);
-      if (places.has(place)) throw new Invalid('Two stations can’t share one place.');
-      places.add(place);
+      if (seen.has(place)) throw new Invalid('Two stations can’t share one place.');
+      seen.add(place);
     }
-    return { card: cards[i], place, clue: str(s.clue, MAX_CLUE), letter: treasure[i], questions };
+    return { card: cards[i], place, clue: str(clues[i], MAX_CLUE), letter: treasure[i], questions: qs };
   });
+}
+
+// ── Rows ────────────────────────────────────────────────────────────────────
+
+/** The columns `questions` and `hunt_questions` share. */
+export interface QuestionColumns {
+  type: QuestionType;
+  prompt: string;
+  answer: string;
+  options: string[] | null;
+  accept: string[] | null;
+  say: string | null;
+  scrambled: string | null;
+  image_word: string | null;
+  pair_prompts: string[] | null;
+  pair_words: string[] | null;
+  word: string | null;
+}
+
+export function questionColumns(q: StoredQuestion): QuestionColumns {
+  return {
+    type: q.type,
+    prompt: q.prompt,
+    answer: q.answer,
+    options: q.options ?? null,
+    accept: q.accept ?? null,
+    say: q.say ?? null,
+    scrambled: q.scrambled ?? null,
+    image_word: q.imageWord ?? null,
+    pair_prompts: q.slotPrompts ?? null,
+    pair_words: q.slots ?? null,
+    word: q.word ?? null,
+  };
+}
+
+/** A row back into the shape the rules use. Empty columns become absent keys. */
+export function fromColumns(r: QuestionColumns & { id?: string }): StoredQuestion {
+  const q: StoredQuestion = { type: r.type, prompt: r.prompt ?? '', answer: r.answer };
+  if (r.id) q.id = r.id;
+  if (r.options?.length) q.options = r.options;
+  if (r.accept?.length) q.accept = r.accept;
+  if (r.say) q.say = r.say;
+  if (r.scrambled) q.scrambled = r.scrambled;
+  if (r.image_word) q.imageWord = r.image_word;
+  if (r.pair_prompts?.length) q.slotPrompts = r.pair_prompts;
+  if (r.pair_words?.length) q.slots = r.pair_words;
+  if (r.word) q.word = r.word;
+  return q;
+}
+
+/** What a student sent, as `hunt_answers.given` keeps it. */
+export function givenText(given: string | string[]): string {
+  return Array.isArray(given) ? given.join(' | ') : given;
 }
 
 export function cleanTeamNames(v: unknown): [string, string] {

@@ -41,7 +41,7 @@ import {
 export function QuestionEditor({ questions, onChange, pictures, onPictures, needed }: {
   questions: EditableQuestion[];
   onChange: (next: EditableQuestion[]) => void;
-  /** Picture questions' pictures, by key. */
+  /** Picture questions' pictures, by word — for the previews only; the server shows its own. */
   pictures: Record<string, string>;
   onPictures: (add: Record<string, string>) => void;
   /** Questions the hunt needs at least (one per station). */
@@ -93,6 +93,16 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
     return out;
   };
 
+  // A saved set comes back with words, not pictures: fetch the previews once.
+  const asked = useRef(new Set<string>());
+  useEffect(() => {
+    const missing = [...new Set(questions.map((q) => q.imageWord).filter((w): w is string => Boolean(w)))]
+      .filter((w) => !pictures[w] && !asked.current.has(w));
+    if (!missing.length) return;
+    missing.forEach((w) => asked.current.add(w));
+    void loadPictures(missing).then((got) => { if (Object.keys(got).length) onPictures(got); });
+  }, [questions, pictures, onPictures]);
+
   const wrongPool = (extra: string[]) => [
     ...new Set([...extra, ...questions.map((q) => q.word).filter((w): w is string => Boolean(w))]),
     ...WORD_LIST.map((w) => w.word).sort(() => Math.random() - 0.5).slice(0, 60),
@@ -100,7 +110,7 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
 
   const keep = (built: Built[]) => {
     const add: Record<string, string> = {};
-    for (const b of built) if (b.picture) add[b.picture.key] = b.picture.data;
+    for (const b of built) if (b.picture) add[b.picture.word] = b.picture.data;
     if (Object.keys(add).length) onPictures(add);
     onChange([...questions, ...built.map((b) => b.question)].slice(0, MAX_QUESTIONS));
   };
@@ -255,7 +265,7 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
             key={q.id}
             n={i + 1}
             question={q}
-            picture={q.image ? pictures[q.image] : undefined}
+            picture={q.imageWord ? pictures[q.imageWord] : undefined}
             editing={editing === q.id}
             onEdit={() => setEditing(q.id)}
             onSave={(next) => { onChange(questions.map((x) => (x.id === q.id ? next : x))); setEditing(null); }}
@@ -351,7 +361,7 @@ function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCanc
               <Icon icon="lucide:volume-2" /> <span className="text-text-muted"><FormattedMessage id="hunt.editor.says" values={{ word: q.say }} /></span>
             </p>
           )}
-          {q.image && (
+          {q.imageWord && (
             picture
               ? <img src={picture} alt="" className="w-20 h-20 rounded-lg bg-white object-contain border border-border" />
               : <div className="w-20 h-20 rounded-lg bg-bg-tertiary flex items-center justify-center"><Icon icon="lucide:image-off" className="text-text-muted" /></div>

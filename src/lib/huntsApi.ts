@@ -10,7 +10,6 @@
 // local copy to fall back on: a failure is shown, and the next poll retries.
 
 import { request } from './api';
-import type { DraftStation } from './hunt';
 
 export type HuntMode = 'qr' | 'world';
 export type HuntStatus = 'lobby' | 'live' | 'ended';
@@ -18,6 +17,8 @@ export type Phase = 'find' | 'solve' | 'final' | 'done';
 
 export interface HuntSummary {
   id: string;
+  /** The question set it was made from, while that still exists. */
+  setId: string | null;
   code: string;
   title: string;
   mode: HuntMode;
@@ -59,7 +60,8 @@ export interface Board {
     players: { id: string; name: string }[];
     order: number[];
   })[];
-  feed: { at: string; team: 0 | 1; kind: 'found' | 'solve' | 'miss' | 'finish'; station: number; player: string | null }[];
+  /** Newest first. A miss carries what the student gave. */
+  feed: { at: string; team: 0 | 1; kind: 'found' | 'solve' | 'miss' | 'finish'; station: number; player: string | null; given: string | null }[];
   outcome: Outcome;
 }
 
@@ -118,9 +120,12 @@ export interface NewHunt {
   title: string;
   mode: HuntMode;
   treasure: string;
-  stations: DraftStation[];
-  /** Picture questions' pictures, by key (data: URIs). */
-  images: Record<string, string>;
+  /** The question set it plays — dealt round the stations by the server. */
+  setId: string;
+  /** Classroom: where each card is hidden. */
+  clues?: string[];
+  /** World: the landmark of each station. */
+  places?: string[];
   need: number;
   durationMin: number;
   teamNames: [string, string];
@@ -146,6 +151,25 @@ export async function fetchBoard(id: string, signal?: AbortSignal): Promise<Boar
 
 export async function startHunt(id: string): Promise<Board> {
   return (await request.post<{ board: Board }>('/hunts/start', { id })).board;
+}
+
+/** How one question went: answered how often, how often right, and the wrong answers given most. */
+export interface Tally {
+  attempts: number;
+  correct: number;
+  wrong: { given: string; count: number }[];
+}
+
+export interface Results {
+  hunt: HuntSummary & { treasure: string };
+  questions: (Tally & { id: string; station: number; type: PublicQuestion['type']; prompt: string; answer: string })[];
+  /** The treasure word, as a question of its own. */
+  treasure: Tally;
+  players: { id: string; name: string; team: 0 | 1; attempts: number; correct: number }[];
+}
+
+export async function fetchResults(id: string): Promise<Results> {
+  return (await request.get<{ results: Results }>('/hunts/results', { params: { id } })).results;
 }
 
 export async function endHunt(id: string): Promise<Board> {

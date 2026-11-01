@@ -1,8 +1,8 @@
-// A treasure hunt's questions, before the server has them: generated from a
-// word list, shown to the teacher one card at a time, edited, removed and
-// added to — then dealt round the stations. Pure; the create page loads the
-// word data and pictures and passes them in. The server validates whatever
-// arrives (supabase/functions/_shared/hunts.ts), so nothing here is trusted.
+// A question set, before the server has it: generated from a word list, shown
+// to the teacher one card at a time, edited, removed and added to. Pure; the
+// create page loads the word data and pictures and passes them in. The server
+// validates whatever arrives (supabase/functions/_shared/hunts.ts) and deals
+// the set round a hunt's stations, so nothing here is trusted.
 
 import type { MiniWordData } from './quizShare';
 import { blankSentence } from './quizEngine';
@@ -25,26 +25,20 @@ export interface DraftQuestion {
   answer: string;
   /** Other answers that count too (typed questions only). */
   accept?: string[];
-  /** `image`: key into the hunt's pictures. */
-  image?: string;
+  /** `image`: the word whose picture is shown — the app's own doodle of it. */
+  imageWord?: string;
   /** `match`: the meanings, and the word that belongs with each. */
   slotPrompts?: string[];
   slots?: string[];
 }
 
-/** A question on the teacher's list: a stable id for React, and the word it was made from. */
+/**
+ * A question on the teacher's list: an id for React (the stored row's, once
+ * saved), and the word it was made from.
+ */
 export interface EditableQuestion extends DraftQuestion {
   id: string;
   word?: string;
-}
-
-export interface DraftStation {
-  type: HuntQuestionType;
-  /** Where the card is hidden (classroom) — the teacher's words. */
-  clue: string;
-  /** The landmark that opens it (world). */
-  place: string | null;
-  questions: DraftQuestion[];
 }
 
 /**
@@ -62,10 +56,8 @@ export const MIN_WORDS = 4;
 export const MAX_WORDS = 30;
 /** The most questions one press of Generate makes — a set, not a bank. */
 export const MAX_GENERATE = 30;
-/** The most a hunt holds altogether, generated and added. */
+/** The most a set holds altogether, generated and added — the server's cap too. */
 export const MAX_QUESTIONS = 60;
-/** The server's cap on one station's pool. */
-export const MAX_STATION_QUESTIONS = 12;
 export const MAX_WRONG = 3;
 /** Words on one matching board. */
 export const MATCH_SIZE = 4;
@@ -82,7 +74,7 @@ function shuffleWith<T>(arr: T[], rand: Rand): T[] {
   return a;
 }
 
-/** A short random id from [a-z0-9] — a question's, or a picture's key (the server checks the shape). */
+/** A short random id from [a-z0-9] — a new question's, until the server gives it a row id. */
 export function newKey(rand: Rand = Math.random, length = 12): string {
   const abc = 'abcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from({ length }, () => abc[Math.floor(rand() * abc.length)]).join('');
@@ -110,15 +102,15 @@ export interface Ctx {
   data: Record<string, MiniWordData>;
   /** Words to take wrong answers from — the hunt's own first, then any others. */
   wrongPool: string[];
-  /** Pictures by word (data: URIs), for picture questions. */
+  /** Which words have a picture (data: URIs by word), for picture questions. */
   pictures?: Record<string, string>;
   rand?: Rand;
 }
 
-/** A built question, and the picture it needs saving under its key, if any. */
+/** A built question, and — for a picture question — its picture, to preview. */
 export interface Built {
   question: EditableQuestion;
-  picture?: { key: string; data: string };
+  picture?: { word: string; data: string };
 }
 
 /**
@@ -151,8 +143,7 @@ export function makeQuestion(type: WordQuestionType, word: string, ctx: Ctx): Bu
     case 'image': {
       const picture = ctx.pictures?.[word];
       if (!picture) return null;
-      const key = newKey(rand);
-      return { question: { ...base, type, prompt: '', image: key, options: options() }, picture: { key, data: picture } };
+      return { question: { ...base, type, prompt: '', imageWord: word, options: options() }, picture: { word, data: picture } };
     }
     case 'match': {
       // This word and up to three others the hunt has meanings for.
@@ -248,7 +239,7 @@ export function fromForm(prev: EditableQuestion, f: QuestionForm, rand: Rand = M
     case 'listen':
       return { ...base, say: answer, options: shuffleWith([answer, ...wrong], rand) };
     case 'image':
-      return { ...base, image: prev.image, options: shuffleWith([answer, ...wrong], rand) };
+      return { ...base, imageWord: prev.imageWord, options: shuffleWith([answer, ...wrong], rand) };
     case 'unscramble':
       return { ...base, prompt: f.prompt.trim(), scrambled: scramble(answer, rand) };
     case 'spell':
@@ -293,45 +284,13 @@ export function problemOf(q: DraftQuestion): Problem | null {
   return null;
 }
 
-// ── Stations ───────────────────────────────────────────────────────────────
-
 /**
- * The questions dealt round the stations like cards: station 1 gets the 1st,
- * the 4th, the 7th… So each gets its share and a mix of kinds, and none is left
- * empty while there are at least as many questions as stations.
+ * The set as it's sent to be saved: the askable questions, in order. A fresh
+ * question's made-up id stays behind — the server gives each row its own.
  */
-export function dealQuestions<T>(questions: T[], count: number): T[][] {
-  const out: T[][] = Array.from({ length: count }, () => []);
-  questions.forEach((q, i) => out[i % count].push(q));
-  return out;
-}
-
-/**
- * The stations to send: the askable questions dealt round, each station with
- * its clue (classroom) or landmark (world). The list's own ids and source
- * words stay behind.
- */
-export function stationsFromQuestions(
-  questions: EditableQuestion[],
-  count: number,
-  where: { clues?: string[]; places?: string[] } = {},
-): DraftStation[] {
-  const ready = questions.filter((q) => !problemOf(q));
-  if (ready.length < count) throw new Error(`A hunt needs at least ${count} questions — one for each station.`);
-  return dealQuestions(ready, count).map((qs, i) => ({
-    type: qs[0].type,
-    clue: where.clues?.[i]?.trim() ?? '',
-    place: where.places?.[i] ?? null,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    questions: qs.slice(0, MAX_STATION_QUESTIONS).map(({ id, word, ...q }) => q),
-  }));
-}
-
-/** Only the pictures some question still uses — removed ones aren't uploaded. */
-export function picturesInUse(questions: DraftQuestion[], pictures: Record<string, string>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const q of questions) if (q.image && pictures[q.image]) out[q.image] = pictures[q.image];
-  return out;
+export function questionsToSave(questions: EditableQuestion[]): DraftQuestion[] {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  return questions.filter((q) => !problemOf(q)).map(({ id, ...q }) => q);
 }
 
 /** `n` different landmarks for a world hunt, in a random order. */

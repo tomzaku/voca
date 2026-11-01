@@ -1,13 +1,13 @@
-// A hunt's question list — generated, edited, dealt round the stations — and,
+// A question set as the editor builds it — generated, edited, saved — and,
 // the part that matters most, that what the create page sends is what the
-// server accepts. A builder and a validator written apart drift; this runs
-// the one through the other.
+// server keeps: validated, stored as rows, read back, and dealt round a
+// hunt's stations unchanged. A builder and a validator written apart drift;
+// this runs the one through the other.
 
 import { describe, expect, it } from 'vitest';
 import {
   blankCustom,
   clock,
-  dealQuestions,
   fromForm,
   generateQuestions,
   HUNT_PLACES,
@@ -15,17 +15,15 @@ import {
   isPlainWord,
   makeQuestion,
   MAX_GENERATE,
-  MAX_STATION_QUESTIONS,
   MAX_WORDS,
   newKey,
   parseWords,
-  picturesInUse,
   pickPlaces,
   problemOf,
   questionKey,
   scramble,
   secondsUntil,
-  stationsFromQuestions,
+  questionsToSave,
   toForm,
   TREASURE_IDEAS,
   type Ctx,
@@ -33,12 +31,13 @@ import {
 } from './hunt';
 import type { MiniWordData } from './quizShare';
 import {
-  cleanImages,
-  cleanStations,
+  buildStations,
+  cleanQuestions,
   cleanTreasure,
-  imageKeys,
+  fromColumns,
   isCorrect,
   publicQuestion,
+  questionColumns,
 } from '../../supabase/functions/_shared/hunts';
 
 const data = (definition: string, examples: string[] = []): MiniWordData => ({ definition, examples });
@@ -128,11 +127,11 @@ describe('makeQuestion', () => {
     expect(makeQuestion('unscramble', 'river', ctx())!.question.scrambled).toHaveLength(5);
   });
 
-  it('makes a picture question only for a word with a picture, under a fresh key', () => {
+  it('makes a picture question only for a word with a picture, naming the word', () => {
     expect(makeQuestion('image', 'bridge', ctx())).toBeNull();
     const built = makeQuestion('image', 'river', ctx())!;
-    expect(built.question.image).toMatch(/^[a-z0-9]{12}$/);
-    expect(built.picture).toEqual({ key: built.question.image, data: PNG });
+    expect(built.question.imageWord).toBe('river');
+    expect(built.picture).toEqual({ word: 'river', data: PNG });
     expect(built.question.prompt).toBe('');
   });
 
@@ -201,7 +200,7 @@ describe('editing', () => {
 
   it('keeps a picture question’s picture', () => {
     const p = makeQuestion('image', 'river', ctx())!.question;
-    expect(fromForm(p, toForm(p)).image).toBe(p.image);
+    expect(fromForm(p, toForm(p)).imageWord).toBe('river');
   });
 
   it('edits a matching board pair by pair, dropping half-filled ones', () => {
@@ -239,70 +238,45 @@ describe('problemOf', () => {
   });
 });
 
-describe('dealQuestions', () => {
-  it('deals round the stations so none is empty', () => {
-    expect(dealQuestions([1, 2, 3, 4, 5], 3)).toEqual([[1, 4], [2, 5], [3]]);
-    expect(dealQuestions([], 2)).toEqual([[], []]);
+describe('questionsToSave', () => {
+  it('sends the askable questions in order, without the editor’s made-up ids', () => {
+    const qs = generateQuestions({ ...ctx(), words: WORDS, types: ['definition'], count: 3 }).map((b) => b.question);
+    const sent = questionsToSave([qs[0], blankCustom(), qs[1], qs[2]]);
+    expect(sent.map((q) => q.answer)).toEqual(qs.map((q) => q.answer));
+    for (const q of sent) expect(q).not.toHaveProperty('id');
   });
 });
 
-describe('stationsFromQuestions', () => {
-  const qs = generateQuestions({ ...ctx(), words: WORDS, types: ['definition', 'listen'], count: 7 }).map((b) => b.question);
-
-  it('deals the askable questions, with the clues or places', () => {
-    const s = stationsFromQuestions([...qs, blankCustom()], 3, { clues: [' desk ', 'door'], places: ['ngoMon', 'kyDai', 'dongBa'] });
-    expect(s.map((x) => x.questions.length)).toEqual([3, 2, 2]);
-    expect(s.map((x) => x.clue)).toEqual(['desk', 'door', '']);
-    expect(s.map((x) => x.place)).toEqual(['ngoMon', 'kyDai', 'dongBa']);
-    expect(s[0].questions[0]).not.toHaveProperty('id');
-    expect(s[0].questions[0]).not.toHaveProperty('word');
-  });
-
-  it('wants one per station', () => {
-    expect(() => stationsFromQuestions(qs.slice(0, 2), 3)).toThrow(/3 questions/);
-  });
-
-  it('keeps a station under the server’s cap', () => {
-    const many = Array.from({ length: 40 }, () => makeQuestion('definition', 'river', ctx())!.question);
-    expect(Math.max(...stationsFromQuestions(many, 3).map((s) => s.questions.length))).toBe(MAX_STATION_QUESTIONS);
-  });
-});
-
-describe('picturesInUse', () => {
-  it('uploads only the pictures a question still uses', () => {
-    const q = makeQuestion('image', 'river', ctx())!;
-    expect(picturesInUse([q.question], { [q.question.image!]: PNG, gone: PNG })).toEqual({ [q.question.image!]: PNG });
-  });
-});
-
-describe('what the editor sends, the server accepts', () => {
+describe('what the editor saves, the server keeps', () => {
   for (const treasure of TREASURE_IDEAS) {
     for (const mode of ['qr', 'world'] as const) {
       it(`${treasure} (${mode})`, () => {
         const t = cleanTreasure(treasure);
         const built = generateQuestions({ ...ctx({ rand: seeded(t.length) }), words: WORDS, types: HUNT_TYPES, count: 30 });
-        const pictures = Object.fromEntries(built.flatMap((b) => (b.picture ? [[b.picture.key, b.picture.data]] : [])));
         const own: EditableQuestion = fromForm(blankCustom(), { prompt: 'Sky?', answer: 'grey', wrong: [], accept: ['gray'], pairs: [] });
-        const questions = [...built.map((b) => b.question), own];
-        const stations = stationsFromQuestions(questions, t.length, { places: mode === 'world' ? pickPlaces(t.length, seeded()) : undefined });
+        const sent = questionsToSave([...built.map((b) => b.question), own]);
 
-        // A JSON round trip, as the request makes.
-        const clean = cleanStations(JSON.parse(JSON.stringify(stations)), t, mode, Array.from({ length: t.length }, (_, i) => `C${i}`));
-        clean.forEach((s, i) => expect(s.questions).toHaveLength(stations[i].questions.length));
-        expect(Object.keys(cleanImages(picturesInUse(questions, pictures), imageKeys(clean))).sort())
-          .toEqual([...imageKeys(clean)].sort());
+        // Validated as the request arrives — nothing dropped…
+        const clean = cleanQuestions(JSON.parse(JSON.stringify(sent)));
+        expect(clean).toHaveLength(sent.length);
+        // …stored as rows and read back unchanged…
+        const stored = clean.map((q, i) => fromColumns({ ...questionColumns(q), id: `q${i}` }));
+        stored.forEach((q, i) => expect({ ...q, id: undefined }).toEqual({ ...clean[i], id: undefined }));
+        // …and dealt round the stations, every question placed.
+        const stations = buildStations(stored, t, mode, Array.from({ length: t.length }, (_, i) => `C${i}`), {
+          places: mode === 'world' ? pickPlaces(t.length, seeded()) : undefined,
+        });
+        expect(stations.flatMap((s) => s.questions)).toHaveLength(Math.min(stored.length, t.length * 12));
 
         // Each one answerable — by the right answer, not by a wrong one — and
         // never carrying its answer to the student.
-        for (const s of clean) {
-          for (const q of s.questions) {
-            const right = q.slots ?? q.answer;
-            expect(isCorrect(q, right)).toBe(true);
-            if (q.options && !q.slots) for (const o of q.options.filter((x) => x !== q.answer)) expect(isCorrect(q, o)).toBe(false);
-            const pub = publicQuestion(q);
-            expect(pub).not.toHaveProperty('answer');
-            expect(pub).not.toHaveProperty('slots');
-          }
+        for (const q of stored) {
+          expect(isCorrect(q, q.slots ?? q.answer)).toBe(true);
+          if (q.options && !q.slots) for (const o of q.options.filter((x) => x !== q.answer)) expect(isCorrect(q, o)).toBe(false);
+          const pub = publicQuestion(q);
+          expect(pub).not.toHaveProperty('answer');
+          expect(pub).not.toHaveProperty('slots');
+          expect(pub).not.toHaveProperty('imageWord');
         }
       });
     }

@@ -198,4 +198,20 @@ export default {
   'hunt.editor.problem.noWrong': 'Cần ít nhất một đáp án sai',
   'hunt.editor.problem.fewPairs': 'Cần ít nhất 2 cặp',
   'hunt.editor.problem.dupWords': 'Một từ bị dùng hai lần',
+
+  // ── Saved sets, and the results ──
+  'hunt.sets.open': 'Mở bộ câu hỏi đã lưu…',
+  'hunt.sets.option': '{title} ({n})',
+  'hunt.sets.confirmReplace': 'Thay các câu hỏi hiện tại bằng bộ đã lưu?',
+  'hunt.sets.saveAs': 'Lưu bộ câu hỏi với tên',
+  'hunt.sets.savesTo': 'Thay đổi được lưu vào bộ',
+  'hunt.results.title': 'Kết quả',
+  'hunt.results.refresh': 'Làm mới',
+  'hunt.results.loading': 'Đang đọc câu trả lời…',
+  'hunt.results.question': 'Câu hỏi — khó nhất trước',
+  'hunt.results.right': 'Đúng',
+  'hunt.results.commonWrong': 'Các đáp án sai',
+  'hunt.results.treasure': 'Từ bí mật',
+  'hunt.results.students': 'Học sinh',
+  'hunt.results.studentLine': 'Đúng {correct}/{attempts}',
 } satisfies Record<keyof typeof en, string>;

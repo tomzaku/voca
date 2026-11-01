@@ -32,6 +32,7 @@ import notify from '../notify/index.ts';
 import pick from '../pick/index.ts';
 import progress from '../progress/index.ts';
 import push from '../push/index.ts';
+import questionSets from '../question-sets/index.ts';
 import quizzes from '../quizzes/index.ts';
 import settings from '../settings/index.ts';
 import speaking from '../speaking/index.ts';
@@ -65,6 +66,7 @@ const RESOURCES: Record<string, Handler> = {
   pick,
   progress,
   push,
+  'question-sets': questionSets,
   quizzes,
   settings,
   speaking,

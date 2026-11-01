@@ -8,9 +8,14 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  cleanImages,
-  cleanStations,
-  imageKeys,
+  buildStations,
+  cleanQuestions,
+  dealQuestions,
+  fromColumns,
+  givenText,
+  MAX_SET_QUESTIONS,
+  MAX_STATION_QUESTIONS,
+  questionColumns,
   cleanTeamNames,
   cleanTreasure,
   clampInt,
@@ -293,43 +298,6 @@ describe('validation', () => {
     expect(() => cleanTreasure(42)).toThrow(Invalid);
   });
 
-  const raw = (n: number) => Array.from({ length: n }, (_, i) => ({ clue: `under desk ${i}`, place: ['ngoMon', 'thaiHoa', 'kyDai', 'dongBa'][i], questions: [q(`w${i}`)] }));
-
-  it('assigns the letters and cards itself', () => {
-    const s = cleanStations(raw(4), 'GOLD', 'qr', ['AAAA', 'BBBB', 'CCCC', 'DDDD']);
-    expect(s.map((x) => x.letter).join('')).toBe('GOLD');
-    expect(s.map((x) => x.card)).toEqual(['AAAA', 'BBBB', 'CCCC', 'DDDD']);
-    expect(s[0].place).toBeNull();
-  });
-
-  it('wants one station per letter', () => {
-    expect(() => cleanStations(raw(3), 'GOLD', 'qr', ['A', 'B', 'C', 'D'])).toThrow(Invalid);
-  });
-
-  it('keeps places in world mode, and refuses two stations on one place', () => {
-    expect(cleanStations(raw(4), 'GOLD', 'world', ['A', 'B', 'C', 'D'])[2].place).toBe('kyDai');
-    const dup = raw(4).map((s) => ({ ...s, place: 'ngoMon' }));
-    expect(() => cleanStations(dup, 'GOLD', 'world', ['A', 'B', 'C', 'D'])).toThrow(Invalid);
-  });
-
-  it('drops a choice question whose answer isn’t an option, and a station left with none', () => {
-    const bad = raw(4);
-    bad[1].questions = [{ type: 'definition', prompt: 'x', options: ['a', 'b'], answer: 'c' }];
-    expect(() => cleanStations(bad, 'GOLD', 'qr', ['A', 'B', 'C', 'D'])).toThrow(/Station 2/);
-  });
-
-  it('drops a question of an unknown type', () => {
-    const odd = raw(4);
-    odd[0].questions = [q('ok'), { type: 'essay', prompt: 'x', answer: 'y' } as unknown as StoredQuestion];
-    expect(cleanStations(odd, 'GOLD', 'qr', ['A', 'B', 'C', 'D'])[0].questions).toHaveLength(1);
-  });
-
-  it('caps the questions per station', () => {
-    const many = raw(4);
-    many[0].questions = Array.from({ length: 50 }, (_, i) => q(`x${i}`));
-    expect(cleanStations(many, 'GOLD', 'qr', ['A', 'B', 'C', 'D'])[0].questions.length).toBeLessThanOrEqual(12);
-  });
-
   it('defaults team names', () => {
     expect(cleanTeamNames(undefined)).toEqual(['Red', 'Blue']);
     expect(cleanTeamNames(['Pirates', ''])).toEqual(['Pirates', 'Blue']);
@@ -345,6 +313,83 @@ describe('validation', () => {
     const code = randomCode(6, new Uint8Array([0, 30, 31, 62, 255, 7]));
     expect(code).toHaveLength(6);
     expect(code).toMatch(/^[A-HJKMNP-Z2-9]+$/);
+  });
+});
+
+describe('cleanQuestions', () => {
+  it('keeps the usable ones, in her order', () => {
+    const qs = cleanQuestions([q('a'), { type: 'essay', prompt: 'x', answer: 'y' }, q('b'), { type: 'definition', prompt: 'x', options: ['a', 'b'], answer: 'c' }]);
+    expect(qs.map((x) => x.answer)).toEqual(['a', 'b']);
+  });
+
+  it('caps a set', () => {
+    expect(cleanQuestions(Array.from({ length: 200 }, (_, i) => q(`w${i}`)))).toHaveLength(MAX_SET_QUESTIONS);
+  });
+
+  it('wants a list', () => {
+    expect(() => cleanQuestions('nope')).toThrow(Invalid);
+  });
+});
+
+describe('dealQuestions', () => {
+  it('deals round the stations so none is empty', () => {
+    expect(dealQuestions([1, 2, 3, 4, 5], 3)).toEqual([[1, 4], [2, 5], [3]]);
+  });
+
+  it('keeps a station under its cap', () => {
+    expect(Math.max(...dealQuestions(Array.from({ length: 60 }, (_, i) => i), 3).map((s) => s.length))).toBe(MAX_STATION_QUESTIONS);
+  });
+});
+
+describe('buildStations', () => {
+  const qs = cleanQuestions(['a', 'b', 'c', 'd', 'e'].map(q));
+
+  it('gives each station its letter, card and clue, and a share of the questions', () => {
+    const s = buildStations(qs, 'GOLD', 'qr', ['C1', 'C2', 'C3', 'C4'], { clues: [' desk ', 'door'] });
+    expect(s.map((x) => x.letter).join('')).toBe('GOLD');
+    expect(s.map((x) => x.card)).toEqual(['C1', 'C2', 'C3', 'C4']);
+    expect(s.map((x) => x.clue)).toEqual(['desk', 'door', '', '']);
+    expect(s.map((x) => x.questions.length)).toEqual([2, 1, 1, 1]);
+    expect(s[0].place).toBeNull();
+  });
+
+  it('wants a question per station', () => {
+    expect(() => buildStations(qs.slice(0, 3), 'GOLD', 'qr', ['A', 'B', 'C', 'D'], {})).toThrow(/at least 4/);
+  });
+
+  it('keeps places in world mode, and refuses two stations on one place', () => {
+    expect(buildStations(qs, 'GOLD', 'world', ['A', 'B', 'C', 'D'], { places: ['ngoMon', 'thaiHoa', 'kyDai', 'dongBa'] })[2].place).toBe('kyDai');
+    expect(() => buildStations(qs, 'GOLD', 'world', ['A', 'B', 'C', 'D'], { places: ['ngoMon', 'ngoMon', 'kyDai', 'dongBa'] })).toThrow(Invalid);
+    expect(() => buildStations(qs, 'GOLD', 'world', ['A', 'B', 'C', 'D'], { places: ['ngoMon'] })).toThrow(/Station 2/);
+  });
+});
+
+describe('rows', () => {
+  const all = cleanQuestions([
+    q('river'),
+    { type: 'custom', prompt: 'Sky?', answer: 'grey', accept: ['gray'] },
+    { type: 'listen', prompt: '', say: 'river', options: ['river', 'lake'], answer: 'river', word: 'river' },
+    { type: 'unscramble', prompt: 'water', scrambled: 'REVIR', answer: 'river' },
+    { type: 'image', prompt: '', imageWord: 'Sun', options: ['sun', 'moon'], answer: 'sun' },
+    { type: 'match', prompt: '', slotPrompts: ['purrs', 'barks'], slots: ['cat', 'dog'], options: ['dog', 'cat'] },
+  ]);
+
+  it('round-trip every kind through the table’s columns unchanged', () => {
+    for (const x of all) expect(fromColumns(questionColumns(x))).toEqual(x);
+  });
+
+  it('use NULL, not empty arrays, for what a question doesn’t have', () => {
+    expect(questionColumns(all[0])).toMatchObject({ accept: null, say: null, image_word: null, pair_words: null });
+  });
+
+  it('keep a stored id, and give it as the picture key', () => {
+    const pic = fromColumns({ ...questionColumns(all[4]), id: '11111111-2222-3333-4444-555555555555' });
+    expect(publicQuestion(pic).image).toBe('11111111-2222-3333-4444-555555555555');
+  });
+
+  it('write what was given as text', () => {
+    expect(givenText('river')).toBe('river');
+    expect(givenText(['cat', 'dog'])).toBe('cat | dog');
   });
 });
 
@@ -365,32 +410,25 @@ describe('a teacher’s own questions', () => {
     expect(p.length).toBeNull();
   });
 
-  const station = (questions: unknown[]) => [{ clue: '', questions }, { clue: '', questions: [q('b')] }, { clue: '', questions: [q('c')] }];
-
   it('keep their alternatives through validation — tidied, de-duplicated, capped', () => {
-    const [s] = cleanStations(station([{
-      type: 'custom', prompt: 'Sky?', answer: 'blue',
-      accept: [' azure ', 'azure', 'BLUE', '', 'a', 'b', 'c', 'd', 'e'],
-    }]), 'ABC', 'qr', ['X', 'Y', 'Z']);
-    expect(s.questions[0].accept).toEqual(['azure', 'a', 'b', 'c', 'd']);
+    const [c] = cleanQuestions([{ type: 'custom', prompt: 'Sky?', answer: 'blue', accept: [' azure ', 'azure', 'BLUE', '', 'a', 'b', 'c', 'd', 'e'] }]);
+    expect(c.accept).toEqual(['azure', 'a', 'b', 'c', 'd']);
   });
 
   it('drop alternatives on a multiple-choice question', () => {
-    const [s] = cleanStations(station([{
-      type: 'custom', prompt: 'Sky?', answer: 'blue', options: ['blue', 'red'], accept: ['azure'],
-    }]), 'ABC', 'qr', ['X', 'Y', 'Z']);
-    expect(s.questions[0].accept).toBeUndefined();
-    expect(s.questions[0].options).toEqual(['blue', 'red']);
+    const [c] = cleanQuestions([{ type: 'custom', prompt: 'Sky?', answer: 'blue', options: ['blue', 'red'], accept: ['azure'] }]);
+    expect(c.accept).toBeUndefined();
+    expect(c.options).toEqual(['blue', 'red']);
   });
 
   it('need some question text', () => {
-    expect(() => cleanStations(station([{ type: 'custom', prompt: '  ', answer: 'blue' }]), 'ABC', 'qr', ['X', 'Y', 'Z'])).toThrow(/Station 1/);
+    expect(cleanQuestions([{ type: 'custom', prompt: '  ', answer: 'blue' }])).toEqual([]);
   });
 });
 
 describe('matching questions', () => {
   const match = { type: 'match', prompt: '', slotPrompts: ['a big grey animal', 'a pet that purrs'], slots: ['elephant', 'cat'], options: ['cat', 'dog', 'elephant'] };
-  const clean = (m: unknown) => cleanStations([{ clue: '', questions: [m] }, { clue: '', questions: [q('b')] }, { clue: '', questions: [q('c')] }], 'ABC', 'qr', ['X', 'Y', 'Z'])[0].questions[0];
+  const clean = (m: unknown) => cleanQuestions([m])[0];
 
   it('are right only when every pair is', () => {
     const m = clean(match);
@@ -409,9 +447,9 @@ describe('matching questions', () => {
   });
 
   it('need every word in the bank, and as many words as meanings', () => {
-    expect(() => clean({ ...match, options: ['cat', 'dog'] })).toThrow(/Station 1/);
-    expect(() => clean({ ...match, slots: ['cat'] })).toThrow(/Station 1/);
-    expect(() => clean({ ...match, slotPrompts: ['one'], slots: ['cat'], options: ['cat'] })).toThrow(/Station 1/);
+    expect(clean({ ...match, options: ['cat', 'dog'] })).toBeUndefined();
+    expect(clean({ ...match, slots: ['cat'] })).toBeUndefined();
+    expect(clean({ ...match, slotPrompts: ['one'], slots: ['cat'], options: ['cat'] })).toBeUndefined();
   });
 
   it('a plain answer never satisfies an array question, and vice versa', () => {
@@ -420,31 +458,23 @@ describe('matching questions', () => {
 });
 
 describe('picture questions', () => {
-  const pic = { type: 'image', prompt: '', image: 'abcd1234efgh', options: ['cat', 'dog'], answer: 'cat' };
-  const stations = (x: unknown) => cleanStations([{ clue: '', questions: [x] }, { clue: '', questions: [q('b')] }, { clue: '', questions: [q('c')] }], 'ABC', 'qr', ['X', 'Y', 'Z']);
+  const pic = { type: 'image', prompt: '', imageWord: 'Sun', options: ['sun', 'moon'], answer: 'sun' };
 
-  it('keep their picture key and send it, not the word', () => {
-    const s = stations(pic);
-    expect(s[0].questions[0].image).toBe('abcd1234efgh');
-    expect(publicQuestion(s[0].questions[0])).toMatchObject({ image: 'abcd1234efgh', options: ['cat', 'dog'] });
-    expect([...imageKeys(s)]).toEqual(['abcd1234efgh']);
+  it('keep their word, lower-cased — and never send it', () => {
+    const [p] = cleanQuestions([pic]);
+    expect(p.imageWord).toBe('sun');
+    const pub = publicQuestion({ ...p, id: 'q1' });
+    expect(pub.image).toBe('q1');
+    expect(pub).not.toHaveProperty('imageWord');
   });
 
-  it('need a well-formed key and choices', () => {
-    expect(() => stations({ ...pic, image: '../etc' })).toThrow(/Station 1/);
-    expect(() => stations({ ...pic, options: undefined })).toThrow(/Station 1/);
+  it('show no picture until stored (no id to fetch it by)', () => {
+    expect(publicQuestion(cleanQuestions([pic])[0]).image).toBeNull();
   });
 
-  const png = 'data:image/png;base64,iVBORw0KGgo=';
-
-  it('keep only the pictures a question asks for', () => {
-    expect(cleanImages({ abcd1234efgh: png, other1234567: png }, new Set(['abcd1234efgh']))).toEqual({ abcd1234efgh: png });
-  });
-
-  it('refuse a missing picture, a non-image, or an oversized one', () => {
-    const need = new Set(['abcd1234efgh']);
-    expect(() => cleanImages({}, need)).toThrow(Invalid);
-    expect(() => cleanImages({ abcd1234efgh: 'data:text/html;base64,PHNjcmlwdD4=' }, need)).toThrow(Invalid);
-    expect(() => cleanImages({ abcd1234efgh: 'data:image/png;base64,' + 'A'.repeat(90_000) }, need)).toThrow(Invalid);
+  it('need a word that could be one, and choices', () => {
+    expect(cleanQuestions([{ ...pic, imageWord: '../etc' }])).toEqual([]);
+    expect(cleanQuestions([{ ...pic, imageWord: '' }])).toEqual([]);
+    expect(cleanQuestions([{ ...pic, options: undefined }])).toEqual([]);
   });
 });

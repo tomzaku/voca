@@ -198,4 +198,20 @@ export default {
   'hunt.editor.problem.noWrong': 'Needs a wrong answer',
   'hunt.editor.problem.fewPairs': 'Needs at least 2 pairs',
   'hunt.editor.problem.dupWords': 'A word is used twice',
+
+  // ── Saved sets, and the results ──
+  'hunt.sets.open': 'Open a saved set…',
+  'hunt.sets.option': '{title} ({n})',
+  'hunt.sets.confirmReplace': 'Replace the questions here with the saved set?',
+  'hunt.sets.saveAs': 'Save these questions as',
+  'hunt.sets.savesTo': 'Changes are saved to the set',
+  'hunt.results.title': 'Results',
+  'hunt.results.refresh': 'Refresh',
+  'hunt.results.loading': 'Reading the answers…',
+  'hunt.results.question': 'Question — hardest first',
+  'hunt.results.right': 'Right',
+  'hunt.results.commonWrong': 'Wrong answers given',
+  'hunt.results.treasure': 'Treasure word',
+  'hunt.results.students': 'Students',
+  'hunt.results.studentLine': '{correct} right of {attempts}',
 } satisfies Catalog;

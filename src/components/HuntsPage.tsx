@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
@@ -6,13 +6,13 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import {
   HUNT_PLACES,
-  picturesInUse,
   pickPlaces,
   problemOf,
-  stationsFromQuestions,
+  questionsToSave,
   TREASURE_IDEAS,
   type EditableQuestion,
 } from '../lib/hunt';
+import { createSet, fetchSet, listSets, saveSet, type SetSummary } from '../lib/questionSetsApi';
 import { QuestionEditor } from './hunt/QuestionEditor';
 import { createHunt, deleteHunt, listHunts, type HuntMode, type HuntSummary } from '../lib/huntsApi';
 
@@ -119,6 +119,28 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
   const [saving, setSaving] = useState(false);
   const [questions, setQuestions] = useState<EditableQuestion[]>([]);
   const [pictures, setPictures] = useState<Record<string, string>>({});
+  const addPictures = useCallback((add: Record<string, string>) => setPictures((p) => ({ ...p, ...add })), []);
+  // The question set these questions are saved as: a saved one she opened, or
+  // a new one made when the hunt is created.
+  const [setId, setSetId] = useState<string | null>(null);
+  const [savedName, setSavedName] = useState('');
+  const [sets, setSets] = useState<SetSummary[]>([]);
+  useEffect(() => {
+    listSets().then(setSets).catch(() => { /* no saved sets to offer — she can still make one */ });
+  }, []);
+
+  const openSet = async (id: string) => {
+    if (!id) return;
+    if (questions.length && !window.confirm(intl.formatMessage({ id: 'hunt.sets.confirmReplace' }))) return;
+    try {
+      const set = await fetchSet(id);
+      setQuestions(set.questions);
+      setSetId(set.id);
+      setSavedName(set.title);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
 
   const cleanTreasure = treasure.toUpperCase().replace(/[^A-Z]/g, '');
   const count = cleanTreasure.length;
@@ -130,16 +152,20 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
     if (!ready) return;
     setSaving(true);
     try {
-      const stations = stationsFromQuestions(questions, count, {
-        places: mode === 'world' ? places.slice(0, count) : undefined,
-        clues: mode === 'qr' ? clues : undefined,
-      });
+      // Save the questions first — the set is what the hunt is made from, and
+      // what she can play again another day.
+      const name = savedName.trim() || title.trim();
+      const set = setId
+        ? await saveSet(setId, name, questionsToSave(questions))
+        : await createSet(name, questionsToSave(questions));
+      setSetId(set.id);
       const hunt = await createHunt({
         title: title.trim(),
         mode,
         treasure: cleanTreasure,
-        stations,
-        images: picturesInUse(askable, pictures),
+        setId: set.id,
+        clues: mode === 'qr' ? clues.slice(0, count) : undefined,
+        places: mode === 'world' ? places.slice(0, count) : undefined,
         need,
         durationMin: duration,
         teamNames,
@@ -248,15 +274,42 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
       )}
 
       <div>
-        <span className={label}><FormattedMessage id="hunt.editor.title" /></span>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <span className={label + ' !mb-0'}><FormattedMessage id="hunt.editor.title" /></span>
+          {sets.length > 0 && (
+            <select
+              value=""
+              onChange={(e) => void openSet(e.target.value)}
+              className="bg-bg-tertiary border border-border rounded-lg px-2 py-1 text-xs text-text-primary max-w-[60%]"
+              aria-label={intl.formatMessage({ id: 'hunt.sets.open' })}
+            >
+              <option value="">{intl.formatMessage({ id: 'hunt.sets.open' })}</option>
+              {sets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {intl.formatMessage({ id: 'hunt.sets.option' }, { title: s.title, n: s.questionCount })}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
         <p className="text-xs text-text-muted mb-3"><FormattedMessage id="hunt.editor.hint" /></p>
         <QuestionEditor
           questions={questions}
           onChange={setQuestions}
           pictures={pictures}
-          onPictures={(add) => setPictures((p) => ({ ...p, ...add }))}
+          onPictures={addPictures}
           needed={treasureOk ? count : 3}
         />
+        <label className="flex flex-wrap items-center gap-2 mt-3 text-xs text-text-muted">
+          <FormattedMessage id={setId ? 'hunt.sets.savesTo' : 'hunt.sets.saveAs'} />
+          <input
+            value={savedName}
+            onChange={(e) => setSavedName(e.target.value)}
+            maxLength={80}
+            placeholder={title}
+            className="flex-1 min-w-[160px] bg-bg-tertiary border border-border rounded-lg px-2 py-1.5 text-sm text-text-primary"
+          />
+        </label>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">

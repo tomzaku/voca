@@ -8,6 +8,7 @@ import { useTick } from '../hooks/useHunt';
 import { clock, secondsUntil } from '../lib/hunt';
 import { endHunt, fetchBoard, huntLink, movePlayer, startHunt, type Board } from '../lib/huntsApi';
 import { QrCode } from './hunt/QrCode';
+import { HuntResults } from './hunt/HuntResults';
 import { PhaseLabel, RaceTrack, TEAM_COLOR } from './hunt/teams';
 
 const POLL_MS = 2500;
@@ -161,12 +162,15 @@ export function HuntBoard() {
                         id={`hunt.feed.${e.kind}`}
                         values={{ who: e.player ?? '—', team: teams[e.team].name, n: teams[e.team].order.indexOf(e.station) + 1 }}
                       />
+                      {e.given && <span className="text-accent-red"> — “{e.given}”</span>}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
+
+          <HuntResults huntId={hunt.id} over={outcome.over} />
         </>
       )}
     </div>
