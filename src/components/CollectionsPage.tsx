@@ -88,11 +88,10 @@ function CoverProgress({ pct, label }: { pct: number; label: string }) {
 }
 
 /** Photo-covered topic tile. */
-function TopicTile({ c, active, pct, onPick, onView, onQuiz }: {
+function TopicTile({ c, active, pct, onView, onQuiz }: {
   c: CollectionInfo;
   active: boolean;
   pct: number;
-  onPick: () => void;
   onView: () => void;
   onQuiz: () => void;
 }) {
@@ -112,11 +111,10 @@ function TopicTile({ c, active, pct, onPick, onView, onQuiz }: {
         className="pointer-events-none absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
       />
       <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
-      {/* The whole cover picks the topic; the two small actions sit above it. */}
+      {/* The whole cover opens the topic's details; the two small actions sit above it. */}
       <button
-        onClick={onPick}
-        aria-pressed={active}
-        aria-label={intl.formatMessage({ id: 'collections.studyName' }, { name: c.name })}
+        onClick={onView}
+        aria-label={intl.formatMessage({ id: 'collections.viewName' }, { name: c.name })}
         className="absolute inset-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-white focus-visible:-outline-offset-4"
       />
       <div className="relative pointer-events-none flex items-start justify-between gap-2">
@@ -143,11 +141,10 @@ function TopicTile({ c, active, pct, onPick, onView, onQuiz }: {
 }
 
 /** One rung of the level ladder (Curated + CEFR A1–C2). */
-function LevelCard({ c, active, pct, onPick, onView, onStats, onQuiz }: {
+function LevelCard({ c, active, pct, onView, onStats, onQuiz }: {
   c: CollectionInfo;
   active: boolean;
   pct: number;
-  onPick: () => void;
   onView: () => void;
   onStats: () => void;
   onQuiz: () => void;
@@ -160,7 +157,7 @@ function LevelCard({ c, active, pct, onPick, onView, onStats, onQuiz }: {
         active ? 'border-accent-cyan ring-2 ring-accent-cyan/25' : 'border-border hover:border-border-light'
       }`}
     >
-      <button onClick={onPick} aria-pressed={active} aria-label={intl.formatMessage({ id: 'collections.studyName' }, { name: c.name })} className="absolute inset-0 rounded-2xl" />
+      <button onClick={onView} aria-label={intl.formatMessage({ id: 'collections.viewName' }, { name: c.name })} className="absolute inset-0 rounded-2xl" />
       <div className="relative pointer-events-none flex items-start justify-between gap-2">
         <span className={`w-11 h-11 rounded-xl flex items-center justify-center font-display font-extrabold text-base ${meta.chip}`}>
           {meta.badge}
@@ -189,14 +186,13 @@ function LevelCard({ c, active, pct, onPick, onView, onStats, onQuiz }: {
 }
 
 /** A server collection — yours or one you joined — with a generated cover. */
-function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onView, onStats, onQuiz, onToggleMenu, onCloseMenu, onMembers, onEdit, onShare, onDelete }: {
+function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onView, onStats, onQuiz, onToggleMenu, onCloseMenu, onMembers, onEdit, onShare, onDelete }: {
   c: UserCollection;
   active: boolean;
   pct: number;
   owned: boolean;
   menuOpen: boolean;
   membersSignal: number;
-  onPick: () => void;
   onView: () => void;
   onStats: () => void;
   onQuiz: () => void;
@@ -217,9 +213,8 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
     >
       {/* Cover strip */}
       <button
-        onClick={onPick}
-        aria-pressed={active}
-        aria-label={intl.formatMessage({ id: 'collections.studyName' }, { name: c.name })}
+        onClick={onView}
+        aria-label={intl.formatMessage({ id: 'collections.viewName' }, { name: c.name })}
         className="relative h-20 rounded-t-[14px] overflow-hidden text-left text-white px-4 py-3"
         style={topicCover(c.id)}
       >
@@ -246,7 +241,7 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onPick, onVi
       </button>
 
       <div className="flex-1 flex flex-col p-4 pt-3">
-        <button onClick={onPick} className="text-left">
+        <button onClick={onView} className="text-left">
           <p className="font-display font-bold text-text-primary leading-tight truncate">{c.name}</p>
           {c.description && <p className="text-[11px] text-text-muted mt-0.5 line-clamp-1">{c.description}</p>}
         </button>
@@ -390,7 +385,6 @@ function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => voi
 export function CollectionsPage() {
   const intl = useIntl();
   const activeId = useCollections((s) => s.activeId);
-  const setActive = useCollections((s) => s.setActive);
   const mine = useCollections((s) => s.mine);
   const shared = useCollections((s) => s.shared);
   const joinedIds = useCollections((s) => s.joinedIds);
@@ -461,11 +455,6 @@ export function CollectionsPage() {
   const openCreate = () => (user ? setForm({ editingId: null, name: '', words: [] }) : navigate('/login'));
   const openEdit = (col: UserCollection) => setForm({ editingId: col.id, name: col.name, words: col.words });
 
-  const pick = (id: string, label: string) => {
-    setActive(id);
-    toast.success(intl.formatMessage({ id: 'collections.toastStudying' }, { name: label }));
-  };
-
   const handleShare = async (id: string) => {
     try {
       const url = await useCollections.getState().shareCollection(id);
@@ -511,7 +500,6 @@ export function CollectionsPage() {
       pct={completionPct(c.words, progress)}
       menuOpen={menuId === c.id}
       membersSignal={membersSignal[c.id] ?? 0}
-      onPick={() => pick(c.id, c.name)}
       onView={() => openDetails(c.id)}
       onStats={() => setStats({ name: c.name, words: c.words })}
       onQuiz={() => setQuiz({ name: c.name, words: c.words })}
@@ -620,8 +608,7 @@ export function CollectionsPage() {
                   c={c}
                   active={c.id === activeId}
                   pct={completionPct(words, progress)}
-                  onPick={() => pick(c.id, c.name)}
-                  onView={() => openDetails(c.id)}
+                              onView={() => openDetails(c.id)}
                   onStats={() => setStats({ name: c.name, words })}
                   onQuiz={() => setQuiz({ name: c.name, words })}
                 />
@@ -661,8 +648,7 @@ export function CollectionsPage() {
                   c={c}
                   active={c.id === activeId}
                   pct={completionPct(words, progress)}
-                  onPick={() => pick(c.id, c.name)}
-                  onView={() => openDetails(c.id)}
+                              onView={() => openDetails(c.id)}
                   onQuiz={() => setQuiz({ name: c.name, words })}
                 />
               );
