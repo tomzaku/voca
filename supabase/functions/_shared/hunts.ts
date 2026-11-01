@@ -432,15 +432,44 @@ export function cleanQuestions(raw: unknown): StoredQuestion[] {
   return raw.slice(0, MAX_SET_QUESTIONS).map(cleanQuestion).filter((q): q is StoredQuestion => q !== null);
 }
 
+/** Items grouped by kind, kinds in order of first appearance, order kept within each. */
+function groupByKind<T>(items: T[], kindOf: (item: T) => string): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const k = kindOf(item);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(item);
+  }
+  return [...groups.values()];
+}
+
 /**
- * Questions dealt round the stations like cards: station 1 gets the 1st, the
- * 4th, the 7th… So each gets its share and a mix of kinds, and none is left
- * empty while there are at least as many questions as stations.
+ * Questions dealt round the stations so each gets its share, none is left
+ * empty while there are as many questions as stations, and each gets a MIX
+ * of kinds.
+ *
+ * Why grouped: a generated set cycles its kinds (meaning, gap, listen, …), and
+ * dealt straight round, 6 kinds over 3 stations put only 2 kinds on each
+ * station — every picture on one, a team seeing nothing but meanings at
+ * another. Dealing the set sorted by kind instead hands each station a slice
+ * of every kind, whatever the counts.
+ *
+ * More questions than the stations hold: a balanced subset is taken first,
+ * kinds in turn, so the cap doesn't cut the last kind out altogether.
  */
-export function dealQuestions<T>(questions: T[], count: number): T[][] {
+export function dealQuestions<T>(questions: T[], count: number, kindOf: (q: T) => string = () => ''): T[][] {
+  let pool = questions;
+  const room = count * MAX_STATION_QUESTIONS;
+  if (questions.length > room) {
+    const groups = groupByKind(questions, kindOf);
+    pool = [];
+    for (let round = 0; pool.length < room; round++) {
+      for (const g of groups) if (round < g.length && pool.length < room) pool.push(g[round]);
+    }
+  }
   const out: T[][] = Array.from({ length: count }, () => []);
-  questions.forEach((q, i) => out[i % count].push(q));
-  return out.map((qs) => qs.slice(0, MAX_STATION_QUESTIONS));
+  groupByKind(pool, kindOf).flat().forEach((q, i) => out[i % count].push(q));
+  return out;
 }
 
 /**
@@ -462,7 +491,7 @@ export function buildStations(
   const clues = Array.isArray(where.clues) ? where.clues : [];
   const places = Array.isArray(where.places) ? where.places : [];
   const seen = new Set<string>();
-  const dealt = dealQuestions(questions, count);
+  const dealt = dealQuestions(questions, count, (q) => q.type);
   return dealt.map((qs, i) => {
     let place: string | null = null;
     if (mode === 'world') {

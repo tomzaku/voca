@@ -55,7 +55,7 @@ function makeSet(db: FakeDb, questions: Record<string, unknown>[], owner = TEACH
   return id;
 }
 
-/** Two questions per station for GOLD: dealt round, station s holds w<s> and w<s+4>. */
+/** Two questions per station for GOLD, dealt round the four stations. */
 const EIGHT: Record<string, unknown>[] = [...[0, 1, 2, 3].map(mcq), ...[4, 5, 6, 7].map(spell)];
 
 async function newHunt(call: Call, db: FakeDb, extra: Record<string, unknown> = {}) {
@@ -102,6 +102,7 @@ Deno.test('a hunt copies its set into stations and rows', async () => {
   eq(db.tables.hunt_stations.map((s) => s.letter).join(''), 'GOLD');
   eq(db.tables.hunt_stations.map((s) => s.clue), ['clue 0', 'clue 1', 'clue 2', 'clue 3']);
   eq(new Set(db.tables.hunt_stations.map((s) => s.card)).size, 4);
+  // Dealt round, grouped by kind: station 0 holds a meaning (w0) and a spelling (w4).
   eq(db.tables.hunt_questions.filter((q) => q.station === 0).map((q) => q.answer), ['w0', 'w4']);
   const sources = new Set(db.tables.questions.map((q) => q.id));
   ok(db.tables.hunt_questions.every((q) => sources.has(q.source_id)), 'source ids');

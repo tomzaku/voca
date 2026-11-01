@@ -334,10 +334,40 @@ describe('cleanQuestions', () => {
 describe('dealQuestions', () => {
   it('deals round the stations so none is empty', () => {
     expect(dealQuestions([1, 2, 3, 4, 5], 3)).toEqual([[1, 4], [2, 5], [3]]);
+    for (let n = 3; n <= 8; n++) {
+      expect(dealQuestions(Array.from({ length: n }, (_, i) => i), n).every((s) => s.length === 1)).toBe(true);
+    }
   });
 
-  it('keeps a station under its cap', () => {
-    expect(Math.max(...dealQuestions(Array.from({ length: 60 }, (_, i) => i), 3).map((s) => s.length))).toBe(MAX_STATION_QUESTIONS);
+  it('gives every station a mix of kinds, whatever the counts', () => {
+    // A generated set: kinds cycle 0..k-1. Dealt straight, 6 kinds over 3
+    // stations gave each station only 2 kinds — the bug this guards (found
+    // playing a live hunt: every picture question landed on one station).
+    for (const kinds of [1, 2, 3, 4, 5, 6, 7]) {
+      for (let n = 3; n <= 8; n++) {
+        for (const len of [n, n + 1, n + 2, 12, 20, 30, 45, 60]) {
+          const qs = Array.from({ length: len }, (_, i) => i % kinds);
+          const dealt = dealQuestions(qs, n, String);
+          expect(dealt.flat()).toHaveLength(Math.min(len, n * MAX_STATION_QUESTIONS));
+          for (const station of dealt) {
+            expect(station.length).toBeGreaterThan(0);
+            expect(station.length).toBeLessThanOrEqual(MAX_STATION_QUESTIONS);
+            expect(new Set(station).size).toBeGreaterThanOrEqual(Math.min(kinds, station.length, 3));
+          }
+        }
+      }
+    }
+  });
+
+  it('places every question once', () => {
+    const dealt = dealQuestions(Array.from({ length: 20 }, (_, i) => i), 6).flat().sort((a, b) => a - b);
+    expect(dealt).toEqual(Array.from({ length: 20 }, (_, i) => i));
+  });
+
+  it('keeps a station under its cap, and the cap doesn’t drop a kind', () => {
+    const dealt = dealQuestions(Array.from({ length: 60 }, (_, i) => i % 3), 3, String);
+    expect(Math.max(...dealt.map((s) => s.length))).toBe(MAX_STATION_QUESTIONS);
+    for (const station of dealt) expect(new Set(station).size).toBe(3);
   });
 });
 
