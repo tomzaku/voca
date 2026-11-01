@@ -64,7 +64,7 @@ export interface Board {
 }
 
 export interface PublicQuestion {
-  type: 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell';
+  type: 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'custom';
   prompt: string;
   options: string[] | null;
   say: string | null;

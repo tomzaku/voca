@@ -345,3 +345,43 @@ describe('validation', () => {
     expect(code).toMatch(/^[A-HJKMNP-Z2-9]+$/);
   });
 });
+
+describe('a teacher’s own questions', () => {
+  const typed: StoredQuestion = { type: 'custom', prompt: 'What colour is the sky?', answer: 'blue', accept: ['light blue'] };
+
+  it('accept the answer or any listed alternative', () => {
+    expect(isCorrect(typed, 'Blue')).toBe(true);
+    expect(isCorrect(typed, ' light  BLUE ')).toBe(true);
+    expect(isCorrect(typed, 'green')).toBe(false);
+  });
+
+  it('never send the answer or the alternatives, nor a length that would mislead', () => {
+    const p = publicQuestion(typed);
+    expect(p).not.toHaveProperty('answer');
+    expect(p).not.toHaveProperty('accept');
+    expect(JSON.stringify(p)).not.toContain('light blue');
+    expect(p.length).toBeNull();
+  });
+
+  const station = (questions: unknown[]) => [{ clue: '', questions }, { clue: '', questions: [q('b')] }, { clue: '', questions: [q('c')] }];
+
+  it('keep their alternatives through validation — tidied, de-duplicated, capped', () => {
+    const [s] = cleanStations(station([{
+      type: 'custom', prompt: 'Sky?', answer: 'blue',
+      accept: [' azure ', 'azure', 'BLUE', '', 'a', 'b', 'c', 'd', 'e'],
+    }]), 'ABC', 'qr', ['X', 'Y', 'Z']);
+    expect(s.questions[0].accept).toEqual(['azure', 'a', 'b', 'c', 'd']);
+  });
+
+  it('drop alternatives on a multiple-choice question', () => {
+    const [s] = cleanStations(station([{
+      type: 'custom', prompt: 'Sky?', answer: 'blue', options: ['blue', 'red'], accept: ['azure'],
+    }]), 'ABC', 'qr', ['X', 'Y', 'Z']);
+    expect(s.questions[0].accept).toBeUndefined();
+    expect(s.questions[0].options).toEqual(['blue', 'red']);
+  });
+
+  it('need some question text', () => {
+    expect(() => cleanStations(station([{ type: 'custom', prompt: '  ', answer: 'blue' }]), 'ABC', 'qr', ['X', 'Y', 'Z'])).toThrow(/Station 1/);
+  });
+});

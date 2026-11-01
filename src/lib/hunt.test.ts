@@ -19,6 +19,12 @@ import {
   parseWords,
   questionKey,
   secondsUntil,
+  customToDraft,
+  dealQuestions,
+  emptyCustom,
+  isComplete,
+  MAX_STATION_QUESTIONS,
+  type CustomQuestion,
 } from './hunt';
 import type { MiniWordData } from './quizShare';
 import { cleanStations, cleanTreasure, isCorrect, publicQuestion } from '../../supabase/functions/_shared/hunts';
@@ -232,5 +238,86 @@ describe('questionKey', () => {
     expect(questionKey(q)).toBe(questionKey({ ...q }));
     expect(questionKey(q)).not.toBe(questionKey({ ...q, say: 'bridge' }));
     expect(questionKey(q)).not.toBe(questionKey({ ...q, type: 'spell' }));
+  });
+});
+
+const mine = (prompt: string, answer: string, wrong: string[] = [], accept: string[] = []): CustomQuestion => ({ prompt, answer, wrong, accept });
+
+describe('customToDraft', () => {
+  it('is multiple choice when wrong answers are given', () => {
+    const d = customToDraft(mine(' Capital of France? ', ' Paris ', ['London', ' ', 'Rome']), seeded());
+    expect(d).toMatchObject({ type: 'custom', prompt: 'Capital of France?', answer: 'Paris' });
+    expect([...d.options!].sort()).toEqual(['London', 'Paris', 'Rome']);
+    expect(d.accept).toBeUndefined();
+  });
+
+  it('drops a wrong answer that repeats the right one, or another wrong one', () => {
+    const d = customToDraft(mine('Q', 'cat', ['CAT', 'dog', 'Dog ']), seeded());
+    expect([...d.options!].sort()).toEqual(['cat', 'dog']);
+  });
+
+  it('is typed when there are none, with its alternatives', () => {
+    const d = customToDraft(mine('Sky colour?', 'blue', [], [' azure ', 'Blue', '']));
+    expect(d.options).toBeUndefined();
+    expect(d.accept).toEqual(['azure']);
+  });
+});
+
+describe('isComplete', () => {
+  it('needs a question and an answer', () => {
+    expect(isComplete(emptyCustom())).toBe(false);
+    expect(isComplete(mine('Q', ' '))).toBe(false);
+    expect(isComplete(mine('Q', 'a'))).toBe(true);
+  });
+});
+
+describe('dealQuestions', () => {
+  it('deals round the stations so none is empty', () => {
+    expect(dealQuestions([1, 2, 3, 4, 5], 3)).toEqual([[1, 4], [2, 5], [3]]);
+    expect(dealQuestions([], 2)).toEqual([[], []]);
+  });
+});
+
+describe('buildStations with the teacher’s own questions', () => {
+  const six = Array.from({ length: 6 }, (_, i) => mine(`Question ${i}?`, `a${i}`, i % 2 ? [`x${i}`, `y${i}`] : []));
+
+  it('uses only hers, no word list needed', () => {
+    const s = buildStations({ source: 'mine', words: [], data: {}, custom: six, count: 3, rand: seeded() });
+    expect(s.map((x) => x.type)).toEqual(['custom', 'custom', 'custom']);
+    expect(s.flatMap((x) => x.questions)).toHaveLength(6);
+    for (const st of s) expect(st.questions).toHaveLength(2);
+  });
+
+  it('wants at least one per station, and skips unfinished ones', () => {
+    expect(() => buildStations({ source: 'mine', words: [], data: {}, custom: [six[0], six[1], emptyCustom()], count: 3 })).toThrow(/3 questions/);
+  });
+
+  it('mixes hers in first, then fills from the words', () => {
+    const s = buildStations({ source: 'both', words: WORDS, data: DATA, custom: six.slice(0, 2), count: 4, rand: seeded() });
+    expect(s[0].questions[0].type).toBe('custom');
+    expect(s[2].questions.every((q) => q.type !== 'custom')).toBe(true);
+    expect(s[0].questions.length).toBe(1 + WORDS.length);
+  });
+
+  it('ignores them when the source is the words', () => {
+    const s = buildStations({ source: 'words', words: WORDS, data: DATA, custom: six, count: 3, rand: seeded() });
+    expect(s.flatMap((x) => x.questions).some((q) => q.type === 'custom')).toBe(false);
+  });
+
+  it('keeps up to the server’s cap of hers on one station', () => {
+    const many = Array.from({ length: 40 }, (_, i) => mine(`Q${i}`, `a${i}`));
+    const s = buildStations({ source: 'mine', words: [], data: {}, custom: many, count: 3 });
+    expect(Math.max(...s.map((x) => x.questions.length))).toBe(MAX_STATION_QUESTIONS);
+  });
+
+  it('survive the server’s validation, and grade as she meant', () => {
+    const qs = [...six, mine('Sky colour?', 'blue', [], ['azure'])];
+    const stations = buildStations({ source: 'both', words: WORDS, data: DATA, custom: qs, count: 4, rand: seeded() });
+    const clean = cleanStations(JSON.parse(JSON.stringify(stations)), 'GOLD', 'qr', ['A', 'B', 'C', 'D']);
+    clean.forEach((s, i) => expect(s.questions).toHaveLength(stations[i].questions.length));
+    const sky = clean.flatMap((s) => s.questions).find((q) => q.prompt === 'Sky colour?')!;
+    expect(isCorrect(sky, 'Azure')).toBe(true);
+    expect(isCorrect(sky, 'red')).toBe(false);
+    expect(JSON.stringify(publicQuestion(sky))).not.toContain('azure');
   });
 });

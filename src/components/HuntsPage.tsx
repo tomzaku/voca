@@ -17,8 +17,13 @@ import {
   parseWords,
   pickPlaces,
   TREASURE_IDEAS,
-  type HuntQuestionType,
+  emptyCustom,
+  isComplete,
+  type CustomQuestion,
+  type QuestionSource,
+  type WordQuestionType,
 } from '../lib/hunt';
+import { CustomQuestions } from './hunt/CustomQuestions';
 import { createHunt, deleteHunt, listHunts, type HuntMode, type HuntSummary } from '../lib/huntsApi';
 
 const DURATIONS = [10, 15, 20, 30, 45, 60];
@@ -118,7 +123,7 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
   const [mode, setMode] = useState<HuntMode>('qr');
   const [wordsText, setWordsText] = useState('');
   const [treasure, setTreasure] = useState('GOLD');
-  const [types, setTypes] = useState<HuntQuestionType[]>(HUNT_TYPES);
+  const [types, setTypes] = useState<WordQuestionType[]>(HUNT_TYPES);
   const [need, setNeed] = useState(2);
   const [duration, setDuration] = useState(20);
   const [teamNames, setTeamNames] = useState<[string, string]>(() => [
@@ -128,12 +133,20 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
   const [clues, setClues] = useState<string[]>([]);
   const [places, setPlaces] = useState<string[]>(() => pickPlaces(8));
   const [saving, setSaving] = useState<string | null>(null);
+  const [source, setSource] = useState<QuestionSource>('words');
+  const [custom, setCustom] = useState<CustomQuestion[]>(() => [emptyCustom()]);
 
   const words = parseWords(wordsText);
   const cleanTreasure = treasure.toUpperCase().replace(/[^A-Z]/g, '');
   const count = cleanTreasure.length;
   const treasureOk = count >= 3 && count <= 8;
-  const ready = title.trim() && words.length >= MIN_WORDS && treasureOk && types.length > 0 && !saving;
+  const useWords = source !== 'mine';
+  const customDone = custom.filter(isComplete).length;
+  const questionsOk = useWords
+    ? words.length >= MIN_WORDS && types.length > 0
+    // Her own only: every station needs at least one.
+    : customDone >= count;
+  const ready = title.trim() && treasureOk && questionsOk && !saving;
 
   const fillFrom = (id: string) => {
     const col = mine.find((c) => c.id === id) ?? builtIn.find((c) => c.id === id);
@@ -145,23 +158,27 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
   const create = async () => {
     if (!ready) return;
     try {
-      setSaving(intl.formatMessage({ id: 'hunt.teacher.loadingWords' }));
       const data: Record<string, MiniWordData> = {};
-      await Promise.all(words.map(async (w) => {
-        try {
-          const d = await generateWordData(w);
-          data[w] = { definition: d.definition, examples: d.examples ?? [], synonyms: d.synonyms, antonyms: d.antonyms };
-        } catch { /* a word we can't look up is left out */ }
-      }));
+      if (useWords) {
+        setSaving(intl.formatMessage({ id: 'hunt.teacher.loadingWords' }));
+        await Promise.all(words.map(async (w) => {
+          try {
+            const d = await generateWordData(w);
+            data[w] = { definition: d.definition, examples: d.examples ?? [], synonyms: d.synonyms, antonyms: d.antonyms };
+          } catch { /* a word we can't look up is left out */ }
+        }));
+      }
       const usable = words.filter((w) => data[w]);
-      if (usable.length < MIN_WORDS) {
+      if (useWords && usable.length < MIN_WORDS) {
         toast.error(intl.formatMessage({ id: 'hunt.teacher.notEnoughWords' }, { n: MIN_WORDS }));
         return;
       }
       setSaving(intl.formatMessage({ id: 'hunt.teacher.saving' }));
       const stations = buildStations({
+        source,
         words: usable,
         data,
+        custom,
         count,
         types,
         extraWrong: WORD_LIST.map((w) => w.word).sort(() => Math.random() - 0.5).slice(0, 60),
@@ -198,37 +215,6 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
             </button>
           ))}
         </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <label className={label + ' !mb-0'} htmlFor="hunt-words"><FormattedMessage id="hunt.teacher.words" values={{ n: words.length }} /></label>
-          <select
-            value=""
-            onChange={(e) => fillFrom(e.target.value)}
-            className="bg-bg-tertiary border border-border rounded-lg px-2 py-1 text-xs text-text-primary max-w-[55%]"
-            aria-label={intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}
-          >
-            <option value="">{intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}</option>
-            {mine.length > 0 && (
-              <optgroup label={intl.formatMessage({ id: 'hunt.teacher.myCollections' })}>
-                {mine.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </optgroup>
-            )}
-            <optgroup label={intl.formatMessage({ id: 'hunt.teacher.builtIn' })}>
-              {builtIn.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </optgroup>
-          </select>
-        </div>
-        <textarea
-          id="hunt-words"
-          value={wordsText}
-          onChange={(e) => setWordsText(e.target.value)}
-          rows={5}
-          placeholder={intl.formatMessage({ id: 'hunt.teacher.wordsPlaceholder' })}
-          className={input + ' font-normal'}
-        />
-        <p className="text-xs text-text-muted mt-1"><FormattedMessage id="hunt.teacher.wordsHint" values={{ min: MIN_WORDS, max: MAX_WORDS }} /></p>
       </div>
 
       <div>
@@ -304,6 +290,51 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
       )}
 
       <div>
+        <span className={label}><FormattedMessage id="hunt.custom.source" /></span>
+        <div className="grid sm:grid-cols-3 gap-2">
+          {(['words', 'mine', 'both'] as const).map((src) => (
+            <button key={src} type="button" onClick={() => setSource(src)} className={`text-left p-3 rounded-xl border-2 ${source === src ? 'border-accent-cyan bg-accent-cyan/10' : 'border-border'}`}>
+              <p className="font-bold text-text-primary text-sm"><FormattedMessage id={`hunt.custom.source.${src}`} /></p>
+              <p className="text-xs text-text-muted mt-0.5"><FormattedMessage id={`hunt.custom.source.${src}Hint`} /></p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {useWords && (
+        <>
+      <div>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <label className={label + ' !mb-0'} htmlFor="hunt-words"><FormattedMessage id="hunt.teacher.words" values={{ n: words.length }} /></label>
+          <select
+            value=""
+            onChange={(e) => fillFrom(e.target.value)}
+            className="bg-bg-tertiary border border-border rounded-lg px-2 py-1 text-xs text-text-primary max-w-[55%]"
+            aria-label={intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}
+          >
+            <option value="">{intl.formatMessage({ id: 'hunt.teacher.fillFrom' })}</option>
+            {mine.length > 0 && (
+              <optgroup label={intl.formatMessage({ id: 'hunt.teacher.myCollections' })}>
+                {mine.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </optgroup>
+            )}
+            <optgroup label={intl.formatMessage({ id: 'hunt.teacher.builtIn' })}>
+              {builtIn.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </optgroup>
+          </select>
+        </div>
+        <textarea
+          id="hunt-words"
+          value={wordsText}
+          onChange={(e) => setWordsText(e.target.value)}
+          rows={5}
+          placeholder={intl.formatMessage({ id: 'hunt.teacher.wordsPlaceholder' })}
+          className={input + ' font-normal'}
+        />
+        <p className="text-xs text-text-muted mt-1"><FormattedMessage id="hunt.teacher.wordsHint" values={{ min: MIN_WORDS, max: MAX_WORDS }} /></p>
+      </div>
+
+      <div>
         <span className={label}><FormattedMessage id="hunt.teacher.challenges" /></span>
         <div className="flex flex-wrap gap-1.5">
           {HUNT_TYPES.map((t) => (
@@ -318,6 +349,17 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
           ))}
         </div>
       </div>
+
+        </>
+      )}
+
+      {source !== 'words' && (
+        <div>
+          <span className={label}><FormattedMessage id="hunt.custom.title" /></span>
+          <p className="text-xs text-text-muted mb-2"><FormattedMessage id="hunt.custom.hint" /></p>
+          <CustomQuestions questions={custom} onChange={setCustom} needed={source === 'mine' && treasureOk ? count : 0} />
+        </div>
+      )}
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div>

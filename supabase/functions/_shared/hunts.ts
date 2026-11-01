@@ -19,8 +19,9 @@
 //
 // No imports, on purpose: the edge function and vitest both load this file.
 
-export type QuestionType = 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell';
-export const QUESTION_TYPES: QuestionType[] = ['definition', 'sentence', 'listen', 'unscramble', 'spell'];
+/** The kinds built from a word list, and `custom` — one the teacher wrote herself. */
+export type QuestionType = 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'custom';
+export const QUESTION_TYPES: QuestionType[] = ['definition', 'sentence', 'listen', 'unscramble', 'spell', 'custom'];
 
 /** One question, answer included. Stored on the hunt; never sent as-is. */
 export interface StoredQuestion {
@@ -34,6 +35,8 @@ export interface StoredQuestion {
   /** The answer's letters, shuffled (unscramble). */
   scrambled?: string;
   answer: string;
+  /** Other answers that also count — "colour" for "color". Typed questions only. */
+  accept?: string[];
 }
 
 export interface Station {
@@ -86,6 +89,7 @@ export const MAX_CLUE = 160;
 export const MAX_PROMPT = 400;
 export const MAX_OPTIONS = 6;
 export const MAX_ANSWER = 40;
+export const MAX_ACCEPT = 5;
 
 // Codes are read off a projector or a card and typed in, so the alphabet drops
 // the characters that get confused for each other (0/O, 1/I/L).
@@ -118,8 +122,9 @@ export function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ');
 }
 
-export function isCorrect(q: { answer: string }, given: string): boolean {
-  return normalize(given) === normalize(q.answer);
+export function isCorrect(q: { answer: string; accept?: string[] }, given: string): boolean {
+  const g = normalize(given);
+  return [q.answer, ...(q.accept ?? [])].some((a) => normalize(a) === g);
 }
 
 /**
@@ -247,7 +252,9 @@ export function publicQuestion(q: StoredQuestion): PublicQuestion {
     options: q.options ?? null,
     say: q.say ?? null,
     scrambled: q.scrambled ?? null,
-    length: q.options ? null : q.answer.length,
+    // A teacher's own typed question may accept answers of other lengths, so
+    // counting the letters of one of them would mislead.
+    length: q.options || q.type === 'custom' ? null : q.answer.length,
   };
 }
 
@@ -325,6 +332,13 @@ function cleanQuestion(v: unknown): StoredQuestion | null {
   if (say) out.say = say;
   const scrambled = str(q.scrambled, MAX_ANSWER);
   if (scrambled) out.scrambled = scrambled;
+  // Alternatives only mean something when the answer is typed.
+  if (!out.options && Array.isArray(q.accept)) {
+    const accept = [...new Set(q.accept.map((a) => str(a, MAX_ANSWER)).filter(Boolean))]
+      .filter((a) => normalize(a) !== normalize(answer))
+      .slice(0, MAX_ACCEPT);
+    if (accept.length) out.accept = accept;
+  }
   // Nothing to read and nothing to hear is a question with no question in it.
   if (!out.prompt && !out.say && !out.scrambled) return null;
   return out;

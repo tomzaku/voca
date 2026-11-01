@@ -10,7 +10,10 @@
 import type { MiniWordData } from './quizShare';
 import { blankSentence } from './quizEngine';
 
-export type HuntQuestionType = 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell';
+export type HuntQuestionType = 'definition' | 'sentence' | 'listen' | 'unscramble' | 'spell' | 'custom';
+
+/** The kinds built from a word list — every kind but the teacher's own. */
+export type WordQuestionType = Exclude<HuntQuestionType, 'custom'>;
 
 export interface DraftQuestion {
   type: HuntQuestionType;
@@ -19,6 +22,8 @@ export interface DraftQuestion {
   say?: string;
   scrambled?: string;
   answer: string;
+  /** Other answers that count too (typed questions only). */
+  accept?: string[];
 }
 
 export interface DraftStation {
@@ -31,7 +36,7 @@ export interface DraftStation {
 }
 
 /** The station kinds, in the order a hunt cycles through them. */
-export const HUNT_TYPES: HuntQuestionType[] = ['definition', 'unscramble', 'sentence', 'listen', 'spell'];
+export const HUNT_TYPES: WordQuestionType[] = ['definition', 'unscramble', 'sentence', 'listen', 'spell'];
 
 /**
  * Landmarks a world hunt can use: named places in the city that the map lights
@@ -48,6 +53,8 @@ export const MIN_WORDS = 4;
 export const MAX_WORDS = 30;
 /** Questions per station. More than any team needs; the rest are for misses. */
 export const QUESTIONS_PER_STATION = 8;
+/** The server's cap on one station's pool — the most of her own questions a station keeps. */
+export const MAX_STATION_QUESTIONS = 12;
 
 type Rand = () => number;
 
@@ -82,7 +89,7 @@ export function scramble(word: string, rand: Rand = Math.random): string {
  * gap-fill with no example sentence containing the word, a phrase to unscramble.
  */
 export function buildQuestion(
-  type: HuntQuestionType,
+  type: WordQuestionType,
   word: string,
   data: MiniWordData,
   wrong: string[],
@@ -108,13 +115,69 @@ export function buildQuestion(
   }
 }
 
+/**
+ * A question the teacher writes on the create form. With wrong answers it's
+ * multiple choice; without, the student types the answer, and `accept` lists
+ * other spellings that count too.
+ */
+export interface CustomQuestion {
+  prompt: string;
+  answer: string;
+  wrong: string[];
+  accept: string[];
+}
+
+export const MAX_WRONG = 3;
+
+/** Where a hunt's questions come from. */
+export type QuestionSource = 'words' | 'mine' | 'both';
+
+export function emptyCustom(): CustomQuestion {
+  return { prompt: '', answer: '', wrong: [], accept: [] };
+}
+
+/** Filled in enough to ask: some question, and an answer to it. */
+export function isComplete(q: CustomQuestion): boolean {
+  return q.prompt.trim().length > 0 && q.answer.trim().length > 0;
+}
+
+/** A written question as a station question. Blank wrong answers are ignored. */
+export function customToDraft(q: CustomQuestion, rand: Rand = Math.random): DraftQuestion {
+  const answer = q.answer.trim();
+  const key = (s: string) => s.trim().toLowerCase();
+  // The first spelling of a repeated wrong answer is the one she meant.
+  const wrong: string[] = [];
+  for (const w of q.wrong.map((x) => x.trim())) {
+    if (w && key(w) !== key(answer) && !wrong.some((x) => key(x) === key(w))) wrong.push(w);
+  }
+  wrong.splice(MAX_WRONG);
+  if (wrong.length) return { type: 'custom', prompt: q.prompt.trim(), options: shuffleWith([answer, ...wrong], rand), answer };
+  const accept = q.accept.map((a) => a.trim()).filter((a) => a && key(a) !== key(answer));
+  return { type: 'custom', prompt: q.prompt.trim(), answer, ...(accept.length ? { accept } : {}) };
+}
+
+/**
+ * The teacher's questions dealt round the stations like cards: station 1 gets
+ * the 1st, the 4th, the 7th…, so each gets its share and none is left empty
+ * while there are at least as many questions as stations.
+ */
+export function dealQuestions<T>(questions: T[], count: number): T[][] {
+  const out: T[][] = Array.from({ length: count }, () => []);
+  questions.forEach((q, i) => out[i % count].push(q));
+  return out;
+}
+
 export interface BuildOptions {
+  /** `words` builds questions from the word list; `mine` uses only `custom`; `both` mixes them. */
+  source?: QuestionSource;
   words: string[];
   data: Record<string, MiniWordData>;
+  /** The teacher's own questions. */
+  custom?: CustomQuestion[];
   /** One station per letter of the treasure word. */
   count: number;
   /** Station kinds to cycle through. Defaults to all of them. */
-  types?: HuntQuestionType[];
+  types?: WordQuestionType[];
   /** Words to draw wrong options from, beyond the hunt's own. */
   extraWrong?: string[];
   /** World mode: the landmark of each station. */
@@ -131,18 +194,27 @@ export interface BuildOptions {
  */
 export function buildStations(o: BuildOptions): DraftStation[] {
   const rand = o.rand ?? Math.random;
-  const words = o.words.filter((w) => o.data[w]);
-  if (words.length < MIN_WORDS) throw new Error(`A hunt needs at least ${MIN_WORDS} words.`);
+  const source = o.source ?? 'words';
+  const useWords = source !== 'mine';
+  const words = useWords ? o.words.filter((w) => o.data[w]) : [];
+  if (useWords && words.length < MIN_WORDS) throw new Error(`A hunt needs at least ${MIN_WORDS} words.`);
+  const custom = source === 'words' ? [] : (o.custom ?? []).filter(isComplete);
+  if (source === 'mine' && custom.length < o.count) {
+    throw new Error(`Write at least ${o.count} questions — one for each station.`);
+  }
+  const dealt = dealQuestions(shuffleWith(custom, rand).map((q) => customToDraft(q, rand)), o.count);
   const types = o.types?.length ? o.types : HUNT_TYPES;
   const wrongPool = [...new Set([...words, ...(o.extraWrong ?? [])])];
 
   return Array.from({ length: o.count }, (_, i) => {
-    const type = types[i % types.length];
-    const questions: DraftQuestion[] = [];
-    for (const word of shuffleWith(words, rand)) {
+    const type: HuntQuestionType = useWords ? types[i % types.length] : 'custom';
+    // The teacher's own come first: with a pool capped in size, they're the
+    // ones she meant to be asked.
+    const questions: DraftQuestion[] = dealt[i].slice(0, MAX_STATION_QUESTIONS);
+    for (const word of useWords ? shuffleWith(words, rand) : []) {
       if (questions.length >= QUESTIONS_PER_STATION) break;
       const wrong = shuffleWith(wrongPool.filter((w) => w !== word), rand);
-      const q = buildQuestion(type, word, o.data[word], wrong, rand)
+      const q = buildQuestion(type as WordQuestionType, word, o.data[word], wrong, rand)
         ?? buildQuestion('definition', word, o.data[word], wrong, rand);
       if (q) questions.push(q);
     }

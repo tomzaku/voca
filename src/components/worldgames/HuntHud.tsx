@@ -191,7 +191,7 @@ function PixelQuestionBody({ question, cooldown, busy, onAnswer }: PixelQuestion
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            placeholder={intl.formatMessage({ id: 'hunt.typeAnswer' }, { n: question.length ?? 0 })}
+            placeholder={question.length ? intl.formatMessage({ id: 'hunt.typeAnswer' }, { n: question.length }) : intl.formatMessage({ id: 'hunt.typeFree' })}
             className="px-inset px-notch flex-1 min-w-0 px-3 py-2.5 text-[18px] bg-transparent outline-none"
           />
           <PixelButton type="submit" disabled={locked || !typed.trim()}><FormattedMessage id="hunt.check" /></PixelButton>

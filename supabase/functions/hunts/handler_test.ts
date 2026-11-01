@@ -430,3 +430,21 @@ Deno.test('a world hunt refuses two stations on one place', async () => {
   const r = await call('POST', '', { title: 'x', mode: 'world', treasure: 'gold', stations: same }, TEACHER);
   eq(r.status, 400);
 });
+
+Deno.test('a hunt of the teacher’s own questions grades her alternatives, and never sends them', async () => {
+  const { call, db } = setup();
+  const own = Array.from({ length: 3 }, (_, i) => ({
+    type: 'custom', clue: '', place: null,
+    questions: [{ type: 'custom', prompt: `Colour ${i}?`, answer: 'grey', accept: ['gray'] }],
+  }));
+  const r = await call('POST', '', { title: 'Mine', mode: 'qr', treasure: 'CAT', stations: own, need: 1 }, TEACHER);
+  eq(r.status, 200, JSON.stringify(r.body));
+  const token = (await call('POST', '/join', { code: r.body.hunt.code, name: 'Ann' })).body.token;
+  await call('POST', '/start', { id: r.body.hunt.id }, TEACHER);
+  const cards = (db.tables.hunts[0].stations as Station[]).map((s) => s.card);
+  await call('POST', '/found', { token, card: cards[0] });
+  const p = (await call('GET', `/play?token=${token}`)).body.play;
+  eq(p.team.question, { type: 'custom', prompt: 'Colour 0?', options: null, say: null, scrambled: null, length: null });
+  ok(!JSON.stringify(p).includes('gray') && !JSON.stringify(p).includes('grey'), 'answer leaked');
+  eq((await call('POST', '/answer', { token, answer: 'Gray' })).body.correct, true);
+});

@@ -94,7 +94,7 @@ function QuestionBody({ question, cooldown, busy, onAnswer }: QuestionProps) {
             autoCorrect="off"
             spellCheck={false}
             maxLength={(question.length ?? 20) + 10}
-            placeholder={intl.formatMessage({ id: 'hunt.typeAnswer' }, { n: question.length ?? 0 })}
+            placeholder={question.length ? intl.formatMessage({ id: 'hunt.typeAnswer' }, { n: question.length }) : intl.formatMessage({ id: 'hunt.typeFree' })}
             className="flex-1 min-w-0 bg-bg-tertiary border-2 border-border rounded-xl px-3 py-3 text-lg text-text-primary font-semibold focus:outline-none focus:border-accent-cyan disabled:opacity-50"
           />
           <button
