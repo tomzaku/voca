@@ -43,6 +43,7 @@ import { Poker } from './worldgames/Poker';
 import { MemoryMatch } from './worldgames/MemoryMatch';
 import { TienLen } from './worldgames/TienLen';
 import { ChessMatch } from './worldgames/ChessMatch';
+import { SeaBattle } from './worldgames/SeaBattle';
 import { Fishing } from './worldgames/Fishing';
 import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
@@ -137,7 +138,7 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 }
 
 /** Each thing two players can do together, by its mark. */
-const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan' };
+const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship' };
 
 /** One group on a player's card: a small heading over its buttons. */
 function PeerSection({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -1067,6 +1068,9 @@ export function GameWorld({
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'chess')} className="!px-2 !text-[13px]">
               <PixelIcon name="knight" size={2} /> <FormattedMessage id="world.chessTitle" />
             </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'sea')} className="!px-2 !text-[13px]">
+              <PixelIcon name="ship" size={2} /> <FormattedMessage id="world.seaTitle" />
+            </PixelButton>
           </PeerSection>
           <PeerSection title={<FormattedMessage id="world.peerHi" />}>
             <PixelButton tone="paper" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !text-[13px]">
@@ -1115,6 +1119,7 @@ export function GameWorld({
       {link?.game === 'oan' && <OAnQuan key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'poker' && <Poker key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'chess' && <ChessMatch key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'sea' && <SeaBattle key={link.id} link={link} onClose={endMatch} />}
 
       {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
       {!panel && user && (

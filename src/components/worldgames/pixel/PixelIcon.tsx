@@ -424,6 +424,16 @@ const GRIDS = {
     '#...#..#.#.',
     '.###...#.#.',
   ],
+  // Sea Battle, as a little warship.
+  ship: [
+    '....#.....',
+    '....##....',
+    '....###...',
+    '....#.....',
+    '##########',
+    '.########.',
+    '..######..',
+  ],
 } as const;
 
 export type PixelIconName = keyof typeof GRIDS;
