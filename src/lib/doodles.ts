@@ -195,3 +195,21 @@ export async function fetchDoodles(
   }
   return out;
 }
+
+/**
+ * Doodles already drawn for some words: this device's cache first, then the
+ * shared one. Never draws (free) and never throws — a word with no doodle,
+ * or a lookup that fails, is just absent. Keyed by `doodleKey(word)`.
+ */
+export async function lookUpDoodles(words: string[], signal?: AbortSignal): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  const missing: { word: string }[] = [];
+  for (const word of words) {
+    const hit = readLocalDoodle(doodleKey(word));
+    if (hit) out[doodleKey(word)] = hit; else missing.push({ word });
+  }
+  if (missing.length) {
+    try { Object.assign(out, await fetchDoodles(missing.slice(0, DOODLE_BATCH_MAX), { signal })); } catch { /* offline or slow — text it is */ }
+  }
+  return out;
+}

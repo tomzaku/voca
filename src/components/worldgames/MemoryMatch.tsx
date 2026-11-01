@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { doodleKey, lookUpDoodles } from '../../lib/doodles';
 import { FormattedMessage } from 'react-intl';
 import { useMatch } from '../../hooks/useMatch';
 import { MEMORY_PAIRS, flip, initialMemory, layMemory, parseLayout, type MemoryCard, type MemoryState, type Seat } from '../../lib/memoryMatch';
@@ -12,6 +13,11 @@ import { useWorld } from './world';
 // English word's meaning among sixteen cards face down. The host lays them
 // out from the host's own words and turns first; a miss stays face up for a
 // moment, so both of you can try to remember where it was.
+//
+// A meaning card shows the word's doodle where it has one — the picture is
+// the meaning — and the definition where it doesn't. Each player looks the
+// doodles up on their own device (cached, never drawn here), so the layout
+// sent between you stays small.
 
 const PEEK_MS = 1600;
 
@@ -24,6 +30,14 @@ export function MemoryMatch({ link, onClose }: { link: MatchLink; onClose: () =>
   const [peek, setPeek] = useState<[number, number] | null>(null);
   const peekTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(peekTimer.current), []);
+  /** Each pair's doodle, by pair number, once looked up. */
+  const [pics, setPics] = useState<Record<number, string>>({});
+  const loadPics = (cards: MemoryCard[]) => {
+    const words = cards.filter((c) => c.kind === 'word');
+    lookUpDoodles(words.map((c) => c.text)).then((found) => {
+      setPics(Object.fromEntries(words.flatMap((c) => (found[doodleKey(c.text)] ? [[c.pair, found[doodleKey(c.text)]]] : []))));
+    });
+  };
 
   /** A flip played: show a miss for a moment, cheer a pair. */
   const apply = (next: MemoryState, prev: MemoryState) => {
@@ -47,7 +61,7 @@ export function MemoryMatch({ link, onClose }: { link: MatchLink; onClose: () =>
       const next = flip(game, them, Number(d.card));
       if (next !== game) apply(next, game);
     },
-    (cards) => setGame(initialMemory(cards)),
+    (cards) => { setGame(initialMemory(cards)); loadPics(cards); },
   );
 
   const myTurn = !!game && !game.over && game.turn === me;
@@ -89,7 +103,9 @@ export function MemoryMatch({ link, onClose }: { link: MatchLink; onClose: () =>
                 >
                   {up && (c.kind === 'word'
                     ? <span className="px-title !text-[13px] sm:!text-[15px] break-words">{c.text}</span>
-                    : <span className="text-[10px] sm:text-[11px] line-clamp-5">{c.text}</span>)}
+                    : pics[c.pair]
+                      ? <img src={pics[c.pair]} alt={c.text} title={c.text} draggable={false} className="w-full h-full object-contain" />
+                      : <span className="text-[10px] sm:text-[11px] line-clamp-5">{c.text}</span>)}
                 </button>
               );
             })}

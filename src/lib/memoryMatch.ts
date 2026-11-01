@@ -1,5 +1,6 @@
 // Memory Match's rules (lật thẻ), with no UI attached. Sixteen cards face
-// down: eight English words, and a card with each one's meaning. On your
+// down: eight English words, and a card with each one's meaning (drawn as
+// its doodle where the word has one — that's the UI's business). On your
 // turn, turn over two. A word and its own meaning are a pair — yours, and
 // you go again; anything else is turned back and the turn passes. When every
 // pair is found, whoever holds more wins.
