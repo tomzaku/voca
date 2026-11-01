@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedDate, FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchCollectionDetail, type Collection } from '../../lib/collectionsApi';
 import { problemOf, questionsToSave, type EditableQuestion } from '../../lib/hunt';
@@ -33,6 +33,10 @@ function defaultDue(): string {
  * due date. The questions are saved as a question set first — so the teacher
  * can send it again, or play it as a hunt — and the test copies them.
  *
+ * Two steps, questions first: they're the real work, and doing them first
+ * means the theme preview in step two plays her own questions, and Send sits
+ * beside the last things she checks — the due date and the look.
+ *
  * Free for every collection owner; only the editor's AI helpers are Pro.
  */
 export function TestCreatePage() {
@@ -56,6 +60,10 @@ export function TestCreatePage() {
   const [setId, setSetId] = useState<string | null>(null);
   const [setTitle_, setSetTitle] = useState('');
   const [sending, setSending] = useState(false);
+  // Questions first, then the settings and Send — see the header comment.
+  const [step, setStep] = useState<1 | 2>(1);
+  // Untouched, the name follows a saved set she opens; typed in, it's hers.
+  const [titleTouched, setTitleTouched] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -77,6 +85,7 @@ export function TestCreatePage() {
       setQuestions(set.questions);
       setSetId(set.id);
       setSetTitle(set.title);
+      if (!titleTouched) setTitle(set.title);
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -147,6 +156,11 @@ export function TestCreatePage() {
 
   const label = 'block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5';
   const input = 'w-full bg-bg-tertiary border-2 border-border rounded-xl px-3 py-2.5 text-text-primary font-semibold focus:outline-none focus:border-accent-cyan';
+  const go = (to: 1 | 2) => {
+    if (to === 2 && askable === 0) return;
+    setStep(to);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
@@ -160,49 +174,44 @@ export function TestCreatePage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-border bg-bg-card p-5 space-y-5">
-        <div className="grid sm:grid-cols-[1fr_auto] gap-4">
-          <div>
-            <label className={label} htmlFor="test-title"><FormattedMessage id="tests.name" /></label>
-            <input id="test-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} className={input} />
-          </div>
-          <div>
-            <label className={label} htmlFor="test-due"><FormattedMessage id="tests.dueLabel" /></label>
-            <input
-              id="test-due"
-              type="datetime-local"
-              value={due}
-              min={toLocalInput(new Date())}
-              onChange={(e) => setDue(e.target.value)}
-              className={`${input} ${dueOk ? '' : '!border-accent-red'}`}
-            />
-          </div>
-        </div>
+      {/* The steps — a tab bar too: step 2 opens once there's a question to ask. */}
+      <ol className="grid grid-cols-2 gap-2">
+        {([1, 2] as const).map((n) => {
+          const on = step === n;
+          const done = n === 1 && step === 2;
+          const locked = n === 2 && askable === 0;
+          return (
+            <li key={n}>
+              <button
+                type="button"
+                onClick={() => go(n)}
+                disabled={locked}
+                aria-current={on ? 'step' : undefined}
+                className={`w-full flex items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 text-left transition-colors disabled:opacity-50 ${
+                  on ? 'border-accent-cyan bg-accent-cyan/10' : 'border-border hover:border-border-light'
+                }`}
+              >
+                <span className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-sm font-display font-extrabold ${
+                  done ? 'bg-accent-green text-bg-primary' : on ? 'bg-accent-cyan text-bg-primary' : 'bg-bg-tertiary text-text-muted'
+                }`}>
+                  {done ? <Icon icon="lucide:check" /> : n}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-text-primary truncate"><FormattedMessage id={n === 1 ? 'tests.stepQuestions' : 'tests.stepSettings'} /></span>
+                  <span className="block text-xs text-text-muted truncate">
+                    {n === 1
+                      ? <FormattedMessage id="tests.questions" values={{ n: askable }} />
+                      : <FormattedMessage id="tests.stepSettingsHint" />}
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
 
-        <div>
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <span className={label + ' !mb-0'}><FormattedMessage id="tests.themeLabel" /></span>
-            <ThemePreviewButton theme={theme} instant={instantFeedback} questions={previewQuestions} loadImage={previewImage} />
-          </div>
-          <ThemePicker value={theme} onChange={setTheme} />
-        </div>
-
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" checked={instantFeedback} onChange={(e) => setInstantFeedback(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
-          <span>
-            <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.instantToggle" /></span>
-            <span className="block text-xs text-text-muted"><FormattedMessage id="tests.instantHint" /></span>
-          </span>
-        </label>
-
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" checked={showLeaderboard} onChange={(e) => setShowLeaderboard(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
-          <span>
-            <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.leaderboardToggle" /></span>
-            <span className="block text-xs text-text-muted"><FormattedMessage id="tests.leaderboardHint" /></span>
-          </span>
-        </label>
-
+      {/* Step 1 stays mounted while hidden, so the editor keeps its words and lookups. */}
+      <div className={`rounded-2xl border border-border bg-bg-card p-5 space-y-5 ${step === 1 ? '' : 'hidden'}`}>
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <span className={label + ' !mb-0'}><FormattedMessage id="tests.questionsLabel" /></span>
@@ -237,14 +246,100 @@ export function TestCreatePage() {
 
         <button
           type="button"
-          onClick={() => void send()}
-          disabled={!ready}
-          className="btn-3d w-full py-3 bg-accent-green text-bg-primary font-display font-extrabold flex items-center justify-center gap-2 disabled:opacity-50"
+          onClick={() => go(2)}
+          disabled={askable === 0}
+          className="btn-3d w-full py-3 bg-accent-cyan text-bg-primary font-display font-extrabold flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <Icon icon={sending ? 'lucide:loader-2' : 'lucide:send'} className={sending ? 'animate-spin' : ''} />
-          <FormattedMessage id={sending ? 'tests.sending' : 'tests.send'} values={{ n: askable }} />
+          {askable === 0
+            ? <FormattedMessage id="tests.needAQuestion" />
+            : <><FormattedMessage id="tests.nextSettings" /> <Icon icon="lucide:arrow-right" /></>}
         </button>
       </div>
+
+      {step === 2 && (
+        <div className="rounded-2xl border border-border bg-bg-card p-5 space-y-5 animate-fade-in">
+          <div className="grid sm:grid-cols-[1fr_auto] gap-4">
+            <div>
+              <label className={label} htmlFor="test-title"><FormattedMessage id="tests.name" /></label>
+              <input
+                id="test-title"
+                value={title}
+                onChange={(e) => { setTitle(e.target.value); setTitleTouched(true); }}
+                maxLength={80}
+                className={input}
+              />
+            </div>
+            <div>
+              <label className={label} htmlFor="test-due"><FormattedMessage id="tests.dueLabel" /></label>
+              <input
+                id="test-due"
+                type="datetime-local"
+                value={due}
+                min={toLocalInput(new Date())}
+                onChange={(e) => setDue(e.target.value)}
+                className={`${input} ${dueOk ? '' : '!border-accent-red'}`}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span className={label + ' !mb-0'}><FormattedMessage id="tests.themeLabel" /></span>
+              <ThemePreviewButton theme={theme} instant={instantFeedback} questions={previewQuestions} loadImage={previewImage} />
+            </div>
+            <ThemePicker value={theme} onChange={setTheme} />
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" checked={instantFeedback} onChange={(e) => setInstantFeedback(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
+            <span>
+              <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.instantToggle" /></span>
+              <span className="block text-xs text-text-muted"><FormattedMessage id="tests.instantHint" /></span>
+            </span>
+          </label>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" checked={showLeaderboard} onChange={(e) => setShowLeaderboard(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
+            <span>
+              <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.leaderboardToggle" /></span>
+              <span className="block text-xs text-text-muted"><FormattedMessage id="tests.leaderboardHint" /></span>
+            </span>
+          </label>
+
+          {/* What's about to go out, in one line, right above the button. */}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-bg-tertiary px-3 py-2.5 text-sm text-text-secondary">
+            <Icon icon="lucide:clipboard-check" className="text-accent-green" />
+            <FormattedMessage id="tests.questions" values={{ n: askable }} />
+            <span aria-hidden>·</span>
+            {dueOk
+              ? <FormattedMessage id="tests.due" values={{ date: <FormattedDate value={new Date(due)} weekday="short" month="short" day="numeric" hour="numeric" minute="2-digit" /> }} />
+              : <span className="text-accent-red"><FormattedMessage id="tests.duePassed" /></span>}
+            <span aria-hidden>·</span>
+            <FormattedMessage id={`tests.theme.${theme}`} />
+            {instantFeedback && <><span aria-hidden>·</span><FormattedMessage id="tests.summaryInstant" /></>}
+            {showLeaderboard && <><span aria-hidden>·</span><FormattedMessage id="tests.topThree" /></>}
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => go(1)}
+              className="px-4 py-3 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary flex items-center gap-1.5 hover:text-accent-cyan"
+            >
+              <Icon icon="lucide:arrow-left" /> <FormattedMessage id="tests.back" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={!ready}
+              className="btn-3d flex-1 py-3 bg-accent-green text-bg-primary font-display font-extrabold flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Icon icon={sending ? 'lucide:loader-2' : 'lucide:send'} className={sending ? 'animate-spin' : ''} />
+              <FormattedMessage id={sending ? 'tests.sending' : 'tests.send'} values={{ n: askable }} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

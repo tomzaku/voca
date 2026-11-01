@@ -15,6 +15,14 @@ export default {
 
   // ── Making one ──
   'tests.newTitle': 'New test',
+  'tests.stepQuestions': 'Questions',
+  'tests.stepSettings': 'Settings & send',
+  'tests.stepSettingsHint': 'Name, due date, theme',
+  'tests.nextSettings': 'Next: settings',
+  'tests.needAQuestion': 'Add at least one question to continue',
+  'tests.back': 'Back',
+  'tests.duePassed': 'Pick a due date in the future',
+  'tests.summaryInstant': 'Right/wrong after each answer',
   'tests.newHint': 'Every member of this collection can take it — {n, plural, one {# member} other {# members}} so far. Share the link once it’s sent.',
   'tests.defaultTitle': 'Test: {name}',
   'tests.name': 'Test name',

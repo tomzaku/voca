@@ -15,6 +15,14 @@ export default {
 
   // ── Making one ──
   'tests.newTitle': 'Bài kiểm tra mới',
+  'tests.stepQuestions': 'Câu hỏi',
+  'tests.stepSettings': 'Cài đặt & gửi',
+  'tests.stepSettingsHint': 'Tên, hạn nộp, chủ đề',
+  'tests.nextSettings': 'Tiếp: cài đặt',
+  'tests.needAQuestion': 'Thêm ít nhất một câu hỏi để tiếp tục',
+  'tests.back': 'Quay lại',
+  'tests.duePassed': 'Chọn hạn nộp trong tương lai',
+  'tests.summaryInstant': 'Báo đúng/sai sau mỗi câu',
   'tests.newHint': 'Mọi thành viên của bộ từ này đều làm được — hiện có {n} thành viên. Gửi xong thì chia sẻ đường link.',
   'tests.defaultTitle': 'Kiểm tra: {name}',
   'tests.name': 'Tên bài',
