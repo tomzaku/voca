@@ -239,7 +239,8 @@ export function fromForm(prev: EditableQuestion, f: QuestionForm, rand: Rand = M
     case 'listen':
       return { ...base, say: answer, options: shuffleWith([answer, ...wrong], rand) };
     case 'image':
-      return { ...base, imageWord: prev.imageWord, options: shuffleWith([answer, ...wrong], rand) };
+      // The picture is the answer word's own: change the word, change the picture.
+      return { ...base, imageWord: answer.toLowerCase(), options: shuffleWith([answer, ...wrong], rand) };
     case 'unscramble':
       return { ...base, prompt: f.prompt.trim(), scrambled: scramble(answer, rand) };
     case 'spell':
@@ -262,7 +263,17 @@ export function fromForm(prev: EditableQuestion, f: QuestionForm, rand: Rand = M
 
 /** A blank question of her own, ready for the edit form. */
 export function blankCustom(rand: Rand = Math.random): EditableQuestion {
-  return { id: newKey(rand), type: 'custom', prompt: '', answer: '' };
+  return blankQuestion('custom', rand);
+}
+
+/**
+ * A blank question of any kind, for the teacher to write herself — her own
+ * definition, her own gap sentence, her own matching pairs. It's flagged by
+ * `problemOf` until the form is filled in.
+ */
+export function blankQuestion(type: HuntQuestionType, rand: Rand = Math.random): EditableQuestion {
+  const q: EditableQuestion = { id: newKey(rand), type, prompt: '', answer: '' };
+  return type === 'match' ? { ...q, slotPrompts: [], slots: [], options: [] } : q;
 }
 
 /**

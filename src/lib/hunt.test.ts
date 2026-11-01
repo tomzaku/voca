@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   blankCustom,
+  blankQuestion,
   clock,
   fromForm,
   generateQuestions,
@@ -198,9 +199,10 @@ describe('editing', () => {
     expect([...q.scrambled!].sort().join('')).toBe('LOSTU');
   });
 
-  it('keeps a picture question’s picture', () => {
+  it('keeps a picture question’s picture, and follows a new answer word', () => {
     const p = makeQuestion('image', 'river', ctx())!.question;
     expect(fromForm(p, toForm(p)).imageWord).toBe('river');
+    expect(fromForm(p, { ...toForm(p), answer: 'Lotus' }).imageWord).toBe('lotus');
   });
 
   it('edits a matching board pair by pair, dropping half-filled ones', () => {
@@ -340,5 +342,40 @@ describe('questionKey', () => {
     expect(questionKey(q)).not.toBe(questionKey({ ...q, say: 'bridge' }));
     expect(questionKey({ ...q, image: 'a' })).not.toBe(questionKey({ ...q, image: 'b' }));
     expect(questionKey({ ...q, slotPrompts: ['x'] })).not.toBe(questionKey({ ...q, slotPrompts: ['y'] }));
+  });
+});
+
+describe('a question she writes herself, of any kind', () => {
+  const write = (type: Parameters<typeof blankQuestion>[0], f: Partial<ReturnType<typeof toForm>>) =>
+    fromForm(blankQuestion(type), { ...toForm(blankQuestion(type)), ...f }, seeded());
+
+  it('starts blank and flagged until filled in', () => {
+    for (const t of [...HUNT_TYPES, 'custom'] as const) expect(problemOf(blankQuestion(t))).not.toBeNull();
+  });
+
+  it('becomes a real question of that kind, which the server keeps', () => {
+    const qs = [
+      write('definition', { prompt: 'A baby cat', answer: 'kitten', wrong: ['puppy', 'calf'] }),
+      write('sentence', { prompt: 'The ___ is sleeping.', answer: 'cat', wrong: ['run'] }),
+      write('listen', { answer: 'umbrella', wrong: ['umpire'] }),
+      write('unscramble', { prompt: 'You hold it in the rain', answer: 'umbrella' }),
+      write('spell', { answer: 'necessary' }),
+      write('image', { answer: 'River', wrong: ['lake'] }),
+      write('match', { pairs: [{ prompt: 'hot', word: 'fire' }, { prompt: 'cold', word: 'ice' }] }),
+      write('custom', { prompt: 'Capital of Vietnam?', answer: 'Hanoi', accept: ['Ha Noi'] }),
+    ];
+    for (const q of qs) expect(problemOf(q), q.type).toBeNull();
+    expect(qs[2].say).toBe('umbrella');
+    expect(qs[3].scrambled).toHaveLength(8);
+    expect(qs[4].say).toBe('necessary');
+    expect(qs[5].imageWord).toBe('river');
+    const kept = cleanQuestions(JSON.parse(JSON.stringify(questionsToSave(qs))));
+    expect(kept.map((q) => q.type)).toEqual(qs.map((q) => q.type));
+    for (const q of kept) expect(isCorrect(q, q.slots ?? q.answer)).toBe(true);
+  });
+
+  it('needs its wrong answers where students pick', () => {
+    expect(problemOf(write('definition', { prompt: 'A baby cat', answer: 'kitten' }))).toBe('noWrong');
+    expect(problemOf(write('listen', { answer: 'umbrella' }))).toBe('noWrong');
   });
 });

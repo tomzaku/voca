@@ -172,7 +172,8 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
     try {
       // Save the questions first — the set is what the hunt is made from, and
       // what she can play again another day.
-      const name = savedName.trim() || title.trim();
+      // A new set is named after the hunt; an opened one keeps its own name.
+      const name = setId ? savedName : title.trim();
       const set = setId
         ? await saveSet(setId, name, questionsToSave(questions))
         : await createSet(name, questionsToSave(questions));
@@ -337,16 +338,12 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
           onPictures={addPictures}
           needed={treasureOk ? count : 3}
         />
-        <label className="flex flex-wrap items-center gap-2 mt-3 text-xs text-text-muted">
-          <FormattedMessage id={setId ? 'hunt.sets.savesTo' : 'hunt.sets.saveAs'} />
-          <input
-            value={savedName}
-            onChange={(e) => setSavedName(e.target.value)}
-            maxLength={80}
-            placeholder={title}
-            className="flex-1 min-w-[160px] bg-bg-tertiary border border-border rounded-lg px-2 py-1.5 text-sm text-text-primary"
-          />
-        </label>
+        <p className="mt-3 text-xs text-text-muted flex items-center gap-1.5">
+          <Icon icon="lucide:save" />
+          {setId
+            ? <FormattedMessage id="hunt.sets.savesTo" values={{ title: savedName }} />
+            : <FormattedMessage id="hunt.sets.reuse" />}
+        </p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">

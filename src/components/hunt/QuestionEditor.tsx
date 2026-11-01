@@ -8,7 +8,7 @@ import { doodleKey, fetchDoodles, readLocalDoodle } from '../../lib/doodles';
 import { generateWordData, WORD_LIST } from '../../lib/wordService';
 import type { MiniWordData } from '../../lib/quizShare';
 import {
-  blankCustom,
+  blankQuestion,
   fromForm,
   generateQuestions,
   HAS_PROMPT,
@@ -60,6 +60,9 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
   const [editing, setEditing] = useState<string | null>(null);
   const [addType, setAddType] = useState<HuntQuestionType>('definition');
   const [addWord, setAddWord] = useState('');
+  // Ticked: the app writes the question from a word. Unticked: she writes it.
+  const [addAuto, setAddAuto] = useState(true);
+  const auto = addAuto && addType !== 'custom';
 
   // Words looked up once per visit to the form: generating again, or adding
   // one more question about a word, doesn't ask twice.
@@ -91,6 +94,15 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
       } catch { /* no pictures — those questions fall back to the meaning */ }
     }
     return out;
+  };
+
+  /** Whether a word has a picture to show — a picture question she writes needs one. */
+  const checkPicture = async (word: string): Promise<boolean> => {
+    const w = word.trim().toLowerCase();
+    if (pictures[w]) return true;
+    const got = await loadPictures([w]);
+    if (got[w]) onPictures({ [w]: got[w] });
+    return Boolean(got[w]);
   };
 
   // A saved set comes back with words, not pictures: fetch the previews once.
@@ -135,8 +147,8 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
 
   const addOne = async () => {
     if (questions.length >= MAX_QUESTIONS || busy) return;
-    if (addType === 'custom') {
-      const q = blankCustom();
+    if (!auto) {
+      const q = blankQuestion(addType);
       onChange([...questions, q]);
       setEditing(q.id);
       return;
@@ -271,51 +283,66 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
             onSave={(next) => { onChange(questions.map((x) => (x.id === q.id ? next : x))); setEditing(null); }}
             onCancel={() => {
               // A new question abandoned before it had anything in it goes away.
-              if (q.type === 'custom' && !q.answer && !q.prompt) onChange(questions.filter((x) => x.id !== q.id));
+              if (!q.answer && !q.prompt && !q.slots?.length) onChange(questions.filter((x) => x.id !== q.id));
               setEditing(null);
             }}
             onRemove={() => onChange(questions.filter((x) => x.id !== q.id))}
+            checkPicture={checkPicture}
           />
         ))}
       </div>
 
-      {/* Add one more. */}
-      <div className="rounded-xl border-2 border-dashed border-border p-3 flex flex-wrap items-center gap-2">
-        <select
-          value={addType}
-          onChange={(e) => setAddType(e.target.value as HuntQuestionType)}
-          className="bg-bg-tertiary border border-border rounded-lg px-2 py-2 text-sm text-text-primary"
-          aria-label={intl.formatMessage({ id: 'hunt.editor.addType' })}
-        >
-          {HUNT_TYPES.map((t) => <option key={t} value={t}>{intl.formatMessage({ id: `hunt.typeName.${t}` })}</option>)}
-          <option value="custom">{intl.formatMessage({ id: 'hunt.typeName.custom' })}</option>
-        </select>
-        {addType !== 'custom' && (
-          <input
-            value={addWord}
-            onChange={(e) => setAddWord(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addOne(); } }}
-            maxLength={40}
-            placeholder={intl.formatMessage({ id: 'hunt.editor.addWord' })}
-            className="flex-1 min-w-[140px] bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm text-text-primary"
-          />
-        )}
-        <button
-          type="button"
-          onClick={() => void addOne()}
-          disabled={Boolean(busy) || questions.length >= MAX_QUESTIONS || (addType !== 'custom' && !addWord.trim())}
-          className="px-3 py-2 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary flex items-center gap-1.5 disabled:opacity-40"
-        >
-          <Icon icon={addType === 'custom' ? 'lucide:pencil' : 'lucide:wand-2'} />
-          <FormattedMessage id={addType === 'custom' ? 'hunt.editor.write' : 'hunt.editor.make'} />
-        </button>
+      {/* Add one more: pick the kind, then either a word for the app to make
+          it from, or write it yourself. */}
+      <div className="rounded-xl border-2 border-dashed border-border p-3 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="hunt.editor.addTitle" /></span>
+          <select
+            value={addType}
+            onChange={(e) => setAddType(e.target.value as HuntQuestionType)}
+            className="bg-bg-tertiary border border-border rounded-lg px-2 py-2 text-sm text-text-primary"
+            aria-label={intl.formatMessage({ id: 'hunt.editor.addType' })}
+          >
+            {HUNT_TYPES.map((t) => <option key={t} value={t}>{intl.formatMessage({ id: `hunt.typeName.${t}` })}</option>)}
+            <option value="custom">{intl.formatMessage({ id: 'hunt.typeName.custom' })}</option>
+          </select>
+          {addType !== 'custom' && (
+            <label className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer select-none">
+              <input type="checkbox" checked={addAuto} onChange={(e) => setAddAuto(e.target.checked)} className="w-4 h-4 accent-[var(--color-accent-cyan)]" />
+              <FormattedMessage id="hunt.editor.fromWord" />
+            </label>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {auto && (
+            <input
+              value={addWord}
+              onChange={(e) => setAddWord(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addOne(); } }}
+              maxLength={40}
+              placeholder={intl.formatMessage({ id: 'hunt.editor.addWord' })}
+              className="flex-1 min-w-[140px] bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm text-text-primary"
+            />
+          )}
+          {!auto && <p className="flex-1 text-xs text-text-muted"><FormattedMessage id={`hunt.editor.writeHint.${addType}`} /></p>}
+          <button
+            type="button"
+            onClick={() => void addOne()}
+            disabled={Boolean(busy) || questions.length >= MAX_QUESTIONS || (auto && !addWord.trim())}
+            className="px-3 py-2 rounded-xl bg-accent-cyan/15 text-sm font-bold text-text-primary flex items-center gap-1.5 disabled:opacity-40"
+          >
+            <Icon icon={auto ? 'lucide:wand-2' : 'lucide:pencil'} />
+            <FormattedMessage id={auto ? 'hunt.editor.make' : 'hunt.editor.write'} />
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCancel, onRemove }: {
+function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCancel, onRemove, checkPicture }: {
   n: number;
+  checkPicture: (word: string) => Promise<boolean>;
   question: EditableQuestion;
   picture?: string;
   editing: boolean;
@@ -351,7 +378,7 @@ function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCanc
       </div>
 
       {editing ? (
-        <EditForm question={q} onSave={onSave} onCancel={onCancel} />
+        <EditForm question={q} onSave={onSave} onCancel={onCancel} checkPicture={checkPicture} />
       ) : (
         // What the student sees, with the right answer marked.
         <div className="space-y-2">
@@ -400,20 +427,24 @@ function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCanc
   );
 }
 
-function EditForm({ question: q, onSave, onCancel }: {
+function EditForm({ question: q, onSave, onCancel, checkPicture }: {
   question: EditableQuestion;
   onSave: (q: EditableQuestion) => void;
   onCancel: () => void;
+  checkPicture: (word: string) => Promise<boolean>;
 }) {
   const intl = useIntl();
+  const [checking, setChecking] = useState(false);
+  const [noPicture, setNoPicture] = useState(false);
   const [f, setF] = useState<QuestionForm>(() => {
     const form = toForm(q);
     // Room to type: every wrong-answer box, and a few spare pairs.
     return {
       ...form,
       wrong: [...form.wrong, ...Array(Math.max(0, MAX_WRONG - form.wrong.length)).fill('')],
+      // A new board starts with two pairs to fill; an existing one, one spare.
       pairs: q.type === 'match'
-        ? [...form.pairs, ...Array(Math.max(0, Math.min(MAX_PAIRS, form.pairs.length + 1) - form.pairs.length)).fill({ prompt: '', word: '' })]
+        ? [...form.pairs, ...Array(Math.max(0, Math.min(MAX_PAIRS, Math.max(2, form.pairs.length + 1)) - form.pairs.length)).fill({ prompt: '', word: '' })]
         : form.pairs,
     };
   });
@@ -431,7 +462,7 @@ function EditForm({ question: q, onSave, onCancel }: {
           rows={2}
           maxLength={400}
           autoFocus
-          placeholder={intl.formatMessage({ id: q.type === 'custom' ? 'hunt.custom.promptPlaceholder' : 'hunt.editor.promptPlaceholder' })}
+          placeholder={intl.formatMessage({ id: `hunt.editor.promptPh.${q.type}` })}
           aria-label={intl.formatMessage({ id: 'hunt.custom.prompt' })}
           className={input}
         />
@@ -466,10 +497,10 @@ function EditForm({ question: q, onSave, onCancel }: {
         <>
           <input
             value={f.answer}
-            onChange={(e) => setF({ ...f, answer: e.target.value })}
+            onChange={(e) => { setF({ ...f, answer: e.target.value }); setNoPicture(false); }}
             maxLength={40}
             autoFocus={!HAS_PROMPT.includes(q.type)}
-            placeholder={intl.formatMessage({ id: 'hunt.custom.answerPlaceholder' })}
+            placeholder={intl.formatMessage({ id: `hunt.editor.answerPh.${q.type}` })}
             aria-label={intl.formatMessage({ id: 'hunt.custom.answer' })}
             className={input + ' !border-accent-green/50'}
           />
@@ -503,10 +534,26 @@ function EditForm({ question: q, onSave, onCancel }: {
       )}
       <div className="flex items-center gap-2 justify-end">
         {problem && <span className="text-xs text-accent-red mr-auto"><FormattedMessage id={`hunt.editor.problem.${problem}`} /></span>}
+        {!problem && noPicture && <span className="text-xs text-accent-red mr-auto"><FormattedMessage id="hunt.editor.problem.noPicture" /></span>}
         <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded-lg bg-bg-tertiary text-sm font-bold text-text-primary">
           <FormattedMessage id="hunt.teacher.cancel" />
         </button>
-        <button type="button" disabled={Boolean(problem)} onClick={() => onSave(next)} className="px-3 py-1.5 rounded-lg bg-accent-cyan text-bg-primary text-sm font-bold disabled:opacity-40">
+        <button
+          type="button"
+          disabled={Boolean(problem) || checking || noPicture}
+          onClick={async () => {
+            // A picture question shows the app's own picture of its word, so
+            // the word has to have one — checked here, not found out in class.
+            if (next.type === 'image' && next.imageWord) {
+              setChecking(true);
+              const ok = await checkPicture(next.imageWord).catch(() => false);
+              setChecking(false);
+              if (!ok) { setNoPicture(true); return; }
+            }
+            onSave(next);
+          }}
+          className="px-3 py-1.5 rounded-lg bg-accent-cyan text-bg-primary text-sm font-bold disabled:opacity-40"
+        >
           <FormattedMessage id="hunt.editor.save" />
         </button>
       </div>
