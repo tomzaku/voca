@@ -13,11 +13,16 @@
 // signed-in visitor holding the link:
 //   GET    /tests ?collection=                    → { tests }  newest first
 //   GET    /tests/:id                             → { test, questions, review, leaderboard }
+//   POST   /tests/:id/start                       → { test, questions }  starts your clock; idempotent
 //   POST   /tests/:id/submit { answers }          → { test, review, leaderboard }   answers: { [questionId]: string | string[] }
 //   GET    /tests/:id/image ?key=                 → { image }  a picture question's picture
 //
-// `leaderboard` is the top three hand-ins, best score first and earliest on a
-// tie — or empty when the teacher hasn't turned it on.
+// `questions` is empty for a student until they press Start: that's when
+// their clock starts, so the questions can't be read with it stopped. Their
+// owner, and anyone already started or done, gets them on every read.
+//
+// `leaderboard` is the top three hand-ins — best score first, then fastest,
+// then earliest — or empty when the teacher hasn't turned it on.
 //
 // `review` is null until you've submitted. After that it's your answers, each
 // marked right or wrong — and, once the due date passes, the right answer
@@ -45,7 +50,7 @@ import {
   type QuestionColumns,
   type StoredQuestion,
 } from '../_shared/hunts.ts';
-import { cleanDue, grade, Invalid, isOpen, MAX_TITLE, tally } from '../_shared/tests.ts';
+import { cleanDue, grade, Invalid, isOpen, MAX_TITLE, rank, tally } from '../_shared/tests.ts';
 
 const QUESTION_COLUMNS = 'id, position, type, prompt, answer, options, accept, say, scrambled, image_word, pair_prompts, pair_words, word';
 const SET_QUESTION_COLUMNS = 'id, type, prompt, answer, options, accept, say, scrambled, image_word, pair_prompts, pair_words, word';
@@ -55,6 +60,7 @@ const LIST_LIMIT = 50;
 /** A class's every answer to one test, with room to spare. */
 const RESULTS_LIMIT = 20_000;
 const LEADERS = 3;
+
 
 interface TestRow {
   id: string;
@@ -81,6 +87,7 @@ interface SubmissionRow {
   name: string;
   score: number;
   total: number;
+  duration_ms: number | null;
   submitted_at: string;
 }
 
@@ -90,7 +97,7 @@ class HttpError extends Error {
   }
 }
 
-function toSummary(t: TestRow, me: string, extra: { submittedCount: number; memberCount: number; mine: SubmissionRow | null }) {
+function toSummary(t: TestRow, me: string, extra: { submittedCount: number; memberCount: number; mine: SubmissionRow | null; startedAt?: string | null }) {
   return {
     id: t.id,
     isOwner: t.owner_id === me,
@@ -102,7 +109,11 @@ function toSummary(t: TestRow, me: string, extra: { submittedCount: number; memb
     createdAt: t.created_at,
     submittedCount: extra.submittedCount,
     memberCount: extra.memberCount,
-    myResult: extra.mine ? { score: extra.mine.score, total: extra.mine.total, submittedAt: extra.mine.submitted_at } : null,
+    myResult: extra.mine
+      ? { score: extra.mine.score, total: extra.mine.total, durationMs: extra.mine.duration_ms, submittedAt: extra.mine.submitted_at }
+      : null,
+    /** When the caller pressed Start, or null. */
+    startedAt: extra.startedAt ?? null,
   };
 }
 
@@ -197,34 +208,42 @@ export default async function handler(req: Request): Promise<Response> {
     if (!testIds.length) return [];
     const { data, error } = await db
       .from('collection_test_submissions')
-      .select('test_id, user_id, name, score, total, submitted_at')
+      .select('test_id, user_id, name, score, total, duration_ms, submitted_at')
       .in('test_id', testIds)
       .limit(RESULTS_LIMIT);
     if (error) throw new Error(error.message);
     return (data ?? []) as SubmissionRow[];
   };
 
+  /** When the caller started each of these tests, by test id. */
+  const startsOf = async (testIds: string[]): Promise<Map<string, string>> => {
+    if (!testIds.length) return new Map();
+    const { data, error } = await db
+      .from('collection_test_starts')
+      .select('test_id, started_at')
+      .eq('user_id', me)
+      .in('test_id', testIds);
+    if (error) throw new Error(error.message);
+    return new Map((data ?? []).map((r) => [r.test_id as string, r.started_at as string]));
+  };
+
   const summary = async (t: TestRow, col: CollectionRow) => {
-    const subs = await submissions([t.id]);
+    const [subs, starts] = await Promise.all([submissions([t.id]), startsOf([t.id])]);
     return toSummary(t, me, {
       submittedCount: subs.length,
       memberCount: col.member_count,
       mine: subs.find((s) => s.user_id === me) ?? null,
+      startedAt: starts.get(t.id) ?? null,
     });
   };
 
   /** The top hand-ins, when the teacher shows them. */
   const leaderboard = async (t: TestRow) => {
     if (!t.show_leaderboard) return [];
-    const { data, error } = await db
-      .from('collection_test_submissions')
-      .select('user_id, name, score, total')
-      .eq('test_id', t.id)
-      .order('score', { ascending: false })
-      .order('submitted_at', { ascending: true })
-      .limit(LEADERS);
-    if (error) throw new Error(error.message);
-    return (data ?? []).map((r) => ({ name: r.name as string, score: r.score as number, total: r.total as number, isMe: r.user_id === me }));
+    // Ranked here rather than in SQL: "untimed sorts last" and the three-way
+    // tie-break read more plainly as one comparator, and a class is small.
+    const subs = (await submissions([t.id])).sort(rank).slice(0, LEADERS);
+    return subs.map((r) => ({ name: r.name, score: r.score, total: r.total, durationMs: r.duration_ms, isMe: r.user_id === me }));
   };
 
   /** The caller's own answers, marked — with the right answers once it's closed. */
@@ -265,11 +284,16 @@ export default async function handler(req: Request): Promise<Response> {
           .limit(LIST_LIMIT);
         if (error) throw new Error(error.message);
         const rows = (data ?? []) as TestRow[];
-        const subs = await submissions(rows.map((r) => r.id));
+        const [subs, starts] = await Promise.all([submissions(rows.map((r) => r.id)), startsOf(rows.map((r) => r.id))]);
         return jsonResponse(200, {
           tests: rows.map((t) => {
             const these = subs.filter((s) => s.test_id === t.id);
-            return toSummary(t, me, { submittedCount: these.length, memberCount: col.member_count, mine: these.find((s) => s.user_id === me) ?? null });
+            return toSummary(t, me, {
+              submittedCount: these.length,
+              memberCount: col.member_count,
+              mine: these.find((s) => s.user_id === me) ?? null,
+              startedAt: starts.get(t.id) ?? null,
+            });
           }),
         });
       }
@@ -321,9 +345,10 @@ export default async function handler(req: Request): Promise<Response> {
         const { t, col } = await reachable(id!);
         const questions = await loadQuestions(db, t.id);
         const test = await summary(t, col);
+        const canSee = test.isOwner || test.startedAt !== null || test.myResult !== null;
         return jsonResponse(200, {
           test,
-          questions: questions.map((q) => ({ id: q.id!, ...publicQuestion(q) })),
+          questions: canSee ? questions.map((q) => ({ id: q.id!, ...publicQuestion(q) })) : [],
           review: test.myResult ? await review(t, questions) : null,
           leaderboard: await leaderboard(t),
         });
@@ -353,6 +378,23 @@ export default async function handler(req: Request): Promise<Response> {
         return jsonResponse(200, { ok: true });
       }
 
+      case 'POST :id/start': {
+        const { t, col } = await reachable(id!);
+        if (t.owner_id === me) return jsonResponse(400, { error: 'This is your own test — students take it.' });
+        if (!isOpen(t.due_at, Date.now())) return jsonResponse(400, { error: 'This test is closed.' });
+        // The first start counts; pressing Start again (a reload, a second
+        // device) keeps the clock that's already running.
+        const { error } = await db
+          .from('collection_test_starts')
+          .upsert({ test_id: t.id, user_id: me }, { onConflict: 'test_id,user_id', ignoreDuplicates: true });
+        if (error) throw new Error(error.message);
+        const questions = await loadQuestions(db, t.id);
+        return jsonResponse(200, {
+          test: await summary(t, col),
+          questions: questions.map((q) => ({ id: q.id!, ...publicQuestion(q) })),
+        });
+      }
+
       case 'POST :id/submit': {
         const { t, col } = await reachable(id!);
         if (t.owner_id === me) return jsonResponse(400, { error: 'This is your own test — students take it.' });
@@ -367,9 +409,11 @@ export default async function handler(req: Request): Promise<Response> {
           if (error) throw new Error(error.message);
         }
 
+        const startedAt = (await startsOf([t.id])).get(t.id);
+        const durationMs = startedAt ? Math.max(0, Date.now() - Date.parse(startedAt)) : null;
         const { error } = await db
           .from('collection_test_submissions')
-          .insert({ test_id: t.id, user_id: me, name: nameOf(auth.user), score, total });
+          .insert({ test_id: t.id, user_id: me, name: nameOf(auth.user), score, total, duration_ms: durationMs });
         if (error) {
           // The primary key: they've already submitted (a double tap, a second tab).
           if (error.code === '23505') return jsonResponse(400, { error: 'You’ve already handed this test in.' });
@@ -411,9 +455,14 @@ export default async function handler(req: Request): Promise<Response> {
         return jsonResponse(200, {
           results: {
             test: toSummary(t, me, { submittedCount: subs.length, memberCount: col.member_count, mine: null }),
-            students: subs
-              .map((s) => ({ userId: s.user_id, name: s.name, score: s.score, total: s.total, submittedAt: s.submitted_at }))
-              .sort((a, b) => b.score - a.score || a.submittedAt.localeCompare(b.submittedAt)),
+            students: [...subs].sort(rank).map((s) => ({
+              userId: s.user_id,
+              name: s.name,
+              score: s.score,
+              total: s.total,
+              durationMs: s.duration_ms,
+              submittedAt: s.submitted_at,
+            })),
             waiting: ((roster.data ?? []) as { user_id: string; display_name: string | null }[])
               .filter((m) => m.user_id !== me && !done.has(m.user_id))
               .map((m) => ({ userId: m.user_id, name: m.display_name ?? '' })),

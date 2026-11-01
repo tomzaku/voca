@@ -10,6 +10,8 @@ import {
   fetchTest,
   fetchTestImage,
   fetchTestResults,
+  formatDuration,
+  startTest,
   submitTest,
   updateTest,
   type Answers,
@@ -101,7 +103,15 @@ export function TestPage() {
         ? <OwnerView test={data.test} onChange={(test) => setData({ ...data, test })} />
         : data.review
           ? <Review test={data.test} questions={data.questions} review={data.review} leaderboard={data.leaderboard} />
-          : <TakeTest test={data.test} questions={data.questions} leaderboard={data.leaderboard} onDone={(test, review, leaderboard) => setData({ ...data, test, review, leaderboard })} />}
+          : (
+            <TakeTest
+              test={data.test}
+              questions={data.questions}
+              leaderboard={data.leaderboard}
+              onStarted={(test, questions) => setData({ ...data, test, questions })}
+              onDone={(test, review, leaderboard) => setData({ ...data, test, review, leaderboard })}
+            />
+          )}
     </div>
   );
 }
@@ -130,12 +140,32 @@ function Leaderboard({ leaders, test }: { leaders: Leader[]; test: TestSummary }
                 <span className="flex-1 min-w-0 truncate font-semibold text-text-primary">
                   {l.name}{l.isMe && <span className="text-text-muted font-normal"> (<FormattedMessage id="tests.you" />)</span>}
                 </span>
-                <span className="font-bold tabular-nums text-text-primary">{l.score}/{l.total}</span>
+                <span className="text-right leading-tight">
+                  <span className="block font-bold tabular-nums text-text-primary">{l.score}/{l.total}</span>
+                  {l.durationMs !== null && <span className="block text-[11px] tabular-nums text-text-muted">{formatDuration(l.durationMs)}</span>}
+                </span>
               </li>
             ))}
           </ol>
         )}
     </section>
+  );
+}
+
+/** A running clock from the student's Start — ticks once a second. */
+function Elapsed({ since }: { since: string }) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const t = window.setInterval(tick, 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  if (now === null) return null;
+  return (
+    <span className="flex items-center gap-1 text-xs font-bold tabular-nums text-text-muted">
+      <Icon icon="lucide:timer" /> {formatDuration(now - Date.parse(since))}
+    </span>
   );
 }
 
@@ -159,10 +189,11 @@ function Header({ test }: { test: TestSummary }) {
 
 // ── Student ────────────────────────────────────────────────────────────────
 
-function TakeTest({ test, questions, leaderboard, onDone }: {
+function TakeTest({ test, questions, leaderboard, onStarted, onDone }: {
   test: TestSummary;
   questions: TestQuestion[];
   leaderboard: Leader[];
+  onStarted: (test: TestSummary, questions: TestQuestion[]) => void;
   onDone: (test: TestSummary, review: ReviewItem[], leaderboard: Leader[]) => void;
 }) {
   const intl = useIntl();
@@ -170,6 +201,7 @@ function TakeTest({ test, questions, leaderboard, onDone }: {
   // -1 is the cover page; questions.length the hand-in page.
   const [at, setAt] = useState(-1);
   const [sending, setSending] = useState(false);
+  const [starting, setStarting] = useState(false);
   const loadImage = useCallback((key: string) => fetchTestImage(test.id, key), [test.id]);
   const open = Date.parse(test.dueAt) > useOpenedAt();
   const answered = questions.filter((q) => shown(answers[q.id]).trim()).length;
@@ -179,6 +211,22 @@ function TakeTest({ test, questions, leaderboard, onDone }: {
     setAnswers(next);
     writeDraft(test.id, next);
     setAt((i) => i + 1);
+  };
+
+  // The server starts the clock and only then sends the questions. Pressing
+  // Start again after a reload keeps the clock it already has.
+  const begin = async () => {
+    if (test.startedAt && questions.length) { setAt(0); return; }
+    setStarting(true);
+    try {
+      const res = await startTest(test.id);
+      onStarted(res.test, res.questions);
+      setAt(0);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setStarting(false);
+    }
   };
 
   const handIn = async () => {
@@ -210,12 +258,17 @@ function TakeTest({ test, questions, leaderboard, onDone }: {
         <Header test={test} />
         <div className="rounded-2xl border border-border bg-bg-card p-5 space-y-4">
           <p className="text-text-secondary"><FormattedMessage id="tests.intro" /></p>
+          <p className="flex items-start gap-2 text-xs text-text-muted">
+            <Icon icon="lucide:timer" className="text-sm shrink-0 mt-px" />
+            <FormattedMessage id={test.startedAt ? 'tests.clockRunning' : 'tests.timedHint'} />
+          </p>
           <button
             type="button"
-            onClick={() => setAt(0)}
-            className="btn-3d w-full py-3 bg-accent-green text-bg-primary font-display font-extrabold"
+            onClick={() => void begin()}
+            disabled={starting}
+            className="btn-3d w-full py-3 bg-accent-green text-bg-primary font-display font-extrabold disabled:opacity-60"
           >
-            <FormattedMessage id={answered ? 'tests.continue' : 'tests.start'} />
+            <FormattedMessage id={starting ? 'tests.starting' : test.startedAt ? 'tests.continue' : 'tests.start'} />
           </button>
         </div>
         <Leaderboard leaders={leaderboard} test={test} />
@@ -267,6 +320,7 @@ function TakeTest({ test, questions, leaderboard, onDone }: {
           <div className="h-full bg-accent-green transition-all" style={{ width: `${(at / questions.length) * 100}%` }} />
         </div>
         <span className="text-xs font-bold text-text-muted tabular-nums">{at + 1}/{questions.length}</span>
+        {test.startedAt && <Elapsed since={test.startedAt} />}
       </div>
       <div className="rounded-2xl border border-border bg-bg-card p-5">
         <HuntQuestion key={q.id} question={q} cooldown={0} busy={false} onAnswer={(a) => answer(q, a)} loadImage={loadImage} />
@@ -299,6 +353,11 @@ function Review({ test, questions, review, leaderboard }: { test: TestSummary; q
         <div className="rounded-2xl border-[3px] border-accent-green bg-accent-green/10 p-5 text-center">
           <p className="text-xs font-bold uppercase tracking-wider text-accent-green"><FormattedMessage id="tests.yourScore" /></p>
           <p className="text-4xl font-display font-extrabold text-text-primary mt-1">{result.score}/{result.total}</p>
+          {result.durationMs !== null && (
+            <p className="text-xs text-text-muted mt-1 flex items-center justify-center gap-1">
+              <Icon icon="lucide:timer" /> <FormattedMessage id="tests.tookTime" values={{ time: formatDuration(result.durationMs) }} />
+            </p>
+          )}
         </div>
       )}
       <Leaderboard leaders={leaderboard} test={test} />
@@ -442,6 +501,7 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
                 <li key={s.userId} className="flex items-center gap-3 py-2 text-sm">
                   <span className="flex-1 min-w-0 truncate font-semibold text-text-primary">{s.name}</span>
                   <span className="text-xs text-text-muted"><FormattedDate value={s.submittedAt} {...DATE} /></span>
+                  <span className="w-12 text-right text-xs tabular-nums text-text-muted">{s.durationMs !== null ? formatDuration(s.durationMs) : '—'}</span>
                   <span className="w-14 text-right font-bold tabular-nums text-text-primary">{s.score}/{s.total}</span>
                 </li>
               ))}

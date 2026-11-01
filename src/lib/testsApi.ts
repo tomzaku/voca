@@ -21,7 +21,9 @@ export interface TestSummary {
   submittedCount: number;
   memberCount: number;
   /** The caller's own submission, once they've handed it in. */
-  myResult: { score: number; total: number; submittedAt: string } | null;
+  myResult: { score: number; total: number; durationMs: number | null; submittedAt: string } | null;
+  /** When the caller pressed Start — their clock — or null. */
+  startedAt: string | null;
 }
 
 export interface TestQuestion extends PublicQuestion {
@@ -38,7 +40,8 @@ export interface ReviewItem {
 
 export interface TestResults {
   test: TestSummary;
-  students: { userId: string; name: string; score: number; total: number; submittedAt: string }[];
+  /** Best first: score, then time taken, then hand-in time. */
+  students: { userId: string; name: string; score: number; total: number; durationMs: number | null; submittedAt: string }[];
   /** Members who haven't handed it in. */
   waiting: { userId: string; name: string }[];
   questions: {
@@ -57,6 +60,8 @@ export interface Leader {
   name: string;
   score: number;
   total: number;
+  /** Time from Start to hand-in; the tie-break. Null for an untimed hand-in. */
+  durationMs: number | null;
   isMe: boolean;
 }
 
@@ -64,6 +69,23 @@ export type Answers = Record<string, string | string[]>;
 
 export async function listTests(collectionId: string): Promise<TestSummary[]> {
   return (await request.get<{ tests: TestSummary[] }>('/tests', { params: { collection: collectionId } })).tests;
+}
+
+/**
+ * Starts the caller's clock (the first time only) and hands back the
+ * questions, which a student doesn't get before this.
+ */
+export async function startTest(id: string): Promise<{ test: TestSummary; questions: TestQuestion[] }> {
+  return request.post(`/tests/${id}/start`);
+}
+
+/** "3:07", or "1:02:45" past an hour. */
+export function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
 
 export async function fetchTest(id: string): Promise<{ test: TestSummary; questions: TestQuestion[]; review: ReviewItem[] | null; leaderboard: Leader[] }> {

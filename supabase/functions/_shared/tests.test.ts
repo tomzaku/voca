@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { StoredQuestion } from './hunts';
-import { cleanDue, grade, Invalid, isOpen, tally } from './tests';
+import { cleanDue, grade, Invalid, isOpen, rank, tally } from './tests';
 
 const qs: StoredQuestion[] = [
   { id: 'a', type: 'definition', prompt: 'a pet that barks', answer: 'dog', options: ['dog', 'cat'] },
@@ -57,5 +57,19 @@ describe('tally', () => {
       { given: '', correct: false },
     ]);
     expect(t).toEqual({ right: 1, wrong: 4, commonWrong: [{ given: 'Cat', count: 2 }, { given: 'cow', count: 1 }] });
+  });
+});
+
+describe('rank', () => {
+  const row = (name: string, score: number, duration_ms: number | null, submitted_at: string) => ({ name, score, duration_ms, submitted_at });
+  it('puts the higher score first, then the quicker, then the earlier; untimed after timed', () => {
+    const rows = [
+      row('slow', 9, 300_000, '2026-11-01T10:00:00Z'),
+      row('untimed', 9, null, '2026-11-01T08:00:00Z'),
+      row('best', 10, 900_000, '2026-11-01T12:00:00Z'),
+      row('fast', 9, 120_000, '2026-11-01T11:00:00Z'),
+      row('fastLater', 9, 120_000, '2026-11-01T11:30:00Z'),
+    ];
+    expect(rows.sort(rank).map((r) => r.name)).toEqual(['best', 'fast', 'fastLater', 'slow', 'untimed']);
   });
 });

@@ -82,3 +82,17 @@ export function tally(answers: { given: string; correct: boolean }[]): Tally {
   const commonWrong = [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 3);
   return { right, wrong: answers.length - right, commonWrong };
 }
+
+/**
+ * Best hand-in first: the higher score, then the quicker, then the earlier.
+ * A hand-in with no time (from before the clock existed) is slower than any
+ * timed one, so a tie never goes to the student we can't time.
+ */
+export function rank(
+  a: { score: number; duration_ms: number | null; submitted_at: string },
+  b: { score: number; duration_ms: number | null; submitted_at: string },
+): number {
+  return b.score - a.score ||
+    (a.duration_ms ?? Infinity) - (b.duration_ms ?? Infinity) ||
+    a.submitted_at.localeCompare(b.submitted_at);
+}
