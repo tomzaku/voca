@@ -138,18 +138,23 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
             maxLength={200}
             className="flex-1 min-w-[10rem] bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/50"
           />
-          <input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={MAX_WORD_COUNT}
-            value={aiCount}
-            onChange={(e) => setAiCount(e.target.value)}
-            onBlur={() => setAiCount(String(wordCount(aiCount)))}
-            aria-label={intl.formatMessage({ id: 'collections.aiWordCount' })}
-            title={intl.formatMessage({ id: 'collections.aiWordCount' })}
-            className="w-16 shrink-0 bg-bg-card border border-border rounded-lg px-2 py-2 text-sm text-center text-text-primary focus:outline-none focus:border-accent-purple/50"
-          />
+          {/* A bare "30" reads as nothing; the unit sits inside the box. */}
+          <label className="shrink-0 flex items-center gap-1 bg-bg-card border border-border rounded-lg pl-2 pr-2.5 focus-within:border-accent-purple/50">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={MAX_WORD_COUNT}
+              value={aiCount}
+              onChange={(e) => setAiCount(e.target.value)}
+              onBlur={() => setAiCount(String(wordCount(aiCount)))}
+              aria-label={intl.formatMessage({ id: 'collections.aiWordCount' })}
+              className="w-10 bg-transparent py-2 text-sm text-right text-text-primary focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            <span className="text-xs text-text-muted">
+              <FormattedMessage id="collections.aiWordsUnit" values={{ count: wordCount(aiCount) }} />
+            </span>
+          </label>
           {isPro && (
             <button
               type="button"

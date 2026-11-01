@@ -117,6 +117,7 @@ export default {
   'collections.namePlaceholder': 'Collection name (e.g. IELTS Essentials)',
   'collections.needWords': 'Need words? Ask AI',
   'collections.aiTopicPlaceholder': 'Topic: family, animals, travel, business…',
+  'collections.aiWordsUnit': '{count, plural, one {word} other {words}}',
   'collections.aiWordCount': 'Number of words',
   'collections.askChatGpt': 'Ask ChatGPT',
   'collections.pasteHint': 'Copy the reply and paste it into the words box below.',

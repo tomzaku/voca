@@ -117,6 +117,7 @@ export default {
   'collections.namePlaceholder': 'Tên bộ sưu tập (vd: IELTS Essentials)',
   'collections.needWords': 'Cần từ? Hỏi AI',
   'collections.aiTopicPlaceholder': 'Chủ đề: gia đình, động vật, du lịch, kinh doanh…',
+  'collections.aiWordsUnit': 'từ',
   'collections.aiWordCount': 'Số từ',
   'collections.askChatGpt': 'Hỏi ChatGPT',
   'collections.pasteHint': 'Sao chép câu trả lời và dán vào ô từ bên dưới.',
