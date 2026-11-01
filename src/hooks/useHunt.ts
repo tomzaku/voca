@@ -200,8 +200,13 @@ export function useTick(on: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!on) return;
+    // Read the time as soon as the clock turns on, not a second later: while
+    // it was off (the lobby), `now` stood still, and the first frame of a
+    // started hunt showed time from before the start — 20:20 on a 20-minute
+    // clock, longer in a background tab whose timers the browser slows.
+    const kick = window.setTimeout(() => setNow(Date.now()), 0);
     const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    return () => { window.clearTimeout(kick); window.clearInterval(id); };
   }, [on]);
   return now;
 }
