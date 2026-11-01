@@ -3,6 +3,8 @@ import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCollections } from '../hooks/useCollections';
+import { useIsPro } from '../hooks/useProStatus';
+import { generateCollectionWords } from '../lib/collectionWordsApi';
 import { splitWordList } from '../lib/wordList';
 
 /** ChatGPT URL pre-filled with a prompt that yields a paste-ready word list. */
@@ -27,6 +29,17 @@ export function parseWords(input: string): string[] {
 }
 
 /**
+ * `incoming` words dropped between `before` and `after`, one per line, minus
+ * any already in the box — shared by a paste and an AI generation.
+ */
+function insertWords(before: string, after: string, incoming: string[]): { text: string; added: number } {
+  const existing = new Set(parseWords(before + '\n' + after));
+  const fresh = incoming.filter((w) => !existing.has(w));
+  const text = [before.trimEnd(), fresh.join('\n'), after.trimStart()].filter(Boolean).join('\n');
+  return { text, added: fresh.length };
+}
+
+/**
  * The create / edit collection form: name, an AI word-list helper, and a words
  * box. Owns its own draft + save state and talks to the collections store, so
  * both the Collections list (inline card) and the world game (modal) can drop
@@ -43,6 +56,24 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
   const [wordsInput, setWordsInput] = useState(initialWords.join('\n'));
   const [aiTopic, setAiTopic] = useState('');
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const { isPro } = useIsPro();
+
+  // Pro: the model writes the list straight into the box — no ChatGPT tab.
+  const handleGenerate = async () => {
+    const topic = aiTopic.trim();
+    if (!topic || generating) return;
+    setGenerating(true);
+    try {
+      const { text, added } = insertWords(wordsInput, '', parseWords((await generateCollectionWords(topic)).join('\n')));
+      setWordsInput(text);
+      toast.success(intl.formatMessage({ id: 'collections.generated' }, { count: added }));
+    } catch (err) {
+      toast.error((err as Error).message || intl.formatMessage({ id: 'collections.generateFailed' }));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSave = async () => {
     const words = parseWords(wordsInput);
@@ -93,6 +124,19 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
             maxLength={200}
             className="flex-1 min-w-0 bg-bg-card border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-purple/50"
           />
+          {isPro && (
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={!aiTopic.trim() || generating}
+              className={`btn-3d shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold ${
+                aiTopic.trim() ? 'bg-accent-cyan text-bg-primary' : 'bg-bg-card text-text-muted cursor-not-allowed opacity-60'
+              }`}
+            >
+              <Icon icon={generating ? 'lucide:loader-2' : 'lucide:sparkles'} className={`text-sm ${generating ? 'animate-spin' : ''}`} />
+              <FormattedMessage id={generating ? 'collections.generating' : 'collections.generate'} />
+            </button>
+          )}
           <a
             href={aiTopic.trim() ? chatGptWordsUrl(aiTopic.trim()) : undefined}
             target="_blank"
@@ -107,7 +151,7 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
           </a>
         </div>
         <p className="text-[11px] text-text-muted">
-          <FormattedMessage id="collections.pasteHint" />
+          <FormattedMessage id={isPro ? 'collections.pasteHintPro' : 'collections.pasteHint'} />
         </p>
       </div>
 
@@ -123,14 +167,9 @@ export function CollectionForm({ editingId = null, initialName = '', initialWord
           const el = e.currentTarget;
           const before = wordsInput.slice(0, el.selectionStart);
           const after = wordsInput.slice(el.selectionEnd);
-          const existing = new Set(parseWords(before + '\n' + after));
-          const pasted = parseWords(text).filter((w) => !existing.has(w));
           e.preventDefault();
-          if (!pasted.length) return;
-          const head = before.trimEnd();
-          const tail = after.trimStart();
-          const block = pasted.join('\n');
-          setWordsInput([head, block, tail].filter(Boolean).join('\n'));
+          const { text: next, added } = insertWords(before, after, parseWords(text));
+          if (added) setWordsInput(next);
         }}
         placeholder={intl.formatMessage({ id: 'collections.wordsPlaceholder' }) + '\nserendipity\nebullient\nmeticulous'}
         rows={6}

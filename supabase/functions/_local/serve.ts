@@ -14,6 +14,7 @@
 //
 // or `npm run server:dev` from the repo root, which wraps the same command.
 
+import aiCollectionWords from '../ai-collection-words/index.ts';
 import aiIeltsWriting from '../ai-ielts-writing/index.ts';
 import aiImproveWriting from '../ai-improve-writing/index.ts';
 import aiMindmap from '../ai-mindmap/index.ts';
@@ -48,6 +49,7 @@ type Handler = (req: Request) => Response | Promise<Response>;
 // Same names as the deployed routes (supabase/functions/<name>), so the exact
 // same paths that hit /functions/v1/<name>/... in prod work here unprefixed.
 const RESOURCES: Record<string, Handler> = {
+  'ai-collection-words': aiCollectionWords,
   'ai-ielts-writing': aiIeltsWriting,
   'ai-improve-writing': aiImproveWriting,
   'ai-mindmap': aiMindmap,
