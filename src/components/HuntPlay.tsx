@@ -7,7 +7,7 @@ import { useHunt, useTick } from '../hooks/useHunt';
 import { previewHunt, type Play, type Preview } from '../lib/huntsApi';
 import { clock, secondsUntil } from '../lib/hunt';
 import { HuntQuestion, TreasureLock } from './hunt/HuntQuestion';
-import { PhaseLabel, RaceTrack, TEAM_COLOR } from './hunt/teams';
+import { PhaseLabel, RaceTrack, SOLO_COLOR, TEAM_COLOR } from './hunt/teams';
 
 /**
  * A student's phone in a treasure hunt, at /hunt/:code. No account needed:
@@ -153,8 +153,9 @@ function Race({ play, hunt }: { play: Play; hunt: ReturnType<typeof useHunt> }) 
   const now = useTick(status === 'live' || Boolean(team.cooldownUntil));
   const left = secondsUntil(play.hunt.endsAt, hunt.skewMs, now);
   const cooldown = secondsUntil(team.cooldownUntil, hunt.skewMs, now);
-  const color = TEAM_COLOR[me.team];
-  const myName = play.hunt.teamNames[me.team];
+  const solo = play.hunt.play === 'solo';
+  const color = solo ? SOLO_COLOR : TEAM_COLOR[me.team];
+  const myName = solo ? me.name : play.hunt.teamNames[me.team];
 
   return (
     <div className="space-y-4">
@@ -162,7 +163,7 @@ function Race({ play, hunt }: { play: Play; hunt: ReturnType<typeof useHunt> }) 
       <div className="rounded-2xl p-4 text-white" style={{ background: color }}>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wider opacity-80"><FormattedMessage id="hunt.youAreOn" /></p>
+            <p className="text-xs font-bold uppercase tracking-wider opacity-80"><FormattedMessage id={solo ? 'hunt.solo.playing' : 'hunt.youAreOn'} /></p>
             <p className="text-2xl font-display font-extrabold truncate">{myName}</p>
           </div>
           {status === 'live' && (
@@ -172,17 +173,34 @@ function Race({ play, hunt }: { play: Play; hunt: ReturnType<typeof useHunt> }) 
             </div>
           )}
         </div>
-        <p className="text-xs mt-2 opacity-90 truncate">{me.name} · {play.teammates.filter((n) => n !== me.name).join(', ') || intl.formatMessage({ id: 'hunt.noTeammates' })}</p>
+        <p className="text-xs mt-2 opacity-90 truncate">
+          {solo
+            ? me.rank && status !== 'lobby' ? <FormattedMessage id="hunt.solo.place" values={{ rank: me.rank, of: me.of }} /> : <FormattedMessage id="hunt.solo.classmates" values={{ n: me.of }} />
+            : <>{me.name} · {play.teammates.filter((n) => n !== me.name).join(', ') || intl.formatMessage({ id: 'hunt.noTeammates' })}</>}
+        </p>
       </div>
 
-      {/* Both teams' race. */}
+      {/* The race: both teams — or, solo, the leaders and you. */}
       <div className="rounded-2xl border border-border bg-bg-card p-4 space-y-2">
-        {([me.team, (1 - me.team) as 0 | 1]).map((t) => {
-          const s = t === me.team ? team : rival;
-          return (
-            <RaceTrack key={t} name={play.hunt.teamNames[t]} team={t} stations={play.hunt.stations} position={s.position} phase={s.phase} compact />
-          );
-        })}
+        {solo
+          ? play.standings.map((s) => (
+            <RaceTrack
+              key={s.id}
+              name={`${s.rank}. ${s.me ? intl.formatMessage({ id: 'teams.you' }) : s.name}`}
+              team={0}
+              color={s.me ? SOLO_COLOR : 'var(--color-text-muted)'}
+              stations={play.hunt.stations}
+              position={s.position}
+              phase={s.phase}
+              compact
+            />
+          ))
+          : rival && ([me.team, (1 - me.team) as 0 | 1]).map((t) => {
+            const s = t === me.team ? team : rival;
+            return (
+              <RaceTrack key={t} name={play.hunt.teamNames[t]} team={t} stations={play.hunt.stations} position={s.position} phase={s.phase} compact />
+            );
+          })}
       </div>
 
       <div className="rounded-2xl border border-border bg-bg-card p-5">
@@ -208,6 +226,24 @@ function Stage({ play, hunt, cooldown }: { play: Play; hunt: ReturnType<typeof u
         <div className="text-4xl mb-3 animate-bounce" aria-hidden>⏳</div>
         <p className="font-display font-extrabold text-lg text-text-primary"><FormattedMessage id="hunt.waitStart" /></p>
         <p className="text-sm text-text-muted mt-1"><FormattedMessage id="hunt.waitStartBody" /></p>
+      </div>
+    );
+  }
+
+  if (play.hunt.play === 'solo' && (outcome.over || team.phase === 'done')) {
+    const champ = outcome.champion;
+    const first = champ?.id === me.id;
+    return (
+      <div className="text-center py-4">
+        <div className="text-6xl mb-3" aria-hidden>{first ? '🏆' : team.phase === 'done' ? '🎉' : '⌛'}</div>
+        <p className="font-display font-extrabold text-2xl text-text-primary">
+          {first ? <FormattedMessage id="hunt.solo.youFirst" />
+            : team.phase === 'done' ? <FormattedMessage id="hunt.solo.youFinished" values={{ rank: me.rank ?? 0 }} />
+            : champ ? <FormattedMessage id="hunt.solo.theyFirst" values={{ name: champ.name }} />
+            : <FormattedMessage id="hunt.finished" />}
+        </p>
+        {!outcome.over && <p className="text-sm text-text-muted mt-2"><FormattedMessage id="hunt.solo.waitOthers" /></p>}
+        {outcome.over && me.rank && <p className="text-sm text-text-muted mt-2"><FormattedMessage id="hunt.solo.place" values={{ rank: me.rank, of: me.of }} /></p>}
       </div>
     );
   }

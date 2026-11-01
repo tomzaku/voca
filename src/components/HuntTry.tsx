@@ -15,7 +15,7 @@ import {
   type Rehearsal,
 } from '../lib/rehearsal';
 import { HuntQuestion, TreasureLock } from './hunt/HuntQuestion';
-import { RaceTrack, TEAM_COLOR } from './hunt/teams';
+import { RaceTrack, SOLO_COLOR, TEAM_COLOR } from './hunt/teams';
 
 /**
  * The teacher plays her own hunt through as a student, at /hunts/:id/try —
@@ -59,6 +59,7 @@ export function HuntTry() {
   const station = currentStation(hunt, state);
   const question = currentQuestion(hunt, state);
   const n = hunt.stations.length;
+  const solo = hunt.play === 'solo';
   const act = (next: typeof state) => { setState(next); setReveal(false); };
   const onAnswer = (a: string | string[]) => act(answer(hunt, state, a));
 
@@ -77,16 +78,24 @@ export function HuntTry() {
       </div>
 
       <p className="rounded-xl bg-accent-yellow/10 border border-accent-yellow/40 px-3 py-2 text-xs text-text-secondary leading-relaxed">
-        <FormattedMessage id="hunt.try.note" values={{ need: hunt.need }} />
+        <FormattedMessage id={solo ? 'hunt.try.noteSolo' : 'hunt.try.note'} values={{ need: hunt.need }} />
       </p>
 
       {/* What a Red student's phone shows. */}
-      <div className="rounded-2xl p-4 text-white" style={{ background: TEAM_COLOR[0] }}>
-        <p className="text-xs font-bold uppercase tracking-wider opacity-80"><FormattedMessage id="hunt.youAreOn" /></p>
-        <p className="text-2xl font-display font-extrabold">{hunt.teamNames[0]}</p>
+      <div className="rounded-2xl p-4 text-white" style={{ background: solo ? SOLO_COLOR : TEAM_COLOR[0] }}>
+        <p className="text-xs font-bold uppercase tracking-wider opacity-80"><FormattedMessage id={solo ? 'hunt.solo.playing' : 'hunt.youAreOn'} /></p>
+        <p className="text-2xl font-display font-extrabold">{solo ? intl.formatMessage({ id: 'teams.you' }) : hunt.teamNames[0]}</p>
       </div>
       <div className="rounded-2xl border border-border bg-bg-card p-4">
-        <RaceTrack name={hunt.teamNames[0]} team={0} stations={n} position={state.position} phase={state.phase} compact />
+        <RaceTrack
+          name={solo ? intl.formatMessage({ id: 'teams.you' }) : hunt.teamNames[0]}
+          team={0}
+          color={solo ? SOLO_COLOR : undefined}
+          stations={n}
+          position={state.position}
+          phase={state.phase}
+          compact
+        />
       </div>
 
       <div className="rounded-2xl border border-border bg-bg-card p-5 space-y-4">

@@ -6,7 +6,7 @@ import { speakText, stopSpeaking } from '../../lib/tts';
 import { usePicture, useTick, type HuntHandle } from '../../hooks/useHunt';
 import type { Play, PublicQuestion } from '../../lib/huntsApi';
 import { HudCenter, PixelButton, PixelChip, PixelIcon, PixelLetter, PixelLoader } from './pixel';
-import { TEAM_PX } from '../hunt/teams';
+import { SOLO_PX, TEAM_PX } from '../hunt/teams';
 
 // A treasure hunt played in the world (/world?hunt=CODE). The same race as the
 // classroom's — same hook, same server — drawn in the world's pixel kit: a
@@ -37,7 +37,8 @@ export function HuntHud({ code, hunt, onOpen }: { code: string; hunt: HuntHandle
   if (!play) return null;
 
   const { team, me, rival, outcome } = play;
-  const color = TEAM_PX[me.team];
+  const solo = play.hunt.play === 'solo';
+  const color = solo ? SOLO_PX : TEAM_PX[me.team];
   const rivalTeam = (1 - me.team) as 0 | 1;
   const left = secondsUntil(play.hunt.endsAt, hunt.skewMs, now);
   const canOpen = play.hunt.status === 'live' && !outcome.over && (team.phase === 'solve' || team.phase === 'final');
@@ -60,18 +61,25 @@ export function HuntHud({ code, hunt, onOpen }: { code: string; hunt: HuntHandle
       <div className="px-notch px-frame px-3.5 py-2.5 space-y-2">
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 shrink-0" style={{ background: color }} />
-          <span className="px-title !text-[14px] truncate" style={{ color }}>{play.hunt.teamNames[me.team]}</span>
+          <span className="px-title !text-[14px] truncate" style={{ color }}>{solo ? me.name : play.hunt.teamNames[me.team]}</span>
           <Dots n={play.hunt.stations} at={team.position} color={color} />
           <span className="flex-1" />
           {play.hunt.status === 'live' && (
             <span className="px-num text-[16px] flex items-center gap-1"><PixelIcon name="hourglass" size={2} />{clock(left)}</span>
           )}
         </div>
-        <div className="flex items-center gap-2 opacity-80">
-          <span className="w-3 h-3 shrink-0" style={{ background: TEAM_PX[rivalTeam] }} />
-          <span className="px-title !text-[12px] truncate text-[var(--px-muted)]">{rival.name}</span>
-          <Dots n={play.hunt.stations} at={rival.position} color={TEAM_PX[rivalTeam]} />
-        </div>
+        {/* The race: the other team — or, solo, your place in the class. */}
+        {rival ? (
+          <div className="flex items-center gap-2 opacity-80">
+            <span className="w-3 h-3 shrink-0" style={{ background: TEAM_PX[rivalTeam] }} />
+            <span className="px-title !text-[12px] truncate text-[var(--px-muted)]">{rival.name}</span>
+            <Dots n={play.hunt.stations} at={rival.position} color={TEAM_PX[rivalTeam]} />
+          </div>
+        ) : me.rank && play.hunt.status !== 'lobby' ? (
+          <p className="px-title !text-[12px] text-[var(--px-muted)]">
+            <FormattedMessage id="hunt.solo.place" values={{ rank: me.rank, of: me.of }} />
+          </p>
+        ) : null}
         <div className="flex items-center gap-2">
           <p className="flex-1 text-[15px] leading-snug">{task}</p>
           {canOpen && (
@@ -99,6 +107,12 @@ function Dots({ n, at, color }: { n: number; at: number; color: string }) {
 
 function Result({ play }: { play: Play }) {
   const { outcome, me } = play;
+  if (play.hunt.play === 'solo') {
+    if (outcome.champion?.id === me.id) return <FormattedMessage id="hunt.solo.youFirst" />;
+    if (play.team.phase === 'done') return <FormattedMessage id="hunt.solo.youFinished" values={{ rank: me.rank ?? 0 }} />;
+    if (outcome.champion) return <FormattedMessage id="hunt.solo.theyFirst" values={{ name: outcome.champion.name }} />;
+    return <FormattedMessage id="hunt.finished" />;
+  }
   if (outcome.winner === me.team) return <FormattedMessage id="hunt.youWon" />;
   if (outcome.over && outcome.winner === null) return <FormattedMessage id="hunt.draw" />;
   if (outcome.winner !== null) return <FormattedMessage id="hunt.theyWon" values={{ team: play.hunt.teamNames[outcome.winner] }} />;

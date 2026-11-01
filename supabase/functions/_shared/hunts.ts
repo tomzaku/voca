@@ -205,9 +205,91 @@ export function teamState(
   events: HuntEvent[],
 ): TeamState {
   const size = players.filter((p) => p.team === team).length;
-  const need = needFor(needSetting, size);
-  const mine = events.filter((e) => e.team === team);
-  const order = stationOrder(team, stations.length);
+  return walk(stations, stationOrder(team, stations.length), needFor(needSetting, size), events.filter((e) => e.team === team), team);
+}
+
+// ── Solo: every student for themselves ────────────────────────────────────
+
+/** How a hunt is played: two teams racing, or every student on their own. */
+export type PlayStyle = 'teams' | 'solo';
+
+/**
+ * A solo player's route: the stations in order, starting from their own place
+ * in the roster — so a class spreads out across the cards instead of crowding
+ * the first one.
+ */
+export function soloOrder(slot: number, n: number): number[] {
+  const shift = ((slot % n) + n) % n;
+  return Array.from({ length: n }, (_, i) => (i + shift) % n);
+}
+
+/** A player's place in the roster: joining order, then id — stable across reads. */
+export function rosterSlot(players: Player[], playerId: string): number {
+  const sorted = [...players].sort((a, b) => a.joined_at.localeCompare(b.joined_at) || a.id.localeCompare(b.id));
+  return Math.max(0, sorted.findIndex((p) => p.id === playerId));
+}
+
+/**
+ * One solo player's place in their race, replayed from their own rows only:
+ * they find every station themselves and one right answer clears it.
+ */
+export function soloState(stations: Station[], player: Player, players: Player[], events: HuntEvent[]): TeamState {
+  const order = soloOrder(rosterSlot(players, player.id), stations.length);
+  return walk(stations, order, 1, events.filter((e) => e.player_id === player.id), player.team);
+}
+
+export interface Standing {
+  id: string;
+  name: string;
+  rank: number;
+  state: TeamState;
+}
+
+/**
+ * The solo leaderboard: those who opened the treasure first, in the order
+ * they did; then everyone else by stations cleared. Level players share a
+ * rank — nobody is placed above a classmate for joining earlier.
+ */
+export function soloStandings(stations: Station[], players: Player[], events: HuntEvent[]): Standing[] {
+  const rows = players.map((p) => ({ id: p.id, name: p.name, state: soloState(stations, p, players, events) }));
+  const key = (r: typeof rows[number]) => [r.state.finishedAt ? 0 : 1, r.state.finishedAt ?? '', -r.state.position] as const;
+  rows.sort((a, b) => {
+    const [fa, ta, pa] = key(a);
+    const [fb, tb, pb] = key(b);
+    return fa - fb || ta.localeCompare(tb) || pa - pb || a.name.localeCompare(b.name);
+  });
+  const out: Standing[] = [];
+  rows.forEach((r, i) => {
+    const prev = out[i - 1];
+    const tied = prev && !r.state.finishedAt && !prev.state.finishedAt && prev.state.position === r.state.position;
+    out.push({ ...r, rank: tied ? prev.rank : i + 1 });
+  });
+  return out;
+}
+
+/**
+ * A solo race's result: the first to open the treasure is the champion; if
+ * the clock runs out first, whoever got furthest — unless several are level,
+ * which is a draw. Over when ended, out of time, or everyone is done.
+ */
+export function soloOutcome(
+  standings: Standing[],
+  hunt: { status: string; ends_at: string | null },
+  now: number,
+): { over: boolean; champion: { id: string; name: string } | null } {
+  const timeUp = hunt.ends_at !== null && Date.parse(hunt.ends_at) <= now;
+  const allDone = standings.length > 0 && standings.every((s) => s.state.phase === 'done');
+  const over = hunt.status === 'ended' || (hunt.status === 'live' && timeUp) || allDone;
+  const first = standings[0] as Standing | undefined;
+  if (!first || hunt.status === 'lobby') return { over, champion: null };
+  if (first.state.finishedAt) return { over, champion: { id: first.id, name: first.name } };
+  if (!over || first.state.position === 0) return { over, champion: null };
+  const tied = standings.filter((s) => s.rank === first.rank).length > 1;
+  return { over, champion: tied ? null : { id: first.id, name: first.name } };
+}
+
+/** The station walk both styles share: along `order`, needing `need` solvers at each. */
+function walk(stations: Station[], order: number[], need: number, mine: HuntEvent[], team: number): TeamState {
   const letters: string[] = [];
 
   for (let position = 0; position < order.length; position++) {

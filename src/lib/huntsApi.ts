@@ -13,6 +13,8 @@ import { request } from './api';
 import type { Rehearsal } from './rehearsal';
 
 export type HuntMode = 'qr' | 'world';
+/** Two teams racing, or every student on their own. */
+export type PlayStyle = 'teams' | 'solo';
 export type HuntStatus = 'lobby' | 'live' | 'ended';
 export type Phase = 'find' | 'solve' | 'final' | 'done';
 
@@ -23,6 +25,7 @@ export interface HuntSummary {
   code: string;
   title: string;
   mode: HuntMode;
+  play: PlayStyle;
   status: HuntStatus;
   stations: number;
   teamNames: [string, string];
@@ -49,7 +52,18 @@ export interface TeamProgress {
 
 export interface Outcome {
   over: boolean;
+  /** Teams: the winning team. Always null in a solo hunt. */
   winner: 0 | 1 | null;
+  /** Solo: the first to open the treasure (or furthest when time ran out). Always null with teams. */
+  champion: { id: string; name: string } | null;
+}
+
+/** A line of a solo hunt's leaderboard. */
+export interface StandingRow extends TeamProgress {
+  id: string;
+  name: string;
+  /** Level players share a rank. */
+  rank: number;
 }
 
 export interface Board {
@@ -62,6 +76,8 @@ export interface Board {
     order: number[];
   })[];
   /** Newest first. A miss carries what the student gave. */
+  /** Solo: everyone, best first. Empty in a team hunt. */
+  standings: StandingRow[];
   feed: { at: string; team: 0 | 1; kind: 'found' | 'solve' | 'miss' | 'finish'; station: number; player: string | null; given: string | null }[];
   outcome: Outcome;
 }
@@ -86,12 +102,14 @@ export interface Play {
     code: string;
     title: string;
     mode: HuntMode;
+    play: PlayStyle;
     status: HuntStatus;
     stations: number;
     teamNames: [string, string];
     endsAt: string | null;
   };
-  me: { id: string; name: string; team: 0 | 1 };
+  /** `rank`: your place on a solo leaderboard (null with teams), out of `of` players. */
+  me: { id: string; name: string; team: 0 | 1; rank: number | null; of: number };
   teammates: string[];
   team: Omit<TeamProgress, 'letters'> & {
     iSolved: boolean;
@@ -103,7 +121,10 @@ export interface Play {
     question: PublicQuestion | null;
     cooldownUntil: string | null;
   };
-  rival: TeamProgress & { name: string };
+  /** The other team. Null in a solo hunt — see `standings`. */
+  rival: (TeamProgress & { name: string }) | null;
+  /** Solo: the leaders, plus you (`me`). Empty with teams. */
+  standings: (StandingRow & { me: boolean })[];
   outcome: Outcome;
   /** For the countdown: the device's clock may be off from the server's. */
   serverTime: string;
@@ -120,6 +141,7 @@ export interface Preview {
 export interface NewHunt {
   title: string;
   mode: HuntMode;
+  play: PlayStyle;
   treasure: string;
   /** The question set it plays — dealt round the stations by the server. */
   setId: string;

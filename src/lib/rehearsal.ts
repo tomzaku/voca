@@ -17,7 +17,7 @@ import {
   type PublicQuestion,
   type StoredQuestion,
 } from '../../supabase/functions/_shared/hunts';
-import type { HuntMode } from './huntsApi';
+import type { HuntMode, PlayStyle } from './huntsApi';
 
 export interface RehearsalStation {
   index: number;
@@ -30,6 +30,7 @@ export interface RehearsalStation {
 export interface Rehearsal {
   title: string;
   mode: HuntMode;
+  play: PlayStyle;
   treasure: string;
   need: number;
   teamNames: [string, string];

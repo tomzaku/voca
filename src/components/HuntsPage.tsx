@@ -15,7 +15,7 @@ import {
 import { createSet, fetchSet, listSets, saveSet, type SetSummary } from '../lib/questionSetsApi';
 import { QuestionEditor } from './hunt/QuestionEditor';
 import { Selector } from './Selector';
-import { createHunt, deleteHunt, listHunts, type HuntMode, type HuntSummary } from '../lib/huntsApi';
+import { createHunt, deleteHunt, listHunts, type HuntMode, type HuntSummary, type PlayStyle } from '../lib/huntsApi';
 
 const DURATIONS = [10, 15, 20, 30, 45, 60];
 
@@ -124,6 +124,8 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
 
   const [title, setTitle] = useState(() => intl.formatMessage({ id: 'hunt.title' }));
   const [mode, setMode] = useState<HuntMode>('qr');
+  const [play, setPlay] = useState<PlayStyle>('teams');
+  const solo = play === 'solo';
   const [treasure, setTreasure] = useState('GOLD');
   const [need, setNeed] = useState(2);
   const [duration, setDuration] = useState(20);
@@ -182,6 +184,7 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
       const hunt = await createHunt({
         title: title.trim(),
         mode,
+        play,
         treasure: cleanTreasure,
         setId: set.id,
         clues: mode === 'qr' ? clues.slice(0, count) : undefined,
@@ -216,6 +219,20 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
             <button key={m} type="button" onClick={() => setMode(m)} className={`text-left p-3 rounded-xl border-2 ${mode === m ? 'border-accent-cyan bg-accent-cyan/10' : 'border-border'}`}>
               <p className="font-bold text-text-primary">{m === 'qr' ? '🏫' : '🏯'} <FormattedMessage id={`hunt.mode.${m}`} /></p>
               <p className="text-xs text-text-muted mt-0.5"><FormattedMessage id={`hunt.mode.${m}Hint`} /></p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <span className={label}><FormattedMessage id="hunt.teacher.whoPlays" /></span>
+        <div className="grid sm:grid-cols-2 gap-2">
+          {(['teams', 'solo'] as const).map((p) => (
+            <button key={p} type="button" onClick={() => setPlay(p)} className={`text-left p-3 rounded-xl border-2 ${play === p ? 'border-accent-cyan bg-accent-cyan/10' : 'border-border'}`}>
+              <p className="font-bold text-text-primary flex items-center gap-1.5">
+                <Icon icon={p === 'teams' ? 'lucide:users' : 'lucide:user'} /> <FormattedMessage id={`hunt.play.${p}`} />
+              </p>
+              <p className="text-xs text-text-muted mt-0.5"><FormattedMessage id={`hunt.play.${p}Hint`} /></p>
             </button>
           ))}
         </div>
@@ -347,13 +364,17 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <span className={label}><FormattedMessage id="hunt.teacher.need" /></span>
-          <div className="flex gap-1.5">
-            {[1, 2, 3].map((n) => <button key={n} type="button" onClick={() => setNeed(n)} className={chip(need === n)}>{n}</button>)}
+        {/* Solo: a student clears their own station with one right answer —
+            there are no teammates to wait for. */}
+        {!solo && (
+          <div>
+            <span className={label}><FormattedMessage id="hunt.teacher.need" /></span>
+            <div className="flex gap-1.5">
+              {[1, 2, 3].map((n) => <button key={n} type="button" onClick={() => setNeed(n)} className={chip(need === n)}>{n}</button>)}
+            </div>
+            <p className="text-xs text-text-muted mt-1"><FormattedMessage id="hunt.teacher.needHint" /></p>
           </div>
-          <p className="text-xs text-text-muted mt-1"><FormattedMessage id="hunt.teacher.needHint" /></p>
-        </div>
+        )}
         <div>
           <span className={label}><FormattedMessage id="hunt.teacher.duration" /></span>
           <div className="flex flex-wrap gap-1.5">
@@ -362,7 +383,7 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
         </div>
       </div>
 
-      <div>
+      {!solo && <div>
         <span className={label}><FormattedMessage id="hunt.teacher.teamNames" /></span>
         <div className="grid grid-cols-2 gap-2">
           {[0, 1].map((i) => (
@@ -376,7 +397,7 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
             />
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* The game in plain words, from her own settings — what a teacher
           new to it needs before pressing Create. */}
@@ -387,10 +408,10 @@ function CreateHunt({ onCancel }: { onCancel?: () => void }) {
           </p>
           <ol className="list-decimal pl-5 space-y-1 text-sm text-text-secondary">
             <li><FormattedMessage id="hunt.howTo.stations" values={{ word: cleanTreasure, n: count, mode }} /></li>
-            <li><FormattedMessage id="hunt.howTo.need" values={{ need }} /></li>
+            <li>{solo ? <FormattedMessage id="hunt.howTo.needSolo" /> : <FormattedMessage id="hunt.howTo.need" values={{ need }} />}</li>
             <li><FormattedMessage id="hunt.howTo.wrong" /></li>
-            <li><FormattedMessage id="hunt.howTo.questions" values={{ total: askable.length, per: Math.max(1, Math.floor(askable.length / count)) }} /></li>
-            <li><FormattedMessage id="hunt.howTo.final" values={{ word: cleanTreasure, n: count, min: duration }} /></li>
+            <li><FormattedMessage id="hunt.howTo.questions" values={{ total: askable.length, per: Math.max(1, Math.floor(askable.length / count)), play }} /></li>
+            <li><FormattedMessage id="hunt.howTo.final" values={{ word: cleanTreasure, n: count, min: duration, play }} /></li>
             <li><FormattedMessage id="hunt.howTo.try" /></li>
           </ol>
         </div>

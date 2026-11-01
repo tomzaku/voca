@@ -4,7 +4,8 @@
 //
 // The teacher, signed in:
 //   GET    /hunts                         → { hunts }   their own, newest first
-//   POST   /hunts      { title, mode, treasure, setId, clues, places, need, durationMin, teamNames } → { hunt }
+//   POST   /hunts      { title, mode, play, treasure, setId, clues, places, need, durationMin, teamNames } → { hunt }
+//                      play: 'teams' (two teams race) or 'solo' (every student for themselves)
 //   DELETE /hunts      ?id=               → { ok }      idempotent
 //   GET    /hunts/board ?id=              → { board }   the projector's view
 //   GET    /hunts/results ?id=            → { results } every question and every student, how they did
@@ -69,12 +70,19 @@ import {
   randomCode,
   shownLetters,
   stationOrder,
+  soloOutcome,
+  soloOrder,
+  soloStandings,
+  soloState,
+  rosterSlot,
   teamForNewPlayer,
   teamState,
   TEAMS,
   UUID,
   type HuntEvent,
   type Player,
+  type PlayStyle,
+  type Standing,
   type QuestionColumns,
   type Station,
   type StoredQuestion,
@@ -86,6 +94,8 @@ const MAX_HUNTS_PER_OWNER = 50;
 const JOIN_CODE_LENGTH = 6;
 const CARD_CODE_LENGTH = 4;
 const FEED_LIMIT = 15;
+/** Leaders a solo player's phone shows, besides themselves. */
+const SOLO_TOP = 5;
 /** Rows one results read takes: a long hunt's answers, with room to spare. */
 const RESULTS_LIMIT = 5000;
 
@@ -98,6 +108,7 @@ interface HuntRow {
   code: string;
   title: string;
   mode: 'qr' | 'world';
+  play: PlayStyle;
   treasure: string;
   need: number;
   team_names: string[];
@@ -256,6 +267,7 @@ function toSummary(h: HuntRow, playerCount?: number) {
     code: h.code,
     title: h.title,
     mode: h.mode,
+    play: h.play ?? 'teams',
     status: h.status,
     setId: h.set_id,
     stations: h.treasure.length,
@@ -274,6 +286,29 @@ function effectiveStatus(h: HuntRow, now: number): HuntRow['status'] {
   return h.status === 'live' && !isLive(h, now) ? 'ended' : h.status;
 }
 
+// ── Whose race a player is in ───────────────────────────────────────────────
+
+const isSolo = (h: HuntRow) => h.play === 'solo';
+
+/** A player's place in the race: their team's in a team hunt, their own in a solo one. */
+function stateFor(h: Hunt, player: PlayerRow, players: PlayerRow[], events: HuntEvent[]): TeamState {
+  return isSolo(h)
+    ? soloState(h.stations, player, players, events)
+    : teamState(h.stations, player.team, h.need, players, events);
+}
+
+/** The order a player walks the stations in. */
+function routeFor(h: Hunt, player: PlayerRow, players: PlayerRow[]): number[] {
+  return isSolo(h)
+    ? soloOrder(rosterSlot(players, player.id), h.stations.length)
+    : stationOrder(player.team, h.stations.length);
+}
+
+/** A leaderboard line, as both screens show it. */
+function standingView(s: Standing) {
+  return { id: s.id, name: s.name, rank: s.rank, ...stateView(s.state) };
+}
+
 // ── The teacher's board, and the results ────────────────────────────────────
 
 async function board(db: SupabaseClient, h: Hunt) {
@@ -286,7 +321,9 @@ async function board(db: SupabaseClient, h: Hunt) {
   ]);
   if (finds.error) throw new Error(finds.error.message);
   if (answers.error) throw new Error(answers.error.message);
-  const states = TEAMS.map((t) => teamState(h.stations, t, h.need, players, events));
+  const solo = isSolo(h);
+  const states = solo ? [] : TEAMS.map((t) => teamState(h.stations, t, h.need, players, events));
+  const standings = solo ? soloStandings(h.stations, players, events) : [];
   const names = new Map(players.map((p) => [p.id, p.name]));
   type Feed = { at: string; team: number; kind: HuntEvent['kind']; station: number; player: string | null; given: string | null };
   const feed: Feed[] = [
@@ -307,15 +344,19 @@ async function board(db: SupabaseClient, h: Hunt) {
     // The owner's own hunt, so the cards and clues are theirs to see — but not
     // the questions, which the board has no use for.
     stations: h.stations.map((s, i) => ({ index: i, card: s.card, place: s.place, clue: s.clue, letter: s.letter })),
-    teams: TEAMS.map((t) => ({
+    // Teams: the two tracks. Solo: no teams — the leaderboard instead.
+    teams: solo ? [] : TEAMS.map((t) => ({
       team: t,
       name: h.team_names[t],
       players: players.filter((p) => p.team === t).map((p) => ({ id: p.id, name: p.name })),
       order: stationOrder(t, h.stations.length),
       ...stateView(states[t]),
     })),
+    standings: standings.map(standingView),
     feed,
-    outcome: outcome(states, h, now),
+    outcome: solo
+      ? { over: soloOutcome(standings, h, now).over, winner: null, champion: soloOutcome(standings, h, now).champion }
+      : { ...outcome(states, h, now), champion: null },
   };
 }
 
@@ -401,9 +442,11 @@ async function playerFor(db: SupabaseClient, token: unknown): Promise<{ player: 
 async function play(db: SupabaseClient, h: Hunt, me: PlayerRow) {
   const now = Date.now();
   const [players, events] = await Promise.all([loadPlayers(db, h.id), loadProgress(db, h.id)]);
-  const states = TEAMS.map((t) => teamState(h.stations, t, h.need, players, events));
-  const mine = states[me.team];
-  const rival = states[me.team === 0 ? 1 : 0];
+  const solo = isSolo(h);
+  const states = solo ? [] : TEAMS.map((t) => teamState(h.stations, t, h.need, players, events));
+  const standings = solo ? soloStandings(h.stations, players, events) : [];
+  const mine = solo ? standings.find((s) => s.id === me.id)?.state ?? soloState(h.stations, me, players, events) : states[me.team];
+  const rival = solo ? null : states[me.team === 0 ? 1 : 0];
   const live = isLive(h, now);
   const at = mine.station === null ? null : h.stations[mine.station];
 
@@ -426,13 +469,14 @@ async function play(db: SupabaseClient, h: Hunt, me: PlayerRow) {
       code: h.code,
       title: h.title,
       mode: h.mode,
+      play: h.play ?? 'teams',
       status: effectiveStatus(h, now),
       stations: h.stations.length,
       teamNames: h.team_names,
       endsAt: h.ends_at,
     },
-    me: { id: me.id, name: me.name, team: me.team },
-    teammates: players.filter((p) => p.team === me.team).map((p) => p.name),
+    me: { id: me.id, name: me.name, team: me.team, rank: standings.find((s) => s.id === me.id)?.rank ?? null, of: players.length },
+    teammates: solo ? [] : players.filter((p) => p.team === me.team).map((p) => p.name),
     team: {
       ...stateView(mine),
       iSolved,
@@ -445,8 +489,14 @@ async function play(db: SupabaseClient, h: Hunt, me: PlayerRow) {
       question,
       cooldownUntil: cooldown,
     },
-    rival: { name: h.team_names[rival.team], ...stateView(rival) },
-    outcome: outcome(states, h, now),
+    rival: rival ? { name: h.team_names[rival.team], ...stateView(rival) } : null,
+    // Solo: the leaders, and you — enough to race against, not the whole class.
+    standings: standings
+      .filter((s, i) => i < SOLO_TOP || s.id === me.id)
+      .map((s) => ({ ...standingView(s), me: s.id === me.id })),
+    outcome: solo
+      ? { ...soloOutcome(standings, h, now), winner: null }
+      : { ...outcome(states, h, now), champion: null },
     serverTime: new Date(now).toISOString(),
   };
 }
@@ -521,7 +571,8 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
         const token = [...crypto.getRandomValues(new Uint8Array(24))].map((x) => x.toString(16).padStart(2, '0')).join('');
         const { data, error } = await db
           .from('hunt_players')
-          .insert({ hunt_id: row.id, token_hash: await hashToken(token), name, team: teamForNewPlayer(players) })
+          // Solo: one roster, so everyone sits on team 0, which nothing reads.
+          .insert({ hunt_id: row.id, token_hash: await hashToken(token), name, team: isSolo(row) ? 0 : teamForNewPlayer(players) })
           .select('id, name, team, joined_at')
           .single();
         if (error) throw new Error(error.message);
@@ -554,7 +605,7 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
         if (!isLive(hunt, Date.now())) return jsonResponse(400, { error: 'The hunt isn’t running.' });
         const card = str(b.card, 40);
         const players = await loadPlayers(db, hunt.id);
-        const state = teamState(hunt.stations, player.team, hunt.need, players, await loadProgress(db, hunt.id));
+        const state = stateFor(hunt, player, players, await loadProgress(db, hunt.id));
         // A card is its code in the classroom, its landmark in the world.
         const match = (s: Station) => (hunt.mode === 'world' ? s.place === card : s.card === card.toUpperCase());
         const index = hunt.stations.findIndex(match);
@@ -565,7 +616,8 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
           if (error) throw new Error(error.message);
           result = 'found';
         } else {
-          const done = stationOrder(player.team, hunt.stations.length).indexOf(index) <= state.position;
+          const done = routeFor(hunt, player, players).indexOf(index) < state.position ||
+            (routeFor(hunt, player, players).indexOf(index) === state.position && state.phase !== 'find');
           result = done ? 'already' : 'notYet';
         }
         return jsonResponse(200, { result, play: await play(db, hunt, player) });
@@ -582,7 +634,7 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
           : str(b.answer, 60);
         if (!answer.length) return jsonResponse(400, { error: '"answer" is required.' });
         const players = await loadPlayers(db, hunt.id);
-        const state = teamState(hunt.stations, player.team, hunt.need, players, await loadProgress(db, hunt.id));
+        const state = stateFor(hunt, player, players, await loadProgress(db, hunt.id));
 
         if (state.phase === 'final') {
           const misses = await loadMisses(db, hunt.id, player.id, FINAL);
@@ -643,6 +695,7 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
         const title = str(b.title, MAX_TITLE);
         if (!title) return jsonResponse(400, { error: 'Give the hunt a name.' });
         const mode = b.mode === 'world' ? 'world' : 'qr';
+        const play: PlayStyle = b.play === 'solo' ? 'solo' : 'teams';
         const treasure = cleanTreasure(b.treasure);
 
         // The set it plays — hers, and only hers.
@@ -686,7 +739,9 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
               title,
               mode,
               treasure,
-              need: clampInt(b.need, 1, 5, 2),
+              play,
+              // Solo: one student clears their own station with one answer.
+              need: play === 'solo' ? 1 : clampInt(b.need, 1, 5, 2),
               team_names: cleanTeamNames(b.teamNames),
               duration_min: clampInt(b.durationMin, 5, 180, 30),
             })
@@ -737,6 +792,7 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
           rehearsal: {
             title: h.title,
             mode: h.mode,
+            play: h.play ?? 'teams',
             treasure: h.treasure,
             need: h.need,
             teamNames: h.team_names,
@@ -779,6 +835,7 @@ async function handle(req: Request, deps: Deps): Promise<Response> {
       case 'POST /move': {
         const b = await body();
         const h = await owned(b.id);
+        if (isSolo(h)) return jsonResponse(400, { error: 'A solo hunt has no teams to move between.' });
         if (typeof b.player !== 'string' || !UUID.test(b.player)) return jsonResponse(400, { error: '"player" is required.' });
         if (b.team !== 0 && b.team !== 1) return jsonResponse(400, { error: '"team" must be 0 or 1.' });
         const { error } = await db

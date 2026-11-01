@@ -35,6 +35,11 @@ import {
   stationOrder,
   teamForNewPlayer,
   teamState,
+  soloOrder,
+  soloOutcome,
+  soloStandings,
+  soloState,
+  rosterSlot,
   type HuntEvent,
   type Player,
   type Station,
@@ -506,5 +511,83 @@ describe('picture questions', () => {
     expect(cleanQuestions([{ ...pic, imageWord: '../etc' }])).toEqual([]);
     expect(cleanQuestions([{ ...pic, imageWord: '' }])).toEqual([]);
     expect(cleanQuestions([{ ...pic, options: undefined }])).toEqual([]);
+  });
+});
+
+describe('solo play', () => {
+  const stations = stationsFor('CAT');
+  const class3: Player[] = [
+    { id: 'ann', name: 'Ann', team: 0, joined_at: at(0) },
+    { id: 'bao', name: 'Bao', team: 0, joined_at: at(1) },
+    { id: 'cam', name: 'Cam', team: 0, joined_at: at(2) },
+  ];
+  /** A player clearing a station on their own: found, then one right answer. */
+  const clear = (p: string, s: number, sec = 0): HuntEvent[] => [ev(0, s, 'found', p, sec), ev(0, s, 'solve', p, sec)];
+
+  it('spreads the class across the stations: each starts somewhere else', () => {
+    expect([0, 1, 2].map((slot) => soloOrder(slot, 3)[0])).toEqual([0, 1, 2]);
+    for (let n = 3; n <= 8; n++) {
+      for (let slot = 0; slot < 12; slot++) {
+        expect([...soloOrder(slot, n)].sort((a, b) => a - b)).toEqual(Array.from({ length: n }, (_, i) => i));
+      }
+    }
+  });
+
+  it('places players by joining order', () => {
+    expect(class3.map((p) => rosterSlot(class3, p.id))).toEqual([0, 1, 2]);
+    expect(rosterSlot([...class3].reverse(), 'cam')).toBe(2);
+  });
+
+  it('counts only a player’s own finds and answers — a classmate can’t clear a station for them', () => {
+    const events = [...clear('bao', 0), ...clear('cam', 0)];
+    expect(soloState(stations, class3[0], class3, events)).toMatchObject({ phase: 'find', position: 0, station: 0 });
+    // Ann starts at station 0; Bao at 1 — so Bao's clear of station 0 isn't his first either.
+    expect(soloState(stations, class3[1], class3, events)).toMatchObject({ phase: 'find', position: 0, station: 1 });
+  });
+
+  it('needs one right answer per station, and walks on to the treasure', () => {
+    const events = [...clear('ann', 0), ...clear('ann', 1), ...clear('ann', 2)];
+    const s = soloState(stations, class3[0], class3, events);
+    expect([s.phase, s.need, s.letters]).toEqual(['final', 1, ['C', 'A', 'T']]);
+    expect(soloState(stations, class3[0], class3, [...events, ev(0, FINAL, 'finish', 'ann', 50)])).toMatchObject({ phase: 'done', finishedAt: at(50) });
+  });
+
+  it('ranks finishers by when they finished, then the rest by how far they got', () => {
+    const events = [
+      ...clear('ann', 0), ...clear('ann', 1),
+      ...clear('bao', 1), ...clear('bao', 2), ...clear('bao', 0), ev(0, FINAL, 'finish', 'bao', 90),
+      ...clear('cam', 2),
+    ];
+    const st = soloStandings(stations, class3, events);
+    expect(st.map((x) => [x.name, x.rank])).toEqual([['Bao', 1], ['Ann', 2], ['Cam', 3]]);
+  });
+
+  it('gives level players the same rank', () => {
+    const st = soloStandings(stations, class3, [...clear('ann', 0), ...clear('bao', 1)]);
+    expect(st.map((x) => x.rank)).toEqual([1, 1, 3]);
+  });
+
+  it('crowns the first to open the treasure, while the race stays open for the rest', () => {
+    const events = [...clear('ann', 0), ...clear('ann', 1), ...clear('ann', 2), ev(0, FINAL, 'finish', 'ann', 60)];
+    const r = soloOutcome(soloStandings(stations, class3, events), { status: 'live', ends_at: at(600) }, T0 + 100_000);
+    expect(r).toEqual({ over: false, champion: { id: 'ann', name: 'Ann' } });
+  });
+
+  it('is over when everyone is done', () => {
+    const events = class3.flatMap((p, i) => [...[0, 1, 2].flatMap((s) => clear(p.id, s)), ev(0, FINAL, 'finish', p.id, 60 + i)]);
+    expect(soloOutcome(soloStandings(stations, class3, events), { status: 'live', ends_at: at(600) }, T0).over).toBe(true);
+  });
+
+  it('when time runs out: whoever got furthest — or nobody, if level or nobody started', () => {
+    const live = { status: 'live', ends_at: at(60) };
+    const later = T0 + 61_000;
+    expect(soloOutcome(soloStandings(stations, class3, [...clear('ann', 0), ...clear('ann', 1), ...clear('bao', 1)]), live, later))
+      .toEqual({ over: true, champion: { id: 'ann', name: 'Ann' } });
+    expect(soloOutcome(soloStandings(stations, class3, [...clear('ann', 0), ...clear('bao', 1)]), live, later).champion).toBeNull();
+    expect(soloOutcome(soloStandings(stations, class3, []), live, later).champion).toBeNull();
+  });
+
+  it('is undecided in the lobby and with nobody there', () => {
+    expect(soloOutcome([], { status: 'lobby', ends_at: null }, T0)).toEqual({ over: false, champion: null });
   });
 });

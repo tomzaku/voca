@@ -56,7 +56,7 @@ export class FakeDb {
     const now = this.stamp();
     switch (table) {
       case 'hunts':
-        return { id: crypto.randomUUID(), set_id: null, need: 2, team_names: ['Red', 'Blue'], duration_min: 30, status: 'lobby', started_at: null, ends_at: null, created_at: now, ...row };
+        return { id: crypto.randomUUID(), set_id: null, play: 'teams', need: 2, team_names: ['Red', 'Blue'], duration_min: 30, status: 'lobby', started_at: null, ends_at: null, created_at: now, ...row };
       case 'hunt_players':
         return { id: crypto.randomUUID(), joined_at: now, ...row };
       case 'question_sets':

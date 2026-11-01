@@ -9,7 +9,7 @@ import { clock, secondsUntil } from '../lib/hunt';
 import { endHunt, fetchBoard, huntLink, movePlayer, startHunt, type Board } from '../lib/huntsApi';
 import { QrCode } from './hunt/QrCode';
 import { HuntResults } from './hunt/HuntResults';
-import { PhaseLabel, RaceTrack, TEAM_COLOR } from './hunt/teams';
+import { PhaseLabel, RaceTrack, SOLO_COLOR, TEAM_COLOR } from './hunt/teams';
 
 const POLL_MS = 2500;
 
@@ -128,17 +128,34 @@ export function HuntBoard() {
         <>
           {outcome.over && (
             <div className="rounded-3xl p-6 text-center text-white" style={{ background: outcome.winner === null ? 'var(--color-accent-purple)' : TEAM_COLOR[outcome.winner] }}>
-              <div className="text-6xl mb-2" aria-hidden>{outcome.winner === null ? '🤝' : '🏆'}</div>
+              <div className="text-6xl mb-2" aria-hidden>{outcome.winner === null && !outcome.champion ? '🤝' : '🏆'}</div>
               <p className="text-3xl sm:text-4xl font-display font-extrabold">
-                {outcome.winner === null
-                  ? <FormattedMessage id="hunt.draw" />
-                  : <FormattedMessage id="hunt.teamWins" values={{ team: teams[outcome.winner].name }} />}
+                {outcome.champion
+                  ? <FormattedMessage id="hunt.solo.champion" values={{ name: outcome.champion.name }} />
+                  : outcome.winner === null
+                    ? <FormattedMessage id="hunt.draw" />
+                    : <FormattedMessage id="hunt.teamWins" values={{ team: teams[outcome.winner].name }} />}
               </p>
               <p className="mt-2 text-lg opacity-90"><FormattedMessage id="hunt.treasureWas" values={{ word: hunt.treasure }} /></p>
             </div>
           )}
 
-          <div className="rounded-3xl border border-border bg-bg-card p-5 sm:p-8 space-y-6">
+          {/* Solo: the leaderboard — every student, best first. */}
+          {hunt.play === 'solo' && (
+            <div className="rounded-3xl border border-border bg-bg-card p-5 sm:p-6 space-y-2">
+              {board.standings.map((p) => (
+                <div key={p.id} className="flex items-center gap-3">
+                  <span className={`w-8 text-right font-display font-extrabold ${p.rank === 1 ? 'text-accent-yellow' : 'text-text-muted'}`}>{p.rank}</span>
+                  <div className="flex-1 min-w-0">
+                    <RaceTrack name={p.name} team={0} color={SOLO_COLOR} stations={hunt.stations} position={p.position} phase={p.phase} compact />
+                  </div>
+                  <span className="hidden sm:block w-44 text-xs text-text-muted truncate"><PhaseLabel phase={p.phase} solved={p.solved} need={p.need} /></span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {hunt.play !== 'solo' && <div className="rounded-3xl border border-border bg-bg-card p-5 sm:p-8 space-y-6">
             {teams.map((t) => (
               <div key={t.team} className="space-y-2">
                 <RaceTrack name={t.name} team={t.team} stations={hunt.stations} position={t.position} phase={t.phase} />
@@ -148,7 +165,7 @@ export function HuntBoard() {
                 </p>
               </div>
             ))}
-          </div>
+          </div>}
 
           <div className="rounded-2xl border border-border bg-bg-card p-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2"><FormattedMessage id="hunt.teacher.feed" /></h2>
@@ -199,6 +216,24 @@ function Lobby({ board, busy, onMove }: { board: Board; busy: boolean; onMove: (
         </button>
       </div>
       <div className="grid sm:grid-cols-2 gap-4">
+        {/* Solo: one roster, nobody to move between teams. */}
+        {hunt.play === 'solo' && (
+          <div className="sm:col-span-2 rounded-3xl border-2 bg-bg-card p-5" style={{ borderColor: SOLO_COLOR }}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-2xl font-display font-extrabold" style={{ color: SOLO_COLOR }}><FormattedMessage id="hunt.solo.players" /></h2>
+              <span className="text-sm font-bold text-text-muted">{board.standings.length}</span>
+            </div>
+            {board.standings.length === 0 ? (
+              <p className="text-sm text-text-muted"><FormattedMessage id="hunt.teacher.waitingPlayers" /></p>
+            ) : (
+              <ul className="flex flex-wrap gap-1.5">
+                {board.standings.map((p) => (
+                  <li key={p.id} className="rounded-xl bg-bg-tertiary px-3 py-1.5 font-bold text-text-primary">{p.name}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         {teams.map((t) => (
           <div key={t.team} className="rounded-3xl border-2 bg-bg-card p-5" style={{ borderColor: TEAM_COLOR[t.team] }}>
             <div className="flex items-center justify-between mb-3">
@@ -228,7 +263,9 @@ function Lobby({ board, busy, onMove }: { board: Board; busy: boolean; onMove: (
           </div>
         ))}
         <p className="sm:col-span-2 text-sm text-text-muted">
-          <FormattedMessage id="hunt.teacher.lobbyHint" values={{ need: hunt.need, min: hunt.durationMin }} />
+          {hunt.play === 'solo'
+            ? <FormattedMessage id="hunt.solo.lobbyHint" values={{ min: hunt.durationMin }} />
+            : <FormattedMessage id="hunt.teacher.lobbyHint" values={{ need: hunt.need, min: hunt.durationMin }} />}
         </p>
         <Link
           to={`/hunts/${hunt.id}/try`}

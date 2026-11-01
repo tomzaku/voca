@@ -19,6 +19,7 @@ const q = (word: string) => ({ type: 'definition' as const, prompt: `means ${wor
 const HUNT: Rehearsal = {
   title: 'Test',
   mode: 'qr',
+  play: 'teams',
   treasure: 'CAT',
   need: 2,
   teamNames: ['Red', 'Blue'],

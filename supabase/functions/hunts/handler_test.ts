@@ -280,11 +280,11 @@ Deno.test('a whole classroom race, start to treasure — and every answer on rec
     eq((await call('POST', '/answer', { token: bao.token, answer: 'GLOD' })).body.correct, false);
     eq((await call('POST', '/answer', { token: bao.token, answer: 'gold' })).status, 400);
     eq((await call('POST', '/answer', { token: ann.token, answer: 'gold' })).body.correct, true);
-    eq((await play(ann.token)).outcome, { over: false, winner: 0 });
+    eq((await play(ann.token)).outcome, { over: false, winner: 0, champion: null });
 
     eq((await call('POST', '/answer', { token: dan.token, answer: 'GOLD' })).body.correct, true);
     const board = (await call('GET', `/board?id=${hunt.id}`, undefined, TEACHER)).body.board;
-    eq(board.outcome, { over: true, winner: 0 });
+    eq(board.outcome, { over: true, winner: 0, champion: null });
     eq(board.teams.map((t: { phase: string }) => t.phase), ['done', 'done']);
     ok(board.feed[0].kind === 'finish' && board.feed[0].player === 'Dan', 'feed newest first');
     ok(!JSON.stringify(board).includes('"answer"'), 'board leaks answers');
@@ -323,7 +323,7 @@ Deno.test('the clock running out ends it, further along wins', async () => {
     eq((await call('POST', '/answer', { token: ann, answer: answerTo(q) })).body.correct, true);
     tick(5 * 60_000 + 1);
     const p = (await call('GET', `/play?token=${ann}`)).body.play;
-    eq([p.hunt.status, p.outcome], ['ended', { over: true, winner: 0 }]);
+    eq([p.hunt.status, p.outcome], ['ended', { over: true, winner: 0, champion: null }]);
     eq((await call('POST', '/answer', { token: ann, answer: 'x' })).status, 400);
     eq((await call('POST', '/join', { code: hunt.code, name: 'Late' })).status, 400);
   } finally {
@@ -338,7 +338,7 @@ Deno.test('the teacher can end it early; level is a draw', async () => {
   await call('POST', '/join', { code: hunt.code, name: 'Cam' });
   await call('POST', '/start', { id: hunt.id }, TEACHER);
   const r = await call('POST', '/end', { id: hunt.id }, TEACHER);
-  eq([r.body.board.hunt.status, r.body.board.outcome], ['ended', { over: true, winner: null }]);
+  eq([r.body.board.hunt.status, r.body.board.outcome], ['ended', { over: true, winner: null, champion: null }]);
 });
 
 Deno.test('a world hunt opens a station by its landmark', async () => {
@@ -429,4 +429,75 @@ Deno.test('the teacher can rehearse her own hunt, answers included — nobody el
   eq((await call('GET', `/stations?id=${hunt.id}`)).status, 401);
   // A rehearsal joins nobody and records nothing.
   eq([db.tables.hunt_players.length, db.tables.hunt_answers.length, db.tables.hunt_finds.length], [0, 0, 0]);
+});
+
+Deno.test('a solo hunt: every student races alone, ranked on a leaderboard', async () => {
+  const { call, db } = setup();
+  const hunt = await newHunt(call, db, { play: 'solo', need: 3, treasure: 'cat', clues: [] });
+  eq([hunt.play, db.tables.hunts[0].need], ['solo', 1]);
+  const join = async (name: string) => (await call('POST', '/join', { code: hunt.code, name })).body;
+  const ann = await join('Ann');
+  const bao = await join('Bao');
+  const cam = await join('Cam');
+  // One roster: no teams to fill or move between.
+  eq([ann.play.me.team, bao.play.me.team, cam.play.me.team], [0, 0, 0]);
+  eq(ann.play.teammates, []);
+  eq(ann.play.rival, null);
+  eq((await call('POST', '/move', { id: hunt.id, player: ann.play.me.id, team: 1 }, TEACHER)).status, 400);
+  await call('POST', '/start', { id: hunt.id }, TEACHER);
+
+  const cards = db.tables.hunt_stations.map((s) => s.card as string);
+  const play = async (t: string) => (await call('GET', `/play?token=${t}`)).body.play;
+  // Each starts at a different card.
+  const firsts = [];
+  for (const p of [ann, bao, cam]) firsts.push((await play(p.token)).team.station);
+  eq(new Set(firsts).size, 3);
+
+  // Clear every station alone: find it yourself, one right answer.
+  const clearAll = async (t: string) => {
+    for (let i = 0; i < 3; i++) {
+      const p = await play(t);
+      const card = cards.at(p.team.station)!;
+      eq((await call('POST', '/found', { token: t, card })).body.result, 'found');
+      const q = (await play(t)).team.question;
+      eq((await call('POST', '/answer', { token: t, answer: answerTo(q) })).body.correct, true);
+    }
+  };
+
+  // A classmate's find doesn't open the station for you.
+  const annFirst = (await play(ann.token)).team.station;
+  await call('POST', '/found', { token: bao.token, card: cards[annFirst] });
+  eq((await play(ann.token)).team.phase, 'find');
+
+  await clearAll(bao.token);
+  let p = await play(bao.token);
+  eq([p.team.phase, p.team.letters], ['final', ['A', 'C', 'T']]);
+  eq((await call('POST', '/answer', { token: bao.token, answer: 'CAT' })).body.correct, true);
+
+  p = await play(ann.token);
+  eq(p.outcome, { over: false, champion: { id: bao.play.me.id, name: 'Bao' }, winner: null });
+  eq(p.standings.map((s: { name: string; rank: number }) => [s.name, s.rank]), [['Bao', 1], ['Ann', 2], ['Cam', 2]]);
+  ok(p.standings.find((s: { me: boolean }) => s.me).name === 'Ann', 'marks you');
+  eq(p.me.rank, 2);
+
+  await clearAll(ann.token);
+  await call('POST', '/answer', { token: ann.token, answer: 'cat' });
+  const board = (await call('GET', `/board?id=${hunt.id}`, undefined, TEACHER)).body.board;
+  eq(board.teams, []);
+  eq(board.standings.map((s: { name: string; rank: number; phase: string }) => [s.name, s.rank, s.phase]), [['Bao', 1, 'done'], ['Ann', 2, 'done'], ['Cam', 3, 'find']]);
+  eq(board.outcome.champion.name, 'Bao');
+
+  // Results still list every student.
+  const res = (await call('GET', `/results?id=${hunt.id}`, undefined, TEACHER)).body.results;
+  eq(res.players.map((x: { name: string }) => x.name).sort(), ['Ann', 'Bao', 'Cam']);
+});
+
+Deno.test('a team hunt still says who won as a team, and has no leaderboard', async () => {
+  const { call, db } = setup();
+  const hunt = await newHunt(call, db);
+  eq(hunt.play, 'teams');
+  const t = (await call('POST', '/join', { code: hunt.code, name: 'Ann' })).body.token;
+  const p = (await call('GET', `/play?token=${t}`)).body.play;
+  eq([p.standings, p.outcome.champion, p.me.rank], [[], null, null]);
+  ok(p.rival, 'rival team shown');
 });

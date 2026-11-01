@@ -5,24 +5,29 @@ import type { Phase } from '../../lib/huntsApi';
 export const TEAM_COLOR = ['var(--color-accent-red)', 'var(--color-accent-blue)'] as const;
 /** The same, as the pixel kit draws it in the world. */
 export const TEAM_PX = ['#e0533f', '#4f8fe0'] as const;
+/** A solo player's colour — no team's — on the app's screens and in the world. */
+export const SOLO_COLOR = 'var(--color-accent-purple)';
+export const SOLO_PX = '#a77bf0';
 
 /**
  * A team's run of stations as a row of dots — done, here, still to come — and
  * a chest at the end that opens when they do.
  */
-export function RaceTrack({ name, team, stations, position, phase, compact = false }: {
+export function RaceTrack({ name, team, stations, position, phase, compact = false, color: own }: {
   name: string;
   team: 0 | 1;
+  /** A colour of its own — a solo player's line, which belongs to no team. */
+  color?: string;
   stations: number;
   position: number;
   phase: Phase;
   compact?: boolean;
 }) {
-  const color = TEAM_COLOR[team];
+  const color = own ?? TEAM_COLOR[team];
   const dot = compact ? 'w-3 h-3' : 'w-5 h-5 sm:w-7 sm:h-7';
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <span className={`shrink-0 font-display font-extrabold truncate ${compact ? 'text-xs w-14' : 'text-base sm:text-xl w-24 sm:w-36'}`} style={{ color }}>
+      <span className={`shrink-0 font-display font-extrabold truncate ${compact ? (own ? 'text-xs w-24' : 'text-xs w-14') : 'text-base sm:text-xl w-24 sm:w-36'}`} style={{ color }}>
         {name}
       </span>
       <div className="flex items-center gap-1 sm:gap-1.5 flex-1">
