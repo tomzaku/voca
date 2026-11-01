@@ -26,6 +26,7 @@ import { MemberRing } from './MemberAvatars';
 import { MindMapButton } from './MindMapButton';
 import { WordMindMap } from './WordMindMap';
 import { QuizSetup } from './QuizSetup';
+import { CollectionTests } from './tests/CollectionTests';
 import { LoadWordDetails } from './WordDetails';
 
 /** Podium colours, matching the team leaderboard's medals. */
@@ -639,6 +640,11 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
             </>
           )}
         </section>
+
+        {/* ── Tests ── the owner sends them; members take them. */}
+        {col && user && (isOwner || joined || col.isPublic) && (
+          <CollectionTests collectionId={col.id} isOwner={isOwner} />
+        )}
 
         {/* ── Leaderboard ── (server lists only — the Levels have no members) */}
         {col && (

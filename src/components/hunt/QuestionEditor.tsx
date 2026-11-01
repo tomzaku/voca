@@ -40,7 +40,7 @@ import {
  * Generating happens here, while the teacher is signed in to look the words
  * up; the cards are plain data after that, so editing costs nothing.
  */
-export function QuestionEditor({ questions, onChange, pictures, onPictures, needed }: {
+export function QuestionEditor({ questions, onChange, pictures, onPictures, needed, initialWords }: {
   questions: EditableQuestion[];
   onChange: (next: EditableQuestion[]) => void;
   /** Picture questions' pictures, by word — for the previews only; the server shows its own. */
@@ -48,6 +48,8 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
   onPictures: (add: Record<string, string>) => void;
   /** Questions the hunt needs at least (one per station). */
   needed: number;
+  /** Words to start the generator with — a collection's own, when testing it. */
+  initialWords?: string[];
 }) {
   const intl = useIntl();
   const mine = useCollections((s) => s.mine);
@@ -55,7 +57,7 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
   useEffect(() => { refreshMine().catch(() => { /* the built-in lists still work */ }); }, [refreshMine]);
   const builtIn = useMemo(() => getCollections(), []);
 
-  const [wordsText, setWordsText] = useState('');
+  const [wordsText, setWordsText] = useState(() => (initialWords ?? []).slice(0, 30).join('\n'));
   const [types, setTypes] = useState<WordQuestionType[]>(['definition', 'sentence', 'listen', 'image']);
   const [count, setCount] = useState(20);
   const [busy, setBusy] = useState<string | null>(null);

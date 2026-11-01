@@ -40,6 +40,7 @@ import speaking from '../speaking/index.ts';
 import storyGaps from '../story-gaps/index.ts';
 import streak from '../streak/index.ts';
 import teams from '../teams/index.ts';
+import tests from '../tests/index.ts';
 import word from '../word/index.ts';
 import wordNotes from '../word-notes/index.ts';
 import writingTemplates from '../writing-templates/index.ts';
@@ -75,6 +76,7 @@ const RESOURCES: Record<string, Handler> = {
   'story-gaps': storyGaps,
   streak,
   teams,
+  tests,
   word,
   'word-notes': wordNotes,
   'writing-templates': writingTemplates,

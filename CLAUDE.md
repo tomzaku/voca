@@ -65,7 +65,7 @@ Routing and the handlers live in `supabase/functions/<resource>/index.ts`; the s
 (CORS, replies, row mapping, validation) go in `_shared/<resource>.ts`. See `progress`.
 
 Every function follows this — `progress`, `settings`, `streak`, `collections`, `quizzes`,
-`word-notes`, `teams`, `me`, `push`, `ai`, `chat`, `word`, `doodles`. There are no action
+`word-notes`, `teams`, `tests`, `me`, `push`, `ai`, `chat`, `word`, `doodles`. There are no action
 dispatchers left, and no module in `src/` builds its own `fetch`.
 
 ### Never hand-roll `fetch`
