@@ -81,21 +81,34 @@ export function ThemePicker({ value, onChange }: { value: TestTheme; onChange: (
         const look = themeLook(t);
         const on = value === t;
         return (
+          // The chosen one is ringed, ticked and full colour; the rest step
+          // back a little, so which is picked reads at a glance on any theme.
           <button
             key={t}
             type="button"
             onClick={() => onChange(t)}
             aria-pressed={on}
-            className={`relative h-20 rounded-xl overflow-hidden flex flex-col items-center justify-center gap-1 border-[3px] transition-transform hover:-translate-y-0.5 ${
-              on ? 'border-accent-cyan scale-[1.03]' : 'border-transparent'
-            } ${look.background ? 'text-white' : 'bg-bg-tertiary text-text-primary'}`}
-            style={look.background ? { background: look.background } : undefined}
+            className={`relative rounded-xl transition-all duration-150 ${
+              on
+                ? 'ring-4 ring-accent-cyan ring-offset-2 ring-offset-bg-card scale-[1.04]'
+                : 'opacity-60 saturate-[.7] hover:opacity-100 hover:saturate-100 hover:-translate-y-0.5'
+            }`}
           >
-            <Icon icon={look.icon} className={`text-2xl ${on ? 'animate-bob' : ''}`} />
-            <span className="text-[11px] font-bold"><FormattedMessage id={`tests.theme.${t}`} /></span>
-            <span className="absolute bottom-1 inset-x-2 flex gap-0.5">
-              {look.tiles.map((c) => <span key={c} className="flex-1 h-1 rounded-full" style={{ background: c }} />)}
+            <span
+              className={`h-20 rounded-xl overflow-hidden flex flex-col items-center justify-center gap-1 ${look.background ? 'text-white' : 'bg-bg-tertiary text-text-primary'}`}
+              style={look.background ? { background: look.background } : undefined}
+            >
+              <Icon icon={look.icon} className={`text-2xl ${on ? 'animate-bob' : ''}`} />
+              <span className="text-[11px] font-bold"><FormattedMessage id={`tests.theme.${t}`} /></span>
+              <span className="absolute bottom-1.5 inset-x-2 flex gap-0.5">
+                {look.tiles.map((c) => <span key={c} className="flex-1 h-1 rounded-full" style={{ background: c }} />)}
+              </span>
             </span>
+            {on && (
+              <span className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-accent-cyan text-bg-primary flex items-center justify-center shadow animate-pop-in">
+                <Icon icon="lucide:check" className="text-sm" />
+              </span>
+            )}
           </button>
         );
       })}

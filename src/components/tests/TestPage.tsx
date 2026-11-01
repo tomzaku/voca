@@ -191,9 +191,10 @@ function Centered({ children }: { children: React.ReactNode }) {
   return <div className="max-w-xl mx-auto px-4 py-16 flex flex-col items-center gap-4 text-center">{children}</div>;
 }
 
-function Header({ test }: { test: TestSummary }) {
+/** The test's name and due date. `plain` off the themed stage — the teacher's view sits on the app's own background. */
+function Header({ test, plain = false }: { test: TestSummary; plain?: boolean }) {
   const open = Date.parse(test.dueAt) > useOpenedAt();
-  const onStage = !!themeLook(test.theme).background;
+  const onStage = !plain && !!themeLook(test.theme).background;
   return (
     <div className={onStage ? 'drop-shadow' : ''}>
       <h1 className={`text-2xl font-display font-extrabold ${onStage ? 'text-white' : 'text-text-primary'}`}>{test.title}</h1>
@@ -527,10 +528,15 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
     }
   };
 
+  // Shown at once, saved behind: the server's answer replaces it, and a
+  // failure puts back what was there.
   const change = async (fields: Parameters<typeof updateTest>[1]) => {
+    const before = test;
+    onChange({ ...test, ...fields } as TestSummary);
     try {
       onChange(await updateTest(test.id, fields));
     } catch (err) {
+      onChange(before);
       toast.error((err as Error).message);
     }
   };
@@ -550,7 +556,7 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
 
   return (
     <>
-      <Header test={test} />
+      <Header test={test} plain />
 
       <div className="flex flex-wrap gap-2 -mt-2">
         <Link to={`/tests/${test.id}/edit`} className="btn-3d px-4 py-2 text-sm font-bold bg-accent-cyan text-bg-primary flex items-center gap-1.5">
