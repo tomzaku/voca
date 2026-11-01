@@ -410,20 +410,32 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
    * The join is awaited here, not left to the store's fire-and-forget, so the
    * board can be reloaded with this learner on it.
    */
+  // Studying a list means flash cards from it — so the button takes you
+  // there, rather than ticking itself and leaving you to work out where to go.
   const study = async () => {
+    if (active) {
+      navigate('/');
+      return;
+    }
     if (system) {
       setActive(id);
       toast.success(intl.formatMessage({ id: 'collections.toastStudying' }, { name }));
+      navigate('/');
       return;
     }
     setJoining(true);
     try {
       // setActive only accepts a list the store already holds.
-      if (!(await useCollections.getState().fetchById(id))) return;
+      if (!(await useCollections.getState().fetchById(id))) {
+        toast.error(intl.formatMessage({ id: 'collections.couldNotStudy' }));
+        return;
+      }
       setActive(id);
       await joinCollection(id);
       toast.success(intl.formatMessage({ id: joined ? 'collections.toastStudying' : 'collections.toastJoined' }, { name }));
-      await loadMembers();
+      navigate('/');
+    } catch (err) {
+      toast.error((err as Error).message || intl.formatMessage({ id: 'collections.couldNotStudy' }));
     } finally {
       setJoining(false);
     }
@@ -537,13 +549,13 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
         <div className="relative flex flex-wrap items-center gap-2 mt-4">
           <button
             onClick={study}
-            disabled={active || joining}
+            disabled={joining}
             className={`btn-3d px-4 py-2 text-sm font-bold disabled:opacity-80 ${
               joined || system || isOwner ? 'bg-accent-cyan text-bg-primary' : 'bg-accent-purple text-bg-primary'
             }`}
           >
             <FormattedMessage
-              id={active ? 'collections.studyingCheck' : joining ? 'collections.joining' : joined || system || isOwner ? 'collections.studyThis' : 'collections.joinAndStudy'}
+              id={active ? 'collections.continueStudying' : joining ? 'collections.joining' : joined || system || isOwner ? 'collections.studyThis' : 'collections.joinAndStudy'}
             />
           </button>
           <button
