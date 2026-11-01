@@ -240,7 +240,17 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onView, onSt
         </span>
       </button>
 
-      <div className="flex-1 flex flex-col p-4 pt-3">
+      {/* The whole body opens the details too — except its own controls, the
+          ⋯ menu while it's open, and anything a child renders in a portal
+          (React bubbles those clicks here though they're not inside). */}
+      <div
+        className="flex-1 flex flex-col p-4 pt-3 cursor-pointer"
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (menuOpen || !e.currentTarget.contains(target) || target.closest('button, a, input')) return;
+          onView();
+        }}
+      >
         <button onClick={onView} className="text-left">
           <p className="font-display font-bold text-text-primary leading-tight truncate">{c.name}</p>
           {c.description && <p className="text-[11px] text-text-muted mt-0.5 line-clamp-1">{c.description}</p>}
