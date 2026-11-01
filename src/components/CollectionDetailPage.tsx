@@ -653,46 +653,52 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
           )}
         </section>
 
-        {/* ── Tests ── the owner sends them; members take them. */}
-        {col && user && (isOwner || joined || col.isPublic) && (
-          <CollectionTests collectionId={col.id} isOwner={isOwner} />
-        )}
-
-        {/* ── Leaderboard ── (server lists only — the Levels have no members) */}
+        {/* The side column: tests, then the leaderboard — one grid cell, so
+            neither drops below the word list. */}
         {col && (
-          <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4 self-start w-full">
-            <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
-              <Icon icon="lucide:trophy" className="text-accent-yellow" />
-              <FormattedMessage id="collections.leaderboard" />
-            </h2>
-
-            {!col.isPublic && isOwner && (
-              <p className="text-xs text-text-muted leading-relaxed">
-                <FormattedMessage id="collections.privateBoardHint" />
-              </p>
+          <div className="flex flex-col gap-6 self-start w-full min-w-0">
+            {/* ── Tests ── the owner sends them; members take them. */}
+            {user && (isOwner || joined || col.isPublic) && (
+              <CollectionTests collectionId={col.id} isOwner={isOwner} />
             )}
 
-            {!joined && !isOwner && user && (
-              <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  <FormattedMessage id="collections.joinToAppear" />
+            {/* ── Leaderboard ── (server lists only — the Levels have no members) */}
+            {col && (
+              <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4 self-start w-full">
+                <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
+                  <Icon icon="lucide:trophy" className="text-accent-yellow" />
+                  <FormattedMessage id="collections.leaderboard" />
+                </h2>
+
+                {!col.isPublic && isOwner && (
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    <FormattedMessage id="collections.privateBoardHint" />
+                  </p>
+                )}
+
+                {!joined && !isOwner && user && (
+                  <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      <FormattedMessage id="collections.joinToAppear" />
+                    </p>
+                    <button
+                      onClick={study}
+                      disabled={joining}
+                      className="btn-3d self-start px-4 py-2 text-xs font-bold bg-accent-purple text-bg-primary disabled:opacity-50"
+                    >
+                      <FormattedMessage id={joining ? 'collections.joining' : 'collections.joinThisCollection'} />
+                    </button>
+                  </div>
+                )}
+
+                <CollectionLeaderboard members={members} meId={user?.id} ownerId={col.ownerId} loading={membersLoading} />
+
+                <p className="text-[11px] text-text-muted/70">
+                  <FormattedMessage id="collections.rankedBy" />
                 </p>
-                <button
-                  onClick={study}
-                  disabled={joining}
-                  className="btn-3d self-start px-4 py-2 text-xs font-bold bg-accent-purple text-bg-primary disabled:opacity-50"
-                >
-                  <FormattedMessage id={joining ? 'collections.joining' : 'collections.joinThisCollection'} />
-                </button>
-              </div>
+              </section>
             )}
-
-            <CollectionLeaderboard members={members} meId={user?.id} ownerId={col.ownerId} loading={membersLoading} />
-
-            <p className="text-[11px] text-text-muted/70">
-              <FormattedMessage id="collections.rankedBy" />
-            </p>
-          </section>
+          </div>
         )}
       </div>
 
