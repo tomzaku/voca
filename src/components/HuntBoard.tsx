@@ -26,7 +26,8 @@ export function HuntBoard() {
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const live = board?.hunt.status === 'live';
+  // Both teams home is the end of the race, whatever the clock says.
+  const live = board?.hunt.status === 'live' && !board.outcome.over;
   const now = useTick(live);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -88,7 +89,7 @@ export function HuntBoard() {
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-text-primary truncate">{hunt.title}</h1>
           <p className="text-sm text-text-muted">
-            <FormattedMessage id={`hunt.status.${hunt.status}`} /> · <FormattedMessage id={`hunt.mode.${hunt.mode}`} /> · <FormattedMessage id="hunt.teacher.stations" values={{ n: hunt.stations }} />
+            <FormattedMessage id={`hunt.status.${outcome.over ? 'ended' : hunt.status}`} /> · <FormattedMessage id={`hunt.mode.${hunt.mode}`} /> · <FormattedMessage id="hunt.teacher.stations" values={{ n: hunt.stations }} />
           </p>
         </div>
         {live && <div className="text-4xl font-display font-extrabold tabular-nums text-text-primary">{clock(left)}</div>}

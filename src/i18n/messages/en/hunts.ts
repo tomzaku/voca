@@ -131,7 +131,7 @@ export default {
   'hunt.teacher.copied': 'Link copied',
   'hunt.teacher.waitingPlayers': 'Waiting for players…',
   'hunt.teacher.moveTo': 'Move to {team}',
-  'hunt.teacher.lobbyHint': 'Students land on the smaller team; tap a name to move them. Each station needs {need} correct answers from different teammates. The clock ({min} min) starts when you press Start.',
+  'hunt.teacher.lobbyHint': 'Students land on the smaller team; tap a name to move them. Each station needs {need, plural, one {# correct answer} other {# correct answers, from different teammates}}. The clock ({min} min) starts when you press Start.',
   'hunt.teacher.feed': 'Latest',
   'hunt.teacher.feedEmpty': 'Nothing yet — the first find will show here.',
 
