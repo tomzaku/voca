@@ -5,11 +5,11 @@ import toast from 'react-hot-toast';
 import { FormattedDate, FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchCollectionDetail, type Collection } from '../../lib/collectionsApi';
-import { problemOf, questionsToSave, type EditableQuestion } from '../../lib/hunt';
-import { createSet, fetchSet, listSets, saveSet, type SetSummary } from '../../lib/questionSetsApi';
+import { importQuestions, problemOf, questionsToSave, type EditableQuestion } from '../../lib/hunt';
+import { createSet, listSets, saveSet, type SetSummary } from '../../lib/questionSetsApi';
 import { createTest } from '../../lib/testsApi';
+import { ImportQuestions } from '../hunt/ImportQuestions';
 import { QuestionEditor } from '../hunt/QuestionEditor';
-import { Selector } from '../Selector';
 import { ThemePicker, ThemePreviewButton, type PreviewQuestion } from './ThemedStage';
 import type { TestTheme } from '../../lib/testThemes';
 
@@ -56,14 +56,13 @@ export function TestCreatePage() {
   const [pictures, setPictures] = useState<Record<string, string>>({});
   const addPictures = useCallback((add: Record<string, string>) => setPictures((p) => ({ ...p, ...add })), []);
   const [sets, setSets] = useState<SetSummary[]>([]);
-  // The set these questions save to: one she opened, or a new one on send.
-  const [setId, setSetId] = useState<string | null>(null);
-  const [setTitle_, setSetTitle] = useState('');
+  const [importing, setImporting] = useState(false);
+  // The new set Send saved the questions as — kept so a retry after a failed
+  // send updates it rather than making a second copy.
+  const [savedSetId, setSavedSetId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   // Questions first, then the settings and Send — see the header comment.
   const [step, setStep] = useState<1 | 2>(1);
-  // Untouched, the name follows a saved set she opens; typed in, it's hers.
-  const [titleTouched, setTitleTouched] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -78,18 +77,6 @@ export function TestCreatePage() {
     return () => { alive = false; };
   }, [id, user, intl]);
 
-  const openSet = async (setIdToOpen: string) => {
-    if (questions.length && !window.confirm(intl.formatMessage({ id: 'tests.replaceQuestions' }))) return;
-    try {
-      const set = await fetchSet(setIdToOpen);
-      setQuestions(set.questions);
-      setSetId(set.id);
-      setSetTitle(set.title);
-      if (!titleTouched) setTitle(set.title);
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  };
 
   const askable = questions.filter((q) => !problemOf(q)).length;
 
@@ -124,11 +111,12 @@ export function TestCreatePage() {
     if (!ready || !col) return;
     setSending(true);
     try {
-      const name = setId ? setTitle_ : title.trim();
-      const set = setId
-        ? await saveSet(setId, name, questionsToSave(questions))
-        : await createSet(name, questionsToSave(questions));
-      setSetId(set.id);
+      // Imported questions are copies, so the test's questions are always a
+      // new set of their own — the sets she imported from stay as they were.
+      const set = savedSetId
+        ? await saveSet(savedSetId, title.trim(), questionsToSave(questions))
+        : await createSet(title.trim(), questionsToSave(questions));
+      setSavedSetId(set.id);
       const test = await createTest({ collectionId: col.id, setId: set.id, title: title.trim(), dueAt: new Date(due).toISOString(), showLeaderboard, theme, instantFeedback });
       toast.success(intl.formatMessage({ id: 'tests.sent' }));
       navigate(`/tests/${test.id}`, { replace: true });
@@ -216,18 +204,28 @@ export function TestCreatePage() {
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <span className={label + ' !mb-0'}><FormattedMessage id="tests.questionsLabel" /></span>
             {sets.length > 0 && (
-              <Selector
-                align="right"
-                value=""
-                ariaLabel={intl.formatMessage({ id: 'tests.useSaved' })}
-                options={[
-                  { value: '', label: intl.formatMessage({ id: 'tests.useSaved' }) },
-                  ...sets.map((s) => ({ value: s.id, label: `${s.title} (${s.questionCount})` })),
-                ]}
-                onChange={(v) => { if (v) void openSet(v); }}
-              />
+              <button
+                type="button"
+                onClick={() => setImporting(true)}
+                className="px-3 py-1.5 rounded-xl bg-bg-tertiary text-xs font-bold text-text-primary flex items-center gap-1.5 hover:text-accent-cyan"
+              >
+                <Icon icon="lucide:library" /> <FormattedMessage id="tests.importBank" />
+              </button>
             )}
           </div>
+          {importing && (
+            <ImportQuestions
+              sets={sets}
+              current={questions}
+              onImport={(picked) => {
+                const next = importQuestions(questions, picked);
+                setQuestions(next);
+                setImporting(false);
+                toast.success(intl.formatMessage({ id: 'hunt.import.done' }, { n: next.length - questions.length }));
+              }}
+              onClose={() => setImporting(false)}
+            />
+          )}
           <QuestionEditor
             questions={questions}
             onChange={setQuestions}
@@ -238,9 +236,7 @@ export function TestCreatePage() {
           />
           <p className="mt-3 text-xs text-text-muted flex items-center gap-1.5">
             <Icon icon="lucide:save" />
-            {setId
-              ? <FormattedMessage id="hunt.sets.savesTo" values={{ title: setTitle_ }} />
-              : <FormattedMessage id="tests.savesAsSet" />}
+            <FormattedMessage id="tests.savesAsSet" />
           </p>
         </div>
 
@@ -264,7 +260,7 @@ export function TestCreatePage() {
               <input
                 id="test-title"
                 value={title}
-                onChange={(e) => { setTitle(e.target.value); setTitleTouched(true); }}
+                onChange={(e) => setTitle(e.target.value)}
                 maxLength={80}
                 className={input}
               />
