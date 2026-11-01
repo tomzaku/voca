@@ -6,6 +6,10 @@
 //   POST   /tests            { collectionId, setId, title, dueAt, showLeaderboard?, theme?, instantFeedback? } → { test }
 //   PATCH  /tests/:id        { title?, dueAt?, showLeaderboard?, theme?, instantFeedback? } → { test }
 //   DELETE /tests/:id                             → { ok }   idempotent
+//   GET    /tests/:id/edit                        → { test, questions, locked, startedCount }
+//                                                    her test with its answers, for the edit form
+//   PUT    /tests/:id/questions { questions }     → { test }  replaces them all — only until the first
+//                                                    student presses Start (then 409: scores would be unfair)
 //   GET    /tests/:id/results                     → { results }  everyone's score, who hasn't
 //                                                    taken it, and how each question went
 //
@@ -47,6 +51,7 @@
 import type { SupabaseClient, User } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
 import {
+  cleanQuestions,
   fromColumns,
   givenText,
   Invalid as InvalidQuestion,
@@ -224,6 +229,18 @@ export default async function handler(req: Request): Promise<Response> {
       .limit(RESULTS_LIMIT);
     if (error) throw new Error(error.message);
     return (data ?? []) as SubmissionRow[];
+  };
+
+  /** How many students have pressed Start (or handed in, which needs a start) — what locks the questions. */
+  const countStarted = async (testId: string): Promise<number> => {
+    const [starts, subs] = await Promise.all([
+      db.from('collection_test_starts').select('user_id', { count: 'exact', head: true }).eq('test_id', testId),
+      db.from('collection_test_submissions').select('user_id', { count: 'exact', head: true }).eq('test_id', testId),
+    ]);
+    if (starts.error) throw new Error(starts.error.message);
+    if (subs.error) throw new Error(subs.error.message);
+    // Hand-ins from before the clock existed have no start row; count those too.
+    return Math.max(starts.count ?? 0, subs.count ?? 0);
   };
 
   /** When the caller started each of these tests, by test id. */
@@ -501,6 +518,57 @@ export default async function handler(req: Request): Promise<Response> {
           review: await review(t, questions),
           leaderboard: await leaderboard(t),
         });
+      }
+
+      case 'GET :id/edit': {
+        const t = await owned(id!);
+        const col = await collection(t.collection_id);
+        const [questions, startedCount] = await Promise.all([loadQuestions(db, t.id), countStarted(t.id)]);
+        return jsonResponse(200, {
+          test: await summary(t, col),
+          questions,
+          locked: startedCount > 0,
+          startedCount,
+        });
+      }
+
+      case 'PUT :id/questions': {
+        const t = await owned(id!);
+        // Once anyone has started, changing the questions would grade some
+        // students on a different test from others.
+        if (await countStarted(t.id) > 0) {
+          return jsonResponse(409, { error: 'A student has already started this test, so its questions are locked.' });
+        }
+        const b = await body();
+        const questions = cleanQuestions(b.questions);
+        if (!questions.length) return jsonResponse(400, { error: 'Add some questions first.' });
+        // New rows first, then the old ones go: a failed insert leaves the test as it was.
+        const { data: old, error: oldError } = await db.from('collection_test_questions').select('id').eq('test_id', t.id).limit(MAX_QUESTIONS * 2);
+        if (oldError) throw new Error(oldError.message);
+        const offset = (old ?? []).length + 1000; // clear of the (test_id, position) unique key while both exist
+        const { data: inserted, error: insertError } = await db
+          .from('collection_test_questions')
+          .insert(questions.map((q, i) => ({ test_id: t.id, position: offset + i, ...questionColumns(q) })))
+          .select('id');
+        if (insertError) throw new Error(insertError.message);
+        const oldIds = (old ?? []).map((r) => r.id as string);
+        if (oldIds.length) {
+          const { error } = await db.from('collection_test_questions').delete().in('id', oldIds);
+          if (error) throw new Error(error.message);
+        }
+        // Back to positions 0…n-1, in order.
+        for (const [i, r] of (inserted ?? []).entries()) {
+          const { error } = await db.from('collection_test_questions').update({ position: i }).eq('id', r.id as string);
+          if (error) throw new Error(error.message);
+        }
+        const { data, error } = await db
+          .from('collection_tests')
+          .update({ question_count: questions.length })
+          .eq('id', t.id)
+          .select('*')
+          .single();
+        if (error) throw new Error(error.message);
+        return jsonResponse(200, { test: await summary(data as TestRow, await collection(t.collection_id)) });
       }
 
       case 'GET :id/results': {

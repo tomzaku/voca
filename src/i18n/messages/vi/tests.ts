@@ -15,6 +15,15 @@ export default {
 
   // ── Making one ──
   'tests.newTitle': 'Bài kiểm tra mới',
+  'tests.edit': 'Sửa bài',
+  'tests.editTitle': 'Sửa bài kiểm tra',
+  'tests.editHint': 'Đổi tên, hạn nộp và giao diện bất cứ lúc nào. Câu hỏi chỉ sửa được trước khi có học sinh bắt đầu.',
+  'tests.saveChanges': 'Lưu thay đổi',
+  'tests.saving': 'Đang lưu…',
+  'tests.saved': 'Đã cập nhật bài kiểm tra',
+  'tests.copyAsNew': 'Sao chép thành bài mới',
+  'tests.copyTitle': '{title} (bản sao)',
+  'tests.lockedNote': 'Đã có {n} học sinh bắt đầu nên câu hỏi bị khoá — sửa sẽ khiến học sinh làm hai đề khác nhau. Hãy sao chép để tạo bài mới có thể sửa.',
   'tests.stepQuestions': 'Câu hỏi',
   'tests.stepSettings': 'Cài đặt & gửi',
   'tests.stepSettingsHint': 'Tên, hạn nộp, chủ đề',

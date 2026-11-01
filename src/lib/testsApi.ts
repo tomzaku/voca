@@ -5,6 +5,7 @@
 // copy to fall back on, so a failure is shown.
 
 import { request } from './api';
+import type { DraftQuestion, EditableQuestion } from './hunt';
 import type { PublicQuestion } from './huntsApi';
 import type { TestTheme } from './testThemes';
 
@@ -132,6 +133,19 @@ export async function checkAnswer(id: string, questionId: string, answer: string
 
 export async function submitTest(id: string, answers: Answers): Promise<{ test: TestSummary; review: ReviewItem[]; leaderboard: Leader[] }> {
   return request.post(`/tests/${id}/submit`, { answers });
+}
+
+/**
+ * Her own test with its answers, for the edit form. `locked` once a student
+ * has pressed Start: the questions can't change after that.
+ */
+export async function fetchTestForEdit(id: string): Promise<{ test: TestSummary; questions: EditableQuestion[]; locked: boolean; startedCount: number }> {
+  return request.get(`/tests/${id}/edit`);
+}
+
+/** Replaces every question — refused (409) once a student has started. */
+export async function saveTestQuestions(id: string, questions: DraftQuestion[]): Promise<TestSummary> {
+  return (await request.put<{ test: TestSummary }>(`/tests/${id}/questions`, { questions })).test;
 }
 
 export async function fetchTestResults(id: string): Promise<TestResults> {

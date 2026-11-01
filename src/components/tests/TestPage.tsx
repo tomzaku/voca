@@ -552,6 +552,18 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
     <>
       <Header test={test} />
 
+      <div className="flex flex-wrap gap-2 -mt-2">
+        <Link to={`/tests/${test.id}/edit`} className="btn-3d px-4 py-2 text-sm font-bold bg-accent-cyan text-bg-primary flex items-center gap-1.5">
+          <Icon icon="lucide:pencil" /> <FormattedMessage id="tests.edit" />
+        </Link>
+        <Link
+          to={`/collections/${test.collectionId}/tests/new?from=${test.id}`}
+          className="px-4 py-2 rounded-xl bg-bg-tertiary text-sm font-bold text-text-primary flex items-center gap-1.5 hover:text-accent-cyan"
+        >
+          <Icon icon="lucide:copy" /> <FormattedMessage id="tests.copyAsNew" />
+        </Link>
+      </div>
+
       <div className="rounded-2xl border border-border bg-bg-card p-4 space-y-3">
         <p className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="tests.shareLink" /></p>
         <div className="flex gap-2">

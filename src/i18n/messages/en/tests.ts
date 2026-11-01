@@ -15,6 +15,15 @@ export default {
 
   // ── Making one ──
   'tests.newTitle': 'New test',
+  'tests.edit': 'Edit test',
+  'tests.editTitle': 'Edit test',
+  'tests.editHint': 'Change the name, due date and look any time. Questions can change until a student starts.',
+  'tests.saveChanges': 'Save changes',
+  'tests.saving': 'Saving…',
+  'tests.saved': 'Test updated',
+  'tests.copyAsNew': 'Copy as a new test',
+  'tests.copyTitle': '{title} (copy)',
+  'tests.lockedNote': '{n, plural, one {# student has} other {# students have}} started, so these questions are locked — changing them would mark students on different tests. Copy it to make a new test you can change.',
   'tests.stepQuestions': 'Questions',
   'tests.stepSettings': 'Settings & send',
   'tests.stepSettingsHint': 'Name, due date, theme',

@@ -30,7 +30,7 @@ import { HuntEdit, HuntsPage } from './components/HuntsPage';
 import { HuntBoard } from './components/HuntBoard';
 import { HuntCards } from './components/HuntCards';
 import { HuntPlay } from './components/HuntPlay';
-import { TestCreatePage } from './components/tests/TestCreatePage';
+import { TestCreatePage, TestEditPage } from './components/tests/TestCreatePage';
 import { TestPage } from './components/tests/TestPage';
 import { HuntTry } from './components/HuntTry';
 import { ProComparisonPage } from './components/ProComparisonPage';
@@ -88,6 +88,7 @@ export default function App() {
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
             <Route path="/collections/:id/tests/new" element={<TestCreatePage />} />
             <Route path="/tests/:id" element={<TestPage />} />
+            <Route path="/tests/:id/edit" element={<TestEditPage />} />
             {/* Old shape (`?tab=ielts`) — send it to the equivalent path, keeping any other query params. */}
             <Route path="/writing" element={<WritingLegacyRedirect />} />
             <Route path="/writing/:tab" element={<WritingPage />} />

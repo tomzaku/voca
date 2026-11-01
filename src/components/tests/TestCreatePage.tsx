@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedDate, FormattedMessage, useIntl } from 'react-intl';
@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { fetchCollectionDetail, type Collection } from '../../lib/collectionsApi';
 import { importQuestions, problemOf, questionsToSave, type EditableQuestion } from '../../lib/hunt';
 import { createSet, listSets, saveSet, type SetSummary } from '../../lib/questionSetsApi';
-import { createTest } from '../../lib/testsApi';
+import { createTest, fetchTestForEdit, saveTestQuestions, updateTest, type TestSummary } from '../../lib/testsApi';
 import { ImportQuestions } from '../hunt/ImportQuestions';
 import { QuestionEditor } from '../hunt/QuestionEditor';
 import { ThemePicker, ThemePreviewButton, type PreviewQuestion } from './ThemedStage';
@@ -37,10 +37,35 @@ function defaultDue(): string {
  * means the theme preview in step two plays her own questions, and Send sits
  * beside the last things she checks — the due date and the look.
  *
+ * The same form edits a sent test (/tests/:id/edit). Its settings can change
+ * any time; its questions only until the first student presses Start — the
+ * server refuses after that, since students would be marked on different
+ * tests. A locked test can be copied into a new one instead
+ * (/collections/:id/tests/new?from=<test>).
+ *
  * Free for every collection owner; only the editor's AI helpers are Pro.
  */
 export function TestCreatePage() {
+  return <TestForm mode="create" />;
+}
+
+export function TestEditPage() {
+  return <TestForm mode="edit" />;
+}
+
+/** What the edit form opened with — to send only what changed, and to know if the questions are locked. */
+interface Editing {
+  test: TestSummary;
+  locked: boolean;
+  startedCount: number;
+  due: string;
+}
+
+function TestForm({ mode }: { mode: 'create' | 'edit' }) {
   const { id = '' } = useParams();
+  const [search] = useSearchParams();
+  // Copying: a test whose questions (and look) start this new one.
+  const from = mode === 'create' ? search.get('from') : null;
   const intl = useIntl();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -63,19 +88,53 @@ export function TestCreatePage() {
   const [sending, setSending] = useState(false);
   // Questions first, then the settings and Send — see the header comment.
   const [step, setStep] = useState<1 | 2>(1);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  // Only questions she actually changed are sent back.
+  const [questionsDirty, setQuestionsDirty] = useState(false);
+  const changeQuestions = (next: EditableQuestion[]) => { setQuestions(next); setQuestionsDirty(true); };
 
   useEffect(() => {
     if (!user) return;
     let alive = true;
-    fetchCollectionDetail(id).then((res) => {
-      if (!alive) return;
-      if (!res || res.collection.ownerId !== user.id) { setMissing(true); return; }
-      setCol(res.collection);
-      setTitle((t) => t || intl.formatMessage({ id: 'tests.defaultTitle' }, { name: res.collection.name }));
-    });
+    const loadCollection = (cid: string, fallbackTitle: boolean) =>
+      fetchCollectionDetail(cid).then((res) => {
+        if (!alive) return;
+        if (!res || res.collection.ownerId !== user.id) { setMissing(true); return; }
+        setCol(res.collection);
+        if (fallbackTitle) setTitle((t) => t || intl.formatMessage({ id: 'tests.defaultTitle' }, { name: res.collection.name }));
+      });
+
+    if (mode === 'edit') {
+      fetchTestForEdit(id).then((r) => {
+        if (!alive) return;
+        const due = toLocalInput(new Date(r.test.dueAt));
+        setEditing({ test: r.test, locked: r.locked, startedCount: r.startedCount, due });
+        setTitle(r.test.title);
+        setDue(due);
+        setTheme(r.test.theme);
+        setInstantFeedback(r.test.instantFeedback);
+        setShowLeaderboard(r.test.showLeaderboard);
+        setQuestions(r.questions);
+        return loadCollection(r.test.collectionId, false);
+      }).catch(() => alive && setMissing(true));
+    } else {
+      void loadCollection(id, !from);
+      if (from) {
+        fetchTestForEdit(from).then((r) => {
+          if (!alive) return;
+          setTitle(intl.formatMessage({ id: 'tests.copyTitle' }, { title: r.test.title }));
+          setTheme(r.test.theme);
+          setInstantFeedback(r.test.instantFeedback);
+          setShowLeaderboard(r.test.showLeaderboard);
+          setQuestions(r.questions);
+        }).catch((err) => toast.error((err as Error).message));
+      }
+    }
     listSets().then((s) => alive && setSets(s)).catch(() => { /* she can still build one here */ });
     return () => { alive = false; };
-  }, [id, user, intl]);
+  }, [id, mode, from, user, intl]);
+
+  const locked = !!editing?.locked;
 
 
   const askable = questions.filter((q) => !problemOf(q)).length;
@@ -104,13 +163,30 @@ export function TestCreatePage() {
     if (!src) throw new Error('No picture');
     return src;
   }, [questions, pictures]);
-  const dueOk = Date.parse(due) > Date.now();
+  // An unchanged due date is fine even once it's passed — she may only be renaming a closed test.
+  const dueOk = (editing && due === editing.due) || Date.parse(due) > Date.now();
   const ready = !!col && title.trim() && askable > 0 && dueOk && !sending;
+
+  /** Editing: only the settings that changed, then the questions if she touched them (and may). */
+  const saveEdits = async (was: Editing) => {
+    const t = was.test;
+    const fields: Parameters<typeof updateTest>[1] = {};
+    if (title.trim() !== t.title) fields.title = title.trim();
+    if (due !== was.due) fields.dueAt = new Date(due).toISOString();
+    if (theme !== t.theme) fields.theme = theme;
+    if (instantFeedback !== t.instantFeedback) fields.instantFeedback = instantFeedback;
+    if (showLeaderboard !== t.showLeaderboard) fields.showLeaderboard = showLeaderboard;
+    if (Object.keys(fields).length) await updateTest(t.id, fields);
+    if (questionsDirty && !was.locked) await saveTestQuestions(t.id, questionsToSave(questions));
+    toast.success(intl.formatMessage({ id: 'tests.saved' }));
+    navigate(`/tests/${t.id}`, { replace: true });
+  };
 
   const send = async () => {
     if (!ready || !col) return;
     setSending(true);
     try {
+      if (editing) { await saveEdits(editing); return; }
       // Imported questions are copies, so the test's questions are always a
       // new set of their own — the sets she imported from stay as they were.
       const set = savedSetId
@@ -138,7 +214,7 @@ export function TestCreatePage() {
   if (missing) {
     return <p className="max-w-xl mx-auto px-4 py-16 text-center text-text-secondary"><FormattedMessage id="tests.notYourCollection" /></p>;
   }
-  if (!col) {
+  if (!col || (mode === 'edit' && !editing)) {
     return <div className="flex justify-center py-16"><Icon icon="lucide:loader-2" className="text-3xl text-text-muted animate-spin" /></div>;
   }
 
@@ -152,13 +228,20 @@ export function TestCreatePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-      <Link to={`/collections/${col.id}`} className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary">
-        <Icon icon="lucide:arrow-left" /> {col.name}
+      <Link
+        to={editing ? `/tests/${editing.test.id}` : `/collections/${col.id}`}
+        className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary"
+      >
+        <Icon icon="lucide:arrow-left" /> {editing ? editing.test.title : col.name}
       </Link>
       <div>
-        <h1 className="text-2xl font-display font-extrabold text-text-primary"><FormattedMessage id="tests.newTitle" /></h1>
+        <h1 className="text-2xl font-display font-extrabold text-text-primary">
+          <FormattedMessage id={editing ? 'tests.editTitle' : 'tests.newTitle'} />
+        </h1>
         <p className="text-sm text-text-muted mt-1">
-          <FormattedMessage id="tests.newHint" values={{ n: col.memberCount }} />
+          {editing
+            ? <FormattedMessage id="tests.editHint" />
+            : <FormattedMessage id="tests.newHint" values={{ n: col.memberCount }} />}
         </p>
       </div>
 
@@ -208,27 +291,37 @@ export function TestCreatePage() {
               current={questions}
               onImport={(picked) => {
                 const next = importQuestions(questions, picked);
-                setQuestions(next);
+                changeQuestions(next);
                 setImporting(false);
                 toast.success(intl.formatMessage({ id: 'hunt.import.done' }, { n: next.length - questions.length }));
               }}
               onClose={() => setImporting(false)}
             />
           )}
-          <QuestionEditor
-            questions={questions}
-            onChange={setQuestions}
-            pictures={pictures}
-            onPictures={addPictures}
-            needed={1}
-            initialWords={col.words}
-            sourceName={col.name}
-            onImport={sets.length ? () => setImporting(true) : undefined}
-          />
-          <p className="mt-3 text-xs text-text-muted flex items-center gap-1.5">
-            <Icon icon="lucide:save" />
-            <FormattedMessage id="tests.savesAsSet" />
-          </p>
+          {locked && editing ? (
+            <LockedQuestions
+              questions={questions}
+              startedCount={editing.startedCount}
+              copyHref={`/collections/${col.id}/tests/new?from=${editing.test.id}`}
+            />
+          ) : (
+            <QuestionEditor
+              questions={questions}
+              onChange={changeQuestions}
+              pictures={pictures}
+              onPictures={addPictures}
+              needed={1}
+              initialWords={col.words}
+              sourceName={col.name}
+              onImport={sets.length ? () => setImporting(true) : undefined}
+            />
+          )}
+          {!editing && (
+            <p className="mt-3 text-xs text-text-muted flex items-center gap-1.5">
+              <Icon icon="lucide:save" />
+              <FormattedMessage id="tests.savesAsSet" />
+            </p>
+          )}
         </div>
 
         <button
@@ -321,12 +414,46 @@ export function TestCreatePage() {
               disabled={!ready}
               className="btn-3d flex-1 py-3 bg-accent-green text-bg-primary font-display font-extrabold flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Icon icon={sending ? 'lucide:loader-2' : 'lucide:send'} className={sending ? 'animate-spin' : ''} />
-              <FormattedMessage id={sending ? 'tests.sending' : 'tests.send'} values={{ n: askable }} />
+              <Icon icon={sending ? 'lucide:loader-2' : editing ? 'lucide:save' : 'lucide:send'} className={sending ? 'animate-spin' : ''} />
+              {editing
+                ? <FormattedMessage id={sending ? 'tests.saving' : 'tests.saveChanges'} />
+                : <FormattedMessage id={sending ? 'tests.sending' : 'tests.send'} values={{ n: askable }} />}
             </button>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A started test's questions, read-only: what students are answering can't
+ * change under them. Copying makes a new test from them to change freely.
+ */
+function LockedQuestions({ questions, startedCount, copyHref }: { questions: EditableQuestion[]; startedCount: number; copyHref: string }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-accent-yellow/40 bg-accent-yellow/10 p-3">
+        <Icon icon="lucide:lock" className="text-xl text-accent-yellow shrink-0" />
+        <p className="flex-1 min-w-[12rem] text-sm text-text-secondary">
+          <FormattedMessage id="tests.lockedNote" values={{ n: startedCount }} />
+        </p>
+        <Link to={copyHref} className="btn-3d shrink-0 px-3 py-2 text-xs font-bold bg-accent-cyan text-bg-primary flex items-center gap-1.5">
+          <Icon icon="lucide:copy" /> <FormattedMessage id="tests.copyAsNew" />
+        </Link>
+      </div>
+      <ol className="space-y-1.5">
+        {questions.map((q, i) => (
+          <li key={q.id} className="rounded-xl border border-border bg-bg-tertiary/40 px-3 py-2 text-sm flex gap-2">
+            <span className="text-text-muted tabular-nums">{i + 1}.</span>
+            <span className="min-w-0 flex-1">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-accent-cyan mr-2"><FormattedMessage id={`hunt.typeName.${q.type}`} /></span>
+              <span className="text-text-primary">{q.prompt || q.slotPrompts?.join(' · ') || q.say || q.scrambled}</span>
+              <span className="text-text-muted"> → <b className="text-text-secondary">{q.slots ? q.slots.join(' · ') : q.answer}</b></span>
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
