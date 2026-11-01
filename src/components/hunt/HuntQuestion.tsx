@@ -27,13 +27,18 @@ interface QuestionProps {
    * springs in. A themed test passes these; a hunt leaves them out.
    */
   tileColors?: string[];
+  /**
+   * Once a tile question is marked: the pick and the right answer. The right
+   * tile stays bright and ringed, a wrong pick is struck through, the rest fade.
+   */
+  reveal?: { given: string; answer: string };
 }
 
 export function HuntQuestion(props: QuestionProps) {
   return <QuestionBody key={questionKey(props.question)} {...props} />;
 }
 
-function QuestionBody({ question, cooldown, busy, onAnswer, loadImage, tileColors }: QuestionProps) {
+function QuestionBody({ question, cooldown, busy, onAnswer, loadImage, tileColors, reveal }: QuestionProps) {
   const intl = useIntl();
   const [typed, setTyped] = useState('');
   const locked = busy || cooldown > 0;
@@ -86,18 +91,29 @@ function QuestionBody({ question, cooldown, busy, onAnswer, loadImage, tileColor
         <MatchBoard prompts={question.slotPrompts} bank={question.options} locked={locked} onAnswer={onAnswer} />
       ) : question.options && tileColors?.length ? (
         <div className="grid grid-cols-2 gap-3">
-          {question.options.map((o, i) => (
-            <button
-              key={o}
-              type="button"
-              disabled={locked}
-              onClick={() => onAnswer(o)}
-              className="animate-tile-in min-h-[72px] px-3 py-3 rounded-2xl text-white font-display font-extrabold text-lg text-center leading-tight shadow-[inset_0_-6px_0_rgba(0,0,0,0.25)] transition-transform hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 disabled:opacity-60 disabled:hover:translate-y-0"
-              style={{ background: tileColors[i % tileColors.length], animationDelay: `${i * 70}ms` }}
-            >
-              {o}
-            </button>
-          ))}
+          {question.options.map((o, i) => {
+            const same = (x: string) => x.trim().toLowerCase() === o.trim().toLowerCase();
+            const right = !!reveal && same(reveal.answer);
+            const missed = !!reveal && !right && same(reveal.given);
+            const look = !reveal
+              ? 'disabled:opacity-60'
+              : right ? 'ring-4 ring-accent-green ring-offset-2 ring-offset-bg-card scale-105 animate-tile-pop'
+                : missed ? 'opacity-90 line-through decoration-4' : 'opacity-30';
+            return (
+              <button
+                key={o}
+                type="button"
+                disabled={locked}
+                onClick={() => onAnswer(o)}
+                className={`relative animate-tile-in min-h-[72px] px-3 py-3 rounded-2xl text-white font-display font-extrabold text-lg text-center leading-tight shadow-[inset_0_-6px_0_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 disabled:hover:translate-y-0 ${look}`}
+                style={{ background: tileColors[i % tileColors.length], animationDelay: `${i * 70}ms` }}
+              >
+                {o}
+                {right && <Icon icon="lucide:circle-check" className="absolute -top-2 -right-2 text-2xl text-accent-green bg-bg-card rounded-full" />}
+                {missed && <Icon icon="lucide:circle-x" className="absolute -top-2 -right-2 text-2xl text-accent-red bg-bg-card rounded-full" />}
+              </button>
+            );
+          })}
         </div>
       ) : question.options ? (
         <div className="grid grid-cols-2 gap-2">

@@ -10,7 +10,7 @@ import { createSet, fetchSet, listSets, saveSet, type SetSummary } from '../../l
 import { createTest } from '../../lib/testsApi';
 import { QuestionEditor } from '../hunt/QuestionEditor';
 import { Selector } from '../Selector';
-import { ThemePicker } from './ThemedStage';
+import { ThemePicker, ThemePreviewButton, type PreviewQuestion } from './ThemedStage';
 import type { TestTheme } from '../../lib/testThemes';
 
 /** `<input type="datetime-local">` speaks local time with no zone. */
@@ -83,6 +83,31 @@ export function TestCreatePage() {
   };
 
   const askable = questions.filter((q) => !problemOf(q)).length;
+
+  // Her questions as a student will get them, with their answers — so the
+  // preview can mark them itself. Pictures come from the editor's own copies.
+  const previewQuestions: PreviewQuestion[] = questions.filter((q) => !problemOf(q)).map((q) => ({
+    question: {
+      id: q.id,
+      type: q.type,
+      prompt: q.prompt,
+      options: q.options ?? null,
+      image: q.imageWord ? q.id : null,
+      slotPrompts: q.slotPrompts ?? null,
+      say: q.say ?? null,
+      scrambled: q.scrambled ?? null,
+      length: q.options || q.type === 'custom' ? null : q.answer.length,
+    },
+    answer: q.answer,
+    accept: q.accept,
+    slots: q.slots,
+  }));
+  const previewImage = useCallback(async (key: string) => {
+    const word = questions.find((q) => q.id === key)?.imageWord;
+    const src = word ? pictures[word] : undefined;
+    if (!src) throw new Error('No picture');
+    return src;
+  }, [questions, pictures]);
   const dueOk = Date.parse(due) > Date.now();
   const ready = !!col && title.trim() && askable > 0 && dueOk && !sending;
 
@@ -155,7 +180,10 @@ export function TestCreatePage() {
         </div>
 
         <div>
-          <span className={label}><FormattedMessage id="tests.themeLabel" /></span>
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className={label + ' !mb-0'}><FormattedMessage id="tests.themeLabel" /></span>
+            <ThemePreviewButton theme={theme} instant={instantFeedback} questions={previewQuestions} loadImage={previewImage} />
+          </div>
           <ThemePicker value={theme} onChange={setTheme} />
         </div>
 

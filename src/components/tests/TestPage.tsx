@@ -26,7 +26,7 @@ import {
 import { HuntQuestion } from '../hunt/HuntQuestion';
 import { playCorrect, playSelect, playWin, playWrong } from '../../lib/sfx';
 import { themeLook } from '../../lib/testThemes';
-import { Confetti, CountUp, ThemedProgress, ThemedStage, ThemePicker } from './ThemedStage';
+import { Confetti, CountUp, Marked, ThemedProgress, ThemedStage, ThemePicker, ThemePreviewButton } from './ThemedStage';
 
 const DATE = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } as const;
 
@@ -406,6 +406,7 @@ function TakeTest({ test, questions, initialChecked, leaderboard, onStarted, onD
           onAnswer={(a) => void answer(q, a)}
           loadImage={loadImage}
           tileColors={look.tiles}
+          reveal={mark ? { given: mark.given, answer: mark.answer } : undefined}
         />
         {mark ? (
           <Marked check={mark} fresh={fresh === q.id} streak={mark.correct ? streakAt(at) : 0} />
@@ -433,36 +434,6 @@ function TakeTest({ test, questions, initialChecked, leaderboard, onStarted, onD
   );
 }
 
-/**
- * How an instant-feedback answer went: a green burst and the streak for a
- * hit, the right answer for a miss. Shown quietly (no burst) when coming back
- * to a question marked earlier.
- */
-function Marked({ check, fresh, streak }: { check: Check; fresh: boolean; streak: number }) {
-  return (
-    <div className={`mt-5 flex items-center gap-3 rounded-2xl p-3 ${check.correct ? 'bg-accent-green/15' : 'bg-accent-red/10'} ${fresh ? 'animate-pop-in' : ''}`}>
-      <span className="relative shrink-0 w-11 h-11 flex items-center justify-center">
-        {fresh && <span aria-hidden className={`absolute inset-0 rounded-full animate-answer-burst ${check.correct ? 'bg-accent-green' : 'bg-accent-red'}`} />}
-        <Icon icon={check.correct ? 'lucide:circle-check' : 'lucide:circle-x'} className={`relative text-4xl ${check.correct ? 'text-accent-green' : 'text-accent-red'}`} />
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className={`font-display font-extrabold text-lg ${check.correct ? 'text-accent-green' : 'text-accent-red'}`}>
-          <FormattedMessage id={check.correct ? 'tests.markRight' : 'tests.markWrong'} />
-        </p>
-        {!check.correct && (
-          <p className="text-sm text-text-secondary">
-            <FormattedMessage id="tests.rightAnswer" values={{ answer: <b className="text-accent-green">{check.answer}</b> }} />
-          </p>
-        )}
-      </div>
-      {streak >= 2 && (
-        <span className="shrink-0 flex items-center gap-1 rounded-full bg-accent-orange/20 px-3 py-1 font-display font-extrabold text-accent-orange">
-          <Icon icon="lucide:flame" className="animate-flame" /> {streak}
-        </span>
-      )}
-    </div>
-  );
-}
 
 function Review({ test, questions, review, leaderboard, celebrate }: {
   test: TestSummary;
@@ -591,7 +562,10 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
         </div>
         <p className="text-xs text-text-muted"><FormattedMessage id="tests.shareHint" /></p>
         <div className="pt-1 space-y-2">
-          <p className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="tests.themeLabel" /></p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="tests.themeLabel" /></p>
+            <ThemePreviewButton theme={test.theme} instant={test.instantFeedback} questions={[]} />
+          </div>
           <ThemePicker value={test.theme} onChange={(theme) => void change({ theme })} />
         </div>
         <label className="flex items-start gap-3 cursor-pointer pt-1">
