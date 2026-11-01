@@ -10,6 +10,8 @@ import { createSet, fetchSet, listSets, saveSet, type SetSummary } from '../../l
 import { createTest } from '../../lib/testsApi';
 import { QuestionEditor } from '../hunt/QuestionEditor';
 import { Selector } from '../Selector';
+import { ThemePicker } from './ThemedStage';
+import type { TestTheme } from '../../lib/testThemes';
 
 /** `<input type="datetime-local">` speaks local time with no zone. */
 function toLocalInput(d: Date): string {
@@ -44,6 +46,8 @@ export function TestCreatePage() {
   const [title, setTitle] = useState('');
   const [due, setDue] = useState(defaultDue);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [theme, setTheme] = useState<TestTheme>('ocean');
+  const [instantFeedback, setInstantFeedback] = useState(false);
   const [questions, setQuestions] = useState<EditableQuestion[]>([]);
   const [pictures, setPictures] = useState<Record<string, string>>({});
   const addPictures = useCallback((add: Record<string, string>) => setPictures((p) => ({ ...p, ...add })), []);
@@ -91,7 +95,7 @@ export function TestCreatePage() {
         ? await saveSet(setId, name, questionsToSave(questions))
         : await createSet(name, questionsToSave(questions));
       setSetId(set.id);
-      const test = await createTest({ collectionId: col.id, setId: set.id, title: title.trim(), dueAt: new Date(due).toISOString(), showLeaderboard });
+      const test = await createTest({ collectionId: col.id, setId: set.id, title: title.trim(), dueAt: new Date(due).toISOString(), showLeaderboard, theme, instantFeedback });
       toast.success(intl.formatMessage({ id: 'tests.sent' }));
       navigate(`/tests/${test.id}`, { replace: true });
     } catch (err) {
@@ -150,13 +154,26 @@ export function TestCreatePage() {
           </div>
         </div>
 
-<label className="flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" checked={showLeaderboard} onChange={(e) => setShowLeaderboard(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
-            <span>
-              <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.leaderboardToggle" /></span>
-              <span className="block text-xs text-text-muted"><FormattedMessage id="tests.leaderboardHint" /></span>
-            </span>
-          </label>
+        <div>
+          <span className={label}><FormattedMessage id="tests.themeLabel" /></span>
+          <ThemePicker value={theme} onChange={setTheme} />
+        </div>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={instantFeedback} onChange={(e) => setInstantFeedback(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
+          <span>
+            <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.instantToggle" /></span>
+            <span className="block text-xs text-text-muted"><FormattedMessage id="tests.instantHint" /></span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={showLeaderboard} onChange={(e) => setShowLeaderboard(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
+          <span>
+            <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.leaderboardToggle" /></span>
+            <span className="block text-xs text-text-muted"><FormattedMessage id="tests.leaderboardHint" /></span>
+          </span>
+        </label>
 
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">

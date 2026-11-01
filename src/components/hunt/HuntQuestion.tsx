@@ -22,13 +22,18 @@ interface QuestionProps {
   onAnswer: (answer: string | string[]) => void;
   /** Fetches a picture question's picture by its key. */
   loadImage?: (key: string) => Promise<string>;
+  /**
+   * Colours for the choices: each option becomes a big coloured tile that
+   * springs in. A themed test passes these; a hunt leaves them out.
+   */
+  tileColors?: string[];
 }
 
 export function HuntQuestion(props: QuestionProps) {
   return <QuestionBody key={questionKey(props.question)} {...props} />;
 }
 
-function QuestionBody({ question, cooldown, busy, onAnswer, loadImage }: QuestionProps) {
+function QuestionBody({ question, cooldown, busy, onAnswer, loadImage, tileColors }: QuestionProps) {
   const intl = useIntl();
   const [typed, setTyped] = useState('');
   const locked = busy || cooldown > 0;
@@ -79,6 +84,21 @@ function QuestionBody({ question, cooldown, busy, onAnswer, loadImage }: Questio
 
       {question.slotPrompts && question.options ? (
         <MatchBoard prompts={question.slotPrompts} bank={question.options} locked={locked} onAnswer={onAnswer} />
+      ) : question.options && tileColors?.length ? (
+        <div className="grid grid-cols-2 gap-3">
+          {question.options.map((o, i) => (
+            <button
+              key={o}
+              type="button"
+              disabled={locked}
+              onClick={() => onAnswer(o)}
+              className="animate-tile-in min-h-[72px] px-3 py-3 rounded-2xl text-white font-display font-extrabold text-lg text-center leading-tight shadow-[inset_0_-6px_0_rgba(0,0,0,0.25)] transition-transform hover:-translate-y-0.5 active:translate-y-0.5 active:scale-95 disabled:opacity-60 disabled:hover:translate-y-0"
+              style={{ background: tileColors[i % tileColors.length], animationDelay: `${i * 70}ms` }}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
       ) : question.options ? (
         <div className="grid grid-cols-2 gap-2">
           {question.options.map((o) => (

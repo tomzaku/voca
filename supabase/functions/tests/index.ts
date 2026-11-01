@@ -3,8 +3,8 @@
 // grading rules are pure and live in _shared/tests.ts.
 //
 // The teacher (the collection's owner):
-//   POST   /tests            { collectionId, setId, title, dueAt, showLeaderboard? } → { test }
-//   PATCH  /tests/:id        { title?, dueAt?, showLeaderboard? } → { test }
+//   POST   /tests            { collectionId, setId, title, dueAt, showLeaderboard?, theme?, instantFeedback? } → { test }
+//   PATCH  /tests/:id        { title?, dueAt?, showLeaderboard?, theme?, instantFeedback? } → { test }
 //   DELETE /tests/:id                             → { ok }   idempotent
 //   GET    /tests/:id/results                     → { results }  everyone's score, who hasn't
 //                                                    taken it, and how each question went
@@ -12,14 +12,19 @@
 // Anyone in the collection — its owner, a member, or (when it's public) any
 // signed-in visitor holding the link:
 //   GET    /tests ?collection=                    → { tests }  newest first
-//   GET    /tests/:id                             → { test, questions, review, leaderboard }
-//   POST   /tests/:id/start                       → { test, questions }  starts your clock; idempotent
+//   GET    /tests/:id                             → { test, questions, checked, review, leaderboard }
+//   POST   /tests/:id/start                       → { test, questions, checked }  starts your clock; idempotent
+//   POST   /tests/:id/check { questionId, answer } → { check }  instant-feedback tests only: marks one
+//                                                    answer now and locks it — asking again returns the first
 //   POST   /tests/:id/submit { answers }          → { test, review, leaderboard }   answers: { [questionId]: string | string[] }
 //   GET    /tests/:id/image ?key=                 → { image }  a picture question's picture
 //
 // `questions` is empty for a student until they press Start: that's when
 // their clock starts, so the questions can't be read with it stopped. Their
 // owner, and anyone already started or done, gets them on every read.
+//
+// `checked` is the caller's locked answers in an instant-feedback test, so a
+// reload picks up where they were; always empty otherwise.
 //
 // `leaderboard` is the top three hand-ins — best score first, then fastest,
 // then earliest — or empty when the teacher hasn't turned it on.
@@ -43,14 +48,16 @@ import type { SupabaseClient, User } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
 import {
   fromColumns,
+  givenText,
   Invalid as InvalidQuestion,
+  isCorrect,
   publicQuestion,
   questionColumns,
   UUID,
   type QuestionColumns,
   type StoredQuestion,
 } from '../_shared/hunts.ts';
-import { cleanDue, grade, Invalid, isOpen, MAX_TITLE, rank, tally } from '../_shared/tests.ts';
+import { cleanDue, cleanGiven, cleanTheme, grade, Invalid, isOpen, MAX_TITLE, rank, tally, type Theme } from '../_shared/tests.ts';
 
 const QUESTION_COLUMNS = 'id, position, type, prompt, answer, options, accept, say, scrambled, image_word, pair_prompts, pair_words, word';
 const SET_QUESTION_COLUMNS = 'id, type, prompt, answer, options, accept, say, scrambled, image_word, pair_prompts, pair_words, word';
@@ -70,6 +77,8 @@ interface TestRow {
   title: string;
   due_at: string;
   show_leaderboard: boolean;
+  theme: Theme;
+  instant_feedback: boolean;
   question_count: number;
   created_at: string;
 }
@@ -105,6 +114,8 @@ function toSummary(t: TestRow, me: string, extra: { submittedCount: number; memb
     title: t.title,
     dueAt: t.due_at,
     showLeaderboard: t.show_leaderboard,
+    theme: t.theme,
+    instantFeedback: t.instant_feedback,
     questionCount: t.question_count,
     createdAt: t.created_at,
     submittedCount: extra.submittedCount,
@@ -237,6 +248,25 @@ export default async function handler(req: Request): Promise<Response> {
     });
   };
 
+  /** The caller's locked answers in an instant-feedback test, right answer included. */
+  const checkedFor = async (t: TestRow, questions: StoredQuestion[]) => {
+    if (!t.instant_feedback) return [];
+    const { data, error } = await db
+      .from('collection_test_checks')
+      .select('question_id, given, correct')
+      .eq('test_id', t.id)
+      .eq('user_id', me)
+      .limit(MAX_QUESTIONS);
+    if (error) throw new Error(error.message);
+    const answerOf = new Map(questions.map((q) => [q.id!, q.answer]));
+    return (data ?? []).map((c) => ({
+      questionId: c.question_id as string,
+      given: c.given as string,
+      correct: c.correct as boolean,
+      answer: answerOf.get(c.question_id as string) ?? '',
+    }));
+  };
+
   /** The top hand-ins, when the teacher shows them. */
   const leaderboard = async (t: TestRow) => {
     if (!t.show_leaderboard) return [];
@@ -256,7 +286,8 @@ export default async function handler(req: Request): Promise<Response> {
       .limit(MAX_QUESTIONS);
     if (error) throw new Error(error.message);
     const byQuestion = new Map((data ?? []).map((a) => [a.question_id as string, a]));
-    const reveal = !isOpen(t.due_at, Date.now());
+    // An instant-feedback test already showed each right answer as it went.
+    const reveal = t.instant_feedback || !isOpen(t.due_at, Date.now());
     return questions.map((q) => {
       const a = byQuestion.get(q.id!);
       return {
@@ -325,7 +356,7 @@ export default async function handler(req: Request): Promise<Response> {
 
         const { data, error } = await db
           .from('collection_tests')
-          .insert({ collection_id: cid, owner_id: me, set_id: setId, title, due_at: dueAt, show_leaderboard: b.showLeaderboard === true, question_count: questions.length })
+          .insert({ collection_id: cid, owner_id: me, set_id: setId, title, due_at: dueAt, show_leaderboard: b.showLeaderboard === true, theme: b.theme === undefined ? 'classic' : cleanTheme(b.theme), instant_feedback: b.instantFeedback === true, question_count: questions.length })
           .select('*')
           .single();
         if (error) throw new Error(error.message);
@@ -349,6 +380,7 @@ export default async function handler(req: Request): Promise<Response> {
         return jsonResponse(200, {
           test,
           questions: canSee ? questions.map((q) => ({ id: q.id!, ...publicQuestion(q) })) : [],
+          checked: test.myResult ? [] : await checkedFor(t, questions),
           review: test.myResult ? await review(t, questions) : null,
           leaderboard: await leaderboard(t),
         });
@@ -365,6 +397,8 @@ export default async function handler(req: Request): Promise<Response> {
         }
         if ('dueAt' in b) patch.due_at = cleanDue(b.dueAt, Date.now());
         if ('showLeaderboard' in b) patch.show_leaderboard = b.showLeaderboard === true;
+        if ('theme' in b) patch.theme = cleanTheme(b.theme);
+        if ('instantFeedback' in b) patch.instant_feedback = b.instantFeedback === true;
         const { data, error } = Object.keys(patch).length
           ? await db.from('collection_tests').update(patch).eq('id', t.id).select('*').single()
           : { data: t, error: null };
@@ -392,7 +426,38 @@ export default async function handler(req: Request): Promise<Response> {
         return jsonResponse(200, {
           test: await summary(t, col),
           questions: questions.map((q) => ({ id: q.id!, ...publicQuestion(q) })),
+          checked: await checkedFor(t, questions),
         });
+      }
+
+      case 'POST :id/check': {
+        const { t } = await reachable(id!);
+        if (!t.instant_feedback) return jsonResponse(400, { error: 'This test is marked when you hand it in.' });
+        if (t.owner_id === me) return jsonResponse(400, { error: 'This is your own test — students take it.' });
+        if (!isOpen(t.due_at, Date.now())) return jsonResponse(400, { error: 'This test is closed.' });
+        if (!(await startsOf([t.id])).has(t.id)) return jsonResponse(400, { error: 'Press Start first.' });
+        if ((await submissions([t.id])).some((s) => s.user_id === me)) {
+          return jsonResponse(400, { error: 'You’ve already handed this test in.' });
+        }
+        const b = await body();
+        const questionId = typeof b.questionId === 'string' ? b.questionId : '';
+        const questions = await loadQuestions(db, t.id);
+        const q = questions.find((x) => x.id === questionId);
+        if (!q) return jsonResponse(400, { error: 'That question isn’t in this test.' });
+        const given = cleanGiven(b.answer);
+        const text = givenText(given);
+        if (!text.trim()) return jsonResponse(400, { error: 'Give an answer first.' });
+        // First answer wins: a second check of the same question returns the
+        // locked one, so tapping round the options can't find the right one.
+        const { error } = await db
+          .from('collection_test_checks')
+          .upsert(
+            { test_id: t.id, user_id: me, question_id: q.id, given: text, correct: isCorrect(q, given) },
+            { onConflict: 'test_id,user_id,question_id', ignoreDuplicates: true },
+          );
+        if (error) throw new Error(error.message);
+        const check = (await checkedFor(t, questions)).find((c) => c.questionId === q.id)!;
+        return jsonResponse(200, { check });
       }
 
       case 'POST :id/submit': {
@@ -401,7 +466,11 @@ export default async function handler(req: Request): Promise<Response> {
         if (!isOpen(t.due_at, Date.now())) return jsonResponse(400, { error: 'This test is closed.' });
         const b = await body();
         const questions = await loadQuestions(db, t.id);
-        const { graded, score, total } = grade(questions, b.answers);
+        // In an instant-feedback test the answers already marked are final —
+        // whatever the hand-in says about them.
+        const sent = b.answers && typeof b.answers === 'object' && !Array.isArray(b.answers) ? { ...b.answers as Record<string, unknown> } : {};
+        for (const c of await checkedFor(t, questions)) sent[c.questionId] = c.given.includes(' | ') ? c.given.split(' | ') : c.given;
+        const { graded, score, total } = grade(questions, sent);
 
         // Taking a public collection's test makes you one of its students.
         if (!await isMember(col.id)) {

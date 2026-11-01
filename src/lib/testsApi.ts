@@ -6,6 +6,7 @@
 
 import { request } from './api';
 import type { PublicQuestion } from './huntsApi';
+import type { TestTheme } from './testThemes';
 
 export interface TestSummary {
   id: string;
@@ -16,6 +17,10 @@ export interface TestSummary {
   dueAt: string;
   /** Students see the top three on the test page. */
   showLeaderboard: boolean;
+  /** How the student's screen looks. */
+  theme: TestTheme;
+  /** Each answer is marked (and locked) the moment it's given. */
+  instantFeedback: boolean;
   questionCount: number;
   createdAt: string;
   submittedCount: number;
@@ -36,6 +41,14 @@ export interface ReviewItem {
   correct: boolean;
   /** The right answer — null until the due date passes. */
   answer: string | null;
+}
+
+/** An answer marked on the spot, in an instant-feedback test. Locked once given. */
+export interface Check {
+  questionId: string;
+  given: string;
+  correct: boolean;
+  answer: string;
 }
 
 export interface TestResults {
@@ -75,7 +88,7 @@ export async function listTests(collectionId: string): Promise<TestSummary[]> {
  * Starts the caller's clock (the first time only) and hands back the
  * questions, which a student doesn't get before this.
  */
-export async function startTest(id: string): Promise<{ test: TestSummary; questions: TestQuestion[] }> {
+export async function startTest(id: string): Promise<{ test: TestSummary; questions: TestQuestion[]; checked: Check[] }> {
   return request.post(`/tests/${id}/start`);
 }
 
@@ -88,20 +101,33 @@ export function formatDuration(ms: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
 
-export async function fetchTest(id: string): Promise<{ test: TestSummary; questions: TestQuestion[]; review: ReviewItem[] | null; leaderboard: Leader[] }> {
+export async function fetchTest(id: string): Promise<{ test: TestSummary; questions: TestQuestion[]; checked: Check[]; review: ReviewItem[] | null; leaderboard: Leader[] }> {
   return request.get(`/tests/${id}`);
 }
 
-export async function createTest(fields: { collectionId: string; setId: string; title: string; dueAt: string; showLeaderboard: boolean }): Promise<TestSummary> {
+export async function createTest(fields: {
+  collectionId: string;
+  setId: string;
+  title: string;
+  dueAt: string;
+  showLeaderboard: boolean;
+  theme: TestTheme;
+  instantFeedback: boolean;
+}): Promise<TestSummary> {
   return (await request.post<{ test: TestSummary }>('/tests', fields)).test;
 }
 
-export async function updateTest(id: string, fields: { title?: string; dueAt?: string; showLeaderboard?: boolean }): Promise<TestSummary> {
+export async function updateTest(id: string, fields: { title?: string; dueAt?: string; showLeaderboard?: boolean; theme?: TestTheme; instantFeedback?: boolean }): Promise<TestSummary> {
   return (await request.patch<{ test: TestSummary }>(`/tests/${id}`, fields)).test;
 }
 
 export async function deleteTest(id: string): Promise<void> {
   await request.delete(`/tests/${id}`);
+}
+
+/** Marks one answer now and locks it (instant-feedback tests). Asking again returns the first answer. */
+export async function checkAnswer(id: string, questionId: string, answer: string | string[]): Promise<Check> {
+  return (await request.post<{ check: Check }>(`/tests/${id}/check`, { questionId, answer })).check;
 }
 
 export async function submitTest(id: string, answers: Answers): Promise<{ test: TestSummary; review: ReviewItem[]; leaderboard: Leader[] }> {

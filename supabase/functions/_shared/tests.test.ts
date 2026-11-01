@@ -73,3 +73,12 @@ describe('rank', () => {
     expect(rows.sort(rank).map((r) => r.name)).toEqual(['best', 'fast', 'fastLater', 'slow', 'untimed']);
   });
 });
+
+describe('cleanTheme', () => {
+  it('takes a known theme and refuses anything else', async () => {
+    const { cleanTheme } = await import('./tests');
+    expect(cleanTheme('space')).toBe('space');
+    expect(() => cleanTheme('lava')).toThrow(Invalid);
+    expect(() => cleanTheme(3)).toThrow(Invalid);
+  });
+});

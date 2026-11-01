@@ -10,11 +10,13 @@ import {
   fetchTest,
   fetchTestImage,
   fetchTestResults,
+  checkAnswer,
   formatDuration,
   startTest,
   submitTest,
   updateTest,
   type Answers,
+  type Check,
   type Leader,
   type ReviewItem,
   type TestQuestion,
@@ -22,6 +24,9 @@ import {
   type TestSummary,
 } from '../../lib/testsApi';
 import { HuntQuestion } from '../hunt/HuntQuestion';
+import { playCorrect, playSelect, playWin, playWrong } from '../../lib/sfx';
+import { themeLook } from '../../lib/testThemes';
+import { Confetti, CountUp, ThemedProgress, ThemedStage, ThemePicker } from './ThemedStage';
 
 const DATE = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } as const;
 
@@ -59,7 +64,15 @@ const shown = (a: string | string[] | undefined) => (Array.isArray(a) ? a.join('
 export function TestPage() {
   const { id = '' } = useParams();
   const { user, loading: authLoading } = useAuth();
-  const [data, setData] = useState<{ test: TestSummary; questions: TestQuestion[]; review: ReviewItem[] | null; leaderboard: Leader[] } | null>(null);
+  const [data, setData] = useState<{
+    test: TestSummary;
+    questions: TestQuestion[];
+    checked: Check[];
+    review: ReviewItem[] | null;
+    leaderboard: Leader[];
+  } | null>(null);
+  // Set when this visit handed the test in — the score lands with a burst.
+  const [justDone, setJustDone] = useState(false);
   const [error, setError] = useState<{ notFound: boolean; message: string } | null>(null);
 
   useEffect(() => {
@@ -101,17 +114,22 @@ export function TestPage() {
       {back}
       {data.test.isOwner
         ? <OwnerView test={data.test} onChange={(test) => setData({ ...data, test })} />
-        : data.review
-          ? <Review test={data.test} questions={data.questions} review={data.review} leaderboard={data.leaderboard} />
-          : (
-            <TakeTest
-              test={data.test}
-              questions={data.questions}
-              leaderboard={data.leaderboard}
-              onStarted={(test, questions) => setData({ ...data, test, questions })}
-              onDone={(test, review, leaderboard) => setData({ ...data, test, review, leaderboard })}
-            />
-          )}
+        : (
+          <ThemedStage theme={data.test.theme}>
+            {data.review
+              ? <Review test={data.test} questions={data.questions} review={data.review} leaderboard={data.leaderboard} celebrate={justDone} />
+              : (
+                <TakeTest
+                  test={data.test}
+                  questions={data.questions}
+                  initialChecked={data.checked}
+                  leaderboard={data.leaderboard}
+                  onStarted={(test, questions, checked) => setData({ ...data, test, questions, checked })}
+                  onDone={(test, review, leaderboard) => { setJustDone(true); setData({ ...data, test, review, leaderboard }); }}
+                />
+              )}
+          </ThemedStage>
+        )}
     </div>
   );
 }
@@ -175,10 +193,11 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 function Header({ test }: { test: TestSummary }) {
   const open = Date.parse(test.dueAt) > useOpenedAt();
+  const onStage = !!themeLook(test.theme).background;
   return (
-    <div>
-      <h1 className="text-2xl font-display font-extrabold text-text-primary">{test.title}</h1>
-      <p className="text-sm text-text-muted mt-1">
+    <div className={onStage ? 'drop-shadow' : ''}>
+      <h1 className={`text-2xl font-display font-extrabold ${onStage ? 'text-white' : 'text-text-primary'}`}>{test.title}</h1>
+      <p className={`text-sm mt-1 ${onStage ? 'text-white/85' : 'text-text-muted'}`}>
         <FormattedMessage id={open ? 'tests.due' : 'tests.closedOn'} values={{ date: <FormattedDate value={test.dueAt} {...DATE} /> }} />
         {' · '}
         <FormattedMessage id="tests.questions" values={{ n: test.questionCount }} />
@@ -189,11 +208,13 @@ function Header({ test }: { test: TestSummary }) {
 
 // ── Student ────────────────────────────────────────────────────────────────
 
-function TakeTest({ test, questions, leaderboard, onStarted, onDone }: {
+function TakeTest({ test, questions, initialChecked, leaderboard, onStarted, onDone }: {
   test: TestSummary;
   questions: TestQuestion[];
+  /** Answers already marked, in an instant-feedback test. */
+  initialChecked: Check[];
   leaderboard: Leader[];
-  onStarted: (test: TestSummary, questions: TestQuestion[]) => void;
+  onStarted: (test: TestSummary, questions: TestQuestion[], checked: Check[]) => void;
   onDone: (test: TestSummary, review: ReviewItem[], leaderboard: Leader[]) => void;
 }) {
   const intl = useIntl();
@@ -202,15 +223,48 @@ function TakeTest({ test, questions, leaderboard, onStarted, onDone }: {
   const [at, setAt] = useState(-1);
   const [sending, setSending] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState<Record<string, Check>>(() => Object.fromEntries(initialChecked.map((c) => [c.questionId, c])));
+  // The question just marked here — it gets the burst or the shake; one
+  // marked on an earlier visit is shown quietly.
+  const [fresh, setFresh] = useState<string | null>(null);
   const loadImage = useCallback((key: string) => fetchTestImage(test.id, key), [test.id]);
   const open = Date.parse(test.dueAt) > useOpenedAt();
-  const answered = questions.filter((q) => shown(answers[q.id]).trim()).length;
+  const instant = test.instantFeedback;
+  const look = themeLook(test.theme);
+  const onStage = !!look.background;
+  const isAnswered = (qid: string) => !!checked[qid] || !!shown(answers[qid]).trim();
+  const answered = questions.filter((q) => isAnswered(q.id)).length;
+  const rightSoFar = Object.values(checked).filter((c) => c.correct).length;
 
-  const answer = (q: TestQuestion, a: string | string[]) => {
+  const answer = async (q: TestQuestion, a: string | string[]) => {
     const next = { ...answers, [q.id]: a };
     setAnswers(next);
     writeDraft(test.id, next);
-    setAt((i) => i + 1);
+    if (!instant) {
+      playSelect();
+      setAt((i) => i + 1);
+      return;
+    }
+    if (checked[q.id] || checking) return;
+    setChecking(true);
+    try {
+      const c = await checkAnswer(test.id, q.id, a);
+      setChecked((m) => ({ ...m, [q.id]: c }));
+      setFresh(q.id);
+      if (c.correct) playCorrect(); else playWrong();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  /** Right answers in a row, ending at question `i` — the streak shown after a hit. */
+  const streakAt = (i: number) => {
+    let n = 0;
+    for (let k = i; k >= 0 && checked[questions[k].id]?.correct; k--) n++;
+    return n;
   };
 
   // The server starts the clock and only then sends the questions. Pressing
@@ -220,7 +274,8 @@ function TakeTest({ test, questions, leaderboard, onStarted, onDone }: {
     setStarting(true);
     try {
       const res = await startTest(test.id);
-      onStarted(res.test, res.questions);
+      setChecked(Object.fromEntries(res.checked.map((c) => [c.questionId, c])));
+      onStarted(res.test, res.questions, res.checked);
       setAt(0);
     } catch (err) {
       toast.error((err as Error).message);
@@ -235,6 +290,7 @@ function TakeTest({ test, questions, leaderboard, onStarted, onDone }: {
     try {
       const res = await submitTest(test.id, answers);
       writeDraft(test.id, null);
+      playWin();
       onDone(res.test, res.review, res.leaderboard);
     } catch (err) {
       toast.error((err as Error).message);
@@ -262,11 +318,17 @@ function TakeTest({ test, questions, leaderboard, onStarted, onDone }: {
             <Icon icon="lucide:timer" className="text-sm shrink-0 mt-px" />
             <FormattedMessage id={test.startedAt ? 'tests.clockRunning' : 'tests.timedHint'} />
           </p>
+          {instant && (
+            <p className="flex items-start gap-2 text-xs text-text-muted">
+              <Icon icon="lucide:zap" className="text-sm shrink-0 mt-px" />
+              <FormattedMessage id="tests.instantIntro" />
+            </p>
+          )}
           <button
             type="button"
             onClick={() => void begin()}
             disabled={starting}
-            className="btn-3d w-full py-3 bg-accent-green text-bg-primary font-display font-extrabold disabled:opacity-60"
+            className="btn-3d w-full py-3 bg-accent-green text-bg-primary font-display font-extrabold disabled:opacity-60 animate-jelly"
           >
             <FormattedMessage id={starting ? 'tests.starting' : test.startedAt ? 'tests.continue' : 'tests.start'} />
           </button>
@@ -284,13 +346,23 @@ function TakeTest({ test, questions, leaderboard, onStarted, onDone }: {
           <p className="text-lg font-bold text-text-primary">
             <FormattedMessage id="tests.answeredOf" values={{ n: answered, total: questions.length }} />
           </p>
+          {instant && (
+            <p className="text-sm text-text-secondary">
+              <FormattedMessage id="tests.rightSoFar" values={{ n: rightSoFar }} />
+            </p>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {questions.map((q, i) => (
               <button
                 key={q.id}
                 type="button"
                 onClick={() => setAt(i)}
-                className={`w-9 h-9 rounded-lg text-sm font-bold border-2 ${shown(answers[q.id]).trim() ? 'border-accent-green bg-accent-green/15 text-text-primary' : 'border-border text-text-muted'}`}
+                className={`w-9 h-9 rounded-lg text-sm font-bold border-2 animate-tile-in ${
+                  checked[q.id]
+                    ? checked[q.id].correct ? 'border-accent-green bg-accent-green text-bg-primary' : 'border-accent-red bg-accent-red text-white'
+                    : isAnswered(q.id) ? 'border-accent-green bg-accent-green/15 text-text-primary' : 'border-border text-text-muted'
+                }`}
+                style={{ animationDelay: `${i * 25}ms` }}
               >
                 {i + 1}
               </button>
@@ -313,36 +385,93 @@ function TakeTest({ test, questions, leaderboard, onStarted, onDone }: {
 
   const q = questions[at];
   const prev = shown(answers[q.id]);
+  const mark = checked[q.id];
+  const navText = onStage ? 'text-white/85 hover:text-white' : 'text-text-muted hover:text-text-primary';
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-2 rounded-full bg-bg-tertiary overflow-hidden">
-          <div className="h-full bg-accent-green transition-all" style={{ width: `${(at / questions.length) * 100}%` }} />
-        </div>
-        <span className="text-xs font-bold text-text-muted tabular-nums">{at + 1}/{questions.length}</span>
+      <div className={`flex items-center gap-3 ${onStage ? 'text-white' : ''}`}>
+        <ThemedProgress theme={test.theme} at={at} total={questions.length} />
+        <span className={`text-xs font-bold tabular-nums ${onStage ? 'text-white' : 'text-text-muted'}`}>{at + 1}/{questions.length}</span>
         {test.startedAt && <Elapsed since={test.startedAt} />}
       </div>
-      <div className="rounded-2xl border border-border bg-bg-card p-5">
-        <HuntQuestion key={q.id} question={q} cooldown={0} busy={false} onAnswer={(a) => answer(q, a)} loadImage={loadImage} />
-        {prev && (
+      <div
+        key={q.id}
+        className={`relative rounded-3xl border border-border bg-bg-card p-5 shadow-xl animate-question-in ${mark && !mark.correct && fresh === q.id ? 'animate-shake' : ''}`}
+      >
+        {mark?.correct && fresh === q.id && <Confetti />}
+        <HuntQuestion
+          question={q}
+          cooldown={0}
+          busy={checking || !!mark}
+          onAnswer={(a) => void answer(q, a)}
+          loadImage={loadImage}
+          tileColors={look.tiles}
+        />
+        {mark ? (
+          <Marked check={mark} fresh={fresh === q.id} streak={mark.correct ? streakAt(at) : 0} />
+        ) : prev && !instant ? (
           <p className="mt-4 text-xs text-text-muted">
             <FormattedMessage id="tests.yourAnswer" values={{ answer: <b className="text-text-primary">{prev}</b> }} />
           </p>
-        )}
+        ) : null}
       </div>
       <div className="flex justify-between">
-        <button type="button" onClick={() => setAt(at - 1)} disabled={at === 0} className="px-3 py-2 text-sm font-bold text-text-muted hover:text-text-primary disabled:opacity-30 flex items-center gap-1">
+        <button type="button" onClick={() => setAt(at - 1)} disabled={at === 0} className={`px-3 py-2 text-sm font-bold disabled:opacity-30 flex items-center gap-1 ${navText}`}>
           <Icon icon="lucide:chevron-left" /> <FormattedMessage id="tests.previous" />
         </button>
-        <button type="button" onClick={() => setAt(at + 1)} className="px-3 py-2 text-sm font-bold text-text-muted hover:text-text-primary flex items-center gap-1">
-          <FormattedMessage id={prev ? 'tests.next' : 'tests.skip'} /> <Icon icon="lucide:chevron-right" />
-        </button>
+        {mark ? (
+          <button type="button" onClick={() => setAt(at + 1)} className="btn-3d px-5 py-2.5 bg-accent-green text-bg-primary font-display font-extrabold flex items-center gap-1 animate-pop-in">
+            <FormattedMessage id={at + 1 < questions.length ? 'tests.next' : 'tests.finish'} /> <Icon icon="lucide:chevron-right" />
+          </button>
+        ) : (
+          <button type="button" onClick={() => setAt(at + 1)} className={`px-3 py-2 text-sm font-bold flex items-center gap-1 ${navText}`}>
+            <FormattedMessage id={prev ? 'tests.next' : 'tests.skip'} /> <Icon icon="lucide:chevron-right" />
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-function Review({ test, questions, review, leaderboard }: { test: TestSummary; questions: TestQuestion[]; review: ReviewItem[]; leaderboard: Leader[] }) {
+/**
+ * How an instant-feedback answer went: a green burst and the streak for a
+ * hit, the right answer for a miss. Shown quietly (no burst) when coming back
+ * to a question marked earlier.
+ */
+function Marked({ check, fresh, streak }: { check: Check; fresh: boolean; streak: number }) {
+  return (
+    <div className={`mt-5 flex items-center gap-3 rounded-2xl p-3 ${check.correct ? 'bg-accent-green/15' : 'bg-accent-red/10'} ${fresh ? 'animate-pop-in' : ''}`}>
+      <span className="relative shrink-0 w-11 h-11 flex items-center justify-center">
+        {fresh && <span aria-hidden className={`absolute inset-0 rounded-full animate-answer-burst ${check.correct ? 'bg-accent-green' : 'bg-accent-red'}`} />}
+        <Icon icon={check.correct ? 'lucide:circle-check' : 'lucide:circle-x'} className={`relative text-4xl ${check.correct ? 'text-accent-green' : 'text-accent-red'}`} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className={`font-display font-extrabold text-lg ${check.correct ? 'text-accent-green' : 'text-accent-red'}`}>
+          <FormattedMessage id={check.correct ? 'tests.markRight' : 'tests.markWrong'} />
+        </p>
+        {!check.correct && (
+          <p className="text-sm text-text-secondary">
+            <FormattedMessage id="tests.rightAnswer" values={{ answer: <b className="text-accent-green">{check.answer}</b> }} />
+          </p>
+        )}
+      </div>
+      {streak >= 2 && (
+        <span className="shrink-0 flex items-center gap-1 rounded-full bg-accent-orange/20 px-3 py-1 font-display font-extrabold text-accent-orange">
+          <Icon icon="lucide:flame" className="animate-flame" /> {streak}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Review({ test, questions, review, leaderboard, celebrate }: {
+  test: TestSummary;
+  questions: TestQuestion[];
+  review: ReviewItem[];
+  leaderboard: Leader[];
+  /** Just handed in on this visit: the score counts up under confetti. */
+  celebrate: boolean;
+}) {
   const result = test.myResult;
   const revealed = review.some((r) => r.answer !== null);
   const byId = new Map(questions.map((q) => [q.id, q]));
@@ -350,9 +479,12 @@ function Review({ test, questions, review, leaderboard }: { test: TestSummary; q
     <>
       <Header test={test} />
       {result && (
-        <div className="rounded-2xl border-[3px] border-accent-green bg-accent-green/10 p-5 text-center">
+        <div className={`relative overflow-hidden rounded-3xl border-[3px] border-accent-green bg-bg-card p-6 text-center shadow-xl ${celebrate ? 'animate-bounce-in' : ''}`}>
+          {celebrate && <Confetti count={48} />}
           <p className="text-xs font-bold uppercase tracking-wider text-accent-green"><FormattedMessage id="tests.yourScore" /></p>
-          <p className="text-4xl font-display font-extrabold text-text-primary mt-1">{result.score}/{result.total}</p>
+          <p className="text-5xl font-display font-extrabold text-text-primary mt-1 tabular-nums">
+            {celebrate ? <CountUp to={result.score} /> : result.score}/{result.total}
+          </p>
           {result.durationMs !== null && (
             <p className="text-xs text-text-muted mt-1 flex items-center justify-center gap-1">
               <Icon icon="lucide:timer" /> <FormattedMessage id="tests.tookTime" values={{ time: formatDuration(result.durationMs) }} />
@@ -361,7 +493,9 @@ function Review({ test, questions, review, leaderboard }: { test: TestSummary; q
         </div>
       )}
       <Leaderboard leaders={leaderboard} test={test} />
-      {!revealed && <p className="text-xs text-text-muted"><FormattedMessage id="tests.answersAfterDue" /></p>}
+      {!revealed && (
+        <p className={`text-xs ${themeLook(test.theme).background ? 'text-white/85' : 'text-text-muted'}`}><FormattedMessage id="tests.answersAfterDue" /></p>
+      )}
       <ol className="space-y-2">
         {review.map((r, i) => {
           const q = byId.get(r.questionId);
@@ -422,9 +556,9 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
     }
   };
 
-  const toggleLeaderboard = async (on: boolean) => {
+  const change = async (fields: Parameters<typeof updateTest>[1]) => {
     try {
-      onChange(await updateTest(test.id, { showLeaderboard: on }));
+      onChange(await updateTest(test.id, fields));
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -456,13 +590,24 @@ function OwnerView({ test, onChange }: { test: TestSummary; onChange: (t: TestSu
           </button>
         </div>
         <p className="text-xs text-text-muted"><FormattedMessage id="tests.shareHint" /></p>
-<label className="flex items-start gap-3 cursor-pointer pt-1">
-            <input type="checkbox" checked={test.showLeaderboard} onChange={(e) => void toggleLeaderboard(e.target.checked)} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
-            <span>
-              <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.leaderboardToggle" /></span>
-              <span className="block text-xs text-text-muted"><FormattedMessage id="tests.leaderboardHint" /></span>
-            </span>
-          </label>
+        <div className="pt-1 space-y-2">
+          <p className="text-xs font-bold text-text-muted uppercase tracking-wider"><FormattedMessage id="tests.themeLabel" /></p>
+          <ThemePicker value={test.theme} onChange={(theme) => void change({ theme })} />
+        </div>
+        <label className="flex items-start gap-3 cursor-pointer pt-1">
+          <input type="checkbox" checked={test.instantFeedback} onChange={(e) => void change({ instantFeedback: e.target.checked })} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
+          <span>
+            <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.instantToggle" /></span>
+            <span className="block text-xs text-text-muted"><FormattedMessage id="tests.instantHint" /></span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={test.showLeaderboard} onChange={(e) => void change({ showLeaderboard: e.target.checked })} className="mt-1 accent-[var(--color-accent-green)] w-4 h-4" />
+          <span>
+            <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="tests.leaderboardToggle" /></span>
+            <span className="block text-xs text-text-muted"><FormattedMessage id="tests.leaderboardHint" /></span>
+          </span>
+        </label>
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <input
             type="datetime-local"

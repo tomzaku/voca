@@ -96,3 +96,12 @@ export function rank(
     (a.duration_ms ?? Infinity) - (b.duration_ms ?? Infinity) ||
     a.submitted_at.localeCompare(b.submitted_at);
 }
+
+/** The looks a test can have — the names only; src/lib/testThemes.ts draws them. Mirrors the migration's check. */
+export const THEMES = ['classic', 'ocean', 'space', 'jungle', 'candy', 'castle'] as const;
+export type Theme = (typeof THEMES)[number];
+
+export function cleanTheme(v: unknown): Theme {
+  if (typeof v === 'string' && (THEMES as readonly string[]).includes(v)) return v as Theme;
+  throw new Invalid('Pick a theme.');
+}
