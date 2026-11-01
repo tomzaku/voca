@@ -108,7 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useTeams.getState().reset();
     // And the answer feed the dashboard draws — someone else's answers.
     useActivity.getState().reset();
-    await supabase.auth.signOut();
+    // 'local', not the default 'global': global revokes every session this
+    // user has, so signing out on a laptop logged the phone out too.
+    await supabase.auth.signOut({ scope: 'local' });
   }, []);
 
   return (

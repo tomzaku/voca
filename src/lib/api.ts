@@ -84,6 +84,31 @@ export interface Options {
   allowAnon?: boolean;
 }
 
+// One refresh at a time, shared by every caller. On resume several requests
+// 401 together; each forcing its own refreshSession() rotates the refresh
+// token once per request, and with rotation on a token presented after it was
+// already swapped (past the reuse window) makes Supabase revoke the whole
+// session — the user is signed out. So: first see whether the SDK already
+// holds a newer token than the one we sent (its own timer, or another
+// request, beat us to it) and only force a refresh when it doesn't.
+let refreshing: Promise<boolean> | null = null;
+
+function refreshAfter401(client: NonNullable<typeof supabase>, sentToken: string): Promise<boolean> {
+  refreshing ??= (async () => {
+    try {
+      const { data: { session } } = await withTimeout(client.auth.getSession(), AUTH_TIMEOUT_MS);
+      if (!session) return false;
+      if (session.access_token !== sentToken) return true;
+      const { data: refreshed } = await withTimeout(client.auth.refreshSession(), AUTH_TIMEOUT_MS);
+      return Boolean(refreshed.session);
+    } catch {
+      // Stuck lock, or the refresh itself failed.
+      return false;
+    }
+  })().finally(() => { refreshing = null; });
+  return refreshing;
+}
+
 type Quiet = Options & { quiet: true };
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
@@ -186,14 +211,10 @@ async function send<T>(method: Method, path: string, body: unknown, opts: Option
       // faster than the SDK's own refresh timer noticed on resume — the mobile
       // PWA cold-start case the network log surfaced. Refresh once and retry
       // before treating it as a real sign-out.
+      // On failure, fall through and surface the original 401 rather than
+      // hang retrying it.
       if (response.status === 401 && session && !retried) {
-        try {
-          const { data: refreshed } = await withTimeout(client.auth.refreshSession(), AUTH_TIMEOUT_MS);
-          if (refreshed.session) return attempt(true);
-        } catch {
-          // Stuck lock, or the refresh itself failed — fall through and
-          // surface the original 401 rather than hang retrying it.
-        }
+        if (await refreshAfter401(client, session.access_token)) return attempt(true);
       }
       const message = (data as { error?: string } | null)?.error;
       record(response.status, false, { error: message || `Request failed (${response.status}).`, authenticated, responseBody: data });
