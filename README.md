@@ -34,9 +34,10 @@ npm run lint       # eslint
 npm test           # vitest
 ```
 
-Enable the repo's git hooks once per clone — this bumps the patch version in
-`package.json` on every commit, so each commit is a distinct build (the version
-reaches the app as `__APP_VERSION__`):
+The repo's git hooks bump the patch version in `package.json` on every commit, so
+each commit is a distinct build (the version reaches the app as `__APP_VERSION__`).
+`npm install` turns them on through the `prepare` script; in a clone that skipped
+the install, run it by hand:
 
 ```bash
 git config core.hooksPath .githooks
