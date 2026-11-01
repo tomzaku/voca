@@ -175,7 +175,6 @@ export default {
   'hunt.editor.clear': 'Xóa tất cả',
   'hunt.editor.addType': 'Loại câu hỏi muốn thêm',
   'hunt.editor.addWord': 'Từ đáp án, vd: elephant',
-  'hunt.editor.write': 'Viết câu hỏi',
   'hunt.editor.make': 'Tạo câu hỏi',
   'hunt.editor.cantMake': 'Không tạo được câu hỏi {type} cho “{word}”.',
   'hunt.editor.noWords': 'Không tra được từ nào trong danh sách.',
@@ -265,4 +264,6 @@ export default {
   'hunt.editor.answerPh.match': 'Từ',
   'hunt.editor.answerPh.custom': 'Đáp án đúng — vd: cold',
   'hunt.editor.problem.noPicture': 'Ứng dụng chưa có hình cho từ này — hãy thử từ khác',
+  'hunt.editor.addIt': 'Thêm câu hỏi',
+  'hunt.editor.clearForm': 'Xóa trắng',
 } satisfies Record<keyof typeof en, string>;

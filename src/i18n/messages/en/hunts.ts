@@ -175,7 +175,6 @@ export default {
   'hunt.editor.clear': 'Clear all',
   'hunt.editor.addType': 'Kind of question to add',
   'hunt.editor.addWord': 'Answer word, e.g. elephant',
-  'hunt.editor.write': 'Write a question',
   'hunt.editor.make': 'Make question',
   'hunt.editor.cantMake': 'Couldn’t make a {type} question for “{word}”.',
   'hunt.editor.noWords': 'None of these words could be looked up.',
@@ -265,4 +264,6 @@ export default {
   'hunt.editor.answerPh.match': 'Word',
   'hunt.editor.answerPh.custom': 'Correct answer — e.g. cold',
   'hunt.editor.problem.noPicture': 'The app has no picture of this word yet — try another word',
+  'hunt.editor.addIt': 'Add question',
+  'hunt.editor.clearForm': 'Clear',
 } satisfies Catalog;

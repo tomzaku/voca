@@ -63,6 +63,9 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
   // Ticked: the app writes the question from a word. Unticked: she writes it.
   const [addAuto, setAddAuto] = useState(true);
   const auto = addAuto && addType !== 'custom';
+  // Bumped after each hand-written question is added, so the form below
+  // starts blank again for the next one.
+  const [draftN, setDraftN] = useState(0);
 
   // Words looked up once per visit to the form: generating again, or adding
   // one more question about a word, doesn't ask twice.
@@ -147,12 +150,8 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
 
   const addOne = async () => {
     if (questions.length >= MAX_QUESTIONS || busy) return;
-    if (!auto) {
-      const q = blankQuestion(addType);
-      onChange([...questions, q]);
-      setEditing(q.id);
-      return;
-    }
+    // Written by hand: the form is already open in the add row.
+    if (!auto) return;
     const word = addWord.trim().toLowerCase();
     if (!word) return;
     try {
@@ -324,17 +323,34 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
               className="flex-1 min-w-[140px] bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-sm text-text-primary"
             />
           )}
-          {!auto && <p className="flex-1 text-xs text-text-muted"><FormattedMessage id={`hunt.editor.writeHint.${addType}`} /></p>}
-          <button
-            type="button"
-            onClick={() => void addOne()}
-            disabled={Boolean(busy) || questions.length >= MAX_QUESTIONS || (auto && !addWord.trim())}
-            className="px-3 py-2 rounded-xl bg-accent-cyan/15 text-sm font-bold text-text-primary flex items-center gap-1.5 disabled:opacity-40"
-          >
-            <Icon icon={auto ? 'lucide:wand-2' : 'lucide:pencil'} />
-            <FormattedMessage id={auto ? 'hunt.editor.make' : 'hunt.editor.write'} />
-          </button>
+          {auto && (
+            <button
+              type="button"
+              onClick={() => void addOne()}
+              disabled={Boolean(busy) || questions.length >= MAX_QUESTIONS || !addWord.trim()}
+              className="px-3 py-2 rounded-xl bg-accent-cyan/15 text-sm font-bold text-text-primary flex items-center gap-1.5 disabled:opacity-40"
+            >
+              <Icon icon="lucide:wand-2" />
+              <FormattedMessage id="hunt.editor.make" />
+            </button>
+          )}
         </div>
+        {/* Written by hand: the form for this kind, right here — no extra click. */}
+        {!auto && (
+          <>
+            <p className="text-xs text-text-muted"><FormattedMessage id={`hunt.editor.writeHint.${addType}`} /></p>
+            {questions.length < MAX_QUESTIONS && (
+              <EditForm
+                key={`${addType}-${draftN}`}
+                question={blankQuestion(addType)}
+                adding
+                onSave={(q) => { onChange([...questions, q]); setDraftN((n) => n + 1); }}
+                onCancel={() => setDraftN((n) => n + 1)}
+                checkPicture={checkPicture}
+              />
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -427,8 +443,10 @@ function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCanc
   );
 }
 
-function EditForm({ question: q, onSave, onCancel, checkPicture }: {
+function EditForm({ question: q, onSave, onCancel, checkPicture, adding = false }: {
   question: EditableQuestion;
+  /** A new question in the add row: "Add question" / "Clear" rather than "Save" / "Cancel". */
+  adding?: boolean;
   onSave: (q: EditableQuestion) => void;
   onCancel: () => void;
   checkPicture: (word: string) => Promise<boolean>;
@@ -448,8 +466,13 @@ function EditForm({ question: q, onSave, onCancel, checkPicture }: {
         : form.pairs,
     };
   });
+  // What the form started as: a fresh form in the add row shouldn't greet her
+  // with "Needs an answer" before she's typed a thing.
+  const [initial] = useState(() => JSON.stringify(f));
+  const touched = JSON.stringify(f) !== initial;
   const next = fromForm(q, f);
   const problem = problemOf(next);
+  const showProblem = problem && (touched || !adding);
   const input = 'w-full bg-bg-tertiary border-2 border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan';
   const typed = q.type === 'custom' && f.wrong.every((w) => !w.trim());
 
@@ -461,7 +484,7 @@ function EditForm({ question: q, onSave, onCancel, checkPicture }: {
           onChange={(e) => setF({ ...f, prompt: e.target.value })}
           rows={2}
           maxLength={400}
-          autoFocus
+          autoFocus={!adding}
           placeholder={intl.formatMessage({ id: `hunt.editor.promptPh.${q.type}` })}
           aria-label={intl.formatMessage({ id: 'hunt.custom.prompt' })}
           className={input}
@@ -499,7 +522,7 @@ function EditForm({ question: q, onSave, onCancel, checkPicture }: {
             value={f.answer}
             onChange={(e) => { setF({ ...f, answer: e.target.value }); setNoPicture(false); }}
             maxLength={40}
-            autoFocus={!HAS_PROMPT.includes(q.type)}
+            autoFocus={!adding && !HAS_PROMPT.includes(q.type)}
             placeholder={intl.formatMessage({ id: `hunt.editor.answerPh.${q.type}` })}
             aria-label={intl.formatMessage({ id: 'hunt.custom.answer' })}
             className={input + ' !border-accent-green/50'}
@@ -533,10 +556,10 @@ function EditForm({ question: q, onSave, onCancel, checkPicture }: {
         </>
       )}
       <div className="flex items-center gap-2 justify-end">
-        {problem && <span className="text-xs text-accent-red mr-auto"><FormattedMessage id={`hunt.editor.problem.${problem}`} /></span>}
+        {showProblem && <span className="text-xs text-accent-red mr-auto"><FormattedMessage id={`hunt.editor.problem.${problem}`} /></span>}
         {!problem && noPicture && <span className="text-xs text-accent-red mr-auto"><FormattedMessage id="hunt.editor.problem.noPicture" /></span>}
         <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded-lg bg-bg-tertiary text-sm font-bold text-text-primary">
-          <FormattedMessage id="hunt.teacher.cancel" />
+          <FormattedMessage id={adding ? 'hunt.editor.clearForm' : 'hunt.teacher.cancel'} />
         </button>
         <button
           type="button"
@@ -554,7 +577,9 @@ function EditForm({ question: q, onSave, onCancel, checkPicture }: {
           }}
           className="px-3 py-1.5 rounded-lg bg-accent-cyan text-bg-primary text-sm font-bold disabled:opacity-40"
         >
-          <FormattedMessage id="hunt.editor.save" />
+          {adding
+            ? <><Icon icon="lucide:plus" className="inline -mt-0.5 mr-1" /><FormattedMessage id="hunt.editor.addIt" /></>
+            : <FormattedMessage id="hunt.editor.save" />}
         </button>
       </div>
     </div>
