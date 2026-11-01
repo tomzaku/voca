@@ -254,6 +254,7 @@ export default {
   // ── Adding a question by kind, and the saved-set note ──
   'hunt.sets.reuse': 'Các câu hỏi này cũng được lưu lại để nhập vào lần truy tìm sau.',
   'hunt.sets.savesTo': 'Thay đổi được lưu vào bộ “{title}”.',
+  'hunt.editor.kind': 'Loại',
   'hunt.editor.addTitle': 'Thêm câu hỏi',
   'hunt.editor.fromWord': 'Tạo từ một từ',
   'hunt.editor.writeHint.definition': 'Bạn viết nghĩa; học sinh chọn từ đúng.',

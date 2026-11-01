@@ -254,6 +254,7 @@ export default {
   // ── Adding a question by kind, and the saved-set note ──
   'hunt.sets.reuse': 'These questions are saved too, so you can import them into your next hunt.',
   'hunt.sets.savesTo': 'Your changes are saved to the set “{title}”.',
+  'hunt.editor.kind': 'Kind',
   'hunt.editor.addTitle': 'Add a question',
   'hunt.editor.fromWord': 'Make it from a word',
   'hunt.editor.writeHint.definition': 'You write a meaning; students pick the word.',

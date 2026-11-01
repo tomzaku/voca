@@ -28,6 +28,7 @@ import {
   scramble,
   secondsUntil,
   questionsToSave,
+  retype,
   toForm,
   TREASURE_IDEAS,
   type Ctx,
@@ -403,5 +404,36 @@ describe('importing questions from other sets', () => {
     expect(sameQuestion(q('a', 'cat'), q('b', 'cat'))).toBe(true);
     expect(sameQuestion(q('a', 'cat'), q('b', 'cat', 'Purrs?'))).toBe(false);
     expect(sameQuestion({ ...q('a', 'cat'), type: 'spell' }, q('b', 'cat'))).toBe(false);
+  });
+});
+
+describe('changing a question’s kind', () => {
+  const def: EditableQuestion = { id: 'q1', word: 'cat', type: 'definition', prompt: 'A small pet that purrs', answer: 'cat', options: ['dog', 'cat', 'cow'] };
+
+  it('keeps the answer, the prompt and the wrong answers where the new kind has them', () => {
+    const custom = retype(def, 'custom');
+    expect([custom.type, custom.id, custom.word, custom.prompt, custom.answer]).toEqual(['custom', 'q1', 'cat', 'A small pet that purrs', 'cat']);
+    expect([...(custom.options ?? [])].sort()).toEqual(['cat', 'cow', 'dog']);
+    expect(problemOf(custom)).toBeNull();
+  });
+
+  it('drops what the new kind has no place for', () => {
+    const spell = retype(def, 'spell');
+    expect([spell.prompt, spell.say, spell.options]).toEqual(['', 'cat', undefined]);
+    expect(problemOf(spell)).toBeNull();
+    expect(retype(def, 'unscramble').scrambled).toHaveLength(3);
+  });
+
+  it('turns into a matching board of one pair, and back', () => {
+    const match = retype(def, 'match');
+    expect([match.slots, match.slotPrompts]).toEqual([['cat'], ['A small pet that purrs']]);
+    expect(problemOf(match)).toBe('fewPairs');
+    const back = retype(match, 'definition');
+    expect([back.prompt, back.answer]).toEqual(['A small pet that purrs', 'cat']);
+    expect(problemOf(back)).toBe('noWrong');
+  });
+
+  it('is the same question when the kind doesn’t change', () => {
+    expect(retype(def, 'definition')).toBe(def);
   });
 });

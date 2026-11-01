@@ -16,6 +16,7 @@ import {
   HAS_WRONG,
   HUNT_TYPES,
   makeQuestion,
+  retype,
   MAX_GENERATE,
   MAX_PAIRS,
   MAX_QUESTIONS,
@@ -171,6 +172,25 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
     }
   };
 
+  /**
+   * The question as another kind. One the app made from a word is made again
+   * from that word — a gap sentence from its examples, a picture from its
+   * doodle — and keeps its place in the list; anything else, or a word that
+   * can't make that kind, carries over what fits and leaves her the rest.
+   */
+  const remake = async (q: EditableQuestion, type: HuntQuestionType): Promise<EditableQuestion> => {
+    if (type !== 'custom' && q.word) {
+      await loadData([q.word]);
+      const pics = type === 'image' ? await loadPictures([q.word]) : {};
+      const built = makeQuestion(type, q.word, { data: data.current, wrongPool: wrongPool(words), pictures: pics });
+      if (built) {
+        if (built.picture) onPictures({ [built.picture.word]: built.picture.data });
+        return { ...built.question, id: q.id };
+      }
+    }
+    return retype(q, type);
+  };
+
   const fillFrom = (id: string) => {
     const col = mine.find((c) => c.id === id) ?? builtIn.find((c) => c.id === id);
     if (!col) return;
@@ -285,6 +305,7 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
             }}
             onRemove={() => onChange(questions.filter((x) => x.id !== q.id))}
             checkPicture={checkPicture}
+            remake={remake}
           />
         ))}
       </div>
@@ -351,9 +372,10 @@ export function QuestionEditor({ questions, onChange, pictures, onPictures, need
   );
 }
 
-function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCancel, onRemove, checkPicture }: {
+function QuestionCard({ n, question: saved, picture, editing, onEdit, onSave, onCancel, onRemove, checkPicture, remake }: {
   n: number;
   checkPicture: (word: string) => Promise<boolean>;
+  remake: (q: EditableQuestion, type: HuntQuestionType) => Promise<EditableQuestion>;
   question: EditableQuestion;
   picture?: string;
   editing: boolean;
@@ -363,16 +385,27 @@ function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCanc
   onRemove: () => void;
 }) {
   const intl = useIntl();
+  // While editing, a change of kind makes a new draft; the list keeps the
+  // saved question until she presses Save.
+  const [draft, setDraft] = useState<EditableQuestion | null>(null);
+  const [retyping, setRetyping] = useState(false);
+  const q = editing ? draft ?? saved : saved;
   const problem = problemOf(q);
   const key = (s: string) => s.trim().toLowerCase();
+  const changeType = async (current: EditableQuestion, type: HuntQuestionType) => {
+    setRetyping(true);
+    try { setDraft(await remake(current, type)); } finally { setRetyping(false); }
+  };
 
   return (
     <div className={`rounded-xl border bg-bg-card p-3 ${problem ? 'border-accent-red/60' : 'border-border'}`}>
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs font-bold text-text-muted tabular-nums">{n}</span>
-        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-accent-cyan/15 text-accent-cyan">
-          <FormattedMessage id={`hunt.typeName.${q.type}`} />
-        </span>
+        {!editing && (
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-accent-cyan/15 text-accent-cyan">
+            <FormattedMessage id={`hunt.typeName.${q.type}`} />
+          </span>
+        )}
         {/* While editing, the form says what's wrong with the edit itself. */}
         {problem && !editing && <span className="text-[11px] font-bold text-accent-red"><FormattedMessage id={`hunt.editor.problem.${problem}`} /></span>}
         <span className="flex-1" />
@@ -389,7 +422,16 @@ function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCanc
       </div>
 
       {editing ? (
-        <EditForm question={q} onSave={onSave} onCancel={onCancel} checkPicture={checkPicture} />
+        <EditForm
+          // A new kind is a new form: its fields start from the new draft.
+          key={q.type}
+          question={q}
+          onSave={(next) => { setDraft(null); onSave(next); }}
+          onCancel={() => { setDraft(null); onCancel(); }}
+          checkPicture={checkPicture}
+          onRetype={changeType}
+          retyping={retyping}
+        />
       ) : (
         // What the student sees, with the right answer marked.
         <div className="space-y-2">
@@ -438,8 +480,11 @@ function QuestionCard({ n, question: q, picture, editing, onEdit, onSave, onCanc
   );
 }
 
-function EditForm({ question: q, onSave, onCancel, checkPicture, adding = false }: {
+function EditForm({ question: q, onSave, onCancel, checkPicture, adding = false, onRetype, retyping = false }: {
   question: EditableQuestion;
+  /** Editing a question already in the list: she may change its kind, from what's typed so far. */
+  onRetype?: (current: EditableQuestion, type: HuntQuestionType) => void;
+  retyping?: boolean;
   /** A new question in the add row: "Add question" / "Clear" rather than "Save" / "Cancel". */
   adding?: boolean;
   onSave: (q: EditableQuestion) => void;
@@ -473,6 +518,18 @@ function EditForm({ question: q, onSave, onCancel, checkPicture, adding = false 
 
   return (
     <div className="space-y-2">
+      {onRetype && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-text-muted"><FormattedMessage id="hunt.editor.kind" /></span>
+          <Selector<HuntQuestionType>
+            value={q.type}
+            options={[...HUNT_TYPES, 'custom' as const].map((t) => ({ value: t, label: intl.formatMessage({ id: `hunt.typeName.${t}` }) }))}
+            onChange={(t) => { if (t !== q.type) onRetype(next, t); }}
+            ariaLabel={intl.formatMessage({ id: 'hunt.editor.kind' })}
+          />
+          {retyping && <span className="w-4 h-4 rounded-full border-2 border-accent-cyan/30 border-t-accent-cyan animate-spin" />}
+        </div>
+      )}
       {HAS_PROMPT.includes(q.type) && (
         <textarea
           value={f.prompt}

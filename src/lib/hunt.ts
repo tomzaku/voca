@@ -261,6 +261,28 @@ export function fromForm(prev: EditableQuestion, f: QuestionForm, rand: Rand = M
   }
 }
 
+/**
+ * The same question as another kind, keeping what carries over: the answer,
+ * the prompt where both kinds have one, the wrong answers where both offer
+ * choices, a matching board's first pair. What the new kind needs and the old
+ * one didn't have is left blank for her to fill — `problemOf` says what.
+ */
+export function retype(q: EditableQuestion, type: HuntQuestionType, rand: Rand = Math.random): EditableQuestion {
+  if (q.type === type) return q;
+  const f = toForm(q);
+  if (q.type === 'match') {
+    f.answer = q.slots?.[0] ?? '';
+    f.prompt = q.slotPrompts?.[0] ?? '';
+  }
+  // A pair's meaning is a prompt too, either way round.
+  const prompted = (t: HuntQuestionType) => t === 'match' || HAS_PROMPT.includes(t);
+  if (!prompted(q.type) || !prompted(type)) f.prompt = '';
+  if (type === 'match' && !f.pairs.length) {
+    f.pairs = f.answer ? [{ prompt: f.prompt, word: f.answer }] : [];
+  }
+  return fromForm({ ...q, type }, f, rand);
+}
+
 /** A blank question of her own, ready for the edit form. */
 export function blankCustom(rand: Rand = Math.random): EditableQuestion {
   return blankQuestion('custom', rand);
