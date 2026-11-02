@@ -24,6 +24,8 @@ import { PlaceMemorial } from './worldgames/PlaceMemorial';
 import { RideButton } from './worldgames/RideButton';
 import { LanguageButton } from './worldgames/LanguageButton';
 import { DayNightButton } from './worldgames/DayNightButton';
+import { FestiveButton } from './worldgames/FestiveButton';
+import { useFestive } from '../hooks/useFestive';
 import { RIDES, type Ride } from '../game/vehicles';
 import { REACTIONS, REACTION_ICONS, REACTION_MS, type Gift, type Reaction } from '../game/reactions';
 import { LookSprite } from './worldgames/LookSprite';
@@ -708,6 +710,12 @@ export function GameWorld({
     setSnap(scene()?.snapshot() ?? null);
   }, [pos, snap]);
 
+  // Tết decorations: hung when the scene is up, and on every switch after.
+  // (The first position report is the scene saying it's live.)
+  const festive = useFestive((s) => s.active);
+  const sceneUp = pos !== null;
+  useEffect(() => { if (sceneUp) scene()?.setFestive(festive); }, [festive, sceneUp]);
+
   // Follow theme switches (the scene resolves colors from CSS variables).
   useEffect(() => {
     const observer = new MutationObserver(() => scene()?.applyTheme());
@@ -792,7 +800,7 @@ export function GameWorld({
                 <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
                 <div className="absolute left-0 top-[3.6rem] z-40 w-52 px-notch px-frame p-2 space-y-1">
                   {/* Day or night, and the language — in the bar on wider screens. */}
-                  <div className="sm:hidden flex items-center gap-2 pb-1 mb-1 border-b border-white/10"><LanguageButton /><DayNightButton /></div>
+                  <div className="sm:hidden flex items-center gap-2 pb-1 mb-1 border-b border-white/10"><LanguageButton /><DayNightButton /><FestiveButton /></div>
                   {([['/', 'world.menuApp'], ['/settings', 'world.menuSettings']] as const).map(([to, label]) => (
                     <Link key={to} to={to} className="px-pick px-notch block px-3 py-2 px-title !text-[14px]">
                       <FormattedMessage id={label} />
@@ -860,7 +868,7 @@ export function GameWorld({
             </PixelButton>
           )}
           {/* On a phone these two live in the ⋮ menu, to leave the bar room. */}
-          <span className="hidden sm:contents"><LanguageButton /><DayNightButton /></span>
+          <span className="hidden sm:contents"><LanguageButton /><DayNightButton /><FestiveButton /></span>
           <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton
             tone={drawerOpen ? 'gold' : 'paper'}

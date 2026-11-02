@@ -62,6 +62,8 @@ const gradeColor: Record<string, string> = {
 export function SettingsPage() {
   const intl = useIntl();
   const { theme, setTheme } = useTheme();
+  const { mode: festiveMode, active: festiveOn, setMode: setFestiveMode } = useFestive();
+  const [nextTet] = useState(() => nextLunarNewYear(new Date()));
   const { enginePref, engine, recommended, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed } = useTtsSettings();
   const { user, signInWithGoogle, signOut } = useAuth();
   const store = useVocabularyStore();
@@ -205,6 +207,46 @@ export function SettingsPage() {
             );
           })}
         </div>
+      </section>
+
+      {/* Festive decorations — Lunar New Year lanterns and blossoms, in the app and the world. */}
+      <section className="mb-8">
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1"><FormattedMessage id="settings.festive" /></h2>
+        <p className="text-xs text-text-muted mb-3">
+          <FormattedMessage
+            id="settings.festiveHint"
+            values={{ date: nextTet ? intl.formatDate(nextTet, { day: 'numeric', month: 'long', year: 'numeric' }) : '—' }}
+          />
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {FESTIVE_MODES.map((m) => {
+            const selected = festiveMode === m;
+            return (
+              <button
+                key={m}
+                onClick={() => setFestiveMode(m)}
+                aria-pressed={selected}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  selected
+                    ? 'bg-accent-red/5 border-accent-red/30 ring-1 ring-accent-red/20'
+                    : 'bg-bg-card border-border hover:border-border-light'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`flex items-center gap-1.5 text-sm font-display font-bold ${selected ? 'text-accent-red' : 'text-text-primary'}`}>
+                    <Icon icon={m === 'auto' ? 'lucide:calendar-heart' : m === 'on' ? 'game-icons:paper-lantern' : 'lucide:circle-off'} className="text-base" />
+                    <FormattedMessage id={`settings.festive.${m}`} />
+                  </span>
+                  {selected && <span className="text-[10px] text-accent-red"><FormattedMessage id="settings.active" /></span>}
+                </div>
+                <p className="text-xs text-text-muted"><FormattedMessage id={`settings.festive.${m}Desc`} /></p>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-text-muted mt-2">
+          <FormattedMessage id={festiveOn ? 'settings.festiveNowOn' : 'settings.festiveNowOff'} />
+        </p>
       </section>
 
       {/* Languages */}

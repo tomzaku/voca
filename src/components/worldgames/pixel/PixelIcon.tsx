@@ -24,6 +24,19 @@ const GRIDS = {
     '..##....',
     '...#....',
   ],
+  // A Tết lantern on its cord — the world's festive-decorations switch.
+  lantern: [
+    '....#....',
+    '...###...',
+    '.#######.',
+    '###...###',
+    '#########',
+    '###...###',
+    '.#######.',
+    '...###...',
+    '....#....',
+    '...#.#...',
+  ],
   // Day and night, for the world's day/night switch.
   sun: [
     '....#....',

@@ -18,6 +18,7 @@ import {
   VILLAGERS_KEY, loadVillagers, villagerAnim, keeperLookFor,
   type BuddyDir, type VillagerLook,
 } from '../textures';
+import { buildFestive, type FestiveDecor } from '../festiveDecor';
 
 export interface WorldSceneData {
   /** Walking, or riding a bicycle or a xích lô (game/vehicles.ts). */
@@ -217,6 +218,9 @@ export class WorldScene extends Phaser.Scene {
   private tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [];
   /** Area labels, kept so a theme switch can recolor them in place. */
   private labels: { text: Phaser.GameObjects.Text; theme: ThemeId; place?: string }[] = [];
+  /** Tết decorations while they're up (src/game/festiveDecor.ts); `festiveWanted` holds the switch until the scene is ready. */
+  private festive?: FestiveDecor;
+  private festiveWanted = false;
   /** The named place the buddy is at, if any (a label's `place`). */
   private litPlace: string | null = null;
   private nodes: KeeperNode[] = [];
@@ -356,6 +360,8 @@ export class WorldScene extends Phaser.Scene {
     // Local development: P logs where the buddy and the pointer are, in the
     // map generator's tiles — handy for saying where something's wrong.
     if (import.meta.env.DEV) kb.on('keydown-P', () => console.log('[world] position', this.debugPosition()));
+    // …and the scene itself on window, to drive it from the console.
+    if (import.meta.env.DEV) (window as unknown as { __world?: WorldScene }).__world = this;
 
     // Tap the ground → walk there (through a door if it's another area).
     this.input.on(
@@ -428,6 +434,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.cameras.main.startFollow(this.buddy, true, 0.12, 0.12);
     this.ready = true;
+    this.setFestive(this.festiveWanted);
 
     // Map tags use the HUD's web font, which may still be loading when the
     // scene first draws; redraw every text once it has landed.
@@ -496,9 +503,36 @@ export class WorldScene extends Phaser.Scene {
     this.buildStations();
   }
 
+  /**
+   * Lunar New Year decorations, up or down. Safe to call before the scene is
+   * ready (it's remembered and applied then) and as often as you like.
+   */
+  setFestive(on: boolean) {
+    this.festiveWanted = on;
+    if (!this.ready) return;
+    if (on && !this.festive) {
+      this.festive = buildFestive({
+        scene: this,
+        tilePx: this.tilePx,
+        scale: SCALE,
+        strolls: this.meta.strolls,
+        labels: this.labels,
+        keepers: this.meta.slots,
+        depth: { ground: DEPTH_BUDDY - 1, over: DEPTH_OVER + 1, glow: DEPTH_OVER },
+        tinted: this.tinted,
+        night: !this.pal.light,
+        calm: !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+      });
+    } else if (!on && this.festive) {
+      this.festive.destroy();
+      this.festive = undefined;
+    }
+  }
+
   /** Point the day/night dressing at the current palette. */
   private applyNight() {
     const night = !this.pal.light;
+    this.festive?.setNight(night);
     this.nightVeil?.setVisible(night);
     this.nightLights?.setVisible(night);
     this.nightOverLights?.setVisible(night);

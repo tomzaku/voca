@@ -140,6 +140,8 @@ export default {
   'world.liveHideChat': 'Ẩn trò chuyện',
   'world.liveShowChat': 'Hiện trò chuyện',
   'world.dayNight': 'Ngày hay đêm',
+  'world.festiveOn': 'Treo đèn lồng Tết',
+  'world.festiveOff': 'Gỡ đèn lồng Tết',
   'world.liveSignInButton': 'Đăng nhập để gặp bạn bè',
   'world.liveSignInShort': 'Đăng nhập',
   'world.liveOnline': 'Trực tuyến',

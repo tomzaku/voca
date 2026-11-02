@@ -142,6 +142,8 @@ export default {
   'world.liveHideChat': 'Hide chat',
   'world.liveShowChat': 'Show chat',
   'world.dayNight': 'Day or night',
+  'world.festiveOn': 'Hang the Tết lanterns',
+  'world.festiveOff': 'Take the Tết lanterns down',
   'world.liveSignInButton': 'Sign in to see friends',
   'world.liveSignInShort': 'Sign in',
   'world.liveOnline': 'Online',
