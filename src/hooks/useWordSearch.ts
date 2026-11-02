@@ -7,7 +7,7 @@ import { create } from 'zustand';
 // loading logic stays with the player.
 //
 // `openCount` is the world's door: on /world the header's search (button,
-// ⌘K, "/") opens the library inside the game instead of the app's modal, and
+// ⌘K) opens the library inside the game instead of the app's modal, and
 // WorldGame watches this counter to know when.
 interface WordSearchState {
   /** A word requested from a search, awaiting a player to load it. */

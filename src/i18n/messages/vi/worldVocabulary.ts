@@ -13,7 +13,7 @@ export default {
   'world.searchLearnHere': 'Học từ này ở Tàng Thư Lâu',
   'world.searchSave': 'Lưu',
   'world.searchSaved': 'Đã lưu',
-  'world.searchHint': 'Enter để tra · ⌘K hoặc / mở thư viện từ bất cứ đâu',
+  'world.searchHint': 'Enter để tra · ⌘K mở thư viện từ bất cứ đâu',
   'world.reviewNothingDue': 'Hiện chưa có từ nào cần ôn.',
   'world.reviewAllDone': 'Đã ôn xong — nhớ được {kept}/{total} từ.',
   'world.reviewNextDue': 'Lần ôn tiếp theo {when}.',

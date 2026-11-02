@@ -128,7 +128,7 @@ export function WorldGame() {
   const firstVisit = dress === null;
   const leaveTailor = (look: Look) => { setDress(look); setTrying(null); setOpen(null); };
 
-  // Search lives in the library: the header's search (button, ⌘K, "/") opens
+  // Search lives in the library: the header's search (button, ⌘K) opens
   // it here instead of the app's modal, and "learn it" hands the word to the
   // archive's word desk, which plays it next.
   useEffect(() => useWordSearch.subscribe((s, prev) => {

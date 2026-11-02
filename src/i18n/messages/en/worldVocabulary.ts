@@ -15,7 +15,7 @@ export default {
   'world.searchLearnHere': 'Learn it at Tàng Thư Lâu',
   'world.searchSave': 'Save',
   'world.searchSaved': 'Saved',
-  'world.searchHint': 'Enter to look up · ⌘K or / opens the library from anywhere',
+  'world.searchHint': 'Enter to look up · ⌘K opens the library from anywhere',
   'world.reviewNothingDue': 'Nothing is due right now.',
   'world.reviewAllDone': 'All caught up — {kept} of {total} remembered.',
   'world.reviewNextDue': 'Next review {when}.',

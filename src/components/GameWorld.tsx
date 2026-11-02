@@ -292,6 +292,7 @@ export function GameWorld({
   // ── The shared world ── everyone in Huế at once (lib/worldLive): their
   // buddies walk here, wave and chat; you can block anyone.
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+  const signedIn = !!user;
   // The welcome, for someone new and signed out — once per device, and again
   // from the ⓘ button beside Sign in.
   const [intro, setIntro] = useState(false);
@@ -729,17 +730,23 @@ export function GameWorld({
     }
   }, [roomId, animal.id, stage, features]);
 
-  // 1–6 react, while walking about (not typing, not in a game or a skill).
+  // 1–6 react and "/" opens the chat, while walking about (not typing, not in
+  // a game or a skill).
   useEffect(() => {
     if (panel || chatOpen || playing || match || busTicket !== null || focusOpen || memorial) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement)?.closest?.('input, textarea, [contenteditable]')) return;
+      if (e.key === '/') {
+        // preventDefault so the "/" isn't typed into the box it opens.
+        if (signedIn) { e.preventDefault(); setReactOpen(false); setChatOpen(true); }
+        return;
+      }
       const r = REACTIONS[Number(e.key) - 1];
       if (r) { e.preventDefault(); react(r); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [panel, chatOpen, playing, match, busTicket, focusOpen, memorial, react]);
+  }, [panel, chatOpen, playing, match, busTicket, focusOpen, memorial, react, signedIn]);
 
   // First time here and signed out: the welcome, once the world has drawn
   // (and auth has had its say, so a signed-in visitor never sees it flash).

@@ -37,9 +37,10 @@ export function Navbar() {
   const inWorld = useLocation().pathname === '/world';
   const requestWorldSearch = useWordSearch((s) => s.requestOpen);
   const openSearch = () => (inWorld ? requestWorldSearch() : setSearchOpen(true));
-  // ⌘K / Ctrl+K from anywhere, and "/" when not already typing.
+  // ⌘K / Ctrl+K from anywhere, and "/" when not already typing — except in
+  // the world, where "/" opens the chat (as in most games).
   useHotkey('mod+k', openSearch);
-  useHotkey('/', openSearch);
+  useHotkey('/', () => { if (!inWorld) openSearch(); });
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
   const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || '';
