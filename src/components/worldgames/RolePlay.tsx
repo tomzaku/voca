@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { dialogues } from '../../data/englishDialogues';
 import { ieltsConversations } from '../../data/englishIelts';
@@ -45,7 +45,8 @@ function scriptsFor(source: Source, intl: ReturnType<typeof useIntl>): Script[] 
   }));
 }
 
-export function RolePlay({ source }: { source: Source }) {
+/** `header` — the host's title and Close, shown at the top of whichever panel is up. */
+export function RolePlay({ source, header }: { source: Source; header?: ReactNode }) {
   const intl = useIntl();
   const scripts = useMemo(() => scriptsFor(source, intl), [source, intl]);
   const progress = useSpeakingProgress((s) => s.questions);
@@ -60,11 +61,12 @@ export function RolePlay({ source }: { source: Source }) {
     if (pool.length > 0) open(pool[Math.floor(Math.random() * pool.length)]);
   };
 
-  if (!script) return <Picker scripts={scripts} progress={progress} onPick={open} onRandom={random} />;
-  return <Stage key={script.id} script={script} onScripts={() => setScript(null)} onRandom={random} />;
+  if (!script) return <Picker header={header} scripts={scripts} progress={progress} onPick={open} onRandom={random} />;
+  return <Stage key={script.id} header={header} script={script} onScripts={() => setScript(null)} onRandom={random} />;
 }
 
-function Picker({ scripts, progress, onPick, onRandom }: {
+function Picker({ header, scripts, progress, onPick, onRandom }: {
+  header?: ReactNode;
   scripts: Script[];
   progress: ReturnType<typeof useSpeakingProgress.getState>['questions'];
   onPick: (s: Script) => void;
@@ -74,6 +76,7 @@ function Picker({ scripts, progress, onPick, onRandom }: {
   const [group, setGroup] = useState(groups[0]);
   return (
     <HudCenter wide>
+      {header}
       <div className="flex items-center justify-between gap-2 mb-3">
         <p className="px-title !text-[18px] text-[var(--px-gold)]"><FormattedMessage id="world.rpPick" /></p>
         <PixelButton tone="gold" onClick={onRandom}>
@@ -98,7 +101,7 @@ function Picker({ scripts, progress, onPick, onRandom }: {
   );
 }
 
-function Stage({ script, onScripts, onRandom }: { script: Script; onScripts: () => void; onRandom: () => void }) {
+function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; script: Script; onScripts: () => void; onRandom: () => void }) {
   const intl = useIntl();
   const markPracticed = useSpeakingProgress((s) => s.markPracticed);
   const [mode, setMode] = useState<Mode>('listen');
@@ -146,6 +149,7 @@ function Stage({ script, onScripts, onRandom }: { script: Script; onScripts: () 
   return (
     <>
       <HudCenter wide aboveDock>
+        {header}
         <div className="mb-3">
           <p className="px-title !text-[11px] text-[var(--px-muted)]">
             {script.group} · <FormattedMessage id="conversation.lineCount" values={{ count: script.lines.length }} />
