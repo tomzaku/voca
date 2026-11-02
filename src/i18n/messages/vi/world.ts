@@ -88,7 +88,7 @@ export default {
   'world.fireworksDone': 'Đã bắn {n}/{total} quả pháo hoa!',
   'world.fireworksAgain': 'Bắn thêm lượt nữa',
   'world.poolTitle': 'Bi-a',
-  'world.poolBlurb': 'Bi-a vỉa hè bên sông. Đánh hết bàn — phạm lỗi bị cộng một gậy, trừ khi trả lời đúng từ vựng.',
+  'world.poolBlurb': 'Bi-a vỉa hè trên phố đi bộ. Đánh hết bàn — phạm lỗi bị cộng một gậy, trừ khi trả lời đúng từ vựng.',
   'world.poolSoloHow': 'Đưa cả 15 bi vào lỗ với ít gậy nhất. Phạm lỗi thì trả lời một câu từ vựng để không bị cộng gậy.',
   'world.poolShoot': 'Giữ để đánh',
   'world.poolRelease': 'Thả!',

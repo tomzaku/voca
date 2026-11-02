@@ -90,7 +90,7 @@ export default {
   'world.fireworksDone': '{n} of {total} fireworks launched!',
   'world.fireworksAgain': 'Launch another round',
   'world.poolTitle': 'Pool',
-  'world.poolBlurb': 'Street pool by the river. Clear the table — a foul costs a shot unless you answer its word.',
+  'world.poolBlurb': 'Street pool on Phố đi bộ. Clear the table — a foul costs a shot unless you answer its word.',
   'world.poolSoloHow': 'Clear all 15 balls in as few shots as you can. Foul, and answer a word question to keep it off your score.',
   'world.poolShoot': 'Hold to shoot',
   'world.poolRelease': 'Release!',

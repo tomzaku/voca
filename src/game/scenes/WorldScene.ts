@@ -1483,7 +1483,15 @@ export class WorldScene extends Phaser.Scene {
 
   private checkPlay() {
     let near: string | null = null;
-    if (!this.bus) for (const p of this.meta.plays) if (Math.hypot(this.buddy.x - p.x, this.buddy.y - p.y) < this.tilePx * 2.4) near = p.game;
+    // The closest play spot in reach — the piano, the stage and the pool table
+    // stand close together on Phố đi bộ.
+    if (!this.bus) {
+      let best = this.tilePx * 2.4;
+      for (const p of this.meta.plays) {
+        const d = Math.hypot(this.buddy.x - p.x, this.buddy.y - p.y);
+        if (d < best) { best = d; near = p.game; }
+      }
+    }
     if (near === this.atPlay) return;
     this.atPlay = near;
     this.game.events.emit(WORLD_EVENTS.play, near);

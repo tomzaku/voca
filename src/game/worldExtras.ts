@@ -5,8 +5,8 @@
 //   cailuong  a cải lương stage on Phố đi bộ, next to the street piano —
 //             red curtains, a painted backdrop, two performers in costume
 //   fortune   a fortune-stick table before Thiên Mụ's hall, by its incense
-//   pool      a street pool table (bi-a vỉa hè) on the south bank's lawn,
-//             east of Trường Tiền — solo practice; matches start from a player
+//   pool      a street pool table (bi-a vỉa hè) on Phố đi bộ, past the street
+//             piano — solo practice; matches start from a player
 //   fireworks two launch pads on the citadel wall either side of Kỳ Đài, before
 //             Ngọ Môn, where Huế fires its Tết fireworks — only while the Tết
 //             decorations are up (festiveDecor.ts draws them)
@@ -23,7 +23,7 @@ export const FIREWORKS_PADS = [{ x: 53.2, y: 41.4 }, { x: 57.3, y: 41.3 }];
 export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolean }[] = [
   { game: 'cailuong', x: 59.3, y: 64.75 },
   { game: 'fortune', x: 13.2, y: 48.4 },
-  { game: 'pool', x: 96.8, y: 64.2 },
+  { game: 'pool', x: 63.5, y: 64.2 },
   ...FIREWORKS_PADS.map((p) => ({ game: 'fireworks', ...p, festive: true })),
 ];
 
@@ -33,8 +33,8 @@ const STAGE = { x: 59.3, y: 64.2 };
 export const STAGE_AREA = { x0: STAGE.x - 2, x1: STAGE.x + 2, y0: STAGE.y - 3, y1: STAGE.y };
 /** The fortune table, beside Thiên Mụ's door. */
 const ALTAR = { x: 13.2, y: 48.0 };
-/** The pool table, on the lawn by the river. */
-const POOL = { x: 96.8, y: 63.4 };
+/** The pool table, on Phố đi bộ past the street piano. */
+const POOL = { x: 63.5, y: 63.7 };
 
 export interface ExtrasContext {
   scene: Phaser.Scene;
