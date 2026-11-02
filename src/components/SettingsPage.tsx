@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useTheme, type Theme } from '../hooks/useTheme';
+import { useFestive } from '../hooks/useFestive';
+import { FESTIVE_MODES, nextLunarNewYear } from '../lib/festive';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES, type TtsEngine, type TtsEnginePref } from '../hooks/useTtsSettings';
 import { isHeavyFor } from '../lib/deviceTier';
 import { speakText, stopSpeaking } from '../lib/tts';
