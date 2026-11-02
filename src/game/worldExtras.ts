@@ -5,6 +5,8 @@
 //   cailuong  a cải lương stage on Phố đi bộ, next to the street piano —
 //             red curtains, a painted backdrop, two performers in costume
 //   fortune   a fortune-stick table before Thiên Mụ's hall, by its incense
+//   pool      a street pool table (bi-a vỉa hè) on the south bank's lawn,
+//             east of Trường Tiền — solo practice; matches start from a player
 //   fireworks two launch pads on the citadel wall either side of Kỳ Đài, before
 //             Ngọ Môn, where Huế fires its Tết fireworks — only while the Tết
 //             decorations are up (festiveDecor.ts draws them)
@@ -21,6 +23,7 @@ export const FIREWORKS_PADS = [{ x: 53.2, y: 41.4 }, { x: 57.3, y: 41.3 }];
 export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolean }[] = [
   { game: 'cailuong', x: 59.3, y: 64.75 },
   { game: 'fortune', x: 13.2, y: 48.4 },
+  { game: 'pool', x: 96.8, y: 64.2 },
   ...FIREWORKS_PADS.map((p) => ({ game: 'fireworks', ...p, festive: true })),
 ];
 
@@ -30,6 +33,8 @@ const STAGE = { x: 59.3, y: 64.2 };
 export const STAGE_AREA = { x0: STAGE.x - 2, x1: STAGE.x + 2, y0: STAGE.y - 3, y1: STAGE.y };
 /** The fortune table, beside Thiên Mụ's door. */
 const ALTAR = { x: 13.2, y: 48.0 };
+/** The pool table, on the lawn by the river. */
+const POOL = { x: 96.8, y: 63.4 };
 
 export interface ExtrasContext {
   scene: Phaser.Scene;
@@ -89,6 +94,17 @@ function makeTextures(scene: Phaser.Scene) {
     px(3, 2, 1, 4, '#fff1b8'); px(3, 1, 1, 1, '#ffd23f');               // candles
     px(5, 2, 1, 4, '#fff1b8'); px(5, 1, 1, 1, '#ffd23f');
   });
+  // A street pool table: green cloth, a wooden rail, dark pockets, a few balls
+  // and a cue laid across it.
+  canvasTexture(scene, 'extra-pool', 30, 18, (px) => {
+    px(0, 0, 30, 14, '#5a3420');
+    px(2, 2, 26, 10, '#1f7a4a');
+    for (const [x, y] of [[1, 1], [14, 0], [27, 1], [1, 11], [14, 12], [27, 11]]) px(x, y, 2, 2, '#0c0c0e');
+    px(6, 6, 2, 2, '#f6f1e4');
+    for (const [x, y, c] of [[19, 5, '#d43a30'], [21, 6, '#f2c230'], [19, 7, '#2f5fd0'], [21, 4, '#1a1a1e'], [23, 6, '#2e9a4e']] as const) px(x, y, 2, 2, c);
+    px(3, 9, 10, 1, '#d8b878');
+    px(1, 14, 2, 4, '#3a2214'); px(27, 14, 2, 4, '#3a2214');
+  });
   // A floating note, for the music.
   canvasTexture(scene, 'extra-note', 5, 7, (px) => {
     px(3, 0, 1, 5, '#ffffff'); px(3, 0, 2, 1, '#ffffff'); px(4, 1, 1, 1, '#ffffff');
@@ -123,4 +139,7 @@ export function buildExtras(ctx: ExtrasContext) {
 
   const altar = scene.add.image(ALTAR.x * k, ALTAR.y * k, 'extra-altar').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(altar);
+
+  const table = scene.add.image(POOL.x * k, POOL.y * k, 'extra-pool').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
+  ctx.tinted.push(table);
 }

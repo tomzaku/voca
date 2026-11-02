@@ -29,6 +29,7 @@ import { FriendChat, FriendsPanel } from './worldgames/FriendsPanel';
 import { acceptFriend, friendStatuses, listFriends, removeFriend, requestFriend, type FriendStatus, type FriendsList } from '../lib/friendsApi';
 import { CaiLuongStage } from './worldgames/CaiLuongStage';
 import { FortuneSticks } from './worldgames/FortuneSticks';
+import { PoolMatch, PoolSolo } from './worldgames/PoolGames';
 import { FireworksLaunch } from './worldgames/FireworksLaunch';
 import { startDonTune, stopDonTune } from '../lib/donTune';
 import { useFestive } from '../hooks/useFestive';
@@ -214,7 +215,7 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 }
 
 /** Each thing two players can do together, by its mark. */
-const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship' };
+const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship', pool: 'eightball' };
 
 /** One group on a player's card: a small heading over its buttons. */
 function PeerSection({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -233,7 +234,7 @@ const INTRO_SEEN = 'voca-world-intro-seen';
 // A game's mark on its card: a pixel icon where the kit has one, else an emoji.
 const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = {
   piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' },
-  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' },
+  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' },
 };
 
 /** One foldable section of the travel drawer. `onTitle`, when given, makes
@@ -1320,6 +1321,9 @@ export function GameWorld({
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'sea')} className="!px-2 !text-[13px]">
               <PixelIcon name="ship" size={2} /> <FormattedMessage id="world.seaTitle" />
             </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'pool')} className="!px-2 !text-[13px]">
+              <PixelIcon name="eightball" size={2} /> <FormattedMessage id="world.poolTitle" />
+            </PixelButton>
           </PeerSection>
           <PeerSection title={<FormattedMessage id="world.peerHi" />}>
             <PixelButton tone="paper" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !text-[13px]">
@@ -1368,6 +1372,7 @@ export function GameWorld({
       {link?.game === 'oan' && <OAnQuan key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'poker' && <Poker key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'chess' && <ChessMatch key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'pool' && <PoolMatch key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'sea' && <SeaBattle key={link.id} link={link} onClose={endMatch} />}
 
       {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
@@ -1509,6 +1514,7 @@ export function GameWorld({
       {!panel && playing === 'fish' && <Fishing onClose={() => setPlaying(null)} />}
       {!panel && playing === 'cailuong' && <CaiLuongStage onClose={() => setPlaying(null)} />}
       {!panel && playing === 'fortune' && <FortuneSticks onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'pool' && <PoolSolo onClose={() => setPlaying(null)} />}
       {!panel && playing === 'fireworks' && festive && (
         <FireworksLaunch onClose={() => setPlaying(null)} onLaunch={(word, big) => scene()?.launchFirework(word, big)} />
       )}
