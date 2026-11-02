@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { buildMcq, loadQuizData, shuffle, type McqQuestion } from '../../lib/quizEngine';
-import { WORD_LIST } from '../../lib/wordService';
-import { playCorrect, playSelect, playWrong } from '../../lib/sfx';
-import { PixelButton, PixelLoader } from './pixel';
-import { useWorld } from './world';
+import { fetchQuestions, type WordQuestion } from '../../lib/questionsApi';
+import { playSelect } from '../../lib/sfx';
+import { PixelLoader } from './pixel';
+import { WordQuestionCard } from './WordQuestion';
 
 // A bus ticket, bought from the Travel drawer: the fare is one word. The
 // conductor reads out a definition and you pick the word — right or wrong you
 // get your ticket (a wrong answer shows the right word), and the bus takes
-// you. Nothing is written to your progress; it's a moment's practice, not a
-// test. With no words to ask yet, the ride is free. Either way the bus comes
-// by itself a moment later — no second button to press.
+// you. The question comes from the server (lib/questionsApi), from the
+// collection you're studying, its answer sealed until you choose. Nothing is
+// written to your progress; it's a moment's practice, not a test. With no
+// question to ask, the ride is free. Either way the bus comes by itself a
+// moment later — no second button to press.
 
 /** How long the bus takes to come once you have your ticket. */
 const ARRIVES_MS = 2000;
@@ -19,32 +20,21 @@ const ARRIVES_MS = 2000;
 type Stage =
   | { kind: 'loading' }
   | { kind: 'free' }
-  | { kind: 'ask'; q: McqQuestion }
-  | { kind: 'answered'; q: McqQuestion; picked: string };
+  | { kind: 'ask'; q: WordQuestion }
+  | { kind: 'answered'; q: WordQuestion; correct: boolean; answer: string };
 
 export function BusTicket({ stop, onBoard, onClose }: { stop: string; onBoard: () => void; onClose: () => void }) {
-  const { wordPool } = useWorld();
-  // The word asked, picked once as the booth opens; no words, a free ride.
-  const [word] = useState(() => wordPool[Math.floor(Math.random() * wordPool.length)] as string | undefined);
-  const [stage, setStage] = useState<Stage>(() => (word ? { kind: 'loading' } : { kind: 'free' }));
+  const [stage, setStage] = useState<Stage>({ kind: 'loading' });
 
   useEffect(() => {
-    if (!word) return;
     let live = true;
-    loadQuizData([word]).then(({ dataMap }) => {
+    fetchQuestions(1).then((qs) => {
       if (!live) return;
-      const data = dataMap[word];
-      const wrong = shuffle(WORD_LIST.map((w) => w.word).filter((w) => w !== word)).slice(0, 3);
-      const q = data && buildMcq('definition', word, data, wrong);
-      setStage(q ? { kind: 'ask', q } : { kind: 'free' });
-    }).catch(() => live && setStage({ kind: 'free' }));
+      setStage(qs[0] ? { kind: 'ask', q: qs[0] } : { kind: 'free' });
+    });
     return () => { live = false; };
-  }, [word]);
+  }, []);
 
-  const pick = (q: McqQuestion, option: string) => {
-    if (option === q.word) playCorrect(); else playWrong();
-    setStage({ kind: 'answered', q, picked: option });
-  };
   // Ticket in hand (or a free ride): the bus comes.
   // (The latest onBoard, so the parent re-rendering doesn't restart the wait.)
   const ticketed = stage.kind === 'answered' || stage.kind === 'free';
@@ -71,31 +61,21 @@ export function BusTicket({ stop, onBoard, onClose }: { stop: string; onBoard: (
           </>
         )}
 
-        {(stage.kind === 'ask' || stage.kind === 'answered') && (
+        {stage.kind === 'ask' && (
+          <WordQuestionCard
+            q={stage.q}
+            lead={<p className="text-[13px] text-[var(--px-muted)]"><FormattedMessage id="world.busAsk" /></p>}
+            onAnswered={(correct, answer) => setStage({ kind: 'answered', q: stage.q, correct, answer })}
+          />
+        )}
+        {stage.kind === 'answered' && (
           <>
-            <p className="text-[13px] text-[var(--px-muted)] mb-1"><FormattedMessage id="world.busAsk" /></p>
-            <p className="px-inset px-notch p-3 text-[15px] leading-snug mb-3">{stage.q.prompt}</p>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              {stage.q.options.map((o) => {
-                const done = stage.kind === 'answered';
-                const tone = !done ? 'paper' : o === stage.q.word ? 'good' : o === stage.picked ? 'bad' : 'paper';
-                return (
-                  <PixelButton key={o} tone={tone} disabled={done} onClick={() => pick(stage.q, o)} className="!text-[14px] !px-2">
-                    {o}
-                  </PixelButton>
-                );
-              })}
-            </div>
-            {stage.kind === 'answered' && (
-              <>
-                <p className="text-[14px] mb-3">
-                  {stage.picked === stage.q.word
-                    ? <FormattedMessage id="world.busRight" />
-                    : <FormattedMessage id="world.busWrong" values={{ word: <b>{stage.q.word}</b> }} />}
-                </p>
-                <BusComing />
-              </>
-            )}
+            <p className="text-[14px] mb-3">
+              {stage.correct
+                ? <FormattedMessage id="world.busRight" />
+                : <FormattedMessage id="world.busWrong" values={{ word: <b>{stage.answer}</b> }} />}
+            </p>
+            <BusComing />
           </>
         )}
 

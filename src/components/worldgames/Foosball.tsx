@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { arm, BALL_R, earnPower, FOOT_X, FOOT_Y, GOAL, H, menOf, newMatch, restart, step, W, WIN_SCORE, type FoosState, type Level } from '../../lib/foosball';
 import { playCorrect, playSelect, playWin, playWrong } from '../../lib/sfx';
-import type { DuelQuestion } from '../../lib/wordDuel';
-import { duelQuestions } from './duelQuestions';
-import { PixelButton, PixelChip, PixelIcon, type PixelTone } from './pixel';
-import { useWorld } from './world';
+import type { WordQuestion } from '../../lib/questionsApi';
+import { PixelButton, PixelChip, PixelIcon } from './pixel';
+import { useWordQuestions } from '../../hooks/useWordQuestions';
+import { WordQuestionCard } from './WordQuestion';
 
 const STEP_MS = 1000 / 120;
 const RAIL = 4;
@@ -19,7 +19,6 @@ const LEVELS: Level[] = ['easy', 'normal', 'hard'];
  * button or Shift, spent on your next kick). The rules are lib/foosball.
  */
 export function Foosball({ onClose }: { onClose: () => void }) {
-  const { wordPool } = useWorld();
   const [level, setLevel] = useState<Level | null>(null);
   const [game, setGame] = useState<FoosState>(() => newMatch());
   const live = useRef(game);
@@ -27,16 +26,9 @@ export function Foosball({ onClose }: { onClose: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
-  const [question, setQuestion] = useState<DuelQuestion | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
-  const qs = useRef<DuelQuestion[]>([]);
-  const qAt = useRef(0);
-
-  useEffect(() => {
-    let alive = true;
-    duelQuestions(wordPool, 12).then((q) => { if (alive) qs.current = q; }, () => { /* no questions: kick-offs just go on */ });
-    return () => { alive = false; };
-  }, [wordPool]);
+  const [question, setQuestion] = useState<WordQuestion | null>(null);
+  // From the server, sealed, from the collection you're studying; none, and kick-offs just go on.
+  const { next: nextQuestion } = useWordQuestions(6);
 
   useEffect(() => {
     const el = wrap.current;
@@ -76,7 +68,7 @@ export function Foosball({ onClose }: { onClose: () => void }) {
     if (scored === 'you') playCorrect(); else playWrong();
     if (game.winner) { if (game.winner === 'you') playWin(); return; }
     const t = window.setTimeout(() => {
-      const q = qs.current.length ? qs.current[qAt.current++ % qs.current.length] : null;
+      const q = nextQuestion();
       if (q) setQuestion(q);
       else { live.current = restart(live.current); setGame(live.current); }
     }, 1300);
@@ -84,19 +76,12 @@ export function Foosball({ onClose }: { onClose: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per goal
   }, [scored, game.score.you, game.score.cpu]);
 
-  const answer = (o: string) => {
-    if (!question || picked) return;
-    setPicked(o);
-    const right = o === question.word;
-    if (right) playCorrect(); else playWrong();
-    window.setTimeout(() => {
-      let s = restart(live.current);
-      if (right) s = earnPower(s);
-      live.current = s;
-      setGame(s);
-      setQuestion(null);
-      setPicked(null);
-    }, 1100);
+  const answered = (right: boolean) => {
+    let s = restart(live.current);
+    if (right) s = earnPower(s);
+    live.current = s;
+    setGame(s);
+    setQuestion(null);
   };
 
   const kick = () => { input.current.kick = true; };
@@ -175,8 +160,6 @@ export function Foosball({ onClose }: { onClose: () => void }) {
     }
   });
 
-  const tone = (o: string): PixelTone => (!picked ? 'paper' : o === question?.word ? 'good' : o === picked ? 'bad' : 'paper');
-
   return (
     <div className="px absolute inset-0 z-40 flex items-end sm:items-center justify-center p-3 bg-black/25" onKeyDown={(e) => e.stopPropagation()}>
       <div className="px-notch px-frame w-full max-w-[800px] p-4 px-in-up max-h-full overflow-y-auto">
@@ -225,12 +208,12 @@ export function Foosball({ onClose }: { onClose: () => void }) {
               )}
             </div>
             {question && (
-              <div className="mt-3 px-notch px-inset p-3 space-y-2">
-                <p className="text-[13px] text-[var(--px-gold)] flex items-center gap-1.5"><PixelIcon name="bolt" size={1} /> <FormattedMessage id="world.foosEarn" /></p>
-                <p className="text-[15px] leading-snug">{question.prompt}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {question.options.map((o) => <PixelButton key={o} tone={tone(o)} block onClick={() => answer(o)} disabled={!!picked} className="!py-2 !text-[14px]">{o}</PixelButton>)}
-                </div>
+              <div className="mt-3 px-notch px-inset p-3">
+                <WordQuestionCard
+                  q={question}
+                  lead={<p className="text-[13px] text-[var(--px-gold)] flex items-center gap-1.5"><PixelIcon name="bolt" size={1} /> <FormattedMessage id="world.foosEarn" /></p>}
+                  onAnswered={answered}
+                />
               </div>
             )}
             {game.winner && (

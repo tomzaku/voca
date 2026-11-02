@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useMatch } from '../../hooks/useMatch';
 import { forgive, newGame, rule, simulate, targetsFor, type Ball, type PoolState, type Ruling } from '../../lib/pool';
-import { playCorrect, playSelect, playWin, playWrong } from '../../lib/sfx';
-import type { DuelQuestion } from '../../lib/wordDuel';
+import { playCorrect, playSelect, playWin } from '../../lib/sfx';
+import type { WordQuestion } from '../../lib/questionsApi';
 import type { MatchLink } from '../../lib/worldLive';
-import { duelQuestions } from './duelQuestions';
+import { useWordQuestions } from '../../hooks/useWordQuestions';
+import { WordQuestionCard } from './WordQuestion';
 import { MatchWindow } from './MatchWindow';
-import { PixelButton, PixelIcon, type PixelTone } from './pixel';
+import { PixelButton, PixelIcon } from './pixel';
 import { GroupChip, PoolTable } from './PoolTable';
-import { useWorld } from './world';
 
 // 8-ball at the street pool table: solo practice, and a match with another
 // player over the world's match link. The table and its rules are
@@ -17,17 +17,9 @@ import { useWorld } from './world';
 // learning: foul, and you get one word question. Answer it and you keep the
 // table instead of handing it over (solo: the foul costs no extra shot).
 
-/** Word questions for fouls, fetched once and handed out in turn. */
+/** Word questions for fouls, from the server — sealed, from the collection you're studying. */
 function useFoulQuestions() {
-  const { wordPool } = useWorld();
-  const [qs, setQs] = useState<DuelQuestion[]>([]);
-  const at = useRef(0);
-  useEffect(() => {
-    let alive = true;
-    duelQuestions(wordPool, 12).then((q) => alive && setQs(q), () => { /* no questions: a foul is just a foul */ });
-    return () => { alive = false; };
-  }, [wordPool]);
-  return () => (qs.length ? qs[at.current++ % qs.length] : null);
+  return useWordQuestions(6).next;
 }
 
 /** The cue ball where the player put it (ball in hand), before the shot. */
@@ -37,26 +29,15 @@ const FOUL_ID: Record<NonNullable<PoolState['foul']>, string> = {
   scratch: 'world.poolFoulScratch', noHit: 'world.poolFoulNoHit', wrongFirst: 'world.poolFoulWrongFirst',
 };
 
-/** One question after a foul: right keeps the turn. */
-function FoulQuestion({ q, foul, onAnswer }: { q: DuelQuestion; foul: NonNullable<PoolState['foul']>; onAnswer: (right: boolean) => void }) {
-  const [picked, setPicked] = useState<string | null>(null);
-  const pick = (o: string) => {
-    if (picked) return;
-    setPicked(o);
-    const right = o === q.word;
-    if (right) playCorrect(); else playWrong();
-    window.setTimeout(() => onAnswer(right), 1100);
-  };
+/** One question after a foul: right keeps the turn. The server says which it was. */
+function FoulQuestion({ q, foul, onAnswer }: { q: WordQuestion; foul: NonNullable<PoolState['foul']>; onAnswer: (right: boolean) => void }) {
   return (
-    <div className="px-notch px-inset p-3 space-y-2">
-      <p className="text-[13px] text-[#ff9f9f]"><FormattedMessage id={FOUL_ID[foul]} /> <FormattedMessage id="world.poolSaveIt" /></p>
-      <p className="text-[15px] leading-snug">{q.prompt}</p>
-      <div className="grid grid-cols-2 gap-2">
-        {q.options.map((o) => {
-          const tone: PixelTone = !picked ? 'paper' : o === q.word ? 'good' : o === picked ? 'bad' : 'paper';
-          return <PixelButton key={o} tone={tone} block onClick={() => pick(o)} disabled={!!picked} className="!py-2 !text-[14px]">{o}</PixelButton>;
-        })}
-      </div>
+    <div className="px-notch px-inset p-3">
+      <WordQuestionCard
+        q={q}
+        lead={<p className="text-[13px] text-[#ff9f9f]"><FormattedMessage id={FOUL_ID[foul]} /> <FormattedMessage id="world.poolSaveIt" /></p>}
+        onAnswered={(correct) => onAnswer(correct)}
+      />
     </div>
   );
 }
@@ -69,7 +50,7 @@ export function PoolSolo({ onClose }: { onClose: () => void }) {
   const [state, setState] = useState<PoolState>(newGame);
   const [replay, setReplay] = useState<Ball[][] | null>(null);
   const pending = useRef<Ruling | null>(null);
-  const [question, setQuestion] = useState<{ q: DuelQuestion; ruling: Ruling } | null>(null);
+  const [question, setQuestion] = useState<{ q: WordQuestion; ruling: Ruling } | null>(null);
   const [penalties, setPenalties] = useState(0);
   const [best, setBest] = useState<number | null>(() => { try { return Number(localStorage.getItem(BEST)) || null; } catch { return null; } });
   const score = state.shots + penalties;
@@ -177,7 +158,7 @@ export function PoolMatch({ link, onClose }: { link: MatchLink; onClose: () => v
   const [state, setState] = useState<PoolState | null>(null);
   const [replay, setReplay] = useState<Ball[][] | null>(null);
   const after = useRef<{ state: PoolState; ruling?: Ruling; waiting?: boolean } | null>(null);
-  const [question, setQuestion] = useState<{ q: DuelQuestion; ruling: Ruling } | null>(null);
+  const [question, setQuestion] = useState<{ q: WordQuestion; ruling: Ruling } | null>(null);
   const [waiting, setWaiting] = useState(false);   // they fouled and are answering
   const [resigned, setResigned] = useState<'me' | 'them' | null>(null);
 

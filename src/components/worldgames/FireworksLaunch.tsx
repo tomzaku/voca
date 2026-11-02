@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { playCorrect, playWrong } from '../../lib/sfx';
 import { playFireworkPop } from '../../lib/donTune';
-import type { DuelQuestion } from '../../lib/wordDuel';
-import { duelQuestions } from './duelQuestions';
-import { PixelButton, PixelIcon, PixelLoader, type PixelTone } from './pixel';
-import { useWorld } from './world';
+import { fetchQuestions, type WordQuestion } from '../../lib/questionsApi';
+import { PixelButton, PixelIcon, PixelLoader } from './pixel';
+import { WordQuestionCard } from './WordQuestion';
 
 const ROUND = 10;
 /** Right answers in a row before the fireworks get bigger. */
@@ -14,50 +12,48 @@ const STREAK_BIG = 3;
 /**
  * The Tết launch pad on the south bank: a definition, four words — and a
  * right answer sends a firework up over the Hương that spells the word in
- * sparks. Three in a row and the shells get bigger. The questions are the
- * duels' own (duelQuestions), from your words where there are enough.
+ * sparks. Three in a row and the shells get bigger. The questions come from
+ * the server (lib/questionsApi), from the collection you're studying, the
+ * answer sealed until you choose — so the word that goes up is the one the
+ * server confirms.
  *
  * The window sits low and clear of the sky, so you can watch your word go up.
  */
 export function FireworksLaunch({ onClose, onLaunch }: { onClose: () => void; onLaunch: (word: string, big: boolean) => void }) {
-  const { wordPool } = useWorld();
-  const [qs, setQs] = useState<DuelQuestion[] | null>(null);
+  const [qs, setQs] = useState<WordQuestion[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [at, setAt] = useState(0);
   const [streak, setStreak] = useState(0);
   const [launched, setLaunched] = useState(0);
-  const [picked, setPicked] = useState<string | null>(null);
+  const [round, setRound] = useState(0);
 
+  // A fresh round each time: from whatever you're studying now.
   useEffect(() => {
     let alive = true;
-    duelQuestions(wordPool, ROUND).then((q) => alive && setQs(q), () => alive && setFailed(true));
+    fetchQuestions(ROUND).then((q) => {
+      if (!alive) return;
+      if (q.length) setQs(q); else setFailed(true);
+    });
     return () => { alive = false; };
-  }, [wordPool]);
+  }, [round]);
 
   const q = qs?.[at];
   const done = !!qs && at >= qs.length;
 
-  const answer = (option: string) => {
-    if (!q || picked) return;
-    setPicked(option);
-    if (option === q.word) {
+  const answered = (correct: boolean, answer: string) => {
+    if (correct) {
       const s = streak + 1;
       setStreak(s);
       setLaunched((n) => n + 1);
-      playCorrect();
-      onLaunch(q.word, s >= STREAK_BIG);
+      onLaunch(answer, s >= STREAK_BIG);
       window.setTimeout(() => playFireworkPop(s >= STREAK_BIG), 800);
     } else {
       setStreak(0);
-      playWrong();
     }
-    window.setTimeout(() => { setPicked(null); setAt((i) => i + 1); }, option === q.word ? 1600 : 2000);
+    window.setTimeout(() => setAt((i) => i + 1), correct ? 500 : 900);
   };
 
-  const again = () => {
-    setQs(null); setAt(0); setStreak(0); setLaunched(0); setFailed(false);
-    duelQuestions(wordPool, ROUND).then(setQs, () => setFailed(true));
-  };
+  const again = () => { setQs(null); setAt(0); setStreak(0); setLaunched(0); setFailed(false); setRound((r) => r + 1); };
 
   return (
     <div className="px absolute inset-x-0 bottom-0 z-40 flex justify-center p-3 pointer-events-none" onKeyDown={(e) => e.stopPropagation()}>
@@ -83,17 +79,7 @@ export function FireworksLaunch({ onClose, onLaunch }: { onClose: () => void; on
                 <FormattedMessage id="world.fireworksStreak" values={{ n: streak }} />
               </span>
             </div>
-            <p className="text-[15px] leading-snug mb-3">{q.prompt}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {q.options.map((o) => {
-                const tone: PixelTone = !picked ? 'paper' : o === q.word ? 'good' : o === picked ? 'bad' : 'paper';
-                return (
-                  <PixelButton key={o} tone={tone} block onClick={() => answer(o)} disabled={!!picked}>
-                    {o}
-                  </PixelButton>
-                );
-              })}
-            </div>
+            <WordQuestionCard key={at} q={q} onAnswered={answered} />
           </>
         )}
 
