@@ -13,10 +13,13 @@ const colorOf = (id: number) => COLOR[id > 8 ? id - 8 : id];
 const RAIL = 9;
 
 /**
- * The table, drawn on a canvas and played with the pointer: move to aim (a
- * guide line runs to the first ball or cushion, with a ghost ball where
- * they'd meet), hold Shoot to charge the power and let go to strike. With the
- * ball in hand, drag the cue ball to place it first.
+ * The table, drawn on a canvas and played with the pointer: move over the
+ * cloth to preview a direction (a guide line runs to the first ball or
+ * cushion, with a ghost ball where they'd meet), click or tap to LOCK it,
+ * then hold Shoot to charge the power and let go to strike. Locked or
+ * charging, the pointer can wander — over to the Shoot button, say — without
+ * moving the aim; click the cloth again to re-aim. With the ball in hand,
+ * drag the cue ball to place it first.
  *
  * It only shows and aims; the rules are the caller's (lib/pool). A shot to
  * replay comes in as `replay` — frames of positions — and plays through at
@@ -42,6 +45,8 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
   const [angle, setAngle] = useState(0);
   const [cue, setCue] = useState<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+  // A clicked direction stays put until the next click.
+  const [locked, setLocked] = useState(false);
   const [charge, setCharge] = useState<number | null>(null);   // ms the shot began charging
   const [now, setNow] = useState(0);
   const [frame, setFrame] = useState(0);
@@ -49,7 +54,7 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
   // The cue ball as shown: where you've placed it, or where it lies.
   const lying = balls.find((b) => b.id === 0)!;
   const cueAt = cue ?? { x: lying.x, y: lying.y };
-  useEffect(() => { setCue(null); }, [balls]);
+  useEffect(() => { setCue(null); setLocked(false); }, [balls]);
 
   useEffect(() => {
     const el = wrap.current;
@@ -87,7 +92,7 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [charge]);
-  const power = charge === null ? 0 : (() => { const t = ((now - charge) / 1100) % 2; return Math.max(0.05, t < 1 ? t : 2 - t); })();
+  const power = charge === null ? 0 : (() => { const t = ((now - charge) / 1600) % 2; return Math.max(0.05, t < 1 ? t : 2 - t); })();
 
   const shown = replay ? replay[Math.min(frame, replay.length - 1)] : balls.map((b) => (b.id === 0 ? { ...b, ...cueAt } : b));
   const aiming = canShoot && !replay;
@@ -141,7 +146,8 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
 
     // Aim: the guide line and a ghost ball where it meets the first ball.
     if (aiming && !dragging) {
-      c.setLineDash([4, 4]); c.strokeStyle = 'rgba(255,255,255,0.7)'; c.lineWidth = 1.5;
+      // Dashed white while previewing; solid gold once locked.
+      c.setLineDash(locked ? [] : [4, 4]); c.strokeStyle = locked ? 'rgba(255,214,90,0.95)' : 'rgba(255,255,255,0.7)'; c.lineWidth = locked ? 2 : 1.5;
       c.beginPath(); c.moveTo(toPx(cueAt.x), toPx(cueAt.y)); c.lineTo(toPx(guide.x), toPx(guide.y)); c.stroke();
       c.setLineDash([]);
       if (guide.hit) {
@@ -198,14 +204,17 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
     return { x: (e.clientX - r.left) / scale - RAIL, y: (e.clientY - r.top) / scale - RAIL };
   };
   const down = (e: React.PointerEvent) => {
-    if (!aiming) return;
+    if (!aiming || charge !== null) return;
     const p = toTable(e);
     if (inHand && Math.hypot(p.x - cueAt.x, p.y - cueAt.y) < BALL_R * 3) {
       setDragging(true);
+      setLocked(false);
       (e.target as Element).setPointerCapture(e.pointerId);
       return;
     }
+    // Click (or tap) to aim there and lock it.
     setAngle(Math.atan2(p.y - cueAt.y, p.x - cueAt.x));
+    setLocked(true);
   };
   const move = (e: React.PointerEvent) => {
     if (!aiming) return;
@@ -215,7 +224,8 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
       setCue({ x: breaking ? Math.min(x, HEAD_X) : x, y });
       return;
     }
-    if (e.pointerType === 'mouse') setAngle(Math.atan2(p.y - cueAt.y, p.x - cueAt.x));
+    // Preview only: a locked aim, or one being charged, doesn't follow the mouse.
+    if (e.pointerType === 'mouse' && !locked && charge === null) setAngle(Math.atan2(p.y - cueAt.y, p.x - cueAt.x));
   };
   const up = () => setDragging(false);
 
@@ -232,7 +242,12 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
   useEffect(() => {
     const kd = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) { e.preventDefault(); startCharge(); }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setAngle((a) => a + (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 0.02 : 0.004)); }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (charge !== null) return;
+        setLocked(true);
+        setAngle((a) => a + (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 0.02 : 0.004));
+      }
     };
     const ku = (e: KeyboardEvent) => { if (e.code === 'Space') { e.preventDefault(); release(); } };
     window.addEventListener('keydown', kd, true);
@@ -266,7 +281,8 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
       </div>
       {aiming && (
         <p className="text-[11px] opacity-70 mt-1.5 text-center">
-          <FormattedMessage id={inHand ? 'world.poolHintInHand' : 'world.poolHint'} />
+          {locked && <span className="text-[var(--px-gold)]">🔒 <FormattedMessage id="world.poolLocked" /> · </span>}
+          <FormattedMessage id={inHand && !locked ? 'world.poolHintInHand' : locked ? 'world.poolHintLocked' : 'world.poolHint'} />
         </p>
       )}
     </div>
