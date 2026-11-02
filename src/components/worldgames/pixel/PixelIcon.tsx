@@ -479,6 +479,15 @@ const GRIDS = {
     '.########.',
     '..######..',
   ],
+  // A private message, as an envelope.
+  mail: [
+    '#########',
+    '##.....##',
+    '#.#...#.#',
+    '#..#.#..#',
+    '#...#...#',
+    '#########',
+  ],
 } as const;
 
 export type PixelIconName = keyof typeof GRIDS;

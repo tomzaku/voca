@@ -70,11 +70,17 @@ interface Handlers {
   /** Someone arrived, moved, changed clothes or left (null). */
   peer: (id: string, peer: Peer | null) => void;
   message: (m: LiveMessage) => void;
+  /** A private message for me (see lib/messagesApi.ts for sending one). */
+  dm: (from: string, text: string) => void;
 }
 
 /** One connection to the shared world. */
 export class WorldLive {
   private channel: RealtimeChannel | null = null;
+  /** My private inbox: only I can listen (the world_private_messages
+   *  migration), and only the `messages` function can send, as whoever's
+   *  signed in — so `from` can be trusted, unlike on the open channel. */
+  private inbox: RealtimeChannel | null = null;
   private closed = false;
   private peers = new Map<string, Peer>();
   private early = new Map<string, { x: number; y: number; facing: Facing }>();
@@ -90,9 +96,18 @@ export class WorldLive {
    *  would be torn down under us, leaving us in no channel at all. */
   async connect() {
     if (!supabase || this.channel) return;
-    const topic = `realtime:${CHANNEL}`;
-    for (const old of supabase.getChannels().filter((c) => c.topic === topic)) await supabase.removeChannel(old);
+    const topics = [`realtime:${CHANNEL}`, `realtime:inbox:${this.me.id}`];
+    for (const old of supabase.getChannels().filter((c) => topics.includes(c.topic))) await supabase.removeChannel(old);
     if (this.closed || this.channel) return;
+    const inbox = supabase.channel(`inbox:${this.me.id}`, { config: { private: true } });
+    inbox.on('broadcast', { event: 'dm' }, ({ payload }) => {
+      const p = payload as { from?: unknown; text?: unknown };
+      if (typeof p?.from !== 'string' || typeof p.text !== 'string' || this.blocked.has(p.from)) return;
+      const text = cleanChat(p.text);
+      if (text) this.on.dm(p.from, text);
+    });
+    inbox.subscribe();
+    this.inbox = inbox;
     const ch = supabase.channel(CHANNEL, { config: { presence: { key: this.me.id }, broadcast: { self: false } } });
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState<{ name: string; look: unknown }>();
@@ -161,7 +176,9 @@ export class WorldLive {
   disconnect() {
     this.closed = true;
     if (this.channel && supabase) supabase.removeChannel(this.channel);
+    if (this.inbox && supabase) supabase.removeChannel(this.inbox);
     this.channel = null;
+    this.inbox = null;
     for (const id of this.peers.keys()) this.on.peer(id, null);
     this.peers.clear();
   }

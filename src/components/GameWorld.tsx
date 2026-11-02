@@ -56,6 +56,9 @@ import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
 import { setRainSound } from '../lib/rainSound';
 import { playWin } from '../lib/sfx';
 import { useAuth } from '../hooks/useAuth';
+import toast from 'react-hot-toast';
+import { sendMessage } from '../lib/messagesApi';
+import { ApiError } from '../lib/api';
 import { WorldLive, watchWorldCount, cleanChat, type Facing, MatchBus, type LiveMessage, type Match, type MatchGame, type MatchLink } from '../lib/worldLive';
 
 export type { WorldStation } from '../game/types';
@@ -162,12 +165,24 @@ function Minimap({ snap, initial, listeners }: {
 /** The card at the bottom when the buddy reaches a building, a plot or a
  *  collection — the world's version of a dialogue box. */
 /** A line of chat: who (you in gold), and what they said. */
-function ChatLine({ name, text, mine }: { name: string; text: string; mine: boolean }) {
-  return (
-    <p className="text-[13px] leading-snug text-white break-words [text-shadow:0_1px_0_#000]">
-      <span className={`px-title !text-[12px] ${mine ? 'text-[var(--px-gold)]' : 'text-[var(--px-sky)]'}`}>{name}</span>{' '}{text}
-    </p>
+/** A line of chat. Private ones (`dm`) are pink and say who they're between;
+ *  a tap on one you received replies to its sender. */
+function ChatLine({ name, text, mine, dm, onReply }: { name: string; text: string; mine: boolean; dm?: boolean; onReply?: () => void }) {
+  const intl = useIntl();
+  const who = dm
+    ? intl.formatMessage({ id: mine ? 'world.dmTo' : 'world.dmFrom' }, { name })
+    : name;
+  const line = (
+    <>
+      {dm && <span className="text-[#f08ac8] align-[-1px] mr-1 inline-block"><PixelIcon name="mail" size={1} /></span>}
+      <span className={`px-title !text-[12px] ${dm ? 'text-[#f08ac8]' : mine ? 'text-[var(--px-gold)]' : 'text-[var(--px-sky)]'}`}>{who}</span>{' '}
+      <span className={dm ? 'text-[#ffd6ee]' : undefined}>{text}</span>
+    </>
   );
+  const cls = 'text-[13px] leading-snug text-white break-words [text-shadow:0_1px_0_#000]';
+  return onReply
+    ? <button type="button" onClick={onReply} title={intl.formatMessage({ id: 'world.dmReply' }, { name })} className={`${cls} block text-left w-full hover:brightness-125`}>{line}</button>
+    : <p className={cls}>{line}</p>;
 }
 
 function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, children }: {
@@ -307,7 +322,17 @@ export function GameWorld({
   const [reactOpen, setReactOpen] = useState(false);
   const [chatHidden, setChatHidden] = useState(false);
   // The chat's history while the world is open: yours and others' lines.
-  const [chatLog, setChatLog] = useState<{ key: string; name: string; text: string; mine: boolean }[]>([]);
+  const [chatLog, setChatLog] = useState<{ key: string; name: string; text: string; mine: boolean; dm?: { id: string } }[]>([]);
+  // Private messages: who the chat bar is sending to (null: everyone), and
+  // whether one arrived while the chat was shut.
+  const [dmTo, setDmTo] = useState<{ id: string; name: string } | null>(null);
+  const [dmUnread, setDmUnread] = useState(false);
+  const chatOpenRef = useRef(chatOpen);
+  useEffect(() => {
+    chatOpenRef.current = chatOpen;
+    if (chatOpen) setDmUnread(false); else setDmTo(null);
+  }, [chatOpen]);
+  const messagePeer = (id: string, name: string) => { setDmTo({ id, name }); setPeerCard(null); setReactOpen(false); setChatOpen(true); };
   const chatHiddenRef = useRef(chatHidden);
   useEffect(() => { chatHiddenRef.current = chatHidden; }, [chatHidden]);
   // Games with another player: the one I've asked for, the one I've been
@@ -562,6 +587,11 @@ export function GameWorld({
         if (b.invite?.from === id) setInvite(null);
         if (b.asking?.to === id) setAsking(null);
       },
+      dm: (from, text) => {
+        const name = live.peer(from)?.name ?? '?';
+        setChatLog((l) => [...l.slice(-29), { key: `${Date.now()}${Math.random()}`, name, text, mine: false, dm: { id: from } }]);
+        if (!chatOpenRef.current) setDmUnread(true);
+      },
       message: (m: LiveMessage) => {
         const b = busyRef.current;
         if (m.kind === 'wave') scene()?.react(m.from, 'wave');
@@ -678,9 +708,25 @@ export function GameWorld({
     return () => clearTimeout(t);
   }, [giftNote]);
 
+  const [dmSending, setDmSending] = useState(false);
   const sendChat = () => {
     const text = chatText.trim();
     if (!text) return;
+    if (dmTo) {
+      if (dmSending) return;
+      // Nothing is stored: a message to someone who's gone would just vanish.
+      if (!liveRef.current?.peer(dmTo.id)) { toast.error(intl.formatMessage({ id: 'world.dmGone' }, { name: dmTo.name })); return; }
+      const to = dmTo;
+      setDmSending(true);
+      sendMessage(to.id, text)
+        .then((m) => {
+          setChatLog((l) => [...l.slice(-29), { key: `${Date.now()}${Math.random()}`, name: to.name, text: cleanChat(m.text), mine: true, dm: { id: to.id } }]);
+          setChatText('');
+        })
+        .catch((err) => toast.error(err instanceof ApiError ? err.message : intl.formatMessage({ id: 'world.dmFailed' })))
+        .finally(() => setDmSending(false));
+      return;
+    }
     liveRef.current?.send({ kind: 'chat', text });
     scene()?.bubble(null, text);
     setChatLog((l) => [...l.slice(-29), { key: `${Date.now()}${Math.random()}`, name: meRef.current.name, text: cleanChat(text), mine: true }]);
@@ -1120,9 +1166,14 @@ export function GameWorld({
           list. ── */}
       {!panel && peerCard && (
         <WorldCard icon="person" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
-          <PixelButton tone="jade" block onClick={() => goToPeer(peerCard.id)} className="!py-2 !text-[13px] mb-2">
-            <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoToName" values={{ name: peerCard.name }} />
-          </PixelButton>
+          <div className="grid grid-cols-2 gap-1.5 mb-2">
+            <PixelButton tone="gold" onClick={() => messagePeer(peerCard.id, peerCard.name)} className="!px-2 !py-2 !text-[13px]">
+              <PixelIcon name="mail" size={2} /> <FormattedMessage id="world.dmShort" />
+            </PixelButton>
+            <PixelButton tone="jade" onClick={() => goToPeer(peerCard.id)} className="!px-2 !py-2 !text-[13px]">
+              <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" />
+            </PixelButton>
+          </div>
           <PeerSection title={<FormattedMessage id="world.peerLearn" />}>
             <PixelButton tone="gold" onClick={() => askToPlay(peerCard.id, peerCard.name, 'talk')} className="!px-3 !py-2 !text-[13px] col-span-2 !justify-start text-left">
               <PixelIcon name="mic" size={2} />
@@ -1239,6 +1290,9 @@ export function GameWorld({
                         <span className="text-[#cfe8ff]">{p.name}</span>
                         {areaAt(p.y) && <span className="text-[12px] text-[var(--px-muted)]"> · {areaAt(p.y)}</span>}
                       </button>
+                      <PixelButton tone="paper" onClick={() => messagePeer(p.id, p.name)} title={intl.formatMessage({ id: 'world.dmName' }, { name: p.name })} aria-label={intl.formatMessage({ id: 'world.dmName' }, { name: p.name })} className="!px-2 !py-0 !h-7 shrink-0">
+                        <PixelIcon name="mail" size={2} />
+                      </PixelButton>
                       <PixelButton tone="jade" onClick={() => goToPeer(p.id)} title={intl.formatMessage({ id: 'world.liveGoToName' }, { name: p.name })} className="!px-2 !py-0 !h-7 !text-[12px] shrink-0">
                         <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" />
                       </PixelButton>
@@ -1250,18 +1304,21 @@ export function GameWorld({
           )}
           {chatLog.length > 0 && (chatOpen ? (
             <div ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }} className="max-h-44 overflow-y-auto bg-black/45 px-notch px-2.5 py-1.5 space-y-0.5 pointer-events-auto">
-              {chatLog.map((c) => <ChatLine key={c.key} name={c.name} text={c.text} mine={c.mine} />)}
+              {chatLog.map((c) => (
+                <ChatLine key={c.key} name={c.name} text={c.text} mine={c.mine} dm={!!c.dm} onReply={c.dm ? () => setDmTo({ id: c.dm!.id, name: c.name }) : undefined} />
+              ))}
             </div>
           ) : (
             <div className="space-y-0.5">
               {chatLog.slice(-5).map((c) => (
-                <div key={c.key} className="px-chat-fade w-fit max-w-full bg-black/35 px-2 py-0.5"><ChatLine name={c.name} text={c.text} mine={c.mine} /></div>
+                <div key={c.key} className="px-chat-fade w-fit max-w-full bg-black/35 px-2 py-0.5"><ChatLine name={c.name} text={c.text} mine={c.mine} dm={!!c.dm} /></div>
               ))}
             </div>
           ))}
           <div className="flex items-end gap-1.5">
-            <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num shrink-0 pointer-events-auto">
+            <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="relative !px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num shrink-0 pointer-events-auto">
               💬 {players}
+              {dmUnread && <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#f08ac8] shadow-[0_0_0_2px_#000]" aria-label={intl.formatMessage({ id: 'world.dmUnread' })} />}
             </PixelButton>
             {/* Reactions: the picker, opening upward; 1–6 do the same. */}
             {!chatOpen && (
@@ -1299,16 +1356,31 @@ export function GameWorld({
             )}
             {chatOpen && (
               <div className="flex-1 min-w-0 h-[2.6rem] px-notch px-frame p-1 flex gap-1 px-in-up pointer-events-auto" onKeyDown={(e) => e.stopPropagation()}>
+                {dmTo && (
+                  <button
+                    type="button"
+                    onClick={() => setDmTo(null)}
+                    title={intl.formatMessage({ id: 'world.dmToEveryone' })}
+                    className="px-notch shrink-0 max-w-[40%] px-2 inline-flex items-center gap-1 bg-[#5a1f45] text-[#ffd6ee] text-[12px]"
+                  >
+                    <PixelIcon name="mail" size={1} />
+                    <span className="truncate">{dmTo.name}</span>
+                    <PixelIcon name="close" size={1} />
+                  </button>
+                )}
                 <input
                   autoFocus
                   value={chatText}
                   maxLength={120}
                   onChange={(e) => setChatText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') sendChat(); if (e.key === 'Escape') setChatOpen(false); }}
-                  placeholder={intl.formatMessage({ id: 'world.liveSay' })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') sendChat();
+                    if (e.key === 'Escape') { if (dmTo) setDmTo(null); else setChatOpen(false); }
+                  }}
+                  placeholder={dmTo ? intl.formatMessage({ id: 'world.dmSay' }, { name: dmTo.name }) : intl.formatMessage({ id: 'world.liveSay' })}
                   className="px-inset px-notch flex-1 min-w-0 px-3 text-[14px] bg-transparent outline-none"
                 />
-                <PixelButton tone="jade" onClick={sendChat} className="!px-3 !py-0 !text-[13px]"><FormattedMessage id="world.liveSend" /></PixelButton>
+                <PixelButton tone="jade" onClick={sendChat} disabled={dmSending} className="!px-3 !py-0 !text-[13px]"><FormattedMessage id="world.liveSend" /></PixelButton>
                 <PixelButton tone="paper" onClick={() => setChatHidden((h) => !h)} title={intl.formatMessage({ id: chatHidden ? 'world.liveShowChat' : 'world.liveHideChat' })} className="!px-2.5 !py-0 !text-[13px]">
                   {chatHidden ? '🔕' : '🔔'}
                 </PixelButton>

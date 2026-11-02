@@ -28,6 +28,7 @@ import doodles from '../doodles/index.ts';
 import hunts from '../hunts/index.ts';
 import ieltsSubmissions from '../ielts-submissions/index.ts';
 import me from '../me/index.ts';
+import messages from '../messages/index.ts';
 import mindmap from '../mindmap/index.ts';
 import notify from '../notify/index.ts';
 import pick from '../pick/index.ts';
@@ -64,6 +65,7 @@ const RESOURCES: Record<string, Handler> = {
   hunts,
   'ielts-submissions': ieltsSubmissions,
   me,
+  messages,
   mindmap,
   notify,
   pick,
