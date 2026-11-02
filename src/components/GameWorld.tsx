@@ -56,7 +56,7 @@ import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
 import { setRainSound } from '../lib/rainSound';
 import { playWin } from '../lib/sfx';
 import { useAuth } from '../hooks/useAuth';
-import { WorldLive, cleanChat, type Facing, MatchBus, type LiveMessage, type Match, type MatchGame, type MatchLink } from '../lib/worldLive';
+import { WorldLive, watchWorldCount, cleanChat, type Facing, MatchBus, type LiveMessage, type Match, type MatchGame, type MatchLink } from '../lib/worldLive';
 
 export type { WorldStation } from '../game/types';
 
@@ -297,6 +297,9 @@ export function GameWorld({
   const [intro, setIntro] = useState(false);
   const liveRef = useRef<WorldLive | null>(null);
   const [online, setOnline] = useState(0);
+  // Everyone in Huế, me included — shown to the signed-out too, as a reason
+  // to sign in. Signed in it's the peers WorldLive sees, plus me.
+  const [watched, setWatched] = useState(0);
   const [peerCard, setPeerCard] = useState<{ id: string; name: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatText, setChatText] = useState('');
@@ -598,6 +601,11 @@ export function GameWorld({
     const beat = setInterval(() => live.heartbeat(), 2500);
     return () => { clearInterval(beat); live.disconnect(); liveRef.current = null; bus.plug(null); };
   }, [userId, bus]);
+  useEffect(() => {
+    if (userId || authLoading) return;
+    return watchWorldCount(setWatched);
+  }, [userId, authLoading]);
+  const players = userId ? online + 1 : watched;
   /** Ask someone to a game; they have half a minute to answer. */
   const askToPlay = (to: string, name: string, game: MatchGame) => {
     const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -923,6 +931,17 @@ export function GameWorld({
       )}
       {!panel && (
         <div className="px absolute top-[calc(0.5rem+var(--sat))] right-[calc(0.5rem+var(--sar))] z-20 flex flex-wrap justify-end items-center gap-2 max-w-[calc(100%-13.5rem)] sm:max-w-none">
+          {/* Who else is here: a reason to look around, or to sign in. */}
+          {players > 0 && (
+            <span
+              title={intl.formatMessage({ id: 'world.livePlayers' }, { n: players })}
+              aria-label={intl.formatMessage({ id: 'world.livePlayers' }, { n: players })}
+              className="px-notch px-frame px-num !text-[13px] px-2.5 h-[2.6rem] inline-flex items-center gap-1.5"
+            >
+              <span className="w-2 h-2 bg-[var(--px-good)] shrink-0" />
+              <PixelIcon name="people" size={2} /> {players}
+            </span>
+          )}
           {user && !animalId && (
             <Link to="/companion" className="px-btn px-notch px-title !text-[13px] px-3 h-[2.6rem] inline-flex items-center gap-1.5" data-tone="gold">
               <PixelIcon name="paw" size={2} /> <span className="hidden sm:inline"><FormattedMessage id="world.chooseBuddy" /></span>

@@ -218,6 +218,19 @@ export class WorldLive {
   count() { return this.peers.size; }
 }
 
+/** How many are in Huế, for someone signed out: the same presence, watched
+ *  without joining it — they aren't tracked, so they don't count themselves or
+ *  appear to anyone. (Signed in, WorldLive has the count; don't run both —
+ *  connect() tears down any other channel on this topic.) */
+export function watchWorldCount(onCount: (n: number) => void): () => void {
+  if (!supabase) return () => {};
+  const sb = supabase;
+  const ch = sb.channel(CHANNEL, { config: { broadcast: { self: false } } });
+  ch.on('presence', { event: 'sync' }, () => onCount(Object.keys(ch.presenceState()).length));
+  ch.subscribe();
+  return () => { void sb.removeChannel(ch); };
+}
+
 /** Games' lines through the connection: who's listening for the game being
  *  played, and the connection to send on while there is one. */
 export class MatchBus {

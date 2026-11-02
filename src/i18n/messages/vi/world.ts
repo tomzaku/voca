@@ -172,6 +172,7 @@ export default {
   'world.liveSignInShort': 'Đăng nhập',
   'world.liveOnline': 'Trực tuyến',
   'world.liveOnlineBlurb': 'Người chơi khác ở Huế thấy bạn và có thể mời bạn chơi',
+  'world.livePlayers': '{n} người đang chơi ở Huế',
   'world.liveOffline': 'Ngoại tuyến',
   'world.liveSignIn': 'Đăng nhập để thấy người chơi khác và chơi cùng nhau',
   'world.liveAsking': 'Đang mời {game, select, duel {đấu từ vựng} talk {luyện nói} caro {chơi cờ caro từ vựng} chain {chơi nối từ} oan {chơi ô ăn quan} poker {chơi poker} chess {chơi cờ vua} caro7 {chơi caro 7×7} memory {chơi lật thẻ} tienlen {chơi tiến lên} sea {chơi bắn tàu} other {đua gõ phím}}…',

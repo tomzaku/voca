@@ -174,6 +174,7 @@ export default {
   'world.liveSignInShort': 'Sign in',
   'world.liveOnline': 'Online',
   'world.liveOnlineBlurb': 'Other players in Huế can see you and ask you to play',
+  'world.livePlayers': '{n, plural, one {# player} other {# players}} in Huế right now',
   'world.liveOffline': 'Offline',
   'world.liveSignIn': 'Sign in to see other players and play together',
   'world.liveAsking': 'Asking to {game, select, duel {a word duel} talk {practise speaking} caro {a game of Word Caro} chain {a game of Word Chain} oan {a game of Ô ăn quan} poker {a game of poker} chess {a game of chess} caro7 {a game of Caro 7×7} memory {a game of Memory Match} tienlen {a game of Tiến lên} sea {a game of Sea Battle} other {a type race}}…',
