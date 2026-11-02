@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { BALL_R, canPlace, groupOf, HEAD_X, POCKET_R, POCKETS, TABLE_H, TABLE_W, type Ball } from '../../lib/pool';
-import { PixelBar, PixelButton } from './pixel';
+import { PixelButton } from './pixel';
 
 /** Each ball's colour; 9–15 are the same colours as a band on white. */
 const COLOR: Record<number, string> = {
   0: '#f6f1e4', 1: '#f2c230', 2: '#2f5fd0', 3: '#d43a30', 4: '#7a3fb0', 5: '#f08a24', 6: '#2e9a4e', 7: '#8a2a2a', 8: '#1a1a1e',
 };
 const colorOf = (id: number) => COLOR[id > 8 ? id - 8 : id];
+
+/** How long Shoot takes to charge to full power; holding longer keeps it full. */
+const CHARGE_MS = 1600;
 
 /** Space round the cloth, in table units: the wooden rail. */
 const RAIL = 9;
@@ -84,7 +87,7 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per shot
   }, [replay]);
 
-  // Charging: the power swings up and back while Shoot is held.
+  // Charging: the power rises while Shoot is held, and stays full.
   useEffect(() => {
     if (charge === null) return;
     let raf = 0;
@@ -92,7 +95,7 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [charge]);
-  const power = charge === null ? 0 : (() => { const t = ((now - charge) / 1600) % 2; return Math.max(0.05, t < 1 ? t : 2 - t); })();
+  const power = charge === null ? 0 : Math.max(0.05, Math.min(1, (now - charge) / CHARGE_MS));
 
   const shown = replay ? replay[Math.min(frame, replay.length - 1)] : balls.map((b) => (b.id === 0 ? { ...b, ...cueAt } : b));
   const aiming = canShoot && !replay;
@@ -277,7 +280,7 @@ export function PoolTable({ balls, canShoot, inHand, breaking, targets, replay, 
         >
           <FormattedMessage id={charge === null ? 'world.poolShoot' : 'world.poolRelease'} />
         </PixelButton>
-        <div className="flex-1"><PixelBar pct={Math.round(power * 100)} color="var(--px-gold)" /></div>
+        <PowerMeter power={power} charging={charge !== null} />
       </div>
       {aiming && (
         <p className="text-[11px] opacity-70 mt-1.5 text-center">
@@ -306,5 +309,24 @@ export function GroupChip({ group, balls }: { group: 'solids' | 'stripes' | null
         );
       })}
     </span>
+  );
+}
+
+/**
+ * The shot's power, drawn straight from the value the shot will use — no
+ * easing, which made the old bar trail behind and read wrong on release.
+ * Green to yellow to red as it fills, the percentage on it.
+ */
+function PowerMeter({ power, charging }: { power: number; charging: boolean }) {
+  const pct = Math.round(power * 100);
+  const color = power < 0.5 ? '#6fd39a' : power < 0.8 ? '#ffd23f' : '#ff5a4a';
+  return (
+    <div className="flex-1 relative h-5 bg-[#0d0a08] shadow-[inset_0_0_0_2px_var(--px-ink)]" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <i className="absolute top-[2px] bottom-[2px] left-[2px]" style={{ width: `calc(${pct}% - 4px)`, background: color }} />
+      {[50, 80].map((t) => <span key={t} className="absolute top-0 bottom-0 w-px bg-white/25" style={{ left: `${t}%` }} />)}
+      <span className="absolute inset-0 flex items-center justify-center text-[12px] font-bold tabular-nums text-white drop-shadow">
+        {charging ? `${pct}%` : ''}
+      </span>
+    </div>
   );
 }
