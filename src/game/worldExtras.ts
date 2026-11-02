@@ -23,7 +23,7 @@ export const FIREWORKS_PADS = [{ x: 53.2, y: 41.4 }, { x: 57.3, y: 41.3 }];
 export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolean }[] = [
   { game: 'cailuong', x: 59.3, y: 64.75 },
   { game: 'fortune', x: 13.2, y: 48.4 },
-  { game: 'pool', x: 63.5, y: 64.2 },
+  { game: 'pool', x: 64.8, y: 64.2 },
   ...FIREWORKS_PADS.map((p) => ({ game: 'fireworks', ...p, festive: true })),
 ];
 
@@ -34,7 +34,7 @@ export const STAGE_AREA = { x0: STAGE.x - 2, x1: STAGE.x + 2, y0: STAGE.y - 3, y
 /** The fortune table, beside Thiên Mụ's door. */
 const ALTAR = { x: 13.2, y: 48.0 };
 /** The pool table, on Phố đi bộ past the street piano. */
-const POOL = { x: 63.5, y: 63.7 };
+const POOL = { x: 64.8, y: 63.7 };
 
 export interface ExtrasContext {
   scene: Phaser.Scene;
