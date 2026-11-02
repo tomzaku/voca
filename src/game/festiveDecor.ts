@@ -1,7 +1,9 @@
 // Lunar New Year over Huế: red lanterns strung over the walks and flanking
 // every landmark's name, pots of yellow mai and pink đào blossom by the
 // keepers, couplets and a "Chúc Mừng Năm Mới" banner at Ngọ Môn, and
-// petals drifting down — all added on top of the painted map at runtime, so
+// petals drifting down; after dark, fireworks over the Hương; and a launch pad
+// on the south bank where a right answer sends one up spelling its word —
+// all added on top of the painted map at runtime, so
 // the season's switch (src/hooks/useFestive.ts) can take them down again.
 //
 // The map's art is baked into PNGs (scripts/generate-hue-map.mjs); nothing
@@ -27,12 +29,22 @@ export interface FestiveContext {
   tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[];
   night: boolean;
   calm: boolean;
+  /** The nightly show: where over the river the shells burst, in tiles (x's, and the water's row). */
+  show: { xs: number[]; y: number };
+  /** Areas (in tiles) the lantern strings keep clear of — the cải lương stage. */
+  avoid: { x0: number; x1: number; y0: number; y1: number }[];
+  /** The launch pad (a play spot), in tiles, and the patch of sky its fireworks fill. */
+  pad: { x: number; y: number; skyX: number; skyY: number };
 }
 
 export interface FestiveDecor {
   setNight(night: boolean): void;
+  /** Sends one up from the pad, spelling `word` in sparks; `big` for a streak. */
+  launch(word: string, big: boolean): void;
   destroy(): void;
 }
+
+const SPARK_COLORS = [0xff4d4d, 0xffd23f, 0x4dd2ff, 0x9dff6a, 0xff7af0, 0xffffff, 0xff9f43];
 
 const RED = '#d42a2a', RED_DARK = '#9c1414', GOLD = '#ffcf3f', GOLD_DARK = '#c98f12';
 
@@ -75,6 +87,16 @@ function makeTextures(scene: Phaser.Scene) {
   });
   tree('festive-mai', '#ffd23f', '#f2a900');
   tree('festive-dao', '#ff9ec7', '#e8679e');
+  // The launch pad: a stone slab, a rack of red-and-gold rockets, a little flag.
+  canvasTexture(scene, 'festive-pad', 20, 16, (c) => {
+    const px = (x: number, y: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+    px(1, 12, 18, 4, '#8c8c94'); px(1, 12, 18, 1, '#b4b4bc');
+    px(3, 9, 14, 3, '#5a3a24');
+    for (const [x, h] of [[4, 7], [8, 9], [12, 6], [15, 8]]) {
+      px(x, 9 - h, 2, h, RED); px(x, 9 - h, 2, 1, GOLD); px(x, 9 - h - 1, 1, 1, GOLD_DARK);
+    }
+    px(18, 2, 1, 10, '#5a3a24'); px(19, 2, 1, 3, GOLD);
+  });
   // A couplet scroll: red paper, gold edge, a column of gold "characters".
   canvasTexture(scene, 'festive-couplet', 6, 26, (c) => {
     c.fillStyle = GOLD_DARK; c.fillRect(0, 0, 6, 26);
@@ -116,6 +138,8 @@ export function buildFestive(ctx: FestiveContext): FestiveDecor {
     const y = s.y - k * 2.2;
     const span = SPACING * (PER_STRING + 1);
     for (let start = x0; start + span <= x1; start += span + GAP) {
+      const clash = ctx.avoid.some((a) => start < a.x1 * k && start + span > a.x0 * k && y > a.y0 * k - k && y < a.y1 * k + k);
+      if (clash) continue;
       const cord = scene.add.graphics().setDepth(depth.over);
       cord.lineStyle(scale, 0x7a1010, 0.9);
       cord.beginPath();
@@ -191,11 +215,109 @@ export function buildFestive(ctx: FestiveContext): FestiveDecor {
     }));
   }
 
+  // ── Fireworks ──
+  // Glowing (additive) after dark; by day additive sparks wash out against the
+  // bright water, so they're drawn solid, a size up, in the stronger colours.
+  let night = ctx.night;
+  const DAY_COLORS = [0xe8262c, 0xff8a00, 0x8a2be2, 0xd6006e, 0x0a8a3a, 0x0050c8];
+  const pick = () => (night ? SPARK_COLORS : DAY_COLORS)[Math.floor(Math.random() * (night ? SPARK_COLORS : DAY_COLORS).length)];
+  const spark = (x: number, y: number, color: number) => {
+    const size = scale * (night ? 1.5 : 2);
+    const p = scene.add.rectangle(x, y, size, size, color).setDepth(depth.over + 3);
+    if (night) p.setBlendMode(Phaser.BlendModes.ADD);
+    return p;
+  };
+  /** A shell: a rocket climbs from below, then bursts into a ring that sags and fades. */
+  const burst = (x: number, y: number, big: boolean) => {
+    const color = pick();
+    const rocket = scene.add.rectangle(x, y + k * 5, scale, scale * 3, 0xffe9a8).setDepth(depth.over + 3);
+    scene.tweens.add({
+      targets: rocket, y, duration: 650, ease: 'quad.out',
+      onComplete: () => {
+        rocket.destroy();
+        const n = big ? 44 : 28;
+        const r = k * (big ? 3.2 : 2.2);
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + Math.random() * 0.1;
+          const p = spark(x, y, i % 5 === 0 && night ? 0xffffff : color);
+          const d = r * (0.75 + Math.random() * 0.3);
+          scene.tweens.add({ targets: p, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, duration: 700, ease: 'quad.out' });
+          scene.tweens.add({ targets: p, y: `+=${k * 0.9}`, alpha: 0, delay: 650, duration: 900, ease: 'quad.in', onComplete: () => p.destroy() });
+        }
+      },
+    });
+  };
+
+  // The nightly show over the river: a shell every couple of seconds, at night only.
+  let show: Phaser.Time.TimerEvent | null = null;
+  const startShow = () => {
+    if (show || ctx.calm || !ctx.show.xs.length) return;
+    show = scene.time.addEvent({
+      delay: 1800, loop: true, callback: () => {
+        const x = ctx.show.xs[Math.floor(Math.random() * ctx.show.xs.length)] * k + (Math.random() - 0.5) * k * 6;
+        burst(x, (ctx.show.y - 2 - Math.random() * 3) * k, Math.random() < 0.25);
+      },
+    });
+  };
+  const stopShow = () => { show?.remove(); show = null; };
+  if (ctx.night) startShow();
+
+  // The launch pad.
+  // A step to the left of where you stand, so you don't hide it.
+  const pad = scene.add.image((ctx.pad.x - 1.3) * k, ctx.pad.y * k - k * 0.2, 'festive-pad').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
+  objs.push(pad);
+  mine.add(pad);
+  ctx.tinted.push(pad);
+  if (ctx.night) pad.setTint(0x8890b0);
+
+  /** A word in sparks: drawn on a canvas, every few lit pixels becoming a spark that flies into place. */
+  const spell = (word: string, big: boolean) => {
+    const cv = document.createElement('canvas');
+    const font = 'bold 16px monospace';
+    const c = cv.getContext('2d')!;
+    c.font = font;
+    const w = Math.ceil(c.measureText(word).width) + 4;
+    cv.width = w; cv.height = 20;
+    c.font = font;
+    c.fillStyle = '#fff';
+    c.textBaseline = 'top';
+    c.fillText(word, 2, 2);
+    const img = c.getImageData(0, 0, w, 20).data;
+    const pts: [number, number][] = [];
+    const step = w * 20 > 3000 ? 3 : 2;
+    for (let y = 0; y < 20; y += step) for (let x = 0; x < w; x += step) if (img[(y * w + x) * 4 + 3] > 128) pts.push([x, y]);
+    const cx = ctx.pad.skyX * k, cy = ctx.pad.skyY * k;
+    const size = scale * (big ? 2 : 1.7);
+    const color = pick();
+    for (const [px, py] of pts) {
+      const p = spark(cx, cy, color);
+      scene.tweens.add({ targets: p, x: cx + (px - w / 2) * size, y: cy + (py - 10) * size, duration: 650, ease: 'cubic.out' });
+      scene.tweens.add({ targets: p, alpha: { from: 1, to: 0.55 }, delay: 650, duration: 220, yoyo: true, repeat: 5 });
+      scene.tweens.add({ targets: p, y: `+=${k * 1.2}`, alpha: 0, delay: 3400, duration: 1000, ease: 'quad.in', onComplete: () => p.destroy() });
+    }
+  };
+
   return {
-    setNight(night: boolean) {
-      for (const g of glows) g.setVisible(night);
+    launch(word: string, big: boolean) {
+      const x = ctx.pad.skyX * k, y = ctx.pad.skyY * k;
+      // The rocket leaves the pad and climbs to where the word will be.
+      const rocket = scene.add.rectangle((ctx.pad.x - 1.3) * k, ctx.pad.y * k - k, scale * 1.5, scale * 4, 0xffe9a8).setDepth(depth.over + 3);
+      scene.tweens.add({
+        targets: rocket, x, y, duration: 800, ease: 'quad.out',
+        onComplete: () => {
+          rocket.destroy();
+          spell(word, big);
+          if (big) { burst(x - k * 5, y - k, true); burst(x + k * 5, y - k, true); }
+        },
+      });
+    },
+    setNight(isNight: boolean) {
+      night = isNight;
+      for (const g of glows) g.setVisible(isNight);
+      if (isNight) startShow(); else stopShow();
     },
     destroy() {
+      stopShow();
       for (const t of timers) t.remove();
       for (const o of objs) {
         scene.tweens.killTweensOf(o);

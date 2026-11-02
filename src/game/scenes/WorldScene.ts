@@ -19,6 +19,7 @@ import {
   type BuddyDir, type VillagerLook,
 } from '../textures';
 import { buildFestive, type FestiveDecor } from '../festiveDecor';
+import { buildExtras, EXTRA_PLAYS, FIREWORKS_PAD, STAGE_AREA } from '../worldExtras';
 
 export interface WorldSceneData {
   /** Walking, or riding a bicycle or a xích lô (game/vehicles.ts). */
@@ -419,6 +420,19 @@ export class WorldScene extends Phaser.Scene {
     this.spawnFarmers();
     this.spawnVendors();
     this.spawnAmbient();
+    buildExtras({
+      scene: this,
+      tilePx: this.tilePx,
+      scale: SCALE,
+      depth: { ground: DEPTH_BUDDY - 1, actors: DEPTH_BUDDY - 1 },
+      tinted: this.tinted,
+      performer: (x, y, n) => {
+        const look = keeperLookFor(n);
+        return this.add.sprite(x, y, VILLAGERS_KEY, `${look}-idle-0`).setOrigin(0.5, 1).setScale(SCALE * 0.9)
+          .play({ key: villagerAnim(this, look, 'idle'), delay: n * 90 });
+      },
+      calm: !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+    });
     this.targetMark = this.add
       .circle(0, 0, 8)
       .setStrokeStyle(2.5, 0xffd23f)
@@ -522,11 +536,20 @@ export class WorldScene extends Phaser.Scene {
         tinted: this.tinted,
         night: !this.pal.light,
         calm: !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+        // Shells over the Hương by Kỳ Đài, Trường Tiền and further east.
+        show: { xs: [(this.meta.flag?.x ?? 50 * this.tilePx) / this.tilePx, 76.5, 88], y: 58.5 },
+        pad: { ...FIREWORKS_PAD, skyX: FIREWORKS_PAD.x - 4, skyY: 58 },
+        avoid: [STAGE_AREA],
       });
     } else if (!on && this.festive) {
       this.festive.destroy();
       this.festive = undefined;
     }
+  }
+
+  /** A right answer at the launch pad: a firework spelling the word. Only while Tết is up. */
+  launchFirework(word: string, big: boolean) {
+    this.festive?.launch(word, big);
   }
 
   /** Point the day/night dressing at the current palette. */
@@ -1068,6 +1091,8 @@ export class WorldScene extends Phaser.Scene {
       }
     }
     meta.slots.sort((a, b) => a.slot - b.slot);
+    // The places added at runtime (worldExtras.ts) are play spots like the map's own.
+    for (const p of EXTRA_PLAYS) meta.plays.push({ game: p.game, x: p.x * map.tileWidth * SCALE, y: p.y * map.tileWidth * SCALE });
     meta.lanterns = lanterns.sort((a, b) => a.order - b.order).map(({ x, y }) => ({ x, y }));
     return meta;
   }

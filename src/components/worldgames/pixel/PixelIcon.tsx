@@ -24,6 +24,38 @@ const GRIDS = {
     '..##....',
     '...#....',
   ],
+  // A firework bursting — the Tết launch pad.
+  firework: [
+    '#...#...#',
+    '.#..#..#.',
+    '..#...#..',
+    '##..#..##',
+    '..#...#..',
+    '.#..#..#.',
+    '#...#...#',
+    '....#....',
+    '....#....',
+  ],
+  // A stage, its curtains drawn back — the cải lương stage.
+  stage: [
+    '#########',
+    '##.....##',
+    '#.......#',
+    '#.......#',
+    '#.......#',
+    '#########',
+    '.#.....#.',
+  ],
+  // A cup of fortune sticks — xin xăm at Thiên Mụ.
+  sticks: [
+    '.#.#.#.',
+    '.#.#.#.',
+    '.#####.',
+    '#######',
+    '#######',
+    '#######',
+    '.#####.',
+  ],
   // A Tết lantern on its cord — the world's festive-decorations switch.
   lantern: [
     '....#....',

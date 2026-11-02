@@ -25,6 +25,10 @@ import { RideButton } from './worldgames/RideButton';
 import { LanguageButton } from './worldgames/LanguageButton';
 import { DayNightButton } from './worldgames/DayNightButton';
 import { FestiveButton } from './worldgames/FestiveButton';
+import { CaiLuongStage } from './worldgames/CaiLuongStage';
+import { FortuneSticks } from './worldgames/FortuneSticks';
+import { FireworksLaunch } from './worldgames/FireworksLaunch';
+import { startDonTune, stopDonTune } from '../lib/donTune';
 import { useFestive } from '../hooks/useFestive';
 import { RIDES, type Ride } from '../game/vehicles';
 import { REACTIONS, REACTION_ICONS, REACTION_MS, type Gift, type Reaction } from '../game/reactions';
@@ -157,7 +161,10 @@ const INTRO_SEEN = 'voca-world-intro-seen';
 
 /** The playground's games, by the id the map's `play` points give them. */
 // A game's mark on its card: a pixel icon where the kit has one, else an emoji.
-const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = { piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' } };
+const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = {
+  piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' },
+  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' },
+};
 
 /** One foldable section of the travel drawer. `onTitle`, when given, makes
  *  the title itself a destination (a skill's keeper); the chevron folds. */
@@ -715,6 +722,16 @@ export function GameWorld({
   const festive = useFestive((s) => s.active);
   const sceneUp = pos !== null;
   useEffect(() => { if (sceneUp) scene()?.setFestive(festive); }, [festive, sceneUp]);
+  // The launch pad is only there while Tết is.
+  const playHere = atPlay === 'fireworks' && !festive ? null : atPlay;
+
+  // The đờn tune off the cải lương stage: heard while you stand by it, not
+  // once you're up performing (the voices need the quiet).
+  const byStage = atPlay === 'cailuong' && !playing;
+  useEffect(() => {
+    if (byStage) startDonTune(); else stopDonTune();
+  }, [byStage]);
+  useEffect(() => stopDonTune, []);
 
   // Follow theme switches (the scene resolves colors from CSS variables).
   useEffect(() => {
@@ -1206,19 +1223,24 @@ export function GameWorld({
       )}
 
       {/* ── The playground: the street piano, the type race ── */}
-      {!panel && !nearestFeature && atPlay && !playing && !busRide && busTicket === null && (
+      {!panel && !nearestFeature && playHere && !playing && !busRide && busTicket === null && (
         <WorldCard
-          emoji={PLAYS[atPlay]?.emoji ?? (PLAYS[atPlay]?.icon ? undefined : '🎲')}
-          icon={PLAYS[atPlay]?.icon}
-          title={<FormattedMessage id={`world.${atPlay}Title`} />}
-          subtitle={<FormattedMessage id={`world.${atPlay}Blurb`} />}
+          emoji={PLAYS[playHere]?.emoji ?? (PLAYS[playHere]?.icon ? undefined : '🎲')}
+          icon={PLAYS[playHere]?.icon}
+          title={<FormattedMessage id={`world.${playHere}Title`} />}
+          subtitle={<FormattedMessage id={`world.${playHere}Blurb`} />}
         >
-          <PixelButton tone="gold" block onClick={() => setPlaying(atPlay)}><FormattedMessage id="world.play" /></PixelButton>
+          <PixelButton tone="gold" block onClick={() => setPlaying(playHere)}><FormattedMessage id="world.play" /></PixelButton>
         </WorldCard>
       )}
       {!panel && playing === 'piano' && <StreetPiano onClose={() => setPlaying(null)} />}
       {!panel && playing === 'race' && <TypeRace onClose={() => setPlaying(null)} />}
       {!panel && playing === 'fish' && <Fishing onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'cailuong' && <CaiLuongStage onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'fortune' && <FortuneSticks onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'fireworks' && festive && (
+        <FireworksLaunch onClose={() => setPlaying(null)} onLaunch={(word, big) => scene()?.launchFirework(word, big)} />
+      )}
 
       {/* ── The food market: a vendor telling you about their dish ── */}
       {!panel && !nearestFeature && atVendor && atVendor !== vendorDone && !busRide && busTicket === null && (
