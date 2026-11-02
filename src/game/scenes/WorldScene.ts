@@ -36,10 +36,10 @@ export interface WorldSceneData {
   /** Device pixel ratio: the canvas renders at native res, the camera zooms by
    *  this factor, and text rasterizes at this resolution — all to stay sharp. */
   dpr: number;
-  /** Phones and low-memory devices: the map's ordinary 1× images in place of
-   *  the high-detail patches — ~120 MB of GPU textures down to ~30 MB, which
-   *  is the difference between smooth and stuttering (or a lost WebGL
-   *  context) on iOS Safari. */
+  /** Phones and low-memory devices: at most {@link LITE_PATCHES} high-detail
+   *  patches on the GPU at once (the rest of the map at 1×), dropped as the
+   *  buddy walks away. All 18 at once is ~120 MB — enough to stutter, or lose
+   *  the WebGL context, on iOS Safari. */
   lite?: boolean;
   /** What the city shows of the learner's progress (see buildProgress). */
   progress: WorldProgress;
@@ -96,6 +96,37 @@ const DEPTH_OVER = DEPTH_BUDDY + 5;
  * pixels and the pixel art stays crisp. 0.5 shows the island; 3 is nose-to-nose
  * with a villager.
  */
+/** High-detail patches a lite device keeps at once: 2×2 covers a phone's view
+ *  at 1× zoom. Each is ~13 MB of GPU texture (ground + over). */
+const LITE_PATCHES = 4;
+/** How often (ms) the scene looks at what the camera sees: which patches to
+ *  stream in or drop, and which ambient animations to pause off-screen. */
+const SWEEP_MS = 250;
+
+/** One part of a painted map: the 1× crops of the whole-map images that draw
+ *  it, and — streamed in near the camera — its own high-detail images, which
+ *  hide the crops while they're up. Rects in map px. */
+interface PatchSlot {
+  patch?: DetailPatch;
+  x: number; y: number; w: number; h: number;
+  base: Phaser.GameObjects.Image[];
+  detail: Phaser.GameObjects.Image[] | null;
+  loading: boolean;
+}
+
+/** Each patch's rect in map px: from its corner to the next patch's along each
+ *  axis, or to the map's edge. */
+function patchRects(patches: DetailPatch[], mapW: number, mapH: number) {
+  const xs = [...new Set(patches.map((p) => p.x))].sort((a, b) => a - b);
+  const ys = [...new Set(patches.map((p) => p.y))].sort((a, b) => a - b);
+  const next = (v: number, all: number[], edge: number) => all.find((a) => a > v) ?? edge;
+  return patches.map((p) => ({
+    x: p.x, y: p.y,
+    w: Math.min(next(p.x, xs, mapW), mapW) - p.x,
+    h: Math.min(next(p.y, ys, mapH), mapH) - p.y,
+  }));
+}
+
 export const ZOOM_STEPS = [0.5, 1, 1.5, 2, 2.5, 3] as const;
 const DEFAULT_ZOOM_INDEX = 1;   // 1×
 
@@ -275,6 +306,15 @@ export class WorldScene extends Phaser.Scene {
   /** True while a gate fade is running, so we don't retrigger mid-transition. */
   private crossing = false;
   private lastMoveEmit = 0;
+  /** The painted map's parts, and where their high-detail images live. */
+  private patchSlots: PatchSlot[] = [];
+  private patchDir = '';
+  /** When the camera was last swept (see SWEEP_MS). */
+  private sweepClock = 0;
+  /** What the sweep paused for being off-screen — and only that, so it never
+   *  resumes something paused for its own reasons. */
+  private culledTweens = new Set<Phaser.Tweens.Tween>();
+  private culledSprites = new Set<Phaser.GameObjects.Sprite>();
   /** What the last `moved` said, so standing still sends nothing. */
   private lastMoved = '';
 
@@ -299,27 +339,14 @@ export class WorldScene extends Phaser.Scene {
     this.load.tilemapTiledJSON(`map-${src.key}`, src.tmjUrl);
     // 112 scenery sprites (547 frames) in one atlas — one texture, one bind.
     if (src.propsAtlasUrl && src.propsAtlasJsonUrl) this.load.atlas(PROPS_KEY, src.propsAtlasUrl, src.propsAtlasJsonUrl);
-    // The 1× ground and over only when they'll be drawn: with the detail
-    // patches they'd sit on the GPU unused (2 × 15 MB).
-    const loadPlain = () => {
-      if (src.groundUrl) this.load.image(`ground-${src.key}`, src.groundUrl);
-      if (src.overUrl) this.load.image(`over-${src.key}`, src.overUrl);
-    };
-    if (!src.detailUrl || this.args.lite) loadPlain();
+    // The whole map at 1× — what shows wherever a high-detail patch isn't
+    // streamed in (see streamPatches).
+    if (src.groundUrl) this.load.image(`ground-${src.key}`, src.groundUrl);
+    if (src.overUrl) this.load.image(`over-${src.key}`, src.overUrl);
     if (src.nightUrl) this.load.image(`night-${src.key}`, src.nightUrl);
     if (src.nightOverUrl) this.load.image(`night-over-${src.key}`, src.nightOverUrl);
-    // The high-detail patches: their list first, then their images.
-    if (src.detailUrl && !this.args.lite) {
-      const dir = src.detailUrl.slice(0, src.detailUrl.lastIndexOf('/') + 1);
-      this.load.json(`detail-${src.key}`, src.detailUrl);
-      this.load.once(`filecomplete-json-detail-${src.key}`, (_key: string, _type: string, patches: DetailPatch[]) => {
-        if (!patches.length) loadPlain();
-        for (const p of patches) {
-          this.load.image(`detail-${p.key}-ground`, `${dir}${p.ground}`);
-          this.load.image(`detail-${p.key}-over`, `${dir}${p.over}`);
-        }
-      });
-    }
+    // The high-detail patches' list; their images stream in as they're needed.
+    if (src.detailUrl) this.load.json(`detail-${src.key}`, src.detailUrl);
     this.load.spritesheet(WINDMILL.key, `${import.meta.env.BASE_URL}${WINDMILL.url}`, {
       frameWidth: WINDMILL.frame, frameHeight: WINDMILL.frame,
     });
@@ -341,9 +368,7 @@ export class WorldScene extends Phaser.Scene {
     // Belt and braces: the pixelArt config flag doesn't reliably reach
     // runtime-loaded sheets, and linear filtering blurs 16px art badly.
     const src = defaultMap();
-    const patches = ((this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[])
-      .flatMap((p) => [`detail-${p.key}-ground`, `detail-${p.key}-over`]);
-    for (const key of [`tiles-${src.key}`, `ground-${src.key}`, `over-${src.key}`, `night-${src.key}`, `night-over-${src.key}`, PROPS_KEY, ...patches]) {
+    for (const key of [`tiles-${src.key}`, `ground-${src.key}`, `over-${src.key}`, `night-${src.key}`, `night-over-${src.key}`, PROPS_KEY]) {
       if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
     this.textures.get(VILLAGERS_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
@@ -738,22 +763,35 @@ export class WorldScene extends Phaser.Scene {
     });
     // A painted map: the ground goes under everything, the over layer above
     // the buddy. It takes the night tint itself, since it sits over the veil.
-    // Drawn in high detail (scripts/hue/hd), the map comes as patches covering
-    // all of it — twice the pixels, so half the scale — in place of its
-    // ordinary images.
-    const patches = (this.args.lite ? [] : this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[];
+    // Drawn in high detail (scripts/hue/hd), the map also comes as patches
+    // covering all of it — twice the pixels, so half the scale. The 1× images
+    // are cut along the same lines, so a patch streamed in near the camera
+    // can hide just its own part of them.
+    const patches = (this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[];
     const ground = `ground-${src.key}`;
     const over = `over-${src.key}`;
-    if (!patches.length && this.textures.exists(ground)) this.add.image(0, 0, ground).setOrigin(0, 0).setScale(SCALE).setDepth(-1);
-    const overImage = !patches.length && this.textures.exists(over)
-      ? this.add.image(0, 0, over).setOrigin(0, 0).setScale(SCALE).setDepth(DEPTH_OVER)
-      : null;
-    const detailOver: Phaser.GameObjects.Image[] = [];
-    for (const p of patches) {
-      const g = `detail-${p.key}-ground`, o = `detail-${p.key}-over`;
-      if (this.textures.exists(g)) this.add.image(p.x * SCALE, p.y * SCALE, g).setOrigin(0, 0).setScale(SCALE / 2).setDepth(-0.5);
-      if (this.textures.exists(o)) detailOver.push(this.add.image(p.x * SCALE, p.y * SCALE, o).setOrigin(0, 0).setScale(SCALE / 2).setDepth(DEPTH_OVER + 0.01));
-    }
+    const baseOver: Phaser.GameObjects.Image[] = [];
+    const rects = patches.length
+      ? patchRects(patches, map.widthInPixels, map.heightInPixels)
+      : [{ x: 0, y: 0, w: map.widthInPixels, h: map.heightInPixels }];
+    this.patchSlots = rects.map((r, i) => {
+      const base: Phaser.GameObjects.Image[] = [];
+      if (this.textures.exists(ground)) {
+        base.push(this.add.image(0, 0, ground).setOrigin(0, 0).setScale(SCALE).setCrop(r.x, r.y, r.w, r.h).setDepth(-1));
+      }
+      if (this.textures.exists(over)) {
+        const o = this.add.image(0, 0, over).setOrigin(0, 0).setScale(SCALE).setCrop(r.x, r.y, r.w, r.h).setDepth(DEPTH_OVER);
+        base.push(o);
+        baseOver.push(o);
+      }
+      return { patch: patches[i], ...r, base, detail: null, loading: false };
+    });
+    this.patchDir = src.detailUrl ? src.detailUrl.slice(0, src.detailUrl.lastIndexOf('/') + 1) : '';
+    // A restarted scene starts with none streamed in; free what the last one held.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      for (const s of this.patchSlots) this.dropPatch(s);
+      this.patchSlots = [];
+    });
     this.worldW = map.widthInPixels * SCALE;
     this.worldH = map.heightInPixels * SCALE;
     this.tilePx = map.tileWidth * SCALE;
@@ -813,7 +851,7 @@ export class WorldScene extends Phaser.Scene {
     });
 
     const layer = this.add.container(0, 0).setDepth(DEPTH_SCENERY);
-    this.tinted = [...(overImage ? [overImage] : []), ...detailOver];
+    this.tinted = [...baseOver];
 
     // Animated scenery: windmills turn where the map placed them (feet at the
     // point, drawn 2× to match the tiles' on-screen size, tinted at night).
@@ -1987,12 +2025,136 @@ export class WorldScene extends Phaser.Scene {
     return true;
   }
 
+  // ── What the camera sees ──
+
+  /**
+   * Stream the high-detail patches near the camera in, nearest first, and on
+   * a lite device drop the ones it has walked away from. A slot keeps its 1×
+   * crops showing until its own images have loaded, so nothing ever blanks.
+   */
+  private streamPatches() {
+    const slots = this.patchSlots.filter((s) => s.patch);
+    if (!slots.length) return;
+    const v = this.cameras.main.worldView;
+    const pad = this.tilePx * 8;
+    const near = (s: PatchSlot, m: number) =>
+      s.x * SCALE < v.right + m && (s.x + s.w) * SCALE > v.x - m
+      && s.y * SCALE < v.bottom + m && (s.y + s.h) * SCALE > v.y - m;
+    const dist = (s: PatchSlot) => Math.hypot((s.x + s.w / 2) * SCALE - v.centerX, (s.y + s.h / 2) * SCALE - v.centerY);
+    const cap = this.args.lite ? LITE_PATCHES : Infinity;
+    const wanted = new Set(slots.filter((s) => near(s, pad)).sort((a, b) => dist(a) - dist(b)).slice(0, cap));
+    // Just out of reach, a patch that's up stays up while there's room — so
+    // walking along an edge doesn't load and drop it over and over.
+    for (const s of slots) if (s.detail && !wanted.has(s) && wanted.size < cap && near(s, pad * 2)) wanted.add(s);
+    for (const s of slots) {
+      if (wanted.has(s)) { if (!s.detail && !s.loading) this.loadPatch(s); }
+      else if (s.detail && this.args.lite) this.dropPatch(s);   // a desktop keeps what it has
+    }
+  }
+
+  private patchKeys(p: DetailPatch) {
+    return [{ key: `detail-${p.key}-ground`, file: p.ground }, { key: `detail-${p.key}-over`, file: p.over }];
+  }
+
+  private loadPatch(s: PatchSlot) {
+    s.loading = true;
+    const files = this.patchKeys(s.patch!);
+    let left = files.length;
+    const done = () => {
+      if (--left > 0) return;
+      s.loading = false;
+      // Landed after the scene moved on (or restarted without this slot).
+      if (!this.sys.isActive() || !this.patchSlots.includes(s)) return;
+      this.showPatch(s);
+    };
+    for (const f of files) {
+      if (this.textures.exists(f.key)) { done(); continue; }
+      this.load.once(`filecomplete-image-${f.key}`, done);
+      this.load.image(f.key, `${this.patchDir}${f.file}`);
+    }
+    this.load.start();   // a no-op while it's already running; queued files join in
+  }
+
+  private showPatch(s: PatchSlot) {
+    const [g, o] = this.patchKeys(s.patch!).map(({ key }) => {
+      if (!this.textures.exists(key)) return null;
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      return this.add.image(s.x * SCALE, s.y * SCALE, key).setOrigin(0, 0).setScale(SCALE / 2);
+    });
+    g?.setDepth(-0.5);
+    if (o) {
+      o.setDepth(DEPTH_OVER + 0.01);
+      if (!this.pal.light) o.setTint(NIGHT_TINT);
+      this.tinted.push(o);
+    }
+    s.detail = [g, o].filter((i): i is Phaser.GameObjects.Image => !!i);
+    for (const b of s.base) b.setVisible(false);
+  }
+
+  private dropPatch(s: PatchSlot) {
+    if (!s.detail) return;
+    for (const img of s.detail) {
+      // In place: buildExtras and buildFestive hold this same array.
+      const i = this.tinted.indexOf(img);
+      if (i >= 0) this.tinted.splice(i, 1);
+      img.destroy();
+    }
+    s.detail = null;
+    for (const b of s.base) b.setVisible(true);
+    for (const { key } of this.patchKeys(s.patch!)) if (this.textures.exists(key)) this.textures.remove(key);
+  }
+
+  /**
+   * Pause what loops forever off-screen — lanterns, vendors, boats, rings,
+   * scenery clips — and resume it on the way back. Nobody sees them, and on a
+   * phone dozens of idle tweens and clips are real CPU every frame. A wide
+   * margin, so nothing visibly starts up as it scrolls in.
+   */
+  private cullAmbient() {
+    const v = this.cameras.main.worldView, m = this.tilePx * 20;
+    const seen = (go: { x: number; y: number; parentContainer?: Phaser.GameObjects.Container | null }) => {
+      const c = go.parentContainer;
+      const x = c ? c.x + go.x : go.x, y = c ? c.y + go.y : go.y;
+      return x > v.x - m && x < v.right + m && y > v.y - m && y < v.bottom + m;
+    };
+
+    const tweens = this.tweens.getTweens();
+    for (const tw of tweens) {
+      if (!tw.isInfinite) continue;   // one-offs finish (and often destroy) on their own
+      const shown = tw.targets.some((t) =>
+        !(t instanceof Phaser.GameObjects.GameObject)
+        || ((t as Phaser.GameObjects.Image).displayWidth ?? 0) > v.width   // the night lights: the whole map
+        || seen(t as Phaser.GameObjects.Image));
+      if (shown) { if (this.culledTweens.delete(tw)) tw.resume(); }
+      else if (!tw.paused) { this.culledTweens.add(tw); tw.pause(); }
+    }
+    if (this.culledTweens.size) {
+      const live = new Set(tweens);
+      for (const tw of this.culledTweens) if (!live.has(tw)) this.culledTweens.delete(tw);
+    }
+
+    for (const go of this.sys.updateList.getActive()) {
+      if (!(go instanceof Phaser.GameObjects.Sprite)) continue;
+      if (seen(go)) { if (this.culledSprites.delete(go)) go.anims.resume(); }
+      else if (go.anims.isPlaying && !go.anims.isPaused) { this.culledSprites.add(go); go.anims.pause(); }
+    }
+    for (const sp of this.culledSprites) if (!sp.scene) this.culledSprites.delete(sp);   // destroyed
+  }
+
   update(time: number, dtMs: number) {
     if (!this.ready) return;
     const dt = Math.min(dtMs / 1000, 0.05);
 
-    // Animals amble toward a target, pause, then pick a new one near home.
+    if (time - this.sweepClock > SWEEP_MS) {
+      this.sweepClock = time;
+      this.streamPatches();
+      this.cullAmbient();
+    }
+
+    // Animals amble toward a target, pause, then pick a new one near home —
+    // unless they're off-screen, where nobody's watching them graze.
     for (const a of this.animals) {
+      if (this.culledSprites.has(a.sprite)) continue;
       if (a.pause > 0) { a.pause -= dtMs; continue; }
       const dx = a.tx - a.sprite.x, dy = a.ty - a.sprite.y;
       const dist = Math.hypot(dx, dy);
