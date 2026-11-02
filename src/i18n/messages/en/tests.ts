@@ -95,6 +95,7 @@ export default {
   'tests.theme.sports': 'Sports',
   'tests.theme.music': 'Music',
   'tests.theme.farm': 'Farm',
+  'tests.theme.lunar': 'Lunar New Year',
   'tests.instantToggle': 'Show right or wrong after each answer',
   'tests.instantHint': 'Each answer is marked straight away, with a celebration or the right answer — and locked, so it can’t be changed. Students see the answers before the due date.',
   'tests.instantIntro': 'Each answer is marked as soon as you give it, and can’t be changed after.',

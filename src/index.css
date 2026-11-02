@@ -384,6 +384,16 @@ body {
   .theme-deco[data-motion='rise'], .theme-deco[data-motion='fall'] { display: none; }
 }
 
+/* Tết lanterns under the top bar (FestiveGarland), swinging from their cord. */
+@keyframes festiveSway {
+  0%, 100% { transform: rotate(-7deg); }
+  50%      { transform: rotate(7deg); }
+}
+.festive-sway { transform-origin: 50% 0; animation: festiveSway 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .festive-sway { animation: none; }
+}
+
 /* Streak flame flicker */
 @keyframes flameFlicker {
   0%, 100% { transform: scale(1) rotate(-2deg); }

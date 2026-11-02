@@ -11,6 +11,7 @@ import { isApple } from '../lib/device';
 import { SearchModal } from './SearchModal';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuickPrefs } from './QuickPrefs';
+import { FestiveGarland } from './FestiveGarland';
 
 // Desktop's Rail is always on screen, so this bar is just search + account
 // there, offset to clear its fixed-left column. Mobile hides Rail entirely
@@ -147,6 +148,7 @@ export function Navbar() {
             </Link>
           </div>
         </div>
+        <FestiveGarland />
       </header>
       {/* Rendered as a sibling of <header>, not inside it — <header> has
           backdrop-blur, and a backdrop-filter/filter/transform ancestor

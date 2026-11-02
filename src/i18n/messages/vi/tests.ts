@@ -95,6 +95,7 @@ export default {
   'tests.theme.sports': 'Thể thao',
   'tests.theme.music': 'Âm nhạc',
   'tests.theme.farm': 'Nông trại',
+  'tests.theme.lunar': 'Tết',
   'tests.instantToggle': 'Báo đúng/sai sau mỗi câu',
   'tests.instantHint': 'Mỗi câu được chấm ngay, kèm hiệu ứng ăn mừng hoặc đáp án đúng — và bị khoá, không sửa được. Học sinh thấy đáp án trước hạn nộp.',
   'tests.instantIntro': 'Mỗi câu được chấm ngay khi bạn trả lời và không sửa được nữa.',

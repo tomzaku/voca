@@ -98,7 +98,7 @@ export function rank(
 }
 
 /** The looks a test can have — the names only; src/lib/testThemes.ts draws them. Mirrors the migration's check. */
-export const THEMES = ['classic', 'ocean', 'space', 'jungle', 'candy', 'castle', 'arctic', 'beach', 'sports', 'music', 'farm'] as const;
+export const THEMES = ['classic', 'ocean', 'space', 'jungle', 'candy', 'castle', 'arctic', 'beach', 'sports', 'music', 'farm', 'lunar'] as const;
 export type Theme = (typeof THEMES)[number];
 
 export function cleanTheme(v: unknown): Theme {

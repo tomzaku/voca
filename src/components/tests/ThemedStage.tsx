@@ -45,6 +45,7 @@ export function ThemedStage({ theme, children }: { theme: TestTheme; children: R
               ...(look.motion === 'twinkle' || look.motion === 'sway' ? { top: p.top } : {}),
               width: p.size,
               height: p.size,
+              ...(look.decoColor ? { color: look.decoColor, opacity: 0.85 } : {}),
               animationDuration: p.duration,
               animationDelay: p.delay,
             }}

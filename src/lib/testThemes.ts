@@ -1,5 +1,5 @@
 // How each test theme looks on a student's screen. The server only stores the
-// name (supabase/functions/_shared/tests.ts lists the same eleven); everything
+// name (supabase/functions/_shared/tests.ts lists the same twelve); everything
 // visual is here.
 //
 // A themed test is its own little world, so its colours are fixed hex values
@@ -9,10 +9,10 @@
 
 export type TestTheme =
   | 'classic' | 'ocean' | 'space' | 'jungle' | 'candy' | 'castle'
-  | 'arctic' | 'beach' | 'sports' | 'music' | 'farm';
+  | 'arctic' | 'beach' | 'sports' | 'music' | 'farm' | 'lunar';
 export const TEST_THEMES: TestTheme[] = [
   'classic', 'ocean', 'space', 'jungle', 'candy', 'castle',
-  'arctic', 'beach', 'sports', 'music', 'farm',
+  'arctic', 'beach', 'sports', 'music', 'farm', 'lunar',
 ];
 
 /** How the background pieces move: bubbles rise, stars twinkle, leaves sway, sweets fall. */
@@ -30,6 +30,8 @@ export interface ThemeLook {
   motion: DecoMotion;
   /** Rides along the progress bar. */
   runner: string;
+  /** The drifting pieces' colour, when white won't show — gold on Tết's red. */
+  decoColor?: string;
 }
 
 const CLASSIC_TILES = ['#22d3ee', '#a78bfa', '#34d399', '#fb923c'];
@@ -122,6 +124,16 @@ export const THEME_LOOKS: Record<TestTheme, ThemeLook> = {
     deco: ['lucide:wheat', 'lucide:carrot', 'lucide:apple', 'lucide:egg', 'lucide:wheat'],
     motion: 'sway',
     runner: 'lucide:tractor',
+  },
+  // Tết: red and gold, lanterns and blossom, a lion dancing along the bar.
+  lunar: {
+    icon: 'game-icons:paper-lantern',
+    background: 'radial-gradient(circle at 50% 15%, #ef4444 0%, #b91c1c 45%, #6b0f0f 100%)',
+    tiles: ['#ca8a04', '#15803d', '#1d4ed8', '#be185d'],
+    deco: ['game-icons:paper-lantern', 'lucide:flower-2', 'lucide:coins', 'game-icons:paper-lantern', 'lucide:flower'],
+    motion: 'sway',
+    runner: 'game-icons:lion',
+    decoColor: '#ffcf3f',
   },
 };
 
