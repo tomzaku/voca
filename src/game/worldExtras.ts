@@ -7,6 +7,8 @@
 //   fortune   a fortune-stick table before Thiên Mụ's hall, by its incense
 //   pool      a street pool table (bi-a vỉa hè) on Phố đi bộ, past the street
 //             piano — solo practice; matches start from a player
+//   foosball  a bi lắc table on Phố đi bộ's east end, by the fountain — you
+//             against the computer
 //   fireworks two launch pads on the citadel wall either side of Kỳ Đài, before
 //             Ngọ Môn, where Huế fires its Tết fireworks — only while the Tết
 //             decorations are up (festiveDecor.ts draws them)
@@ -24,6 +26,7 @@ export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolea
   { game: 'cailuong', x: 59.3, y: 64.75 },
   { game: 'fortune', x: 13.2, y: 48.4 },
   { game: 'pool', x: 64.8, y: 64.2 },
+  { game: 'foosball', x: 70.0, y: 64.4 },
   ...FIREWORKS_PADS.map((p) => ({ game: 'fireworks', ...p, festive: true })),
 ];
 
@@ -35,6 +38,8 @@ export const STAGE_AREA = { x0: STAGE.x - 2, x1: STAGE.x + 2, y0: STAGE.y - 3, y
 const ALTAR = { x: 13.2, y: 48.0 };
 /** The pool table, on Phố đi bộ past the street piano. */
 const POOL = { x: 64.8, y: 63.7 };
+/** The foosball table, by the fountain. */
+const FOOS = { x: 70.0, y: 63.9 };
 
 export interface ExtrasContext {
   scene: Phaser.Scene;
@@ -105,6 +110,20 @@ function makeTextures(scene: Phaser.Scene) {
     px(3, 9, 10, 1, '#d8b878');
     px(1, 14, 2, 4, '#3a2214'); px(27, 14, 2, 4, '#3a2214');
   });
+  // A bi lắc table: a green pitch in a wooden box, rods across it with their
+  // red and blue players, handles out the sides.
+  canvasTexture(scene, 'extra-foos', 26, 18, (px) => {
+    px(0, 0, 26, 13, '#6a4424');
+    px(2, 2, 22, 9, '#2e8a4a');
+    px(12, 2, 1, 9, '#7fc79a');
+    px(0, 5, 2, 3, '#0c0c0e'); px(24, 5, 2, 3, '#0c0c0e');
+    [4, 7, 10, 13, 16, 19, 22].forEach((x, i) => {
+      px(x, 0, 1, 13, '#b8bcc4');
+      px(x - 1, i % 2 ? 4 : 6, 3, 2, i % 2 ? '#2f5fd0' : '#d42a2a');
+    });
+    px(12, 6, 1, 1, '#f6f1e4');
+    px(1, 13, 2, 5, '#3a2214'); px(23, 13, 2, 5, '#3a2214');
+  });
   // A floating note, for the music.
   canvasTexture(scene, 'extra-note', 5, 7, (px) => {
     px(3, 0, 1, 5, '#ffffff'); px(3, 0, 2, 1, '#ffffff'); px(4, 1, 1, 1, '#ffffff');
@@ -142,4 +161,7 @@ export function buildExtras(ctx: ExtrasContext) {
 
   const table = scene.add.image(POOL.x * k, POOL.y * k, 'extra-pool').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(table);
+
+  const foos = scene.add.image(FOOS.x * k, FOOS.y * k, 'extra-foos').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
+  ctx.tinted.push(foos);
 }
