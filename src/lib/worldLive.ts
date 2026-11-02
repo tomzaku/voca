@@ -215,6 +215,8 @@ export class WorldLive {
   unblockAll() { this.blocked.clear(); saveBlocked(this.blocked); }
 
   peer(id: string) { return this.peers.get(id); }
+  /** Everyone here who's been seen somewhere on the map. */
+  list() { return [...this.peers.values()].filter((p) => p.x > -9999); }
   count() { return this.peers.size; }
 }
 

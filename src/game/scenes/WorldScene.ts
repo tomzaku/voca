@@ -627,6 +627,13 @@ export class WorldScene extends Phaser.Scene {
     if (p) this.jumpTo(p.x, p.y);
   }
 
+  /** Fast travel to another player: beside them, where they're headed. */
+  travelToPeer(id: string) {
+    if (!this.ready) return;
+    const o = this.others.get(id);
+    if (o) this.jumpTo(o.tx + this.tilePx, o.ty);
+  }
+
   private jumpTo(x: number, y: number) {
     const spot = this.clampToWalkable(x, y) ?? { x, y };
     this.route = [];

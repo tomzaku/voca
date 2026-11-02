@@ -607,6 +607,17 @@ export function GameWorld({
     return watchWorldCount(setWatched);
   }, [userId, authLoading]);
   const players = userId ? online + 1 : watched;
+  // Fast travel to another player, from the who's-here list or their card.
+  const goToPeer = (id: string) => { scene()?.travelToPeer(id); setChatOpen(false); setPeerCard(null); };
+  // Where someone is: the area of the map they're in.
+  const areaAt = (y: number) => snap?.areas.find((a) => y >= a.top && y < a.bottom)?.name;
+  // Positions don't re-render the shell; while the list is up, refresh it.
+  const [, setListTick] = useState(0);
+  useEffect(() => {
+    if (!chatOpen) return;
+    const t = setInterval(() => setListTick((n) => n + 1), 2000);
+    return () => clearInterval(t);
+  }, [chatOpen]);
   /** Ask someone to a game; they have half a minute to answer. */
   const askToPlay = (to: string, name: string, game: MatchGame) => {
     const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -938,17 +949,6 @@ export function GameWorld({
       )}
       {!panel && (
         <div className="px absolute top-[calc(0.5rem+var(--sat))] right-[calc(0.5rem+var(--sar))] z-20 flex flex-wrap justify-end items-center gap-2 max-w-[calc(100%-13.5rem)] sm:max-w-none">
-          {/* Who else is here: a reason to look around, or to sign in. */}
-          {players > 0 && (
-            <span
-              title={intl.formatMessage({ id: 'world.livePlayers' }, { n: players })}
-              aria-label={intl.formatMessage({ id: 'world.livePlayers' }, { n: players })}
-              className="px-notch px-frame px-num !text-[13px] px-2.5 h-[2.6rem] inline-flex items-center gap-1.5"
-            >
-              <span className="w-2 h-2 bg-[var(--px-good)] shrink-0" />
-              <PixelIcon name="people" size={2} /> {players}
-            </span>
-          )}
           {user && !animalId && (
             <Link to="/companion" className="px-btn px-notch px-title !text-[13px] px-3 h-[2.6rem] inline-flex items-center gap-1.5" data-tone="gold">
               <PixelIcon name="paw" size={2} /> <span className="hidden sm:inline"><FormattedMessage id="world.chooseBuddy" /></span>
@@ -969,8 +969,8 @@ export function GameWorld({
             </PixelButton>
           )}
           {!user && (
-            <PixelButton tone="gold" onClick={() => void signInWithGoogle()} title={intl.formatMessage({ id: 'world.liveSignIn' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px]">
-              👥 <span className="hidden sm:inline"><FormattedMessage id="world.liveSignInButton" /></span>
+            <PixelButton tone="gold" onClick={() => void signInWithGoogle()} title={players > 0 ? `${intl.formatMessage({ id: 'world.livePlayers' }, { n: players })} · ${intl.formatMessage({ id: 'world.liveSignIn' })}` : intl.formatMessage({ id: 'world.liveSignIn' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px]">
+              👥 {players > 0 && <span className="px-num">{players}</span>} <span className="hidden sm:inline"><FormattedMessage id="world.liveSignInButton" /></span>
               <span className="sm:hidden"><FormattedMessage id="world.liveSignInShort" /></span>
             </PixelButton>
           )}
@@ -1120,6 +1120,9 @@ export function GameWorld({
           list. ── */}
       {!panel && peerCard && (
         <WorldCard icon="person" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
+          <PixelButton tone="jade" block onClick={() => goToPeer(peerCard.id)} className="!py-2 !text-[13px] mb-2">
+            <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoToName" values={{ name: peerCard.name }} />
+          </PixelButton>
           <PeerSection title={<FormattedMessage id="world.peerLearn" />}>
             <PixelButton tone="gold" onClick={() => askToPlay(peerCard.id, peerCard.name, 'talk')} className="!px-3 !py-2 !text-[13px] col-span-2 !justify-start text-left">
               <PixelIcon name="mic" size={2} />
@@ -1219,6 +1222,32 @@ export function GameWorld({
           {/* The history: open, the recent lines to scroll back through;
               closed, the newest few, each fading after a while. See-through,
               so the world stays in view. */}
+          {/* Who's here: everyone else in Huế, where they are, and a way there. */}
+          {chatOpen && (
+            <div className="bg-black/55 px-notch px-2.5 py-1.5 pointer-events-auto">
+              <p className="flex items-center gap-1.5 text-[12px] text-[var(--px-muted)] mb-1">
+                <span className="w-2 h-2 bg-[var(--px-good)] shrink-0" />
+                <FormattedMessage id="world.livePlayers" values={{ n: players }} />
+              </p>
+              {(liveRef.current?.list().length ?? 0) === 0 ? (
+                <p className="text-[13px] text-[var(--px-muted)]"><FormattedMessage id="world.liveAlone" /></p>
+              ) : (
+                <ul className="max-h-32 overflow-y-auto space-y-1">
+                  {liveRef.current?.list().map((p) => (
+                    <li key={p.id} className="flex items-center gap-2">
+                      <button type="button" onClick={() => setPeerCard({ id: p.id, name: p.name })} className="flex-1 min-w-0 text-left truncate text-[14px] hover:text-[var(--px-gold)]">
+                        <span className="text-[#cfe8ff]">{p.name}</span>
+                        {areaAt(p.y) && <span className="text-[12px] text-[var(--px-muted)]"> · {areaAt(p.y)}</span>}
+                      </button>
+                      <PixelButton tone="jade" onClick={() => goToPeer(p.id)} title={intl.formatMessage({ id: 'world.liveGoToName' }, { name: p.name })} className="!px-2 !py-0 !h-7 !text-[12px] shrink-0">
+                        <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" />
+                      </PixelButton>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {chatLog.length > 0 && (chatOpen ? (
             <div ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }} className="max-h-44 overflow-y-auto bg-black/45 px-notch px-2.5 py-1.5 space-y-0.5 pointer-events-auto">
               {chatLog.map((c) => <ChatLine key={c.key} name={c.name} text={c.text} mine={c.mine} />)}
@@ -1232,7 +1261,7 @@ export function GameWorld({
           ))}
           <div className="flex items-end gap-1.5">
             <PixelButton tone={chatOpen ? 'gold' : 'paper'} onClick={() => setChatOpen((o) => !o)} title={intl.formatMessage({ id: 'world.liveChat' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num shrink-0 pointer-events-auto">
-              💬 {online}
+              💬 {players}
             </PixelButton>
             {/* Reactions: the picker, opening upward; 1–6 do the same. */}
             {!chatOpen && (
