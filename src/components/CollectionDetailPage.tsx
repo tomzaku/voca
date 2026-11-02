@@ -27,6 +27,8 @@ import { MindMapButton } from './MindMapButton';
 import { WordMindMap } from './WordMindMap';
 import { QuizSetup } from './QuizSetup';
 import { CollectionTests } from './tests/CollectionTests';
+import { AddFriendButton } from './AddFriendButton';
+import { useFriendStatuses } from '../hooks/useFriendStatuses';
 import { LoadWordDetails } from './WordDetails';
 
 /** Podium colours, matching the team leaderboard's medals. */
@@ -46,6 +48,7 @@ function CollectionLeaderboard({ members, meId, ownerId, loading }: {
   loading: boolean;
 }) {
   const intl = useIntl();
+  const [statuses, setStatus] = useFriendStatuses(members.map((m) => m.userId), !!meId);
   if (loading && members.length === 0) {
     return <p className="text-xs text-text-muted"><FormattedMessage id="collections.loadingBoard" /></p>;
   }
@@ -89,6 +92,12 @@ function CollectionLeaderboard({ members, meId, ownerId, loading }: {
                 />
               </div>
             </div>
+            <AddFriendButton
+              userId={m.userId}
+              name={m.displayName || intl.formatMessage({ id: 'collections.learner' })}
+              status={statuses[m.userId]}
+              onChange={(s) => setStatus(m.userId, s)}
+            />
             <span className="text-right shrink-0">
               <span className={`block text-sm font-display font-extrabold tabular-nums ${pct >= 100 ? 'text-accent-green' : 'text-text-primary'}`}>
                 {pct}%

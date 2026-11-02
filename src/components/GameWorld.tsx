@@ -25,6 +25,8 @@ import { RideButton } from './worldgames/RideButton';
 import { LanguageButton } from './worldgames/LanguageButton';
 import { DayNightButton } from './worldgames/DayNightButton';
 import { FestiveButton } from './worldgames/FestiveButton';
+import { FriendChat, FriendsPanel } from './worldgames/FriendsPanel';
+import { acceptFriend, friendStatuses, listFriends, removeFriend, requestFriend, type FriendStatus, type FriendsList } from '../lib/friendsApi';
 import { CaiLuongStage } from './worldgames/CaiLuongStage';
 import { FortuneSticks } from './worldgames/FortuneSticks';
 import { FireworksLaunch } from './worldgames/FireworksLaunch';
@@ -332,7 +334,34 @@ export function GameWorld({
     chatOpenRef.current = chatOpen;
     if (chatOpen) setDmUnread(false); else setDmTo(null);
   }, [chatOpen]);
-  const messagePeer = (id: string, name: string) => { setDmTo({ id, name }); setPeerCard(null); setReactOpen(false); setChatOpen(true); };
+  // ── Friends: the list (loaded on entering the world), the panel, and a
+  // friend's conversation, kept on the server. A message to a friend opens
+  // that rather than the open chat's private line.
+  const [friends, setFriends] = useState<FriendsList | null>(null);
+  const friendsRef = useRef<FriendsList | null>(null);
+  useEffect(() => { friendsRef.current = friends; }, [friends]);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  const [friendChat, setFriendChat] = useState<{ id: string; name: string } | null>(null);
+  /** Appends a message that just arrived to the open conversation (FriendChat registers it). */
+  const friendAppend = useRef<{ id: string; append: (text: string) => void } | null>(null);
+  const [peerFriend, setPeerFriend] = useState<FriendStatus | undefined>(undefined);
+  // A failed load leaves the world as it was; the panel just says so.
+  const [friendsFailed, setFriendsFailed] = useState(false);
+  const loadFriends = useCallback(() => {
+    listFriends().then((l) => { setFriends(l); setFriendsFailed(false); }, () => setFriendsFailed(true));
+  }, []);
+  const isFriend = (id: string) => !!friendsRef.current?.friends.some((f) => f.userId === id);
+  const friendsBadge = (friends?.incoming.length ?? 0) + (friends?.friends.reduce((n, f) => n + f.unread, 0) ?? 0);
+  const openFriendChat = (id: string, name: string) => {
+    setFriendChat({ id, name });
+    setFriendsOpen(false); setPeerCard(null); setChatOpen(false);
+    // Reading it clears its unread count.
+    setFriends((l) => l && { ...l, friends: l.friends.map((f) => (f.userId === id ? { ...f, unread: 0 } : f)) });
+  };
+  const messagePeer = (id: string, name: string) => {
+    if (isFriend(id)) { openFriendChat(id, name); return; }
+    setDmTo({ id, name }); setPeerCard(null); setReactOpen(false); setChatOpen(true);
+  };
   const chatHiddenRef = useRef(chatHidden);
   useEffect(() => { chatHiddenRef.current = chatHidden; }, [chatHidden]);
   // Games with another player: the one I've asked for, the one I've been
@@ -576,6 +605,7 @@ export function GameWorld({
   const userId = user?.id;
   useEffect(() => {
     if (!userId) return;
+    loadFriends();
     const live = new WorldLive({ id: userId, ...meRef.current }, {
       peer: (id, peer) => {
         scene()?.setPeer(id, peer);
@@ -588,7 +618,12 @@ export function GameWorld({
         if (b.asking?.to === id) setAsking(null);
       },
       dm: (from, text) => {
-        const name = live.peer(from)?.name ?? '?';
+        // A friend's conversation that's open takes it there; otherwise a
+        // friend's message counts as unread on the Friends button.
+        const friend = friendsRef.current?.friends.find((f) => f.userId === from);
+        if (friendAppend.current?.id === from) { friendAppend.current.append(text); return; }
+        if (friend) setFriends((l) => l && { ...l, friends: l.friends.map((f) => (f.userId === from ? { ...f, unread: f.unread + 1 } : f)) });
+        const name = live.peer(from)?.name ?? friend?.name ?? '?';
         setChatLog((l) => [...l.slice(-29), { key: `${Date.now()}${Math.random()}`, name, text, mine: false, dm: { id: from } }]);
         if (!chatOpenRef.current) setDmUnread(true);
       },
@@ -631,13 +666,33 @@ export function GameWorld({
     bus.plug(live);
     const beat = setInterval(() => live.heartbeat(), 2500);
     return () => { clearInterval(beat); live.disconnect(); liveRef.current = null; bus.plug(null); };
-  }, [userId, bus]);
+  }, [userId, bus, loadFriends]);
   useEffect(() => {
     if (userId || authLoading) return;
     return watchWorldCount(setWatched);
   }, [userId, authLoading]);
   const players = userId ? online + 1 : watched;
   // Fast travel to another player, from the who's-here list or their card.
+  // The card's friend button reflects where you stand with them.
+  const peerCardId = peerCard?.id;
+  useEffect(() => {
+    setPeerFriend(undefined);
+    if (!peerCardId) return;
+    let alive = true;
+    friendStatuses([peerCardId]).then((s) => alive && setPeerFriend(s[peerCardId]));
+    return () => { alive = false; };
+  }, [peerCardId]);
+  const befriend = async (id: string, name: string) => {
+    try {
+      const s = peerFriend === 'received' ? await acceptFriend(id) : await requestFriend(id);
+      setPeerFriend(s);
+      toast.success(intl.formatMessage({ id: s === 'friends' ? 'friends.nowFriends' : 'friends.requestSent' }, { name }));
+      loadFriends();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   const goToPeer = (id: string) => { scene()?.travelToPeer(id); setChatOpen(false); setPeerCard(null); };
   // Where someone is: the area of the map they're in.
   const areaAt = (y: number) => snap?.areas.find((a) => y >= a.top && y < a.bottom)?.name;
@@ -1022,6 +1077,20 @@ export function GameWorld({
           )}
           {/* On a phone these two live in the ⋮ menu, to leave the bar room. */}
           <span className="hidden sm:contents"><LanguageButton /><DayNightButton /><FestiveButton /></span>
+          {user && (
+            <PixelButton
+              tone={friendsOpen ? 'gold' : 'paper'}
+              onClick={() => { if (!friendsOpen) loadFriends(); setFriendsOpen((o) => !o); setFriendChat(null); }}
+              title={intl.formatMessage({ id: 'world.friendsTitle' })}
+              aria-label={intl.formatMessage({ id: 'world.friendsTitle' })}
+              className="relative !px-2.5 !py-0 !h-[2.6rem]"
+            >
+              <PixelIcon name="people" size={2} />
+              {friendsBadge > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 flex items-center justify-center bg-[#e0457b] text-white text-[11px] px-notch">{friendsBadge}</span>
+              )}
+            </PixelButton>
+          )}
           <RideButton ride={ride} look={worn ?? DEFAULT_LOOK} onNext={nextRide} />
           <PixelButton
             tone={drawerOpen ? 'gold' : 'paper'}
@@ -1159,6 +1228,29 @@ export function GameWorld({
         </WorldCard>
       )}
 
+      {/* ── Friends: the panel, and a friend's conversation ── */}
+      {!panel && friendsOpen && (
+        <FriendsPanel
+          list={friends}
+          failed={friendsFailed && !friends}
+          whereIs={(id) => { const p = liveRef.current?.peer(id); return p ? (areaAt(p.y) || intl.formatMessage({ id: 'world.friendsInHue' })) : null; }}
+          onMessage={(p) => openFriendChat(p.userId, p.name)}
+          onGoTo={(id) => { setFriendsOpen(false); goToPeer(id); }}
+          onAccept={(p) => { acceptFriend(p.userId).then(() => { toast.success(intl.formatMessage({ id: 'friends.nowFriends' }, { name: p.name })); loadFriends(); }, (e) => toast.error((e as Error).message)); }}
+          onDecline={(p) => { removeFriend(p.userId).then(loadFriends, (e) => toast.error((e as Error).message)); }}
+          onClose={() => setFriendsOpen(false)}
+        />
+      )}
+      {!panel && friendChat && userId && (
+        <FriendChat
+          key={friendChat.id}
+          friend={friendChat}
+          meId={userId}
+          register={(append) => { friendAppend.current = append ? { id: friendChat.id, append } : null; }}
+          onClose={() => setFriendChat(null)}
+        />
+      )}
+
       {/* ── The bus: buying the ticket, then the ride. ── */}
       {/* ── Another player, tapped: what you can do together, grouped — learn
           (a call with a dialogue to follow), play, or just say hi. Blocking is
@@ -1173,6 +1265,17 @@ export function GameWorld({
             <PixelButton tone="jade" onClick={() => goToPeer(peerCard.id)} className="!px-2 !py-2 !text-[13px]">
               <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" />
             </PixelButton>
+            {peerFriend && peerFriend !== 'you' && (
+              <PixelButton
+                tone={peerFriend === 'received' ? 'jade' : 'paper'}
+                onClick={() => void befriend(peerCard.id, peerCard.name)}
+                disabled={peerFriend === 'friends' || peerFriend === 'sent'}
+                className="!px-2 !py-2 !text-[13px] col-span-2"
+              >
+                <PixelIcon name="people" size={2} />
+                <FormattedMessage id={`world.friend.${peerFriend}`} />
+              </PixelButton>
+            )}
           </div>
           <PeerSection title={<FormattedMessage id="world.peerLearn" />}>
             <PixelButton tone="gold" onClick={() => askToPlay(peerCard.id, peerCard.name, 'talk')} className="!px-3 !py-2 !text-[13px] col-span-2 !justify-start text-left">

@@ -17,6 +17,7 @@ import {
   toTimeInputValue,
 } from '../lib/push';
 import { ToggleSwitch } from './ToggleSwitch';
+import { FriendsSection } from './FriendsSection';
 
 export function ProfilePage() {
   const intl = useIntl();
@@ -124,6 +125,8 @@ export function ProfilePage() {
           </svg>
         </Link>
       </div>
+
+      <FriendsSection />
 
       {/* Daily reminder. Hidden entirely where push can't work, rather than
           showing a control that would do nothing. */}

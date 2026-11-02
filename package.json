@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.92",
+  "version": "0.1.93",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -28,6 +28,7 @@
     "deploy:hunts": "supabase functions deploy hunts",
     "deploy:question-sets": "supabase functions deploy question-sets",
     "deploy:tests": "supabase functions deploy tests",
+    "deploy:friends": "supabase functions deploy friends messages",
     "deploy:writing-templates": "supabase functions deploy writing-templates",
     "notify:test": "node scripts/test-reminder.mjs",
     "doodles:backfill": "node scripts/backfill-doodles.mjs",

@@ -18,6 +18,9 @@ import { useTeams, type BoardRow, type Scoring } from '../hooks/useTeams';
 import { TeamForm } from './TeamForm';
 import { InvitePanel, TeamJoinDialog } from './TeamInvite';
 import { PeriodNote, ScoringPanel } from './TeamScoring';
+import { AddFriendButton } from './AddFriendButton';
+import { useFriendStatuses } from '../hooks/useFriendStatuses';
+import type { FriendStatus } from '../lib/friendsApi';
 
 /** Medal colours for the podium; everyone else gets a plain number. */
 const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
@@ -79,7 +82,12 @@ function Avatar({ row }: { row: BoardRow }) {
   );
 }
 
-function Row({ row, isMe }: { row: BoardRow; isMe: boolean }) {
+function Row({ row, isMe, friend, onFriend }: {
+  row: BoardRow;
+  isMe: boolean;
+  friend: FriendStatus | undefined;
+  onFriend: (s: FriendStatus) => void;
+}) {
   const intl = useIntl();
   const medal = row.rank <= 3 ? PODIUM[row.rank - 1] : null;
   return (
@@ -107,6 +115,12 @@ function Row({ row, isMe }: { row: BoardRow; isMe: boolean }) {
           <span><FormattedMessage id="teams.dayStreakBest" values={{ longest: row.longest }} /></span>
         </span>
       </span>
+      <AddFriendButton
+        userId={row.user_id}
+        name={row.display_name || intl.formatMessage({ id: 'teams.learner' })}
+        status={isMe ? 'you' : friend}
+        onChange={onFriend}
+      />
       {/* The score is what the order is built on, so it's the number that gets
           the weight; the lifetime word count sits under it as context. */}
       <span className="shrink-0 text-right">
@@ -127,6 +141,7 @@ export function Leaderboard() {
   const teams = useTeams((s) => s.teams);
   const activeTeamId = useTeams((s) => s.activeTeamId);
   const rows = useTeams((s) => s.rows);
+  const [friendStatus, setFriendStatus] = useFriendStatuses(rows.map((r) => r.user_id), true);
   const loading = useTeams((s) => s.loading);
   const saving = useTeams((s) => s.saving);
   const error = useTeams((s) => s.error);
@@ -335,7 +350,7 @@ export function Leaderboard() {
       {rows.length > 0 && (
         <ol className="flex flex-col gap-1 -mx-1">
           {rows.map((r) => (
-            <Row key={r.user_id} row={r} isMe={r.user_id === user.id} />
+            <Row key={r.user_id} row={r} isMe={r.user_id === user.id} friend={friendStatus[r.user_id]} onFriend={(s) => setFriendStatus(r.user_id, s)} />
           ))}
           {rankBelow !== null && (
             <>
