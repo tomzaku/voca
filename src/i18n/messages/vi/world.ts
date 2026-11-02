@@ -79,7 +79,7 @@ export default {
   'world.fortuneKeptShort': 'Đã thêm vào từ của bạn',
   'world.fortuneKept': '“{word}” sẽ được học đầu tiên',
   'world.fireworksTitle': 'Bắn pháo hoa',
-  'world.fireworksBlurb': 'Tết bên bờ sông: mỗi câu trả lời đúng bắn lên một quả pháo hoa viết thành từ đó.',
+  'world.fireworksBlurb': 'Tết bên Kỳ Đài: mỗi câu trả lời đúng bắn một quả pháo hoa lên trên Ngọ Môn, viết thành từ đó.',
   'world.fireworksHow': 'Chọn từ đúng nghĩa. Đúng ba câu liên tiếp, pháo hoa sẽ to hơn.',
   'world.fireworksLoading': 'Đang nạp pháo…',
   'world.fireworksNoWords': 'Không tìm đủ từ để hỏi. Thử lại sau chút nhé.',

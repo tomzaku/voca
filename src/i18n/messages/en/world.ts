@@ -81,7 +81,7 @@ export default {
   'world.fortuneKeptShort': 'Added to your words',
   'world.fortuneKept': '“{word}” is first in line to learn',
   'world.fireworksTitle': 'Firework launch',
-  'world.fireworksBlurb': 'Tết on the riverbank: every right answer sends a firework up that spells the word.',
+  'world.fireworksBlurb': 'Tết by Kỳ Đài: every right answer sends a firework up over Ngọ Môn that spells the word.',
   'world.fireworksHow': 'Pick the word for each meaning. Three right in a row and the fireworks get bigger.',
   'world.fireworksLoading': 'Loading the rockets…',
   'world.fireworksNoWords': 'Couldn’t find enough words to ask about. Try again in a moment.',

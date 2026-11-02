@@ -5,22 +5,23 @@
 //   cailuong  a cải lương stage on Phố đi bộ, next to the street piano —
 //             red curtains, a painted backdrop, two performers in costume
 //   fortune   a fortune-stick table before Thiên Mụ's hall, by its incense
-//   fireworks a launch pad on the south bank's lawn, east of Trường Tiền —
-//             only while the Tết decorations are up (festiveDecor.ts draws it)
+//   fireworks two launch pads on the citadel wall either side of Kỳ Đài, before
+//             Ngọ Môn, where Huế fires its Tết fireworks — only while the Tết
+//             decorations are up (festiveDecor.ts draws them)
 //
 // Each is also a "play" spot (WorldScene reads EXTRA_PLAYS with the map's own),
 // so walking up offers its activity, like the piano does.
 
 import Phaser from 'phaser';
 
-/** The fireworks pad (drawn by festiveDecor.ts while Tết is up), in tiles. */
-export const FIREWORKS_PAD = { x: 96.8, y: 63.9 };
+/** The fireworks pads (drawn by festiveDecor.ts while Tết is up), in tiles: west and east of the flag tower. */
+export const FIREWORKS_PADS = [{ x: 53.2, y: 41.4 }, { x: 57.3, y: 41.3 }];
 
 /** The spots, in map tiles: where you stand to play. */
 export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolean }[] = [
   { game: 'cailuong', x: 59.3, y: 64.75 },
   { game: 'fortune', x: 13.2, y: 48.4 },
-  { game: 'fireworks', ...FIREWORKS_PAD, festive: true },
+  ...FIREWORKS_PADS.map((p) => ({ game: 'fireworks', ...p, festive: true })),
 ];
 
 /** Where the stage stands: its front edge's centre, in tiles. */

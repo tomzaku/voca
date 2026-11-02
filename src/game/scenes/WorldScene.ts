@@ -19,7 +19,7 @@ import {
   type BuddyDir, type VillagerLook,
 } from '../textures';
 import { buildFestive, type FestiveDecor } from '../festiveDecor';
-import { buildExtras, EXTRA_PLAYS, FIREWORKS_PAD, STAGE_AREA } from '../worldExtras';
+import { buildExtras, EXTRA_PLAYS, FIREWORKS_PADS, STAGE_AREA } from '../worldExtras';
 
 export interface WorldSceneData {
   /** Walking, or riding a bicycle or a xích lô (game/vehicles.ts). */
@@ -536,9 +536,10 @@ export class WorldScene extends Phaser.Scene {
         tinted: this.tinted,
         night: !this.pal.light,
         calm: !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
-        // Shells over the Hương by Kỳ Đài, Trường Tiền and further east.
-        show: { xs: [(this.meta.flag?.x ?? 50 * this.tilePx) / this.tilePx, 76.5, 88], y: 58.5 },
-        pad: { ...FIREWORKS_PAD, skyX: FIREWORKS_PAD.x - 4, skyY: 58 },
+        // Fired from the citadel wall either side of Kỳ Đài; words written past
+        // Ngọ Môn, over the blue of the Thái Dịch lakes, where they read best.
+        pads: FIREWORKS_PADS,
+        sky: { x: (FIREWORKS_PADS[0].x + FIREWORKS_PADS[1].x) / 2, y: 32 },
         avoid: [STAGE_AREA],
       });
     } else if (!on && this.festive) {
@@ -549,7 +550,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** A right answer at the launch pad: a firework spelling the word. Only while Tết is up. */
   launchFirework(word: string, big: boolean) {
-    this.festive?.launch(word, big);
+    this.festive?.launch(word, big, { x: this.buddy.x, y: this.buddy.y });
   }
 
   /** Point the day/night dressing at the current palette. */

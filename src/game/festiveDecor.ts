@@ -1,8 +1,8 @@
 // Lunar New Year over Huế: red lanterns strung over the walks and flanking
 // every landmark's name, pots of yellow mai and pink đào blossom by the
 // keepers, couplets and a "Chúc Mừng Năm Mới" banner at Ngọ Môn, and
-// petals drifting down; after dark, fireworks over the Hương; and a launch pad
-// on the south bank where a right answer sends one up spelling its word —
+// petals drifting down; after dark, fireworks from the citadel wall by Kỳ Đài;
+// and there, two launch pads where a right answer sends one up spelling its word —
 // all added on top of the painted map at runtime, so
 // the season's switch (src/hooks/useFestive.ts) can take them down again.
 //
@@ -29,18 +29,19 @@ export interface FestiveContext {
   tinted: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[];
   night: boolean;
   calm: boolean;
-  /** The nightly show: where over the river the shells burst, in tiles (x's, and the water's row). */
-  show: { xs: number[]; y: number };
+
   /** Areas (in tiles) the lantern strings keep clear of — the cải lương stage. */
   avoid: { x0: number; x1: number; y0: number; y1: number }[];
-  /** The launch pad (a play spot), in tiles, and the patch of sky its fireworks fill. */
-  pad: { x: number; y: number; skyX: number; skyY: number };
+  /** The launch pads (play spots), in tiles — the nightly show fires from them too. */
+  pads: { x: number; y: number }[];
+  /** The patch of sky, in tiles, a launched word is written across. */
+  sky: { x: number; y: number };
 }
 
 export interface FestiveDecor {
   setNight(night: boolean): void;
-  /** Sends one up from the pad, spelling `word` in sparks; `big` for a streak. */
-  launch(word: string, big: boolean): void;
+  /** Sends one up from a pad (the one nearest `from`, world px), spelling `word` in sparks; `big` for a streak. */
+  launch(word: string, big: boolean, from?: { x: number; y: number }): void;
   destroy(): void;
 }
 
@@ -227,12 +228,12 @@ export function buildFestive(ctx: FestiveContext): FestiveDecor {
     if (night) p.setBlendMode(Phaser.BlendModes.ADD);
     return p;
   };
-  /** A shell: a rocket climbs from below, then bursts into a ring that sags and fades. */
-  const burst = (x: number, y: number, big: boolean) => {
+  /** A shell: a rocket climbs from `from` (or straight below), then bursts into a ring that sags and fades. */
+  const burst = (x: number, y: number, big: boolean, from?: { x: number; y: number }) => {
     const color = pick();
-    const rocket = scene.add.rectangle(x, y + k * 5, scale, scale * 3, 0xffe9a8).setDepth(depth.over + 3);
+    const rocket = scene.add.rectangle(from?.x ?? x, from?.y ?? y + k * 5, scale, scale * 3, 0xffe9a8).setDepth(depth.over + 3);
     scene.tweens.add({
-      targets: rocket, y, duration: 650, ease: 'quad.out',
+      targets: rocket, x, y, duration: from ? 900 : 650, ease: 'quad.out',
       onComplete: () => {
         rocket.destroy();
         const n = big ? 44 : 28;
@@ -248,27 +249,33 @@ export function buildFestive(ctx: FestiveContext): FestiveDecor {
     });
   };
 
-  // The nightly show over the river: a shell every couple of seconds, at night only.
+  // Where each pad's rack stands: a step outward from where you stand on it,
+  // so you don't hide it — west pad to the west, east pad to the east.
+  const racks = ctx.pads.map((p, i) => ({ x: (p.x + (i === 0 ? -1.2 : 1.2)) * k, y: p.y * k - k * 0.2 }));
+
+  // The nightly show from the pads: a shell every couple of seconds, at night only.
   let show: Phaser.Time.TimerEvent | null = null;
   const startShow = () => {
-    if (show || ctx.calm || !ctx.show.xs.length) return;
+    if (show || ctx.calm || !racks.length) return;
     show = scene.time.addEvent({
       delay: 1800, loop: true, callback: () => {
-        const x = ctx.show.xs[Math.floor(Math.random() * ctx.show.xs.length)] * k + (Math.random() - 0.5) * k * 6;
-        burst(x, (ctx.show.y - 2 - Math.random() * 3) * k, Math.random() < 0.25);
+        const r = racks[Math.floor(Math.random() * racks.length)];
+        const x = r.x + (Math.random() - 0.5) * k * 7;
+        burst(x, r.y - k * (5 + Math.random() * 3), Math.random() < 0.25, { x: r.x, y: r.y - k * 0.5 });
       },
     });
   };
   const stopShow = () => { show?.remove(); show = null; };
   if (ctx.night) startShow();
 
-  // The launch pad.
-  // A step to the left of where you stand, so you don't hide it.
-  const pad = scene.add.image((ctx.pad.x - 1.3) * k, ctx.pad.y * k - k * 0.2, 'festive-pad').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
-  objs.push(pad);
-  mine.add(pad);
-  ctx.tinted.push(pad);
-  if (ctx.night) pad.setTint(0x8890b0);
+  // The pads' racks of rockets.
+  for (const r of racks) {
+    const pad = scene.add.image(r.x, r.y, 'festive-pad').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
+    objs.push(pad);
+    mine.add(pad);
+    ctx.tinted.push(pad);
+    if (ctx.night) pad.setTint(0x8890b0);
+  }
 
   /** A word in sparks: drawn on a canvas, every few lit pixels becoming a spark that flies into place. */
   const spell = (word: string, big: boolean) => {
@@ -286,7 +293,7 @@ export function buildFestive(ctx: FestiveContext): FestiveDecor {
     const pts: [number, number][] = [];
     const step = w * 20 > 3000 ? 3 : 2;
     for (let y = 0; y < 20; y += step) for (let x = 0; x < w; x += step) if (img[(y * w + x) * 4 + 3] > 128) pts.push([x, y]);
-    const cx = ctx.pad.skyX * k, cy = ctx.pad.skyY * k;
+    const cx = ctx.sky.x * k, cy = ctx.sky.y * k;
     const size = scale * (big ? 2 : 1.7);
     const color = pick();
     for (const [px, py] of pts) {
@@ -298,10 +305,12 @@ export function buildFestive(ctx: FestiveContext): FestiveDecor {
   };
 
   return {
-    launch(word: string, big: boolean) {
-      const x = ctx.pad.skyX * k, y = ctx.pad.skyY * k;
+    launch(word: string, big: boolean, from?: { x: number; y: number }) {
+      if (!racks.length) return;
+      const x = ctx.sky.x * k, y = ctx.sky.y * k;
+      const rack = from ? racks.reduce((a, b) => (Math.hypot(b.x - from.x, b.y - from.y) < Math.hypot(a.x - from.x, a.y - from.y) ? b : a)) : racks[0];
       // The rocket leaves the pad and climbs to where the word will be.
-      const rocket = scene.add.rectangle((ctx.pad.x - 1.3) * k, ctx.pad.y * k - k, scale * 1.5, scale * 4, 0xffe9a8).setDepth(depth.over + 3);
+      const rocket = scene.add.rectangle(rack.x, rack.y - k * 0.5, scale * 1.5, scale * 4, 0xffe9a8).setDepth(depth.over + 3);
       scene.tweens.add({
         targets: rocket, x, y, duration: 800, ease: 'quad.out',
         onComplete: () => {
