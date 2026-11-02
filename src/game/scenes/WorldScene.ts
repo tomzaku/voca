@@ -36,6 +36,11 @@ export interface WorldSceneData {
   /** Device pixel ratio: the canvas renders at native res, the camera zooms by
    *  this factor, and text rasterizes at this resolution — all to stay sharp. */
   dpr: number;
+  /** Phones and low-memory devices: the map's ordinary 1× images in place of
+   *  the high-detail patches — ~120 MB of GPU textures down to ~30 MB, which
+   *  is the difference between smooth and stuttering (or a lost WebGL
+   *  context) on iOS Safari. */
+  lite?: boolean;
   /** What the city shows of the learner's progress (see buildProgress). */
   progress: WorldProgress;
 }
@@ -270,6 +275,8 @@ export class WorldScene extends Phaser.Scene {
   /** True while a gate fade is running, so we don't retrigger mid-transition. */
   private crossing = false;
   private lastMoveEmit = 0;
+  /** What the last `moved` said, so standing still sends nothing. */
+  private lastMoved = '';
 
   /** Index into ZOOM_STEPS. The camera's real zoom is this × the dpr. */
   private zoomIndex = DEFAULT_ZOOM_INDEX;
@@ -292,15 +299,21 @@ export class WorldScene extends Phaser.Scene {
     this.load.tilemapTiledJSON(`map-${src.key}`, src.tmjUrl);
     // 112 scenery sprites (547 frames) in one atlas — one texture, one bind.
     if (src.propsAtlasUrl && src.propsAtlasJsonUrl) this.load.atlas(PROPS_KEY, src.propsAtlasUrl, src.propsAtlasJsonUrl);
-    if (src.groundUrl) this.load.image(`ground-${src.key}`, src.groundUrl);
-    if (src.overUrl) this.load.image(`over-${src.key}`, src.overUrl);
+    // The 1× ground and over only when they'll be drawn: with the detail
+    // patches they'd sit on the GPU unused (2 × 15 MB).
+    const loadPlain = () => {
+      if (src.groundUrl) this.load.image(`ground-${src.key}`, src.groundUrl);
+      if (src.overUrl) this.load.image(`over-${src.key}`, src.overUrl);
+    };
+    if (!src.detailUrl || this.args.lite) loadPlain();
     if (src.nightUrl) this.load.image(`night-${src.key}`, src.nightUrl);
     if (src.nightOverUrl) this.load.image(`night-over-${src.key}`, src.nightOverUrl);
     // The high-detail patches: their list first, then their images.
-    if (src.detailUrl) {
+    if (src.detailUrl && !this.args.lite) {
       const dir = src.detailUrl.slice(0, src.detailUrl.lastIndexOf('/') + 1);
       this.load.json(`detail-${src.key}`, src.detailUrl);
       this.load.once(`filecomplete-json-detail-${src.key}`, (_key: string, _type: string, patches: DetailPatch[]) => {
+        if (!patches.length) loadPlain();
         for (const p of patches) {
           this.load.image(`detail-${p.key}-ground`, `${dir}${p.ground}`);
           this.load.image(`detail-${p.key}-over`, `${dir}${p.over}`);
@@ -322,6 +335,7 @@ export class WorldScene extends Phaser.Scene {
 
   create() {
     this.pal = worldPalette();
+    this.lastMoved = '';   // a restarted scene reports where it stands
     this.cameras.main.setZoom(this.args.dpr * this.zoom);
     this.cameras.main.setRoundPixels(true);
     // Belt and braces: the pixelArt config flag doesn't reliably reach
@@ -727,7 +741,7 @@ export class WorldScene extends Phaser.Scene {
     // Drawn in high detail (scripts/hue/hd), the map comes as patches covering
     // all of it — twice the pixels, so half the scale — in place of its
     // ordinary images.
-    const patches = (this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[];
+    const patches = (this.args.lite ? [] : this.cache.json.get(`detail-${src.key}`) ?? []) as DetailPatch[];
     const ground = `ground-${src.key}`;
     const over = `over-${src.key}`;
     if (!patches.length && this.textures.exists(ground)) this.add.image(0, 0, ground).setOrigin(0, 0).setScale(SCALE).setDepth(-1);
@@ -2067,10 +2081,13 @@ export class WorldScene extends Phaser.Scene {
       if (idx !== this.areaIndex) this.crossGate(idx);
     }
 
-    // Feed the minimap (throttled — it only needs a rough position), and in
-    // local development the position readout.
-    if (time - this.lastMoveEmit > 100) {
+    // Feed the minimap and live presence (throttled — they only need a rough
+    // position), and in local development the position readout. Only on a
+    // change: every `moved` re-renders React, so an idle buddy sends none.
+    const moved = `${Math.round(this.buddy.x)},${Math.round(this.buddy.y)},${this.areaIndex},${this.facing},${moving}`;
+    if (moved !== this.lastMoved && time - this.lastMoveEmit > 100) {
       this.lastMoveEmit = time;
+      this.lastMoved = moved;
       this.game.events.emit(WORLD_EVENTS.moved, {
         x: this.buddy.x, y: this.buddy.y, areaIndex: this.areaIndex, facing: this.facing, moving,
       });

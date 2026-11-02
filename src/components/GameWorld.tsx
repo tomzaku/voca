@@ -95,6 +95,15 @@ interface Props {
 }
 
 const MIN_H = 360; // viewport height floor
+
+/** A phone, or anything short on memory: the world runs light there (the 1×
+ *  map in place of the high-detail patches, a 1.5× canvas) — those GPUs are
+ *  bound by texture memory and fill rate long before the CPU. */
+function liteDevice(): boolean {
+  const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  return coarse || (memory !== undefined && memory <= 4);
+}
 const MINIMAP_W = 96; // px
 
 /** Minimap dot colour per node kind — the pixel kit's palette. */
@@ -105,6 +114,50 @@ const DOT: Record<string, string> = {
   feature: '#f0c050',
   create: '#b8a88e',
 };
+
+type MinimapPos = { x: number; y: number; areaIndex: number };
+
+/** The area you're in, its buildings, and you. Holds the buddy's position as
+ *  its own state, so walking re-renders this and not the whole world screen.
+ *  Hidden on phones — where it'd re-render for nothing, it doesn't subscribe. */
+function Minimap({ snap, initial, listeners }: {
+  snap: WorldSnapshot;
+  initial: MinimapPos | null;
+  listeners: Set<(p: MinimapPos) => void>;
+}) {
+  const [pos, setPos] = useState(initial);
+  useEffect(() => {
+    const shown = window.matchMedia('(min-width: 640px) and (min-height: 521px)');
+    const on = (p: MinimapPos) => { if (shown.matches) setPos(p); };
+    listeners.add(on);
+    return () => { listeners.delete(on); };
+  }, [listeners]);
+  if (!pos) return null;
+  const area = snap.areas[pos.areaIndex];
+  if (!area) return null;
+  const h = area.bottom - area.top;
+  const height = Math.max(28, Math.round((MINIMAP_W * h) / snap.worldW));
+  const here = snap.nodes.filter((n) => n.y >= area.top && n.y < area.bottom);
+  return (
+    <div className="px absolute top-[calc(4.25rem+var(--sat))] left-[calc(0.5rem+var(--sal))] z-20 px-notch px-frame p-2 pointer-events-none hidden sm:block [@media(max-height:520px)]:hidden">
+      <svg
+        width={MINIMAP_W}
+        height={height}
+        viewBox={`0 ${area.top} ${snap.worldW} ${h}`}
+        preserveAspectRatio="none"
+        shapeRendering="crispEdges"
+        className="block"
+        style={{ background: '#2f5a3a' }}
+      >
+        {here.map((n) => (
+          <rect key={n.id} x={n.x - 40} y={n.y - 40} width={80} height={80} fill={DOT[n.kind] ?? DOT.create} />
+        ))}
+        <rect x={pos.x - 60} y={pos.y - 60} width={120} height={120} fill="#f05a4f" stroke="#fff" strokeWidth={20} />
+      </svg>
+      <p className="mt-1 text-center px-title !text-[10px] text-[var(--px-muted)]">{area.name}</p>
+    </div>
+  );
+}
 
 /** The card at the bottom when the buddy reaches a building, a plot or a
  *  collection — the world's version of a dialogue box. */
@@ -328,7 +381,13 @@ export function GameWorld({
 
   // ── Minimap + gate arrival card ──
   const [snap, setSnap] = useState<WorldSnapshot | null>(null);
-  const [pos, setPos] = useState<{ x: number; y: number; areaIndex: number } | null>(null);
+  // The scene is live once it first reports the buddy's position. The
+  // position itself isn't state here: it changes ten times a second while
+  // walking, and only the minimap needs it — so it goes to listeners (the
+  // minimap's own state), not to a re-render of this whole screen.
+  const [sceneUp, setSceneUp] = useState(false);
+  const posListeners = useRef(new Set<(p: MinimapPos) => void>());
+  const lastPos = useRef<MinimapPos | null>(null);
   // Local development only: where the buddy and the pointer are, in map tiles.
   const [debugPos, setDebugPos] = useState<{ buddy: [number, number]; cursor: [number, number] | null } | null>(null);
   const [arrival, setArrival] = useState<{ name: string; key: number } | null>(null);
@@ -390,8 +449,11 @@ export function GameWorld({
     // otherwise the browser upscales the canvas on retina screens and both
     // text and sprites come out blurry.
     // Capped at 2: the art is 16px pixel art drawn 2×, so a 3× canvas costs
-    // 2.25× the fill rate of a 2× one and buys nothing you can see.
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // 2.25× the fill rate of a 2× one and buys nothing you can see. On a
+    // phone, 1.5: ~44% fewer pixels a frame, each layer (ground, roofs, night
+    // veil, lights) drawn over all of them.
+    const lite = liteDevice();
+    const dpr = Math.min(window.devicePixelRatio || 1, lite ? 1.5 : 2);
     const look: BuddyLook = { kind: 'animal', id: animal.id };
     const data: WorldSceneData = {
       features: live.current.features,
@@ -401,6 +463,7 @@ export function GameWorld({
       stage,
       buddyName: buddyName || animal.name,
       dpr,
+      lite,
       progress: live.current.progress,
     };
     const game = new Phaser.Game({
@@ -427,7 +490,9 @@ export function GameWorld({
       if (id) setPlaceToast((t) => ({ id, n: (t?.n ?? 0) + 1 }));
     };
     const onMoved = (p: { x: number; y: number; areaIndex: number; facing?: Facing; moving?: boolean }) => {
-      setPos(p);
+      lastPos.current = p;
+      setSceneUp(true);
+      for (const f of posListeners.current) f(p);
       liveRef.current?.move(p.x, p.y, p.facing ?? 'down', !!p.moving);
     };
     const onArea = ({ area }: { index: number; area: WorldArea }) => {
@@ -671,10 +736,10 @@ export function GameWorld({
   // First time here and signed out: the welcome, once the world has drawn
   // (and auth has had its say, so a signed-in visitor never sees it flash).
   useEffect(() => {
-    if (authLoading || user || !pos) return;
+    if (authLoading || user || !sceneUp) return;
     try { if (localStorage.getItem(INTRO_SEEN)) return; } catch { return; }
     setIntro(true);
-  }, [authLoading, user, pos]);
+  }, [authLoading, user, sceneUp]);
   const closeIntro = useCallback(() => {
     setIntro(false);
     try { localStorage.setItem(INTRO_SEEN, '1'); } catch { /* ignore */ }
@@ -713,14 +778,13 @@ export function GameWorld({
 
   // The first position report means the scene is live — grab the layout then.
   useEffect(() => {
-    if (!pos || snap) return;
+    if (!sceneUp || snap) return;
     setSnap(scene()?.snapshot() ?? null);
-  }, [pos, snap]);
+  }, [sceneUp, snap]);
 
   // Tết decorations: hung when the scene is up, and on every switch after.
   // (The first position report is the scene saying it's live.)
   const festive = useFestive((s) => s.active);
-  const sceneUp = pos !== null;
   useEffect(() => { if (sceneUp) scene()?.setFestive(festive); }, [festive, sceneUp]);
   // The launch pad is only there while Tết is.
   const playHere = atPlay === 'fireworks' && !festive ? null : atPlay;
@@ -777,8 +841,8 @@ export function GameWorld({
       {/* Phaser mounts its canvas here (fills the frame via Scale.RESIZE). */}
 
       {/* The title card, until the map has drawn and your buddy stands in it. */}
-      {!pos && <WorldLoading />}
-      {!panel && intro && pos && (
+      {!sceneUp && <WorldLoading />}
+      {!panel && intro && sceneUp && (
         <WorldIntro onGo={introGo} onSignIn={() => { closeIntro(); void signInWithGoogle(); }} onClose={closeIntro} />
       )}
 
@@ -997,32 +1061,9 @@ export function GameWorld({
       )}
 
       {/* ── Minimap ── the area you're in, its buildings, and you ── */}
-      {!panel && snap && pos && (() => {
-        const area = snap.areas[pos.areaIndex];
-        if (!area) return null;
-        const h = area.bottom - area.top;
-        const height = Math.max(28, Math.round((MINIMAP_W * h) / snap.worldW));
-        const here = snap.nodes.filter((n) => n.y >= area.top && n.y < area.bottom);
-        return (
-          <div className="px absolute top-[calc(4.25rem+var(--sat))] left-[calc(0.5rem+var(--sal))] z-20 px-notch px-frame p-2 pointer-events-none hidden sm:block [@media(max-height:520px)]:hidden">
-            <svg
-              width={MINIMAP_W}
-              height={height}
-              viewBox={`0 ${area.top} ${snap.worldW} ${h}`}
-              preserveAspectRatio="none"
-              shapeRendering="crispEdges"
-              className="block"
-              style={{ background: '#2f5a3a' }}
-            >
-              {here.map((n) => (
-                <rect key={n.id} x={n.x - 40} y={n.y - 40} width={80} height={80} fill={DOT[n.kind] ?? DOT.create} />
-              ))}
-              <rect x={pos.x - 60} y={pos.y - 60} width={120} height={120} fill="#f05a4f" stroke="#fff" strokeWidth={20} />
-            </svg>
-            <p className="mt-1 text-center px-title !text-[10px] text-[var(--px-muted)]">{area.name}</p>
-          </div>
-        );
-      })()}
+      {!panel && snap && (
+        <Minimap snap={snap} initial={lastPos.current} listeners={posListeners.current} />
+      )}
 
       {/* ── Gate arrival card ── */}
       {arrival && (
