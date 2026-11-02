@@ -5,6 +5,9 @@ import App from './App';
 import { I18nProvider } from './i18n/I18nProvider';
 import { useLocale } from './i18n/locale';
 import { loadMessages } from './i18n/catalogs';
+import { startPwaUpdates } from './lib/pwaUpdate';
+
+startPwaUpdates();
 
 // Wait for a non-English catalog before the first paint, so a Vietnamese user
 // never sees the English fallback flash. English is bundled and resolves at once;

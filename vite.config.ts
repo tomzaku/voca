@@ -16,6 +16,9 @@ export default defineConfig(() => ({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered from src/lib/pwaUpdate.ts instead of an injected script, so
+      // we can re-check for a new build whenever the installed app resumes.
+      injectRegister: false,
       // `injectManifest` (not the default `generateSW`) because push
       // notifications need a `push` listener inside the worker — see src/sw.ts,
       // which also reproduces the precache/navigation behaviour generateSW
