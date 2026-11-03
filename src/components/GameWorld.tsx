@@ -383,6 +383,10 @@ export function GameWorld({
   // I'm busy is turned down for me.
   const [asking, setAsking] = useState<{ id: string; to: string; name: string; game: MatchGame } | null>(null);
   const [invite, setInvite] = useState<{ id: string; from: string; name: string; game: MatchGame } | null>(null);
+  // Every card shares one slot at the bottom. A player you tapped, or a game
+  // being asked for, is something you chose — so it hides the card for
+  // wherever you happen to be standing until it's dismissed.
+  const personCard = !!peerCard || !!asking || !!invite;
   const [match, setMatch] = useState<Match | null>(null);
   const busyRef = useRef({ asking, invite, match });
   useEffect(() => { busyRef.current = { asking, invite, match }; }, [asking, invite, match]);
@@ -1241,7 +1245,7 @@ export function GameWorld({
       )}
 
       {/* ── Feature building card (the buddy reached an app page) ── */}
-      {!panel && nearestFeature && (
+      {!panel && !personCard && nearestFeature && (
         <WorldCard
           emoji={nearestFeature.emoji}
           title={intl.formatMessage({ id: nearestFeature.nameId })}
@@ -1549,7 +1553,7 @@ export function GameWorld({
 
       {/* ── The playground: the street piano, the type race ── */}
       {/* Ga Huế's departures board: trips out of town, none running yet. */}
-      {!panel && !nearestFeature && playHere === 'train' && !busRide && busTicket === null && (
+      {!panel && !personCard && !nearestFeature && playHere === 'train' && !busRide && busTicket === null && (
         <WorldCard
           icon="train"
           title={<FormattedMessage id="world.trainTitle" />}
@@ -1572,7 +1576,7 @@ export function GameWorld({
           </p>
         </WorldCard>
       )}
-      {!panel && !nearestFeature && playHere && playHere !== 'train' && !playing && !busRide && busTicket === null && (
+      {!panel && !personCard && !nearestFeature && playHere && playHere !== 'train' && !playing && !busRide && busTicket === null && (
         <WorldCard
           emoji={PLAYS[playHere]?.emoji ?? (PLAYS[playHere]?.icon ? undefined : '🎲')}
           icon={PLAYS[playHere]?.icon}
@@ -1596,12 +1600,12 @@ export function GameWorld({
       )}
 
       {/* ── The food market: a vendor telling you about their dish ── */}
-      {!panel && !nearestFeature && atVendor && atVendor !== vendorDone && !busRide && busTicket === null && (
+      {!panel && !personCard && !nearestFeature && atVendor && atVendor !== vendorDone && !busRide && busTicket === null && (
         <VendorTalk key={atVendor} id={atVendor} onClose={() => setVendorDone(atVendor)} />
       )}
 
       {/* ── The Focus Zone on Ngự Bình ── */}
-      {!panel && !nearestFeature && atFocus && !focusOpen && !busRide && busTicket === null && (
+      {!panel && !personCard && !nearestFeature && atFocus && !focusOpen && !busRide && busTicket === null && (
         <WorldCard emoji="🧘" title={<FormattedMessage id="world.focusTitle" />} subtitle={<FormattedMessage id="world.focusBlurb" />}>
           <PixelButton tone="gold" block onClick={() => setFocusOpen(true)}><FormattedMessage id="world.enter" /></PixelButton>
         </WorldCard>
@@ -1609,7 +1613,7 @@ export function GameWorld({
       {!panel && focusOpen && <FocusZone onClose={() => setFocusOpen(false)} />}
 
       {/* At a stop's shelter: the bus is in the Travel drawer. */}
-      {!panel && !nearestFeature && atBusStop >= 0 && !busRide && busTicket === null && !drawerOpen && busStops[atBusStop] && (
+      {!panel && !personCard && !nearestFeature && atBusStop >= 0 && !busRide && busTicket === null && !drawerOpen && busStops[atBusStop] && (
         <WorldCard
           emoji="🚏"
           title={intl.formatMessage({ id: `places.${busStops[atBusStop]}` })}
