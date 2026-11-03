@@ -59,7 +59,6 @@ export default {
   'conversation.recordYouSaid': 'You said',
   'conversation.recordNothingHeard': 'Didn’t catch any words — try a little louder or closer to the mic.',
   'conversation.recordDenied': 'Voca needs the microphone to record. Allow it in your browser’s site settings, then try again.',
-  'conversation.recordUnsupported': 'This browser can’t record audio.',
   'conversation.practiceWithAi': 'Practice with AI',
   'conversation.nothingElse': 'Nothing else in this view — try another topic.',
   'conversation.allPracticedReview': 'Everything here is practiced — picking one to review.',

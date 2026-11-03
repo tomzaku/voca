@@ -12,7 +12,7 @@ import {
 import { useSpeakingProgress, isPracticed, type QuestionProgress } from '../hooks/useSpeakingProgress';
 import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
-import { AnswerRecorder } from './AnswerRecorder';
+import { AnswerPanel, RecordButton, useAnswerRecorder } from './AnswerRecorder';
 
 // "Short Conversation" — a big bank of everyday questions, organised so a
 // learner can see what they've covered: topics grouped in a sidebar (a bottom
@@ -211,9 +211,7 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
 }) {
   const intl = useIntl();
   const { markPracticed, clearPracticed, toggleSaved } = useSpeakingProgress();
-  const [answerIdx, setAnswerIdx] = useState(0);
   const done = isPracticed(progress);
-  const answer = q.sampleAnswers[Math.min(answerIdx, q.sampleAnswers.length - 1)];
 
   return (
     <div
@@ -282,75 +280,86 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
         </button>
       </div>
 
-      {expanded && (
-        <div className="border-t border-border animate-fade-in">
-          {/* Your own answer first, before reading the sample. */}
-          <div className="px-3 sm:px-4 pt-4">
-            <AnswerRecorder onAnswered={() => markPracticed(q.id)} />
-          </div>
-          <div className="px-3 sm:px-4 py-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {q.sampleAnswers.length > 1 ? (
-                <div className="flex gap-1 p-0.5 rounded-lg bg-bg-tertiary">
-                  {q.sampleAnswers.map((sa, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setAnswerIdx(i)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                        i === answerIdx ? 'bg-bg-card text-accent-cyan shadow-sm' : 'text-text-muted hover:text-text-secondary'
-                      }`}
-                    >
-                      {sa.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-accent-cyan"><FormattedMessage id="conversation.sampleAnswer" /></span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted">{answer.label}</span>
-                </span>
-              )}
-              <ReadAloud text={answer.answer} />
-            </div>
-            <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{answer.answer}</p>
-          </div>
+      {expanded && <QuestionBody q={q} done={done} onNext={onNext} />}
+    </div>
+  );
+}
 
-          {q.usefulPhrases && q.usefulPhrases.length > 0 && (
-            <div className="px-3 sm:px-4 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
-              <p className="text-xs font-semibold text-accent-yellow mb-2"><FormattedMessage id="conversation.usefulPhrases" /></p>
-              <div className="flex flex-wrap gap-1.5">
-                {q.usefulPhrases.map((phrase, i) => (
-                  <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-accent-yellow/10 text-text-secondary border border-accent-yellow/15">
-                    {phrase}
-                  </span>
-                ))}
-              </div>
+/** The open card. Its own component so leaving the question drops the
+ *  recording (and stops the mic) along with everything else. */
+function QuestionBody({ q, done, onNext }: { q: SpeakingQuestion; done: boolean; onNext: () => void }) {
+  const intl = useIntl();
+  const { markPracticed } = useSpeakingProgress();
+  const [answerIdx, setAnswerIdx] = useState(0);
+  const answer = q.sampleAnswers[Math.min(answerIdx, q.sampleAnswers.length - 1)];
+  const rec = useAnswerRecorder(() => markPracticed(q.id));
+
+  return (
+    <div className="border-t border-border animate-fade-in">
+      <div className="px-3 sm:px-4 py-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {q.sampleAnswers.length > 1 ? (
+            <div className="flex gap-1 p-0.5 rounded-lg bg-bg-tertiary">
+              {q.sampleAnswers.map((sa, i) => (
+                <button
+                  key={i}
+                  onClick={() => setAnswerIdx(i)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                    i === answerIdx ? 'bg-bg-card text-accent-cyan shadow-sm' : 'text-text-muted hover:text-text-secondary'
+                  }`}
+                >
+                  {sa.label}
+                </button>
+              ))}
             </div>
+          ) : (
+            <span className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-accent-cyan"><FormattedMessage id="conversation.sampleAnswer" /></span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted">{answer.label}</span>
+            </span>
           )}
+          <ReadAloud text={answer.answer} />
+        </div>
+        <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{answer.answer}</p>
+      </div>
 
-          <div className="px-3 sm:px-4 py-3 border-t border-border bg-bg-tertiary/40 flex flex-wrap items-center gap-2">
-            {done ? (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-accent-green bg-accent-green/10">
-                <Icon icon="lucide:circle-check" width={14} /> <FormattedMessage id="conversation.statusPracticed" />
+      {q.usefulPhrases && q.usefulPhrases.length > 0 && (
+        <div className="px-3 sm:px-4 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
+          <p className="text-xs font-semibold text-accent-yellow mb-2"><FormattedMessage id="conversation.usefulPhrases" /></p>
+          <div className="flex flex-wrap gap-1.5">
+            {q.usefulPhrases.map((phrase, i) => (
+              <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-accent-yellow/10 text-text-secondary border border-accent-yellow/15">
+                {phrase}
               </span>
-            ) : (
-              <button
-                onClick={() => markPracticed(q.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-accent-green text-bg-primary hover:opacity-90 transition-opacity cursor-pointer"
-              >
-                <Icon icon="lucide:check" width={14} /> <FormattedMessage id="conversation.iAnsweredIt" />
-              </button>
-            )}
-            <PracticeButton topic={q.topic} focus={q.question} label={intl.formatMessage({ id: 'conversation.practiceWithAi' })} onStart={() => markPracticed(q.id)} />
-            <button
-              onClick={onNext}
-              className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-text-muted hover:text-text-primary hover:bg-bg-hover/60 transition-colors cursor-pointer"
-            >
-              <FormattedMessage id="conversation.next" /> <Icon icon="lucide:arrow-right" width={14} />
-            </button>
+            ))}
           </div>
         </div>
       )}
+
+      <AnswerPanel rec={rec} />
+
+      <div className="px-3 sm:px-4 py-3 border-t border-border bg-bg-tertiary/40 flex flex-wrap items-center gap-2">
+        <RecordButton rec={rec} />
+        {done ? (
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-accent-green bg-accent-green/10">
+            <Icon icon="lucide:circle-check" width={14} /> <FormattedMessage id="conversation.statusPracticed" />
+          </span>
+        ) : (
+          <button
+            onClick={() => markPracticed(q.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-accent-green text-bg-primary hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            <Icon icon="lucide:check" width={14} /> <FormattedMessage id="conversation.iAnsweredIt" />
+          </button>
+        )}
+        <PracticeButton topic={q.topic} focus={q.question} label={intl.formatMessage({ id: 'conversation.practiceWithAi' })} onStart={() => markPracticed(q.id)} />
+        <button
+          onClick={onNext}
+          className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-text-muted hover:text-text-primary hover:bg-bg-hover/60 transition-colors cursor-pointer"
+        >
+          <FormattedMessage id="conversation.next" /> <Icon icon="lucide:arrow-right" width={14} />
+        </button>
+      </div>
     </div>
   );
 }

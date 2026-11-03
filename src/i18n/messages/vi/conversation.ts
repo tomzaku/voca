@@ -59,7 +59,6 @@ export default {
   'conversation.recordYouSaid': 'Bạn đã nói',
   'conversation.recordNothingHeard': 'Chưa nghe được từ nào — thử nói to hơn hoặc gần micro hơn.',
   'conversation.recordDenied': 'Voca cần quyền dùng micro để ghi âm. Hãy cho phép trong cài đặt trang của trình duyệt rồi thử lại.',
-  'conversation.recordUnsupported': 'Trình duyệt này không ghi âm được.',
   'conversation.practiceWithAi': 'Luyện tập với AI',
   'conversation.nothingElse': 'Không còn câu nào khác ở đây — hãy thử chủ đề khác.',
   'conversation.allPracticedReview': 'Bạn đã luyện hết ở đây — chọn một câu để ôn lại.',
