@@ -1,7 +1,7 @@
 // The river: its islets, the four bridges, Cồn Hến's footbridge, the
 // dragon-boat wharf and its boat, and the crossings over the canals.
 
-import { hash, mix, noise } from '../core/canvas.mjs';
+import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
 import { P, ROOF, STREET } from '../core/palette.mjs';
 import { deck, drawn, glow, ground, mark, night } from '../core/world.mjs';
 import { bridgeDeck, lamps, plankDeck } from '../draw/buildings.mjs';
@@ -129,12 +129,24 @@ export function drawRiver() {
     const x0 = tx * T, x1 = (tx + tw) * T;
     const y0 = BRIDGE_Y0, y1 = BRIDGE_Y1;
     const spans = 6, spanLen = (y1 - y0) / spans;
+    // The steelwork and piers either side of the deck are kept on their own
+    // too, so the detail map can lay them back over the ironwood boardwalk
+    // underneath (parks.mjs), whose planks it redraws in detail.
+    const sx0 = x0 - 16, sy0 = Math.floor(y0);
+    const steelwork = new Canvas(x1 + 24 - sx0, Math.ceil(y1) + 4 - sy0);
+    const paint = (x, y, c, a = 1) => {
+      ground.set(x, y, c, a);
+      if (Math.floor(x) < x0 || Math.floor(x) >= x1) steelwork.set(x - sx0, y - sy0, c, a);
+    };
+    const paintRect = (x, y, w, h, c, a = 1) => {
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) paint(x + i, y + j, c, a);
+    };
     // The piers first, under everything: stone footings in the water.
     for (let s = 1; s < spans; s++) {
       const py = Math.round(y0 + s * spanLen);
-      ground.rect(x0 - 12, py - 2, x1 - x0 + 24, 5, [168, 164, 156]);
-      ground.rect(x0 - 12, py + 3, x1 - x0 + 24, 1, [120, 116, 110]);
-      ground.rect(x1 + 13, py, 5, 1, P.glint, 0.7);
+      paintRect(x0 - 12, py - 2, x1 - x0 + 24, 5, [168, 164, 156]);
+      paintRect(x0 - 12, py + 3, x1 - x0 + 24, 1, [120, 116, 110]);
+      paintRect(x1 + 13, py, 5, 1, P.glint, 0.7);
     }
     truongTienDeck(tx, tw, y0, y1);
     const steel = [228, 234, 240], steelShade = [150, 162, 174];
@@ -150,18 +162,19 @@ export function drawRiver() {
           const t = k / spanLen;
           const bulge = Math.round(Math.sin(t * Math.PI) * 10);
           const x = base + side * bulge;
-          if (k % 3 === 0) for (let b = 1; b < bulge; b++) ground.set(base + side * b, sy + k, steelShade, 0.8);
-          ground.set(x, sy + k, steel);
-          ground.set(x - side, sy + k, steel);
-          ground.set(x + side, sy + k, steelShade);
-          ground.set(x + side * 2, sy + k + 2, P.shadow, 0.25);
+          if (k % 3 === 0) for (let b = 1; b < bulge; b++) paint(base + side * b, sy + k, steelShade, 0.8);
+          paint(x, sy + k, steel);
+          paint(x - side, sy + k, steel);
+          paint(x + side, sy + k, steelShade);
+          paint(x + side * 2, sy + k + 2, P.shadow, 0.25);
           glow(x, sy + k, spanLights[s], k % 3 === 0 ? 2 : 1);
           night.set(x + side, sy + k, spanLights[s]);
         }
-        ground.rect(base - 1, Math.floor(sy) - 1, 3, 3, steelShade); // where the arches meet
+        paintRect(base - 1, Math.floor(sy) - 1, 3, 3, steelShade); // where the arches meet
       }
-      for (let y = Math.floor(y0); y < y1; y++) ground.set(base, y, steel);   // the chord along the deck
+      for (let y = Math.floor(y0); y < y1; y++) paint(base, y, steel);   // the chord along the deck
     }
+    drawn.push({ type: 'ttSteel', x: sx0, y: sy0, art: steelwork });
   }
 
   // Cồn Hến footbridge, from the Gia Hội bank out to the islet.

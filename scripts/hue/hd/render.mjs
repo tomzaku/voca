@@ -156,6 +156,16 @@ function liftOut(clear, overD, W, H, ox, oy, e) {
   }
 }
 
+/** A map-resolution canvas at detail resolution, pixel for pixel. */
+function enlarge(cv) {
+  const out = new Canvas(cv.w * K, cv.h * K);
+  for (let Y = 0; Y < out.h; Y++) for (let X = 0; X < out.w; X++) {
+    const s = (Math.floor(Y / K) * cv.w + Math.floor(X / K)) * 4, d = (Y * out.w + X) * 4;
+    for (let k = 0; k < 4; k++) out.d[d + k] = cv.d[s + k];
+  }
+  return out;
+}
+
 export function renderDetail(write) {
   return DETAIL.map(({ key, x0, y0, x1, y1 }) => {
     const ox = x0 * T, oy = y0 * T;
@@ -201,6 +211,11 @@ export function renderDetail(write) {
       } else if (e.type === 'ttDeck') {
         if (!inside(e, e.w, e.h)) continue;
         redraw.push({ e, art: truongTienDeck(e.w * K, e.h * K), bottom: e.y - 1000, overTo: 0 });
+      } else if (e.type === 'ttSteel') {
+        // Trường Tiền's arches and piers, enlarged, laid back over the
+        // boardwalk that passes under them.
+        if (!inside(e, e.art.w, e.art.h)) continue;
+        redraw.push({ e, art: enlarge(e.art), bottom: e.y + e.art.h, overTo: 0 });
       } else if (e.type === 'boardwalk') {
         if (!inside(e, e.w, e.h)) continue;
         redraw.push({ e, art: boardwalk(e.w * K, e.h * K), bottom: e.y, overTo: 0 });
