@@ -236,8 +236,11 @@ const INTRO_SEEN = 'voca-world-intro-seen';
 // A game's mark on its card: a pixel icon where the kit has one, else an emoji.
 const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = {
   piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' },
-  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, ladder: { icon: 'cap' },
+  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, ladder: { icon: 'cap' }, train: { icon: 'train' },
 };
+
+/** Where Ga Huế's trains will go, in the board's order (world.train.<id>). */
+const TRAIN_TRIPS = ['bachMa', 'thuanAn', 'langCo'] as const;
 
 /** One foldable section of the travel drawer. `onTitle`, when given, makes
  *  the title itself a destination (a skill's keeper); the chevron folds. */
@@ -1515,7 +1518,31 @@ export function GameWorld({
       )}
 
       {/* ── The playground: the street piano, the type race ── */}
-      {!panel && !nearestFeature && playHere && !playing && !busRide && busTicket === null && (
+      {/* Ga Huế's departures board: trips out of town, none running yet. */}
+      {!panel && !nearestFeature && playHere === 'train' && !busRide && busTicket === null && (
+        <WorldCard
+          icon="train"
+          title={<FormattedMessage id="world.trainTitle" />}
+          subtitle={<FormattedMessage id="world.trainBlurb" />}
+        >
+          <ul className="space-y-1.5">
+            {TRAIN_TRIPS.map((trip) => (
+              <li key={trip} className="px-inset px-notch flex items-center gap-2.5 px-2.5 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="px-title !text-[13px] text-[var(--px-text)]"><FormattedMessage id={`world.train.${trip}`} /></p>
+                  <p className="text-[12px] text-[var(--px-muted)] leading-snug"><FormattedMessage id={`world.train.${trip}Note`} /></p>
+                </div>
+                <span className="px-title !text-[11px] shrink-0 text-[var(--px-gold)] whitespace-nowrap"><FormattedMessage id="world.trainSoon" /></span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2.5 flex items-center gap-1.5 text-[12px] text-[var(--px-muted)]">
+            <PixelIcon name="hourglass" size={1} />
+            <FormattedMessage id="world.trainBuilding" />
+          </p>
+        </WorldCard>
+      )}
+      {!panel && !nearestFeature && playHere && playHere !== 'train' && !playing && !busRide && busTicket === null && (
         <WorldCard
           emoji={PLAYS[playHere]?.emoji ?? (PLAYS[playHere]?.icon ? undefined : '🎲')}
           icon={PLAYS[playHere]?.icon}

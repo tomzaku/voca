@@ -8,7 +8,7 @@
 //   Kim Long's wooden garden houses
 
 import { Canvas, hash, mix } from '../core/canvas.mjs';
-import { disc, door, outline, plaster, pot, tiledRoof } from './art.mjs';
+import { disc, door, outline, plaster, pot, text, tiledRoof } from './art.mjs';
 import { GOLD, GOLD_DARK, GREEN, LACQUER, LACQUER_DARK, STONE, STONE_DARK, STONE_LIGHT, WOOD_DARK, YELLOW, bays, column, latticeDoor, platform, ridgeDecor } from './imperial.mjs';
 
 const T2 = 32;
@@ -269,30 +269,59 @@ export function gardenHouse(spec) {
 
 // ── The south bank ──
 
-/** Ga Huế: 9 × 5 tiles — the cream station with its red-tiled roofs and
- *  the clock tower over the entrance, tall arched windows. */
+/** Ga Huế: 9 × 5 tiles — the station as it stands, French in plan and Huế
+ *  in its roofs: apricot walls picked out in white, a long low wing either
+ *  side under dark tile with a row of arched windows between pilasters, and
+ *  the taller hall in the middle under two tiers of curved roof, its corners
+ *  turned up like a đình's, the GA HUE sign in red and gold on the white
+ *  band between them and a deep arched porch below. */
 export function gaHue() {
   const cv = new Canvas(9 * T2, 5 * T2);
   const W = cv.w, H = cv.h, cx = W / 2;
-  plaster(cv, 4, 60, W - 8, H - 66, [238, 224, 190]);
-  for (let x = 16; x < W - 16; x += 26) {
-    if (Math.abs(x + 6 - cx) < 30) continue;
-    arch(cv, x + 6, H - 20, 12, 30, [250, 242, 222]);
-    cv.rect(x, H - 50, 1, 30, [210, 196, 160]);
+  const WALL = [232, 174, 122], WALL_DARK = [206, 146, 98];
+  const WHITE = [246, 240, 228], WHITE_DARK = [212, 204, 190];
+  const MOSS = { base: [104, 92, 82], line: [84, 74, 66], light: [140, 124, 108], eave: [60, 52, 46], ridge: [72, 62, 54] };
+  const foot = H - 8;
+  // The wings: arched windows between white pilasters, a white cornice.
+  const wingTop = 86;
+  for (const [x0, x1] of [[4, 100], [W - 100, W - 4]]) {
+    for (let y = wingTop; y < foot; y++) for (let x = x0; x < x1; x++) cv.set(x, y, mix(WALL, WALL_DARK, hash(x, y) * 0.25 + (y - wingTop) / (foot - wingTop) * 0.3));
+    cv.rect(x0, wingTop, x1 - x0, 4, WHITE);
+    cv.rect(x0, wingTop + 4, x1 - x0, 1, WHITE_DARK);
+    for (let x = x0; x <= x1 - 4; x += 24) cv.rect(x, wingTop + 5, 4, foot - wingTop - 5, WHITE);
+    for (let x = x0 + 4; x + 20 <= x1; x += 24) {
+      arch(cv, x + 10, foot - 6, 12, 40, WHITE);
+      for (let y = foot - 40; y < foot - 6; y += 6) cv.rect(x + 4, y, 12, 1, [70, 58, 52]);   // glazing bars
+      cv.rect(x + 3, foot - 6, 14, 2, WHITE_DARK);                                          // the sill
+    }
+    tiledRoof(cv, x0 - 4, wingTop - 28, x1 - x0 + 8, 28, MOSS, 8);
   }
-  arch(cv, cx, H - 6, 28, 44, [250, 242, 222]);
-  cv.rect(0, H - 6, W, 6, [180, 172, 158]);
-  tiledRoof(cv, 0, 14, W, 48, TERRA, 14);
-  // The clock tower.
-  plaster(cv, cx - 22, 0, 44, 64, [244, 232, 204]);
-  tiledRoof(cv, cx - 26, -2, 52, 14, TERRA, 6);
-  disc(cv, cx, 30, 13, [92, 80, 70]);
-  disc(cv, cx, 30, 11, [252, 248, 238]);
-  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; cv.set(cx + Math.cos(a) * 9, 30 + Math.sin(a) * 9, [70, 60, 54]); }
-  cv.rect(cx, 22, 1, 8, [40, 36, 34]);
-  cv.rect(cx, 30, 6, 1, [40, 36, 34]);
-  cv.rect(cx - 20, 46, 40, 8, [176, 70, 50]);
-  for (let i = 0; i < 6; i++) cv.rect(cx - 16 + i * 6, 49, 3, 2, [246, 226, 160]);
+  // The middle hall: taller, white quoins at its corners.
+  const hx0 = cx - 50, hx1 = cx + 50, hallTop = 66;
+  for (let y = hallTop; y < foot; y++) for (let x = hx0; x < hx1; x++) cv.set(x, y, mix(WALL, WALL_DARK, hash(x, y) * 0.25 + (y - hallTop) / (foot - hallTop) * 0.25));
+  for (const qx of [hx0, hx1 - 6]) for (let y = hallTop; y < foot; y += 8) cv.rect(qx, y, 6, 5, WHITE);
+  // The porch: three arches, the middle one the tallest, on white piers.
+  arch(cv, cx, foot, 30, 52, WHITE);
+  for (const dx of [-30, 30]) arch(cv, cx + dx, foot, 18, 38, WHITE);
+  for (const dx of [-42, -18, 16, 40]) cv.rect(cx + dx, foot - 42, 3, 42, WHITE_DARK);
+  // Inside the middle arch: the doors, lamplight on the floor.
+  door(cv, cx, foot, 18, 30);
+  // The lower roof, over the hall.
+  tiledRoof(cv, hx0 - 10, 40, hx1 - hx0 + 20, 26, MOSS, 10);
+  // The white band between the tiers, the sign on it: GA HUE in gold on red.
+  cv.rect(cx - 34, 24, 68, 16, WHITE);
+  cv.rect(cx - 34, 38, 68, 2, WHITE_DARK);
+  cv.rect(cx - 27, 26, 54, 11, [150, 34, 30]);
+  cv.rect(cx - 26, 27, 52, 9, [186, 46, 38]);
+  text(cv, 'GA HUE', cx - 12, 29, [250, 214, 110]);
+  // The upper tier: a smaller roof, its corners turned up, a jewel on the ridge.
+  tiledRoof(cv, cx - 38, 12, 76, 14, MOSS, 8);
+  ridgeDecor(cv, cx - 28, cx + 26, 9, MOSS);
+  // The plinth, and a pot either side of the porch.
+  cv.rect(0, foot, W, 8, [186, 178, 162]);
+  cv.rect(0, foot, W, 2, [210, 204, 190]);
+  pot(cv, cx - 58, foot);
+  pot(cv, cx + 52, foot);
   outline(cv);
   return cv;
 }

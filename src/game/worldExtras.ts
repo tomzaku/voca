@@ -10,6 +10,8 @@
 //             piano — solo practice; matches start from a player
 //   foosball  a bi lắc table on Phố đi bộ's east end, by the fountain — you
 //             against the computer
+//   train     a departures board at the east end of Ga Huế's platform —
+//             trips out of town, none running yet
 //   ladder    a quiz podium in Quốc Học's forecourt, inside the gate —
 //             fifteen general questions, easy to hard, and a teacher by it
 //   fireworks two launch pads on the citadel wall either side of Kỳ Đài, before
@@ -33,6 +35,7 @@ export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolea
   { game: 'pool', x: 64.8, y: 64.2 },
   { game: 'foosball', x: 70.0, y: 64.4 },
   { game: 'ladder', x: 37.0, y: 69.5 },
+  { game: 'train', x: 18.4, y: 75.6 },
   ...FIREWORKS_PADS.map((p) => ({ game: 'fireworks', ...p, festive: true })),
 ];
 
@@ -56,6 +59,8 @@ const KEEPERS: { x: number; y: number; dress: KeeperDress }[] = [
 const POOL = { x: 64.8, y: 63.7 };
 /** The foosball table, by the fountain. */
 const FOOS = { x: 70.0, y: 63.9 };
+/** The departures board, on Ga Huế's platform by the buffer stop. */
+const BOARD = { x: 18.4, y: 75.4 };
 /** The quiz podium, in Quốc Học's forecourt west of the gate. */
 const PODIUM = { x: 36.0, y: 70.0 };
 
@@ -154,6 +159,15 @@ function makeTextures(scene: Phaser.Scene) {
     px(2, 11, 10, 3, '#24357a');
     px(6, 11, 2, 2, '#ffd23f');
   });
+  // A station's departures board: a dark panel in a green frame on two
+  // posts, three lines of amber lettering and a little clock over it.
+  canvasTexture(scene, 'extra-board', 18, 20, (px) => {
+    px(3, 12, 2, 8, '#3a3a40'); px(13, 12, 2, 8, '#3a3a40');                // the posts
+    px(0, 4, 18, 10, '#2f5a46'); px(0, 4, 18, 1, '#4f8a6a');
+    px(1, 5, 16, 8, '#14181c');
+    for (let i = 0; i < 3; i++) { px(2, 6 + i * 2.4, 7, 1, '#ffb43a'); px(11, 6 + i * 2.4, 4, 1, i === 0 ? '#ff6a4a' : '#ffb43a'); }
+    px(7, 0, 4, 4, '#2f5a46'); px(8, 1, 2, 2, '#f6f1e4');                  // the clock
+  });
   // A floating note, for the music.
   canvasTexture(scene, 'extra-note', 5, 7, (px) => {
     px(3, 0, 1, 5, '#ffffff'); px(3, 0, 2, 1, '#ffffff'); px(4, 1, 1, 1, '#ffffff');
@@ -193,6 +207,9 @@ export function buildExtras(ctx: ExtrasContext) {
 
   const foos = scene.add.image(FOOS.x * k, FOOS.y * k, 'extra-foos').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(foos);
+
+  const board = scene.add.image(BOARD.x * k, BOARD.y * k, 'extra-board').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
+  ctx.tinted.push(board);
 
   const podium = scene.add.image(PODIUM.x * k, PODIUM.y * k, 'extra-podium').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(podium);

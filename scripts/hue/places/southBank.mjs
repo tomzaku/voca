@@ -6,7 +6,7 @@ import { P, ROOF } from '../core/palette.mjs';
 import { drawn, glow, ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, hall, roof } from '../draw/buildings.mjs';
 import { K, parterre } from '../hd/art.mjs';
-import { DISHES, SCHOOL_RED, SCHOOL_ROSE, anDinh, foodStall, planterTree, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
+import { DISHES, SCHOOL_RED, SCHOOL_ROSE, anDinh, foodStall, gaHue, planterTree, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
@@ -77,7 +77,7 @@ function schoolGrounds({ x0, x1, front, back }, wall) {
 }
 
 export function drawSouthBank() {
-  // Ga Huế: the cream railway station, its tracks coming in from the west
+  // Ga Huế: the apricot station under its curved roofs, its tracks coming in from the west
   // off the map's edge and ending at a buffer stop just past the platform.
   {
     const y0 = RAIL_Y * T;
@@ -92,11 +92,7 @@ export function drawSouthBank() {
     for (let y = y0 + 5; y < y0 + 2 * T - 5; y++) ground.rect(bx, y, 3, 1, Math.floor((y - y0) / 3) % 2 ? [244, 238, 228] : [204, 48, 40]);
     ground.rect(bx - 1, y0 + 8, 5, 3, [60, 56, 54]); ground.rect(bx - 1, y0 + T + 5, 5, 3, [60, 56, 54]);
     mark(used, 0, RAIL_Y, RAIL_END, 2);
-    const cv = hall({ w: 9, h: 5, roofRows: 2, roofPal: ROOF.terra, wall: [236, 222, 186], pillar: [196, 170, 120], pillarStep: 12, windows: true, windowStep: 11, doorW: 12, doorFill: [80, 64, 50] });
-    // A little clock tower over the door.
-    cv.rect(cv.w / 2 - 10, 2, 20, 26, [240, 228, 196]);
-    cv.ellipse(cv.w / 2, 12, 5, 5, [250, 246, 236]);
-    cv.rect(cv.w / 2, 8, 1, 4, [40, 36, 34]);
+    const cv = halve(gaHue());
     cv.spec = { kind: 'gaHue' };
     place(cv, 9, RAIL_Y - 6, 3);
   }
