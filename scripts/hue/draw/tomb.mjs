@@ -45,6 +45,40 @@ export function terrace(tx, ty, tw, th, pal, open = []) {
   mark(used, tx, ty, tw, th);
 }
 
+/** The tall wall a tomb's grounds stand on: courses of blue-grey brick
+ *  `th` tiles high across tiles `tx0`–`tx1` from row `ty`, a stone coping
+ *  along the top, moss hanging down from it, the bricks darkening towards a
+ *  shadowed foot — so from above you can see the tomb is up on the
+ *  mountain, the way a raised ruin reads. Its tiles block, except the
+ *  `gaps` columns, where the tomb's stairs come down. */
+export function retainingWall(tx0, tx1, ty, th, gaps = []) {
+  const x0 = tx0 * T, x1 = tx1 * T, y0 = ty * T, y1 = (ty + th) * T;
+  const gap = (x) => gaps.includes(Math.floor(x / T));
+  for (let x = x0; x < x1; x++) {
+    if (gap(x)) continue;
+    // Moss hangs further in some columns than others.
+    const moss = noise(x, 7, 5) > 0.55 ? 3 + Math.floor(hash(x, 3) * 10) : hash(x, 9) < 0.2 ? 2 : 0;
+    for (let y = y0; y < y1; y++) {
+      const dy = y - y0;
+      let c;
+      if (dy < 2) c = [192, 196, 194];                                      // the coping, lit
+      else if (dy < 4) c = [132, 138, 140];
+      else {
+        const row = Math.floor((dy - 4) / 5), off = (row % 2) * 5;
+        const joint = (dy - 4) % 5 === 4 || (x - x0 + off) % 10 === 9;
+        const tone = hash(Math.floor((x - x0 + off) / 10), row + ty * 7);
+        c = joint ? [52, 58, 66] : tone < 0.33 ? [96, 104, 112] : tone < 0.66 ? [86, 94, 104] : [106, 114, 120];
+        c = mix(c, [32, 36, 44], ((dy - 4) / (y1 - y0)) * 0.45);
+      }
+      if (dy >= 2 && dy < 2 + moss) c = mix([70, 124, 60], [96, 150, 72], hash(x, y) * 0.6);
+      ground.set(x, y, c);
+    }
+    for (let y = y1; y < y1 + 5; y++) ground.set(x, y, [20, 34, 30], 0.4 * (1 - (y - y1) / 5));   // its shadow
+  }
+  for (let j = ty; j < ty + th; j++) for (let i = tx0; i < tx1; i++) if (!gaps.includes(i)) solid[j][i] = true;
+  mark(used, tx0, ty, tx1 - tx0, th);
+}
+
 /** Steps up a terrace face; `dragons` gives them the balustrades of Khải
  *  Định's stairs, a dragon's body rippling down either side. */
 export function steps(tx, ty, tw, th, pal, dragons = false) {

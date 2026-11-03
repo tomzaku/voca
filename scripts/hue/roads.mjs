@@ -115,7 +115,7 @@ export const ROADS = [
     [48, 116.6], [56, 116.2], [62, 115.4], [66, 115], [72, 115.8], [79, 114.8], [86, 115.4], [93, 116.6], [100, 116], [106, 114.6], [113, 114], [121, 114.6]])),
   // The tombs stand up on the mountain: stone stairs from each gate down the
   // terraces to the road.
-  box(9, 110, 2, 5, 'stone'), box(33, 110, 3, 5, 'stone'), box(78, 110, 2, 5, 'stone'),
+  box(9, 110, 2, 5, 'stone', { stairs: true }), box(33, 110, 3, 5, 'stone', { stairs: true }), box(78, 110, 2, 5, 'stone', { stairs: true }),
   // Footpaths winding through the riverside parks, between the bridges.
   ...PARK_PATHS.map(([x0, x1, y]) => road('path', 0.8, wavy(x0, x1, y))),
   // Vỹ Dạ, across the bend: the riverside street (Nguyễn Sinh Cung) on from

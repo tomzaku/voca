@@ -15,7 +15,7 @@ import { cliff as cliffAt } from '../hills.mjs';
 import { H as MAP_H, T, W as MAP_W, isWater } from '../layout.mjs';
 import { grassColor, tinted } from '../paint/terrain.mjs';
 import { mountainRoad, shade } from '../paint/roads.mjs';
-import { shoreDist } from '../paint/water.mjs';
+import { WATER, shoreDist, waterTone } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
 import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, ladder, lamp, market, paddy, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
 import { anDinh, cheStall, foodStall, gaHue, planterTree, gardenHouse, gateTower, haiBaTrung, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, quocHocGate, saigonMorin, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
@@ -61,13 +61,12 @@ function flatGrassAt(X, Y) {
   return c;
 }
 
-/** Water at detail size: shallows by the shore, fine ripples. */
+/** Water at detail size: the map's own bands (paint/water.mjs), the grain
+ *  and flecks finer. */
 function waterAt(X, Y, mx, my) {
-  const d = shoreDist(Math.floor(mx), Math.floor(my));
-  let c = d <= 2 ? P.waterShallow : d <= 5 ? P.water : mix(P.water, P.waterDeep, noise(X, Y, 60));
-  if (d > 3 && noise(X, Y * 4, 10) > 0.8 && hash(X, Y) < 0.6) c = mix(c, P.glint, 0.6);
-  return c;
+  return waterTone(X, Y, shoreDist(Math.floor(mx), Math.floor(my)), K);
 }
+const WATER_TONES = Object.values(WATER);
 
 /** A road at detail size: finer pavement slabs, asphalt grain, a crisp kerb. */
 function roadAt(X, Y, mx, my, roads) {
@@ -258,7 +257,7 @@ export function renderDetail(write) {
         const fx = Math.floor(mx), fy = Math.floor(my);
         let c = null;
         if (isWater(mx, my)) {
-          if (clear[i] || (d[p + 2] > d[p] + 40 && d[p + 2] > d[p + 1])) c = waterAt(X, Y, mx, my);
+          if (clear[i] || (d[p + 2] > d[p] + 40 && d[p + 2] > d[p + 1]) || WATER_TONES.some((t) => same(d, p, t))) c = waterAt(X, Y, mx, my);
         } else {
           const road = roadAt(X, Y, mx, my, roads);
           const grass = same(d, p, grassColor(fx, fy));
