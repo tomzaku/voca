@@ -3,7 +3,7 @@
 // winding paths (../roads.mjs PARK_PATHS), flower beds, benches and lamps;
 // Cầu bán nguyệt, the half-moon bridge over the north park's pond; Đài phun
 // nước, the fountain in the south park; and Cầu đi bộ gỗ lim, the ironwood
-// boardwalk along the south bank, under Phú Xuân bridge.
+// boardwalk along the south bank, under Phú Xuân and Trường Tiền bridges.
 
 import { Canvas, hash } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
@@ -137,11 +137,12 @@ export function drawParks() {
   }
 
   // Cầu đi bộ gỗ lim: an ironwood boardwalk out over the river's edge, from
-  // the south park round under Phú Xuân bridge, steps down to it at each end.
+  // the boat landing along the south park, under Phú Xuân and Trường Tiền,
+  // and on past the lawns beyond — steps down to it at each end.
   {
-    // It runs on under Phú Xuân bridge: the planks go right up to the
-    // bridge on both sides, and the bridge's deck passes over them.
-    for (const [x0, x1, ends] of [[57, 65, [57]], [69, 74, [74]]]) {
+    // It runs on under both bridges: the planks go right up to each bridge
+    // on both sides, and the bridge's deck passes over them.
+    for (const [x0, x1, ends] of [[51, 65, [51]], [69, 74, [74]], [78, 89, [89]]]) {
       plankDeck(x0, 62, x1 - x0 + 1, 1, true);
       for (const x of ends) plankDeck(x, 63, 1, 1);
       for (let x = x0 * T; x < (x1 + 1) * T; x += 3 * T) {
