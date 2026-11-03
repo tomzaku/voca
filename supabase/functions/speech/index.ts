@@ -30,6 +30,13 @@
 //   SPEECH_USER_DAILY_LIMIT    new clips per signed-in user per day (default 300)
 //   SPEECH_ANON_DAILY_LIMIT    new clips per visitor IP per day (default 60)
 //   SPEECH_TOTAL_DAILY_LIMIT   new clips across everyone per day (default 3000)
+//   SPEECH_MONTHLY_CHAR_LIMIT  characters sent to Google per UTC month
+//                              (default 900000 — under Chirp 3 HD's 1M free;
+//                              WaveNet/Standard voices get 4M free)
+//
+// The monthly character ceiling is the one that keeps the bill at $0: Google's
+// budgets only send alerts, they never stop spending. It fails closed — if the
+// budget can't be checked, no new clip is made.
 //
 // Deploy: `npm run db:push` (the bucket), then `supabase functions deploy speech`
 
@@ -73,6 +80,14 @@ async function underLimit(svc: SupabaseClient, key: string, max: number): Promis
     p_window_seconds: 86400,
   });
   return !(allowed === false && !error);
+}
+
+/** Reserve this clip's characters against the month's budget. Fails closed. */
+async function withinMonthlyBudget(svc: SupabaseClient, chars: number): Promise<boolean> {
+  const limit = Number(Deno.env.get('SPEECH_MONTHLY_CHAR_LIMIT')) || 900_000;
+  const { data, error } = await svc.rpc('reserve_speech_chars', { p_chars: chars, p_limit: limit });
+  if (error) console.error('[speech] budget check failed:', error.message);
+  return data === true;
 }
 
 async function callerKey(req: Request, userId: string | null): Promise<{ key: string; max: number }> {
@@ -144,6 +159,10 @@ export default async function handler(req: Request): Promise<Response> {
     const total = Number(Deno.env.get('SPEECH_TOTAL_DAILY_LIMIT')) || 3000;
     if (!await underLimit(svc, caller.key, caller.max) || !await underLimit(svc, 'speech:all', total)) {
       return jsonResponse(429, { error: 'Speech limit reached for today.' });
+    }
+    // Last, so a request turned away above never spends budget.
+    if (!await withinMonthlyBudget(svc, text.length)) {
+      return jsonResponse(429, { error: 'Speech limit reached for this month.' });
     }
 
     const mp3 = await synthesize(text, voiceName);
