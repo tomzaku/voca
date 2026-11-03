@@ -61,6 +61,7 @@ import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
 import { setRainSound } from '../lib/rainSound';
 import { playWin } from '../lib/sfx';
 import { useAuth } from '../hooks/useAuth';
+import { accountName } from '../lib/accountName';
 import toast from 'react-hot-toast';
 import { sendMessage } from '../lib/messagesApi';
 import { ApiError } from '../lib/api';
@@ -316,6 +317,9 @@ export function GameWorld({
   // ── The shared world ── everyone in Huế at once (lib/worldLive): their
   // buddies walk here, wave and chat; you can block anyone.
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+  // What you're called in the world: the name you gave at the tailor's, else
+  // the one on your Google account — never the buddy animal's.
+  const playerName = buddyName || accountName(user) || intl.formatMessage({ id: 'profile.defaultName' });
   const signedIn = !!user;
   // The welcome, for someone new and signed out — once per device, and again
   // from the ⓘ button beside Sign in.
@@ -385,9 +389,9 @@ export function GameWorld({
   // The latest of me, for the connection to announce.
   const meRef = useRef({ name: '', look: DEFAULT_LOOK });
   useEffect(() => {
-    meRef.current = { name: buddyName || animal.name, look: worn ?? DEFAULT_LOOK };
+    meRef.current = { name: playerName, look: worn ?? DEFAULT_LOOK };
     liveRef.current?.updateMe(meRef.current);
-  }, [buddyName, animal.name, worn]);
+  }, [playerName, worn]);
   // The Focus Zone: whether the buddy is at it, whether its window is open,
   // and the timer (which runs on whether or not it is).
   const [atFocus, setAtFocus] = useState(false);
@@ -526,7 +530,7 @@ export function GameWorld({
       dress: dressRef.current,
       ride: rideRef.current,
       stage,
-      buddyName: buddyName || animal.name,
+      buddyName: playerName,
       dpr,
       lite,
       progress: live.current.progress,
@@ -603,7 +607,7 @@ export function GameWorld({
       if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
       game.destroy(true);
     };
-  }, [animal.id, animal.name, stage, buddyName, locale]);
+  }, [animal.id, stage, playerName, locale]);
 
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
   // Join the shared world while signed in — keyed on the account, not the
@@ -1041,7 +1045,7 @@ export function GameWorld({
               <LookSprite look={dress} scale={2} />
             </span>
             <span className="min-w-0">
-              <span className="block px-title !text-[14px] text-[var(--px-gold)] truncate max-w-[10rem]">{buddyName || animal.name}</span>
+              <span className="block px-title !text-[14px] text-[var(--px-gold)] truncate max-w-[10rem]">{playerName}</span>
               {/* Your streak, and what the lanterns mean — they're progress, not scenery. */}
               <span className="flex items-center gap-3 text-[12px] font-bold">
                 <span className="flex items-center gap-1 text-[var(--px-gold)]" title={intl.formatMessage({ id: 'world.progressStreak' }, { count: streak })}>
@@ -1057,11 +1061,6 @@ export function GameWorld({
       )}
       {!panel && (
         <div className="px absolute top-[calc(0.5rem+var(--sat))] right-[calc(0.5rem+var(--sar))] z-20 flex flex-wrap justify-end items-center gap-2 max-w-[calc(100%-13.5rem)] sm:max-w-none">
-          {user && !animalId && (
-            <Link to="/companion" className="px-btn px-notch px-title !text-[13px] px-3 h-[2.6rem] inline-flex items-center gap-1.5" data-tone="gold">
-              <PixelIcon name="paw" size={2} /> <span className="hidden sm:inline"><FormattedMessage id="world.chooseBuddy" /></span>
-            </Link>
-          )}
           {/* The focus timer, while it runs: its time, and back to it. */}
           {focusTimer.running && !focusOpen && (
             <PixelButton tone="paper" onClick={() => setFocusOpen(true)} title={intl.formatMessage({ id: 'world.focusTitle' })} className="!px-2.5 !py-0 !h-[2.6rem] !text-[13px] px-num">

@@ -123,8 +123,8 @@ export function writingAdvice(s: { hasWords: boolean; recap?: Recap }): Advice {
 }
 
 // ── You ──
-// Home: your buddy, and how many words it has grown on.
+// Home: a welcome, and the tailor's next door.
 
-export function youAdvice(s: { name: string; known: number }): Advice {
-  return { lineId: 'world.kyHome', values: { name: s.name, known: s.known }, action: 'buddy', actionId: 'world.kyBuddyGo' };
+export function youAdvice(s: { name: string }): Advice {
+  return { lineId: 'world.kyHome', values: { name: s.name }, action: 'wardrobe', actionId: 'world.kyTailorGo' };
 }

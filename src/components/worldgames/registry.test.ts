@@ -13,7 +13,7 @@ const vi = merge(import.meta.glob<{ default: Catalog }>('../../i18n/messages/vi/
 
 describe('activity registry', () => {
   it('finds every activity file', () => {
-    expect(ACTIVITIES.length).toBeGreaterThanOrEqual(20);
+    expect(ACTIVITIES.length).toBeGreaterThanOrEqual(19);
   });
   it('gives each activity its own id', () => {
     const ids = ACTIVITIES.flatMap((a) => [a.id, ...(a.modes ?? []).map((m) => m.id).filter((m) => m !== a.id)]);

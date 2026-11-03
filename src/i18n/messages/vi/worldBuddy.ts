@@ -63,10 +63,7 @@ export default {
   'world.hair.longhair': 'Dài',
   'world.hair.mophair': 'Bù xù',
   'world.hair.spikeyhair': 'Dựng',
-  'world.actBuddy': 'Bạn đồng hành',
-  'world.actBuddyBlurb': 'Sự lớn lên, đặc tính và kỹ năng',
   'world.keeperYou': 'Mệ Hai · giữ nhà An Hiên',
-  'world.kyHome': 'Về nhà rồi con. {name} đã lớn nhờ {known} từ con biết — vào xem đi.',
-  'world.kyBuddyGo': 'Xem bạn đồng hành',
-  'world.badgeBuddy': '{name} · {known} từ',
+  'world.kyHome': 'Về nhà rồi {name}. Muốn may đồ mới không con? Tiệm may ngay bên cạnh.',
+  'world.kyTailorGo': 'Sang tiệm may',
 } satisfies Record<keyof typeof en, string>;

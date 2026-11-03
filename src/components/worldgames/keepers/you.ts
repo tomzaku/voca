@@ -1,5 +1,7 @@
 import { useIntl } from 'react-intl';
-import { useCompanion, useWordsKnown } from '../../../hooks/useCompanion';
+import { useCompanion } from '../../../hooks/useCompanion';
+import { useAuth } from '../../../hooks/useAuth';
+import { accountName } from '../../../lib/accountName';
 import { DEFAULT_LOOK } from '../../../game/wardrobe';
 import { youAdvice } from '../../../lib/keeperAdvice';
 import { defineKeeper } from '../keeper';
@@ -11,17 +13,15 @@ export default defineKeeper({
   nameId: 'world.keeperYou',
   useAdvice() {
     const name = useCompanion((s) => s.name);
-    return youAdvice({ name: name || '…', known: useWordsKnown() });
+    const { user } = useAuth();
+    return youAdvice({ name: name || accountName(user) || '…' });
   },
-  // What you're wearing, and who your buddy is — the profile at a glance.
+  // What you're wearing — the profile at a glance.
   useBadges() {
     const intl = useIntl();
-    const name = useCompanion((s) => s.name);
     const look = useCompanion((s) => s.dress) ?? DEFAULT_LOOK;
-    const known = useWordsKnown();
     return {
       wardrobe: `${intl.formatMessage({ id: `world.garment.${look.outfit}` })} · ${intl.formatMessage({ id: `world.color.${look.outfitColor}` })}`,
-      buddy: intl.formatMessage({ id: 'world.badgeBuddy' }, { name: name || '…', known }),
     };
   },
 });

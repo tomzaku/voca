@@ -21,6 +21,8 @@ import { QuizSetup } from './QuizSetup';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { ActivityChromeProvider, type Chrome } from './worldgames/pixel/ActivityChrome';
 import { useCompanion } from '../hooks/useCompanion';
+import { useAuth } from '../hooks/useAuth';
+import { accountName } from '../lib/accountName';
 import { DEFAULT_LOOK, type Look } from '../game/wardrobe';
 import { KEEPERS } from './worldgames/keepers';
 import { KeeperMenu, KeeperTalk } from './worldgames/KeeperTalk';
@@ -123,6 +125,7 @@ export function WorldGame() {
   const dress = useCompanion((s) => s.dress);
   const setDress = useCompanion((s) => s.setDress);
   const buddyName = useCompanion((s) => s.name);
+  const { user } = useAuth();
   const rename = useCompanion((s) => s.rename);
   const [trying, setTrying] = useState<Look | null>(null);
   const firstVisit = dress === null;
@@ -221,7 +224,7 @@ export function WorldGame() {
     tailor: {
       initial: dress ?? DEFAULT_LOOK,
       firstVisit,
-      name: buddyName,
+      name: buddyName || accountName(user),
       rename,
       tryOn: setTrying,
       done: leaveTailor,

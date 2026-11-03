@@ -58,7 +58,7 @@ describe('writingAdvice', () => {
 });
 
 describe('youAdvice', () => {
-  it('sends you to your buddy', () => {
-    expect(youAdvice({ name: 'Kitty', known: 12 }).action).toBe('buddy');
+  it('sends you to the tailor', () => {
+    expect(youAdvice({ name: 'Lan' }).action).toBe('wardrobe');
   });
 });
