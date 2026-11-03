@@ -5,11 +5,53 @@
 import { hash, mix, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { deck, drawn, ground, mark, solid, used } from '../core/world.mjs';
-import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
-import { NGU_BINH, drawLadder, height, light, markCliffs } from '../hills.mjs';
+import { bankOk, bush, canPlant, canPlantDense, canPlantLoose, grandTree, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
+import { NGU_BINH, cliff, drawLadder, height, light, markCliffs } from '../hills.mjs';
 import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
 import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
 import { SCHOOL_GROUNDS } from '../places/southBank.mjs';
+
+/** Past the tombs' road the mountains rise: closed forest from this row. */
+const MOUNTAIN_Y = 118;
+
+/** A hillside tile's ground: tufts of darker grass, wild flowers, stones,
+ *  the odd patch of bare earth — painted under whatever grows there. */
+function groundDetail(tx, ty) {
+  if (used[ty][tx]) return;
+  const x0 = tx * T, y0 = ty * T;
+  const plain = (x, y) => !cliff(x, y) && !used[Math.floor(y / T)]?.[Math.floor(x / T)];
+  const r = hash(tx * 29 + 5, ty * 31 + 7);
+  if (r < 0.06) {
+    // Bare earth, worn round, darker at its rim.
+    const cx = x0 + 8, cy = y0 + 9, rx = 5 + hash(tx, ty * 3) * 4, ry = 3 + hash(tx * 3, ty) * 2;
+    for (let y = cy - ry - 1; y <= cy + ry + 1; y++) for (let x = cx - rx - 1; x <= cx + rx + 1; x++) {
+      const e = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + (noise(x, y, 3) - 0.5) * 0.5;
+      if (e > 1.15 || !plain(x, y)) continue;
+      ground.set(x, y, e > 0.8 ? [92, 112, 52] : hash(x, y) < 0.15 ? [150, 110, 72] : [128, 92, 60]);
+    }
+  }
+  for (let i = 0; i < 3; i++) {
+    const h = hash(tx * 7 + i, ty * 11 + i), x = x0 + 2 + Math.floor(hash(tx + i, ty * 5) * 12), y = y0 + 3 + Math.floor(hash(tx * 5, ty + i) * 11);
+    if (!plain(x, y) || !plain(x + 2, y + 2)) continue;
+    if (h < 0.18) {
+      // A tuft: blades in a darker green, a lit tip.
+      for (const [dx, dy] of [[0, 0], [1, -1], [2, 0], [-1, -1], [1, 1], [0, 1], [2, 1]]) ground.set(x + dx, y + dy, [52, 112, 50]);
+      ground.set(x + 1, y - 2, [124, 186, 88]);
+    } else if (h < 0.3) {
+      // Wild flowers.
+      const c = [[248, 248, 236], [250, 214, 96], [236, 140, 180], [140, 170, 240]][Math.floor(hash(x, y) * 4)];
+      for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) ground.set(x + dx, y + dy, c);
+      ground.set(x, y, [250, 220, 90]);
+      ground.set(x + 1, y + 2, [52, 112, 50]);
+    } else if (h < 0.36) {
+      // A stone half sunk in the grass.
+      ground.rect(x - 1, y + 2, 5, 1, [34, 60, 40]);
+      ground.rect(x - 1, y, 5, 2, [126, 128, 120]);
+      ground.rect(x, y - 1, 3, 1, [166, 168, 158]);
+      ground.set(x, y, [196, 198, 188]);
+    }
+  }
+}
 
 /** On a school's walls, or the pavement before its gate: no tree, or it hides them. */
 const bySchoolGate = (tx, ty) => Object.values(SCHOOL_GROUNDS).some((g) => tx >= g.x0 - 1 && tx <= g.x1 + 1 && ty >= g.front - 2 && ty <= g.back + 1);
@@ -127,10 +169,10 @@ export function plantGreenery() {
         if (edge >= depth && !wood && !hills) continue;
         if (used[ty][tx] || solid[ty][tx] || onAnyRoad(tx, ty) || isWater(tx * T + 8, ty * T + 8)) continue;
         if (nearSlot(tx - 1, ty - 1) || (used[ty + 1]?.[tx] && !wood && !hills)) continue;
-        // In the hills, pines on the terraces instead of a closed canopy,
-        // so the land's steps and cliffs show between them.
-        if (ty >= HILLS_Y - 2) hillside.push([tx, ty]);
-        else forest.push([tx, ty]);
+        // In the hills, open woodland so the land's levels and cliffs show;
+        // past the tombs' road, where the mountains rise, closed forest.
+        if (ty >= MOUNTAIN_Y || ty < HILLS_Y - 2) forest.push([tx, ty]);
+        else hillside.push([tx, ty]);
       }
     }
     const shades = [[34, 94, 50], [48, 116, 56], [66, 140, 64], [96, 168, 78]];
@@ -151,13 +193,16 @@ export function plantGreenery() {
       }
     }
     for (const [tx, ty] of forest) { solid[ty][tx] = true; used[ty][tx] = true; drawn.push({ type: 'forest', tx, ty, x: tx * T, y: ty * T }); }
-    // The hillsides: pines, the odd broadleaf, thicker on the higher terraces.
+    // The hillsides: the ground's own detail first, then big old trees
+    // with room between them, bushes, the odd pine and flowering tree.
+    for (const [tx, ty] of hillside) groundDetail(tx, ty);
     for (const [tx, ty] of hillside) {
       const r = hash(tx * 13, ty * 7);
-      if (r > 0.3 + Math.min(0.25, height(tx * T + 8, ty * T + 8) * 0.25)) continue;
-      if (solid[ty][tx] || solid[ty - 1]?.[tx]) continue;
-      if (r < 0.04) tree(tx, ty, 'deep');
-      else pine(tx, ty);
+      if (solid[ty][tx] || solid[ty - 1]?.[tx] || cliff(tx * T + 8, ty * T + 12)?.face !== undefined) continue;
+      if (r < 0.085) { if (![[-2, 0], [2, 0], [0, -2], [-1, -1], [1, -1], [-2, -1], [2, -1]].some(([dx, dy]) => solid[ty + dy]?.[tx + dx])) grandTree(tx, ty); }
+      else if (r < 0.13) bush(tx, ty);
+      else if (r < 0.15) pine(tx, ty);
+      else if (r < 0.16) tree(tx, ty, hash(tx, ty) < 0.5 ? 'lilac' : 'flame');
     }
   }
 

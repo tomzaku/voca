@@ -479,6 +479,29 @@ export function tree(kind, w, h, seed) {
       const top = 12 + Math.round(Math.abs(x - cx) * 0.3), len = 26 + Math.floor(hash(seed, x) * 14) - Math.round(Math.abs(x - cx) * 0.3);
       for (let y = top; y < top + len; y++) cv.set(x + (y > top + len - 6 ? 1 : 0), y, y % 3 ? [104, 160, 92] : [72, 128, 74]);
     }
+  } else if (kind === 'grand') {
+    // A wide old crown, cluster on cluster, over a stout trunk whose roots
+    // spread into the grass.
+    const pal = { dark: [30, 82, 50], mid: [50, 124, 62], light: [92, 170, 72], shine: [168, 216, 104] };
+    trunk(cv, cx, 56, 92, 14);
+    for (const [dx, len] of [[-16, 10], [-10, 6], [10, 6], [16, 10]]) {
+      for (let i = 0; i < len; i++) cv.rect(cx + dx + Math.sign(dx) * Math.floor(i * 0.6), 86 + Math.floor(i / 3), 4, 2, i % 3 ? [98, 66, 44] : [130, 92, 62]);
+    }
+    crown(cv, cx, 38, 46, 36, pal, seed, 30);
+    // Leaf texture: small clumps, a dark tick under each.
+    for (let i = 0; i < 90; i++) {
+      const x = Math.round(cx + (hash(seed + 21, i) - 0.5) * 84), y = Math.round(8 + hash(seed + 23, i) * 60);
+      if (!cv.alpha(x, y) || !cv.alpha(x, y + 2)) continue;
+      cv.set(x, y + 1, pal.dark); cv.set(x + 1, y + 1, pal.dark);
+      cv.set(x, y, hash(seed, i) < 0.5 ? pal.light : pal.shine);
+    }
+  } else if (kind === 'bush') {
+    const pal = { dark: [34, 90, 52], mid: [62, 138, 64], light: [104, 178, 80], shine: [170, 214, 108] };
+    crown(cv, cx, 20, 15, 11, pal, seed, 6);
+    if (hash(seed, 1) < 0.4) for (let i = 0; i < 5; i++) {
+      const x = cx + (hash(seed, i * 3) - 0.5) * 20, y = 14 + hash(seed, i * 7) * 10;
+      if (cv.alpha(Math.round(x), Math.round(y))) { cv.set(x, y, [244, 236, 120]); cv.set(x + 1, y, [250, 250, 236]); }
+    }
   } else if (kind === 'pine') {
     cv.rect(cx - 2, 50, 4, 12, [96, 70, 50]);
     for (let tier = 0; tier < 4; tier++) {

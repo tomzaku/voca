@@ -56,6 +56,37 @@ export function banyan(tx, ty) {
   mark(used, tx - 2, ty - 3, 5, 5);
 }
 
+/** A big old forest tree of the tomb hills: a wide, lush crown of leaf
+ *  clusters on a stout trunk with roots gripping the ground — three tiles
+ *  across, the trunk blocking one. Drawn in detail by ../hd/art.mjs. */
+export function grandTree(tx, ty) {
+  if (inTheWay(tx, ty) || solid[ty]?.[tx] !== false) return false;
+  const cv = new Canvas(3 * T, 3 * T);
+  cv.kind = 'grand';
+  cv.rect(20, 30, 8, 16, [98, 66, 44]);
+  cv.rect(20, 30, 2, 16, [130, 92, 62]);
+  for (const [x, w] of [[15, 5], [28, 5]]) cv.rect(x, 42, w, 4, [98, 66, 44]);   // roots
+  cv.ellipse(24, 20, 22, 17, [36, 92, 54]);
+  cv.ellipse(23, 18, 20, 15, [56, 130, 64]);
+  for (const [x, y, r] of [[14, 13, 8], [30, 11, 8], [22, 22, 9], [33, 22, 6]]) { cv.ellipse(x, y, r, r * 0.8, [82, 158, 70]); cv.ellipse(x - 2, y - 2, r * 0.5, r * 0.4, [122, 186, 86]); }
+  stand(cv, tx, ty, 2 * T + 8, 15);
+  mark(used, tx - 1, ty - 2, 3, 3);
+  return true;
+}
+
+/** A leafy shrub on the hillside: low, round, walk-round-able. */
+export function bush(tx, ty) {
+  if (inTheWay(tx, ty) || solid[ty]?.[tx] !== false) return false;
+  const cv = new Canvas(T, T);
+  cv.kind = 'bush';
+  cv.ellipse(8, 10, 7, 5, [40, 96, 54]);
+  cv.ellipse(7, 9, 6, 4, [70, 144, 66]);
+  cv.ellipse(5, 7, 3, 2, [118, 182, 84]);
+  stand(cv, tx, ty, 4, 7);
+  mark(used, tx, ty, 1, 1);
+  return true;
+}
+
 /** Liễu — a weeping willow by the water: a small dome, strands hanging down. */
 export function willow(tx, ty) {
   if (inTheWay(tx, ty)) return;

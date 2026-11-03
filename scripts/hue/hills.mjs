@@ -1,35 +1,45 @@
 // The hills where the emperors lie: a height for every point south of the
-// city — a range of peaks along the map's southern edge, mountain masses
-// between and beside the tombs, the road winding along their foot — and the
-// light on it, from the north-west. The tombs stand up on the mountain: each
-// on a level plateau, the land falling away round it in terraces.
+// city. The tombs stand up on a highland, its front a tall cliff of rock
+// over the valley where the tombs' road runs; mesas of rock stand higher
+// on it, and past the road the mountains rise to the map's edge.
 //
-// The land rises in terraces, a cliff where each one steps up: the cliff's
-// rock face shows on its south side, towards you, a lip of grass along its
-// top and a shadow at its foot. Pines grow on the terraces right up to the
+// A cliff shows where the land steps up: its rock face on the south side,
+// towards you, grass hanging over its lip and a shadow at its foot. Where
+// land steps up away from you, only a band of shade shows. Pines grow on the terraces right up to the
 // summits (fill/greenery.mjs), as they do on the hills round the tombs —
 // the green only deepening as the land climbs.
 
 import { noise } from './core/canvas.mjs';
 import { H, HILLS_Y, PH, PW, T } from './layout.mjs';
 
-/** Peaks: [x, y, radius, height] in tiles. */
-const PEAKS = [
-  [52, 101, 8, 0.95],                                        // between Khải Định and Minh Mạng
-  [101, 99, 10, 1.05], [113, 110, 9, 1.0],                   // east of Minh Mạng
-  [3, 101, 5, 0.6],
-  [12, 119, 8, 0.95], [34, 120, 9, 1.05], [58, 119, 10, 1.1], [80, 121, 9, 1.0], [99, 119, 8, 0.95], [117, 119, 7, 0.9],
-];
-/** The tombs' plateaus: [x0, y0, x1, y1] in tiles — Tự Đức's, Khải Định's,
- *  Minh Mạng's — level at PLATEAU, the land falling from their edges over
- *  FALL tiles. */
-const PLATEAUS = [[2, 94, 19, 110], [27, 89, 42, 110], [70, 90, 89, 110]];
-const PLATEAU = 0.86, FALL = 4;
-/** The tombs' road runs along the foot of the range. */
-const ROAD_Y = 114.8;
-/** How much height makes one terrace, and how tall (map px) a cliff face is. */
-const STEP = 0.24, CLIFF = 12;
+/** The tomb hills come in a few big levels, the way a pixel-art map shows
+ *  height — not a slope of thin terraces. The highland the tombs stand on
+ *  (HIGH), its front a tall rock cliff above the valley the tombs' road
+ *  runs along; rock mesas standing higher on it (TOP); and the mountains
+ *  rising past the road along the map's southern edge. A level is a whole
+ *  number of STEPs, so each change of level is one cliff. */
+const HIGH = 0.96, TOP = 1.92;
+/** Where each tomb's wall is, the cliff runs straight at TOMB_FRONT (tiles)
+ *  so the wall stands on it; between the tombs it wanders. */
+const TOMB_SPANS = [[1, 21], [25, 44], [69, 91]];
+const TOMB_FRONT = 110;
+/** Rock mesas on the highland: [x0, y0, x1, y1] in tiles, edges roughened. */
+const MESAS = [[46, 93, 61, 104], [94, 92, 117, 105]];
+/** The highland's back edge, towards the city (its slope faces away). */
+const BACK_Y = 91.5;
+/** The mountains past the road start about here. */
+const RANGE_Y = 118.6;
+/** How much height makes one level, and how tall (map px) a cliff face is
+ *  in the hills — two tiles of rock — and on Ngự Bình's terraces. */
+const STEP = 0.24, CLIFF = 26, CLIFF_NB = 12;
 
+/** The row (tiles) the highland's cliff stands on, at column tx. */
+function frontY(tx) {
+  let d = Infinity;
+  for (const [a, b] of TOMB_SPANS) d = Math.min(d, tx < a ? a - tx : tx > b ? tx - b : 0);
+  const wander = 0.6 + Math.sin(tx * 0.42) * 0.7 + (noise(tx * T, 3, 50) - 0.5) * 1.4;
+  return TOMB_FRONT + wander * smooth(0, 3, d);
+}
 /** Ngự Bình, the "royal screen" the Citadel faces across the river: a
  *  long, flat-topped hill standing on its own in the plain north of the
  *  range, higher than the tombs' plateaus — its summit [x0, y0, x1, y1] in
@@ -41,7 +51,6 @@ export const NGU_BINH = { x0: 51, y0: 87.5, x1: 63, y1: 90.5, top: 1.2, fall: 5 
 const TOP_Y = 81;
 
 const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
-const bump = (tx, ty, [x, y, r, h]) => h * Math.exp(-((tx - x) ** 2 + (ty - y) ** 2) / (r * r));
 
 /** Ngự Bình's height at tile (tx, ty): its summit, then the slopes, the
  *  edge wandering a little so the terraces aren't drawn with a compass. */
@@ -56,17 +65,14 @@ function rawHeight(x, y) {
   const tx = x / T, ty = y / T;
   const nb = nguBinh(tx, ty, x, y);
   if (ty < HILLS_Y - 4) return nb;
-  let h = smooth(H - 12, H - 1, ty) * 0.35;
-  for (const p of PEAKS) h += bump(tx, ty, p);
-  h -= 0.5 * Math.exp(-((ty - ROAD_Y) ** 2) / 3);
-  h += (noise(x, y, 70) - 0.5) * 0.18;
-  h = Math.max(nb, Math.max(0, h) * smooth(HILLS_Y - 4, HILLS_Y + 2, ty));
-  for (const [x0, y0, x1, y1] of PLATEAUS) {
-    const d = Math.max(x0 - tx, tx - x1, y0 - ty, ty - y1);   // ≤ 0 inside
-    if (d <= 0) return PLATEAU;
-    h = Math.max(h, PLATEAU * (1 - smooth(0, FALL, d)));
+  const rough = (noise(x, y, 24) - 0.5) * 1.6;
+  let h = 0;
+  if (ty > BACK_Y + rough * 0.6 && ty < frontY(tx)) h = HIGH;
+  for (const [x0, y0, x1, y1] of MESAS) {
+    if (tx > x0 + rough && tx < x1 - rough && ty > y0 + rough && ty < y1 + rough * 0.5) h = TOP;
   }
-  return h;
+  if (ty > RANGE_Y + Math.sin(tx * 0.3) * 0.8 + rough) h = ty > RANGE_Y + 2.4 + rough ? TOP : HIGH;
+  return Math.max(nb, h);
 }
 
 // Worked out once, a value per map pixel from the hills down.
@@ -93,6 +99,7 @@ export const level = (x, y) => Math.floor(height(x, y) / STEP);
 /** How the light falls on the slope at (x, y): about -1 in shadow to 1
  *  facing the light, which comes from the north-west and above. */
 export function light(x, y) {
+  if (y >= (HILLS_Y - 4) * T) return 0;                 // level ground; its cliffs are drawn as cliffs
   const d = 6;
   const gx = (height(x + d, y) - height(x - d, y)) / (2 * d / T), gy = (height(x, y + d) - height(x, y - d)) / (2 * d / T);
   return Math.max(-1, Math.min(1, (gx + gy) * -5));
@@ -105,8 +112,9 @@ export function light(x, y) {
 export function cliff(x, y) {
   if (y < Y0) return null;
   const here = level(x, y);
-  for (let d = 1; d <= CLIFF; d++) if (level(x, y - d) > here) return { face: (CLIFF - d) / CLIFF };
-  for (let d = CLIFF + 1; d <= CLIFF + 3; d++) if (level(x, y - d) > here) return { shadow: 1 - (d - CLIFF) / 4 };
+  const C = y >= (HILLS_Y - 2) * T ? CLIFF : CLIFF_NB;
+  for (let d = 1; d <= C; d++) if (level(x, y - d) > here) return { face: (C - d) / C, d: d / C };
+  for (let d = C + 1; d <= C + 5; d++) if (level(x, y - d) > here) return { shadow: 1 - (d - C) / 6 };
   if (level(x, y + 1) < here || level(x - 1, y) < here || level(x + 1, y) < here) return { lip: true };
   // Where the land steps up to the south, the step's face is turned away
   // from you — only a band of shade at its foot shows, so a slope facing
@@ -117,7 +125,7 @@ export function cliff(x, y) {
 
 /** Wooden ladders up the cliffs, one every LADDER_EVERY tiles or so along
  *  each: their columns. */
-const LADDER_EVERY = 6;
+const LADDER_EVERY = 9;
 const isLadder = (tx) => (tx * 7 + 3) % LADDER_EVERY === 0;
 
 /** Mark the cliffs' tiles as blocking — where the face crosses a tile's
