@@ -3,7 +3,7 @@
 import { hash, mix, noise } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { ground } from '../core/world.mjs';
-import { cliff, height, level, light, TREELINE } from '../hills.mjs';
+import { cliff, height, level, light } from '../hills.mjs';
 import { HILLS_Y, PH, PW, T } from '../layout.mjs';
 
 /** The grass at map pixel (x, y), before anything's built on it. */
@@ -26,8 +26,8 @@ export function tinted(c, x, y) {
 
 /** The hills: grass deepening as the land rises and brightening terrace by
  *  terrace, lit on the slopes that face the north-west and shaded on the
- *  others; the cliffs between terraces — rock face, a lip of grass along the
- *  top, a shadow at the foot; above the tree line bare rock. */
+ *  others, cooler near the summits; the cliffs between terraces — rock face,
+ *  a lip of grass along the top, a shadow at the foot. */
 export function hillTint(c, x, y) {
   const h = height(x, y);
   if (h <= 0.01) return mix(c, [72, 134, 58], 0.3);
@@ -36,10 +36,8 @@ export function hillTint(c, x, y) {
   c = mix(c, [150, 196, 104], Math.min(0.5, lv * 0.11));
   const l = light(x, y);
   c = l > 0 ? mix(c, [168, 206, 120], l * 0.3) : mix(c, [28, 60, 40], -l * 0.35);
-  if (h > TREELINE) {
-    const rock = mix([156, 146, 128], [124, 116, 104], noise(x, y, 5));
-    c = mix(rock, l > 0 ? [200, 192, 176] : [92, 86, 78], Math.abs(l) * 0.4);
-  }
+  // High up, under the pines, a deeper and cooler green.
+  if (h > 0.95) c = mix(c, [44, 92, 56], Math.min(0.45, (h - 0.95) * 1.2));
   const cl = cliff(x, y);
   if (cl?.face !== undefined) {
     // The rock face: weathered stone in vertical runs, darker towards the foot.

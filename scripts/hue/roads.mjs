@@ -10,6 +10,8 @@
 //   lane   — packed dirt with wheel ruts and grass creeping in at the edges
 //   stone  — paved: the Citadel's courts, forecourts, the walking street
 //   path   — gravel: the footpaths winding through the riverside parks
+//   mountain — red laterite between stone kerbs, guard posts on the outer
+//            edge: the roads that climb into the tomb hills
 // A `court` is paved ground that things stand on — the library's island, the
 // esplanade under Kỳ Đài, the walking street round its fountain.
 // Its ends are cut square, so a straight road is exactly the rectangle it
@@ -41,6 +43,19 @@ const wavy = (x0, x1, y) => Array.from({ length: Math.max(2, Math.round(x1 - x0)
   const x = x0 + ((x1 - x0) * i) / Math.max(1, Math.round(x1 - x0));
   return [x, y + Math.sin(x * 0.7) * 0.3];
 });
+/** A smooth curve through `points` (Catmull–Rom), `n` steps a span — for
+ *  the hill roads, which bend round the slopes instead of zig-zagging. */
+const curve = (points, n = 6) => {
+  const out = [points[0]];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)], p1 = points[i], p2 = points[i + 1], p3 = points[Math.min(points.length - 1, i + 2)];
+    for (let j = 1; j <= n; j++) {
+      const t = j / n, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((a) => 0.5 * (2 * p1[a] + (-p0[a] + p2[a]) * t + (2 * p0[a] - 5 * p1[a] + 4 * p2[a] - p3[a]) * t2 + (-p0[a] + 3 * p1[a] - 3 * p2[a] + p3[a]) * t3)));
+    }
+  }
+  return out;
+};
 const road = (kind, width, points, opts = {}) => ({ kind, width, points, line: polyline(points), ...opts });
 /** A straight road covering the tile rectangle (x, y, w, h). */
 const box = (x, y, w, h, kind, opts) => (w >= h
@@ -78,9 +93,12 @@ export const ROADS = [
   box(54, 22, 2, 1, 'stone'), box(54, 31, 2, 3, 'stone'),
   // The south bank
   road('street', 2, [[0, 66], [97, 66]], { main: true }),         // Lê Lợi, along the river
-  // Điện Biên Phủ: south past Ga Huế and the end of its line, over the canal, up into
-  // the hills to the tombs.
-  road('street', 2, [[21, 67], [21, 84], [22.5, 91], [22.5, 100], [23.5, 106], [23.5, 114.5]]),
+  // Điện Biên Phủ: south past Ga Huế and the end of its line, over the
+  // canal to the foot of the hills — and from there a mountain road,
+  // switching back and forth up the slope between Tự Đức's and Khải Định's
+  // to the tombs' road.
+  road('street', 2, [[21, 67], [21, 84], [22.5, 90.5]]),
+  road('mountain', 2, curve([[22.5, 90], [22.6, 92], [24.6, 94.5], [24.4, 97], [21.4, 99.5], [21.4, 102], [24.6, 104.5], [24.6, 107], [21.6, 109.5], [22.4, 112.5], [23.5, 115]])),
   // Hùng Vương: south-east from Phú Xuân bridge, over the An Cựu canal.
   road('street', 2, [[67.5, 67], [68, 72], [70.5, 77], [70.5, 84]], { main: true }),
   box(48, 67, 2, 16, 'street'),                                   // from Lê Lợi park, over the canal, to the lane round Ngự Bình
@@ -88,10 +106,13 @@ export const ROADS = [
   // pines to Minh Mạng's tomb.
   road('lane', 2, [[44, 83], [52, 82], [60, 82.5], [70.5, 83.5]]),
   box(56, 83, 2, 6, 'stone', { stairs: true }),                                   // the stairs up Ngự Bình to its summit
-  road('lane', 2, [[70.5, 84], [68, 89], [66, 95], [65, 102], [65, 114.5]]),
-  // The tombs' road, winding through the hills from gate to gate.
-  road('lane', 1.6, [[2, 114.8], [10, 114.8], [16, 115.4], [21, 114.8], [27, 115.4], [34.5, 114.8], [42, 115.4],
-    [50, 115.6], [58, 115.3], [66, 114.9], [72, 115.4], [79, 114.8], [88, 114.8]]),
+  road('lane', 2, [[70.5, 84], [69, 88.5]]),
+  road('mountain', 2, curve([[69, 88], [67.5, 91], [64.6, 93.5], [64.4, 96], [67.4, 98.5], [67.4, 101], [64.4, 103.5], [64.4, 106], [67, 108.5], [66.6, 111.5], [65.5, 115]])),
+  // The tombs' road, winding along the foot of the range from one side of
+  // the map to the other — past each tomb's stairs, round the spurs between
+  // them, and on east up into the peaks.
+  road('mountain', 2, curve([[-1, 115.6], [4, 115.2], [10, 114.8], [16, 115.8], [23, 115.2], [29, 115.9], [34.5, 114.8], [41, 115.9],
+    [48, 116.6], [56, 116.2], [62, 115.4], [66, 115], [72, 115.8], [79, 114.8], [86, 115.4], [93, 116.6], [100, 116], [106, 114.6], [113, 114], [121, 114.6]])),
   // The tombs stand up on the mountain: stone stairs from each gate down the
   // terraces to the road.
   box(9, 110, 2, 5, 'stone'), box(33, 110, 3, 5, 'stone'), box(78, 110, 2, 5, 'stone'),

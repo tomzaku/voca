@@ -14,7 +14,7 @@ import { drawn, ground, over } from '../core/world.mjs';
 import { cliff as cliffAt } from '../hills.mjs';
 import { H as MAP_H, T, W as MAP_W, isWater } from '../layout.mjs';
 import { grassColor, tinted } from '../paint/terrain.mjs';
-import { shade } from '../paint/roads.mjs';
+import { mountainRoad, shade } from '../paint/roads.mjs';
 import { shoreDist } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
 import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, ladder, lamp, market, paddy, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
@@ -94,6 +94,7 @@ function roadAt(X, Y, mx, my, roads) {
     if (r.main && Math.abs(o) < 1 && s % 18 < 10) c = STREET.centreLine;
     return c;
   }
+  if (r.kind === 'mountain') return mountainRoad(X, Y, e, o, s, (r.width * T) / 2, K);
   if (r.kind === 'path') {
     if (e < 1) return [184, 168, 136];
     const h = hash(X, Y);

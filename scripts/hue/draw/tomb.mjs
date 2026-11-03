@@ -1,7 +1,7 @@
 // Tomb stonework: terraces, steps with dragon balustrades, the stone court's
 // statues, obelisks and stele pavilions.
 
-import { Canvas, hash, mix } from '../core/canvas.mjs';
+import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { ground, mark, place, solid, used } from '../core/world.mjs';
 import { roof } from './buildings.mjs';
@@ -15,15 +15,29 @@ export const STONE = {
 };
 
 /** A raised stone terrace: slabs on top, its front face along the bottom. The
- *  face row blocks except where `open` columns lead up steps. */
+ *  face row blocks except where `open` columns lead up steps. The slabs are
+ *  big and weathered — each its own shade, lichen staining them in patches,
+ *  moss in the joints, rain streaks down the face — so a wide court reads
+ *  as old stone rather than a grid. */
 export function terrace(tx, ty, tw, th, pal, open = []) {
   const x0 = tx * T, y0 = ty * T, x1 = (tx + tw) * T, y1 = (ty + th) * T;
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
-      let c = y < y0 + 2 ? pal.light : y >= y1 - 6 ? pal.face : pal.base;
-      if (y >= y0 + 2 && y < y1 - 6 && ((y - y0) % 8 === 0 || (x + ((Math.floor((y - y0) / 8) % 2) * 5)) % 10 === 0)) c = pal.line;
-      if (y >= y1 - 6 && (x - x0) % 6 === 0) c = mix(pal.face, [0, 0, 0], 0.2);
-      ground.set(x, y, mix(c, P.moss, hash(x, y) < 0.03 ? 0.4 : 0));
+      const row = Math.floor((y - y0) / 12), col = Math.floor((x - x0 + (row % 2) * 8) / 16);
+      let c;
+      if (y < y0 + 2) c = pal.light;
+      else if (y >= y1 - 6) {
+        c = (x - x0) % 6 === 0 ? mix(pal.face, [0, 0, 0], 0.2) : pal.face;
+        if (noise(x, 0, 3) > 0.7) c = mix(c, [40, 40, 38], 0.25 * (y - (y1 - 6)) / 6);   // rain streaks
+      } else {
+        c = mix(pal.base, pal.face, hash(col + tx * 31, row + ty * 17) * 0.35);
+        const stain = noise(x, y, 18);
+        if (stain > 0.62) c = mix(c, [64, 70, 58], (stain - 0.62) * 1.2);          // lichen
+        const joint = (y - y0 - 2) % 12 === 0 || (x - x0 + (row % 2) * 8) % 16 === 0;
+        if (joint) c = mix(pal.line, P.moss, hash(x, y) < 0.35 ? 0.45 : 0);
+        else if (hash(x, y) < 0.025) c = mix(c, P.moss, 0.4);
+      }
+      ground.set(x, y, c);
     }
   }
   ground.rect(x0, y1, x1 - x0, 2, P.shadow, 0.25);
@@ -50,28 +64,48 @@ export function steps(tx, ty, tw, th, pal, dragons = false) {
 }
 
 /** The stone court's guardians: mandarins, elephants and horses. Each
- *  stands on (and blocks) its tile. */
+ *  stands on (and blocks) its tile, on a plinth, outlined dark — they're
+ *  carved from the court's own stone, and without an edge they melted into
+ *  it — and lit from the left. */
 export function statue(tx, ty, kind, pal) {
-  const x = tx * T + 8, y = ty * T + 14;
-  ground.ellipse(x, y, 6, 2, P.shadow, 0.3);
+  const cv = new Canvas(T + 4, T + 4);
+  const x = 10, y = 16;
+  const lit = mix(pal.light, [255, 255, 250], 0.25);
+  cv.rect(x - 5, y - 2, 10, 3, pal.face);                  // the plinth
+  cv.rect(x - 5, y - 2, 10, 1, pal.light);
   if (kind === 'mandarin') {
-    ground.rect(x - 3, y - 11, 7, 11, pal.base);
-    ground.rect(x - 3, y - 11, 2, 11, pal.light);
-    ground.rect(x - 1, y - 7, 3, 4, pal.line);             // the tablet held at the chest
-    ground.rect(x - 2, y - 15, 5, 4, pal.light);
-    ground.rect(x - 3, y - 16, 7, 2, pal.face);            // the hat
+    // Short enough that a file of them, a tile apart, stays a file of figures.
+    cv.rect(x - 3, y - 9, 7, 7, pal.base);
+    cv.rect(x - 3, y - 9, 2, 7, lit);
+    cv.rect(x + 2, y - 9, 2, 7, pal.face);
+    cv.rect(x - 1, y - 7, 3, 3, pal.line);                 // the tablet held at the chest
+    cv.rect(x - 2, y - 12, 5, 3, pal.light);
+    cv.rect(x - 2, y - 12, 2, 3, lit);
+    cv.rect(x - 3, y - 13, 7, 2, pal.face);                // the hat
   } else if (kind === 'elephant') {
-    ground.ellipse(x, y - 6, 7, 5, pal.base);
-    ground.ellipse(x - 2, y - 8, 4, 2, pal.light);
-    for (const lx of [x - 5, x - 1, x + 3]) ground.rect(lx, y - 3, 2, 3, pal.face);
-    ground.rect(x - 8, y - 8, 2, 7, pal.base);             // trunk
-    ground.set(x - 5, y - 8, [40, 40, 40]);
+    cv.ellipse(x, y - 7, 7, 5, pal.base);
+    cv.ellipse(x - 2, y - 9, 4, 2, lit);
+    for (const lx of [x - 5, x - 1, x + 3]) cv.rect(lx, y - 4, 2, 3, pal.face);
+    cv.rect(x - 8, y - 9, 2, 7, pal.base);                 // trunk
+    cv.rect(x - 4, y - 10, 2, 3, pal.face);                // the ear
+    cv.set(x - 5, y - 9, [36, 36, 36]);
   } else {
-    ground.rect(x - 5, y - 8, 10, 4, pal.base);
-    ground.rect(x - 7, y - 13, 3, 6, pal.base);            // neck and head
-    ground.rect(x - 8, y - 13, 2, 2, pal.light);
-    for (const lx of [x - 5, x - 2, x + 2, x + 4]) ground.rect(lx, y - 4, 1, 4, pal.face);
+    cv.rect(x - 5, y - 9, 10, 5, pal.base);
+    cv.rect(x - 5, y - 9, 10, 1, lit);
+    cv.rect(x - 7, y - 14, 3, 7, pal.base);                // neck and head
+    cv.rect(x - 8, y - 14, 2, 2, lit);
+    for (const lx of [x - 5, x - 2, x + 2, x + 4]) cv.rect(lx, y - 4, 1, 3, pal.face);
   }
+  // The outline: every empty pixel touching the carving.
+  const edge = [];
+  for (let j = 0; j < cv.h; j++) for (let i = 0; i < cv.w; i++) {
+    if (cv.alpha(i, j)) continue;
+    if (cv.alpha(i - 1, j) || cv.alpha(i + 1, j) || cv.alpha(i, j - 1) || cv.alpha(i, j + 1)) edge.push([i, j]);
+  }
+  for (const [i, j] of edge) cv.set(i, j, [46, 44, 42]);
+  const ox = tx * T + 8 - x, oy = ty * T + 14 - y;
+  ground.ellipse(tx * T + 9, ty * T + 15, 7, 2, P.shadow, 0.35);
+  ground.blit(cv, ox, oy);
   solid[ty][tx] = true;
   mark(used, tx, ty, 1, 1);
 }

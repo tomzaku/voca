@@ -6,8 +6,9 @@
 //
 // The land rises in terraces, a cliff where each one steps up: the cliff's
 // rock face shows on its south side, towards you, a lip of grass along its
-// top and a shadow at its foot. Pines grow
-// on the terraces (fill/greenery.mjs); above the tree line it's bare rock.
+// top and a shadow at its foot. Pines grow on the terraces right up to the
+// summits (fill/greenery.mjs), as they do on the hills round the tombs —
+// the green only deepening as the land climbs.
 
 import { noise } from './core/canvas.mjs';
 import { H, HILLS_Y, PH, PW, T } from './layout.mjs';
@@ -88,9 +89,6 @@ export function height(x, y) {
 
 /** Which terrace (0 the plain) the point at map pixel (x, y) is on. */
 export const level = (x, y) => Math.floor(height(x, y) / STEP);
-
-/** Above this the trees give out to bare rock. */
-export const TREELINE = 1.22;
 
 /** How the light falls on the slope at (x, y): about -1 in shadow to 1
  *  facing the light, which comes from the north-west and above. */

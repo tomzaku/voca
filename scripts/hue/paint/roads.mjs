@@ -20,6 +20,40 @@ const offset = new Float32Array(PW * PH);
 const along = new Float32Array(PW * PH);
 const streets = new Uint8Array(PW * PH);
 
+/** A mountain road at pixel (x, y) — `e` px in from its edge, `o` px off
+ *  its centre, `s` px along it, `half` its half-width, all in map px; `x, y`
+ *  for the grain, at whatever resolution is drawing (`k` px to a map px).
+ *  Red laterite like the hill roads round Huế, packed and gravelled, a
+ *  crown of lighter earth where the wheels don't go; a kerb of dry-laid
+ *  stone blocks either side, and on its outer edge white guard posts with
+ *  a red band — the look of a road that climbs. */
+export function mountainRoad(x, y, e, o, s, half, k = 1) {
+  if (e < 0.6) return [62, 54, 44];                                           // the shadow under the kerb
+  if (e < 3) {
+    // Guard posts on one side, every few metres: white, a red band, a
+    // shadow cast down the road's grain.
+    if (o > 0 && s % 40 < 3) return e < 1.6 ? [190, 52, 44] : [244, 240, 232];
+    if (o > 0 && s % 40 >= 3 && s % 40 < 4) return [96, 86, 74];
+    const block = Math.floor(s / 7) + (o > 0 ? 3 : 0);
+    if (s % 7 < 0.75) return [98, 88, 76];                                   // the joints
+    const c = block % 3 === 0 ? [176, 166, 148] : block % 3 === 1 ? [158, 148, 130] : [168, 158, 140];
+    return e < 1.4 ? mix(c, [244, 238, 224], 0.35) : mix(c, [120, 110, 96], hash(Math.floor(x / k), Math.floor(y / k)) * 0.25);
+  }
+  let c = mix([178, 104, 70], [150, 84, 56], noise(x, y, 7 * k) * 0.8);
+  // The crown, lighter, and two wheel tracks either side of it.
+  const crown = Math.max(0, 1 - Math.abs(o) / (half * 0.35));
+  c = mix(c, [198, 132, 92], crown * 0.35);
+  const rut = Math.abs(Math.abs(o) - half * 0.45);
+  if (rut < 1.5) c = mix(c, [128, 70, 48], 0.4 * (1 - rut / 1.5));
+  // Gravel: pale chips and dark ones.
+  const h = hash(x, y);
+  if (h < 0.035) c = [222, 186, 150];
+  else if (h < 0.06) c = [118, 70, 50];
+  // A rim of shade along the kerb.
+  if (e < 4) c = mix(c, [96, 56, 40], (4 - e) * 0.2);
+  return c;
+}
+
 /** The colour of road pixel (x, y), or null where it's off the roads or
  *  grass shows through. */
 export function shade(x, y) {
@@ -36,6 +70,8 @@ export function shade(x, y) {
     if (e < 1) c = [118, 110, 98];
     else if (e < 2) c = [226, 220, 208];
     else if (e < 3) c = P.stoneEdge;
+  } else if (r.kind === 'mountain') {
+    c = mountainRoad(x, y, e, o, along[k], half);
   } else if (r.kind === 'path') {
     // A park path: fine gravel, its edge a darker line where the grass begins.
     c = hash(x, y) < 0.18 ? [200, 186, 156] : hash(x * 3, y) < 0.08 ? [240, 232, 214] : [222, 210, 182];

@@ -6,7 +6,7 @@ import { hash, mix, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { deck, drawn, ground, mark, solid, used } from '../core/world.mjs';
 import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plantAround, tree } from '../draw/trees.mjs';
-import { NGU_BINH, TREELINE, drawLadder, height, light, markCliffs } from '../hills.mjs';
+import { NGU_BINH, drawLadder, height, light, markCliffs } from '../hills.mjs';
 import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
 import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
 import { SCHOOL_GROUNDS } from '../places/southBank.mjs';
@@ -84,6 +84,8 @@ export function plantGreenery() {
       const reach = (r.width / 2 + 0.5) * T;
       for (const side of [-1, 1]) {
         const tx = Math.floor((cx + nx * reach * side) / T), ty = Math.floor((cy + ny * reach * side) / T);
+        // On a switchback the spot beside one bend can be on the next.
+        if (roadGap(tx, ty) < 0.5) continue;
         if (!bySchoolGate(tx, ty) && bankOk(tx, ty) && canPlantLoose(tx, ty)) plant(kinds[(tx + ty) % kinds.length], tx, ty);
       }
     }
@@ -125,7 +127,6 @@ export function plantGreenery() {
         if (edge >= depth && !wood && !hills) continue;
         if (used[ty][tx] || solid[ty][tx] || onAnyRoad(tx, ty) || isWater(tx * T + 8, ty * T + 8)) continue;
         if (nearSlot(tx - 1, ty - 1) || (used[ty + 1]?.[tx] && !wood && !hills)) continue;
-        if (height(tx * T + 8, ty * T + 8) > TREELINE) continue;           // bare rock above the tree line
         // In the hills, pines on the terraces instead of a closed canopy,
         // so the land's steps and cliffs show between them.
         if (ty >= HILLS_Y - 2) hillside.push([tx, ty]);
