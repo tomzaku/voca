@@ -38,6 +38,7 @@ const THEMES: { id: Theme; labelId: string; descId: string; icon: string }[] = [
 const engines: { id: TtsEnginePref; labelId: string; descId: string; badgeId?: string }[] = [
   { id: 'auto', labelId: 'settings.engineAuto', descId: 'settings.engineAutoDesc', badgeId: 'settings.badgeRecommended' },
   { id: 'native', labelId: 'settings.engineNative', descId: 'settings.engineNativeDesc', badgeId: 'settings.badgeFast' },
+  { id: 'cloud', labelId: 'settings.engineCloud', descId: 'settings.engineCloudDesc', badgeId: 'settings.badgeMobile' },
   { id: 'piper', labelId: 'settings.enginePiper', descId: 'settings.enginePiperDesc', badgeId: 'settings.badgeSafari' },
   {
     id: 'kokoro',
@@ -49,6 +50,7 @@ const engines: { id: TtsEnginePref; labelId: string; descId: string; badgeId?: s
 
 const ENGINE_NAME_ID: Record<TtsEngine, string> = {
   native: 'settings.engineNative',
+  cloud: 'settings.engineCloud',
   piper: 'settings.enginePiper',
   kokoro: 'settings.engineKokoro',
 };

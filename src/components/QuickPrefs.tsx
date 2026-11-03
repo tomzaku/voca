@@ -15,6 +15,7 @@ import { isKokoroSupported, speakText, stopSpeaking } from '../lib/tts';
 const ENGINES: { id: TtsEnginePref; labelId: string }[] = [
   { id: 'auto', labelId: 'quickPrefs.engineAuto' },
   { id: 'native', labelId: 'quickPrefs.engineNative' },
+  { id: 'cloud', labelId: 'quickPrefs.engineCloud' },
   { id: 'piper', labelId: 'quickPrefs.enginePiper' },
   { id: 'kokoro', labelId: 'quickPrefs.engineKokoro' },
 ];
@@ -28,6 +29,7 @@ const GROUPS: { accent: TtsVoice['accent']; gender: TtsVoice['gender']; labelId:
 
 const ENGINE_NAME_ID: Record<TtsEngine, string> = {
   native: 'quickPrefs.engineNative',
+  cloud: 'quickPrefs.engineCloud',
   piper: 'quickPrefs.enginePiper',
   kokoro: 'quickPrefs.engineKokoro',
 };
@@ -71,7 +73,7 @@ export function QuickPrefs() {
     setPreviewing(true);
     try {
       await speakText(SAMPLE, {
-        voice: engine === 'native' ? undefined : currentVoice,
+        voice: engine === 'native' || engine === 'cloud' ? undefined : currentVoice,
         onEnd: () => setPreviewing(false),
       });
     } catch {
@@ -181,9 +183,9 @@ export function QuickPrefs() {
           </p>
 
           <div className="flex items-center gap-1.5">
-            {engine === 'native' ? (
+            {engine === 'native' || engine === 'cloud' ? (
               <p className="flex-1 text-[11px] text-text-muted leading-snug">
-                <FormattedMessage id="quickPrefs.nativeHint" />
+                <FormattedMessage id={engine === 'cloud' ? 'quickPrefs.cloudHint' : 'quickPrefs.nativeHint'} />
               </p>
             ) : (
               <select

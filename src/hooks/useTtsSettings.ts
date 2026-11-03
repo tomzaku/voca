@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { ENGINE_WEIGHT, hasWebGPU, readDeviceSignals, recommendEngine } from '../lib/deviceTier';
 
-export type TtsEngine = 'kokoro' | 'piper' | 'native';
+/** `cloud` is synthesized server-side (speech edge function) and streamed as MP3. */
+export type TtsEngine = 'kokoro' | 'piper' | 'cloud' | 'native';
 /** What the user picked: an engine, or `auto` to let the device decide. */
 export type TtsEnginePref = TtsEngine | 'auto';
 
@@ -74,7 +75,7 @@ const AUTO_CAP_KEY = 'voca-tts-auto-cap';
 function getStoredEnginePref(): TtsEnginePref {
   try {
     const v = localStorage.getItem(ENGINE_KEY);
-    if (v === 'kokoro' || v === 'piper' || v === 'native' || v === 'auto') return v;
+    if (v === 'kokoro' || v === 'piper' || v === 'cloud' || v === 'native' || v === 'auto') return v;
   } catch { /* ignore */ }
   return 'auto';
 }
@@ -82,7 +83,7 @@ function getStoredEnginePref(): TtsEnginePref {
 function getAutoCap(): TtsEngine | null {
   try {
     const v = localStorage.getItem(AUTO_CAP_KEY);
-    if (v === 'kokoro' || v === 'piper' || v === 'native') return v;
+    if (v === 'kokoro' || v === 'piper' || v === 'cloud' || v === 'native') return v;
   } catch { /* ignore */ }
   return null;
 }

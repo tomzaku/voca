@@ -23,6 +23,7 @@ export default {
   'speaking.copy': 'Copy',
   'speaking.copyText': 'Copy text',
   'speaking.copied': 'Copied!',
+  'speaking.cloudVoiceHint': 'Using the cloud voice — pick Piper or Kokoro in Settings to choose one here.',
   'speaking.deviceVoiceHint': "Using your device's voice — pick an AI voice in Settings to choose one here.",
   'speaking.voice': 'Voice',
 

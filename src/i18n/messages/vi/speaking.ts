@@ -23,6 +23,7 @@ export default {
   'speaking.copy': 'Sao chép',
   'speaking.copyText': 'Sao chép văn bản',
   'speaking.copied': 'Đã sao chép!',
+  'speaking.cloudVoiceHint': 'Đang dùng giọng đám mây — chọn Piper hoặc Kokoro trong Cài đặt để chọn giọng tại đây.',
   'speaking.deviceVoiceHint': 'Đang dùng giọng của thiết bị — chọn giọng AI trong Cài đặt để chọn giọng tại đây.',
   'speaking.voice': 'Giọng đọc',
 

@@ -1,4 +1,5 @@
 // How much speech synthesis this device can take, for the "Auto" voice engine.
+// (Cloud, between native and Piper, runs on the server — see speechApi.ts.)
 //
 // The engines differ by orders of magnitude: native speech is free, Piper is a
 // ~60MB model whose inference runs on the main thread (piper-tts-web has no
@@ -25,8 +26,11 @@ export interface DeviceSignals {
   safari: boolean;
 }
 
-/** Heaviest last — the order Auto steps down through. */
-export const ENGINE_WEIGHT: TtsEngine[] = ['native', 'piper', 'kokoro'];
+/**
+ * Heaviest last — the order Auto steps down through. Cloud is light on the
+ * device (it only plays an MP3), so a desktop too slow for Piper lands there.
+ */
+export const ENGINE_WEIGHT: TtsEngine[] = ['native', 'cloud', 'piper', 'kokoro'];
 
 export function classifyDevice(s: DeviceSignals): DeviceTier {
   if (s.mobile || s.constrainedNetwork) return 'low';
@@ -39,7 +43,10 @@ export function classifyDevice(s: DeviceSignals): DeviceTier {
   return 'mid';
 }
 
-const TIER_ENGINE: Record<DeviceTier, TtsEngine> = { low: 'native', mid: 'piper', high: 'kokoro' };
+// Low-tier devices — every phone, and desktops short on memory or cores — get
+// the cloud voice: a natural voice without running a model. tts.ts falls back
+// to native per call when it's offline or unconfigured.
+const TIER_ENGINE: Record<DeviceTier, TtsEngine> = { low: 'cloud', mid: 'piper', high: 'kokoro' };
 
 /** The engine Auto runs on this device, never heavier than `cap`. */
 export function recommendEngine(s: DeviceSignals, cap?: TtsEngine | null): TtsEngine {

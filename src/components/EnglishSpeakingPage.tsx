@@ -413,9 +413,9 @@ function ReadAloudTab() {
           {intl.formatMessage({ id: state === 'playing' ? 'speaking.stop' : state === 'loading' ? 'speaking.loading' : 'speaking.readAloud' })}
         </button>
 
-        {engine === 'native' ? (
+        {engine === 'native' || engine === 'cloud' ? (
           <span className="text-xs text-text-muted">
-            <FormattedMessage id="speaking.deviceVoiceHint" />
+            <FormattedMessage id={engine === 'cloud' ? 'speaking.cloudVoiceHint' : 'speaking.deviceVoiceHint'} />
           </span>
         ) : (
           <Selector

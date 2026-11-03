@@ -9,12 +9,16 @@ describe('classifyDevice', () => {
     expect(recommendEngine(desktop)).toBe('kokoro');
   });
 
-  it('keeps phones and tablets on the native voice, however fast', () => {
-    expect(recommendEngine({ ...desktop, mobile: true })).toBe('native');
+  it('puts phones and tablets on the cloud voice, however fast', () => {
+    expect(recommendEngine({ ...desktop, mobile: true })).toBe('cloud');
   });
 
-  it('keeps data-saver and 2G connections off the big downloads', () => {
-    expect(recommendEngine({ ...desktop, constrainedNetwork: true })).toBe('native');
+  it('keeps data-saver and 2G connections off the big model downloads', () => {
+    expect(recommendEngine({ ...desktop, constrainedNetwork: true })).toBe('cloud');
+  });
+
+  it('puts low-power desktops on the cloud voice', () => {
+    expect(recommendEngine({ ...desktop, memoryGb: 2 })).toBe('cloud');
   });
 
   it('treats little memory or few cores as low', () => {
@@ -40,8 +44,12 @@ describe('recommendEngine cap', () => {
     expect(recommendEngine(desktop, 'native')).toBe('native');
   });
 
+  it('a desktop demoted from Piper lands on cloud', () => {
+    expect(recommendEngine(desktop, 'cloud')).toBe('cloud');
+  });
+
   it('a cap above the pick changes nothing', () => {
-    expect(recommendEngine({ ...desktop, mobile: true }, 'kokoro')).toBe('native');
+    expect(recommendEngine({ ...desktop, mobile: true }, 'kokoro')).toBe('cloud');
   });
 });
 
@@ -50,5 +58,7 @@ describe('isHeavyFor', () => {
     expect(isHeavyFor('kokoro', 'piper')).toBe(true);
     expect(isHeavyFor('piper', 'piper')).toBe(false);
     expect(isHeavyFor('native', 'kokoro')).toBe(false);
+    expect(isHeavyFor('piper', 'cloud')).toBe(true);
+    expect(isHeavyFor('cloud', 'cloud')).toBe(false);
   });
 });

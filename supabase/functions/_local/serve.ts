@@ -40,6 +40,7 @@ import questionSets from '../question-sets/index.ts';
 import quizzes from '../quizzes/index.ts';
 import settings from '../settings/index.ts';
 import speaking from '../speaking/index.ts';
+import speech from '../speech/index.ts';
 import storyGaps from '../story-gaps/index.ts';
 import streak from '../streak/index.ts';
 import teams from '../teams/index.ts';
@@ -79,6 +80,7 @@ const RESOURCES: Record<string, Handler> = {
   quizzes,
   settings,
   speaking,
+  speech,
   'story-gaps': storyGaps,
   streak,
   teams,

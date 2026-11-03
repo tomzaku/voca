@@ -2,6 +2,7 @@ import { cleanMarkdown } from './cleanMarkdown';
 import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
+import { speechUrl, type SpeechVoice } from './speechApi';
 import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
@@ -56,6 +57,7 @@ export { hasWebGPU };
 
 const ENGINE_NAME_ID: Record<TtsEngine, string> = {
   native: 'settings.engineNative',
+  cloud: 'settings.engineCloud',
   piper: 'settings.enginePiper',
   kokoro: 'settings.engineKokoro',
 };
@@ -243,27 +245,94 @@ export function preloadPiper() {
 // callers asking at once) carried on and played too — every word read twice.
 let session = 0;
 const stale = (ticket: number) => ticket !== session;
-let currentAudio: HTMLAudioElement | null = null;
-let currentUrl: string | null = null;
 
-function playBlob(blob: Blob, ticket: number): Promise<void> {
+// ─── Playback ──────────────────────────────────────────────────────
+//
+// One <audio> element for every clip, unlocked on the first tap. iOS only lets
+// a page start audio from inside a tap, and a clip here usually starts after an
+// await (a model generating it, or the cloud fetching it) — by then the tap is
+// over and a fresh `new Audio().play()` is refused, silently. An element that
+// has played once from a tap may play again later, so play a moment of silence
+// on the first tap anywhere and reuse that element from then on.
+
+let sharedAudio: HTMLAudioElement | null = null;
+let silentUrl: string | null = null;
+/** What's loaded right now, so stopping can revoke a blob URL we made. */
+let currentUrl: string | null = null;
+let ownsUrl = false;
+
+function audioEl(): HTMLAudioElement {
+  return sharedAudio ??= new Audio();
+}
+
+/** 0.1s of silence as a WAV — built here rather than shipped as a file. */
+function silence(): string {
+  if (silentUrl) return silentUrl;
+  const samples = 800;
+  const buf = new ArrayBuffer(44 + samples * 2);
+  const v = new DataView(buf);
+  const str = (o: number, t: string) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + samples * 2, true); str(8, 'WAVE');
+  str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, 'data'); v.setUint32(40, samples * 2, true);
+  return silentUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+
+if (typeof document !== 'undefined') {
+  const events = ['pointerdown', 'touchend', 'keydown'] as const;
+  const unlock = () => {
+    events.forEach((e) => document.removeEventListener(e, unlock, true));
+    const a = audioEl();
+    // A clip already loaded (auto-speak on arrival) was likely refused for want
+    // of a tap — this is one, so start it now; that unlocks the element too.
+    if (currentUrl) { a.play().catch(() => {}); return; }
+    const s = silence();
+    a.src = s;
+    // Only pause the silence: a real clip may have been loaded meanwhile.
+    a.play().then(() => { if (a.src === s) a.pause(); }).catch(() => {});
+  };
+  events.forEach((e) => document.addEventListener(e, unlock, { capture: true, passive: true }));
+}
+
+function releaseUrl() {
+  if (currentUrl && ownsUrl) URL.revokeObjectURL(currentUrl);
+  currentUrl = null;
+  ownsUrl = false;
+}
+
+/**
+ * Play `src` and resolve when it ends, fails, or is refused. `rate` is for
+ * clips that don't bake the speed in (cloud); model clips are made at speed.
+ * A clip cut off by the next one or by stopSpeaking() stays pending, as it
+ * always has — callers check their ticket, not this promise.
+ */
+function playSrc(src: string, ticket: number, rate = 1, owned = false): Promise<void> {
   return new Promise<void>((resolve) => {
-    if (stale(ticket)) { resolve(); return; }
+    if (stale(ticket)) { if (owned) URL.revokeObjectURL(src); resolve(); return; }
+    const audio = audioEl();
     // Never two clips at once, whoever started the other one.
-    if (currentAudio) currentAudio.pause();
-    if (currentUrl) URL.revokeObjectURL(currentUrl);
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    currentAudio = audio;
-    currentUrl = url;
+    audio.pause();
+    releaseUrl();
+    currentUrl = src;
+    ownsUrl = owned;
+    audio.src = src;
+    audio.defaultPlaybackRate = rate;
+    audio.playbackRate = rate;
     const done = () => {
-      if (currentAudio === audio) { currentAudio = null; URL.revokeObjectURL(url); currentUrl = null; }
+      if (currentUrl !== src) return; // replaced meanwhile
+      audio.onended = audio.onerror = null;
+      releaseUrl();
       resolve();
     };
     audio.onended = done;
     audio.onerror = done;
     audio.play().catch(done);
   });
+}
+
+function playBlob(blob: Blob, ticket: number): Promise<void> {
+  return playSrc(URL.createObjectURL(blob), ticket, 1, true);
 }
 
 const FIRST_CHUNK_CHARS = 120;
@@ -314,6 +383,43 @@ async function speakPiper(text: string, ticket: number, options?: { voice?: stri
   }
 }
 
+// ─── Cloud (speech edge function) ──────────────────────────────────
+
+/** Callers pass Kokoro/Piper ids (af_sarah, am_michael, …_male-…); keep the gender. */
+function voiceSlot(voice?: string): SpeechVoice {
+  if (!voice) return 'female';
+  return voice === 'male' || /^[ab]m_/.test(voice) || /(^|[-_])male\b/.test(voice) ? 'male' : 'female';
+}
+
+/**
+ * Read `text` with server-made clips, a sentence at a time, fetching the next
+ * while one plays. Resolves false when not even the first clip came back
+ * (offline, unconfigured, over the limit) so the caller can use the native
+ * voice instead; a failure part-way reads the rest natively.
+ */
+async function speakCloud(text: string, ticket: number, options?: { voice?: string; speed?: number; onStart?: () => void }): Promise<boolean> {
+  const chunks = splitIntoChunks(text);
+  const slot = voiceSlot(options?.voice);
+  const speed = options?.speed ?? getTtsSpeed();
+  let url = await speechUrl(chunks[0], slot);
+  if (stale(ticket)) return true;
+  if (!url) return false;
+  options?.onStart?.();
+  for (let i = 0; i < chunks.length; i++) {
+    const next = i + 1 < chunks.length ? speechUrl(chunks[i + 1], slot) : null;
+    await playSrc(url, ticket, speed);
+    if (stale(ticket) || !next) break;
+    const nextUrl = await next;
+    if (stale(ticket)) break;
+    if (!nextUrl) {
+      await speakNative(chunks.slice(i + 1).join(' '), { speed });
+      break;
+    }
+    url = nextUrl;
+  }
+  return true;
+}
+
 function speakNative(text: string, options?: { speed?: number; onStart?: () => void; onEnd?: () => void }): Promise<void> {
   speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
@@ -329,13 +435,12 @@ function speakNative(text: string, options?: { speed?: number; onStart?: () => v
 
 export function stopSpeaking() {
   session++;
-  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-  if (currentUrl) { URL.revokeObjectURL(currentUrl); currentUrl = null; }
+  if (currentUrl) { sharedAudio?.pause(); releaseUrl(); }
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
 }
 
 export function isTtsPlaying(): boolean {
-  return (currentAudio !== null && !currentAudio.paused) || speechSynthesis.speaking;
+  return (currentUrl !== null && !!sharedAudio && !sharedAudio.paused) || speechSynthesis.speaking;
 }
 
 // ─── Conversation read-aloud (two voices) ──────────────────────────
@@ -354,6 +459,13 @@ async function speakOnce(text: string, voice: string, ticket: number): Promise<v
 
   if (engine === 'native') {
     return speakNative(clean, { speed: getTtsSpeed() });
+  }
+
+  if (engine === 'cloud') {
+    if (!await speakCloud(clean, ticket, { voice }) && !stale(ticket)) {
+      return speakNative(clean, { speed: getTtsSpeed() });
+    }
+    return;
   }
 
   if (engine === 'piper' || (kokoroUnavailable && engine === 'kokoro')) {
@@ -414,6 +526,17 @@ export async function speakText(
   const engine = getTtsEngine();
 
   if (engine === 'native') {
+    options?.onStart?.();
+    await speakNative(clean, options);
+    return;
+  }
+
+  if (engine === 'cloud') {
+    if (await speakCloud(clean, ticket, options)) {
+      if (!stale(ticket)) options?.onEnd?.();
+      return;
+    }
+    if (stale(ticket)) return;
     options?.onStart?.();
     await speakNative(clean, options);
     return;
