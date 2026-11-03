@@ -33,4 +33,8 @@ export default {
   'world.edit': 'Sửa',
   'world.share': 'Chia sẻ',
   'world.delete': 'Xoá',
+  'world.questionChangeHint': 'Khó quá? Học bộ sưu tập khác',
+  'world.questionKeep': 'Giữ nguyên',
+  'world.questionChangeLead': 'Khó quá? Chọn bộ để học — câu tiếp theo sẽ lấy từ bộ đó.',
+  'world.questionSwitching': 'Đang tìm một từ trong bộ mới…',
 } satisfies Record<keyof typeof en, string>;

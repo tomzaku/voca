@@ -35,4 +35,8 @@ export default {
   'world.edit': 'Edit',
   'world.share': 'Share',
   'world.delete': 'Delete',
+  'world.questionChangeHint': 'Too hard? Study another collection',
+  'world.questionKeep': 'Keep this',
+  'world.questionChangeLead': 'Too hard? Pick a list to study — the next question comes from it.',
+  'world.questionSwitching': 'Finding a word from your new list…',
 } satisfies Catalog;

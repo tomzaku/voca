@@ -2,13 +2,16 @@
 // fare, the firework launch, a pool foul, a foosball power shot), made here so
 // the player's device never sees the answer before they choose.
 //
-//   GET  /questions ?count=          → { questions, collection }
+//   GET  /questions ?count=&collection= → { questions, collection }
 //        questions: { token, prompt, options }[]   no answer in sight
 //   POST /questions/check { token, choice } → { correct, answer }
 //
-// Which words: the collection the caller is studying RIGHT NOW (their
-// settings row, read here — so switching collections takes effect on the next
-// question, whatever the device last loaded), picked by the same rules as the
+// Which words: the collection the caller is studying — the device names it
+// (`?collection=`, so a switch made from a question takes effect on the very
+// next fetch, signed in or not, without racing the settings write), else their
+// settings row. Which words a collection holds is still read here, and a
+// learner's own or shared list through their RLS-scoped client, so naming a
+// collection gets you nothing you couldn't open anyway. Picked by the same rules as the
 // flash cards (_shared/pick.ts: difficult and new first, the rest when due).
 // A visitor gets Curated. Built-in collections are read from
 // _shared/systemCollections.json (`npm run export:collections`); a learner's
@@ -60,7 +63,9 @@ export default async function handler(req: Request): Promise<Response> {
 
       // The collection they're studying now.
       let collectionId = DEFAULT_COLLECTION;
-      if (auth.user) {
+      const asked = (url.searchParams.get('collection') ?? '').trim().slice(0, 64);
+      if (asked && (SYSTEM_WORDS[asked] || UUID.test(asked))) collectionId = asked;
+      else if (auth.user) {
         const { data } = await auth.supabase.from('user_settings').select('active_collection').eq('user_id', me).maybeSingle();
         if (typeof data?.active_collection === 'string' && data.active_collection) collectionId = data.active_collection;
       }

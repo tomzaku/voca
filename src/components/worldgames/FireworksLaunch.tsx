@@ -26,6 +26,7 @@ export function FireworksLaunch({ onClose, onLaunch }: { onClose: () => void; on
   const [streak, setStreak] = useState(0);
   const [launched, setLaunched] = useState(0);
   const [round, setRound] = useState(0);
+  const [switching, setSwitching] = useState(false);
 
   // A fresh round each time: from whatever you're studying now.
   useEffect(() => {
@@ -53,6 +54,17 @@ export function FireworksLaunch({ onClose, onLaunch }: { onClose: () => void; on
     window.setTimeout(() => setAt((i) => i + 1), correct ? 500 : 900);
   };
 
+  // A switch from the question: the rest of the round comes from the new list.
+  const switched = () => {
+    const left = Math.max(1, (qs?.length ?? ROUND) - at);
+    setSwitching(true);
+    fetchQuestions(left).then((more) => {
+      setSwitching(false);
+      // Nothing from the new list yet: the round carries on as it was.
+      if (more.length) setQs((cur) => [...(cur ?? []).slice(0, at), ...more]);
+    });
+  };
+
   const again = () => { setQs(null); setAt(0); setStreak(0); setLaunched(0); setFailed(false); setRound((r) => r + 1); };
 
   return (
@@ -71,7 +83,8 @@ export function FireworksLaunch({ onClose, onLaunch }: { onClose: () => void; on
         {failed && <p className="text-[13px]"><FormattedMessage id="world.fireworksNoWords" /></p>}
         {!qs && !failed && <PixelLoader label={<FormattedMessage id="world.fireworksLoading" />} />}
 
-        {q && (
+        {switching && <PixelLoader label={<FormattedMessage id="world.questionSwitching" />} />}
+        {q && !switching && (
           <>
             <div className="flex items-center justify-between text-[12px] mb-2 opacity-90">
               <span><FormattedMessage id="world.fireworksCount" values={{ n: at + 1, total: qs!.length }} /></span>
@@ -79,7 +92,7 @@ export function FireworksLaunch({ onClose, onLaunch }: { onClose: () => void; on
                 <FormattedMessage id="world.fireworksStreak" values={{ n: streak }} />
               </span>
             </div>
-            <WordQuestionCard key={at} q={q} onAnswered={answered} />
+            <WordQuestionCard key={at} q={q} onAnswered={answered} onCollectionChanged={switched} />
           </>
         )}
 
