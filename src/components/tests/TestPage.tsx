@@ -8,14 +8,9 @@ import { ApiError } from '../../lib/api';
 import {
   deleteTest,
   fetchTest,
-  fetchTestImage,
   fetchTestResults,
-  checkAnswer,
   formatDuration,
-  startTest,
-  submitTest,
   updateTest,
-  type Answers,
   type Check,
   type Leader,
   type ReviewItem,
@@ -24,36 +19,16 @@ import {
   type TestSummary,
 } from '../../lib/testsApi';
 import { HuntQuestion } from '../hunt/HuntQuestion';
-import { playCorrect, playSelect, playWin, playWrong } from '../../lib/sfx';
+import { shownAnswer, useTakeTest } from '../../hooks/useTakeTest';
 import { themeLook } from '../../lib/testThemes';
 import { Confetti, CountUp, Marked, ThemedProgress, ThemedStage, ThemePicker, ThemePreviewButton } from './ThemedStage';
 
 const DATE = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } as const;
 
-/** Answers so far live on this device too, so a refresh mid-test loses nothing. */
-const draftKey = (id: string) => `voca:test-draft:${id}`;
-function readDraft(id: string): Answers {
-  try {
-    const raw = localStorage.getItem(draftKey(id));
-    const parsed = raw ? JSON.parse(raw) : null;
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Answers : {};
-  } catch {
-    return {};
-  }
-}
-function writeDraft(id: string, answers: Answers | null) {
-  try {
-    if (answers) localStorage.setItem(draftKey(id), JSON.stringify(answers));
-    else localStorage.removeItem(draftKey(id));
-  } catch { /* private mode: the test still works, it just won't survive a refresh */ }
-}
-
 /** The moment the page opened — whether a test is open is decided once, not on every render. */
 function useOpenedAt(): number {
   return useState(() => Date.now())[0];
 }
-
-const shown = (a: string | string[] | undefined) => (Array.isArray(a) ? a.join(' · ') : a ?? '');
 
 /**
  * One collection test at /tests/:id — the link a teacher shares. Its owner
@@ -219,85 +194,17 @@ function TakeTest({ test, questions, initialChecked, leaderboard, onStarted, onD
   onDone: (test: TestSummary, review: ReviewItem[], leaderboard: Leader[]) => void;
 }) {
   const intl = useIntl();
-  const [answers, setAnswers] = useState<Answers>(() => readDraft(test.id));
-  // -1 is the cover page; questions.length the hand-in page.
-  const [at, setAt] = useState(-1);
-  const [sending, setSending] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [checked, setChecked] = useState<Record<string, Check>>(() => Object.fromEntries(initialChecked.map((c) => [c.questionId, c])));
-  // The question just marked here — it gets the burst or the shake; one
-  // marked on an earlier visit is shown quietly.
-  const [fresh, setFresh] = useState<string | null>(null);
-  const loadImage = useCallback((key: string) => fetchTestImage(test.id, key), [test.id]);
+  const {
+    answers, at, setAt, checked, fresh, starting, checking, sending, instant,
+    answered, rightSoFar, isAnswered, streakAt, loadImage, answer, begin, handIn: send,
+  } = useTakeTest({ test, questions, initialChecked, onStarted, onDone });
   const open = Date.parse(test.dueAt) > useOpenedAt();
-  const instant = test.instantFeedback;
   const look = themeLook(test.theme);
   const onStage = !!look.background;
-  const isAnswered = (qid: string) => !!checked[qid] || !!shown(answers[qid]).trim();
-  const answered = questions.filter((q) => isAnswered(q.id)).length;
-  const rightSoFar = Object.values(checked).filter((c) => c.correct).length;
-
-  const answer = async (q: TestQuestion, a: string | string[]) => {
-    const next = { ...answers, [q.id]: a };
-    setAnswers(next);
-    writeDraft(test.id, next);
-    if (!instant) {
-      playSelect();
-      setAt((i) => i + 1);
-      return;
-    }
-    if (checked[q.id] || checking) return;
-    setChecking(true);
-    try {
-      const c = await checkAnswer(test.id, q.id, a);
-      setChecked((m) => ({ ...m, [q.id]: c }));
-      setFresh(q.id);
-      if (c.correct) playCorrect(); else playWrong();
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  /** Right answers in a row, ending at question `i` — the streak shown after a hit. */
-  const streakAt = (i: number) => {
-    let n = 0;
-    for (let k = i; k >= 0 && checked[questions[k].id]?.correct; k--) n++;
-    return n;
-  };
-
-  // The server starts the clock and only then sends the questions. Pressing
-  // Start again after a reload keeps the clock it already has.
-  const begin = async () => {
-    if (test.startedAt && questions.length) { setAt(0); return; }
-    setStarting(true);
-    try {
-      const res = await startTest(test.id);
-      setChecked(Object.fromEntries(res.checked.map((c) => [c.questionId, c])));
-      onStarted(res.test, res.questions, res.checked);
-      setAt(0);
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setStarting(false);
-    }
-  };
 
   const handIn = async () => {
     if (answered < questions.length && !window.confirm(intl.formatMessage({ id: 'tests.confirmUnanswered' }, { n: questions.length - answered }))) return;
-    setSending(true);
-    try {
-      const res = await submitTest(test.id, answers);
-      writeDraft(test.id, null);
-      playWin();
-      onDone(res.test, res.review, res.leaderboard);
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setSending(false);
-    }
+    await send();
   };
 
   if (!open) {
@@ -385,7 +292,7 @@ function TakeTest({ test, questions, initialChecked, leaderboard, onStarted, onD
   }
 
   const q = questions[at];
-  const prev = shown(answers[q.id]);
+  const prev = shownAnswer(answers[q.id]);
   const mark = checked[q.id];
   const navText = onStage ? 'text-white/85 hover:text-white' : 'text-text-muted hover:text-text-primary';
   return (

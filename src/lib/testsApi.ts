@@ -12,6 +12,7 @@ import type { TestTheme } from './testThemes';
 export interface TestSummary {
   id: string;
   collectionId: string;
+  collectionName: string;
   /** The caller sent it: they see results, not the questions to answer. */
   isOwner: boolean;
   title: string;
@@ -81,7 +82,8 @@ export interface Leader {
 
 export type Answers = Record<string, string | string[]>;
 
-export async function listTests(collectionId: string): Promise<TestSummary[]> {
+/** One collection's tests — or, with none given, every test in the collections you own or have joined. */
+export async function listTests(collectionId?: string): Promise<TestSummary[]> {
   return (await request.get<{ tests: TestSummary[] }>('/tests', { params: { collection: collectionId } })).tests;
 }
 

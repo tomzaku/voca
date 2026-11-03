@@ -16,6 +16,9 @@
 // Anyone in the collection — its owner, a member, or (when it's public) any
 // signed-in visitor holding the link:
 //   GET    /tests ?collection=                    → { tests }  newest first
+//   GET    /tests                                 → { tests }  without a collection: every test in
+//                                                    the collections you own or have joined, newest
+//                                                    first — the world's classroom board
 //   GET    /tests/:id                             → { test, questions, checked, review, leaderboard }
 //   POST   /tests/:id/start                       → { test, questions, checked }  starts your clock; idempotent
 //   POST   /tests/:id/check { questionId, answer } → { check }  instant-feedback tests only: marks one
@@ -69,6 +72,9 @@ const SET_QUESTION_COLUMNS = 'id, type, prompt, answer, options, accept, say, sc
 /** More than a set can hold — a bound on the read, not a rule. */
 const MAX_QUESTIONS = 100;
 const LIST_LIMIT = 50;
+const COLLECTION_COLUMNS = 'id, name, owner_id, is_public, member_count';
+/** Collections one person belongs to, read for the cross-collection list — a bound, not a rule. */
+const MY_COLLECTIONS_LIMIT = 200;
 /** A class's every answer to one test, with room to spare. */
 const RESULTS_LIMIT = 20_000;
 const LEADERS = 3;
@@ -90,6 +96,7 @@ interface TestRow {
 
 interface CollectionRow {
   id: string;
+  name: string;
   owner_id: string;
   is_public: boolean;
   member_count: number;
@@ -111,11 +118,12 @@ class HttpError extends Error {
   }
 }
 
-function toSummary(t: TestRow, me: string, extra: { submittedCount: number; memberCount: number; mine: SubmissionRow | null; startedAt?: string | null }) {
+function toSummary(t: TestRow, me: string, col: CollectionRow, extra: { submittedCount: number; mine: SubmissionRow | null; startedAt?: string | null }) {
   return {
     id: t.id,
     isOwner: t.owner_id === me,
     collectionId: t.collection_id,
+    collectionName: col.name,
     title: t.title,
     dueAt: t.due_at,
     showLeaderboard: t.show_leaderboard,
@@ -124,7 +132,7 @@ function toSummary(t: TestRow, me: string, extra: { submittedCount: number; memb
     questionCount: t.question_count,
     createdAt: t.created_at,
     submittedCount: extra.submittedCount,
-    memberCount: extra.memberCount,
+    memberCount: col.member_count,
     myResult: extra.mine
       ? { score: extra.mine.score, total: extra.mine.total, durationMs: extra.mine.duration_ms, submittedAt: extra.mine.submitted_at }
       : null,
@@ -173,7 +181,7 @@ export default async function handler(req: Request): Promise<Response> {
   };
 
   const collection = async (cid: string): Promise<CollectionRow> => {
-    const { data, error } = await db.from('collections').select('id, owner_id, is_public, member_count').eq('id', cid).maybeSingle();
+    const { data, error } = await db.from('collections').select(COLLECTION_COLUMNS).eq('id', cid).maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) throw new HttpError(404, 'Collection not found.');
     return data as CollectionRow;
@@ -257,9 +265,8 @@ export default async function handler(req: Request): Promise<Response> {
 
   const summary = async (t: TestRow, col: CollectionRow) => {
     const [subs, starts] = await Promise.all([submissions([t.id]), startsOf([t.id])]);
-    return toSummary(t, me, {
+    return toSummary(t, me, col, {
       submittedCount: subs.length,
-      memberCount: col.member_count,
       mine: subs.find((s) => s.user_id === me) ?? null,
       startedAt: starts.get(t.id) ?? null,
     });
@@ -321,13 +328,33 @@ export default async function handler(req: Request): Promise<Response> {
 
     switch (route) {
       case 'GET': {
-        const cid = url.searchParams.get('collection') ?? '';
-        if (!UUID.test(cid)) return jsonResponse(400, { error: '"collection" is required.' });
-        const col = await visible(cid);
+        const cid = url.searchParams.get('collection');
+        let cols: CollectionRow[];
+        if (cid !== null) {
+          if (!UUID.test(cid)) return jsonResponse(400, { error: '"collection" must be a collection id.' });
+          cols = [await visible(cid)];
+        } else {
+          // Without one: every collection the caller owns or has joined.
+          const [owned, joined] = await Promise.all([
+            db.from('collections').select(COLLECTION_COLUMNS).eq('owner_id', me).limit(MY_COLLECTIONS_LIMIT),
+            db.from('collection_members').select('collection_id').eq('user_id', me).limit(MY_COLLECTIONS_LIMIT),
+          ]);
+          if (owned.error) throw new Error(owned.error.message);
+          if (joined.error) throw new Error(joined.error.message);
+          cols = (owned.data ?? []) as CollectionRow[];
+          const more = (joined.data ?? []).map((m) => m.collection_id as string).filter((id) => !cols.some((c) => c.id === id));
+          if (more.length) {
+            const { data, error } = await db.from('collections').select(COLLECTION_COLUMNS).in('id', more);
+            if (error) throw new Error(error.message);
+            cols = [...cols, ...((data ?? []) as CollectionRow[])];
+          }
+        }
+        if (!cols.length) return jsonResponse(200, { tests: [] });
+        const byId = new Map(cols.map((c) => [c.id, c]));
         const { data, error } = await db
           .from('collection_tests')
           .select('*')
-          .eq('collection_id', cid)
+          .in('collection_id', [...byId.keys()])
           .order('created_at', { ascending: false })
           .limit(LIST_LIMIT);
         if (error) throw new Error(error.message);
@@ -336,9 +363,8 @@ export default async function handler(req: Request): Promise<Response> {
         return jsonResponse(200, {
           tests: rows.map((t) => {
             const these = subs.filter((s) => s.test_id === t.id);
-            return toSummary(t, me, {
+            return toSummary(t, me, byId.get(t.collection_id)!, {
               submittedCount: these.length,
-              memberCount: col.member_count,
               mine: these.find((s) => s.user_id === me) ?? null,
               startedAt: starts.get(t.id) ?? null,
             });
@@ -386,7 +412,7 @@ export default async function handler(req: Request): Promise<Response> {
           await db.from('collection_tests').delete().eq('id', t.id);
           throw new Error(copyError.message);
         }
-        return jsonResponse(200, { test: toSummary(t, me, { submittedCount: 0, memberCount: col.member_count, mine: null }) });
+        return jsonResponse(200, { test: toSummary(t, me, col, { submittedCount: 0, mine: null }) });
       }
 
       case 'GET :id': {
@@ -591,7 +617,7 @@ export default async function handler(req: Request): Promise<Response> {
         }
         return jsonResponse(200, {
           results: {
-            test: toSummary(t, me, { submittedCount: subs.length, memberCount: col.member_count, mine: null }),
+            test: toSummary(t, me, col, { submittedCount: subs.length, mine: null }),
             students: [...subs].sort(rank).map((s) => ({
               userId: s.user_id,
               name: s.name,

@@ -14,6 +14,9 @@
 //             trips out of town, none running yet
 //   ladder    a quiz podium in Quốc Học's forecourt, inside the gate —
 //             fifteen general questions, easy to hard, and a teacher by it
+//   classroom a class noticeboard in Hai Bà Trưng's forecourt, west of the
+//             gate — the tests you've been set and your teams' boards, kept
+//             by a teacher in a white áo dài
 //   fireworks two launch pads on the citadel wall either side of Kỳ Đài, before
 //             Ngọ Môn, where Huế fires its Tết fireworks — only while the Tết
 //             decorations are up (festiveDecor.ts draws them)
@@ -35,6 +38,7 @@ export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolea
   { game: 'pool', x: 64.8, y: 64.2 },
   { game: 'foosball', x: 70.0, y: 64.4 },
   { game: 'ladder', x: 37.0, y: 69.5 },
+  { game: 'classroom', x: 25.0, y: 69.5 },
   { game: 'train', x: 18.4, y: 75.6 },
   ...FIREWORKS_PADS.map((p) => ({ game: 'fireworks', ...p, festive: true })),
 ];
@@ -54,6 +58,9 @@ const KEEPERS: { x: number; y: number; dress: KeeperDress }[] = [
   // Quốc Học's teacher, who runs the quiz ladder from beside the podium: a
   // grey-haired thầy in a navy áo the, the question book in hand.
   { x: 37.2, y: 70.1, dress: { look: { hair: 'shorthair', hairColor: 'grey', outfit: 'aoThe', outfitColor: 'navy', hat: 'none' }, prop: 'book' } },
+  // Hai Bà Trưng's teacher, by the class noticeboard: a cô in the white áo
+  // dài the school's girls were known for, her register in hand.
+  { x: 25.3, y: 70.1, dress: { look: { hair: 'longhair', hairColor: 'dark', outfit: 'aoDai', outfitColor: 'white', hat: 'none' }, prop: 'book' } },
 ];
 /** The pool table, on Phố đi bộ past the street piano. */
 const POOL = { x: 64.8, y: 63.7 };
@@ -63,6 +70,8 @@ const FOOS = { x: 70.0, y: 63.9 };
 const BOARD = { x: 18.4, y: 75.4 };
 /** The quiz podium, in Quốc Học's forecourt west of the gate. */
 const PODIUM = { x: 36.0, y: 70.0 };
+/** The class noticeboard, in Hai Bà Trưng's forecourt west of the gate. */
+const NOTICE = { x: 24.0, y: 70.0 };
 
 export interface ExtrasContext {
   scene: Phaser.Scene;
@@ -159,6 +168,18 @@ function makeTextures(scene: Phaser.Scene) {
     px(2, 11, 10, 3, '#24357a');
     px(6, 11, 2, 2, '#ffd23f');
   });
+  // A class noticeboard, a tile high like the podium: a rose frame in the
+  // school's colour on two posts, cream sheets pinned up — the homework, one
+  // with a red tick — and a gold star for the class's best.
+  canvasTexture(scene, 'extra-notice', 16, 14, (px) => {
+    px(3, 9, 2, 5, '#5a3a24'); px(11, 9, 2, 5, '#5a3a24');                  // the posts
+    px(0, 0, 16, 10, '#c8707a'); px(0, 0, 16, 1, '#e8a0a8');                // the frame
+    px(1, 1, 14, 8, '#6a4a32');                                             // cork
+    px(2, 2, 4, 5, '#f6f1e4'); px(3, 3, 2, 1, '#9a9a9a'); px(3, 5, 2, 1, '#9a9a9a');
+    px(7, 2, 4, 6, '#f6f1e4'); px(8, 3, 2, 1, '#9a9a9a'); px(8, 6, 1, 1, '#d42a2a'); px(9, 5, 1, 1, '#d42a2a');
+    px(12, 3, 2, 2, '#ffd23f'); px(12, 2, 1, 1, '#ffd23f'); px(13, 5, 1, 1, '#ffd23f');
+    for (const x of [3, 8]) px(x + 0.5, 2, 1, 1, '#d42a2a');                // pins
+  });
   // A station's departures board: a dark panel in a green frame on two
   // posts, three lines of amber lettering and a little clock over it.
   canvasTexture(scene, 'extra-board', 18, 20, (px) => {
@@ -175,7 +196,7 @@ function makeTextures(scene: Phaser.Scene) {
   });
 }
 
-/** Puts up the stage, the tables, the podium and their keepers. They stay: they're places, not decorations. */
+/** Puts up the stage, the tables, the podium, the noticeboard and their keepers. They stay: they're places, not decorations. */
 export function buildExtras(ctx: ExtrasContext) {
   const { scene, tilePx: k, scale, depth } = ctx;
   makeTextures(scene);
@@ -213,6 +234,9 @@ export function buildExtras(ctx: ExtrasContext) {
 
   const podium = scene.add.image(PODIUM.x * k, PODIUM.y * k, 'extra-podium').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(podium);
+
+  const notice = scene.add.image(NOTICE.x * k, NOTICE.y * k, 'extra-notice').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
+  ctx.tinted.push(notice);
 
   KEEPERS.forEach(({ x, y, dress }, i) => {
     const keeper = new Dressed(scene, x * k, y * k, dress.look, propLayers(dress)).setScale(scale).setDepth(depth.actors);

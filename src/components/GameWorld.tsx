@@ -32,6 +32,7 @@ import { FortuneSticks } from './worldgames/FortuneSticks';
 import { PoolMatch, PoolSolo } from './worldgames/PoolGames';
 import { Foosball } from './worldgames/Foosball';
 import { QuocHocLadder } from './worldgames/QuocHocLadder';
+import { HaiBaTrungClass } from './worldgames/HaiBaTrungClass';
 import { FireworksLaunch } from './worldgames/FireworksLaunch';
 import { startDonTune, stopDonTune } from '../lib/donTune';
 import { useFestive } from '../hooks/useFestive';
@@ -237,7 +238,7 @@ const INTRO_SEEN = 'voca-world-intro-seen';
 // A game's mark on its card: a pixel icon where the kit has one, else an emoji.
 const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = {
   piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' },
-  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, ladder: { icon: 'cap' }, train: { icon: 'train' },
+  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, ladder: { icon: 'cap' }, classroom: { icon: 'pencil' }, train: { icon: 'train' },
 };
 
 /** Where Ga Huế's trains will go, in the board's order (world.train.<id>). */
@@ -1559,6 +1560,7 @@ export function GameWorld({
       {!panel && playing === 'pool' && <PoolSolo onClose={() => setPlaying(null)} />}
       {!panel && playing === 'foosball' && <Foosball onClose={() => setPlaying(null)} />}
       {!panel && playing === 'ladder' && <QuocHocLadder onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'classroom' && <HaiBaTrungClass onClose={() => setPlaying(null)} />}
       {!panel && playing === 'fireworks' && festive && (
         <FireworksLaunch onClose={() => setPlaying(null)} onLaunch={(word, big) => scene()?.launchFirework(word, big)} />
       )}

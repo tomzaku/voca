@@ -162,7 +162,7 @@ interface PixelQuestionProps {
 }
 
 /** A new question remounts — a clean box, and its word read out. */
-function PixelQuestion(props: PixelQuestionProps) {
+export function PixelQuestion(props: PixelQuestionProps) {
   return <PixelQuestionBody key={questionKey(props.question)} {...props} />;
 }
 
