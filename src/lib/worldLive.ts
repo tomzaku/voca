@@ -16,9 +16,10 @@ import { REACTION_MS, isGift, isReaction, type Gift, type Reaction } from '../ga
 //
 // Signed out, you're a guest (`guest`, an id starting `guest-`): you walk
 // among everyone and they see you, under the name you gave — presence and
-// position only. A guest sends nothing else (no chat, waves, gifts or games)
-// and has no inbox, and others drop anything that claims to come from one, so
-// talking to anyone still takes signing in.
+// position, and reactions (a fixed set of gestures, rate-limited on arrival,
+// so there's nothing to say with them). A guest sends nothing else — no chat,
+// gifts or games — and has no inbox, and others drop anything else that
+// claims to come from one, so talking to anyone still takes signing in.
 
 export type Facing = 'left' | 'right' | 'up' | 'down';
 export interface Peer { id: string; name: string; look: Look; x: number; y: number; facing: Facing; moving: boolean }
@@ -165,7 +166,8 @@ export class WorldLive {
     });
     ch.on('broadcast', { event: 'msg' }, ({ payload }) => {
       const m = payload as LiveMessage;
-      if (!m || typeof m.from !== 'string' || isGuest(m.from) || this.blocked.has(m.from) || !this.peers.has(m.from)) return;
+      if (!m || typeof m.from !== 'string' || this.blocked.has(m.from) || !this.peers.has(m.from)) return;
+      if (isGuest(m.from) && m.kind !== 'react') return;
       // A guest can't answer an invite, so it never sees one.
       if (this.guest && m.kind === 'invite') return;
       if ('to' in m && m.to && m.to !== this.me.id && m.kind !== 'wave' && m.kind !== 'gift') return;
@@ -232,7 +234,7 @@ export class WorldLive {
   heartbeat() { this.sendPos(false); }
 
   send(m: Outgoing) {
-    if (!this.channel || this.guest) return;
+    if (!this.channel || (this.guest && m.kind !== 'react')) return;
     const payload = { ...m, from: this.me.id } as LiveMessage;
     if (payload.kind === 'chat') {
       const text = cleanChat(payload.text);

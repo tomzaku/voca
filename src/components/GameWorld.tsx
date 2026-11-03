@@ -1285,20 +1285,23 @@ export function GameWorld({
           (a call with a dialogue to follow), play, or just say hi. Blocking is
           hidden for now (rarely used); the connection still honours a block
           list. ── */}
-      {/* A guest on either side: you can go to them, not reach them. */}
+      {/* A guest on either side: you can wave and go to them, no more. */}
       {!panel && peerCard && (!user || isGuest(peerCard.id)) && (
         <WorldCard icon="person" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
           <p className="text-[13px] text-[var(--px-muted)] mb-2"><FormattedMessage id={user ? 'world.peerIsGuest' : 'world.guestPeer'} /></p>
-          <div className={`grid gap-1.5 ${user ? '' : 'grid-cols-2'}`}>
-            {!user && (
-              <PixelButton tone="gold" onClick={() => void signInWithGoogle()} className="!px-2 !py-2 !text-[13px]">
-                <FormattedMessage id="world.liveSignInShort" />
-              </PixelButton>
-            )}
+          <div className="grid grid-cols-2 gap-1.5">
+            <PixelButton tone="paper" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !py-2 !text-[13px]">
+              <span style={{ color: REACTION_ICONS.wave.color }}><PixelIcon rows={REACTION_ICONS.wave.rows} size={2} /></span> <FormattedMessage id="world.liveWave" />
+            </PixelButton>
             <PixelButton tone="jade" onClick={() => goToPeer(peerCard.id)} className="!px-2 !py-2 !text-[13px]">
               <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" />
             </PixelButton>
           </div>
+          {!user && (
+            <PixelButton tone="gold" block onClick={() => void signInWithGoogle()} className="!py-2 !text-[13px] mt-1.5">
+              <FormattedMessage id="world.liveSignInShort" />
+            </PixelButton>
+          )}
           <PixelButton tone="paper" block onClick={() => setPeerCard(null)} className="!py-2 !text-[13px] mt-1.5">
             <FormattedMessage id="world.busNotNow" />
           </PixelButton>
@@ -1477,9 +1480,9 @@ export function GameWorld({
               💬 {players}
               {dmUnread && <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#f08ac8] shadow-[0_0_0_2px_#000]" aria-label={intl.formatMessage({ id: 'world.dmUnread' })} />}
             </PixelButton>
-            {/* Reactions: the picker, opening upward; 1–6 do the same. Not
-                for a guest, whom no one else can see. */}
-            {!chatOpen && user && (
+            {/* Reactions: the picker, opening upward; 1–6 do the same. A
+                guest has these too — the one thing they can send. */}
+            {!chatOpen && (
               <div className="relative pointer-events-auto">
                 {reactOpen && (
                   <div className="absolute bottom-full left-0 mb-1.5 px-notch px-frame p-1 grid grid-cols-6 gap-1 w-max">
