@@ -1,9 +1,9 @@
 // Boats on the Hương: sampans with their woven hoods, and a dragon boat or
-// two — kept clear of the bridges, the wharf and the islets.
+// two — kept clear of the bridges, the wharf, the boardwalk and the islets.
 
 import { rand } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
-import { drawn, ground } from '../core/world.mjs';
+import { deck, drawn, ground } from '../core/world.mjs';
 import { ISLETS, RIVER_BRIDGES, T, isWater, isletE } from '../layout.mjs';
 
 export const BOATS = [];
@@ -35,6 +35,7 @@ export function launchBoats() {
       && !(tx + w > 40 && tx < 61)                                       // the wharf and the landing
       && !ISLETS.some((i) => isletE(i, tx * T, ty * T) < 2.5 || isletE(i, (tx + w) * T, ty * T) < 2.5)
       && [0, 0.5, 1].every((f) => [-T, 0, T].every((dy) => isWater((tx + w * f) * T, ty * T + dy)))
+      && ![Math.floor(ty), Math.floor(ty + 0.7)].some((y) => [0, 0.5, 1].some((f) => deck[y]?.[Math.floor(tx + w * f)]))   // the boardwalk
       && !BOATS.some(([x, y, bw]) => Math.abs(y - ty) < 2 && tx < x + bw + 2 && tx + w > x - 2);
     for (let i = 0; i < 400 && BOATS.length < 14; i++) {
       const big = BOATS.length % 5 === 4;
