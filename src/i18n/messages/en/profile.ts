@@ -2,6 +2,12 @@ import type { Catalog } from '../..';
 
 export default {
   'profile.defaultName': 'User',
+  'profile.editName': 'Change your name',
+  'profile.namePlaceholder': 'Your Google name',
+  'profile.saveName': 'Save name',
+  'profile.cancelName': 'Cancel',
+  'profile.nameSaved': 'Name updated',
+  'profile.nameFailed': 'Couldn\'t save your name — try again',
   'profile.notSignedIn': 'You\'re not signed in.',
   'profile.dayStreak': 'day streak',
   'profile.best': 'best {count}',

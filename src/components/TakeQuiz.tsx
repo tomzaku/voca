@@ -7,12 +7,8 @@ import { useAuth } from '../hooks/useAuth';
 import { fetchSharedQuiz, recordAttempt, type SharedQuiz } from '../lib/quizShare';
 import { QUESTION_TYPE_META } from '../lib/quizConfig';
 import { QuizRunner, type QuizResult } from './QuizRunner';
+import { accountName, MAX_ACCOUNT_NAME } from '../lib/accountName';
 
-function accountName(user: { user_metadata?: Record<string, unknown>; email?: string } | null): string {
-  if (!user) return '';
-  const meta = user.user_metadata ?? {};
-  return (meta.full_name as string) || (meta.name as string) || user.email || 'Student';
-}
 
 export function TakeQuiz() {
   const intl = useIntl();
@@ -43,7 +39,7 @@ export function TakeQuiz() {
 
   // Keep the name field in step with the signed-in account.
   useEffect(() => {
-    if (user) setName(accountName(user));
+    if (user) setName(accountName(user, MAX_ACCOUNT_NAME));
   }, [user]);
 
   if (stage === 'loading') {

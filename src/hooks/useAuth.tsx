@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { MAX_ACCOUNT_NAME } from '../lib/accountName';
 import { useVocabularyStore } from './useVocabulary';
 import { useCompanion } from './useCompanion';
 import { useCollections } from './useCollections';
@@ -15,6 +16,8 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Change the name others see you by; '' goes back to your Google name. */
+  renameAccount: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -23,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signInWithGoogle: async () => {},
   signOut: async () => {},
+  renameAccount: async () => {},
 });
 
 // True when the current URL looks like an in-progress OAuth callback — a PKCE
@@ -64,14 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       // Defer Supabase calls out of the auth callback. Supabase holds an internal
       // lock for the duration of this callback; awaiting another Supabase call
       // here deadlocks it and hangs every subsequent Supabase request.
       setTimeout(() => {
-        if (session?.user) {
+        // A rename changes the user, not whose data is on screen.
+        if (session?.user && event !== 'USER_UPDATED') {
           useVocabularyStore.getState().loadFromRemote();
           useCompanion.getState().loadFromRemote();
           useCollections.getState().loadFromRemote();
@@ -113,8 +118,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut({ scope: 'local' });
   }, []);
 
+  // Written as `display_name`, never over `full_name`: Supabase re-copies the
+  // Google profile into full_name on each sign-in, which would undo a rename.
+  // Throws on failure so the caller can say so.
+  const renameAccount = useCallback(async (name: string) => {
+    if (!supabase) return;
+    const trimmed = name.trim().slice(0, MAX_ACCOUNT_NAME);
+    const { error } = await supabase.auth.updateUser({ data: { display_name: trimmed || null } });
+    if (error) throw error;
+  }, []);
+
   return (
-    <AuthContext value={{ user, session, loading, signInWithGoogle, signOut }}>
+    <AuthContext value={{ user, session, loading, signInWithGoogle, signOut, renameAccount }}>
       {children}
     </AuthContext>
   );

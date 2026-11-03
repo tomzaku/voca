@@ -23,6 +23,7 @@
 
 import { corsHeaders, jsonResponse, optionalUser, requireUser, serviceClient } from '../_shared/ai.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { accountName } from '../_shared/accountName.ts';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX_NAME = 80;
@@ -68,7 +69,7 @@ async function ownerOf(ownerId: string): Promise<{ name: string | null; avatarUr
   const u = data?.user;
   const meta = (u?.user_metadata ?? {}) as Record<string, unknown>;
   return {
-    name: (meta.full_name as string | undefined) ?? u?.email?.split('@')[0] ?? null,
+    name: accountName(u),
     avatarUrl: (meta.avatar_url as string | undefined) ?? null,
   };
 }

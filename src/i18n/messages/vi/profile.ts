@@ -2,6 +2,12 @@ import type en from '../en/profile';
 
 export default {
   'profile.defaultName': 'Người dùng',
+  'profile.editName': 'Đổi tên của bạn',
+  'profile.namePlaceholder': 'Tên Google của bạn',
+  'profile.saveName': 'Lưu tên',
+  'profile.cancelName': 'Hủy',
+  'profile.nameSaved': 'Đã đổi tên',
+  'profile.nameFailed': 'Không lưu được tên — thử lại nhé',
   'profile.notSignedIn': 'Bạn chưa đăng nhập.',
   'profile.dayStreak': 'ngày liên tiếp',
   'profile.best': 'kỷ lục {count}',

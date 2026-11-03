@@ -59,6 +59,7 @@
 
 import type { SupabaseClient, User } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
+import { accountName } from '../_shared/accountName.ts';
 import {
   cleanQuestions,
   fromColumns,
@@ -151,8 +152,7 @@ function toSummary(t: TestRow, me: string, col: CollectionRow, extra: { submitte
 }
 
 function nameOf(user: User): string {
-  const meta = user.user_metadata ?? {};
-  return String(meta.full_name ?? user.email?.split('@')[0] ?? 'Student').slice(0, 60);
+  return accountName(user) ?? 'Student';
 }
 
 async function loadQuestions(db: SupabaseClient, testId: string): Promise<StoredQuestion[]> {

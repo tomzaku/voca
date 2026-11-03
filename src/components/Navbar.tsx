@@ -12,6 +12,7 @@ import { SearchModal } from './SearchModal';
 import { useWordSearch } from '../hooks/useWordSearch';
 import { QuickPrefs } from './QuickPrefs';
 import { FestiveGarland } from './FestiveGarland';
+import { accountName, MAX_ACCOUNT_NAME } from '../lib/accountName';
 
 // Desktop's Rail is always on screen, so this bar is just search + account
 // there, offset to clear its fixed-left column. Mobile hides Rail entirely
@@ -43,7 +44,7 @@ export function Navbar() {
   useHotkey('/', () => { if (!inWorld) openSearch(); });
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
-  const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || '';
+  const name = accountName(user, MAX_ACCOUNT_NAME);
   const initial = name[0]?.toUpperCase() ?? '?';
 
   return (

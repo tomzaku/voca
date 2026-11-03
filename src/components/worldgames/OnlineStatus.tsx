@@ -1,6 +1,7 @@
 import { FormattedMessage } from 'react-intl';
 import { useAuth } from '../../hooks/useAuth';
 import { PixelButton } from './pixel';
+import { accountName, MAX_ACCOUNT_NAME } from '../../lib/accountName';
 
 // Who you are and whether you're in the shared world, on your own menu.
 // Signed in: your account — photo, name and email, as the Profile page reads
@@ -28,7 +29,7 @@ export function OnlineStatus() {
 
   const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
   const email = user.email ?? '';
-  const name = (user.user_metadata?.full_name as string | undefined) || email.split('@')[0];
+  const name = accountName(user, MAX_ACCOUNT_NAME);
   return (
     <div className="px-inset px-notch p-3 mb-4">
       <div className="flex items-center gap-3">

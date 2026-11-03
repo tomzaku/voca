@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
@@ -18,15 +20,33 @@ import {
 } from '../lib/push';
 import { ToggleSwitch } from './ToggleSwitch';
 import { FriendsSection } from './FriendsSection';
+import { accountName, MAX_ACCOUNT_NAME } from '../lib/accountName';
 
 export function ProfilePage() {
   const intl = useIntl();
-  const { user, signOut } = useAuth();
+  const { user, signOut, renameAccount } = useAuth();
   const navigate = useNavigate();
   const push = usePushNotifications(user?.id);
   const { isPro, isTrial } = useIsPro();
   const streak = useStreak((s) => s.count);
   const longest = useStreak((s) => s.longest);
+
+  // The name is edited in place; null when not editing.
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const saveName = async () => {
+    if (draft === null || saving) return;
+    setSaving(true);
+    try {
+      await renameAccount(draft);
+      setDraft(null);
+      toast.success(intl.formatMessage({ id: 'profile.nameSaved' }));
+    } catch {
+      toast.error(intl.formatMessage({ id: 'profile.nameFailed' }));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -34,7 +54,7 @@ export function ProfilePage() {
   };
 
   const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
-  const name = (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || intl.formatMessage({ id: 'profile.defaultName' });
+  const name = accountName(user, MAX_ACCOUNT_NAME) || intl.formatMessage({ id: 'profile.defaultName' });
   const email = user?.email || '';
   const initial = name[0]?.toUpperCase() ?? '?';
 
@@ -68,7 +88,38 @@ export function ProfilePage() {
           </div>
         )}
         <div className="text-center">
-          <p className="font-medium text-text-primary">{name}</p>
+          {draft === null ? (
+            <button
+              onClick={() => setDraft(accountName(user, MAX_ACCOUNT_NAME))}
+              className="group inline-flex items-center gap-1.5 font-medium text-text-primary hover:text-accent-cyan transition-colors cursor-pointer"
+              aria-label={intl.formatMessage({ id: 'profile.editName' })}
+            >
+              {name}
+              <Icon icon="lucide:pencil" className="text-xs text-text-muted group-hover:text-accent-cyan" />
+            </button>
+          ) : (
+            <form
+              className="flex items-center gap-1.5"
+              onSubmit={(e) => { e.preventDefault(); void saveName(); }}
+            >
+              <input
+                autoFocus
+                value={draft}
+                maxLength={MAX_ACCOUNT_NAME}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setDraft(null); }}
+                placeholder={intl.formatMessage({ id: 'profile.namePlaceholder' })}
+                aria-label={intl.formatMessage({ id: 'profile.editName' })}
+                className="w-44 px-2 py-1 rounded-md bg-bg-tertiary border border-border text-sm text-text-primary text-center focus:outline-none focus:border-accent-cyan"
+              />
+              <button type="submit" disabled={saving} className="p-1.5 rounded-md text-accent-green hover:bg-bg-hover disabled:opacity-40 cursor-pointer" aria-label={intl.formatMessage({ id: 'profile.saveName' })}>
+                <Icon icon={saving ? 'lucide:loader-2' : 'lucide:check'} className={saving ? 'animate-spin' : ''} />
+              </button>
+              <button type="button" onClick={() => setDraft(null)} className="p-1.5 rounded-md text-text-muted hover:bg-bg-hover cursor-pointer" aria-label={intl.formatMessage({ id: 'profile.cancelName' })}>
+                <Icon icon="lucide:x" />
+              </button>
+            </form>
+          )}
           {email && <p className="text-sm text-text-muted">{email}</p>}
         </div>
 

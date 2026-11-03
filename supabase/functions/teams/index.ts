@@ -54,6 +54,7 @@ import {
   type ScoreWindow,
 } from '../_shared/teams.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { accountName } from '../_shared/accountName.ts';
 
 /** How many places a board returns before it cuts to the caller's own row. */
 const BOARD_LIMIT = 20;
@@ -400,8 +401,7 @@ export default async function handler(req: Request): Promise<Response> {
       await db.from('team_members').insert({
         team_id: (created as TeamRow).id,
         user_id: userId,
-        display_name: (meta.full_name as string | undefined) ??
-          auth.user.email?.split('@')[0] ?? null,
+        display_name: accountName(auth.user),
         avatar_url: (meta.avatar_url as string | undefined) ?? null,
         ...(await statsFor(userId, windowFor(created as TeamRow, Date.now()))),
       });
@@ -448,8 +448,7 @@ export default async function handler(req: Request): Promise<Response> {
         {
           team_id: target.id,
           user_id: userId,
-          display_name: (meta.full_name as string | undefined) ??
-            auth.user.email?.split('@')[0] ?? null,
+          display_name: accountName(auth.user),
           avatar_url: (meta.avatar_url as string | undefined) ?? null,
           ...(await statsFor(userId, windowFor(target, Date.now()))),
         },
@@ -533,8 +532,7 @@ export default async function handler(req: Request): Promise<Response> {
           user_id: userId,
           // Shared knowingly at this moment — this is the join button's promise,
           // written down. Refreshed on later board loads so it stays current.
-          display_name: (meta.full_name as string | undefined) ??
-            auth.user.email?.split('@')[0] ?? null,
+          display_name: accountName(auth.user),
           avatar_url: (meta.avatar_url as string | undefined) ?? null,
           ...(await statsFor(userId, windowFor(team, Date.now()))),
         },

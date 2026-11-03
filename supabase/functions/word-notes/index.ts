@@ -20,6 +20,7 @@
 
 import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
 import type { User } from 'npm:@supabase/supabase-js@2';
+import { accountName } from '../_shared/accountName.ts';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX_CONTENT = 2000;
@@ -39,9 +40,7 @@ function toNote(r: Record<string, unknown>) {
 
 /** What to sign a note with: the profile name, else the email's local part. */
 function displayName(user: User): string {
-  const meta = user.user_metadata as Record<string, unknown> | null;
-  const full = typeof meta?.full_name === 'string' ? meta.full_name : '';
-  return full || user.email?.split('@')[0] || 'Anonymous';
+  return accountName(user) ?? 'Anonymous';
 }
 
 /** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
