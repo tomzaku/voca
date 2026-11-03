@@ -2,7 +2,8 @@ import { cleanMarkdown } from './cleanMarkdown';
 import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, getCloudVoice, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
-import { speechUrl, type SpeechVoice } from './speechApi';
+import type { SpeechVoice } from './speechApi';
+import { getClip, type Clip } from './speechCache';
 import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
@@ -408,21 +409,23 @@ async function speakCloud(text: string, ticket: number, options?: { voice?: stri
   const chunks = splitIntoChunks(text);
   const slot = cloudVoiceFor(options?.voice);
   const speed = options?.speed ?? getTtsSpeed();
-  let url = await speechUrl(chunks[0], slot);
-  if (stale(ticket)) return true;
-  if (!url) return false;
+  // A clip that arrives after the read was stopped is never played; free it.
+  const discard = (c: Clip | null) => { if (c?.owned) URL.revokeObjectURL(c.src); };
+  let clip = await getClip(chunks[0], slot);
+  if (stale(ticket)) { discard(clip); return true; }
+  if (!clip) return false;
   options?.onStart?.();
   for (let i = 0; i < chunks.length; i++) {
-    const next = i + 1 < chunks.length ? speechUrl(chunks[i + 1], slot) : null;
-    await playSrc(url, ticket, speed);
-    if (stale(ticket) || !next) break;
-    const nextUrl = await next;
-    if (stale(ticket)) break;
-    if (!nextUrl) {
+    const next = i + 1 < chunks.length ? getClip(chunks[i + 1], slot) : null;
+    await playSrc(clip.src, ticket, speed, clip.owned);
+    if (stale(ticket) || !next) { void next?.then(discard); break; }
+    const nextClip = await next;
+    if (stale(ticket)) { discard(nextClip); break; }
+    if (!nextClip) {
       await speakNative(chunks.slice(i + 1).join(' '), { speed });
       break;
     }
-    url = nextUrl;
+    clip = nextClip;
   }
   return true;
 }
