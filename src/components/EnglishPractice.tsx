@@ -653,7 +653,7 @@ export function EnglishPractice() {
       )}
 
       <aside
-        className={`fixed top-0 right-0 bottom-0 z-50 ${drawerWidth} bg-bg-secondary border-l border-border flex flex-col transition-all duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 bottom-0 z-50 ${drawerWidth} pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] bg-bg-secondary border-l border-border flex flex-col transition-all duration-300 ease-in-out ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
