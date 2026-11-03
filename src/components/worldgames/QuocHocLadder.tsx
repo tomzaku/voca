@@ -17,13 +17,17 @@ const SUSPENSE_MS = 900;
 
 /**
  * The quiz ladder on the lawn beside Quốc Học: fifteen general questions,
- * easy to hard, with safe rungs and three helps (lib/quocHocLadder). Pick a
- * type, or all of them; your best climb per type is kept on this device.
+ * easy to hard, with safe rungs and three helps (lib/quocHocLadder). It
+ * opens straight on a climb of every type mixed at random; one type only is
+ * a choice you can make before the first answer (or after a climb ends), not
+ * a step in the way. Your best climb per type is kept on this device.
  */
 export function QuocHocLadder({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
   const locale = intl.locale;
-  const [game, setGame] = useState<LadderGame | null>(null);
+  const [game, setGame] = useState<LadderGame>(() => newLadder('all'));
+  /** Choosing one type of question instead — optional, over the climb. */
+  const [choosing, setChoosing] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
   /** The answer's outcome, once revealed, and the game it leads to. */
   const [result, setResult] = useState<{ correct: boolean; next: LadderGame; record: boolean } | null>(null);
@@ -31,10 +35,10 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  const start = (type: LadderType) => { setGame(newLadder(type)); setPicked(null); setResult(null); };
+  const start = (type: LadderType) => { setGame(newLadder(type)); setPicked(null); setResult(null); setChoosing(false); };
 
   const pick = (i: number) => {
-    if (!game || picked !== null || game.hidden.includes(i)) return;
+    if (picked !== null || game.hidden.includes(i)) return;
     setPicked(i);
     playSelect();
     timer.current = window.setTimeout(() => {
@@ -52,13 +56,13 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
   };
 
   const help = (l: Lifeline) => {
-    if (!game || picked !== null) return;
+    if (picked !== null) return;
     playSelect();
     setGame(l === 'half' ? takeHalf(game) : l === 'class' ? askClass(game) : swapQuestion(game));
   };
 
   const quit = () => {
-    if (!game || picked !== null) return;
+    if (picked !== null) return;
     const g = stop(game);
     const record = recordScore(g.type, g.over!.points);
     setBest(bestScores());
@@ -68,8 +72,11 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
   };
 
   // The question on screen — still shown after it ends the game.
-  const asked = game && current({ ...game, over: null });
+  const asked = current({ ...game, over: null });
   const over = result?.next.over ?? null;
+  // Changing type starts a new climb, so it's offered only while there's
+  // nothing to lose: before the first answer, or once the climb is over.
+  const canChange = (game.rung === 0 && picked === null) || !!over;
 
   return (
     <div className="px absolute inset-0 z-40 flex items-end sm:items-center justify-center p-3 bg-black/25" onKeyDown={(e) => e.stopPropagation()}>
@@ -82,22 +89,31 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
           <PixelButton tone="paper" onClick={onClose} className="!px-2.5 !py-1 !text-[13px] shrink-0"><FormattedMessage id="world.close" /></PixelButton>
         </div>
 
-        {!game ? (
+        {choosing ? (
           <div className="py-3 space-y-3 text-center">
             <p className="text-[14px]"><FormattedMessage id="world.ladderPickType" /></p>
             <div className="flex flex-wrap justify-center gap-2">
               {(['all', ...QUESTION_TYPES] as LadderType[]).map((t) => (
-                <PixelChip key={t} on={false} onClick={() => start(t)}>
+                <PixelChip key={t} on={t === game.type} onClick={() => start(t)}>
                   <FormattedMessage id={`world.ladderType.${t}`} />
                   {best[t] ? <span className="opacity-70 text-[11px] ml-1 inline-flex items-center gap-0.5"><PixelIcon name="star" size={1} />{best[t]}</span> : null}
                 </PixelChip>
               ))}
             </div>
             <p className="text-[12px] opacity-70"><FormattedMessage id="world.ladderRules" values={{ a: SAFE_RUNGS[0] + 1, b: SAFE_RUNGS[1] + 1 }} /></p>
+            <PixelButton tone="paper" onClick={() => { playSelect(); setChoosing(false); }} className="!px-2.5 !py-1 !text-[12px]"><FormattedMessage id="world.ladderKeepType" /></PixelButton>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-[1fr_168px]">
             <div className="space-y-3 min-w-0">
+              {canChange && (
+                <div className="flex items-center justify-between gap-2 text-[12px]">
+                  <span className="opacity-80"><FormattedMessage id="world.ladderPlaying" values={{ type: intl.formatMessage({ id: `world.ladderType.${game.type}` }) }} /></span>
+                  <PixelButton tone="paper" onClick={() => { playSelect(); setChoosing(true); }} className="!px-2 !py-0.5 !text-[12px]">
+                    <PixelIcon name="sliders" size={1} /> <FormattedMessage id="world.ladderChangeType" />
+                  </PixelButton>
+                </div>
+              )}
               {asked && (
                 <>
                   <div className="flex items-center justify-between text-[12px]">
@@ -147,7 +163,7 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
                   {result?.record && over.points > 0 && <p className="text-[13px]"><FormattedMessage id="world.ladderRecord" /></p>}
                   <div className="flex justify-center gap-2">
                     <PixelButton tone="gold" onClick={() => start(game.type)}><FormattedMessage id="world.ladderAgain" /></PixelButton>
-                    <PixelButton tone="paper" onClick={() => { setGame(null); setResult(null); setPicked(null); }}><FormattedMessage id="world.ladderOtherType" /></PixelButton>
+                    <PixelButton tone="paper" onClick={() => { playSelect(); setChoosing(true); }}><FormattedMessage id="world.ladderOtherType" /></PixelButton>
                   </div>
                 </div>
               ) : result ? (
