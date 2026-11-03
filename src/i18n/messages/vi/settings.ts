@@ -73,7 +73,7 @@ export default {
   'settings.voiceBritishMale': 'Nam (Anh)',
   'settings.nativeVoiceAuto': 'Giọng tốt nhất có sẵn',
   'settings.nativeVoiceNone': 'Không tìm thấy giọng tiếng Anh trên thiết bị này.',
-  'settings.nativeVoiceAppleTip': 'Để có giọng tự nhiên hơn, hãy tải về: Cài đặt → Trợ năng → Nội dung được đọc → Giọng nói → Tiếng Anh, rồi chọn giọng có nhãn Nâng cao hoặc Cao cấp (vd. Ava, Zoe). Giọng đó sẽ hiện ở đây sau khi tải.',
+  'settings.nativeVoiceAppleTip': 'Để có giọng tự nhiên hơn, hãy tải về: Cài đặt → Trợ năng → Đọc & Nói (trước iOS 26 là Nội dung được đọc) → Giọng nói → Tiếng Anh — hoặc tìm "Giọng nói" trong Cài đặt — rồi chọn giọng có nhãn Nâng cao hoặc Cao cấp (vd. Ava, Zoe). Giọng đó sẽ hiện ở đây sau khi tải.',
   'settings.nativeTierPremium': 'Cao cấp',
   'settings.nativeTierEnhanced': 'Nâng cao',
   'settings.soundEffects': 'Hiệu ứng âm thanh',

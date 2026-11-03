@@ -73,7 +73,7 @@ export default {
   'settings.voiceBritishMale': 'British Male',
   'settings.nativeVoiceAuto': 'Best available',
   'settings.nativeVoiceNone': 'No English voices found on this device.',
-  'settings.nativeVoiceAppleTip': 'For a natural voice, download one: Settings → Accessibility → Spoken Content → Voices → English, then pick a voice marked Enhanced or Premium (e.g. Ava, Zoe). It shows up here afterwards.',
+  'settings.nativeVoiceAppleTip': 'For a natural voice, download one: Settings → Accessibility → Read & Speak (Spoken Content before iOS 26) → Voices → English — or search "Voices" in Settings — then pick a voice marked Enhanced or Premium (e.g. Ava, Zoe). It shows up here afterwards.',
   'settings.nativeTierPremium': 'Premium',
   'settings.nativeTierEnhanced': 'Enhanced',
   'settings.soundEffects': 'Sound Effects',
