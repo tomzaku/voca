@@ -57,6 +57,8 @@ export function RevealedView({
   // close again on the next card.
   const [allPhrases, setAllPhrases] = useState(false);
   const [allFamily, setAllFamily] = useState(false);
+  const hasPhrases = (wordData.collocations?.length ?? 0) > 0;
+  const hasFamily = (wordData.wordFamily?.length ?? 0) > 0;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-4 sm:gap-5 items-start">
@@ -153,9 +155,13 @@ export function RevealedView({
             <SynAnt wordData={wordData} />
 
             {/* Collocations and family belong to the word itself, so they live
-                in its card — the right column is for going further with it. */}
-            {(wordData.collocations?.length ?? 0) > 0 && (
-              <div className="mt-3 pt-3 border-t border-border/60">
+                in its card — the right column is for going further with it.
+                From sm up they sit side by side, in the same two columns as
+                synonyms and antonyms above; on a phone, stacked. */}
+            {(hasPhrases || hasFamily) && (
+            <div className="mt-3 pt-3 border-t border-border/60 grid sm:grid-cols-2 gap-x-4 gap-y-3">
+            {hasPhrases && (
+              <div>
                 <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">
                   <FormattedMessage id="word.commonPhrases" />
                 </h4>
@@ -174,8 +180,8 @@ export function RevealedView({
                 <MoreToggle hidden={wordData.collocations!.length - CHIP_LIMIT} open={allPhrases} onToggle={() => setAllPhrases((v) => !v)} className="mt-2" />
               </div>
             )}
-            {(wordData.wordFamily?.length ?? 0) > 0 && (
-              <div className="mt-3 pt-3 border-t border-border/60">
+            {hasFamily && (
+              <div className={hasPhrases ? 'max-sm:pt-3 max-sm:border-t max-sm:border-border/60' : ''}>
                 <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5">
                   <FormattedMessage id="word.wordFamily" />
                 </h4>
@@ -194,6 +200,8 @@ export function RevealedView({
                 </div>
                 <MoreToggle hidden={wordData.wordFamily!.length - CHIP_LIMIT} open={allFamily} onToggle={() => setAllFamily((v) => !v)} className="mt-2" />
               </div>
+            )}
+            </div>
             )}
 
             <AnswerTally progress={progress} />
