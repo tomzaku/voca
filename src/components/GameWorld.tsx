@@ -18,7 +18,7 @@ import {
 } from '../game/types';
 import { COLLECTIONS_KEEPER, FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
 import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
-import { PlaceInfo } from './worldgames/PlaceInfo';
+import { PlaceEn, PlaceInfo } from './worldgames/PlaceInfo';
 import { VendorTalk } from './worldgames/VendorTalk';
 import { PlaceMemorial } from './worldgames/PlaceMemorial';
 import { RideButton } from './worldgames/RideButton';
@@ -1631,7 +1631,7 @@ export function GameWorld({
             <div key={busRide.place} className="space-y-1.5 animate-fade-in">
               <p className="px-title !text-[15px] text-[var(--px-gold)] leading-tight">
                 <FormattedMessage id={`places.${busRide.place}`} />
-                <span className="ml-2 text-[12px] text-[var(--px-muted)] normal-case"><FormattedMessage id={`places.${busRide.place}En`} /></span>
+                <PlaceEn as="span" id={busRide.place} className="ml-2 text-[12px] text-[var(--px-muted)] normal-case" />
               </p>
               <p className="text-[13px] leading-snug"><FormattedMessage id={`places.${busRide.place}About`} /></p>
               <p className="text-[12px] leading-snug text-[var(--px-muted)]">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { PixelButton, PixelIcon } from './pixel';
 
 // The story of the real place a skill's room stands in, as a toast under the
@@ -53,7 +53,7 @@ export function PlaceInfo({ id, onClose, onExpand }: { id: string; onClose: () =
           </span>
           <div className="flex-1 min-w-0">
             <p className="px-title !text-[16px] text-[var(--px-gold)] leading-tight"><FormattedMessage id={`places.${id}`} /></p>
-            <p className="text-[12px] text-[var(--px-muted)]"><FormattedMessage id={`places.${id}En`} /></p>
+            <PlaceEn id={id} className="text-[12px] text-[var(--px-muted)]" />
           </div>
           <button onClick={onClose} aria-label="close" className="text-[var(--px-muted)] hover:text-[var(--px-text)] p-1">
             <PixelIcon name="close" size={2} />
@@ -76,4 +76,13 @@ export function PlaceInfo({ id, onClose, onExpand }: { id: string; onClose: () =
       </div>
     </div>
   );
+}
+
+/** A place's English name under its name — left out where they're the same,
+ *  as they are in English, so an English map never shows a name twice. */
+export function PlaceEn({ id, className, as: Tag = 'p' }: { id: string; className?: string; as?: 'p' | 'span' }) {
+  const intl = useIntl();
+  const en = intl.formatMessage({ id: `places.${id}En` });
+  if (en === intl.formatMessage({ id: `places.${id}` })) return null;
+  return <Tag className={className}>{en}</Tag>;
 }

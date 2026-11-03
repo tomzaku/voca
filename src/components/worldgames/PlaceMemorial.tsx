@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { PlaceEn } from './PlaceInfo';
 import { PLACE_DETAILS } from '../../game/placeDetails';
 import { PixelIcon } from './pixel';
 
@@ -61,7 +62,7 @@ export function PlaceMemorial({ id, onClose }: { id: string; onClose: () => void
               <div className="min-w-0">
                 <p className="px-title !text-[12px] tracking-[0.2em] uppercase" style={{ color: VERMILION }}><FormattedMessage id="places.memorial" /></p>
                 <p className="px-title !text-[26px] leading-tight"><FormattedMessage id={`places.${id}`} /></p>
-                <p className={`${SERIF} italic text-[15px] opacity-75`}><FormattedMessage id={`places.${id}En`} /></p>
+                <PlaceEn id={id} className={`${SERIF} italic text-[15px] opacity-75`} />
               </div>
             </div>
             <div className="my-4 h-[3px]" style={{ background: `linear-gradient(90deg, ${VERMILION}, ${VERMILION} 30%, transparent)` }} />

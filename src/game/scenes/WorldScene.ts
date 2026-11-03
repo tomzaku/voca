@@ -665,7 +665,7 @@ export class WorldScene extends Phaser.Scene {
       const top = edges[i];
       const bottom = edges[i + 1];
       const label = this.meta.labels.find((l) => l.y >= top && l.y < bottom);
-      areas.push({ name: label?.text ?? t('world.areaFallback', { n: i + 1 }), theme: label?.theme ?? 'forest', top, bottom });
+      areas.push({ name: label ? (label.place ? t(`places.${label.place}`) : label.text) : t('world.areaFallback', { n: i + 1 }), theme: label?.theme ?? 'forest', top, bottom });
     }
     return areas;
   }
@@ -894,7 +894,7 @@ export class WorldScene extends Phaser.Scene {
       // Place names as a game's map writes them: outlined, no box, and quiet
       // until you're there.
       const text = this.add
-        .text(l.x, l.y, l.text, {
+        .text(l.x, l.y, l.place ? t(`places.${l.place}`) : l.text, {
           fontFamily: FONT,
           fontSize: '12px',
           fontStyle: 'bold',
