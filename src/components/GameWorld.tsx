@@ -31,6 +31,7 @@ import { CaiLuongStage } from './worldgames/CaiLuongStage';
 import { FortuneSticks } from './worldgames/FortuneSticks';
 import { PoolMatch, PoolSolo } from './worldgames/PoolGames';
 import { Foosball } from './worldgames/Foosball';
+import { QuocHocLadder } from './worldgames/QuocHocLadder';
 import { FireworksLaunch } from './worldgames/FireworksLaunch';
 import { startDonTune, stopDonTune } from '../lib/donTune';
 import { useFestive } from '../hooks/useFestive';
@@ -235,7 +236,7 @@ const INTRO_SEEN = 'voca-world-intro-seen';
 // A game's mark on its card: a pixel icon where the kit has one, else an emoji.
 const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = {
   piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' },
-  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' },
+  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, ladder: { icon: 'cap' },
 };
 
 /** One foldable section of the travel drawer. `onTitle`, when given, makes
@@ -1517,6 +1518,7 @@ export function GameWorld({
       {!panel && playing === 'fortune' && <FortuneSticks onClose={() => setPlaying(null)} />}
       {!panel && playing === 'pool' && <PoolSolo onClose={() => setPlaying(null)} />}
       {!panel && playing === 'foosball' && <Foosball onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'ladder' && <QuocHocLadder onClose={() => setPlaying(null)} />}
       {!panel && playing === 'fireworks' && festive && (
         <FireworksLaunch onClose={() => setPlaying(null)} onLaunch={(word, big) => scene()?.launchFirework(word, big)} />
       )}

@@ -9,6 +9,8 @@
 //             piano — solo practice; matches start from a player
 //   foosball  a bi lắc table on Phố đi bộ's east end, by the fountain — you
 //             against the computer
+//   ladder    a quiz podium on the lawn between Hai Bà Trưng and Quốc Học —
+//             fifteen general questions, easy to hard
 //   fireworks two launch pads on the citadel wall either side of Kỳ Đài, before
 //             Ngọ Môn, where Huế fires its Tết fireworks — only while the Tết
 //             decorations are up (festiveDecor.ts draws them)
@@ -27,6 +29,7 @@ export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolea
   { game: 'fortune', x: 13.2, y: 48.4 },
   { game: 'pool', x: 64.8, y: 64.2 },
   { game: 'foosball', x: 70.0, y: 64.4 },
+  { game: 'ladder', x: 33.9, y: 70.6 },
   ...FIREWORKS_PADS.map((p) => ({ game: 'fireworks', ...p, festive: true })),
 ];
 
@@ -40,6 +43,8 @@ const ALTAR = { x: 13.2, y: 48.0 };
 const POOL = { x: 64.8, y: 63.7 };
 /** The foosball table, by the fountain. */
 const FOOS = { x: 70.0, y: 63.9 };
+/** The quiz podium, on the lawn west of Quốc Học. */
+const PODIUM = { x: 33.9, y: 70.2 };
 
 export interface ExtrasContext {
   scene: Phaser.Scene;
@@ -124,6 +129,17 @@ function makeTextures(scene: Phaser.Scene) {
     px(12, 6, 1, 1, '#f6f1e4');
     px(1, 13, 2, 5, '#3a2214'); px(23, 13, 2, 5, '#3a2214');
   });
+  // A quiz podium: a navy desk with a gold edge, and a board above it lit
+  // with the ladder's rungs, the top one gold.
+  canvasTexture(scene, 'extra-podium', 16, 20, (px) => {
+    px(1, 0, 14, 10, '#b8860b');                        // the board's frame
+    px(2, 1, 12, 8, '#1c2a5a');
+    for (let i = 0; i < 4; i++) px(4, 2 + i * 2, 8, 1, i === 0 ? '#ffd23f' : '#6f8fe0');
+    px(7, 10, 2, 3, '#7a7a80');                         // its stand
+    px(2, 13, 12, 2, '#ffcf3f');                        // the desk
+    px(3, 15, 10, 5, '#24357a');
+    px(7, 16, 2, 2, '#ffd23f');                         // a gold star on its front
+  });
   // A floating note, for the music.
   canvasTexture(scene, 'extra-note', 5, 7, (px) => {
     px(3, 0, 1, 5, '#ffffff'); px(3, 0, 2, 1, '#ffffff'); px(4, 1, 1, 1, '#ffffff');
@@ -164,4 +180,7 @@ export function buildExtras(ctx: ExtrasContext) {
 
   const foos = scene.add.image(FOOS.x * k, FOOS.y * k, 'extra-foos').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(foos);
+
+  const podium = scene.add.image(PODIUM.x * k, PODIUM.y * k, 'extra-podium').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
+  ctx.tinted.push(podium);
 }
