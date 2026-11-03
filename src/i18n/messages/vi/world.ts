@@ -126,6 +126,8 @@ export default {
   'world.classHomework': 'Bài tập',
   'world.classBoard': 'Bảng lớp',
   'world.classNoTests': 'Chưa có bài kiểm tra nào. Khi thầy cô gửi bài cho bộ sưu tập bạn đã tham gia, bài sẽ được ghim ở đây.',
+  'world.classAllCollections': 'Tất cả bộ sưu tập',
+  'world.classNoTestsHere': 'Bộ sưu tập này chưa có bài kiểm tra nào.',
   'world.classToDo': 'Cần làm',
   'world.classDone': 'Đã nộp',
   'world.classMissed': 'Đã lỡ',

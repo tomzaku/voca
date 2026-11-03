@@ -128,6 +128,8 @@ export default {
   'world.classHomework': 'Homework',
   'world.classBoard': 'Class board',
   'world.classNoTests': 'No tests yet. When a teacher sends a test to a collection you’ve joined, it’s pinned up here.',
+  'world.classAllCollections': 'All collections',
+  'world.classNoTestsHere': 'No tests in this collection yet.',
   'world.classToDo': 'To do',
   'world.classDone': 'Handed in',
   'world.classMissed': 'Missed',

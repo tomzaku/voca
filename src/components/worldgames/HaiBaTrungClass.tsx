@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FormattedDate, FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../../hooks/useAuth';
 import { useTeams } from '../../hooks/useTeams';
+import { fetchCollections } from '../../lib/collectionsApi';
 import { shownAnswer, useTakeTest } from '../../hooks/useTakeTest';
 import {
   fetchTest,
@@ -20,7 +21,8 @@ import { PixelButton, PixelChip, PixelIcon, PixelLoader } from './pixel';
 // Hai Bà Trưng's classroom, kept by the teacher in the forecourt: the work
 // you've been set and how your class stands. Its two boards —
 //   Homework     every test sent to a collection you own or have joined
-//                (lib/testsApi), taken here at a desk, one question at a time
+//                (lib/testsApi) — or one collection's, picked from a chip —
+//                taken here at a desk, one question at a time
 //   Class board  your teams' leaderboards (hooks/useTeams)
 // Taking a test runs on hooks/useTakeTest, as the app's test page does; only
 // the drawing is the world's own. A test you sent opens in the app, where its
@@ -34,6 +36,8 @@ export function HaiBaTrungClass({ onClose }: { onClose: () => void }) {
   const { user, loading } = useAuth();
   const [tab, setTab] = useState<Tab>('homework');
   const [testId, setTestId] = useState<string | null>(null);
+  // Kept up here so coming back from a test lands on the same collection.
+  const [collection, setCollection] = useState<string | null>(null);
 
   return (
     <div className="px absolute inset-0 z-40 flex items-end sm:items-center justify-center p-3 bg-black/25" onKeyDown={(e) => e.stopPropagation()}>
@@ -65,7 +69,7 @@ export function HaiBaTrungClass({ onClose }: { onClose: () => void }) {
               ? <ClassBoard userId={user.id} />
               : testId
                 ? <Desk id={testId} onBack={() => setTestId(null)} />
-                : <Homework onOpen={setTestId} />}
+                : <Homework collection={collection} onCollection={setCollection} onOpen={setTestId} />}
           </>
         )}
       </div>
@@ -75,21 +79,60 @@ export function HaiBaTrungClass({ onClose }: { onClose: () => void }) {
 
 // ── Homework ──────────────────────────────────────────────────────────────
 
-function Homework({ onOpen }: { onOpen: (id: string) => void }) {
+function Homework({ collection, onCollection, onOpen }: {
+  /** One collection's tests, or null for every collection's. */
+  collection: string | null;
+  onCollection: (id: string | null) => void;
+  onOpen: (id: string) => void;
+}) {
   const [tests, setTests] = useState<TestSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [collections, setCollections] = useState<{ id: string; name: string }[]>([]);
   // Whether a test is still open is decided once, when the board opens.
   const [now] = useState(() => Date.now());
 
+  // The chips: every collection you own or have joined, mine first. Offline,
+  // there are no chips — the list of every test still shows.
   useEffect(() => {
     let alive = true;
-    listTests().then((t) => alive && setTests(t), (err) => alive && setError((err as Error).message));
+    // An owner can be a member of their own collection too: one chip each.
+    void fetchCollections().then((c) => {
+      if (!alive || !c) return;
+      const byId = new Map([...c.mine, ...c.joined].map(({ id, name }) => [id, { id, name }]));
+      setCollections([...byId.values()]);
+    });
     return () => { alive = false; };
   }, []);
 
-  if (error) return <p className="px-notch px-inset p-3 text-[var(--px-bad)]">{error}</p>;
-  if (!tests) return <PixelLoader label={<FormattedMessage id="world.classLoading" />} />;
-  if (!tests.length) return <p className="px-notch px-inset p-4 text-[14px]"><FormattedMessage id="world.classNoTests" /></p>;
+  // One collection is asked of the server by id, rather than filtered from
+  // the cross-collection list, which holds only the newest tests.
+  useEffect(() => {
+    let alive = true;
+    setTests(null);
+    setError(null);
+    listTests(collection ?? undefined).then((t) => alive && setTests(t), (err) => alive && setError((err as Error).message));
+    return () => { alive = false; };
+  }, [collection]);
+
+  const chips = collections.length > 1 && (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      <PixelChip on={collection === null} onClick={() => onCollection(null)}><FormattedMessage id="world.classAllCollections" /></PixelChip>
+      {collections.map((c) => (
+        <PixelChip key={c.id} on={collection === c.id} onClick={() => onCollection(c.id)}>{c.name}</PixelChip>
+      ))}
+    </div>
+  );
+
+  if (error) return <>{chips}<p className="px-notch px-inset p-3 text-[var(--px-bad)]">{error}</p></>;
+  if (!tests) return <>{chips}<PixelLoader label={<FormattedMessage id="world.classLoading" />} /></>;
+  if (!tests.length) {
+    return (
+      <>
+        {chips}
+        <p className="px-notch px-inset p-4 text-[14px]"><FormattedMessage id={collection ? 'world.classNoTestsHere' : 'world.classNoTests'} /></p>
+      </>
+    );
+  }
 
   const open = (t: TestSummary) => Date.parse(t.dueAt) > now;
   const groups: [string, TestSummary[]][] = [
@@ -101,6 +144,7 @@ function Homework({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <div className="space-y-3">
+      {chips}
       {groups.filter(([, list]) => list.length).map(([title, list]) => (
         <section key={title}>
           <p className="px-title !text-[12px] text-[var(--px-muted)] mb-1"><FormattedMessage id={title} /></p>
