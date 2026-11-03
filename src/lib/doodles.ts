@@ -146,10 +146,36 @@ export function readLegacyDoodle(key: string): string | null {
 }
 
 export function writeLocalDoodle(key: string, thumb: string): void {
-  try {
+  const write = () => {
     localStorage.setItem(DOODLE_PREFIX + key, thumb);
     for (const p of DOODLE_PREFIXES_LEGACY) localStorage.removeItem(p + key);
-  } catch { /* storage full — the in-memory copy still renders */ }
+  };
+  try {
+    write();
+  } catch {
+    // Full — make room among the other doodles rather than leave the quota
+    // pinned at its limit, where learning progress can no longer be saved.
+    evictDoodles();
+    try { write(); } catch { /* still full — the in-memory copy renders */ }
+  }
+}
+
+/**
+ * Free localStorage by dropping half the cached thumbnails (all of them on
+ * request). They're only a cache: a dropped one is looked up again from the
+ * server for free the next time its word is shown. Storage has no access
+ * order, so which half goes is arbitrary.
+ */
+export function evictDoodles(all = false): void {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith(DOODLE_PREFIX) || DOODLE_PREFIXES_LEGACY.some((p) => k.startsWith(p)))) keys.push(k);
+    }
+    const drop = all ? keys : keys.slice(0, Math.ceil(keys.length / 2));
+    for (const k of drop) localStorage.removeItem(k);
+  } catch { /* storage unavailable */ }
 }
 
 /**

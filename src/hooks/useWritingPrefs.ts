@@ -8,6 +8,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '../lib/safeStorage';
 import type { LearningCategory } from '../lib/learningCategories';
 
 export type WritingCorrectionCategory = Extract<LearningCategory, 'grammar' | 'vocabulary' | 'rephrase'>;
@@ -40,7 +41,7 @@ export const useWritingPrefs = create<WritingPrefsState>()(
     }),
     {
       name: 'voca-writing-prefs',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
     },
   ),
 );

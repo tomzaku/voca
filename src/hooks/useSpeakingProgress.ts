@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '../lib/safeStorage';
 
 export interface QuestionProgress {
   /** Times marked practiced — answering out loud, or an AI session on it. */
@@ -47,7 +48,7 @@ export const useSpeakingProgress = create<SpeakingProgressState>()(
     }),
     {
       name: 'voca-speaking-progress',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
     },
   ),
 );

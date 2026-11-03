@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '../lib/safeStorage';
 import type { AnswerVia, ReviewEvent, WordProgress, WordStatus } from '../types';
 import {
   fetchProgressList,
@@ -290,7 +291,7 @@ export const useVocabularyStore = create<VocabularyState>()(
     }),
     {
       name: 'voca-progress',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
       // The answer log is left out of the persisted copy: it's the bulk of the
       // payload, localStorage is a ~5MB budget for the whole origin, and this
       // blob is rewritten on every single answer. It's re-fetched per word on

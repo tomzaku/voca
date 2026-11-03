@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from '../lib/safeStorage';
 import type { LearningCategory } from '../lib/learningCategories';
 
 export type { LearningCategory };
@@ -46,7 +47,7 @@ export const useLearnings = create<LearningsState>()(
     }),
     {
       name: 'voca-english-learnings',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
     },
   ),
 );
