@@ -17,10 +17,12 @@
 // Speed isn't a parameter: the client sets playbackRate, so one cached clip
 // serves every speed setting.
 //
-// Open to visitors, like `word` — a guest on an iPhone should hear words too.
-// Only a cache miss costs anything, so only a miss is counted: per user, per
-// hashed IP for visitors, and one daily cap across everyone so a burst can't
-// run past Google's free allowance unnoticed.
+// Anyone may play a clip that already exists — a guest on an iPhone hears every
+// word someone has heard before. Making a NEW clip needs a signed-in user: an
+// IP limit is no defence against someone rotating addresses, and a burst of
+// junk text could otherwise use up the month's free allowance for everybody.
+// A guest's miss is a 401, which the app answers with the device voice.
+// Only a miss is counted: per user, and one daily cap across everyone.
 //
 // Env:
 //   GOOGLE_API_KEY             required — the project needs the Cloud
@@ -28,7 +30,6 @@
 //   GOOGLE_TTS_VOICE_FEMALE    optional (default en-US-Chirp3-HD-Aoede)
 //   GOOGLE_TTS_VOICE_MALE      optional (default en-US-Chirp3-HD-Charon)
 //   SPEECH_USER_DAILY_LIMIT    new clips per signed-in user per day (default 300)
-//   SPEECH_ANON_DAILY_LIMIT    new clips per visitor IP per day (default 60)
 //   SPEECH_TOTAL_DAILY_LIMIT   new clips across everyone per day (default 3000)
 //   SPEECH_MONTHLY_CHAR_LIMIT  characters sent to Google per UTC month
 //                              (default 900000 — under Chirp 3 HD's 1M free;
@@ -41,7 +42,7 @@
 // Deploy: `npm run db:push` (the bucket), then `supabase functions deploy speech`
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders, jsonResponse, optionalUser, serviceClient } from '../_shared/ai.ts';
+import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
 
 const BUCKET = 'speech';
 /** The client splits long text into sentences of ≤300; this leaves headroom. */
@@ -71,7 +72,7 @@ async function isCached(path: string): Promise<boolean> {
 /**
  * One day's budget of new clips under `key`. Reuses the keyed fixed-window
  * counter from the anon_rate_limit migration — it takes any key, not only
- * visitors'. Fails open on a database error, like the AI limits do.
+ * visitors' IPs. Fails open on a database error, like the AI limits do.
  */
 async function underLimit(svc: SupabaseClient, key: string, max: number): Promise<boolean> {
   const { data: allowed, error } = await svc.rpc('check_anon_rate_limit', {
@@ -88,14 +89,6 @@ async function withinMonthlyBudget(svc: SupabaseClient, chars: number): Promise<
   const { data, error } = await svc.rpc('reserve_speech_chars', { p_chars: chars, p_limit: limit });
   if (error) console.error('[speech] budget check failed:', error.message);
   return data === true;
-}
-
-async function callerKey(req: Request, userId: string | null): Promise<{ key: string; max: number }> {
-  if (userId) {
-    return { key: `speech:user:${userId}`, max: Number(Deno.env.get('SPEECH_USER_DAILY_LIMIT')) || 300 };
-  }
-  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'unknown';
-  return { key: `speech:ip:${await sha256(ip)}`, max: Number(Deno.env.get('SPEECH_ANON_DAILY_LIMIT')) || 60 };
 }
 
 /** Google Cloud TTS → MP3 bytes. Throws with Google's own message on failure. */
@@ -154,10 +147,11 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     if (await isCached(path)) return jsonResponse(200, { url: publicUrl(path) });
 
-    const { user } = await optionalUser(req);
-    const caller = await callerKey(req, user?.id ?? null);
+    const auth = await requireUser(req);
+    if (!auth) return jsonResponse(401, { error: 'Sign in to hear new sentences in the cloud voice.' });
+    const perUser = Number(Deno.env.get('SPEECH_USER_DAILY_LIMIT')) || 300;
     const total = Number(Deno.env.get('SPEECH_TOTAL_DAILY_LIMIT')) || 3000;
-    if (!await underLimit(svc, caller.key, caller.max) || !await underLimit(svc, 'speech:all', total)) {
+    if (!await underLimit(svc, `speech:user:${auth.user.id}`, perUser) || !await underLimit(svc, 'speech:all', total)) {
       return jsonResponse(429, { error: 'Speech limit reached for today.' });
     }
     // Last, so a request turned away above never spends budget.

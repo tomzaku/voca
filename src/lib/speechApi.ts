@@ -11,7 +11,8 @@ const TIMEOUT_MS = 15_000;
 /**
  * URL of an MP3 for `text`, or null on any failure — the caller falls back to
  * the device's own voice, so offline or over the daily limit still speaks.
- * `allowAnon`: visitors get cloud audio too (the server limits them by IP).
+ * `allowAnon`: a guest still gets clips that already exist; making a new one
+ * needs a sign-in, and that 401 is just another null here.
  */
 export async function speechUrl(text: string, voice: SpeechVoice, signal?: AbortSignal): Promise<string | null> {
   const res = await request.post<{ url: string }>('/speech', { text, voice }, {
