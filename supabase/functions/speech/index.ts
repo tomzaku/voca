@@ -25,8 +25,12 @@
 // Only a miss is counted: per user, and one daily cap across everyone.
 //
 // Env:
-//   GOOGLE_API_KEY             required — the project needs the Cloud
-//                              Text-to-Speech API enabled
+//   GOOGLE_TTS_API_KEY         a key from the Google Cloud project that has the
+//                              Cloud Text-to-Speech API enabled (and allowed in
+//                              the key's API restrictions). Falls back to
+//                              GOOGLE_API_KEY — a separate key lets speech live
+//                              in its own project without touching the Gemini
+//                              key the AI functions and doodles use.
 //   GOOGLE_TTS_VOICE_FEMALE    optional (default en-US-Chirp3-HD-Aoede)
 //   GOOGLE_TTS_VOICE_MALE      optional (default en-US-Chirp3-HD-Charon)
 //   SPEECH_USER_DAILY_LIMIT    new clips per signed-in user per day (default 300)
@@ -97,7 +101,7 @@ async function synthesize(text: string, voiceName: string): Promise<Uint8Array> 
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-goog-api-key': Deno.env.get('GOOGLE_API_KEY') ?? '',
+      'x-goog-api-key': Deno.env.get('GOOGLE_TTS_API_KEY') || Deno.env.get('GOOGLE_API_KEY') || '',
       // Not Deno's default — see NO_USER_AGENT in _shared/ai.ts.
       'user-agent': '',
     },
