@@ -9,6 +9,7 @@ import { BuddyBadge } from '../BuddyBadge';
 import { AnswerTally } from './AnswerTally';
 import { BucketTag } from './BucketTag';
 import { DefLengthToggle, ExampleList, PosChip } from './parts';
+import { MoreToggle } from '../MoreToggle';
 import { LEVEL_COLOR, LEVEL_LABEL_ID } from './constants';
 import { peekWord } from '../../hooks/useWordPeek';
 import { getMotherLanguage } from '../../lib/languages';
@@ -52,6 +53,10 @@ export function RevealedView({
 }) {
   const intl = useIntl();
   const headword = wordData.headword || wordData.word;
+  // Phrases and family open at two each; keyed by word upstream, so these
+  // close again on the next card.
+  const [allPhrases, setAllPhrases] = useState(false);
+  const [allFamily, setAllFamily] = useState(false);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[2.2fr_1fr] gap-4 sm:gap-5 items-start">
@@ -155,7 +160,7 @@ export function RevealedView({
                   <FormattedMessage id="word.commonPhrases" />
                 </h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {wordData.collocations!.map((c) => (
+                  {(allPhrases ? wordData.collocations! : wordData.collocations!.slice(0, CHIP_LIMIT)).map((c) => (
                     <button
                       key={c}
                       onClick={(e) => peekWord(c, e.currentTarget)}
@@ -166,6 +171,7 @@ export function RevealedView({
                     </button>
                   ))}
                 </div>
+                <MoreToggle hidden={wordData.collocations!.length - CHIP_LIMIT} open={allPhrases} onToggle={() => setAllPhrases((v) => !v)} className="mt-2" />
               </div>
             )}
             {(wordData.wordFamily?.length ?? 0) > 0 && (
@@ -174,7 +180,7 @@ export function RevealedView({
                   <FormattedMessage id="word.wordFamily" />
                 </h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {wordData.wordFamily!.map((f) => (
+                  {(allFamily ? wordData.wordFamily! : wordData.wordFamily!.slice(0, CHIP_LIMIT)).map((f) => (
                     <button
                       key={`${f.word}-${f.pos}`}
                       onClick={(e) => peekWord(f.word, e.currentTarget)}
@@ -186,6 +192,7 @@ export function RevealedView({
                     </button>
                   ))}
                 </div>
+                <MoreToggle hidden={wordData.wordFamily!.length - CHIP_LIMIT} open={allFamily} onToggle={() => setAllFamily((v) => !v)} className="mt-2" />
               </div>
             )}
 
@@ -317,6 +324,8 @@ export function RevealedView({
 
 // One look for every word chip on the card (phrases, family). Colour is kept
 // for state — bucket, level, right/wrong — so it still means something.
+/** Phrase and family chips shown before "Show more". */
+const CHIP_LIMIT = 2;
 const WORD_CHIP =
   'text-xs px-2.5 py-1 rounded-full bg-bg-tertiary text-text-secondary border border-border hover:text-accent-cyan hover:border-accent-cyan/40 transition-all cursor-pointer';
 

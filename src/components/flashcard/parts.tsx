@@ -2,9 +2,14 @@
 // guess view (word hidden) and the revealed view. Anything used by only one of
 // them lives in that view's file instead.
 
+import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { maskAnswer, familyForms } from '../../lib/answerMask';
 import { PeekText } from '../PeekText';
+import { MoreToggle } from '../MoreToggle';
+
+/** Examples shown on a revealed card before "Show more". */
+const REVEALED_EXAMPLES = 1;
 import type { VocabularyWord } from '../../types';
 
 // Dictionary abbreviations for the part-of-speech chip. The full word is fine on
@@ -96,9 +101,13 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
   onSpeak: (index: number, text: string) => void;
 }) {
   const intl = useIntl();
+  const [showAll, setShowAll] = useState(false);
   if (wordData.examples.length === 0) return null;
   const answerWord = wordData.headword || wordData.word;
-  const examples = masked ? wordData.examples.slice(0, 2) : wordData.examples;
+  // Guessing, two are the clue. Revealed, one is enough to see the word at
+  // work; the rest are a tap away.
+  const limit = masked ? 2 : showAll ? wordData.examples.length : REVEALED_EXAMPLES;
+  const examples = wordData.examples.slice(0, limit);
   return (
     <div className="mt-3 pt-3 border-t border-border/60">
       <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-2"><FormattedMessage id="flashcard.examples" /></h4>
@@ -138,6 +147,9 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
           );
         })}
       </ul>
+      {!masked && (
+        <MoreToggle hidden={wordData.examples.length - REVEALED_EXAMPLES} open={showAll} onToggle={() => setShowAll((v) => !v)} className="mt-2" />
+      )}
     </div>
   );
 }

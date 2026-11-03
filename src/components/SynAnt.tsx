@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { MoreToggle } from './MoreToggle';
 import { familyForms, maskAnswer } from '../lib/answerMask';
 import { peekWord } from '../hooks/useWordPeek';
 import type { VocabularyWord } from '../types';
 
-/** How many synonym/antonym chips fit on a phone before the column wraps too tall. */
-const MOBILE_CHIP_LIMIT = 2;
+/** Chips per column before the rest wait behind "Show more" (revealed), or
+ *  before a phone hides them (guessing, where there's no toggle). */
+const CHIP_LIMIT = 2;
 
 /** Synonyms + antonyms chips in two columns, shown under a definition. Shared
  *  by the flashcard (guess + revealed) and the collection quiz. Pass
@@ -16,6 +19,7 @@ const MOBILE_CHIP_LIMIT = 2;
  *  hand over the answer the mask exists to protect. */
 export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskWord?: string }) {
   const intl = useIntl();
+  const [showAll, setShowAll] = useState(false);
   const mask = (s: string) => (maskWord ? maskAnswer(s, maskWord, familyForms(wordData.wordFamily)) : s);
   // A phrase that masks down to nothing but underscores gives the reader
   // nothing — drop it rather than show a useless "____" pill.
@@ -31,12 +35,14 @@ export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskW
   // antonym chip read as "wrong answer" next to the answer tally.
   const chip = `text-[11px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border bg-bg-tertiary text-text-secondary border-border${maskWord ? '' : ' hover:text-accent-cyan hover:border-accent-cyan/40 transition-all cursor-pointer'}`;
 
-  // Only the first `MOBILE_CHIP_LIMIT` chips show on a phone (`hidden sm:inline-block`
-  // brings the rest back from `sm` up) — a full list of 5+ chips wraps to several
-  // rows and pushes the game below the fold.
+  // Revealed, each column shows `CHIP_LIMIT` and one toggle brings the rest of
+  // both. Guessing, only a phone cuts them (`hidden sm:inline-block`) — a full
+  // list of 5+ chips wraps to several rows and pushes the game below the fold.
+  const cut = !maskWord && !showAll;
+  const hidden = maskWord ? 0 : Math.max(0, synonyms.length - CHIP_LIMIT) + Math.max(0, antonyms.length - CHIP_LIMIT);
   const renderChips = (words: string[]) =>
-    words.map((w, i) => {
-      const overflow = i >= MOBILE_CHIP_LIMIT ? 'hidden sm:inline-block' : '';
+    (cut ? words.slice(0, CHIP_LIMIT) : words).map((w, i) => {
+      const overflow = maskWord && i >= CHIP_LIMIT ? 'hidden sm:inline-block' : '';
       return maskWord ? (
         <span key={w} className={`${chip} ${overflow}`}>{mask(w)}</span>
       ) : (
@@ -65,6 +71,7 @@ export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskW
           <div className="flex flex-wrap gap-1.5">{renderChips(antonyms)}</div>
         </div>
       )}
+      <MoreToggle hidden={hidden} open={showAll} onToggle={() => setShowAll((v) => !v)} className="col-span-2 justify-self-start" />
     </div>
   );
 }
