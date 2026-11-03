@@ -20,6 +20,10 @@ describe('fortunes', () => {
     expect(new Set(FORTUNES.map((f) => f.n)).size).toBe(FORTUNES.length);
   });
 
+  it('gives each stick its own word', () => {
+    expect(new Set(FORTUNES.map((f) => f.word.toLowerCase())).size).toBe(FORTUNES.length);
+  });
+
   it('gives one stick a day: shaking again the same day returns it', () => {
     const day = new Date(2027, 1, 6, 9);
     const first = drawFortune(day, () => 0.1);
