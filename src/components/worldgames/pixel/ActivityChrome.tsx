@@ -64,13 +64,19 @@ export function useChromeSlot(inline = false): ReactNode {
 /** Back as a game button, the modes as a game's menu tabs: chunky pixel
  *  buttons in a sunken track, the one you're on raised in gold. */
 function ChromeRow({ chrome, inline = false }: { chrome: Chrome; inline?: boolean }) {
+  // In a tight top bar the tabs scroll; keep the one you're on in view.
+  const tabs = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const on = tabs.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (on && tabs.current) tabs.current.scrollLeft = Math.max(0, on.offsetLeft - tabs.current.offsetLeft - 8);
+  }, [chrome.current]);
   return (
-    <div className={`flex items-center gap-2 flex-wrap ${inline ? 'shrink-0' : 'mb-4'}`}>
-      <PixelButton tone="paper" onClick={chrome.back} className="!px-2.5 !py-1.5 !text-[13px]">
+    <div className={`flex items-center gap-2 ${inline ? 'min-w-0 flex-nowrap' : 'flex-wrap mb-4'}`}>
+      <PixelButton tone="paper" onClick={chrome.back} className="!px-2.5 !py-1.5 !text-[13px] shrink-0">
         <PixelIcon name="back" size={2} /> <FormattedMessage id="world.activityBack" />
       </PixelButton>
       {chrome.modes.length > 1 && (
-        <div className="px-inset px-notch p-1 flex gap-1" role="tablist">
+        <div className={`px-inset px-notch p-1 flex gap-1 ${inline ? 'min-w-0 overflow-x-auto [scrollbar-width:none]' : ''}`} role="tablist" ref={tabs}>
           {chrome.modes.map((m) => {
             const on = m.id === chrome.current;
             return (
@@ -80,7 +86,7 @@ function ChromeRow({ chrome, inline = false }: { chrome: Chrome; inline?: boolea
                 onClick={() => chrome.setMode(m.id)}
                 role="tab"
                 aria-selected={on}
-                className={`!px-2.5 !py-1.5 !text-[13px] ${on ? '' : 'opacity-75'}`}
+                className={`!px-2.5 !py-1.5 !text-[13px] shrink-0 whitespace-nowrap ${on ? '' : 'opacity-75'}`}
               >
                 <PixelIcon name={m.icon} size={2} /> {m.label}
               </PixelButton>

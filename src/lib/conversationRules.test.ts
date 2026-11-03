@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { phrasesUsed, pickQuestion } from './conversationRules';
+import { highlightPhrases, phrasesUsed, pickQuestion } from './conversationRules';
 import type { SpeakingQuestion } from '../data/englishSpeaking';
 
 const q = (id: string): SpeakingQuestion => ({ id, topic: 'Daily Life', difficulty: 'easy', question: id, sampleAnswers: [] });
@@ -31,5 +31,31 @@ describe('phrasesUsed', () => {
   });
   it('matches whole words only', () => {
     expect(phrasesUsed('I really enjoyed it', ['I really enjoy...'])).toEqual([]);
+  });
+});
+
+describe('highlightPhrases', () => {
+  const marked = (text: string, phrases: string[]) =>
+    highlightPhrases(text, phrases).filter((h) => h.phrase).map((h) => h.text);
+
+  it('marks the fixed words of each phrase, across a "..." gap', () => {
+    const text = "That's easy, it would be noodle soup. Ask me again after seven days, though.";
+    expect(marked(text, ["that's easy, it would be...", 'ask me again after..., though']))
+      .toEqual(["That's easy, it would be", 'Ask me again after', 'though']);
+  });
+
+  it('treats curly and straight apostrophes alike and keeps the text whole', () => {
+    const text = 'I don’t think I’d get bored.';
+    const runs = highlightPhrases(text, ["I don't think I'd get bored"]);
+    expect(runs.map((r) => r.text).join('')).toBe(text);
+    expect(runs[0].phrase).toBe("I don't think I'd get bored");
+  });
+
+  it('lets punctuation between words differ, as speech has none', () => {
+    expect(marked('a bit of everything honestly, pop', ['A bit of everything, honestly'])).toEqual(['a bit of everything honestly']);
+  });
+
+  it('marks nothing inside another word', () => {
+    expect(marked('the easy part', ['as'])).toEqual([]);
   });
 });

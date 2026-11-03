@@ -26,9 +26,11 @@ export function HudTop({ children }: { children: ReactNode }) {
   // below is placed for a one-line bar.
   const chrome = useChromeSlot(true);
   return (
-    <div className="px absolute top-[3.75rem] left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-1rem))] pointer-events-auto px-in-down">
+    // Holding the tabs it needs the room — at 560px they pushed the vitals
+    // out entirely — and the vitals keep a floor while the tabs scroll.
+    <div className={`px absolute top-[3.75rem] left-1/2 -translate-x-1/2 ${chrome ? 'w-[min(900px,calc(100%-1rem))]' : 'w-[min(560px,calc(100%-1rem))]'} pointer-events-auto px-in-down`}>
       <div className="px-notch px-frame px-4 py-2.5">
-        {chrome ? <div className="flex items-center gap-3">{chrome}<div className="flex-1 min-w-0">{children}</div></div> : children}
+        {chrome ? <div className="flex items-center gap-3">{chrome}<div className="flex-1 min-w-[150px]">{children}</div></div> : children}
       </div>
     </div>
   );
