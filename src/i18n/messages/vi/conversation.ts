@@ -48,6 +48,8 @@ export default {
   'conversation.collapse': 'Thu gọn',
   'conversation.expand': 'Mở rộng',
   'conversation.sampleAnswer': 'Câu trả lời mẫu',
+  'conversation.showSample': 'Xem câu trả lời mẫu',
+  'conversation.hideSample': 'Ẩn câu trả lời mẫu',
   'conversation.iAnsweredIt': 'Mình đã trả lời',
   'conversation.recordStart': 'Ghi âm câu trả lời',
   'conversation.recordStop': 'Dừng',

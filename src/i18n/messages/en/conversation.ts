@@ -48,6 +48,8 @@ export default {
   'conversation.collapse': 'Collapse',
   'conversation.expand': 'Expand',
   'conversation.sampleAnswer': 'Sample answer',
+  'conversation.showSample': 'Show sample answer',
+  'conversation.hideSample': 'Hide sample answer',
   'conversation.iAnsweredIt': 'I answered it',
   'conversation.recordStart': 'Record your answer',
   'conversation.recordStop': 'Stop',

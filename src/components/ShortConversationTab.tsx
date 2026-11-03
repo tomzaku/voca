@@ -292,10 +292,23 @@ function QuestionBody({ q, done, onNext }: { q: SpeakingQuestion; done: boolean;
   const { markPracticed } = useSpeakingProgress();
   const [answerIdx, setAnswerIdx] = useState(0);
   const answer = q.sampleAnswers[Math.min(answerIdx, q.sampleAnswers.length - 1)];
-  const rec = useAnswerRecorder(() => markPracticed(q.id));
+  // The sample stays covered so you answer in your own words first; it opens
+  // by itself once you've recorded an answer, ready to compare.
+  const [showSample, setShowSample] = useState(false);
+  const rec = useAnswerRecorder(() => { markPracticed(q.id); setShowSample(true); });
 
   return (
     <div className="border-t border-border animate-fade-in">
+      {!showSample ? (
+        <div className="px-3 sm:px-4 py-3">
+          <button
+            onClick={() => setShowSample(true)}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-dashed border-border text-xs font-semibold text-text-muted hover:text-accent-cyan hover:border-accent-cyan/40 hover:bg-accent-cyan/5 transition-colors cursor-pointer"
+          >
+            <Icon icon="lucide:eye" width={14} /> <FormattedMessage id="conversation.showSample" />
+          </button>
+        </div>
+      ) : (
       <div className="px-3 sm:px-4 py-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           {q.sampleAnswers.length > 1 ? (
@@ -318,10 +331,21 @@ function QuestionBody({ q, done, onNext }: { q: SpeakingQuestion; done: boolean;
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted">{answer.label}</span>
             </span>
           )}
-          <ReadAloud text={answer.answer} />
+          <span className="flex items-center gap-1">
+            <ReadAloud text={answer.answer} />
+            <button
+              onClick={() => setShowSample(false)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
+              aria-label={intl.formatMessage({ id: 'conversation.hideSample' })}
+              title={intl.formatMessage({ id: 'conversation.hideSample' })}
+            >
+              <Icon icon="lucide:eye-off" width={15} />
+            </button>
+          </span>
         </div>
         <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{answer.answer}</p>
       </div>
+      )}
 
       {q.usefulPhrases && q.usefulPhrases.length > 0 && (
         <div className="px-3 sm:px-4 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
