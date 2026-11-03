@@ -142,7 +142,18 @@ export const LAKES = [
   { kind: 'ellipse', cx: 73.3 * T, cy: 100 * T, rx: 2.2 * T, ry: 3.4 * T },
   { kind: 'ellipse', cx: 84.7 * T, cy: 100 * T, rx: 2.2 * T, ry: 3.4 * T },
   { kind: 'crescent', cx: 79 * T, cy: 92.5 * T, rx: 5 * T, ry: 3.3 * T, inner: { cy: 92 * T, rx: 4 * T, ry: 2.4 * T } },
+  // The falls' pools: one up on the mesa between Khải Định's and Minh
+  // Mạng's, one at the foot of its cliff on the highland.
+  { kind: 'ellipse', cx: 53.5 * T, cy: 97.4 * T, rx: 3.2 * T, ry: 1.9 * T },
+  { kind: 'ellipse', cx: 53.5 * T, cy: 107.4 * T, rx: 3.4 * T, ry: 1.5 * T },
 ];
+
+/** The hill stream: out of the mesa's pool, over its cliff in a waterfall
+ *  to the pool below, over the highland's cliff in a second, under the
+ *  tombs' road and away into the forest (places/falls.mjs). */
+export const STREAM = polyline([[53.5, 97.5], [53.5, 104.8], [53.4, 107.4], [53.6, 110.4], [53.4, 113.4], [53.7, 116.4], [53.2, 119.5], [53.8, 122.5]]);
+export const STREAM_HW = 0.85 * T;
+export const inStream = (x, y) => y > 96 * T && nearest(STREAM, x, y).d < STREAM_HW;
 
 export const inBox = (tx, ty, b) => tx >= b.x0 && tx < b.x1 && ty >= b.y0 && ty < b.y1;
 /** Is (x, y) inside the polygon `pts` (even-odd rule)? */
@@ -172,7 +183,7 @@ export const inRiver = (x, y) => {
   return d < riverHalfWidth(s) && !onIslet(x, y);
 };
 export const inCanal = (x, y) => CANALS.some((c) => nearest(c, x, y).d < CANAL_HW);
-export const isWater = (x, y) => inRiver(x, y) || inCanal(x, y) || inMoat(x, y) || inLake(x, y);
+export const isWater = (x, y) => inRiver(x, y) || inCanal(x, y) || inMoat(x, y) || inLake(x, y) || inStream(x, y);
 
 // The river's bridges run from Lê Duẩn (row 52) across to Lê Lợi (row 66).
 export const BRIDGE_Y0 = 52.7 * T;

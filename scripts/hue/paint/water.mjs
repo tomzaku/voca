@@ -7,6 +7,7 @@
 import { hash, mix, noise, rand } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { drawn, ground } from '../core/world.mjs';
+import { cliff } from '../hills.mjs';
 import { PH, PW, inLake, inMoat, isWater } from '../layout.mjs';
 
 /** The water's tones, shore to middle; the detailed patches repaint any
@@ -47,12 +48,32 @@ export const lotusAt = (x, y) => {
   drawn.push({ type: 'lotus', x, y, flower });
 };
 
+/** Water falling down a cliff face: streaks of white and pale blue, broken
+ *  as it falls (`down` 0 at the lip, 1 at the foot), a dark lip where it
+ *  leaves the top. */
+function fallColor(x, y, down, k) {
+  if (down < 0.06) return [44, 120, 170];
+  const streak = noise(x * 3, y * 0.25, 5 * k);
+  const c = streak > 0.62 ? [244, 252, 255] : streak > 0.38 ? [178, 228, 244] : [110, 190, 228];
+  return down > 0.85 && hash(x, y) < 0.5 ? [236, 248, 252] : c;
+}
+
+/** The colour of the water at (X, Y) — map px (mx, my), `k` px to one: a
+ *  waterfall where it pours down a cliff, white water churning at the foot,
+ *  else the shore-to-middle tones. */
+export function waterColor(X, Y, mx, my, k = 1) {
+  const cl = cliff(mx, my);
+  if (cl?.face !== undefined) return fallColor(X, Y, cl.d, k);
+  if (cl?.shadow) return noise(X, Y, 3 * k) > 0.35 ? WATER.foam : WATER.lip;
+  return waterTone(X, Y, shoreDist(Math.floor(mx), Math.floor(my)), k);
+}
+
 export function paintWater() {
   for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) if (isWater(x + 0.5, y + 0.5)) waterMask[y * PW + x] = 1;
   for (let y = 0; y < PH; y++) {
     for (let x = 0; x < PW; x++) {
       if (!wet(x, y)) continue;
-      ground.set(x, y, waterTone(x, y, shoreDist(x, y)));
+      ground.set(x, y, waterColor(x, y, x, y));
     }
   }
   // The bank: a dark line where it meets the water; above the water (the

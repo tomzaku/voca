@@ -7,6 +7,7 @@ import { P, STREET } from '../core/palette.mjs';
 import { deck, drawn, glow, ground, mark, used } from '../core/world.mjs';
 import { H, PH, PW, RIVER_BRIDGES, T, W, isWater } from '../layout.mjs';
 import { ROADS, roadGap, roadHit } from '../roads.mjs';
+import { cliff } from '../hills.mjs';
 
 const { asphalt: ASPHALT, asphaltDark: ASPHALT_DARK, asphaltSpeck: ASPHALT_SPECK, pavement: PAVEMENT, pavementJoint: PAVEMENT_JOINT, kerb: KERB, kerbShadow: KERB_SHADOW, centreLine: CENTRE_LINE } = STREET;
 const RUT = [166, 142, 104];
@@ -20,37 +21,22 @@ const offset = new Float32Array(PW * PH);
 const along = new Float32Array(PW * PH);
 const streets = new Uint8Array(PW * PH);
 
-/** A mountain road at pixel (x, y) — `e` px in from its edge, `o` px off
- *  its centre, `s` px along it, `half` its half-width, all in map px; `x, y`
+/** A hill path at pixel (x, y) — `e` px in from its edge, `o` px off its
+ *  centre, `s` px along it, `half` its half-width, all in map px; `x, y`
  *  for the grain, at whatever resolution is drawing (`k` px to a map px).
- *  Red laterite like the hill roads round Huế, packed and gravelled, a
- *  crown of lighter earth where the wheels don't go; a kerb of dry-laid
- *  stone blocks either side, and on its outer edge white guard posts with
- *  a red band — the look of a road that climbs. */
+ *  Warm packed earth, lighter where feet wear it and darker at its rim,
+ *  pebbles in it, and the grass growing over its edge in soft, ragged
+ *  tufts — a storybook path rather than a kerbed road. */
 export function mountainRoad(x, y, e, o, s, half, k = 1) {
-  if (e < 0.6) return [62, 54, 44];                                           // the shadow under the kerb
-  if (e < 3) {
-    // Guard posts on one side, every few metres: white, a red band, a
-    // shadow cast down the road's grain.
-    if (o > 0 && s % 40 < 3) return e < 1.6 ? [190, 52, 44] : [244, 240, 232];
-    if (o > 0 && s % 40 >= 3 && s % 40 < 4) return [96, 86, 74];
-    const block = Math.floor(s / 7) + (o > 0 ? 3 : 0);
-    if (s % 7 < 0.75) return [98, 88, 76];                                   // the joints
-    const c = block % 3 === 0 ? [176, 166, 148] : block % 3 === 1 ? [158, 148, 130] : [168, 158, 140];
-    return e < 1.4 ? mix(c, [244, 238, 224], 0.35) : mix(c, [120, 110, 96], hash(Math.floor(x / k), Math.floor(y / k)) * 0.25);
-  }
-  let c = mix([178, 104, 70], [150, 84, 56], noise(x, y, 7 * k) * 0.8);
-  // The crown, lighter, and two wheel tracks either side of it.
-  const crown = Math.max(0, 1 - Math.abs(o) / (half * 0.35));
-  c = mix(c, [198, 132, 92], crown * 0.35);
-  const rut = Math.abs(Math.abs(o) - half * 0.45);
-  if (rut < 1.5) c = mix(c, [128, 70, 48], 0.4 * (1 - rut / 1.5));
-  // Gravel: pale chips and dark ones.
+  const edge = 2.6 + (noise(x, y, 5 * k) - 0.5) * 2.4;
+  if (e < edge - 1) return null;                                             // the grass grows over
+  if (e < edge) return [78, 120, 50];                                        // the tufts' shaded edge
+  let c = mix([176, 126, 82], [158, 110, 70], noise(x, y, 9 * k));
+  if (e < edge + 1.6) c = mix(c, [118, 82, 52], 0.55);                       // the rim, trodden down
+  c = mix(c, [204, 160, 112], Math.max(0, 1 - Math.abs(o) / (half * 0.5)) * 0.35 * noise(x, y, 14 * k));
   const h = hash(x, y);
-  if (h < 0.035) c = [222, 186, 150];
-  else if (h < 0.06) c = [118, 70, 50];
-  // A rim of shade along the kerb.
-  if (e < 4) c = mix(c, [96, 56, 40], (4 - e) * 0.2);
+  if (h < 0.02) c = [214, 184, 146];
+  else if (h < 0.035) c = [122, 86, 56];
   return c;
 }
 
@@ -72,6 +58,7 @@ export function shade(x, y) {
     else if (e < 3) c = P.stoneEdge;
   } else if (r.kind === 'mountain') {
     c = mountainRoad(x, y, e, o, along[k], half);
+    if (!c) return null;
   } else if (r.kind === 'path') {
     // A park path: fine gravel, its edge a darker line where the grass begins.
     c = hash(x, y) < 0.18 ? [200, 186, 156] : hash(x * 3, y) < 0.08 ? [240, 232, 214] : [222, 210, 182];
@@ -187,7 +174,36 @@ function cyclo(x, y) {
   ground.rect(x, y + 1, 18, 1, P.shadow, 0.2);
 }
 
+/** A lantern on a wooden post by a hill path, `x, y` its foot: a crossarm,
+ *  the lantern hanging from it, lit warm at night. */
+function lantern(x, y) {
+  drawn.push({ type: 'lantern', x, y });
+  ground.rect(x, y - 12, 2, 12, [92, 62, 40]);
+  ground.rect(x, y - 12, 1, 12, [132, 92, 60]);
+  ground.rect(x, y - 13, 5, 1, [92, 62, 40]);
+  ground.rect(x + 3, y - 12, 3, 3, [250, 214, 130]);
+  ground.set(x + 2, y, P.shadow, 0.3);
+  glow(x + 4, y - 11, [255, 200, 120], 3);
+}
+
 export function furnishStreets() {
+  // Lanterns along the hill paths, on their outer side every few steps.
+  for (const r of ROADS) {
+    if (r.kind !== 'mountain') continue;
+    const reach = (r.width / 2 + 0.55) * T;
+    for (let s = 3 * T; s < r.line.length - 2 * T; s += 7 * T) {
+      const g = r.line.segs.find((seg) => s >= seg.s0 && s < seg.s0 + seg.len);
+      const t = (s - g.s0) / g.len;
+      const cx = g.ax + (g.bx - g.ax) * t, cy = g.ay + (g.by - g.ay) * t;
+      const nx = -(g.by - g.ay) / g.len, ny = (g.bx - g.ax) / g.len;
+      const side = Math.floor(s / (7 * T)) % 2 ? 1 : -1;
+      const x = Math.round(cx + nx * reach * side), y = Math.round(cy + ny * reach * side);
+      const tx = Math.floor(x / T), ty = Math.floor(y / T);
+      if (isWater(x, y) || used[ty]?.[tx] !== false && roadGap(tx, ty) >= 1 || roadGap(tx, ty) < 0.2 || cliff(x, y) || cliff(x, y - 12)) continue;
+      lantern(x, y);
+    }
+  }
+
   // Lamps along both pavements of every street, every few steps.
   for (const r of ROADS) {
     if (r.kind !== 'street') continue;

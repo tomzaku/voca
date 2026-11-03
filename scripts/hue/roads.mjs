@@ -10,8 +10,8 @@
 //   lane   — packed dirt with wheel ruts and grass creeping in at the edges
 //   stone  — paved: the Citadel's courts, forecourts, the walking street
 //   path   — gravel: the footpaths winding through the riverside parks
-//   mountain — red laterite between stone kerbs, guard posts on the outer
-//            edge: the roads that climb into the tomb hills
+//   mountain — a path of packed earth, grass growing over its edges: the
+//            ways that climb into the tomb hills
 // A `court` is paved ground that things stand on — the library's island, the
 // esplanade under Kỳ Đài, the walking street round its fountain.
 // Its ends are cut square, so a straight road is exactly the rectangle it

@@ -518,6 +518,22 @@ export function tree(kind, w, h, seed) {
 
 // ── Street furniture ──
 
+/** A hill path's lantern, `x, y` its foot: a wooden post and crossarm, the
+ *  lantern hanging from it — a dark frame, warm paper glowing inside. */
+export function pathLantern(cv, x, y) {
+  cv.ellipse(x + 3, y + 1, 6, 1.5, [0, 0, 0], 0.25);
+  cv.rect(x - 1, y - 26, 5, 26, [52, 34, 22]);
+  cv.rect(x, y - 26, 3, 26, [104, 70, 44]);
+  cv.rect(x, y - 26, 1, 26, [150, 106, 68]);
+  cv.rect(x - 1, y - 28, 12, 3, [52, 34, 22]);
+  cv.rect(x, y - 27, 10, 1, [124, 86, 54]);
+  cv.rect(x + 8, y - 25, 1, 2, [52, 34, 22]);
+  cv.rect(x + 5, y - 23, 7, 9, [52, 34, 22]);
+  cv.rect(x + 6, y - 22, 5, 7, [255, 214, 130]);
+  cv.rect(x + 6, y - 22, 2, 7, [255, 240, 196]);
+  cv.rect(x + 5, y - 14, 7, 1, [52, 34, 22]);
+}
+
 /** A street lamp: a slender post, a lantern lit warm. `x, y` its foot. */
 export function lamp(cv, x, y) {
   cv.rect(x - 2, y - 2, 5, 2, [60, 62, 70]);
@@ -910,11 +926,14 @@ export function paddy(w, h, stage) {
 
 /** A wooden ladder over a cliff face, `h` detail px tall. */
 export function ladder(h) {
-  const cv = new Canvas(18, h);
+  // Wooden stairs up a cliff: a tread every few pixels, lit along its nose,
+  // the riser under it in shade, between two rails on posts.
+  const cv = new Canvas(22, h);
   for (let y = 0; y < h; y++) {
-    cv.rect(2, y, 2, 1, [104, 70, 44]); cv.set(4, y, [150, 106, 66]);
-    cv.rect(14, y, 2, 1, [104, 70, 44]); cv.set(13, y, [150, 106, 66]);
-    if (y % 6 === 0) { cv.rect(4, y, 10, 2, [176, 128, 84]); cv.rect(4, y + 2, 10, 1, [96, 64, 40]); }
+    const t = y % 6;
+    cv.rect(4, y, 14, 1, t === 0 ? [214, 168, 112] : t < 3 ? [170, 122, 78] : t < 5 ? [134, 92, 58] : [74, 50, 32]);
+    cv.rect(0, y, 4, 1, [64, 42, 28]); cv.rect(1, y, 2, 1, [128, 90, 58]);
+    cv.rect(18, y, 4, 1, [64, 42, 28]); cv.rect(19, y, 2, 1, [104, 72, 46]);
   }
   return cv;
 }

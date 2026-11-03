@@ -15,9 +15,9 @@ import { cliff as cliffAt } from '../hills.mjs';
 import { H as MAP_H, T, W as MAP_W, isWater } from '../layout.mjs';
 import { grassColor, tinted } from '../paint/terrain.mjs';
 import { mountainRoad, shade } from '../paint/roads.mjs';
-import { WATER, shoreDist, waterTone } from '../paint/water.mjs';
+import { WATER, waterColor } from '../paint/water.mjs';
 import { ROADS, roadHit } from '../roads.mjs';
-import { K, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, ladder, lamp, market, paddy, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
+import { K, pathLantern, bench, bicycle, boardwalk, cyclo, flowerBed, fountain, dragonBoat, forestCanopy, halfMoon, house, kyDai, ladder, lamp, market, paddy, parkLamp, sampan, tree, truongTienDeck, wallTile } from './art.mjs';
 import { anDinh, cheStall, foodStall, gaHue, planterTree, gardenHouse, gateTower, haiBaTrung, hienLam, ngoMon, nghenhLuong, phuVanLau, quocHoc, quocHocGate, saigonMorin, sideGateTower, stele, tangThuLau, thaiHoa, thienMuHall, thienMuTower, vanMieu } from './landmarks.mjs';
 import { biDinh, biDinhKhaiDinh, biDinhMinhMang, daiHongMon, grave, minhLau, obelisk, thienDinh, tombGate, tombHall, xungKhiem } from './tombs.mjs';
 import { canChanh, causeway, daiCungMon, dienTho, duyetThiDuong, lotus, sideHall, thaiMieu, theMieu, tinhTamPavilion, truongSanh } from './imperial.mjs';
@@ -64,7 +64,7 @@ function flatGrassAt(X, Y) {
 /** Water at detail size: the map's own bands (paint/water.mjs), the grain
  *  and flecks finer. */
 function waterAt(X, Y, mx, my) {
-  return waterTone(X, Y, shoreDist(Math.floor(mx), Math.floor(my)), K);
+  return waterColor(X, Y, mx, my, K);
 }
 const WATER_TONES = Object.values(WATER);
 
@@ -93,7 +93,7 @@ function roadAt(X, Y, mx, my, roads) {
     if (r.main && Math.abs(o) < 1 && s % 18 < 10) c = STREET.centreLine;
     return c;
   }
-  if (r.kind === 'mountain') return mountainRoad(X, Y, e, o, s, (r.width * T) / 2, K);
+  if (r.kind === 'mountain') return mountainRoad(X, Y, e, o, s, (r.width * T) / 2, K) ?? grassAt(X, Y, mx, my);
   if (r.kind === 'path') {
     if (e < 1) return [184, 168, 136];
     const h = hash(X, Y);
@@ -241,7 +241,7 @@ export function renderDetail(write) {
       else if (!art) {
         // Its box about (x, y): width, height, how far up and left it reaches.
         const [w, h, top, left] = {
-          lamp: [3, 13, 11, 1], bike: [13, 10, 9, 1], lotus: [9, 7, 4, 4], cyclo: [19, 15, 14, 1],
+          lamp: [3, 13, 11, 1], lantern: [7, 14, 13, 1], bike: [13, 10, 9, 1], lotus: [9, 7, 4, 4], cyclo: [19, 15, 14, 1],
           bed: [20, 10, 5, 10], bench: [13, 8, 5, 6], parkLamp: [3, 11, 9, 1],
           sampan: [32, 13, 2, 3], dragonBoat: [50, 14, 2, 5],
         }[e.type];
@@ -279,7 +279,7 @@ export function renderDetail(write) {
       for (let Y = (e.y - oy) * K; Y < (e.y + 24 - oy) * K; Y++) {
         const my = oy + Y / K;
         if (cliffAt(e.tx * T + 8, my)?.face === undefined) continue;
-        const X = (e.tx * T + 3 - ox) * K, r = Y % 6;
+        const X = (e.tx * T + 3 - ox) * K - 2, r = Y % 6;
         g.blit(LADDER, X, Y - r, [r, r + 1]);
       }
     }
@@ -292,6 +292,7 @@ export function renderDetail(write) {
         g.blit(art, X, Y);
         o.blit(art, X, Y, [0, overTo * K]);
       } else if (e.type === 'lamp') lamp(g, X, Y);
+      else if (e.type === 'lantern') pathLantern(g, X, Y);
       else if (e.type === 'bike') bicycle(g, X, Y, e.frame);
       else if (e.type === 'cyclo') cyclo(g, X, Y);
       else if (e.type === 'lotus') lotus(g, X, Y, e.flower);

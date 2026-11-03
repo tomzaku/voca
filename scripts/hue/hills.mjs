@@ -172,12 +172,12 @@ export function markCliffs(solid, open) {
  *  rungs, over the rock wherever the face is. */
 export function drawLadder(ground, tx, ty, drawn) {
   drawn?.push({ type: 'ladder', tx, ty, x: tx * T, y: ty * T - 4 });
-  const x0 = tx * T + 4, x1 = tx * T + 11;
+  // Wooden stairs, really: treads between two rails.
+  const x0 = tx * T + 3, x1 = tx * T + 12;
   for (let y = ty * T - 4; y < (ty + 1) * T + 4; y++) {
     if (cliff(tx * T + 8, y)?.face === undefined) continue;
-    ground.set(x0, y, [104, 70, 44]); ground.set(x0 + 1, y, [140, 98, 62]);
-    ground.set(x1, y, [104, 70, 44]); ground.set(x1 - 1, y, [140, 98, 62]);
-    if (y % 3 === 0) for (let x = x0 + 2; x < x1 - 1; x++) ground.set(x, y, [168, 122, 80]);
+    for (let x = x0 + 1; x < x1; x++) ground.set(x, y, y % 3 === 0 ? [206, 160, 106] : y % 3 === 1 ? [158, 112, 72] : [92, 62, 40]);
+    ground.set(x0, y, [64, 42, 28]); ground.set(x1, y, [64, 42, 28]);
     ground.set(x1 + 1, y + 1, [0, 0, 0], 0.25);
   }
 }
