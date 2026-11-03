@@ -13,6 +13,11 @@ import { REACTION_MS, isGift, isReaction, type Gift, type Reaction } from '../ga
 // before it's sent and again when it arrives; anyone can be blocked (they
 // vanish for you, and you for them in practice — you ignore all they send),
 // and the block list is kept on this device.
+//
+// Signed out, you can look but not be seen: a guest watches the same channel
+// (`watch`) — everyone walking, their chat and reactions — without tracking
+// presence or sending anything, so no one can see, count or be addressed by an
+// account that doesn't exist. Talking to anyone takes signing in.
 
 export type Facing = 'left' | 'right' | 'up' | 'down';
 export interface Peer { id: string; name: string; look: Look; x: number; y: number; facing: Facing; moving: boolean }
@@ -89,7 +94,12 @@ export class WorldLive {
   private reacted = new Map<string, number>();
   blocked = loadBlocked();
 
-  constructor(private me: { id: string; name: string; look: Look }, private on: Handlers) {}
+  /** Only watching (a guest): nothing is tracked or sent, and there's no inbox. */
+  readonly watching: boolean;
+
+  constructor(private me: { id: string; name: string; look: Look }, private on: Handlers, opts: { watch?: boolean } = {}) {
+    this.watching = !!opts.watch;
+  }
 
   /** Join, once any earlier connection's channel is gone: the client hands
    *  back an existing channel of the same name, and one still being removed
@@ -99,15 +109,17 @@ export class WorldLive {
     const topics = [`realtime:${CHANNEL}`, `realtime:inbox:${this.me.id}`];
     for (const old of supabase.getChannels().filter((c) => topics.includes(c.topic))) await supabase.removeChannel(old);
     if (this.closed || this.channel) return;
-    const inbox = supabase.channel(`inbox:${this.me.id}`, { config: { private: true } });
-    inbox.on('broadcast', { event: 'dm' }, ({ payload }) => {
-      const p = payload as { from?: unknown; text?: unknown };
-      if (typeof p?.from !== 'string' || typeof p.text !== 'string' || this.blocked.has(p.from)) return;
-      const text = cleanChat(p.text);
-      if (text) this.on.dm(p.from, text);
-    });
-    inbox.subscribe();
-    this.inbox = inbox;
+    if (!this.watching) {
+      const inbox = supabase.channel(`inbox:${this.me.id}`, { config: { private: true } });
+      inbox.on('broadcast', { event: 'dm' }, ({ payload }) => {
+        const p = payload as { from?: unknown; text?: unknown };
+        if (typeof p?.from !== 'string' || typeof p.text !== 'string' || this.blocked.has(p.from)) return;
+        const text = cleanChat(p.text);
+        if (text) this.on.dm(p.from, text);
+      });
+      inbox.subscribe();
+      this.inbox = inbox;
+    }
     const ch = supabase.channel(CHANNEL, { config: { presence: { key: this.me.id }, broadcast: { self: false } } });
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState<{ name: string; look: unknown }>();
@@ -165,7 +177,7 @@ export class WorldLive {
       else if (m.kind === 'play' && m.data && typeof m.data === 'object') this.on.message(m);
     });
     ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
+      if (status === 'SUBSCRIBED' && !this.watching) {
         ch.track({ name: this.me.name, look: this.me.look });
         this.sendPos(true);
       }
@@ -186,7 +198,7 @@ export class WorldLive {
   /** Dressed differently, or renamed. */
   updateMe(me: { name: string; look: Look }) {
     this.me = { ...this.me, ...me };
-    this.channel?.track({ name: this.me.name, look: this.me.look });
+    if (!this.watching) this.channel?.track({ name: this.me.name, look: this.me.look });
   }
 
   /** Where I am: sent when it's changed, at most a few times a second, and
@@ -203,7 +215,7 @@ export class WorldLive {
     const now = Date.now(), l = this.last;
     // Idle: a little under the heartbeat's own interval, or every other beat
     // would be skipped.
-    if (!this.channel || (!force && now - l.at < (l.moving ? 150 : 2000))) return;
+    if (!this.channel || this.watching || (!force && now - l.at < (l.moving ? 150 : 2000))) return;
     l.at = now;
     this.channel.send({ type: 'broadcast', event: 'pos', payload: { id: this.me.id, x: Math.round(l.x), y: Math.round(l.y), facing: l.facing, moving: l.moving } });
   }
@@ -212,7 +224,7 @@ export class WorldLive {
   heartbeat() { this.sendPos(false); }
 
   send(m: Outgoing) {
-    if (!this.channel) return;
+    if (!this.channel || this.watching) return;
     const payload = { ...m, from: this.me.id } as LiveMessage;
     if (payload.kind === 'chat') {
       const text = cleanChat(payload.text);
@@ -235,19 +247,6 @@ export class WorldLive {
   /** Everyone here who's been seen somewhere on the map. */
   list() { return [...this.peers.values()].filter((p) => p.x > -9999); }
   count() { return this.peers.size; }
-}
-
-/** How many are in Huế, for someone signed out: the same presence, watched
- *  without joining it — they aren't tracked, so they don't count themselves or
- *  appear to anyone. (Signed in, WorldLive has the count; don't run both —
- *  connect() tears down any other channel on this topic.) */
-export function watchWorldCount(onCount: (n: number) => void): () => void {
-  if (!supabase) return () => {};
-  const sb = supabase;
-  const ch = sb.channel(CHANNEL, { config: { broadcast: { self: false } } });
-  ch.on('presence', { event: 'sync' }, () => onCount(Object.keys(ch.presenceState()).length));
-  ch.subscribe();
-  return () => { void sb.removeChannel(ch); };
 }
 
 /** Games' lines through the connection: who's listening for the game being
