@@ -39,7 +39,11 @@ export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskW
   // both. Guessing, only a phone cuts them (`hidden sm:inline-block`) — a full
   // list of 5+ chips wraps to several rows and pushes the game below the fold.
   const cut = !maskWord && !showAll;
-  const hidden = maskWord ? 0 : Math.max(0, synonyms.length - CHIP_LIMIT) + Math.max(0, antonyms.length - CHIP_LIMIT);
+  // One switch for both columns; each column shows its own count.
+  const hiddenIn = (words: string[]) => (maskWord ? 0 : Math.max(0, words.length - CHIP_LIMIT));
+  const toggle = (words: string[]) => (
+    <MoreToggle hidden={hiddenIn(words)} open={showAll} onToggle={() => setShowAll((v) => !v)} />
+  );
   const renderChips = (words: string[]) =>
     (cut ? words.slice(0, CHIP_LIMIT) : words).map((w, i) => {
       const overflow = maskWord && i >= CHIP_LIMIT ? 'hidden sm:inline-block' : '';
@@ -62,16 +66,15 @@ export function SynAnt({ wordData, maskWord }: { wordData: VocabularyWord; maskW
       {hasSyn && (
         <div>
           <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5"><FormattedMessage id="word.synonyms" /></h4>
-          <div className="flex flex-wrap gap-1.5">{renderChips(synonyms)}</div>
+          <div className="flex flex-wrap gap-1.5">{renderChips(synonyms)}{toggle(synonyms)}</div>
         </div>
       )}
       {hasAnt && (
         <div>
           <h4 className="text-xs font-display font-bold text-text-muted uppercase tracking-wider mb-1.5"><FormattedMessage id="word.antonyms" /></h4>
-          <div className="flex flex-wrap gap-1.5">{renderChips(antonyms)}</div>
+          <div className="flex flex-wrap gap-1.5">{renderChips(antonyms)}{toggle(antonyms)}</div>
         </div>
       )}
-      <MoreToggle hidden={hidden} open={showAll} onToggle={() => setShowAll((v) => !v)} className="col-span-2 justify-self-start" />
     </div>
   );
 }

@@ -176,8 +176,8 @@ export function RevealedView({
                       {c}
                     </button>
                   ))}
+                  <MoreToggle hidden={wordData.collocations!.length - CHIP_LIMIT} open={allPhrases} onToggle={() => setAllPhrases((v) => !v)} />
                 </div>
-                <MoreToggle hidden={wordData.collocations!.length - CHIP_LIMIT} open={allPhrases} onToggle={() => setAllPhrases((v) => !v)} className="mt-2" />
               </div>
             )}
             {hasFamily && (
@@ -197,8 +197,8 @@ export function RevealedView({
                       <span className="text-text-muted">{f.pos}</span>
                     </button>
                   ))}
+                  <MoreToggle hidden={wordData.wordFamily!.length - CHIP_LIMIT} open={allFamily} onToggle={() => setAllFamily((v) => !v)} />
                 </div>
-                <MoreToggle hidden={wordData.wordFamily!.length - CHIP_LIMIT} open={allFamily} onToggle={() => setAllFamily((v) => !v)} className="mt-2" />
               </div>
             )}
             </div>

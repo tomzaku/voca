@@ -144,7 +144,7 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
                 {masked ? text : <PeekText text={ex} highlight={answerWord} boldHighlight />}
                 {/* Trails the last example rather than taking a line of its own. */}
                 {!masked && i === examples.length - 1 && (
-                  <MoreToggle hidden={wordData.examples.length - REVEALED_EXAMPLES} open={showAll} onToggle={() => setShowAll((v) => !v)} className="ml-2 whitespace-nowrap" />
+                  <MoreToggle hidden={wordData.examples.length - REVEALED_EXAMPLES} open={showAll} onToggle={() => setShowAll((v) => !v)} className="ml-2" />
                 )}
               </span>
             </li>
