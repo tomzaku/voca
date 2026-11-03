@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { FormattedDate, FormattedMessage } from 'react-intl';
 import { listTests, type TestSummary } from '../../lib/testsApi';
+import { isTestOpen, testTitle } from '../../lib/testLabels';
 
 /**
  * A collection's tests. The owner sees each one's turnout and a button to
@@ -26,7 +27,9 @@ export function CollectionTests({ collectionId, isOwner }: { collectionId: strin
   // it for the button.
   if (!isOwner && (failed || !tests?.length)) return null;
 
-  const open = (t: TestSummary) => Date.parse(t.dueAt) > now;
+  const open = (t: TestSummary) => isTestOpen(t, now);
+  // A built-in collection's tests are practice: no teacher, no deadline.
+  const practice = !!tests?.length && tests.every((t) => t.practiceNumber != null);
   const todo = (t: TestSummary) => !t.isOwner && !t.myResult && open(t);
   const sorted = [...(tests ?? [])].sort((a, b) => Number(todo(b)) - Number(todo(a)));
 
@@ -35,7 +38,7 @@ export function CollectionTests({ collectionId, isOwner }: { collectionId: strin
       <div className="flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
           <Icon icon="lucide:clipboard-check" className="text-accent-green" />
-          <FormattedMessage id="tests.title" />
+          <FormattedMessage id={practice ? 'tests.practiceHeading' : 'tests.title'} />
         </h2>
         {isOwner && (
           <Link
@@ -46,6 +49,8 @@ export function CollectionTests({ collectionId, isOwner }: { collectionId: strin
           </Link>
         )}
       </div>
+
+      {practice && <p className="text-xs text-text-muted leading-relaxed"><FormattedMessage id="tests.practiceHint" /></p>}
 
       {isOwner && tests?.length === 0 && (
         <p className="text-xs text-text-muted leading-relaxed"><FormattedMessage id="tests.emptyOwner" /></p>
@@ -66,12 +71,14 @@ export function CollectionTests({ collectionId, isOwner }: { collectionId: strin
               className={`text-xl shrink-0 ${t.myResult ? 'text-accent-green' : todo(t) ? 'text-accent-green' : 'text-text-muted'}`}
             />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-text-primary truncate">{t.title}</p>
+              <p className="text-sm font-bold text-text-primary truncate">{testTitle(t)}</p>
               <p className="text-xs text-text-muted">
-                <FormattedMessage
-                  id={open(t) ? 'tests.due' : 'tests.closedOn'}
-                  values={{ date: <FormattedDate value={t.dueAt} month="short" day="numeric" hour="numeric" minute="2-digit" /> }}
-                />
+                {t.dueAt === null ? <FormattedMessage id="tests.noDeadline" /> : (
+                  <FormattedMessage
+                    id={open(t) ? 'tests.due' : 'tests.closedOn'}
+                    values={{ date: <FormattedDate value={t.dueAt} month="short" day="numeric" hour="numeric" minute="2-digit" /> }}
+                  />
+                )}
                 {' · '}
                 <FormattedMessage id="tests.questions" values={{ n: t.questionCount }} />
               </p>

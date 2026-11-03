@@ -4,10 +4,13 @@ import { FormattedDate, FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../../hooks/useAuth';
 import { useTeams } from '../../hooks/useTeams';
 import { fetchCollections } from '../../lib/collectionsApi';
+import { getCollections } from '../../lib/collections';
+import { isTestOpen, testCollectionName, testTitle } from '../../lib/testLabels';
 import { shownAnswer, useTakeTest } from '../../hooks/useTakeTest';
 import {
   fetchTest,
   formatDuration,
+  startTest,
   listTests,
   type Check,
   type Leader,
@@ -21,8 +24,9 @@ import { PixelButton, PixelChip, PixelIcon, PixelLoader } from './pixel';
 // Hai Bà Trưng's classroom, kept by the teacher in the forecourt: the work
 // you've been set and how your class stands. Its two boards —
 //   Homework     every test sent to a collection you own or have joined
-//                (lib/testsApi) — or one collection's, picked from a chip —
-//                taken here at a desk, one question at a time
+//                (lib/testsApi) — or one collection's, picked from a chip,
+//                the built-in ones' practice tests included — taken here at a
+//                desk, one question at a time
 //   Class board  your teams' leaderboards (hooks/useTeams)
 // Taking a test runs on hooks/useTakeTest, as the app's test page does; only
 // the drawing is the world's own. A test you sent opens in the app, where its
@@ -114,12 +118,30 @@ function Homework({ collection, onCollection, onOpen }: {
     return () => { alive = false; };
   }, [collection]);
 
-  const chips = collections.length > 1 && (
-    <div className="flex flex-wrap gap-1.5 mb-3">
-      <PixelChip on={collection === null} onClick={() => onCollection(null)}><FormattedMessage id="world.classAllCollections" /></PixelChip>
-      {collections.map((c) => (
-        <PixelChip key={c.id} on={collection === c.id} onClick={() => onCollection(c.id)}>{c.name}</PixelChip>
-      ))}
+  // The built-in collections (Curated, the levels, the topics) each have
+  // practice tests: a chip opens a row of them, folded away until wanted.
+  const builtIns = getCollections().filter((c) => c.system);
+  const isBuiltIn = builtIns.some((c) => c.id === collection);
+  const [showBuiltIns, setShowBuiltIns] = useState(isBuiltIn);
+  const chips = (
+    <div className="mb-3 space-y-1.5">
+      <div className="flex flex-wrap gap-1.5">
+        <PixelChip on={collection === null} onClick={() => onCollection(null)}><FormattedMessage id="world.classAllCollections" /></PixelChip>
+        {collections.map((c) => (
+          <PixelChip key={c.id} on={collection === c.id} onClick={() => onCollection(c.id)}>{c.name}</PixelChip>
+        ))}
+        <PixelChip on={showBuiltIns || isBuiltIn} onClick={() => setShowBuiltIns((v) => !v)}>
+          <FormattedMessage id="tests.practiceHeading" /> {showBuiltIns ? '▴' : '▾'}
+        </PixelChip>
+      </div>
+      {showBuiltIns && (
+        <div className="flex flex-wrap gap-1 px-notch px-inset p-2">
+          {builtIns.map((c) => (
+            <PixelChip key={c.id} on={collection === c.id} onClick={() => onCollection(c.id)}>{c.name}</PixelChip>
+          ))}
+        </div>
+      )}
+      {isBuiltIn && <p className="text-[12px] text-[var(--px-muted)]"><FormattedMessage id="tests.practiceHint" /></p>}
     </div>
   );
 
@@ -134,7 +156,7 @@ function Homework({ collection, onCollection, onOpen }: {
     );
   }
 
-  const open = (t: TestSummary) => Date.parse(t.dueAt) > now;
+  const open = (t: TestSummary) => isTestOpen(t, now);
   const groups: [string, TestSummary[]][] = [
     ['world.classToDo', tests.filter((t) => !t.isOwner && !t.myResult && open(t))],
     ['world.classDone', tests.filter((t) => !t.isOwner && t.myResult)],
@@ -152,11 +174,11 @@ function Homework({ collection, onCollection, onOpen }: {
             {list.map((t) => (
               <li key={t.id} className="px-notch px-inset p-2.5 flex items-center gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[16px] truncate">{t.title}</p>
+                  <p className="font-bold text-[16px] truncate">{testTitle(t)}</p>
                   <p className="text-[12px] text-[var(--px-muted)] truncate">
-                    {t.collectionName}
+                    {testCollectionName(t)}
                     {' · '}
-                    <FormattedMessage id={open(t) ? 'tests.due' : 'tests.closedOn'} values={{ date: <FormattedDate value={t.dueAt} {...DATE} /> }} />
+                    <Due test={t} open={open(t)} />
                     {' · '}
                     <FormattedMessage id="tests.questions" values={{ n: t.questionCount }} />
                   </p>
@@ -165,7 +187,7 @@ function Homework({ collection, onCollection, onOpen }: {
                   <Link to={`/tests/${t.id}`} className="px-btn px-notch px-title !text-[13px] px-2.5 py-1.5 shrink-0" data-tone="paper">
                     <FormattedMessage id="tests.handedIn" values={{ done: t.submittedCount, total: t.memberCount }} />
                   </Link>
-                ) : t.myResult ? (
+                ) : t.myResult && !t.startedAt ? (
                   <PixelButton tone="jade" onClick={() => onOpen(t.id)} className="!px-2.5 !py-1.5 !text-[15px] shrink-0 tabular-nums">
                     {t.myResult.score}/{t.myResult.total}
                   </PixelButton>
@@ -211,7 +233,24 @@ function Desk({ id, onBack }: { id: string; onBack: () => void }) {
       {error ? <p className="px-notch px-inset p-3 text-[var(--px-bad)]">{error}</p>
         : !data ? <PixelLoader label={<FormattedMessage id="world.classLoading" />} />
           : data.review
-            ? <Review test={data.test} questions={data.questions} review={data.review} leaderboard={data.leaderboard} celebrate={justDone} />
+            ? (
+              <Review
+                test={data.test}
+                questions={data.questions}
+                review={data.review}
+                leaderboard={data.leaderboard}
+                celebrate={justDone}
+                onAgain={async () => {
+                  try {
+                    const res = await startTest(data.test.id);
+                    setJustDone(false);
+                    setData({ ...data, test: res.test, questions: res.questions, checked: res.checked, review: null });
+                  } catch (err) {
+                    setError((err as Error).message);
+                  }
+                }}
+              />
+            )
             : (
               <Take
                 test={data.test}
@@ -226,14 +265,20 @@ function Desk({ id, onBack }: { id: string; onBack: () => void }) {
   );
 }
 
+/** When it's due — or that it never is, for a practice test. */
+function Due({ test, open }: { test: TestSummary; open: boolean }) {
+  if (test.dueAt === null) return <FormattedMessage id="tests.noDeadline" />;
+  return <FormattedMessage id={open ? 'tests.due' : 'tests.closedOn'} values={{ date: <FormattedDate value={test.dueAt} {...DATE} /> }} />;
+}
+
 function Heading({ test }: { test: TestSummary }) {
   return (
     <div>
-      <p className="px-title !text-[16px]">{test.title}</p>
+      <p className="px-title !text-[16px]">{testTitle(test)}</p>
       <p className="text-[12px] text-[var(--px-muted)]">
-        {test.collectionName}
+        {testCollectionName(test)}
         {' · '}
-        <FormattedMessage id="tests.due" values={{ date: <FormattedDate value={test.dueAt} {...DATE} /> }} />
+        <Due test={test} open />
         {' · '}
         <FormattedMessage id="tests.questions" values={{ n: test.questionCount }} />
       </p>
@@ -255,7 +300,7 @@ function Take({ test, questions, initialChecked, leaderboard, onStarted, onDone 
   const [confirming, setConfirming] = useState(false);
   const { at, setAt } = t;
 
-  if (Date.parse(test.dueAt) <= openedAt) {
+  if (!isTestOpen(test, openedAt)) {
     return (
       <>
         <Heading test={test} />
@@ -359,14 +404,19 @@ function Take({ test, questions, initialChecked, leaderboard, onStarted, onDone 
   );
 }
 
-function Review({ test, questions, review, leaderboard, celebrate }: {
+function Review({ test, questions, review, leaderboard, celebrate, onAgain }: {
   test: TestSummary;
   questions: TestQuestion[];
   review: ReviewItem[];
   leaderboard: Leader[];
   celebrate: boolean;
+  /** A practice test can be taken again. */
+  onAgain: () => void;
 }) {
   const result = test.myResult;
+  // A practice test shows your best; this attempt's score, when it isn't that, goes under it.
+  const practice = test.practiceNumber != null;
+  const thisTime = review.filter((r) => r.correct).length;
   const revealed = review.some((r) => r.answer !== null);
   const byId = new Map(questions.map((q) => [q.id, q]));
   return (
@@ -374,14 +424,22 @@ function Review({ test, questions, review, leaderboard, celebrate }: {
       <Heading test={test} />
       {result && (
         <div className={`px-notch px-inset p-4 text-center ${celebrate ? 'px-in-up' : ''}`}>
-          <p className="px-title !text-[12px] text-[var(--px-good)]"><FormattedMessage id="tests.yourScore" /></p>
+          <p className="px-title !text-[12px] text-[var(--px-good)]"><FormattedMessage id={practice ? 'tests.bestScore' : 'tests.yourScore'} /></p>
           <p className="px-title !text-[36px] text-[var(--px-gold)] tabular-nums">{result.score}/{result.total}</p>
+          {practice && thisTime !== result.score && (
+            <p className="text-[13px]"><FormattedMessage id="tests.lastScore" values={{ score: thisTime, total: review.length }} /></p>
+          )}
           {result.durationMs !== null && (
             <p className="text-[12px] text-[var(--px-muted)] flex items-center justify-center gap-1">
               <PixelIcon name="hourglass" size={1} /> <FormattedMessage id="tests.tookTime" values={{ time: formatDuration(result.durationMs) }} />
             </p>
           )}
         </div>
+      )}
+      {practice && (
+        <PixelButton tone="jade" block onClick={onAgain}>
+          <PixelIcon name="retry" size={2} /> <FormattedMessage id="tests.takeAgain" />
+        </PixelButton>
       )}
       <TopThree test={test} leaders={leaderboard} />
       {!revealed && <p className="text-[12px] text-[var(--px-muted)]"><FormattedMessage id="tests.answersAfterDue" /></p>}

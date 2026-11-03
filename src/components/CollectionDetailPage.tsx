@@ -585,7 +585,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
         </div>
       </header>
 
-      <div className={`grid gap-6 ${system ? '' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]'}`}>
+      <div className={`grid gap-6 ${system && !user ? '' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]'}`}>
         {/* ── Words ── */}
         <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4 min-w-0">
           <div className="flex items-center justify-between gap-3">
@@ -661,6 +661,13 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
             </>
           )}
         </section>
+
+        {/* A built-in collection's side column: its practice tests, no deadline. */}
+        {system && user && (
+          <div className="flex flex-col gap-6 self-start w-full min-w-0">
+            <CollectionTests collectionId={system.id} isOwner={false} />
+          </div>
+        )}
 
         {/* The side column: tests, then the leaderboard — one grid cell, so
             neither drops below the word list. */}

@@ -107,7 +107,8 @@ function TestForm({ mode }: { mode: 'create' | 'edit' }) {
     if (mode === 'edit') {
       fetchTestForEdit(id).then((r) => {
         if (!alive) return;
-        const due = toLocalInput(new Date(r.test.dueAt));
+        // Only a teacher's own test is edited here, and it always has a due date.
+        const due = toLocalInput(new Date(r.test.dueAt ?? Date.now()));
         setEditing({ test: r.test, locked: r.locked, startedCount: r.startedCount, due });
         setTitle(r.test.title);
         setDue(due);

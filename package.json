@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.122",
+  "version": "0.1.123",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -35,6 +35,7 @@
     "doodles:backfill": "node scripts/backfill-doodles.mjs",
     "map:hue": "node scripts/generate-hue-map.mjs",
     "export:collections": "node scripts/export-system-collections.mjs",
+    "export:tests": "node --env-file=supabase/functions/.env scripts/build-builtin-tests.mjs",
     "words:chain": "node scripts/build-chain-words.mjs"
   },
   "dependencies": {

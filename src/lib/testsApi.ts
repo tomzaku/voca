@@ -16,7 +16,10 @@ export interface TestSummary {
   /** The caller sent it: they see results, not the questions to answer. */
   isOwner: boolean;
   title: string;
-  dueAt: string;
+  /** Null for a built-in collection's practice test: it never closes. */
+  dueAt: string | null;
+  /** A built-in practice test's number in its collection ("Test 2"); null for a teacher's test. */
+  practiceNumber: number | null;
   /** Students see the top three on the test page. */
   showLeaderboard: boolean;
   /** How the student's screen looks. */

@@ -44,6 +44,12 @@
 // Submitting to a public collection you hadn't joined joins you, so the
 // teacher's results list you with everyone else.
 //
+// The built-in collections (Curated, the levels, the topics) have practice
+// tests of their own — no teacher, no due date, taken as often as you like.
+// Their ids aren't uuids ("level-2-t3"); `?collection=level-2` lists them,
+// and the list of every test includes the ones you've started or taken. They
+// answer GET /tests/:id, start and submit; see ./builtin.ts.
+//
 // The tables carry no row-level policies (see the collection_tests
 // migration): this function holds the service role and checks the caller
 // against the collection itself. `user_id` and the student's name are read
@@ -65,6 +71,7 @@ import {
   type QuestionColumns,
   type StoredQuestion,
 } from '../_shared/hunts.ts';
+import { Builtins, BUILTIN_ID, builtinCollection, findBuiltin } from './builtin.ts';
 import { cleanDue, cleanGiven, cleanTheme, grade, Invalid, isOpen, MAX_TITLE, rank, tally, type Theme } from '../_shared/tests.ts';
 
 const QUESTION_COLUMNS = 'id, position, type, prompt, answer, options, accept, say, scrambled, image_word, pair_prompts, pair_words, word';
@@ -124,6 +131,8 @@ function toSummary(t: TestRow, me: string, col: CollectionRow, extra: { submitte
     isOwner: t.owner_id === me,
     collectionId: t.collection_id,
     collectionName: col.name,
+    /** A teacher's test; a built-in one's number in its collection (./builtin.ts). */
+    practiceNumber: null,
     title: t.title,
     dueAt: t.due_at,
     showLeaderboard: t.show_leaderboard,
@@ -164,7 +173,8 @@ export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const parts = url.pathname.split('/').filter(Boolean);
   const [id, sub, ...rest] = parts.slice(parts.lastIndexOf('tests') + 1);
-  if (rest.length || (id !== undefined && !UUID.test(id))) return jsonResponse(404, { error: 'Not found' });
+  const builtinTest = id !== undefined && BUILTIN_ID.test(id) ? findBuiltin(id) : null;
+  if (rest.length || (id !== undefined && !UUID.test(id) && !builtinTest)) return jsonResponse(404, { error: 'Not found' });
 
   const db = serviceClient();
   if (!db) return jsonResponse(500, { error: 'The server is missing its service key.' });
@@ -325,10 +335,30 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     const route = `${req.method} ${[id ? ':id' : '', sub ?? ''].filter(Boolean).join('/')}`.trim();
+    const builtins = new Builtins(db, me);
+
+    if (builtinTest) {
+      switch (route) {
+        case 'GET :id':
+          return jsonResponse(200, await builtins.read(builtinTest));
+        case 'POST :id/start':
+          return jsonResponse(200, await builtins.start(builtinTest, nameOf(auth.user)));
+        case 'POST :id/submit': {
+          const b = await body();
+          const done = await builtins.submit(builtinTest, b.answers, nameOf(auth.user));
+          if (!done) return jsonResponse(409, { error: 'Press Start before handing this test in.' });
+          return jsonResponse(200, done);
+        }
+        default:
+          return jsonResponse(404, { error: 'Not found' });
+      }
+    }
 
     switch (route) {
       case 'GET': {
         const cid = url.searchParams.get('collection');
+        const builtin = cid === null ? null : builtinCollection(cid);
+        if (builtin) return jsonResponse(200, { tests: await builtins.summaries(builtin) });
         let cols: CollectionRow[];
         if (cid !== null) {
           if (!UUID.test(cid)) return jsonResponse(400, { error: '"collection" must be a collection id.' });
@@ -349,7 +379,9 @@ export default async function handler(req: Request): Promise<Response> {
             cols = [...cols, ...((data ?? []) as CollectionRow[])];
           }
         }
-        if (!cols.length) return jsonResponse(200, { tests: [] });
+        // The list of every test also holds the built-in ones you've started or taken.
+        const practice = cid === null ? await builtins.attempted() : [];
+        if (!cols.length) return jsonResponse(200, { tests: practice });
         const byId = new Map(cols.map((c) => [c.id, c]));
         const { data, error } = await db
           .from('collection_tests')
@@ -361,14 +393,17 @@ export default async function handler(req: Request): Promise<Response> {
         const rows = (data ?? []) as TestRow[];
         const [subs, starts] = await Promise.all([submissions(rows.map((r) => r.id)), startsOf(rows.map((r) => r.id))]);
         return jsonResponse(200, {
-          tests: rows.map((t) => {
-            const these = subs.filter((s) => s.test_id === t.id);
-            return toSummary(t, me, byId.get(t.collection_id)!, {
-              submittedCount: these.length,
-              mine: these.find((s) => s.user_id === me) ?? null,
-              startedAt: starts.get(t.id) ?? null,
-            });
-          }),
+          tests: [
+            ...rows.map((t) => {
+              const these = subs.filter((s) => s.test_id === t.id);
+              return toSummary(t, me, byId.get(t.collection_id)!, {
+                submittedCount: these.length,
+                mine: these.find((s) => s.user_id === me) ?? null,
+                startedAt: starts.get(t.id) ?? null,
+              });
+            }),
+            ...practice,
+          ],
         });
       }
 

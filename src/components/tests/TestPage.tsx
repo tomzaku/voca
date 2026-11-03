@@ -9,6 +9,7 @@ import {
   deleteTest,
   fetchTest,
   fetchTestResults,
+  startTest,
   formatDuration,
   updateTest,
   type Check,
@@ -21,6 +22,7 @@ import {
 import { HuntQuestion } from '../hunt/HuntQuestion';
 import { shownAnswer, useTakeTest } from '../../hooks/useTakeTest';
 import { themeLook } from '../../lib/testThemes';
+import { isTestOpen, testTitle } from '../../lib/testLabels';
 import { Confetti, CountUp, Marked, ThemedProgress, ThemedStage, ThemePicker, ThemePreviewButton } from './ThemedStage';
 
 const DATE = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } as const;
@@ -92,7 +94,25 @@ export function TestPage() {
         : (
           <ThemedStage theme={data.test.theme}>
             {data.review
-              ? <Review test={data.test} questions={data.questions} review={data.review} leaderboard={data.leaderboard} celebrate={justDone} />
+              ? (
+                <Review
+                  test={data.test}
+                  questions={data.questions}
+                  review={data.review}
+                  leaderboard={data.leaderboard}
+                  celebrate={justDone}
+                  onAgain={async () => {
+                    // A practice test starts a fresh attempt; the review gives way to it.
+                    try {
+                      const res = await startTest(data.test.id);
+                      setJustDone(false);
+                      setData({ ...data, test: res.test, questions: res.questions, checked: res.checked, review: null });
+                    } catch (err) {
+                      toast.error((err as Error).message);
+                    }
+                  }}
+                />
+              )
               : (
                 <TakeTest
                   test={data.test}
@@ -168,13 +188,15 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 /** The test's name and due date. `plain` off the themed stage — the teacher's view sits on the app's own background. */
 function Header({ test, plain = false }: { test: TestSummary; plain?: boolean }) {
-  const open = Date.parse(test.dueAt) > useOpenedAt();
+  const open = isTestOpen(test, useOpenedAt());
   const onStage = !plain && !!themeLook(test.theme).background;
   return (
     <div className={onStage ? 'drop-shadow' : ''}>
-      <h1 className={`text-2xl font-display font-extrabold ${onStage ? 'text-white' : 'text-text-primary'}`}>{test.title}</h1>
+      <h1 className={`text-2xl font-display font-extrabold ${onStage ? 'text-white' : 'text-text-primary'}`}>{testTitle(test)}</h1>
       <p className={`text-sm mt-1 ${onStage ? 'text-white/85' : 'text-text-muted'}`}>
-        <FormattedMessage id={open ? 'tests.due' : 'tests.closedOn'} values={{ date: <FormattedDate value={test.dueAt} {...DATE} /> }} />
+        {test.dueAt === null
+          ? <FormattedMessage id="tests.noDeadline" />
+          : <FormattedMessage id={open ? 'tests.due' : 'tests.closedOn'} values={{ date: <FormattedDate value={test.dueAt} {...DATE} /> }} />}
         {' · '}
         <FormattedMessage id="tests.questions" values={{ n: test.questionCount }} />
       </p>
@@ -198,7 +220,7 @@ function TakeTest({ test, questions, initialChecked, leaderboard, onStarted, onD
     answers, at, setAt, checked, fresh, starting, checking, sending, instant,
     answered, rightSoFar, isAnswered, streakAt, loadImage, answer, begin, handIn: send,
   } = useTakeTest({ test, questions, initialChecked, onStarted, onDone });
-  const open = Date.parse(test.dueAt) > useOpenedAt();
+  const open = isTestOpen(test, useOpenedAt());
   const look = themeLook(test.theme);
   const onStage = !!look.background;
 
@@ -343,15 +365,20 @@ function TakeTest({ test, questions, initialChecked, leaderboard, onStarted, onD
 }
 
 
-function Review({ test, questions, review, leaderboard, celebrate }: {
+function Review({ test, questions, review, leaderboard, celebrate, onAgain }: {
   test: TestSummary;
   questions: TestQuestion[];
   review: ReviewItem[];
   leaderboard: Leader[];
   /** Just handed in on this visit: the score counts up under confetti. */
   celebrate: boolean;
+  /** A practice test can be taken again. */
+  onAgain: () => void;
 }) {
   const result = test.myResult;
+  // A practice test shows your best; this attempt's score, when it isn't that, goes under it.
+  const practice = test.practiceNumber != null;
+  const thisTime = review.filter((r) => r.correct).length;
   const revealed = review.some((r) => r.answer !== null);
   const byId = new Map(questions.map((q) => [q.id, q]));
   return (
@@ -360,16 +387,24 @@ function Review({ test, questions, review, leaderboard, celebrate }: {
       {result && (
         <div className={`relative overflow-hidden rounded-3xl border-[3px] border-accent-green bg-bg-card p-6 text-center shadow-xl ${celebrate ? 'animate-bounce-in' : ''}`}>
           {celebrate && <Confetti count={48} />}
-          <p className="text-xs font-bold uppercase tracking-wider text-accent-green"><FormattedMessage id="tests.yourScore" /></p>
+          <p className="text-xs font-bold uppercase tracking-wider text-accent-green"><FormattedMessage id={practice ? 'tests.bestScore' : 'tests.yourScore'} /></p>
           <p className="text-5xl font-display font-extrabold text-text-primary mt-1 tabular-nums">
             {celebrate ? <CountUp to={result.score} /> : result.score}/{result.total}
           </p>
+          {practice && thisTime !== result.score && (
+            <p className="text-sm text-text-secondary mt-1"><FormattedMessage id="tests.lastScore" values={{ score: thisTime, total: review.length }} /></p>
+          )}
           {result.durationMs !== null && (
             <p className="text-xs text-text-muted mt-1 flex items-center justify-center gap-1">
               <Icon icon="lucide:timer" /> <FormattedMessage id="tests.tookTime" values={{ time: formatDuration(result.durationMs) }} />
             </p>
           )}
         </div>
+      )}
+      {practice && (
+        <button type="button" onClick={onAgain} className="btn-3d w-full py-3 bg-accent-green text-bg-primary font-display font-extrabold flex items-center justify-center gap-2">
+          <Icon icon="lucide:rotate-ccw" /> <FormattedMessage id="tests.takeAgain" />
+        </button>
       )}
       <Leaderboard leaders={leaderboard} test={test} />
       {!revealed && (
