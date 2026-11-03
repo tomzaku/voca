@@ -90,10 +90,13 @@ export function RevealedView({
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
                     {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
                   </span>
-                  <BucketTag word={wordData.word} progress={progress} />
+                  <span className="hidden sm:contents"><BucketTag word={wordData.word} progress={progress} /></span>
                 </div>
               </div>
             </div>
+            {/* On a phone the learning tag drops to the card's right edge, level
+                with the badge row, so the row beside the doodle stays short. */}
+            <div className="self-stretch flex flex-col items-end justify-between gap-2 shrink-0">
             <button
               onClick={speech.speakWord}
               className={`btn-3d w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-1 ${speech.isSpeaking
@@ -119,6 +122,8 @@ export function RevealedView({
                 </svg>
               )}
             </button>
+            <span className="sm:hidden"><BucketTag word={wordData.word} progress={progress} align="right" /></span>
+            </div>
           </div>
 
           {/* Definition + synonyms/antonyms — merged into the word card, rather

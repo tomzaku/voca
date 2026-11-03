@@ -21,9 +21,12 @@ const PREVIEW = 10;
 export function BucketTag({
   word,
   progress,
+  align = 'left',
 }: {
   word: string;
   progress: WordProgress | undefined;
+  /** Which edge the popover hangs from — 'right' when the tag sits at the card's right edge. */
+  align?: 'left' | 'right';
 }) {
   const intl = useIntl();
   const bucket = wordBucket(progress);
@@ -80,7 +83,7 @@ export function BucketTag({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-30 w-64 sm:w-72 rounded-xl border-2 border-border bg-bg-card p-3 shadow-xl animate-fade-in">
+        <div className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-2 z-30 w-64 sm:w-72 rounded-xl border-2 border-border bg-bg-card p-3 shadow-xl animate-fade-in`}>
           <p className={`text-[11px] font-bold ${meta.text}`}>
             {peers.loading
               ? intl.formatMessage({ id: 'bucket.peersLoading' }, { bucket: lower })
