@@ -14,10 +14,11 @@ import { REACTION_MS, isGift, isReaction, type Gift, type Reaction } from '../ga
 // vanish for you, and you for them in practice — you ignore all they send),
 // and the block list is kept on this device.
 //
-// Signed out, you can look but not be seen: a guest watches the same channel
-// (`watch`) — everyone walking, their chat and reactions — without tracking
-// presence or sending anything, so no one can see, count or be addressed by an
-// account that doesn't exist. Talking to anyone takes signing in.
+// Signed out, you're a guest (`guest`, an id starting `guest-`): you walk
+// among everyone and they see you, under the name you gave — presence and
+// position only. A guest sends nothing else (no chat, waves, gifts or games)
+// and has no inbox, and others drop anything that claims to come from one, so
+// talking to anyone still takes signing in.
 
 export type Facing = 'left' | 'right' | 'up' | 'down';
 export interface Peer { id: string; name: string; look: Look; x: number; y: number; facing: Facing; moving: boolean }
@@ -51,6 +52,11 @@ export interface MatchLink extends Match {
 export type Outgoing = LiveMessage extends infer M ? (M extends LiveMessage ? Omit<M, 'from'> : never) : never;
 
 const CHANNEL = 'world:hue';
+const GUEST = 'guest-';
+
+/** A signed-out player: seen, but not someone you can talk to or play with. */
+export const isGuest = (id: string) => id.startsWith(GUEST);
+export const newGuestId = () => `${GUEST}${Math.random().toString(36).slice(2, 10)}`;
 const BLOCKED = 'voca-world-blocked';
 const MAX_CHAT = 120;
 
@@ -94,11 +100,11 @@ export class WorldLive {
   private reacted = new Map<string, number>();
   blocked = loadBlocked();
 
-  /** Only watching (a guest): nothing is tracked or sent, and there's no inbox. */
-  readonly watching: boolean;
+  /** Signed out: seen walking, but sends no messages and has no inbox. */
+  readonly guest: boolean;
 
-  constructor(private me: { id: string; name: string; look: Look }, private on: Handlers, opts: { watch?: boolean } = {}) {
-    this.watching = !!opts.watch;
+  constructor(private me: { id: string; name: string; look: Look }, private on: Handlers, opts: { guest?: boolean } = {}) {
+    this.guest = !!opts.guest;
   }
 
   /** Join, once any earlier connection's channel is gone: the client hands
@@ -109,7 +115,7 @@ export class WorldLive {
     const topics = [`realtime:${CHANNEL}`, `realtime:inbox:${this.me.id}`];
     for (const old of supabase.getChannels().filter((c) => topics.includes(c.topic))) await supabase.removeChannel(old);
     if (this.closed || this.channel) return;
-    if (!this.watching) {
+    if (!this.guest) {
       const inbox = supabase.channel(`inbox:${this.me.id}`, { config: { private: true } });
       inbox.on('broadcast', { event: 'dm' }, ({ payload }) => {
         const p = payload as { from?: unknown; text?: unknown };
@@ -159,7 +165,9 @@ export class WorldLive {
     });
     ch.on('broadcast', { event: 'msg' }, ({ payload }) => {
       const m = payload as LiveMessage;
-      if (!m || this.blocked.has(m.from) || !this.peers.has(m.from)) return;
+      if (!m || typeof m.from !== 'string' || isGuest(m.from) || this.blocked.has(m.from) || !this.peers.has(m.from)) return;
+      // A guest can't answer an invite, so it never sees one.
+      if (this.guest && m.kind === 'invite') return;
       if ('to' in m && m.to && m.to !== this.me.id && m.kind !== 'wave' && m.kind !== 'gift') return;
       if (m.kind === 'chat') this.on.message({ ...m, text: cleanChat(String(m.text ?? '')) });
       else if (m.kind === 'wave') this.on.message(m);
@@ -177,7 +185,7 @@ export class WorldLive {
       else if (m.kind === 'play' && m.data && typeof m.data === 'object') this.on.message(m);
     });
     ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED' && !this.watching) {
+      if (status === 'SUBSCRIBED') {
         ch.track({ name: this.me.name, look: this.me.look });
         this.sendPos(true);
       }
@@ -198,7 +206,7 @@ export class WorldLive {
   /** Dressed differently, or renamed. */
   updateMe(me: { name: string; look: Look }) {
     this.me = { ...this.me, ...me };
-    if (!this.watching) this.channel?.track({ name: this.me.name, look: this.me.look });
+    this.channel?.track({ name: this.me.name, look: this.me.look });
   }
 
   /** Where I am: sent when it's changed, at most a few times a second, and
@@ -215,7 +223,7 @@ export class WorldLive {
     const now = Date.now(), l = this.last;
     // Idle: a little under the heartbeat's own interval, or every other beat
     // would be skipped.
-    if (!this.channel || this.watching || (!force && now - l.at < (l.moving ? 150 : 2000))) return;
+    if (!this.channel || (!force && now - l.at < (l.moving ? 150 : 2000))) return;
     l.at = now;
     this.channel.send({ type: 'broadcast', event: 'pos', payload: { id: this.me.id, x: Math.round(l.x), y: Math.round(l.y), facing: l.facing, moving: l.moving } });
   }
@@ -224,7 +232,7 @@ export class WorldLive {
   heartbeat() { this.sendPos(false); }
 
   send(m: Outgoing) {
-    if (!this.channel || this.watching) return;
+    if (!this.channel || this.guest) return;
     const payload = { ...m, from: this.me.id } as LiveMessage;
     if (payload.kind === 'chat') {
       const text = cleanChat(payload.text);

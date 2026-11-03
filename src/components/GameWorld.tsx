@@ -67,7 +67,7 @@ import { accountName } from '../lib/accountName';
 import toast from 'react-hot-toast';
 import { sendMessage } from '../lib/messagesApi';
 import { ApiError } from '../lib/api';
-import { WorldLive, cleanChat, type Facing, MatchBus, type LiveMessage, type Match, type MatchGame, type MatchLink } from '../lib/worldLive';
+import { WorldLive, cleanChat, isGuest, newGuestId, type Facing, MatchBus, type LiveMessage, type Match, type MatchGame, type MatchLink } from '../lib/worldLive';
 
 export type { WorldStation } from '../game/types';
 
@@ -330,7 +330,7 @@ export function GameWorld({
   // one's filled in), so a guest is never just "User".
   const askName = !authLoading && !user && !buddyName;
   const liveRef = useRef<WorldLive | null>(null);
-  // The others in Huế that WorldLive sees — a guest too, who only watches.
+  // The others in Huế that WorldLive sees — guests among them.
   const [online, setOnline] = useState(0);
   const [peerCard, setPeerCard] = useState<{ id: string; name: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -619,10 +619,10 @@ export function GameWorld({
   const scene = () => gameRef.current?.scene.getScene(WorldScene.KEY) as WorldScene | null;
   // Join the shared world — keyed on the account, not the user object, which
   // auth replaces on every session refresh (a rejoin each time you came back
-  // to the tab). Signed out, you watch it instead: you see everyone, and no
-  // one sees you (lib/worldLive.ts).
+  // to the tab). Signed out, you join as a guest: seen walking, but not
+  // talking (lib/worldLive.ts).
   const userId = user?.id;
-  const [guestId] = useState(() => `guest-${Math.random().toString(36).slice(2, 10)}`);
+  const [guestId] = useState(newGuestId);
   const liveId = userId ?? (authLoading ? null : guestId);
   useEffect(() => {
     if (!liveId) return;
@@ -682,21 +682,21 @@ export function GameWorld({
           bus.deliver(m.data);
         }
       },
-    }, { watch: guest });
+    }, { guest });
     void live.connect();
     liveRef.current = live;
     bus.plug(live);
     const beat = setInterval(() => live.heartbeat(), 2500);
     return () => { clearInterval(beat); live.disconnect(); liveRef.current = null; bus.plug(null); };
   }, [liveId, userId, bus, loadFriends]);
-  // Everyone in Huế: me too, unless I'm only watching.
-  const players = online + (userId ? 1 : 0);
+  // Everyone in Huế, me included.
+  const players = online + (liveId ? 1 : 0);
   // Fast travel to another player, from the who's-here list or their card.
   // The card's friend button reflects where you stand with them.
   const peerCardId = peerCard?.id;
   useEffect(() => {
     setPeerFriend(undefined);
-    if (!peerCardId || !userId) return;
+    if (!peerCardId || !userId || isGuest(peerCardId)) return;
     let alive = true;
     friendStatuses([peerCardId]).then((s) => alive && setPeerFriend(s[peerCardId]));
     return () => { alive = false; };
@@ -1285,14 +1285,16 @@ export function GameWorld({
           (a call with a dialogue to follow), play, or just say hi. Blocking is
           hidden for now (rarely used); the connection still honours a block
           list. ── */}
-      {/* Signed out you only watch: you can go to them, not reach them. */}
-      {!panel && peerCard && !user && (
+      {/* A guest on either side: you can go to them, not reach them. */}
+      {!panel && peerCard && (!user || isGuest(peerCard.id)) && (
         <WorldCard icon="person" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
-          <p className="text-[13px] text-[var(--px-muted)] mb-2"><FormattedMessage id="world.guestPeer" /></p>
-          <div className="grid grid-cols-2 gap-1.5">
-            <PixelButton tone="gold" onClick={() => void signInWithGoogle()} className="!px-2 !py-2 !text-[13px]">
-              <FormattedMessage id="world.liveSignInShort" />
-            </PixelButton>
+          <p className="text-[13px] text-[var(--px-muted)] mb-2"><FormattedMessage id={user ? 'world.peerIsGuest' : 'world.guestPeer'} /></p>
+          <div className={`grid gap-1.5 ${user ? '' : 'grid-cols-2'}`}>
+            {!user && (
+              <PixelButton tone="gold" onClick={() => void signInWithGoogle()} className="!px-2 !py-2 !text-[13px]">
+                <FormattedMessage id="world.liveSignInShort" />
+              </PixelButton>
+            )}
             <PixelButton tone="jade" onClick={() => goToPeer(peerCard.id)} className="!px-2 !py-2 !text-[13px]">
               <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" />
             </PixelButton>
@@ -1302,7 +1304,7 @@ export function GameWorld({
           </PixelButton>
         </WorldCard>
       )}
-      {!panel && peerCard && user && (
+      {!panel && peerCard && user && !isGuest(peerCard.id) && (
         <WorldCard icon="person" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
           <div className="grid grid-cols-2 gap-1.5 mb-2">
             <PixelButton tone="gold" onClick={() => messagePeer(peerCard.id, peerCard.name)} className="!px-2 !py-2 !text-[13px]">
