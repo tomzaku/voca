@@ -305,7 +305,8 @@ export function GameWorld({
   // in, and again from the skill bar's ⓘ (`n` restarts its clock).
   const [placeToast, setPlaceToast] = useState<{ id: string; n: number } | null>(null);
   // The bus: the stop a ticket's being bought for, and the journey on it.
-  const [busTicket, setBusTicket] = useState<{ index: number; place: string } | null>(null);
+  // A ticket to one stop, or (`tour`) for the sightseeing loop round them all.
+  const [busTicket, setBusTicket] = useState<{ index: number; place: string; tour?: boolean } | null>(null);
   const [busRide, setBusRide] = useState<BusRide | null>(null);
   // The stops (their place ids), read from the scene as the drawer opens.
   const [busStops, setBusStops] = useState<string[]>([]);
@@ -1159,6 +1160,19 @@ export function GameWorld({
                 onToggle={() => toggleFold('bus')}
                 title={<><span className="text-[14px] leading-none">🚌</span> <FormattedMessage id="world.bus" /></>}
               >
+                {busStops.length > 1 && (
+                  <button
+                    disabled={!!busRide}
+                    onClick={() => { setDrawerOpen(false); setBusTicket({ index: -1, place: '', tour: true }); }}
+                    className="px-pick px-notch w-full flex items-center gap-2 px-2.5 py-1.5 text-left"
+                  >
+                    <span className="flex-1 min-w-0">
+                      <span className="block truncate text-[14px] font-bold text-[var(--px-gold)]"><FormattedMessage id="world.tourName" /></span>
+                      <span className="block truncate text-[11px] text-[var(--px-muted)]"><FormattedMessage id="world.tourBlurb" values={{ n: busStops.length }} /></span>
+                    </span>
+                    <PixelIcon name="compass" size={2} />
+                  </button>
+                )}
                 {busStops.map((place, i) => (
                   <button
                     key={place}
@@ -1550,22 +1564,59 @@ export function GameWorld({
           >
             🚌 <FormattedMessage id="world.busTake" />
           </PixelButton>
+          {busStops.length > 1 && (
+            <PixelButton tone="jade" block className="mt-2" onClick={() => setBusTicket({ index: -1, place: '', tour: true })}>
+              <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.tourName" />
+            </PixelButton>
+          )}
         </WorldCard>
       )}
       {!panel && busTicket !== null && (
         <BusTicket
-          stop={intl.formatMessage({ id: `places.${busTicket.place}` })}
-          onBoard={() => { scene()?.busTo(busTicket.index); setBusTicket(null); }}
+          stop={busTicket.tour ? intl.formatMessage({ id: 'world.tourName' }) : intl.formatMessage({ id: `places.${busTicket.place}` })}
+          onBoard={() => { if (busTicket.tour) scene()?.busTour(); else scene()?.busTo(busTicket.index); setBusTicket(null); }}
           onClose={() => setBusTicket(null)}
         />
       )}
-      {!panel && busRide && (
+      {!panel && busRide?.state === 'riding' && (
         <WorldCard
           emoji="🚌"
           title={<FormattedMessage id="world.busRiding" />}
           subtitle={<FormattedMessage id="world.busTo" values={{ place: intl.formatMessage({ id: `places.${busRide.place}` }) }} />}
         >
           <p className="text-[13px] text-[var(--px-muted)]"><FormattedMessage id="world.busHint" /></p>
+          <PixelButton tone="paper" block className="mt-2" onClick={() => scene()?.busHopOff()}><FormattedMessage id="world.busHopOff" /></PixelButton>
+        </WorldCard>
+      )}
+      {/* The sightseeing tour: the guide's word on each stop as the bus
+          stands there (the place's own story, as its info card tells it). */}
+      {!panel && busRide?.state === 'touring' && (
+        <WorldCard
+          icon="compass"
+          title={<FormattedMessage id="world.tourName" />}
+          subtitle={
+            <FormattedMessage
+              id={busRide.stopped ? 'world.tourAt' : busRide.at === busRide.of ? 'world.tourHome' : 'world.tourNext'}
+              values={{ place: intl.formatMessage({ id: `places.${busRide.place}` }), n: busRide.at, total: busRide.of }}
+            />
+          }
+        >
+          {busRide.stopped ? (
+            <div key={busRide.place} className="space-y-1.5 animate-fade-in">
+              <p className="px-title !text-[15px] text-[var(--px-gold)] leading-tight">
+                <FormattedMessage id={`places.${busRide.place}`} />
+                <span className="ml-2 text-[12px] text-[var(--px-muted)] normal-case"><FormattedMessage id={`places.${busRide.place}En`} /></span>
+              </p>
+              <p className="text-[13px] leading-snug"><FormattedMessage id={`places.${busRide.place}About`} /></p>
+              <p className="text-[12px] leading-snug text-[var(--px-muted)]">
+                <span className="px-title !text-[11px] text-[var(--px-accent)] mr-1.5"><FormattedMessage id="places.didYouKnow" /></span>
+                <FormattedMessage id={`places.${busRide.place}Fact`} />
+              </p>
+            </div>
+          ) : (
+            <p className="text-[13px] text-[var(--px-muted)]"><FormattedMessage id="world.tourHint" /></p>
+          )}
+          <PixelButton tone="paper" block className="mt-2.5" onClick={() => scene()?.busHopOff()}><FormattedMessage id="world.busHopOff" /></PixelButton>
         </WorldCard>
       )}
 

@@ -18,6 +18,7 @@ import {
   VILLAGERS_KEY, loadVillagers, villagerAnim, keeperLookFor,
   type BuddyDir, type VillagerLook,
 } from '../textures';
+import { tourOrder, TOUR_STOP_MS } from '../busTour';
 import { buildFestive, type FestiveDecor } from '../festiveDecor';
 import { buildExtras, EXTRA_PLAYS, FIREWORKS_PADS, STAGE_AREA } from '../worldExtras';
 
@@ -1342,7 +1343,12 @@ export class WorldScene extends Phaser.Scene {
   /** Where a bus may drive (the map's `roads` layer), by tile. */
   private roadTiles: boolean[][] = [];
   /** The bus on its way: the path (world px) and how far along it is. */
-  private bus?: { sprite: Phaser.GameObjects.Image; path: { x: number; y: number }[]; i: number; dest: number };
+  private bus?: {
+    sprite: Phaser.GameObjects.Image; path: { x: number; y: number }[]; i: number; dest: number;
+    /** A sightseeing tour: the stops still to come (dest is the first), and
+     *  how many in all; `waitUntil` while it stands at a stop. */
+    tour?: { next: number[]; of: number; waitUntil: number };
+  };
 
   // ── Other players ──
 
@@ -1595,24 +1601,73 @@ export class WorldScene extends Phaser.Scene {
   /** With a ticket: a bus pulls up on the road nearest the buddy, takes them
    *  aboard and drives the roads to the stop. */
   busTo(dest: number) {
+    this.board(dest);
+  }
+
+  /** The sightseeing tour (game/busTour): from the stop nearest the buddy,
+   *  round every other stop — waiting at each a moment — and back. */
+  busTour() {
+    const stops = this.meta.busStops;
+    if (!stops.length || this.bus) return;
+    let from = 0;
+    stops.forEach((b, i) => {
+      if (Math.hypot(this.buddy.x - b.sx, this.buddy.y - b.sy) < Math.hypot(this.buddy.x - stops[from].sx, this.buddy.y - stops[from].sy)) from = i;
+    });
+    const order = tourOrder(stops.map((b) => b.place), from);
+    this.board(order[0], { next: order.slice(1), of: order.length, waitUntil: 0 });
+  }
+
+  /** Get off wherever the bus is now — a ride or a tour cut short. */
+  busHopOff() {
+    const b = this.bus;
+    if (!b) return;
+    this.alight(this.clampToWalkable(b.sprite.x, b.sprite.y) ?? { x: b.sprite.x, y: b.sprite.y });
+  }
+
+  private board(dest: number, tour?: NonNullable<WorldScene['bus']>['tour']) {
     const stop = this.meta.busStops[dest];
     if (!stop || this.bus) return;
-    const k = this.tilePx;
-    const from = this.nearestRoad(Math.floor(this.buddy.x / k), Math.floor(this.buddy.y / k));
-    const to = [Math.floor(stop.x / k), Math.floor(stop.y / k)] as const;
-    const tiles = from && this.roadPath(from, to);
-    if (!tiles) return;
-    const path = tiles.map(([tx, ty]) => ({ x: (tx + 0.5) * k, y: (ty + 0.5) * k }));
+    const path = this.roadTo(this.buddy.x, this.buddy.y, stop);
+    if (!path) return;
     for (const v of ['side', 'front', 'back'] as const) {
       const key = `bus-${v}`;
       if (!this.textures.exists(key)) this.textures.addCanvas(key, drawBus(v))?.setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
     const sprite = this.add.image(path[0].x, path[0].y, 'bus-side').setOrigin(0.5, 0.75).setScale(SCALE).setDepth(DEPTH_BUDDY + 1).setAlpha(0);
     this.tweens.add({ targets: sprite, alpha: 1, duration: 300 });
-    this.bus = { sprite, path, i: 0, dest };
+    this.bus = { sprite, path, i: 0, dest, tour };
     this.route = [];
     this.buddy.setVisible(false);
-    this.game.events.emit(WORLD_EVENTS.bus, { state: 'riding', place: stop.place } satisfies BusRide);
+    this.emitBus(false);
+  }
+
+  /** The way by road from (x, y) to a stop, as pixel points. */
+  private roadTo(x: number, y: number, stop: { x: number; y: number }) {
+    const k = this.tilePx;
+    const from = this.nearestRoad(Math.floor(x / k), Math.floor(y / k));
+    const tiles = from && this.roadPath(from, [Math.floor(stop.x / k), Math.floor(stop.y / k)]);
+    return tiles ? tiles.map(([tx, ty]) => ({ x: (tx + 0.5) * k, y: (ty + 0.5) * k })) : null;
+  }
+
+  private emitBus(stopped: boolean) {
+    const b = this.bus;
+    if (!b) return;
+    const place = this.meta.busStops[b.dest].place;
+    const ride: BusRide = b.tour
+      ? { state: 'touring', place, at: b.tour.of - b.tour.next.length, of: b.tour.of, stopped }
+      : { state: 'riding', place };
+    this.game.events.emit(WORLD_EVENTS.bus, ride);
+  }
+
+  /** Off the bus at `spot`; the bus fades away. */
+  private alight(spot: { x: number; y: number }) {
+    const b = this.bus;
+    if (!b) return;
+    this.buddy.setPosition(spot.x, spot.y).setVisible(true);
+    const sprite = b.sprite;
+    this.tweens.add({ targets: sprite, alpha: 0, duration: 600, delay: 400, onComplete: () => sprite.destroy() });
+    this.bus = undefined;
+    this.game.events.emit(WORLD_EVENTS.bus, null);
   }
 
   /** The road tile nearest (tx, ty), searching outward. */
@@ -1670,14 +1725,23 @@ export class WorldScene extends Phaser.Scene {
     }
     this.buddy.setPosition(b.sprite.x, b.sprite.y);
     if (b.i < b.path.length - 1) return;
-    // Arrived: off the bus, which fades away.
     const stop = this.meta.busStops[b.dest];
-    const spot = this.clampToWalkable(stop.x, stop.y) ?? { x: stop.x, y: stop.y };
-    this.buddy.setPosition(spot.x, spot.y).setVisible(true);
-    const sprite = b.sprite;
-    this.tweens.add({ targets: sprite, alpha: 0, duration: 600, delay: 400, onComplete: () => sprite.destroy() });
-    this.bus = undefined;
-    this.game.events.emit(WORLD_EVENTS.bus, null);
+    // A tour stands at each stop a moment, then drives on to the next.
+    if (b.tour && b.tour.next.length) {
+      const now = this.time.now;
+      if (!b.tour.waitUntil) { b.tour.waitUntil = now + TOUR_STOP_MS; this.emitBus(true); return; }
+      if (now < b.tour.waitUntil) return;
+      const dest = b.tour.next[0];
+      const path = this.roadTo(b.sprite.x, b.sprite.y, this.meta.busStops[dest]);
+      if (path) {
+        b.tour = { ...b.tour, next: b.tour.next.slice(1), waitUntil: 0 };
+        Object.assign(b, { path, i: 0, dest });
+        this.emitBus(false);
+        return;
+      }
+    }
+    // Arrived: off the bus, which fades away.
+    this.alight(this.clampToWalkable(stop.x, stop.y) ?? { x: stop.x, y: stop.y });
   }
 
   /** Farmers in the rice paddies, in nón lá and working clothes, bent over

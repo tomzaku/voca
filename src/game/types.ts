@@ -39,8 +39,12 @@ export interface WorldSnapshot {
 }
 
 /** Events the game emits on `game.events` for the React shell. */
-/** A bus journey under way: riding to the stop at `place` (its story id). */
-export interface BusRide { state: 'riding'; place: string }
+/** A bus journey under way: riding to the stop at `place` (its story id) —
+ *  or a sightseeing tour, `place` being the stop it's at (`stopped`) or
+ *  driving to, the `at`th of `of`. */
+export type BusRide =
+  | { state: 'riding'; place: string }
+  | { state: 'touring'; place: string; at: number; of: number; stopped: boolean };
 
 export const WORLD_EVENTS = {
   /** Buddy walked within reach of a station (payload: station id or null). */
