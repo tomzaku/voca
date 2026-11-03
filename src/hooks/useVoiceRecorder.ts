@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { HARMLESS_ERRORS, joinResults, liveRecognition, type LiveRecognition } from '../lib/liveSpeech';
 import { transcribeBlob } from '../lib/whisperStt';
 import { stopSpeaking } from '../lib/tts';
 
-// Record from the microphone and turn it into text, headless. Transcription is
-// Whisper running on-device (lib/whisperStt), so it costs no AI credits, sends
-// no audio anywhere, and works offline once the model is cached — but that
-// model is a ~40MB first download, which is why `modelProgress` is exposed.
-// The flash card's Speak game and the world's Đông Ba chè stall both record
+// Record from the microphone and turn it into text, headless. Where the
+// browser can recognise speech itself (Chrome, Edge, Safari — lib/liveSpeech)
+// that's what does it: the words show as you say them (`live`) and the
+// answer is there the moment you stop. Otherwise — Firefox, or a browser that
+// has the API but can't reach its service (Brave) — the recording goes to
+// Whisper on the device (lib/whisperStt): free, private and offline once
+// cached, but a ~40MB first download (`modelProgress`) and nothing to see
+// until you stop. The audio is always recorded, so a live recogniser that
+// fails mid-answer still leaves Whisper something to work on.
+// The flash card's Speak game, the world's chè stall and Shadowing record
 // through this; each decides what a transcript means.
 
 export type RecorderPhase =
@@ -29,10 +35,15 @@ const supported = () =>
 export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTranscript: (text: string) => void }) {
   const [phase, setPhase] = useState<RecorderPhase>(() => (supported() ? 'idle' : 'unsupported'));
   const [modelProgress, setModelProgress] = useState(0);
+  /** What the live recogniser has heard so far ('' without one). */
+  const [live, setLive] = useState('');
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The live recogniser for this recording: what it heard, whether it broke,
+  // and a promise that settles once it has delivered its last words.
+  const liveRef = useRef<{ rec: LiveRecognition; text: string; failed: boolean; ended: Promise<void>; recording: boolean } | null>(null);
   // Guards every setState after an await — callers unmount mid-transcription.
   const aliveRef = useRef(true);
   const onTranscriptRef = useRef(onTranscript);
@@ -44,11 +55,25 @@ export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTra
       aliveRef.current = false;
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
       recorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+      const l = liveRef.current;
+      if (l) { l.recording = false; l.rec.abort(); }
     };
   }, []);
 
   const handleAudio = useCallback(async (blob: Blob) => {
     setPhase('thinking');
+    // The live recogniser heard it: its last words arrive just after stop().
+    const l = liveRef.current;
+    liveRef.current = null;
+    if (l && !l.failed) {
+      await Promise.race([l.ended, new Promise((r) => setTimeout(r, 2000))]);
+      if (!l.failed) {
+        if (!aliveRef.current) return;
+        setPhase('idle');
+        onTranscriptRef.current(l.text);
+        return;
+      }
+    }
     try {
       const text = await transcribeBlob(blob, (p) => {
         if (aliveRef.current) setModelProgress(p);
@@ -67,7 +92,39 @@ export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTra
   const stop = useCallback(() => {
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
     stopTimerRef.current = null;
+    const l = liveRef.current;
+    if (l?.recording) { l.recording = false; try { l.rec.stop(); } catch { /* already stopped */ } }
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+  }, []);
+
+  /** Start the browser's recogniser alongside the recording, if it has one. */
+  const startLive = useCallback(() => {
+    const Rec = liveRecognition();
+    if (!Rec) return;
+    let rec: LiveRecognition;
+    try { rec = new Rec(); } catch { return; }
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    let done = () => {};
+    const l = { rec, text: '', failed: false, recording: true, ended: new Promise<void>((r) => { done = r; }) };
+    // Chrome starts a fresh result list each time it restarts after a pause.
+    let before = '';
+    rec.onresult = (e) => {
+      l.text = [before, joinResults(e.results)].filter(Boolean).join(' ');
+      if (aliveRef.current) setLive(l.text);
+    };
+    rec.onerror = (e) => { if (!HARMLESS_ERRORS.has(e.error)) l.failed = true; };
+    rec.onend = () => {
+      // Chrome stops listening after a silence; while still recording, go on.
+      if (l.recording && !l.failed) {
+        before = l.text;
+        try { rec.start(); return; } catch { /* fall through: it's over */ }
+      }
+      done();
+    };
+    try { rec.start(); } catch { return; }
+    liveRef.current = l;
   }, []);
 
   const start = useCallback(async () => {
@@ -95,6 +152,8 @@ export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTra
         else if (aliveRef.current) setPhase('idle');
       };
       recorder.start();
+      setLive('');
+      startLive();
       setPhase('recording');
       stopTimerRef.current = setTimeout(stop, maxMs);
     } catch (err) {
@@ -102,7 +161,7 @@ export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTra
       console.warn('[voca] microphone unavailable:', err);
       setPhase('denied');
     }
-  }, [handleAudio, stop, maxMs]);
+  }, [handleAudio, stop, maxMs, startLive]);
 
-  return { phase, modelProgress, start, stop };
+  return { phase, modelProgress, live, start, stop };
 }

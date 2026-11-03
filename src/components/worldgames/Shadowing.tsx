@@ -101,6 +101,7 @@ export function Shadowing() {
             </p>
           </div>
         )}
+        {recording && recorder.live && <p className="text-[15px] leading-snug opacity-90">“{recorder.live}”</p>}
         {recorder.phase === 'thinking' && (
           <p className="px-title text-[var(--px-muted)]">
             {recorder.modelProgress > 0 && recorder.modelProgress < 100

@@ -11,8 +11,9 @@ import { HudBanner, HudCenter, HudDock, HudTop, PixelBar, PixelButton, PixelIcon
 // The Speak building — a chè stall in Đông Ba market. The seller asks one of the
 // Speak page's Short Conversation questions (same bank, same "practised"
 // marks in useSpeakingProgress, next question by conversationRules) and you
-// answer out loud. Recording and on-device transcription are the flash
-// card's (useVoiceRecorder); what's new here is the reply: what you said,
+// answer out loud. Recording and transcription — live as you speak where the
+// browser can, else on the device after — are the flash card's
+// (useVoiceRecorder); what's new here is the reply: what you said,
 // and which of the question's useful phrases you managed to use.
 
 /** Long enough for a real answer, short enough that a forgotten tap ends. */
@@ -172,6 +173,12 @@ export function ConHenStall() {
           </div>
         )}
 
+        {recording && recorder.live && (
+          <p className="text-[16px] leading-snug opacity-90">
+            <span className="px-title !text-[12px] text-[var(--px-muted)] mr-2"><FormattedMessage id="world.speakYouSaid" /></span>
+            “{recorder.live}”
+          </p>
+        )}
         {reply?.heard && (
           <p className="text-[16px] leading-snug">
             <span className="px-title !text-[12px] text-[var(--px-muted)] mr-2"><FormattedMessage id="world.speakYouSaid" /></span>

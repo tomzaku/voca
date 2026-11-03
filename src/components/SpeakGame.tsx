@@ -81,7 +81,7 @@ export function SpeakGame({ word, family, disabled, onSolve, onWrong, onGaveUp }
     <div className="flex flex-col items-center gap-4 py-4">
       <p className="text-sm text-text-muted text-center">
         {phase === 'recording'
-          ? intl.formatMessage({ id: 'games.speakListening' })
+          ? recorder.live ? `“${recorder.live}”` : intl.formatMessage({ id: 'games.speakListening' })
           : phase === 'thinking'
             ? modelProgress > 0 && modelProgress < 100
               ? intl.formatMessage({ id: 'games.speakPreparingModel' }, { pct: Math.round(modelProgress) })
