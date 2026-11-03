@@ -12,8 +12,10 @@ import { stopSpeaking } from '../lib/tts';
 // cached, but a ~40MB first download (`modelProgress`) and nothing to see
 // until you stop. The audio is always recorded, so a live recogniser that
 // fails mid-answer still leaves Whisper something to work on.
-// The flash card's Speak game, the world's chè stall and Shadowing record
-// through this; each decides what a transcript means.
+// The flash card's Speak game, the world's chè stall, Shadowing and the
+// speaking page's answers record through this; each decides what a transcript
+// means. `keepAudio` also hands back the recording itself (`audioUrl`), for
+// hearing yourself.
 
 export type RecorderPhase =
   | 'idle'
@@ -32,8 +34,16 @@ const supported = () =>
  * `maxMs` is a hard stop, so a forgotten tap can't record forever.
  * `onTranscript` gets the text of each recording (possibly empty).
  */
-export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTranscript: (text: string) => void }) {
+export function useVoiceRecorder({ maxMs, onTranscript, keepAudio = false }: { maxMs: number; onTranscript: (text: string) => void; keepAudio?: boolean }) {
   const [phase, setPhase] = useState<RecorderPhase>(() => (supported() ? 'idle' : 'unsupported'));
+  /** The last recording, playable (only with `keepAudio`); revoked when replaced. */
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const urlRef = useRef<string | null>(null);
+  const setUrl = useCallback((url: string | null) => {
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    urlRef.current = url;
+    setAudioUrl(url);
+  }, []);
   const [modelProgress, setModelProgress] = useState(0);
   /** What the live recogniser has heard so far ('' without one). */
   const [live, setLive] = useState('');
@@ -57,6 +67,7 @@ export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTra
       recorderRef.current?.stream.getTracks().forEach((t) => t.stop());
       const l = liveRef.current;
       if (l) { l.recording = false; l.rec.abort(); }
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     };
   }, []);
 
@@ -148,11 +159,13 @@ export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTra
         // recording is over is alarming, and rightly so.
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
+        if (keepAudio && blob.size > 0 && aliveRef.current) setUrl(URL.createObjectURL(blob));
         if (blob.size > 0) void handleAudio(blob);
         else if (aliveRef.current) setPhase('idle');
       };
       recorder.start();
       setLive('');
+      if (keepAudio) setUrl(null);
       startLive();
       setPhase('recording');
       stopTimerRef.current = setTimeout(stop, maxMs);
@@ -161,7 +174,7 @@ export function useVoiceRecorder({ maxMs, onTranscript }: { maxMs: number; onTra
       console.warn('[voca] microphone unavailable:', err);
       setPhase('denied');
     }
-  }, [handleAudio, stop, maxMs, startLive]);
+  }, [handleAudio, stop, maxMs, startLive, keepAudio, setUrl]);
 
-  return { phase, modelProgress, live, start, stop };
+  return { phase, modelProgress, live, audioUrl, start, stop };
 }

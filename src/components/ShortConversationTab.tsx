@@ -12,6 +12,7 @@ import {
 import { useSpeakingProgress, isPracticed, type QuestionProgress } from '../hooks/useSpeakingProgress';
 import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
+import { AnswerRecorder } from './AnswerRecorder';
 
 // "Short Conversation" — a big bank of everyday questions, organised so a
 // learner can see what they've covered: topics grouped in a sidebar (a bottom
@@ -283,6 +284,10 @@ function QuestionCard({ q, progress, expanded, showTopic, onToggle, onNext }: {
 
       {expanded && (
         <div className="border-t border-border animate-fade-in">
+          {/* Your own answer first, before reading the sample. */}
+          <div className="px-3 sm:px-4 pt-4">
+            <AnswerRecorder onAnswered={() => markPracticed(q.id)} />
+          </div>
           <div className="px-3 sm:px-4 py-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               {q.sampleAnswers.length > 1 ? (
