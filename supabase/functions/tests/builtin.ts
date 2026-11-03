@@ -70,6 +70,13 @@ interface ResultRow {
   total: number;
 }
 
+/**
+ * The results table isn't there yet: deployed ahead of its migration
+ * (20261111000000_builtin_test_results). Reads then come back empty, so the
+ * teachers' tests beside these still list; starting one says why it can't.
+ */
+const missingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205';
+
 const COLUMNS = 'test_id, user_id, name, started_at, last_answers, last_score, last_submitted_at, best_score, best_duration_ms, best_at, total';
 
 /** Built-in tests, with the caller's own results and how many have taken each. */
@@ -79,6 +86,7 @@ export class Builtins {
   private async mine(testIds: string[]): Promise<Map<string, ResultRow>> {
     if (!testIds.length) return new Map();
     const { data, error } = await this.db.from('builtin_test_results').select(COLUMNS).eq('user_id', this.me).in('test_id', testIds);
+    if (missingTable(error)) return new Map();
     if (error) throw new Error(error.message);
     return new Map(((data ?? []) as ResultRow[]).map((r) => [r.test_id, r]));
   }
@@ -88,6 +96,7 @@ export class Builtins {
     await Promise.all(testIds.map(async (id) => {
       const { count, error } = await this.db.from('builtin_test_results').select('user_id', { count: 'exact', head: true })
         .eq('test_id', id).not('best_score', 'is', null);
+      if (missingTable(error)) return;
       if (error) throw new Error(error.message);
       counts.set(id, count ?? 0);
     }));
@@ -126,6 +135,7 @@ export class Builtins {
   /** The built-in tests the caller has started or handed in, for the list of every test. */
   async attempted() {
     const { data, error } = await this.db.from('builtin_test_results').select('test_id').eq('user_id', this.me).limit(MAX_RESULTS);
+    if (missingTable(error)) return [];
     if (error) throw new Error(error.message);
     const tests = (data ?? []).map((r) => findBuiltin(r.test_id as string)).filter((t): t is BuiltinTest => !!t);
     return this.summaries(tests);
@@ -142,6 +152,7 @@ export class Builtins {
       .order('best_duration_ms', { ascending: true, nullsFirst: false })
       .order('best_at', { ascending: true })
       .limit(LEADERS);
+    if (missingTable(error)) return [];
     if (error) throw new Error(error.message);
     return (data ?? []).map((r) => ({
       name: r.name as string,
