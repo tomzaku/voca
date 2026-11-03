@@ -69,6 +69,10 @@ export function TailorShop({ initial, firstVisit, name, onRename, onChange, onDo
   const [look, setLook] = useState(initial);
   const [tab, setTab] = useState<Tab>('outfit');
   const [buddyName, setBuddyName] = useState(name);
+  // A name given while the shop is open (a guest's, asked over it on a first
+  // visit) shows here, rather than being undone by stepping out.
+  const [given, setGiven] = useState(name);
+  if (name !== given) { setGiven(name); setBuddyName(name); }
   const wear = (next: Look) => {
     playSelect();
     setLook(next);

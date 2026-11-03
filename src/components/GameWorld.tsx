@@ -41,6 +41,7 @@ import { REACTIONS, REACTION_ICONS, REACTION_MS, type Gift, type Reaction } from
 import { LookSprite } from './worldgames/LookSprite';
 import { WorldLoading } from './worldgames/WorldLoading';
 import { WorldIntro, type IntroStop } from './worldgames/WorldIntro';
+import { WorldGuestName } from './worldgames/WorldGuestName';
 import { BusTicket } from './worldgames/BusTicket';
 import { FocusZone } from './worldgames/FocusZone';
 import { StreetPiano } from './worldgames/StreetPiano';
@@ -290,6 +291,7 @@ export function GameWorld({
   const locale = intl.locale;
   const animalId = useCompanion((s) => s.animalId);
   const buddyName = useCompanion((s) => s.name);
+  const renameBuddy = useCompanion((s) => s.rename);
   const worn = useCompanion((s) => s.dress);
   const dress = panel?.dress ?? worn ?? DEFAULT_LOOK;
   const dressRef = useRef(dress);
@@ -324,6 +326,9 @@ export function GameWorld({
   // The welcome, for someone new and signed out — once per device, and again
   // from the ⓘ button beside Sign in.
   const [intro, setIntro] = useState(false);
+  // Signed out with no name yet: asked for one before anything else (a random
+  // one's filled in), so a guest is never just "User".
+  const askName = !authLoading && !user && !buddyName;
   const liveRef = useRef<WorldLive | null>(null);
   // The others in Huế that WorldLive sees — a guest too, who only watches.
   const [online, setOnline] = useState(0);
@@ -487,8 +492,8 @@ export function GameWorld({
   // preventDefault space/arrows the panel's inputs need.
   useEffect(() => {
     const kb = gameRef.current?.input.keyboard;
-    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen && !match && !memorial && !intro;
-  }, [paused, busTicket, focusOpen, playing, chatOpen, match, memorial, intro]);
+    if (kb) kb.enabled = !paused && busTicket === null && !focusOpen && !playing && !chatOpen && !match && !memorial && !intro && !askName;
+  }, [paused, busTicket, focusOpen, playing, chatOpen, match, memorial, intro, askName]);
 
   // The world fills the screen: the frame stretches from wherever it starts
   // (the top, full-screen) to the bottom of the window, never below MIN_H.
@@ -871,12 +876,13 @@ export function GameWorld({
   }, [panel, chatOpen, playing, match, busTicket, focusOpen, memorial, react]);
 
   // First time here and signed out: the welcome, once the world has drawn
-  // (and auth has had its say, so a signed-in visitor never sees it flash).
+  // (and auth has had its say, so a signed-in visitor never sees it flash) —
+  // and once they've said what to call them.
   useEffect(() => {
-    if (authLoading || user || !sceneUp) return;
+    if (authLoading || user || !sceneUp || !buddyName) return;
     try { if (localStorage.getItem(INTRO_SEEN)) return; } catch { return; }
     setIntro(true);
-  }, [authLoading, user, sceneUp]);
+  }, [authLoading, user, sceneUp, buddyName]);
   const closeIntro = useCallback(() => {
     setIntro(false);
     try { localStorage.setItem(INTRO_SEEN, '1'); } catch { /* ignore */ }
@@ -979,7 +985,8 @@ export function GameWorld({
 
       {/* The title card, until the map has drawn and your buddy stands in it. */}
       {!sceneUp && <WorldLoading />}
-      {!panel && intro && sceneUp && (
+      {askName && sceneUp && <WorldGuestName onSave={renameBuddy} onSignIn={() => void signInWithGoogle()} />}
+      {!panel && intro && sceneUp && !askName && (
         <WorldIntro onGo={introGo} onSignIn={() => { closeIntro(); void signInWithGoogle(); }} onClose={closeIntro} />
       )}
 
