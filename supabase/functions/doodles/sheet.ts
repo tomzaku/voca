@@ -82,7 +82,9 @@ async function generateImage(prompt: string, cfg: ImageConfig): Promise<{ mime: 
 }
 
 async function generateImageInner(model: string, apiKey: string, prompt: string): Promise<{ mime: string; b64: string }> {
-  const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey };
+  // Empty, not Deno's default — see NO_USER_AGENT in _shared/ai.ts (not
+  // imported: that module pulls in the Supabase client).
+  const headers = { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey, 'user-agent': '' };
 
   // Imagen models use the :predict endpoint with a different payload shape.
   if (model.startsWith('imagen')) {

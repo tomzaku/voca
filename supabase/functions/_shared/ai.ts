@@ -36,6 +36,12 @@ export function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
+// Deno's fetch sends `User-Agent: Deno/x.y` unless told otherwise, which tells
+// a provider what our server runs on. An empty value replaces it (Deno has no
+// way to omit the header); the providers accept it. Doodles' image calls in
+// doodles/sheet.ts do the same.
+const NO_USER_AGENT = { 'user-agent': '' } as const;
+
 const PROVIDER = (Deno.env.get('AI_PROVIDER') ?? 'google') as Provider;
 
 const KEY_ENV: Record<Provider, string> = {
@@ -181,6 +187,7 @@ async function callAnthropic(
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      ...NO_USER_AGENT,
     },
     body: JSON.stringify({ model, max_tokens: maxTokens, system, messages }),
   });
@@ -217,7 +224,7 @@ async function callOpenAICompatible(
 ): Promise<string> {
   const res = await fetch(endpointFor(provider), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...NO_USER_AGENT },
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
