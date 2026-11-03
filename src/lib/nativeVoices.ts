@@ -83,6 +83,11 @@ function refresh() {
 if (typeof speechSynthesis !== 'undefined') {
   refresh();
   speechSynthesis.addEventListener?.('voiceschanged', refresh);
+  // iOS doesn't fire voiceschanged for a voice downloaded in the Settings app,
+  // and downloading one means leaving the page — so look again on return.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refresh();
+  });
 }
 
 export function getNativeVoices(): SpeechSynthesisVoice[] {
