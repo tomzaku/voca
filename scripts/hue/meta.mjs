@@ -2,7 +2,6 @@
 // keepers' stations.
 
 import { rand } from './core/canvas.mjs';
-import { BOATS } from './fill/boats.mjs';
 import { PARK_PATHS } from './roads.mjs';
 import { FARMERS } from './places/fields.mjs';
 import { BUS_STOPS } from './bus.mjs';
@@ -62,7 +61,6 @@ export function writeMeta(shelters = []) {
       if (tx < 2 || tx > W - 2 || ty < 2) continue;
       if (RIVER_BRIDGES.some(([a, b]) => tx > a - 1.5 && tx < b + 1.5 && ty > 51 && ty < 66)) continue;
       if (tx > 41 && tx < 60 && ty > 53) continue;                 // the wharf, the boat, the landing
-      if (BOATS.some(([bx, by, bw]) => tx > bx - 1 && tx < bx + bw + 1 && ty > by - 1 && ty < by + 1.5)) continue;
       if (tx > 100 && tx < 109 && ty > 37 && ty < 43) continue;    // the Cồn Hến footbridge
       if (onIslet(x, y) || ISLETS.some((i) => isletE(i, x, y) < 1.8)) continue;
       if (![[0, 0], [T, 0], [-T, 0], [0, T], [0, -T]].every(([dx, dy]) => isWater(x + dx, y + dy))) continue;

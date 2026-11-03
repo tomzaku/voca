@@ -59,7 +59,7 @@
 //   paint/     terrain, roads and water, the ground under everything; street
 //              lamps, crossings and parked bikes
 //   places/    one file per part of the city, each drawing its landmarks
-//   fill/      the passes that fill the gaps: houses, boats, trees, forest
+//   fill/      the passes that fill the gaps: houses, trees, forest
 //   hd/        high-detail patches: parts of the map drawn again at twice the
 //              resolution, laid over it in the game
 //   meta, collision, check — the map's points, walls and sanity check
@@ -87,7 +87,7 @@ import { drawDongBa } from './hue/places/dongBa.mjs';
 import { drawSouthBank } from './hue/places/southBank.mjs';
 import { drawTombs } from './hue/places/tombs.mjs';
 import { buildNeighbourhoods } from './hue/fill/neighbourhoods.mjs';
-import { launchBoats } from './hue/fill/boats.mjs';
+import { skipBoats } from './hue/fill/boats.mjs';
 import { plantGreenery } from './hue/fill/greenery.mjs';
 import { buildWalls, walls } from './hue/collision.mjs';
 import { busRoads, checkBus, drawBusStops } from './hue/bus.mjs';
@@ -116,7 +116,7 @@ furnishStreets();
 const shelters = drawBusStops();
 drawFields();
 buildNeighbourhoods();
-launchBoats();
+skipBoats();
 plantGreenery();
 buildWalls();
 writeMeta(shelters);
