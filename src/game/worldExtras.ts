@@ -4,13 +4,14 @@
 //
 //   cailuong  a cải lương stage on Phố đi bộ, next to the street piano —
 //             red curtains, a painted backdrop, two performers in costume
-//   fortune   a fortune-stick table before Thiên Mụ's hall, by its incense
+//   fortune   a fortune-stick table before Thiên Mụ's hall, by its incense,
+//             kept by a monk of the pagoda
 //   pool      a street pool table (bi-a vỉa hè) on Phố đi bộ, past the street
 //             piano — solo practice; matches start from a player
 //   foosball  a bi lắc table on Phố đi bộ's east end, by the fountain — you
 //             against the computer
 //   ladder    a quiz podium in Quốc Học's forecourt, inside the gate —
-//             fifteen general questions, easy to hard
+//             fifteen general questions, easy to hard, and a teacher by it
 //   fireworks two launch pads on the citadel wall either side of Kỳ Đài, before
 //             Ngọ Môn, where Huế fires its Tết fireworks — only while the Tết
 //             decorations are up (festiveDecor.ts draws them)
@@ -19,6 +20,8 @@
 // so walking up offers its activity, like the piano does.
 
 import Phaser from 'phaser';
+import { Dressed } from './dressed';
+import { propLayers, type KeeperDress } from './keeperLooks';
 
 /** The fireworks pads (drawn by festiveDecor.ts while Tết is up), in tiles: west and east of the flag tower. */
 export const FIREWORKS_PADS = [{ x: 53.2, y: 41.4 }, { x: 57.3, y: 41.3 }];
@@ -39,6 +42,16 @@ const STAGE = { x: 59.3, y: 64.2 };
 export const STAGE_AREA = { x0: STAGE.x - 2, x1: STAGE.x + 2, y0: STAGE.y - 3, y1: STAGE.y };
 /** The fortune table, beside Thiên Mụ's door. */
 const ALTAR = { x: 13.2, y: 48.0 };
+/** The people who keep the places: where each stands, in tiles, and how
+ *  they're dressed. They face out to whoever walks up, and now and then bow. */
+const KEEPERS: { x: number; y: number; dress: KeeperDress }[] = [
+  // Thiên Mụ's monk, at the hall's door west of the fortune table: shaven
+  // head, the brown áo nâu, his beads in hand.
+  { x: 11.8, y: 47.8, dress: { look: { hair: 'none', hairColor: 'dark', outfit: 'aoBaBa', outfitColor: 'brown', hat: 'none' }, prop: 'beads' } },
+  // Quốc Học's teacher, who runs the quiz ladder from beside the podium: a
+  // grey-haired thầy in a navy áo the, the question book in hand.
+  { x: 37.2, y: 70.1, dress: { look: { hair: 'shorthair', hairColor: 'grey', outfit: 'aoThe', outfitColor: 'navy', hat: 'none' }, prop: 'book' } },
+];
 /** The pool table, on Phố đi bộ past the street piano. */
 const POOL = { x: 64.8, y: 63.7 };
 /** The foosball table, by the fountain. */
@@ -148,7 +161,7 @@ function makeTextures(scene: Phaser.Scene) {
   });
 }
 
-/** Puts up the stage and the fortune table. They stay: they're places, not decorations. */
+/** Puts up the stage, the tables, the podium and their keepers. They stay: they're places, not decorations. */
 export function buildExtras(ctx: ExtrasContext) {
   const { scene, tilePx: k, scale, depth } = ctx;
   makeTextures(scene);
@@ -175,7 +188,6 @@ export function buildExtras(ctx: ExtrasContext) {
 
   const altar = scene.add.image(ALTAR.x * k, ALTAR.y * k, 'extra-altar').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(altar);
-
   const table = scene.add.image(POOL.x * k, POOL.y * k, 'extra-pool').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(table);
 
@@ -184,4 +196,10 @@ export function buildExtras(ctx: ExtrasContext) {
 
   const podium = scene.add.image(PODIUM.x * k, PODIUM.y * k, 'extra-podium').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(podium);
+
+  KEEPERS.forEach(({ x, y, dress }, i) => {
+    const keeper = new Dressed(scene, x * k, y * k, dress.look, propLayers(dress)).setScale(scale).setDepth(depth.actors);
+    keeper.playClip('idle', false, 'front');
+    if (!ctx.calm) scene.tweens.add({ targets: keeper, scaleY: scale * 0.92, duration: 700, yoyo: true, hold: 500, repeat: -1, repeatDelay: 4200, delay: i * 1900, ease: 'sine.inOut' });
+  });
 }

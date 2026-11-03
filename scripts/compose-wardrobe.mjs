@@ -15,7 +15,7 @@
 //   hat.<id>             drawn onto the head — nón lá, khăn đóng
 //   prop.<id>            what a keeper carries, drawn per frame at the hand
 //                        (a book, a cup of tea, a brush, a scroll) or on the
-//                        head (headphones)
+//                        head (headphones), or hanging from it (prayer beads)
 //
 // The body is a chibi: a big head, then four or five rows of clothes. Its
 // shirt and trousers are told apart by colour; everyday clothes recolour the
@@ -99,7 +99,7 @@ const TROUSERS_PACK = [[36, 43, 66], [55, 68, 100]];
 const DENIM = [[44, 70, 120], [70, 104, 160]];
 const GOLD = [[196, 146, 30], [246, 206, 90]];
 const HATS = ['nonLa', 'khanDong', 'cap', 'mandarin', 'crown'];
-const PROPS = ['book', 'teacup', 'brush', 'scroll', 'headphones'];
+const PROPS = ['book', 'teacup', 'brush', 'scroll', 'headphones', 'beads'];
 const BACKS = ['backpack', 'gui', 'cape'];
 
 // The body's clothes, by colour: [ref, kind, shade].
@@ -354,6 +354,14 @@ function prop(id, base) {
     const sx = hx - 3;
     for (let x = sx - 3; x <= sx + 3; x++) { dot(x, hy - 2, INK); dot(x, hy - 1, [246, 236, 214]); dot(x, hy, [214, 200, 170]); dot(x, hy + 1, INK); }
     for (const x of [sx - 5, sx - 4, sx + 4, sx + 5]) for (let y = hy - 2; y <= hy + 1; y++) dot(x, y, y === hy - 2 || y === hy + 1 ? INK : [240, 192, 80]);
+  } else if (id === 'beads') {
+    // A monk's tràng hạt: a loop of big wooden beads looped over the hand,
+    // a red tassel under it — kept above the feet so it stays in the frame.
+    const bead = [92, 52, 30], shine = [176, 120, 64];
+    for (const [dx, dy] of [[-1, -4], [0, -4], [1, -4], [-2, -3], [2, -3], [-2, -2], [2, -2], [-2, -1], [2, -1], [-1, 0], [1, 0]]) {
+      dot(hx + dx, hy + dy, (dx + dy) % 2 ? shine : bead);
+    }
+    dot(hx, hy + 1, [214, 48, 44]);
   } else if (id === 'headphones') {
     // A thick band over the crown, big red cups over the ears.
     const h = head(base);
