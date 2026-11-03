@@ -205,8 +205,10 @@ export function RevealedView({
             answer about it (Know it / Next) — the one you press every time.
             "Never show" used to sit beside "Know it" in the same white style,
             and both move on, so one was easily taken for the other; dropping
-            a word for good now lives apart from saying you know it. */}
-        <div className="flex items-stretch gap-2 sm:gap-3">
+            a word for good now lives apart from saying you know it.
+            Below lg they stick to the bottom of the screen: the card is taller
+            than a phone, and Next — pressed every card — sat below the fold. */}
+        <div className="flex items-stretch gap-2 sm:gap-3 max-lg:sticky max-lg:bottom-0 max-lg:z-20 max-lg:-mx-2 max-lg:px-2 max-lg:pt-2 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:bg-bg-primary/85 max-lg:backdrop-blur-md">
           <div className="flex items-stretch gap-2 mr-1 sm:mr-3">
             <button
               onClick={onBookmark}
