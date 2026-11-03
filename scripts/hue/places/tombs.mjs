@@ -6,7 +6,7 @@ import { Canvas } from '../core/canvas.mjs';
 import { P, ROOF } from '../core/palette.mjs';
 import { ground, mark, place, solid, used } from '../core/world.mjs';
 import { archBridge, gateHouse, hall, roof, wallRing } from '../draw/buildings.mjs';
-import { STONE, biDinh, obelisk, retainingWall, statue, steps, terrace } from '../draw/tomb.mjs';
+import { STONE, biDinh, obelisk, statue, steps, terrace } from '../draw/tomb.mjs';
 import { pine } from '../draw/trees.mjs';
 import { T } from '../layout.mjs';
 
@@ -20,14 +20,7 @@ export const LABELS = [
   { text: 'Lăng Minh Mạng', x: 79, y: 112.6, place: 'minhMang' },
 ];
 
-/** How tall (tiles) the wall each tomb stands on is. */
-const WALL_H = 2;
-
 export function drawTombs() {
-  // Each tomb up on its own wall, its stairs coming down through it.
-  retainingWall(2, 20, 110, WALL_H, [9, 10]);
-  retainingWall(26, 43, 110, WALL_H, [33, 34, 35]);
-  retainingWall(70, 90, 110, WALL_H, [78, 79]);
 
   // ── Khải Định (Ứng Lăng): dark weathered concrete climbing the hillside —
   // dragon stairs from the road, the court of stone mandarins, elephants and

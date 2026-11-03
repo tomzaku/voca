@@ -49,10 +49,16 @@ export function hillTint(c, x, y) {
     r = mix(r, [74, 54, 40], down * 0.5);
     // Grass hanging over the lip, in tufts of uneven length, outlined.
     const tuft = 3 + Math.floor(noise(x, 1, 4) * 7);
-    const px = down * 26;
+    const px = down * cl.h;
     if (px < tuft - 1) r = px < 2 ? [104, 168, 80] : [72, 136, 64];
     else if (px < tuft) r = [36, 74, 44];
     return r;
+  }
+  if (cl?.side) {
+    // A mesa's flank: the same sandstone, in shade, strata running across.
+    let r = (y + Math.floor(noise(x, 0, 7) * 4)) % 8 === 0 ? [96, 72, 52] : mix([168, 136, 98], [118, 90, 64], cl.d);
+    if (hash(x, y) < 0.04) r = mix(r, [80, 60, 44], 0.5);
+    return cl.d > 0.85 ? [52, 40, 32] : r;
   }
   if (cl?.shadow) return mix(c, [20, 40, 30], cl.shadow * 0.5);
   if (cl?.lip) return mix(c, [118, 180, 88], 0.6);                           // the lit edge of the top
