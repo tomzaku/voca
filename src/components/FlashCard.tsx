@@ -534,7 +534,7 @@ export function FlashCard() {
   const onRecent = historyFilter === 'recent';
 
   return (
-    <div className="max-w-page mx-auto px-3 sm:px-4 py-4 sm:py-8">
+    <div className="max-w-page mx-auto px-3 sm:px-4 pt-2 sm:pt-4 pb-4 sm:pb-8">
       <HistoryStrip
         words={onRecent ? wordHistory.map((w) => w.headword || w.word) : bucketRows.map((r) => r.word)}
         index={onRecent ? historyIndex : filterIndex}
