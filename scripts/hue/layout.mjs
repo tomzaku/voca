@@ -180,5 +180,14 @@ export const BRIDGE_Y1 = 65.3 * T;
 export const BANK_N = 55 * T;
 export const BANK_S = 63 * T;
 
+// Cầu đi bộ gỗ lim, the ironwood boardwalk along the south bank (parks.mjs
+// lays it): one row of planks in three runs, broken by the two bridges, and
+// steps two rows down at each outer end. Here so the bridges can keep their
+// piers off it.
+export const BOARDWALK_Y = 61;
+export const BOARDWALK_RUNS = [[51, 65, 51], [69, 74, 74], [78, 89, 89]];
+export const onBoardwalk = (tx, ty) => BOARDWALK_RUNS.some(([a, b, step]) =>
+  (ty === BOARDWALK_Y && tx >= a && tx <= b) || (tx === step && ty > BOARDWALK_Y && ty <= BOARDWALK_Y + 2));
+
 /** Too close to a keeper or the spawn to build or plant on. */
 export const nearSlot = (tx, ty) => [...FEATURES.map(([, x, y]) => [x, y]), SPAWN].some(([x, y]) => Math.abs(tx + 1 - x) < 4 && Math.abs(ty + 1 - y) < 4);

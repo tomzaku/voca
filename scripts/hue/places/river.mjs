@@ -5,7 +5,7 @@ import { Canvas, hash, mix, noise } from '../core/canvas.mjs';
 import { P, ROOF, STREET } from '../core/palette.mjs';
 import { deck, drawn, glow, ground, mark, night } from '../core/world.mjs';
 import { bridgeDeck, lamps, plankDeck } from '../draw/buildings.mjs';
-import { BANK_N, BANK_S, BRIDGE_Y0, BRIDGE_Y1, EAST_GATE_Y, ISLETS, T, isletE } from '../layout.mjs';
+import { BANK_N, BANK_S, BRIDGE_Y0, BRIDGE_Y1, EAST_GATE_Y, ISLETS, T, isletE, onBoardwalk } from '../layout.mjs';
 import { streetBridge } from '../paint/roads.mjs';
 
 /** Trường Tiền's own deck, not a street's: a paved walkway with its
@@ -141,12 +141,18 @@ export function drawRiver() {
     const paintRect = (x, y, w, h, c, a = 1) => {
       for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) paint(x + i, y + j, c, a);
     };
-    // The piers first, under everything: stone footings in the water.
+    // The piers first, under everything: stone footings in the water. Not
+    // where the boardwalk passes — its planks already cover them there.
+    const footing = (x, y, w, h, c, a) => {
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+        if (!onBoardwalk(Math.floor((x + i) / T), Math.floor((y + j) / T))) paint(x + i, y + j, c, a);
+      }
+    };
     for (let s = 1; s < spans; s++) {
       const py = Math.round(y0 + s * spanLen);
-      paintRect(x0 - 12, py - 2, x1 - x0 + 24, 5, [168, 164, 156]);
-      paintRect(x0 - 12, py + 3, x1 - x0 + 24, 1, [120, 116, 110]);
-      paintRect(x1 + 13, py, 5, 1, P.glint, 0.7);
+      footing(x0 - 12, py - 2, x1 - x0 + 24, 5, [168, 164, 156]);
+      footing(x0 - 12, py + 3, x1 - x0 + 24, 1, [120, 116, 110]);
+      footing(x1 + 13, py, 5, 1, P.glint, 0.7);
     }
     truongTienDeck(tx, tw, y0, y1);
     const steel = [228, 234, 240], steelShade = [150, 162, 174];

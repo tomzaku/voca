@@ -9,7 +9,7 @@ import { Canvas, hash } from '../core/canvas.mjs';
 import { P } from '../core/palette.mjs';
 import { deck, drawn, glow, ground, mark, place, used } from '../core/world.mjs';
 import { plankDeck } from '../draw/buildings.mjs';
-import { T, isWater } from '../layout.mjs';
+import { BOARDWALK_RUNS, BOARDWALK_Y, T, isWater } from '../layout.mjs';
 import { PARK_PATHS, ROADS, roadHit } from '../roads.mjs';
 
 /** Its names on the map (see meta.mjs). */
@@ -144,10 +144,10 @@ export function drawParks() {
     // on both sides, and the bridge's deck passes over them. It stands a row
     // out from the bank, clear of the bus stop's sign and the trees' crowns
     // there, so its steps come down two rows.
-    const Y = 61;
-    for (const [x0, x1, ends] of [[51, 65, [51]], [69, 74, [74]], [78, 89, [89]]]) {
+    const Y = BOARDWALK_Y;
+    for (const [x0, x1, step] of BOARDWALK_RUNS) {
       plankDeck(x0, Y, x1 - x0 + 1, 1, true);
-      for (const x of ends) plankDeck(x, Y + 1, 1, 2);
+      plankDeck(step, Y + 1, 1, 2);
       for (let x = x0 * T; x < (x1 + 1) * T; x += 3 * T) {
         ground.rect(x, Y * T - 4, 1, 4, [70, 52, 40]);
         ground.rect(x - 1, Y * T - 6, 3, 2, [255, 226, 160]);
