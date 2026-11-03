@@ -30,13 +30,15 @@ export const STALLS = DISHES.map(({ dish }, i) => ({ dish, x: 51 + (i % 5) * 3, 
 export const MARKET_TREES = [[50, 70], [50, 74], [65, 70], [65, 74]];
 
 /** The two schools' grounds along Lê Lợi, in tiles: wall to wall, front
- *  (the gate's row, on the street) to back (by the tracks). */
+ *  (the gate's row, on the street) to back (the back wall). */
 export const SCHOOL_GROUNDS = {
   haiBaTrung: { x0: 22, x1: 33, front: 68, back: 75 },
   quocHoc: { x0: 34, x1: 47, front: 68, back: 75 },
 };
-/** The rows the railway runs on, past the schools' back walls to Ga Huế. */
+/** The rows the railway runs on, in from the west to Ga Huế. */
 const RAIL_Y = 76;
+/** Where the line ends, just past the station: a buffer stop. */
+const RAIL_END = 19;
 
 /** A school's grounds walled all round, as Huế's old schools are: the gate
  *  (quocHocGate, in the school's colours) in the middle of the front wall on
@@ -62,7 +64,7 @@ function schoolGrounds({ x0, x1, front, back }, wall) {
       solid[y][x] = true;
     }
   }
-  // The back wall, its face to the tracks: white coping, red panels.
+  // The back wall: white coping, red panels.
   const top = back * T + 4;
   for (let x = x0 * T + 5; x < x1 * T + 11; x++) {
     for (let y = top + 3; y < (back + 1) * T - 1; y++) ground.set(x, y, mix(face, shade, hash(x, y) * 0.25 + (y - top) / 20));
@@ -75,17 +77,21 @@ function schoolGrounds({ x0, x1, front, back }, wall) {
 }
 
 export function drawSouthBank() {
-  // Ga Huế: the cream railway station, with its tracks running west–east
-  // behind the two schools.
+  // Ga Huế: the cream railway station, its tracks coming in from the west
+  // off the map's edge and ending at a buffer stop just past the platform.
   {
     const y0 = RAIL_Y * T;
-    for (let x = 6 * T; x < 47 * T; x++) {
+    for (let x = 0; x < RAIL_END * T; x++) {
       for (let y = y0 + 2; y < y0 + 2 * T - 2; y++) ground.set(x, y, mix([150, 140, 126], [130, 120, 108], hash(x, y) * 0.6));
       if (x % 6 < 2) ground.rect(x, y0 + 4, 2, T * 2 - 8, [104, 80, 60]);   // sleepers
       ground.set(x, y0 + 9, [96, 100, 108]);
       ground.set(x, y0 + T + 6, [96, 100, 108]);
     }
-    mark(used, 6, RAIL_Y, 41, 2);
+    // The buffer stop: a red-and-white beam across both rails on two posts.
+    const bx = RAIL_END * T - 5;
+    for (let y = y0 + 5; y < y0 + 2 * T - 5; y++) ground.rect(bx, y, 3, 1, Math.floor((y - y0) / 3) % 2 ? [244, 238, 228] : [204, 48, 40]);
+    ground.rect(bx - 1, y0 + 8, 5, 3, [60, 56, 54]); ground.rect(bx - 1, y0 + T + 5, 5, 3, [60, 56, 54]);
+    mark(used, 0, RAIL_Y, RAIL_END, 2);
     const cv = hall({ w: 9, h: 5, roofRows: 2, roofPal: ROOF.terra, wall: [236, 222, 186], pillar: [196, 170, 120], pillarStep: 12, windows: true, windowStep: 11, doorW: 12, doorFill: [80, 64, 50] });
     // A little clock tower over the door.
     cv.rect(cv.w / 2 - 10, 2, 20, 26, [240, 228, 196]);

@@ -78,7 +78,7 @@ export const ROADS = [
   box(54, 22, 2, 1, 'stone'), box(54, 31, 2, 3, 'stone'),
   // The south bank
   road('street', 2, [[0, 66], [97, 66]], { main: true }),         // Lê Lợi, along the river
-  // Điện Biên Phủ: south past Ga Huế, over the tracks and the canal, up into
+  // Điện Biên Phủ: south past Ga Huế and the end of its line, over the canal, up into
   // the hills to the tombs.
   road('street', 2, [[21, 67], [21, 84], [22.5, 91], [22.5, 100], [23.5, 106], [23.5, 114.5]]),
   // Hùng Vương: south-east from Phú Xuân bridge, over the An Cựu canal.
