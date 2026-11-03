@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.125",
+  "version": "0.1.126",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -17,7 +17,8 @@
     "preview": "vite preview",
     "db:push": "supabase db push",
     "db:migrate": "psql \"$DATABASE_URL\" -f supabase/migration.sql",
-    "db:new": "supabase migration new",
+    "db:new": "node scripts/migrations.mjs new",
+    "db:check": "node scripts/migrations.mjs check",
     "sync:database": "node scripts/sync-database.mjs",
     "deploy:functions": "supabase functions deploy",
     "deploy:functions:fast": "supabase functions deploy --use-api --jobs 4",

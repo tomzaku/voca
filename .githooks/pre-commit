@@ -5,10 +5,21 @@
 # Enable in a fresh clone with:   git config core.hooksPath .githooks
 # Skip it for one commit with:    SKIP_VERSION_BUMP=1 git commit ...
 #
-# Deliberately never blocks a commit: if node is missing or the bump fails, the
-# commit goes through unbumped rather than leaving you unable to commit.
+# The version bump never blocks a commit: if node is missing or the bump fails,
+# the commit goes through unbumped rather than leaving you unable to commit.
 
 set -e
+
+# A commit that adds or renames a migration must give it a version of its own,
+# after every one already committed — or `supabase db push` refuses it later
+# (scripts/migrations.mjs). This one does block: the mistake is real, and
+# cheap to fix now.
+if git diff --cached --name-only -- supabase/migrations | grep -q . && command -v node >/dev/null 2>&1; then
+  node scripts/migrations.mjs check || {
+    echo "pre-commit: fix the migration version above (or commit with --no-verify to override)." >&2
+    exit 1
+  }
+fi
 
 if [ -n "$SKIP_VERSION_BUMP" ]; then
   exit 0

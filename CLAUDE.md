@@ -133,6 +133,14 @@ pins the truth table both must satisfy.
 The bucket slugs are also public URLs (`/history?tab=struggling`), so renaming one breaks
 existing links.
 
+## Migrations: `npm run db:new <name>`, never a hand-picked version
+
+Versions here run ahead of the calendar, and other sessions add migrations on `main` at the
+same time. A hand-picked "next" version collides with theirs; `supabase migration new`'s real
+clock lands *before* the latest one. `db push` refuses both — after the remote has moved on.
+`npm run db:new <name>` names the file a second after every existing migration, and the
+pre-commit hook (`npm run db:check`) refuses a duplicate or out-of-order version.
+
 ## Conventions
 
 - **Validate and clamp every caller-supplied value** in an edge function — especially limits
