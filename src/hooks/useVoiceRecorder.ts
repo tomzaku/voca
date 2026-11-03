@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { HARMLESS_ERRORS, joinResults, liveRecognition, type LiveRecognition } from '../lib/liveSpeech';
+import { FATAL_ERRORS, joinResults, liveRecognition, type LiveRecognition } from '../lib/liveSpeech';
 import { transcribeBlob } from '../lib/whisperStt';
 import { stopSpeaking } from '../lib/tts';
 
@@ -24,6 +24,11 @@ export type RecorderPhase =
   | 'thinking'    // decoding + transcribing (may include the model download)
   | 'denied'      // permission refused — a dead end the caller has to explain
   | 'unsupported';
+
+/** Sessions in a row that may end without hearing a word before we stop
+ *  restarting — a silent pause ends one every few seconds, so this allows a
+ *  long think without spinning forever on a recogniser that's broken. */
+const MAX_MISSES = 12;
 
 const supported = () =>
   // Both are needed: Safari gates getUserMedia on a secure context, and
@@ -53,7 +58,7 @@ export function useVoiceRecorder({ maxMs, onTranscript, keepAudio = false }: { m
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The live recogniser for this recording: what it heard, whether it broke,
   // and a promise that settles once it has delivered its last words.
-  const liveRef = useRef<{ rec: LiveRecognition; text: string; failed: boolean; ended: Promise<void>; recording: boolean } | null>(null);
+  const liveRef = useRef<{ rec: LiveRecognition | null; text: string; failed: boolean; ended: Promise<void>; recording: boolean } | null>(null);
   // Guards every setState after an await — callers unmount mid-transcription.
   const aliveRef = useRef(true);
   const onTranscriptRef = useRef(onTranscript);
@@ -66,7 +71,7 @@ export function useVoiceRecorder({ maxMs, onTranscript, keepAudio = false }: { m
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
       recorderRef.current?.stream.getTracks().forEach((t) => t.stop());
       const l = liveRef.current;
-      if (l) { l.recording = false; l.rec.abort(); }
+      if (l) { l.recording = false; l.rec?.abort(); }
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     };
   }, []);
@@ -104,38 +109,63 @@ export function useVoiceRecorder({ maxMs, onTranscript, keepAudio = false }: { m
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
     stopTimerRef.current = null;
     const l = liveRef.current;
-    if (l?.recording) { l.recording = false; try { l.rec.stop(); } catch { /* already stopped */ } }
+    if (l?.recording) { l.recording = false; try { l.rec?.stop(); } catch { /* already stopped */ } }
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
   }, []);
 
-  /** Start the browser's recogniser alongside the recording, if it has one. */
+  /** Start the browser's recogniser alongside the recording, if it has one.
+   *  A recogniser session doesn't last a whole answer: Chrome ends one after
+   *  a pause or about a minute, and may close it with a `network` error. So
+   *  while we're still recording, each ending starts a fresh one (the same
+   *  object won't always restart), keeping what was heard so far. Only when
+   *  that keeps failing — or the browser says no for good — is it marked
+   *  failed, and Whisper transcribes the whole recording instead; giving up
+   *  quietly used to freeze the words mid-answer and drop the rest. */
   const startLive = useCallback(() => {
     const Rec = liveRecognition();
     if (!Rec) return;
-    let rec: LiveRecognition;
-    try { rec = new Rec(); } catch { return; }
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = 'en-US';
     let done = () => {};
-    const l = { rec, text: '', failed: false, recording: true, ended: new Promise<void>((r) => { done = r; }) };
-    // Chrome starts a fresh result list each time it restarts after a pause.
+    const l: { rec: LiveRecognition | null; text: string; failed: boolean; recording: boolean; ended: Promise<void> } = {
+      rec: null, text: '', failed: false, recording: true, ended: new Promise<void>((r) => { done = r; }),
+    };
+    // What earlier sessions heard: each new one starts its own result list.
     let before = '';
-    rec.onresult = (e) => {
-      l.text = [before, joinResults(e.results)].filter(Boolean).join(' ');
-      if (aliveRef.current) setLive(l.text);
+    // Restarts in a row with nothing heard between them.
+    let misses = 0;
+
+    const listen = (): boolean => {
+      let rec: LiveRecognition;
+      try { rec = new Rec(); } catch { return false; }
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+      rec.onresult = (e) => {
+        misses = 0;
+        l.text = [before, joinResults(e.results)].filter(Boolean).join(' ');
+        if (aliveRef.current) setLive(l.text);
+      };
+      rec.onerror = (e) => { if (FATAL_ERRORS.has(e.error)) l.failed = true; };
+      rec.onend = () => {
+        if (l.rec !== rec) return;
+        if (l.recording && !l.failed) {
+          before = l.text;
+          if (misses++ < MAX_MISSES) {
+            // A beat before the next session: an immediate start can be refused.
+            setTimeout(() => {
+              if (!l.recording) { done(); return; }
+              if (!listen()) { l.failed = true; done(); }
+            }, misses > 1 ? 300 : 0);
+            return;
+          }
+          l.failed = true;
+        }
+        done();
+      };
+      try { rec.start(); } catch { return false; }
+      l.rec = rec;
+      return true;
     };
-    rec.onerror = (e) => { if (!HARMLESS_ERRORS.has(e.error)) l.failed = true; };
-    rec.onend = () => {
-      // Chrome stops listening after a silence; while still recording, go on.
-      if (l.recording && !l.failed) {
-        before = l.text;
-        try { rec.start(); return; } catch { /* fall through: it's over */ }
-      }
-      done();
-    };
-    try { rec.start(); } catch { return; }
-    liveRef.current = l;
+    if (listen()) liveRef.current = l;
   }, []);
 
   const start = useCallback(async () => {

@@ -35,5 +35,7 @@ export function joinResults(results: ResultList): string {
   return parts.join(' ');
 }
 
-/** Errors that mean "nothing heard", not "this can't work here". */
-export const HARMLESS_ERRORS = new Set(['no-speech', 'aborted']);
+/** Errors that mean the browser won't recognise speech here at all, so
+ *  there's no point starting another session. Anything else (`no-speech`,
+ *  `network`, `aborted`…) only ends this one. */
+export const FATAL_ERRORS = new Set(['not-allowed', 'service-not-allowed', 'language-not-supported', 'audio-capture', 'bad-grammar']);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HARMLESS_ERRORS, joinResults } from './liveSpeech';
+import { FATAL_ERRORS, joinResults } from './liveSpeech';
 
 const results = (...ts: [string, boolean][]) => Object.assign(
   ts.map(([transcript, isFinal]) => Object.assign([{ transcript }], { isFinal })),
@@ -12,9 +12,9 @@ describe('liveSpeech', () => {
     expect(joinResults(results(['', false]))).toBe('');
   });
 
-  it('treats silence as nothing heard, and a broken service as a failure', () => {
-    expect(HARMLESS_ERRORS.has('no-speech')).toBe(true);
-    expect(HARMLESS_ERRORS.has('network')).toBe(false);
-    expect(HARMLESS_ERRORS.has('not-allowed')).toBe(false);
+  it('gives up only when the browser refuses for good; silence and a dropped connection just end a session', () => {
+    expect(FATAL_ERRORS.has('not-allowed')).toBe(true);
+    expect(FATAL_ERRORS.has('no-speech')).toBe(false);
+    expect(FATAL_ERRORS.has('network')).toBe(false);
   });
 });
