@@ -72,7 +72,7 @@ interface ResultRow {
 
 /**
  * The results table isn't there yet: deployed ahead of its migration
- * (20261111000000_builtin_test_results). Reads then come back empty, so the
+ * (20261113000000_builtin_test_results). Reads then come back empty, so the
  * teachers' tests beside these still list; starting one says why it can't.
  */
 const missingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205';
