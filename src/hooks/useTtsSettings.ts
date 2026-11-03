@@ -66,8 +66,6 @@ const ENGINE_KEY = 'voca-tts-engine';
 const VOICE_KEY = 'voca-tts-voice';
 const PIPER_VOICE_KEY = 'voca-tts-piper-voice';
 const SPEED_KEY = 'voca-tts-speed';
-/** A speechSynthesis voiceURI; absent means "best installed" (nativeVoices.ts). */
-const NATIVE_VOICE_KEY = 'voca-tts-native-voice';
 /** Heaviest engine Auto may use here, set when a heavier one proved too slow. */
 const AUTO_CAP_KEY = 'voca-tts-auto-cap';
 
@@ -118,10 +116,6 @@ function getStoredPiperVoice(): string {
   return 'en_US-hfc_female-medium';
 }
 
-function getStoredNativeVoice(): string {
-  try { return localStorage.getItem(NATIVE_VOICE_KEY) ?? ''; } catch { return ''; }
-}
-
 function getStoredSpeed(): number {
   try {
     const v = parseFloat(localStorage.getItem(SPEED_KEY) ?? '');
@@ -139,13 +133,10 @@ interface TtsSettingsState {
   recommended: TtsEngine;
   voice: string;
   piperVoice: string;
-  /** voiceURI, or '' for the best one installed. */
-  nativeVoice: string;
   speed: number;
   setEngine: (e: TtsEnginePref) => void;
   setVoice: (v: string) => void;
   setPiperVoice: (v: string) => void;
-  setNativeVoice: (v: string) => void;
   setSpeed: (s: number) => void;
 }
 
@@ -160,7 +151,6 @@ export const useTtsSettings = create<TtsSettingsState>((set) => ({
   recommended: autoEngine(),
   voice: getStoredVoice(),
   piperVoice: getStoredPiperVoice(),
-  nativeVoice: getStoredNativeVoice(),
   speed: getStoredSpeed(),
   setEngine: (e) => {
     try {
@@ -178,13 +168,6 @@ export const useTtsSettings = create<TtsSettingsState>((set) => ({
   setPiperVoice: (v) => {
     try { localStorage.setItem(PIPER_VOICE_KEY, v); } catch { /* ignore */ }
     set({ piperVoice: v });
-  },
-  setNativeVoice: (v) => {
-    try {
-      if (v) localStorage.setItem(NATIVE_VOICE_KEY, v);
-      else localStorage.removeItem(NATIVE_VOICE_KEY);
-    } catch { /* ignore */ }
-    set({ nativeVoice: v });
   },
   setSpeed: (sp) => {
     try { localStorage.setItem(SPEED_KEY, String(sp)); } catch { /* ignore */ }
@@ -228,4 +211,3 @@ export function setTtsEngine(e: TtsEnginePref): void { useTtsSettings.getState()
 export function setTtsVoice(v: string): void { useTtsSettings.getState().setVoice(v); }
 export function getPiperVoice(): string { return getStoredPiperVoice(); }
 export function getTtsSpeed(): number { return getStoredSpeed(); }
-export function getNativeVoicePref(): string { return getStoredNativeVoice(); }

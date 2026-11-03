@@ -1,8 +1,7 @@
 import { cleanMarkdown } from './cleanMarkdown';
-import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, getNativeVoicePref, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
+import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
-import { chooseVoice, getNativeVoices } from './nativeVoices';
 import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
@@ -315,17 +314,10 @@ async function speakPiper(text: string, ticket: number, options?: { voice?: stri
   }
 }
 
-// `voice` may be a Kokoro/Piper id from a caller that doesn't know the engine;
-// only a native voiceURI counts, which is what the Settings preview passes.
-function speakNative(text: string, options?: { voice?: string; speed?: number; onStart?: () => void; onEnd?: () => void }): Promise<void> {
+function speakNative(text: string, options?: { speed?: number; onStart?: () => void; onEnd?: () => void }): Promise<void> {
   speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  const voices = getNativeVoices();
-  const voice = (options?.voice && voices.find((v) => v.voiceURI === options.voice))
-    || chooseVoice(voices, getNativeVoicePref());
-  // Without a voice (list not loaded yet) the lang alone still gets English.
-  utterance.lang = voice?.lang ?? 'en-US';
-  if (voice) utterance.voice = voice;
+  utterance.lang = 'en-US';
   utterance.rate = options?.speed ?? getTtsSpeed();
   return new Promise<void>((resolve) => {
     utterance.onstart = () => options?.onStart?.();

@@ -9,7 +9,6 @@ import { isHeavyFor } from '../lib/deviceTier';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { isSfxEnabled, setSfxEnabled, playCorrect } from '../lib/sfx';
 import { ToggleSwitch } from './ToggleSwitch';
-import { NativeVoicePicker } from './NativeVoicePicker';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocale, LOCALES } from '../i18n/locale';
 import {
@@ -469,7 +468,6 @@ export function SettingsPage() {
       </section>
 
       {/* Voice Picker */}
-      {engine === 'native' && <NativeVoicePicker />}
       {(engine === 'kokoro' || engine === 'piper') && (() => {
         const isKokoro = engine === 'kokoro';
         const voices = isKokoro ? KOKORO_VOICES : PIPER_VOICES;
