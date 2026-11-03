@@ -90,8 +90,11 @@ export function writeMeta(shelters = []) {
   // The food market's stalls: stand at one and it tells its dish's story
   // (places.dishBunBo…), ahead of the market's own.
   for (const { dish, x, y } of STALLS) point('stall', x + 1, y + 2.4, { place: `dish${dish[0].toUpperCase()}${dish.slice(1)}` });
-  // Fishing off the dragon boat's landing, the boat alongside.
+  // Fishing off the dragon boat's wharf, the boat alongside, and off the
+  // stone landing out in the river before Phu Văn Lâu. The wharf is listed
+  // first, so fast travel to fishing still goes there.
   point('play', 48.6, 58.8, { game: 'fish' });
+  point('play', 55.4, 56.1, { game: 'fish' });
   for (const [x, y] of FARMERS) point('farmer', x, y);
 
   // The bus stops, named by their place's story id.
