@@ -82,21 +82,8 @@ export function RevealedView({
                   {headword}
                 </h1>
                 <PhoneticList wordData={wordData} />
-                {/* Everything that classifies the word — what it is, how hard,
-                    where the learner stands with it — on one row, rather than
-                    scattered between the headword and the definition header. */}
-                <div className="flex items-center flex-wrap gap-1.5 mt-2.5">
-                  {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[11px]" />}
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
-                    {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
-                  </span>
-                  <span className="hidden sm:contents"><BucketTag word={wordData.word} progress={progress} /></span>
-                </div>
               </div>
             </div>
-            {/* On a phone the learning tag drops to the card's right edge, level
-                with the badge row, so the row beside the doodle stays short. */}
-            <div className="self-stretch flex flex-col items-end justify-between gap-2 shrink-0">
             <button
               onClick={speech.speakWord}
               className={`btn-3d w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-1 ${speech.isSpeaking
@@ -122,8 +109,17 @@ export function RevealedView({
                 </svg>
               )}
             </button>
-            <span className="sm:hidden"><BucketTag word={wordData.word} progress={progress} align="right" /></span>
-            </div>
+          </div>
+          {/* Everything that classifies the word — what it is, how hard, where
+              the learner stands with it — on one row across the whole card,
+              not squeezed into the column beside the doodle; where you stand
+              sits at the right edge. */}
+          <div className="flex items-center flex-wrap gap-1.5 mt-3">
+            {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[11px]" />}
+            <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
+              {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
+            </span>
+            <span className="ml-auto"><BucketTag word={wordData.word} progress={progress} align="right" /></span>
           </div>
 
           {/* Definition + synonyms/antonyms — merged into the word card, rather
