@@ -17,6 +17,9 @@ const SLATE = { base: [96, 98, 110], line: [80, 82, 94], light: [126, 128, 142],
 const DARK = { base: [116, 102, 92], line: [98, 86, 78], light: [146, 130, 116], eave: [70, 60, 54], ridge: [84, 72, 64] };
 const RED_TILE = { base: [192, 76, 54], line: [164, 60, 44], light: [222, 110, 80], eave: [118, 40, 32], ridge: [140, 50, 38] };
 const CORAL = [198, 74, 68], CORAL_DARK = [164, 54, 50], CORAL_LIGHT = [218, 104, 94];
+/** A school wall's colours: face, shade, highlight. */
+export const SCHOOL_RED = [CORAL, CORAL_DARK, CORAL_LIGHT];
+export const SCHOOL_ROSE = [[218, 142, 132], [192, 118, 110], [234, 170, 160]];
 const BRICK = [146, 108, 88], BRICK_DARK = [118, 84, 68], BRICK_LIGHT = [172, 134, 110];
 
 /** Stone courses: a wall of dressed stone, its joints staggered. */
@@ -467,33 +470,35 @@ export function saigonMorin() {
   return cv;
 }
 
-/** Quốc Học's gate on its wall, 12 × 3 tiles: four red pillars under two
- *  tiers of tiled roof, a balustrade between them pierced with white
- *  squares, the name board over the way in; either side, the low red wall
- *  in white-framed panels, lotus buds on its posts. The middle is open. */
-export function quocHocGate() {
-  const cv = new Canvas(12 * T2, 3 * T2);
+/** A school's gate on the front of its wall, `tiles` × 3 tiles: four
+ *  pillars under two tiers of tiled roof, a balustrade between them pierced
+ *  with white squares, the name board over the way in; either side, the low
+ *  wall in white-framed panels, lotus buds on its posts. The middle is open.
+ *  Quốc Học's is red; Hai Bà Trưng's takes the rose of its walls. */
+export function quocHocGate({ tiles = 12, wall = SCHOOL_RED } = {}) {
+  const [WC, WD, WL] = wall;
+  const cv = new Canvas(tiles * T2, 3 * T2);
   const W = cv.w, H = cv.h, cx = W / 2;
   const WHITE = [244, 238, 228], WHITE_DARK = [210, 200, 190];
   const wallTop = H - 30;
   // The wall, in panels, either side of the gate.
   for (const [x0, x1] of [[2, cx - 66], [cx + 66, W - 2]]) {
-    for (let y = wallTop; y < H - 2; y++) for (let x = x0; x < x1; x++) cv.set(x, y, mix(CORAL, CORAL_DARK, hash(x, y) * 0.25 + (y - wallTop) / 60));
+    for (let y = wallTop; y < H - 2; y++) for (let x = x0; x < x1; x++) cv.set(x, y, mix(WC, WD, hash(x, y) * 0.25 + (y - wallTop) / 60));
     cv.rect(x0, wallTop - 4, x1 - x0, 4, WHITE);
     for (let x = x0 + 3; x < x1 - 2; x += 6) disc(cv, x, wallTop - 5, 1.5, WHITE);
-    cv.rect(x0, H - 6, x1 - x0, 4, CORAL_DARK);
+    cv.rect(x0, H - 6, x1 - x0, 4, WD);
     const posts = [x0, x1 - 8];
     for (let x = x0 + 40; x < x1 - 30; x += 44) posts.push(x);
     for (let p = 0; p < posts.length - 1; p++) {
       const a = posts[p] + 12, b = posts[p + 1] - 4;
       if (b - a < 10) continue;
-      cv.rect(a, wallTop + 6, b - a, 14, WHITE); cv.rect(a + 1, wallTop + 7, b - a - 2, 12, CORAL);
+      cv.rect(a, wallTop + 6, b - a, 14, WHITE); cv.rect(a + 1, wallTop + 7, b - a - 2, 12, WC);
       const m = Math.round((a + b) / 2);
-      if (p % 2) { cv.rect(m - 5, wallTop + 7, 10, 12, WHITE); cv.rect(m - 3, wallTop + 9, 6, 8, CORAL_DARK); cv.rect(m - 1, wallTop + 9, 2, 8, WHITE); cv.rect(m - 3, wallTop + 12, 6, 2, WHITE); }
+      if (p % 2) { cv.rect(m - 5, wallTop + 7, 10, 12, WHITE); cv.rect(m - 3, wallTop + 9, 6, 8, WD); cv.rect(m - 1, wallTop + 9, 2, 8, WHITE); cv.rect(m - 3, wallTop + 12, 6, 2, WHITE); }
     }
     for (const x of posts) {
-      cv.rect(x, wallTop - 14, 8, H - 2 - wallTop + 14, CORAL);
-      cv.rect(x, wallTop - 14, 2, H - 2 - wallTop + 14, CORAL_LIGHT);
+      cv.rect(x, wallTop - 14, 8, H - 2 - wallTop + 14, WC);
+      cv.rect(x, wallTop - 14, 2, H - 2 - wallTop + 14, WL);
       cv.rect(x - 1, wallTop - 16, 10, 3, WHITE);
       // A lotus bud.
       cv.ellipse(x + 4, wallTop - 21, 4, 5, WHITE);
@@ -504,18 +509,18 @@ export function quocHocGate() {
   // The gate: four pillars, the outer two passages narrow, the middle wide.
   const base = H - 2;
   for (const x of [cx - 64, cx - 34, cx + 28, cx + 58]) {
-    cv.rect(x, 40, 6, base - 40, CORAL);
-    cv.rect(x, 40, 2, base - 40, CORAL_LIGHT);
-    cv.rect(x + 5, 40, 1, base - 40, CORAL_DARK);
+    cv.rect(x, 40, 6, base - 40, WC);
+    cv.rect(x, 40, 2, base - 40, WL);
+    cv.rect(x + 5, 40, 1, base - 40, WD);
     cv.rect(x + 1, base - 10, 4, 6, WHITE);
   }
   // Over the side passages, panels pierced with white squares.
   for (const [x0, x1] of [[cx - 58, cx - 34], [cx + 34, cx + 58]]) {
-    cv.rect(x0, 40, x1 - x0, 20, CORAL);
-    for (let x = x0 + 3; x < x1 - 5; x += 8) { cv.rect(x, 44, 5, 5, WHITE); cv.set(x + 2, 46, CORAL_DARK); }
+    cv.rect(x0, 40, x1 - x0, 20, WC);
+    for (let x = x0 + 3; x < x1 - 5; x += 8) { cv.rect(x, 44, 5, 5, WHITE); cv.set(x + 2, 46, WD); }
   }
   // The lintel over the middle and its name board.
-  cv.rect(cx - 34, 40, 68, 12, CORAL);
+  cv.rect(cx - 34, 40, 68, 12, WC);
   cv.rect(cx - 22, 42, 44, 8, [176, 52, 40]);
   cv.rect(cx - 22, 42, 44, 1, GOLD); cv.rect(cx - 22, 49, 44, 1, GOLD);
   for (let x = cx - 18; x < cx + 18; x += 3) cv.rect(x, 45, 2, 2, GOLD);
@@ -523,10 +528,10 @@ export function quocHocGate() {
   for (const x of [cx - 28, cx + 22]) for (let i = 0; i < 6; i += 2) cv.rect(x + i, 58, 1, base - 60, [70, 46, 40]);
   // The lower roof, the balustrade on it, the upper roof on two posts.
   tiledRoof(cv, cx - 82, 28, 164, 14, RED_TILE, 6);
-  cv.rect(cx - 60, 18, 120, 10, CORAL);
+  cv.rect(cx - 60, 18, 120, 10, WC);
   cv.rect(cx - 60, 18, 120, 2, WHITE);
-  for (let x = cx - 56; x < cx + 54; x += 7) { cv.rect(x, 21, 4, 4, WHITE); cv.set(x + 1, 22, CORAL_DARK); }
-  for (const x of [cx - 30, cx + 24]) { cv.rect(x, 8, 6, 12, CORAL); cv.rect(x, 8, 2, 12, CORAL_LIGHT); }
+  for (let x = cx - 56; x < cx + 54; x += 7) { cv.rect(x, 21, 4, 4, WHITE); cv.set(x + 1, 22, WD); }
+  for (const x of [cx - 30, cx + 24]) { cv.rect(x, 8, 6, 12, WC); cv.rect(x, 8, 2, 12, WL); }
   tiledRoof(cv, cx - 46, 2, 92, 10, RED_TILE, 4);
   ridgeDecor(cv, cx - 40, cx + 40, 2, RED_TILE);
   for (const [x, y] of [[cx, -1], [cx - 84, 28], [cx + 82, 28]]) cv.ellipse(x, y + 1, 3, 3, WHITE_DARK);

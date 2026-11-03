@@ -176,7 +176,7 @@ export function renderDetail(write) {
       if (e.type === 'structure') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;
         const spec = e.cv.spec;
-        const art = spec?.kind === 'tombHall' ? tombHall(e.cv.spec) : spec?.kind === 'obelisk' ? obelisk(spec) : spec?.kind === 'foodStall' ? foodStall(spec.dish) : BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' ? (spec.windows ? house(spec) : spec.w === 4 && spec.h === 4 ? gardenHouse(spec) : null) : null);
+        const art = spec?.kind === 'tombHall' ? tombHall(e.cv.spec) : spec?.kind === 'obelisk' ? obelisk(spec) : spec?.kind === 'foodStall' ? foodStall(spec.dish) : spec?.kind === 'quocHocGate' ? quocHocGate(spec) : BUILDINGS[spec?.kind]?.() ?? (spec?.kind === 'hall' ? (spec.windows ? house(spec) : spec.w === 4 && spec.h === 4 ? gardenHouse(spec) : null) : null);
         if (art) redraw.push({ e, art, bottom: e.y + e.cv.h, overTo: e.overTo });
       } else if (e.type === 'tree') {
         if (!inside(e, e.cv.w, e.cv.h)) continue;

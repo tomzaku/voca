@@ -9,11 +9,15 @@ import { bankOk, canPlant, canPlantDense, canPlantLoose, palm, pine, plant, plan
 import { NGU_BINH, TREELINE, drawLadder, height, light, markCliffs } from '../hills.mjs';
 import { H, HILLS_Y, RIVER, T, W, isWater, nearSlot, onIslet, riverHalfWidth } from '../layout.mjs';
 import { ROADS, onAnyRoad, roadGap } from '../roads.mjs';
+import { SCHOOL_GROUNDS } from '../places/southBank.mjs';
+
+/** On a school's walls, or the pavement before its gate: no tree, or it hides them. */
+const bySchoolGate = (tx, ty) => Object.values(SCHOOL_GROUNDS).some((g) => tx >= g.x0 - 1 && tx <= g.x1 + 1 && ty >= g.front - 2 && ty <= g.back + 1);
 
 export function plantGreenery() {
   // Purple bằng lăng along both banks — the city's colour.
   for (let x = 2; x < 96; x += 4) {
-    if (canPlant(x, 68)) tree(x, 68, x % 3 ? 'lilac' : 'leaf');
+    if (!bySchoolGate(x, 68) && canPlant(x, 68)) tree(x, 68, x % 3 ? 'lilac' : 'leaf');
     if (x < 28 && canPlant(x, 45)) tree(x, 45, 'lilac');
   }
   // The Perfume River's banks, lined with trees the way Huế's are. The
@@ -80,7 +84,7 @@ export function plantGreenery() {
       const reach = (r.width / 2 + 0.5) * T;
       for (const side of [-1, 1]) {
         const tx = Math.floor((cx + nx * reach * side) / T), ty = Math.floor((cy + ny * reach * side) / T);
-        if (bankOk(tx, ty) && canPlantLoose(tx, ty)) plant(kinds[(tx + ty) % kinds.length], tx, ty);
+        if (!bySchoolGate(tx, ty) && bankOk(tx, ty) && canPlantLoose(tx, ty)) plant(kinds[(tx + ty) % kinds.length], tx, ty);
       }
     }
   }

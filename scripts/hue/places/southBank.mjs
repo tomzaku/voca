@@ -6,14 +6,14 @@ import { P, ROOF } from '../core/palette.mjs';
 import { drawn, glow, ground, mark, place, solid, used } from '../core/world.mjs';
 import { HOUSE, hall, roof } from '../draw/buildings.mjs';
 import { K, parterre } from '../hd/art.mjs';
-import { DISHES, anDinh, foodStall, planterTree, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
+import { DISHES, SCHOOL_RED, SCHOOL_ROSE, anDinh, foodStall, planterTree, haiBaTrung, halve, quocHoc, quocHocGate, saigonMorin } from '../hd/landmarks.mjs';
 import { T } from '../layout.mjs';
 
 /** Its names on the map (see meta.mjs). */
 export const LABELS = [
-  { text: 'Ga Huế', x: 13.5, y: 68.5, place: 'gaHue' },
-  { text: 'Trường Hai Bà Trưng', x: 28, y: 67.5, place: 'haiBaTrung' },
-  { text: 'Trường Quốc Học', x: 41, y: 67.5, place: 'quocHoc' },
+  { text: 'Ga Huế', x: 13.5, y: 70.5, place: 'gaHue' },
+  { text: 'Trường Hai Bà Trưng', x: 28, y: 70.5, place: 'haiBaTrung' },
+  { text: 'Trường Quốc Học', x: 41, y: 70.5, place: 'quocHoc' },
   { text: 'Chợ ẩm thực', x: 58, y: 67.2, place: 'foodMarket' },
   { text: 'Saigon Morin', x: 75.5, y: 68, place: 'saigonMorin' },
   { text: 'Cung An Định', x: 92, y: 70.5, place: 'anDinh' },
@@ -29,42 +29,86 @@ export const STALLS = DISHES.map(({ dish }, i) => ({ dish, x: 51 + (i % 5) * 3, 
  *  their stall (WorldScene), not in it. */
 export const MARKET_TREES = [[50, 70], [50, 74], [65, 70], [65, 74]];
 
-export function drawSouthBank() {
-  // Ga Huế: the cream railway station, with its tracks running west–east.
-  {
-    for (let x = 6 * T; x < 47 * T; x++) {
-      for (let y = 74 * T + 2; y < 76 * T - 2; y++) ground.set(x, y, mix([150, 140, 126], [130, 120, 108], hash(x, y) * 0.6));
-      if (x % 6 < 2) ground.rect(x, 74 * T + 4, 2, T * 2 - 8, [104, 80, 60]);   // sleepers
-      ground.set(x, 74 * T + 9, [96, 100, 108]);
-      ground.set(x, 75 * T + 6, [96, 100, 108]);
+/** The two schools' grounds along Lê Lợi, in tiles: wall to wall, front
+ *  (the gate's row, on the street) to back (by the tracks). */
+export const SCHOOL_GROUNDS = {
+  haiBaTrung: { x0: 22, x1: 33, front: 68, back: 75 },
+  quocHoc: { x0: 34, x1: 47, front: 68, back: 75 },
+};
+/** The rows the railway runs on, past the schools' back walls to Ga Huế. */
+const RAIL_Y = 76;
+
+/** A school's grounds walled all round, as Huế's old schools are: the gate
+ *  (quocHocGate, in the school's colours) in the middle of the front wall on
+ *  Lê Lợi (the paved forecourt inside is roads.mjs's), and the low wall
+ *  carried down both sides and across the back. The gate's middle passage is the
+ *  only way in. */
+function schoolGrounds({ x0, x1, front, back }, wall) {
+  const [face, shade, light] = wall;
+  const WHITE = [244, 238, 228];
+  const tiles = x1 - x0 + 1, mid = x0 + tiles / 2;
+  const gate = halve(quocHocGate({ tiles, wall }));
+  gate.spec = { kind: 'quocHocGate', tiles, wall };
+  place(gate, x0, front - 2, 1, { gaps: [mid - 1, mid], shadow: false });
+  // The side walls, seen from above: a red band under a white coping, a post every few tiles.
+  for (const x of [x0, x1]) {
+    const px = x * T + 5;
+    for (let y = front + 1; y <= back; y++) {
+      ground.rect(px, y * T, 6, T, face);
+      ground.rect(px, y * T, 1, T, light);
+      ground.rect(px + 5, y * T, 1, T, shade);
+      ground.rect(px + 2, y * T, 2, T, WHITE);
+      if ((y - front) % 3 === 0) ground.rect(px - 1, y * T + 5, 8, 6, WHITE);
+      solid[y][x] = true;
     }
-    mark(used, 6, 74, 41, 2);
+  }
+  // The back wall, its face to the tracks: white coping, red panels.
+  const top = back * T + 4;
+  for (let x = x0 * T + 5; x < x1 * T + 11; x++) {
+    for (let y = top + 3; y < (back + 1) * T - 1; y++) ground.set(x, y, mix(face, shade, hash(x, y) * 0.25 + (y - top) / 20));
+    ground.rect(x, top, 1, 3, WHITE);
+    ground.set(x, (back + 1) * T - 1, shade);
+  }
+  for (let x = x0 * T + 5; x < x1 * T + 6; x += 3 * T) ground.rect(x, top - 2, 6, 14, WHITE);
+  for (let x = x0; x <= x1; x++) solid[back][x] = true;
+  mark(used, x0 - 1, front - 3, tiles + 2, back - front + 5);
+}
+
+export function drawSouthBank() {
+  // Ga Huế: the cream railway station, with its tracks running west–east
+  // behind the two schools.
+  {
+    const y0 = RAIL_Y * T;
+    for (let x = 6 * T; x < 47 * T; x++) {
+      for (let y = y0 + 2; y < y0 + 2 * T - 2; y++) ground.set(x, y, mix([150, 140, 126], [130, 120, 108], hash(x, y) * 0.6));
+      if (x % 6 < 2) ground.rect(x, y0 + 4, 2, T * 2 - 8, [104, 80, 60]);   // sleepers
+      ground.set(x, y0 + 9, [96, 100, 108]);
+      ground.set(x, y0 + T + 6, [96, 100, 108]);
+    }
+    mark(used, 6, RAIL_Y, 41, 2);
     const cv = hall({ w: 9, h: 5, roofRows: 2, roofPal: ROOF.terra, wall: [236, 222, 186], pillar: [196, 170, 120], pillarStep: 12, windows: true, windowStep: 11, doorW: 12, doorFill: [80, 64, 50] });
     // A little clock tower over the door.
     cv.rect(cv.w / 2 - 10, 2, 20, 26, [240, 228, 196]);
     cv.ellipse(cv.w / 2, 12, 5, 5, [250, 246, 236]);
     cv.rect(cv.w / 2, 8, 1, 4, [40, 36, 34]);
     cv.spec = { kind: 'gaHue' };
-    place(cv, 9, 68, 3);
+    place(cv, 9, RAIL_Y - 6, 3);
   }
 
   // Hai Bà Trưng, the old Đồng Khánh girls' school, next door to Quốc Học
-  // along Lê Lợi.
+  // along Lê Lợi; and Quốc Học, the red school. Each stands in its own walled
+  // grounds, its gate on the street, a forecourt between gate and school.
   {
     const cv = halve(haiBaTrung());
     cv.spec = { kind: 'haiBaTrung' };
-    place(cv, 23, 67, 3);
+    place(cv, SCHOOL_GROUNDS.haiBaTrung.x0 + 1, SCHOOL_GROUNDS.haiBaTrung.front + 2, 3);
+    schoolGrounds(SCHOOL_GROUNDS.haiBaTrung, SCHOOL_ROSE);
   }
-
-  // Quốc Học: the red school behind its wall and gate, which open on the
-  // forecourt; the gate's middle passage is the way in.
   {
     const cv = halve(quocHoc());
     cv.spec = { kind: 'quocHoc' };
-    place(cv, 35, 67, 3);
-    const gate = halve(quocHocGate());
-    gate.spec = { kind: 'quocHocGate' };
-    place(gate, 35, 71, 1, { gaps: [40, 41], shadow: false });
+    place(cv, SCHOOL_GROUNDS.quocHoc.x0 + 1, SCHOOL_GROUNDS.quocHoc.front + 2, 3);
+    schoolGrounds(SCHOOL_GROUNDS.quocHoc, SCHOOL_RED);
   }
 
   // Huế's food market, in the park between the bridges: three rows of stalls

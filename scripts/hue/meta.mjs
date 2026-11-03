@@ -88,7 +88,7 @@ export function writeMeta(shelters = []) {
   // The playground's games: the street piano on Phố đi bộ, the type race at
   // Ga Huế, on the platform between the station and its tracks.
   point('play', 62, 64.6, { game: 'piano' });
-  point('play', 13.5, 73.3, { game: 'race' });
+  point('play', 13.5, 75.3, { game: 'race' });
   // The food market's stalls: stand at one and it tells its dish's story
   // (places.dishBunBo…), ahead of the market's own.
   for (const { dish, x, y } of STALLS) point('stall', x + 1, y + 2.4, { place: `dish${dish[0].toUpperCase()}${dish.slice(1)}` });
