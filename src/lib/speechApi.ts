@@ -3,7 +3,27 @@
 
 import { request } from './api';
 
-export type SpeechVoice = 'female' | 'male';
+/** A slot the server fills from its config, or a voice id from listCloudVoices(). */
+export type SpeechVoice = 'female' | 'male' | (string & {});
+
+export interface CloudVoice {
+  id: string;
+  name: string;
+  gender: 'Female' | 'Male';
+  accent: 'American' | 'British';
+  tier: 'Chirp 3 HD' | 'Neural2' | 'WaveNet' | 'Standard';
+}
+
+export interface CloudVoiceList {
+  voices: CloudVoice[];
+  /** The voice ids the `female` / `male` slots stand for right now. */
+  defaults: { female: string; male: string };
+}
+
+/** The voices the picker may offer; null when the server can't be reached. */
+export function listCloudVoices(): Promise<CloudVoiceList | null> {
+  return request.get<CloudVoiceList>('/speech/voices', { quiet: true, allowAnon: true });
+}
 
 /** A first-time clip waits on Google; a cached one is a quick lookup. */
 const TIMEOUT_MS = 15_000;

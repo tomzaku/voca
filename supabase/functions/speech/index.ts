@@ -4,12 +4,13 @@
 // `speech` bucket, so each sentence is paid for once and served from the CDN
 // after that.
 //
-//   POST /speech  { text, voice? }  → 200 { url }
+//   POST /speech         { text, voice? }  → 200 { url }
+//   GET  /speech/voices                    → 200 { voices, defaults }
 //
-// `voice` is a slot, not a Google voice name — `female` (default) or `male`,
-// which the two-speaker dialogues use. Which Google voice fills each slot is
-// server config, so changing it never touches the client (and a new voice
-// simply starts a fresh cache folder).
+// `voice` is either a slot — `female` (default) or `male`, which the
+// two-speaker dialogues use, filled from server config — or one of the Google
+// voice ids GET /speech/voices lists (the picker in Settings). Anything else
+// is a 400. A different voice simply starts a fresh cache folder.
 //
 // POST rather than GET: the text can be a few hundred characters of sentence,
 // and it's what creates the clip on a miss.
@@ -35,18 +36,21 @@
 //   GOOGLE_TTS_VOICE_MALE      optional (default en-US-Chirp3-HD-Charon)
 //   SPEECH_USER_DAILY_LIMIT    new clips per signed-in user per day (default 300)
 //   SPEECH_TOTAL_DAILY_LIMIT   new clips across everyone per day (default 3000)
-//   SPEECH_MONTHLY_CHAR_LIMIT  characters sent to Google per UTC month
-//                              (default 900000 — under Chirp 3 HD's 1M free;
-//                              WaveNet/Standard voices get 4M free)
+//   SPEECH_MONTHLY_CHAR_LIMIT_CHIRP3 / _NEURAL2 / _WAVENET_STANDARD
+//                              characters sent to Google per UTC month, per
+//                              voice family (default 90% of each family's free
+//                              allowance — see voices.ts)
 //
-// The monthly character ceiling is the one that keeps the bill at $0: Google's
-// budgets only send alerts, they never stop spending. It fails closed — if the
-// budget can't be checked, no new clip is made.
+// The monthly ceilings are what keep the bill at $0: Google's budgets only
+// send alerts, they never stop spending. Each family is counted on its own,
+// because that's how Google's free allowance is counted. They fail closed — if
+// the budget can't be checked, no new clip is made.
 //
 // Deploy: `npm run db:push` (the bucket), then `supabase functions deploy speech`
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
+import { CLOUD_VOICES, type Family, familyOf, isOffered, monthlyLimit } from './voices.ts';
 
 const BUCKET = 'speech';
 /** The client splits long text into sentences of ≤300; this leaves headroom. */
@@ -57,6 +61,15 @@ const VOICES = {
   male: () => Deno.env.get('GOOGLE_TTS_VOICE_MALE') || 'en-US-Chirp3-HD-Charon',
 } as const;
 type Slot = keyof typeof VOICES;
+
+/** A slot's configured voice, or an offered voice id as-is; null if neither. */
+function resolveVoice(v: unknown): string | null {
+  if (v === undefined || v === null || v === '') return VOICES.female();
+  if (typeof v !== 'string') return null;
+  // hasOwn, not `in`: 'constructor' is `in` every object.
+  if (Object.hasOwn(VOICES, v)) return VOICES[v as Slot]();
+  return isOffered(v) ? v : null;
+}
 
 async function sha256(s: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -87,10 +100,13 @@ async function underLimit(svc: SupabaseClient, key: string, max: number): Promis
   return !(allowed === false && !error);
 }
 
-/** Reserve this clip's characters against the month's budget. Fails closed. */
-async function withinMonthlyBudget(svc: SupabaseClient, chars: number): Promise<boolean> {
-  const limit = Number(Deno.env.get('SPEECH_MONTHLY_CHAR_LIMIT')) || 900_000;
-  const { data, error } = await svc.rpc('reserve_speech_chars', { p_chars: chars, p_limit: limit });
+/** Reserve this clip's characters against its family's month. Fails closed. */
+async function withinMonthlyBudget(svc: SupabaseClient, family: Family, chars: number): Promise<boolean> {
+  const { data, error } = await svc.rpc('reserve_speech_chars', {
+    p_family: family,
+    p_chars: chars,
+    p_limit: monthlyLimit(family),
+  });
   if (error) console.error('[speech] budget check failed:', error.message);
   return data === true;
 }
@@ -126,6 +142,12 @@ export default async function handler(req: Request): Promise<Response> {
 
   const parts = new URL(req.url).pathname.split('/').filter(Boolean);
   const sub = parts.slice(parts.lastIndexOf('speech') + 1).join('/');
+  if (sub === 'voices' && req.method === 'GET') {
+    return jsonResponse(200, {
+      voices: CLOUD_VOICES.map(({ id, name, gender, accent, tier }) => ({ id, name, gender, accent, tier })),
+      defaults: { female: VOICES.female(), male: VOICES.male() },
+    });
+  }
   if (sub !== '' || req.method !== 'POST') return jsonResponse(404, { error: 'Not found' });
 
   let body: Record<string, unknown>;
@@ -139,13 +161,15 @@ export default async function handler(req: Request): Promise<Response> {
   const text = typeof body.text === 'string' ? body.text.replace(/\s+/g, ' ').trim() : '';
   if (!text) return jsonResponse(400, { error: '"text" must be a non-empty string.' });
   if (text.length > MAX_CHARS) return jsonResponse(400, { error: `"text" must be at most ${MAX_CHARS} characters.` });
-  const slot = (body.voice ?? 'female') as Slot;
-  if (!(slot in VOICES)) return jsonResponse(400, { error: '"voice" must be one of: female, male.' });
+  const voiceName = resolveVoice(body.voice);
+  const family = voiceName ? familyOf(voiceName) : null;
+  if (!voiceName || !family) {
+    return jsonResponse(400, { error: '"voice" must be female, male, or a voice from GET /speech/voices.' });
+  }
 
   const svc = serviceClient();
   if (!svc) return jsonResponse(500, { error: 'Speech is not configured.' });
 
-  const voiceName = VOICES[slot]();
   const path = `${voiceName}/${await sha256(text)}.mp3`;
 
   try {
@@ -159,7 +183,7 @@ export default async function handler(req: Request): Promise<Response> {
       return jsonResponse(429, { error: 'Speech limit reached for today.' });
     }
     // Last, so a request turned away above never spends budget.
-    if (!await withinMonthlyBudget(svc, text.length)) {
+    if (!await withinMonthlyBudget(svc, family, text.length)) {
       return jsonResponse(429, { error: 'Speech limit reached for this month.' });
     }
 

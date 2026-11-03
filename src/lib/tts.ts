@@ -1,5 +1,5 @@
 import { cleanMarkdown } from './cleanMarkdown';
-import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
+import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, getCloudVoice, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
 import { speechUrl, type SpeechVoice } from './speechApi';
@@ -385,10 +385,17 @@ async function speakPiper(text: string, ticket: number, options?: { voice?: stri
 
 // ─── Cloud (speech edge function) ──────────────────────────────────
 
-/** Callers pass Kokoro/Piper ids (af_sarah, am_michael, …_male-…); keep the gender. */
-function voiceSlot(voice?: string): SpeechVoice {
-  if (!voice) return 'female';
-  return voice === 'male' || /^[ab]m_/.test(voice) || /(^|[-_])male\b/.test(voice) ? 'male' : 'female';
+/**
+ * The cloud voice to ask for. A Google id (the Settings preview) goes as-is.
+ * Callers that don't know the engine pass Kokoro/Piper ids (af_sarah,
+ * am_michael, …_male-…): a male one is the dialogue's second speaker, so it
+ * gets the server's male voice; anything else reads in the voice picked in
+ * Settings, or the server's default.
+ */
+function cloudVoiceFor(voice?: string): SpeechVoice {
+  if (voice && /^en-[A-Z]{2}-/.test(voice)) return voice;
+  if (voice && (voice === 'male' || /^[ab]m_/.test(voice) || /(^|[-_])male\b/.test(voice))) return 'male';
+  return getCloudVoice() || 'female';
 }
 
 /**
@@ -399,7 +406,7 @@ function voiceSlot(voice?: string): SpeechVoice {
  */
 async function speakCloud(text: string, ticket: number, options?: { voice?: string; speed?: number; onStart?: () => void }): Promise<boolean> {
   const chunks = splitIntoChunks(text);
-  const slot = voiceSlot(options?.voice);
+  const slot = cloudVoiceFor(options?.voice);
   const speed = options?.speed ?? getTtsSpeed();
   let url = await speechUrl(chunks[0], slot);
   if (stale(ticket)) return true;
