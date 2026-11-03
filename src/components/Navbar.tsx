@@ -75,15 +75,6 @@ export function Navbar() {
 
             <QuickPrefs />
 
-            <Link
-              to="/dashboard"
-              aria-label={intl.formatMessage({ id: 'navbar.dashboard' })}
-              title={intl.formatMessage({ id: 'navbar.dashboard' })}
-              className="btn-3d w-9 h-9 rounded-full bg-bg-card text-text-secondary hover:text-text-primary flex items-center justify-center shrink-0"
-            >
-              <Icon icon="lucide:calendar-days" className="text-lg" />
-            </Link>
-
             <button
               onClick={openSearch}
               className="btn-3d flex items-center gap-1.5 pl-3 pr-3.5 h-9 rounded-full bg-bg-card text-text-secondary hover:text-text-primary shrink-0"
