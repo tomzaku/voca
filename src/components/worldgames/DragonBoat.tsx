@@ -112,16 +112,17 @@ function Dictation({ onScore }: { onScore: (n: ReactNode) => void }) {
             </p>
             <div className="flex flex-wrap gap-1.5">
               {grade.words.map((w, i) => (
-                <span
+                <button
                   key={i}
-                  className="px-notch px-2 py-0.5 text-[15px] font-bold"
+                  onClick={() => void speakText(w.word)}
+                  className="px-notch px-2 py-0.5 text-[15px] font-bold cursor-pointer hover:brightness-125"
                   style={{
                     background: w.ok ? '#1f4a25' : '#4d1a16',
                     boxShadow: `inset 0 0 0 2px var(--px-ink), inset 0 0 0 3px ${w.ok ? 'var(--px-good)' : 'var(--px-bad)'}`,
                   }}
                 >
                   {w.word}
-                </span>
+                </button>
               ))}
             </div>
           </div>

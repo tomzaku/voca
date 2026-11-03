@@ -10,6 +10,8 @@
 // words get no budget at all, because at three letters almost everything is
 // within one edit of everything else.
 
+import { spellNumbers } from './spokenNumbers';
+
 /**
  * How many single-character errors to forgive, by target length. "cat" vs
  * "cut" is a different word; "ubiquitous" vs "ubiquitious" is the same word
@@ -21,9 +23,10 @@ function editBudget(length: number): number {
   return 2;
 }
 
-/** Lowercase, strip accents and punctuation, collapse whitespace. */
+/** Lowercase, spell out numbers, strip accents and punctuation, collapse
+ *  whitespace. Recognition writes "three" as "3" — that's still the word. */
 export function normalizeSpoken(text: string): string {
-  return text
+  return spellNumbers(text)
     .toLowerCase()
     .normalize('NFD')
     // Combining marks — "café" and "cafe" are the same spoken word.

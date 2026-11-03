@@ -12,7 +12,8 @@ import { HudBanner, HudDock, HudTop, PixelButton, PixelIcon } from './pixel';
 // Shadowing at Đông Ba market: hear a line from the Speak page's dialogues and say
 // it straight back. Your recording is transcribed on-device (the flash card's
 // useVoiceRecorder) and lined up with the sentence word by word (the
-// listening drills' gradeDictation), so you see which words came through.
+// listening drills' gradeDictation), so you see which words came through —
+// and tap any of them to hear it said on its own.
 
 /** Long enough for a 14-word line said slowly. */
 const MAX_LINE_MS = 12_000;
@@ -87,15 +88,18 @@ export function Shadowing() {
             </p>
             <div className="flex flex-wrap gap-1.5">
               {grade.words.map((w, i) => (
-                <span
+                <button
                   key={i}
-                  className="px-notch px-2 py-0.5 text-[15px] font-bold"
+                  onClick={() => void speakText(w.word)}
+                  title={intl.formatMessage({ id: 'world.shadowHearWord' })}
+                  className="px-notch px-2 py-0.5 text-[15px] font-bold cursor-pointer hover:brightness-125"
                   style={{ background: w.ok ? '#1f4a25' : '#4d1a16', boxShadow: `inset 0 0 0 2px var(--px-ink), inset 0 0 0 3px ${w.ok ? 'var(--px-good)' : 'var(--px-bad)'}` }}
                 >
                   {w.word}
-                </span>
+                </button>
               ))}
             </div>
+            <p className="text-[12px] text-[var(--px-muted)] mt-1.5"><FormattedMessage id="world.shadowHearWord" /></p>
             <p className="text-[14px] text-[var(--px-muted)] mt-2">
               <span className="px-title !text-[11px] mr-1.5"><FormattedMessage id="world.shadowHeard" /></span>“{heard}”
             </p>

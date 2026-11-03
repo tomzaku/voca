@@ -606,8 +606,13 @@ function DictationTab() {
               </div>
               <p className="text-sm leading-relaxed">
                 {gradedWords.map(({ word: w, ok }, i) => (
-                  <span key={i} className={ok ? 'text-accent-green' : 'text-accent-red underline decoration-wavy'}>
-                    {w}{' '}
+                  <span key={i}>
+                    <button
+                      onClick={() => void speakText(w)}
+                      className={`cursor-pointer hover:bg-bg-tertiary rounded ${ok ? 'text-accent-green' : 'text-accent-red underline decoration-wavy'}`}
+                    >
+                      {w}
+                    </button>{' '}
                   </span>
                 ))}
               </p>

@@ -52,6 +52,7 @@ export default {
   'world.rpCue': 'You should say',
   'world.shadowSay': 'Say it back',
   'world.shadowHeard': 'You said',
+  'world.shadowHearWord': 'Tap a word to hear it',
   'world.shadowNoMic': 'This browser can’t record — listen and repeat it aloud anyway.',
   'world.readPlaceholder': 'Type or paste anything to hear it…',
   'world.rpRandom': 'Random',

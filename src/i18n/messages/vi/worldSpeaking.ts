@@ -50,6 +50,7 @@ export default {
   'world.rpCue': 'Bạn nên nói',
   'world.shadowSay': 'Nói lại',
   'world.shadowHeard': 'Bạn đã nói',
+  'world.shadowHearWord': 'Chạm vào một từ để nghe lại',
   'world.shadowNoMic': 'Trình duyệt không ghi âm được — hãy cứ nghe và đọc to theo.',
   'world.readPlaceholder': 'Gõ hoặc dán đoạn văn để nghe…',
   'world.rpRandom': 'Ngẫu nhiên',

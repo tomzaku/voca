@@ -92,3 +92,10 @@ describe('spokenMatch — budget boundaries', () => {
     expect(spokenMatch('vicarous', 'vicarious')).toBe(true);
   });
 });
+
+describe('spokenMatch with numbers', () => {
+  it('accepts a number word the recogniser wrote as digits', () => {
+    expect(spokenMatch('3.', 'three')).toBe(true);
+    expect(spokenMatch('the 1st', 'first')).toBe(true);
+  });
+});

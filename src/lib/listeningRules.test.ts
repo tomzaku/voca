@@ -19,6 +19,20 @@ describe('gradeDictation', () => {
     expect(gradeDictation('I like tea', 'I really really like tea').accuracy).toBe(60);
   });
 
+  it('matches numbers said as words against digits, either way round', () => {
+    expect(gradeDictation('I have three cats', 'I have 3 cats').accuracy).toBe(100);
+    expect(gradeDictation('It costs 25 dollars', 'it costs twenty five dollars').accuracy).toBe(100);
+    expect(gradeDictation('It costs twenty-five dollars', 'it costs 25 dollars').accuracy).toBe(100);
+    expect(gradeDictation('The 3rd floor at 3:30', 'the third floor at three thirty').accuracy).toBe(100);
+    expect(gradeDictation('About 1,200 people, 50%', 'about one thousand two hundred people fifty percent').accuracy).toBe(100);
+    expect(gradeDictation('OK, see you', 'okay see you').accuracy).toBe(100);
+  });
+
+  it('shows the sentence as written and marks a number wrong only if it was misheard', () => {
+    const g = gradeDictation('Wait 25 minutes', 'wait twenty minutes');
+    expect(g.words).toEqual([{ word: 'wait', ok: true }, { word: '25', ok: false }, { word: 'minutes', ok: true }]);
+  });
+
   it('scores nothing typed as zero', () => {
     expect(gradeDictation('I like tea', '').accuracy).toBe(0);
   });
