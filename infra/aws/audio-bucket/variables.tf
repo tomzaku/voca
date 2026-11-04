@@ -1,5 +1,14 @@
+variable "allowed_account_id" {
+  description = <<-EOT
+    Voca's own AWS account (the `voca` CLI profile), separate from
+    happy-record's. The provider refuses to run against any other, so a
+    session for the wrong account fails instead of creating things there.
+  EOT
+  type        = string
+}
+
 variable "aws_region" {
-  description = "Region the bucket lives in (matches AUDIO_S3_REGION for the speech function)."
+  description = "Region the bucket lives in (matches AUDIO_S3_REGION). The organization only allows ap-southeast-2."
   type        = string
   default     = "ap-southeast-2"
 }
