@@ -77,6 +77,8 @@ export default {
   'conversation.resetFilters': 'Reset filters',
   'conversation.showLess': 'Show less',
   'conversation.showAll': 'Show all {count}',
+  'conversation.randomPick': 'Random pick',
+  'conversation.backToList': 'Show all questions ({count})',
 
   // AI practice chat (useEnglishChat / useEnglishConversations / chatApi)
   'conversation.speakingPractice': 'Speaking Practice',

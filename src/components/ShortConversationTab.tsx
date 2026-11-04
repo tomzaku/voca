@@ -400,6 +400,11 @@ export function ShortConversationTab() {
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [sheetOpen, setSheetOpen] = useState(false);
   const pendingScroll = useRef<string | null>(null);
+  // A random pick ("Next question") is shown alone at the top, with the rest
+  // of the list folded away. Scrolling to it inside the full list made it easy
+  // to lose — one stray swipe and you couldn't find the question again.
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const focused = focusId ? speakingQuestions.find((q) => q.id === focusId) ?? null : null;
 
   // Overall + per-topic progress ignore the filters — they describe the bank.
   const { stats, practicedTotal, savedTotal, thisWeek } = useMemo(() => {
@@ -474,6 +479,9 @@ export function ShortConversationTab() {
     requestAnimationFrame(() => document.getElementById(`q-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }, [expandedId, openGroups]);
 
+  // Changing what the list shows leaves the random-pick view.
+  useEffect(() => { setFocusId(null); }, [topic, status, level, needle]);
+
   /** A random question from the current view, preferring ones not yet practiced. */
   const next = useCallback(() => {
     const pool = visible.filter((q) => q.id !== expandedId);
@@ -481,18 +489,28 @@ export function ShortConversationTab() {
     const from = fresh.length ? fresh : pool;
     if (!from.length) { toast(intl.formatMessage({ id: 'conversation.nothingElse' })); return; }
     if (!fresh.length) toast(intl.formatMessage({ id: 'conversation.allPracticedReview' }), { icon: '🎉' });
-    open(from[Math.floor(Math.random() * from.length)].id);
-  }, [visible, expandedId, progress, open, intl]);
+    const id = from[Math.floor(Math.random() * from.length)].id;
+    setFocusId(id);
+    setExpandedId(id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [visible, expandedId, progress, intl]);
+
+  /** Back to the full list, landing on the question that was focused. */
+  const leaveFocus = () => {
+    const id = focusId;
+    setFocusId(null);
+    if (id) open(id);
+  };
 
   const resetFilters = () => { setStatus('all'); setLevel('all'); setQuery(''); setTopic('all'); };
 
-  const card = (q: SpeakingQuestion) => (
+  const card = (q: SpeakingQuestion, showTopic = topic === 'all' && !grouped) => (
     <QuestionCard
       key={q.id}
       q={q}
       progress={progress[q.id]}
       expanded={expandedId === q.id}
-      showTopic={topic === 'all' && !grouped}
+      showTopic={showTopic}
       onToggle={() => setExpandedId(expandedId === q.id ? null : q.id)}
       onNext={next}
     />
@@ -612,7 +630,24 @@ export function ShortConversationTab() {
         )}
 
         {/* List */}
-        {visible.length === 0 ? (
+        {focused ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-green">
+                <Icon icon="lucide:shuffle" width={13} />
+                <FormattedMessage id="conversation.randomPick" />
+              </span>
+              <button
+                onClick={leaveFocus}
+                className="flex items-center gap-1 text-xs font-semibold text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+              >
+                <Icon icon="lucide:list" width={13} />
+                <FormattedMessage id="conversation.backToList" values={{ count: visible.length }} />
+              </button>
+            </div>
+            {card(focused, topic === 'all')}
+          </div>
+        ) : visible.length === 0 ? (
           <div className="text-center py-16 rounded-xl border border-dashed border-border">
             <Icon icon={status === 'saved' ? 'lucide:bookmark' : status === 'practiced' ? 'lucide:circle-check' : 'lucide:search-x'} width={28} className="mx-auto text-text-muted mb-2" />
             <p className="text-sm text-text-secondary">
@@ -642,7 +677,7 @@ export function ShortConversationTab() {
                     <span className="text-[11px] tabular-nums text-text-muted">{s.done}/{s.total}</span>
                     <Icon icon="lucide:chevron-right" width={14} className="ml-auto text-text-muted" />
                   </button>
-                  <div className="space-y-2">{shown.map(card)}</div>
+                  <div className="space-y-2">{shown.map((q) => card(q))}</div>
                   {items.length > PREVIEW_PER_TOPIC && (
                     <button
                       onClick={() => setOpenGroups((prev) => {
@@ -662,7 +697,7 @@ export function ShortConversationTab() {
             })}
           </div>
         ) : (
-          <div className="space-y-2">{visible.map(card)}</div>
+          <div className="space-y-2">{visible.map((q) => card(q))}</div>
         )}
       </section>
 

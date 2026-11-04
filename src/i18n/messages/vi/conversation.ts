@@ -77,6 +77,8 @@ export default {
   'conversation.resetFilters': 'Đặt lại bộ lọc',
   'conversation.showLess': 'Thu gọn',
   'conversation.showAll': 'Xem tất cả {count}',
+  'conversation.randomPick': 'Câu hỏi ngẫu nhiên',
+  'conversation.backToList': 'Xem tất cả câu hỏi ({count})',
 
   // AI practice chat (useEnglishChat / useEnglishConversations / chatApi)
   'conversation.speakingPractice': 'Luyện nói',
