@@ -63,9 +63,11 @@ export default defineConfig(() => ({
         // of the precache to keep install small and preserve lazy loading.
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         globIgnores: ['**/kokoro*', '**/transformers*', '**/ort*', '**/piper*', '**/voices_static*', '**/ttsWorker*'],
-        // The main bundle must fit, or the app shell isn't available offline.
-        // It's ~3.1 MB (mostly src/data/* learning content, plus the English
-        // i18n catalog); splitting that data out is what would bring it down.
+        // Every chunk must fit, or it isn't available offline. Pages are
+        // lazy routes (src/App.tsx) so the learning content in src/data/*
+        // rides with the page that uses it; the main chunk is ~1.6 MB and the
+        // largest (GameWorld) ~1.8 MB. A page importing src/data/* eagerly
+        // into the shell is what would push one back over.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
     }),

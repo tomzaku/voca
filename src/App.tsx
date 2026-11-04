@@ -1,43 +1,51 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './hooks/useAuth';
 import { useRailState } from './hooks/useRailState';
 import { Navbar } from './components/Navbar';
 import { Rail } from './components/Rail';
 import { FlashCard } from './components/FlashCard';
-import { HistoryPage } from './components/HistoryPage';
-import { ReviewPage } from './components/ReviewPage';
-import { SettingsPage } from './components/SettingsPage';
-import { LoginPage } from './components/LoginPage';
-import { ProfilePage } from './components/ProfilePage';
 import { EnglishPractice } from './components/EnglishPractice';
-import { EnglishSpeakingPage } from './components/EnglishSpeakingPage';
-import { EnglishListeningPage } from './components/EnglishListeningPage';
-import { IpaPage } from './components/IpaPage';
-import { CompanionPage } from './components/CompanionPage';
-import { DashboardPage } from './components/DashboardPage';
-import { QuickReview } from './components/QuickReview';
-import { CollectionsPage } from './components/CollectionsPage';
-import { CollectionDetailPage } from './components/CollectionDetailPage';
-import { WritingPage, WritingLegacyRedirect } from './components/WritingPage';
-import { WorldGame } from './components/WorldGame';
-import { LevelTestPage } from './components/LevelTestPage';
-import { TakeQuiz } from './components/TakeQuiz';
-import { QuizResults } from './components/QuizResults';
-import { MyQuizzes } from './components/MyQuizzes';
-import { HuntEdit, HuntsPage } from './components/HuntsPage';
-import { HuntBoard } from './components/HuntBoard';
-import { HuntCards } from './components/HuntCards';
-import { HuntPlay } from './components/HuntPlay';
-import { TestCreatePage, TestEditPage } from './components/tests/TestCreatePage';
-import { TestPage } from './components/tests/TestPage';
-import { HuntTry } from './components/HuntTry';
-import { ProComparisonPage } from './components/ProComparisonPage';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
-import { AiModelBenchmarkPage } from './components/AiModelBenchmarkPage';
-import { NetworkDebugPage } from './components/NetworkDebugPage';
+
+// Every page but the home flash card loads when it's first opened. Eagerly,
+// they put all the learning content (src/data/*, ~1.7 MB) and lottie in the
+// main chunk, which outgrew the service worker's precache limit. The lazy
+// chunks are still precached (vite.config.ts), so offline is unchanged.
+const HistoryPage = lazy(() => import('./components/HistoryPage').then((m) => ({ default: m.HistoryPage })));
+const ReviewPage = lazy(() => import('./components/ReviewPage').then((m) => ({ default: m.ReviewPage })));
+const SettingsPage = lazy(() => import('./components/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const LoginPage = lazy(() => import('./components/LoginPage').then((m) => ({ default: m.LoginPage })));
+const ProfilePage = lazy(() => import('./components/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const EnglishSpeakingPage = lazy(() => import('./components/EnglishSpeakingPage').then((m) => ({ default: m.EnglishSpeakingPage })));
+const EnglishListeningPage = lazy(() => import('./components/EnglishListeningPage').then((m) => ({ default: m.EnglishListeningPage })));
+const IpaPage = lazy(() => import('./components/IpaPage').then((m) => ({ default: m.IpaPage })));
+const CompanionPage = lazy(() => import('./components/CompanionPage').then((m) => ({ default: m.CompanionPage })));
+const DashboardPage = lazy(() => import('./components/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const QuickReview = lazy(() => import('./components/QuickReview').then((m) => ({ default: m.QuickReview })));
+const CollectionsPage = lazy(() => import('./components/CollectionsPage').then((m) => ({ default: m.CollectionsPage })));
+const CollectionDetailPage = lazy(() => import('./components/CollectionDetailPage').then((m) => ({ default: m.CollectionDetailPage })));
+const WritingLegacyRedirect = lazy(() => import('./components/WritingPage').then((m) => ({ default: m.WritingLegacyRedirect })));
+const WritingPage = lazy(() => import('./components/WritingPage').then((m) => ({ default: m.WritingPage })));
+const WorldGame = lazy(() => import('./components/WorldGame').then((m) => ({ default: m.WorldGame })));
+const LevelTestPage = lazy(() => import('./components/LevelTestPage').then((m) => ({ default: m.LevelTestPage })));
+const TakeQuiz = lazy(() => import('./components/TakeQuiz').then((m) => ({ default: m.TakeQuiz })));
+const QuizResults = lazy(() => import('./components/QuizResults').then((m) => ({ default: m.QuizResults })));
+const MyQuizzes = lazy(() => import('./components/MyQuizzes').then((m) => ({ default: m.MyQuizzes })));
+const HuntEdit = lazy(() => import('./components/HuntsPage').then((m) => ({ default: m.HuntEdit })));
+const HuntsPage = lazy(() => import('./components/HuntsPage').then((m) => ({ default: m.HuntsPage })));
+const HuntBoard = lazy(() => import('./components/HuntBoard').then((m) => ({ default: m.HuntBoard })));
+const HuntCards = lazy(() => import('./components/HuntCards').then((m) => ({ default: m.HuntCards })));
+const HuntPlay = lazy(() => import('./components/HuntPlay').then((m) => ({ default: m.HuntPlay })));
+const TestCreatePage = lazy(() => import('./components/tests/TestCreatePage').then((m) => ({ default: m.TestCreatePage })));
+const TestEditPage = lazy(() => import('./components/tests/TestCreatePage').then((m) => ({ default: m.TestEditPage })));
+const TestPage = lazy(() => import('./components/tests/TestPage').then((m) => ({ default: m.TestPage })));
+const HuntTry = lazy(() => import('./components/HuntTry').then((m) => ({ default: m.HuntTry })));
+const ProComparisonPage = lazy(() => import('./components/ProComparisonPage').then((m) => ({ default: m.ProComparisonPage })));
+const AiModelBenchmarkPage = lazy(() => import('./components/AiModelBenchmarkPage').then((m) => ({ default: m.AiModelBenchmarkPage })));
+const NetworkDebugPage = lazy(() => import('./components/NetworkDebugPage').then((m) => ({ default: m.NetworkDebugPage })));
 
 /**
  * The app's frame — header, rail, and a <main> that makes room for the rail.
@@ -69,6 +77,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/+$/, '') || '/'}>
         <Shell>
+          <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<FlashCard />} />
             <Route path="/speaking" element={<EnglishSpeakingPage />} />
@@ -113,6 +122,7 @@ export default function App() {
             {/* Linked from Settings → Developer, not the Rail. */}
             <Route path="/debug/network" element={<NetworkDebugPage />} />
           </Routes>
+          </Suspense>
         </Shell>
         <EnglishPractice />
         {/* Word chips anywhere in the app open their meaning here, in place. */}
