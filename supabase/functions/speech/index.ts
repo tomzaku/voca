@@ -1,8 +1,9 @@
 // Spoken audio for devices that can't run a voice model themselves — phones and
 // low-power desktops (the app's "Cloud" voice engine). Google Cloud
-// Text-to-Speech does the synthesis; every clip is stored in the public
-// `speech` bucket, so each sentence is paid for once and served from the CDN
-// after that.
+// Text-to-Speech does the synthesis; every clip is stored — S3 behind
+// CloudFront, or the Supabase `speech` bucket until S3 is configured (see
+// store.ts) — so each sentence is paid for once and served from a CDN after
+// that.
 //
 //   POST /speech         { text, voice?, ipa? }  → 200 { url }
 //   GET  /speech/voices                    → 200 { voices, defaults }
@@ -55,13 +56,16 @@
 // because that's how Google's free allowance is counted. They fail closed — if
 // the budget can't be checked, no new clip is made.
 //
-// Deploy: `npm run db:push` (the bucket), then `supabase functions deploy speech`
+//   AUDIO_S3_* / AUDIO_CDN_URL     where clips are stored — see store.ts and
+//                              infra/aws/audio-bucket/README.md
+//
+// Deploy: `supabase functions deploy speech`
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
+import { clipStore } from './store.ts';
 import { CLOUD_VOICES, type Family, familyOf, isOffered, monthlyLimit, RECORDED_VOICES, recordedVoice } from './voices.ts';
 
-const BUCKET = 'speech';
 /** The client splits long text into sentences of ≤300; this leaves headroom. */
 const MAX_CHARS = 500;
 /** Longer than any one word's IPA; anything past it isn't a pronunciation. */
@@ -85,16 +89,6 @@ function resolveVoice(v: unknown): string | null {
 async function sha256(s: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-function publicUrl(path: string): string {
-  return `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/${BUCKET}/${path}`;
-}
-
-/** A HEAD on the public URL: the same CDN path the client will play from. */
-async function isCached(path: string): Promise<boolean> {
-  const res = await fetch(publicUrl(path), { method: 'HEAD' });
-  return res.ok;
 }
 
 /**
@@ -197,10 +191,11 @@ export default async function handler(req: Request): Promise<Response> {
   const path = `${voiceName}/${hash}.mp3`;
 
   try {
-    if (recorded && await isCached(`${recorded.id}/${hash}.mp3`)) {
-      return jsonResponse(200, { url: publicUrl(`${recorded.id}/${hash}.mp3`) });
+    const store = clipStore(svc);
+    if (recorded && await store.exists(`${recorded.id}/${hash}.mp3`)) {
+      return jsonResponse(200, { url: store.url(`${recorded.id}/${hash}.mp3`) });
     }
-    if (await isCached(path)) return jsonResponse(200, { url: publicUrl(path) });
+    if (await store.exists(path)) return jsonResponse(200, { url: store.url(path) });
 
     const auth = await requireUser(req);
     if (!auth) return jsonResponse(401, { error: 'Sign in to hear new sentences in the cloud voice.' });
@@ -215,16 +210,9 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     const mp3 = await synthesize(text, voiceName, ipa || null);
-    // upsert: two callers missing at once both synthesize; the second write
-    // just replaces an identical file instead of failing.
-    const { error } = await svc.storage.from(BUCKET).upload(path, mp3, {
-      contentType: 'audio/mpeg',
-      cacheControl: '31536000',
-      upsert: true,
-    });
-    if (error) throw new Error(`storage: ${error.message}`);
+    await store.put(path, mp3);
     console.log(`[speech] new clip voice=${voiceName} chars=${text.length}`);
-    return jsonResponse(200, { url: publicUrl(path) });
+    return jsonResponse(200, { url: store.url(path) });
   } catch (err) {
     console.error('[speech]', err);
     return jsonResponse(500, { error: 'Could not make audio.' });

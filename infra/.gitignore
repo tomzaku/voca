@@ -1,0 +1,9 @@
+# Terraform's local state and cache — never committed: state can hold values
+# that don't belong in git, and the cache is machine-specific.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
