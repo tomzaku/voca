@@ -1,5 +1,5 @@
 import { cleanMarkdown } from './cleanMarkdown';
-import { splitIntoChunks } from './speechChunks';
+import { bareIpa, kokoroPhonemes, splitIntoChunks } from './speechChunks';
 import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, getCloudVoice, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
@@ -515,15 +515,7 @@ function ipaFor(phonetics: Record<string, string> | undefined, voice: string): s
   if (!phonetics) return undefined;
   const british = /^b[fm]_/.test(voice) || voice.startsWith('en-GB');
   const ipa = (british ? phonetics['en-GB'] : phonetics['en-US']) ?? phonetics['en-US'] ?? phonetics['en-GB'];
-  return ipa?.replace(/^\/|\/$/g, '').trim() || undefined;
-}
-
-/**
- * IPA as Kokoro's tokenizer wants it: the stored IPA is eSpeak's, and these
- * are the few substitutions kokoro-js makes to eSpeak output itself.
- */
-function kokoroPhonemes(ipa: string): string {
-  return ipa.replace(/ʲ/g, 'j').replace(/r/g, 'ɹ').replace(/x/g, 'k').replace(/ɬ/g, 'l');
+  return ipa ? bareIpa(ipa) || undefined : undefined;
 }
 
 /**

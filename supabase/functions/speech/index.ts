@@ -56,6 +56,10 @@
 // because that's how Google's free allowance is counted. They fail closed — if
 // the budget can't be checked, no new clip is made.
 //
+//   SPEECH_RECORDED_DEFAULTS   optional: the recorded folder each slot reads
+//                              before Google, e.g.
+//                              "female=kokoro-af_heart,male=kokoro-am_michael"
+//                              (recorded by scripts/pregen-speech.mjs)
 //   AUDIO_S3_* / AUDIO_CDN_URL     where clips are stored — see store.ts and
 //                              infra/aws/audio-bucket/README.md
 //
@@ -76,6 +80,20 @@ const VOICES = {
   male: () => Deno.env.get('GOOGLE_TTS_VOICE_MALE') || 'en-US-Chirp3-HD-Charon',
 } as const;
 type Slot = keyof typeof VOICES;
+
+/**
+ * The pre-recorded folder each slot reads first, from
+ * SPEECH_RECORDED_DEFAULTS ("female=kokoro-af_heart,male=kokoro-am_michael").
+ * Unset, slots are Google only. A setting rather than code so switching the
+ * default voice — or back — is `supabase secrets set`, not a deploy.
+ */
+function recordedDefault(slot: Slot): string | null {
+  for (const pair of (Deno.env.get('SPEECH_RECORDED_DEFAULTS') ?? '').split(',')) {
+    const [k, folder] = pair.split('=').map((x) => x.trim());
+    if (k === slot && /^kokoro-[a-z]{2}_[a-z]+$/.test(folder ?? '')) return folder;
+  }
+  return null;
+}
 
 /** A slot's configured voice, or an offered voice id as-is; null if neither. */
 function resolveVoice(v: unknown): string | null {
@@ -174,6 +192,12 @@ export default async function handler(req: Request): Promise<Response> {
   if (ipa.length > MAX_IPA || /[<>"&]/.test(ipa)) return jsonResponse(400, { error: `"ipa" must be at most ${MAX_IPA} characters of IPA.` });
   const asked = resolveVoice(body.voice);
   const recorded = asked ? recordedVoice(asked) : null;
+  // The default voices read a recording first when one exists; a Google voice
+  // picked by name in Settings is that voice, always.
+  const slot: Slot | null = body.voice === undefined || body.voice === null || body.voice === ''
+    ? 'female'
+    : typeof body.voice === 'string' && Object.hasOwn(VOICES, body.voice) ? body.voice as Slot : null;
+  const recordedFolder = recorded?.id ?? (slot ? recordedDefault(slot) : null);
   // A recorded voice falls back to Google, so budgets and synthesis below
   // always deal in a Google voice.
   const voiceName = recorded ? VOICES[recorded.fallback]() : asked;
@@ -186,14 +210,15 @@ export default async function handler(req: Request): Promise<Response> {
   if (!svc) return jsonResponse(500, { error: 'Speech is not configured.' });
 
   // Without ipa the key is the text alone, as it always was, so every clip
-  // made before ipa existed still hits.
+  // made before ipa existed still hits. Mirrors clipHashInput in
+  // src/lib/speechChunks.ts, which the app and the recording script use.
   const hash = await sha256(ipa ? `${text}\n${ipa}` : text);
   const path = `${voiceName}/${hash}.mp3`;
 
   try {
     const store = clipStore(svc);
-    if (recorded && await store.exists(`${recorded.id}/${hash}.mp3`)) {
-      return jsonResponse(200, { url: store.url(`${recorded.id}/${hash}.mp3`) });
+    if (recordedFolder && await store.exists(`${recordedFolder}/${hash}.mp3`)) {
+      return jsonResponse(200, { url: store.url(`${recordedFolder}/${hash}.mp3`) });
     }
     if (await store.exists(path)) return jsonResponse(200, { url: store.url(path) });
 

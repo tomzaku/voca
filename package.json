@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.175",
+  "version": "0.1.176",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -40,6 +40,7 @@
     "words:chain": "node scripts/build-chain-words.mjs",
     "senses:backfill": "node --env-file=.env scripts/backfill-senses.mjs",
     "lexicon:build": "node --env-file=.env scripts/build-lexicon.mjs",
+    "speech:pregen": "eval \"$(aws configure export-credentials --profile voca --format env)\" && node --env-file=.env scripts/pregen-speech.mjs",
     "infra:audio:init": "terraform -chdir=infra/aws/audio-bucket init",
     "infra:audio:plan": "eval \"$(aws configure export-credentials --profile voca --format env)\" && terraform -chdir=infra/aws/audio-bucket plan",
     "infra:audio:apply": "eval \"$(aws configure export-credentials --profile voca --format env)\" && terraform -chdir=infra/aws/audio-bucket apply"
@@ -69,6 +70,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
     "@eslint/js": "^9.39.1",
     "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^24.10.1",

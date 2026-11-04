@@ -13,6 +13,7 @@
 // and the cache name below can be bumped for that.
 
 import { speechUrl, type SpeechVoice } from './speechApi';
+import { clipHashInput } from './speechChunks';
 
 const CACHE = 'voca-speech-v1';
 /** ~20KB a clip, so this is a few tens of MB at most. */
@@ -26,13 +27,8 @@ export interface Clip {
   owned: boolean;
 }
 
-function normalize(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
 async function keyFor(text: string, voice: SpeechVoice, ipa?: string): Promise<string> {
-  const keyText = ipa ? `${normalize(text)}\n${ipa}` : normalize(text);
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(keyText));
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(clipHashInput(text, ipa)));
   const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
   return `${KEY_BASE}${encodeURIComponent(voice)}/${hex}`;
 }
