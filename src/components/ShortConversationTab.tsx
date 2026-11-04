@@ -272,7 +272,7 @@ function QuestionBody({ q, done, onNext }: { q: SpeakingQuestion; done: boolean;
           onClick={onNext}
           className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-text-muted hover:text-text-primary hover:bg-bg-hover/60 transition-colors cursor-pointer"
         >
-          <FormattedMessage id="conversation.next" /> <Icon icon="lucide:arrow-right" width={14} />
+          <Icon icon="lucide:shuffle" width={14} /> <FormattedMessage id="conversation.random" />
         </button>
       </div>
     </div>
@@ -461,8 +461,7 @@ export function ShortConversationTab() {
               title={intl.formatMessage({ id: 'conversation.nextQuestionTitle' })}
             >
               <Icon icon="lucide:shuffle" width={14} />
-              <span className="hidden sm:inline"><FormattedMessage id="conversation.nextQuestion" /></span>
-              <span className="sm:hidden"><FormattedMessage id="conversation.next" /></span>
+              <FormattedMessage id="conversation.random" />
             </button>
           </div>
 

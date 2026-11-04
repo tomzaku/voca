@@ -3,7 +3,7 @@ import type { Catalog } from '../..';
 export default {
   // Shared
   'conversation.listen': 'Listen',
-  'conversation.next': 'Next',
+  'conversation.random': 'Random',
   'conversation.usefulPhrases': 'Useful phrases',
   'conversation.yourProgress': 'Your progress',
   'conversation.allTopics': 'All topics',
@@ -67,7 +67,6 @@ export default {
   'conversation.searchQuestions': 'Search questions',
   'conversation.clearSearch': 'Clear search',
   'conversation.nextQuestionTitle': "Open a random question you haven't practiced yet",
-  'conversation.nextQuestion': 'Next question',
   'conversation.questionCount': '{count, plural, one {# question} other {# questions}}',
   'conversation.freeTalk': 'Free talk on this topic',
   'conversation.emptySaved': 'No saved questions here yet — tap the bookmark on any question.',

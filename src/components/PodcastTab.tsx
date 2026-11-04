@@ -26,7 +26,6 @@ const topicIcon = (t: string) => TOPIC_ICON[t as Topic] ?? 'lucide:mic';
 
 const LABELS: BankLabels = {
   search: 'listening.searchEpisodes',
-  next: 'listening.nextEpisode',
   nextTitle: 'listening.nextEpisodeTitle',
   backToList: 'listening.backToList',
   count: 'listening.episodeCount',

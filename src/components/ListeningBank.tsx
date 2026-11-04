@@ -10,7 +10,7 @@ import { Overview, TopicNav, TopicPickerButton, TopicSheet } from './TopicBrowse
 // modelled on Speaking's Short Conversation: topics in a sidebar (a sheet on
 // mobile) with per-topic progress, a sticky toolbar to search and filter by
 // status plus one bank-specific chip row (level, or IELTS section), and
-// "Next" to be handed an item you haven't done, shown alone at the top so it
+// "Random" to be handed an item you haven't done, shown alone at the top so it
 // can't be scrolled away from. Each bank supplies its data, the card's meta
 // line and its expanded body; the done/saved state lives in its own store.
 
@@ -26,7 +26,6 @@ export interface BankChip<C extends string> {
 /** Message ids for the words that change between banks. */
 export interface BankLabels {
   search: string;
-  next: string;
   nextTitle: string;
   backToList: string;
   count: string;
@@ -161,7 +160,7 @@ function BankCard<T extends BankItem>({ item, progress, store, labels, expanded,
               onClick={onNext}
               className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-text-muted hover:text-text-primary hover:bg-bg-hover/60 transition-colors cursor-pointer"
             >
-              <FormattedMessage id="conversation.next" /> <Icon icon="lucide:arrow-right" width={14} />
+              <Icon icon="lucide:shuffle" width={14} /> <FormattedMessage id="conversation.random" />
             </button>
           </div>
         </div>
@@ -248,7 +247,7 @@ export function ListeningBank<T extends BankItem, C extends string>({
   }, [base, progress]);
   const visible = useMemo(() => base.filter((p) => matchesStatus(status, progress[p.id])), [base, status, progress]);
 
-  // Changing what the list shows leaves the Next view.
+  // Changing what the list shows leaves the Random view.
   const narrow = (fn: () => void) => { fn(); setExpandedId(null); setFocusId(null); };
 
   const selectTopic = useCallback((t: string) => {
@@ -342,8 +341,7 @@ export function ListeningBank<T extends BankItem, C extends string>({
               title={intl.formatMessage({ id: labels.nextTitle })}
             >
               <Icon icon="lucide:shuffle" width={14} />
-              <span className="hidden sm:inline"><FormattedMessage id={labels.next} /></span>
-              <span className="sm:hidden"><FormattedMessage id="conversation.next" /></span>
+              <FormattedMessage id="conversation.random" />
             </button>
           </div>
 

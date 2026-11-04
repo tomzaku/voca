@@ -136,7 +136,6 @@ const QUIZ_LABELS = {
 const COMPREHENSION_LABELS: BankLabels = {
   ...QUIZ_LABELS,
   search: 'listening.searchClips',
-  next: 'listening.nextClip',
   nextTitle: 'listening.nextClipTitle',
   backToList: 'listening.backToClips',
   count: 'listening.clipCount',
@@ -492,7 +491,6 @@ const SECTION_CHIPS: BankChip<IeltsSection>[] = IELTS_SECTIONS.map((s) => ({ key
 const IELTS_LABELS: BankLabels = {
   ...QUIZ_LABELS,
   search: 'listening.searchSections',
-  next: 'listening.nextSection',
   nextTitle: 'listening.nextSectionTitle',
   backToList: 'listening.backToSections',
   count: 'listening.sectionCount',

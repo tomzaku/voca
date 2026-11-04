@@ -3,7 +3,7 @@ import type en from '../en/conversation';
 export default {
   // Shared
   'conversation.listen': 'Nghe',
-  'conversation.next': 'Tiếp',
+  'conversation.random': 'Ngẫu nhiên',
   'conversation.usefulPhrases': 'Cụm từ hữu ích',
   'conversation.yourProgress': 'Tiến độ của bạn',
   'conversation.allTopics': 'Tất cả chủ đề',
@@ -67,7 +67,6 @@ export default {
   'conversation.searchQuestions': 'Tìm câu hỏi',
   'conversation.clearSearch': 'Xoá tìm kiếm',
   'conversation.nextQuestionTitle': 'Mở ngẫu nhiên một câu hỏi bạn chưa luyện',
-  'conversation.nextQuestion': 'Câu hỏi tiếp',
   'conversation.questionCount': '{count} câu hỏi',
   'conversation.freeTalk': 'Nói tự do về chủ đề này',
   'conversation.emptySaved': 'Chưa có câu hỏi nào được lưu — chạm vào biểu tượng dấu trang ở bất kỳ câu hỏi nào.',
