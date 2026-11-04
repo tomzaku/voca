@@ -46,3 +46,23 @@ export function clipHashInput(text: string, ipa?: string): string {
 export function kokoroPhonemes(ipa: string): string {
   return ipa.replace(/ʲ/g, 'j').replace(/r/g, 'ɹ').replace(/x/g, 'k').replace(/ɬ/g, 'l');
 }
+
+/** A long script as its sentences, so it can be played — and followed — one
+ *  sentence at a time. Paragraph breaks end a sentence too. */
+export function splitSentences(text: string): string[] {
+  return text
+    .split(/\n+/)
+    .flatMap((para) => para.match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) ?? [])
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * What a recorded podcast episode is named by the SHA-256 of: its sentences,
+ * as the player shows them. Editing a single word of the script names a new
+ * recording, so a stale one is never played against the new text. The
+ * version goes up if the way episodes are assembled changes.
+ */
+export function episodeHashInput(sentences: string[]): string {
+  return ['podcast-v1', ...sentences].join('\n');
+}

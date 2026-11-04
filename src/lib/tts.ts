@@ -4,7 +4,7 @@ import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, getCloudVoice, d
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
 import type { SpeechVoice } from './speechApi';
-import { getClip, prefetchClip, type Clip } from './speechCache';
+import { getClip, prefetchClip, RECORDED, type Clip } from './speechCache';
 import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
@@ -387,6 +387,25 @@ function cloudVoiceFor(voice?: string): SpeechVoice {
 /** Mirrors RECORDED_VOICES in supabase/functions/speech/voices.ts. */
 const KOKORO_CLOUD_FEMALE = 'kokoro-af_heart';
 const KOKORO_CLOUD_MALE = 'kokoro-am_michael';
+
+/**
+ * The CDN folder of recordings in the voice this device reads with, or null
+ * when it reads with another. The recordings (podcast episodes, for one) are
+ * Kokoro's af_heart, the default voice, so they stand in for it on every
+ * engine: the cloud default slot, the in-browser Kokoro's own af_heart — the
+ * same voice, without the work — and Piper or the device voice, which they
+ * simply sound better than. Only a different voice picked in Settings keeps
+ * the device making its own audio.
+ */
+export function recordedFolder(): string | null {
+  const engine = getTtsEngine();
+  if (engine === 'kokoro' && getTtsVoice() !== 'af_heart') return null;
+  if (engine === 'cloud') {
+    const slot = cloudVoiceFor();
+    return RECORDED[slot] ?? (slot === KOKORO_CLOUD_FEMALE ? RECORDED.female ?? null : null);
+  }
+  return RECORDED.female ?? null;
+}
 
 /**
  * Read `text` with server-made clips, a sentence at a time, fetching the next

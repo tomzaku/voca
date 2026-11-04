@@ -56,6 +56,17 @@
 // uploads everything, on purpose: each process refreshes the `aws login`
 // session on its own, and three of them racing on its cache file corrupted it.
 // --shard splits the clips by hash across machines; shards never overlap.
+//
+// --podcasts records the Listen podcasts instead (src/data/englishListening.ts),
+// each episode as ONE file plus its timed transcript, so the player can stream
+// a whole episode and still light up — and jump to — each sentence:
+//   podcasts/<voice folder>/<sha256>.mp3    the episode, sentence after sentence
+//   podcasts/<voice folder>/<sha256>.json   { duration, lines: [{ start, end, text }] }
+// named by episodeHashInput (src/lib/speechChunks), so an edited script is a
+// new recording. The JSON is uploaded last: it's what marks an episode done.
+//   npm run speech:pregen:podcasts                                # every episode not yet recorded
+//   npm run speech:pregen:podcasts -- --words pod-1,pod-2 --out /tmp/pods
+//   npm run speech:status:podcasts
 
 import { fork, spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -66,7 +77,7 @@ import { createClient } from '@supabase/supabase-js';
 import os from 'node:os';
 import { KokoroTTS } from 'kokoro-js';
 import { cleanMarkdown } from '../src/lib/cleanMarkdown.ts';
-import { bareIpa, clipHashInput, kokoroPhonemes, splitIntoChunks } from '../src/lib/speechChunks.ts';
+import { bareIpa, clipHashInput, episodeHashInput, kokoroPhonemes, splitIntoChunks, splitSentences } from '../src/lib/speechChunks.ts';
 import { KOKORO_MODEL_ID } from '../src/lib/ttsModel.ts';
 
 const args = process.argv.slice(2);
@@ -77,6 +88,7 @@ const LIMIT = Number(strArg('--limit')) || Infinity;
 const ONLY = strArg('--words')?.split(',').map((w) => w.trim().toLowerCase()).filter(Boolean);
 const OUT = strArg('--out');
 const DRY_RUN = args.includes('--dry-run');
+const PODCASTS = args.includes('--podcasts');
 const [SHARD, SHARDS] = (strArg('--shard') ?? '1/1').split('/').map(Number);
 if (!(SHARDS >= 1 && SHARD >= 1 && SHARD <= SHARDS)) throw new Error('--shard must be i/n with 1 ≤ i ≤ n');
 /** Where `npm run speech:setup-mlx` puts the GPU engine's Python. */
@@ -175,11 +187,11 @@ async function manifest() {
   return { words: words.length, clips: [...clips.values()] };
 }
 
-async function existing() {
+async function existing(prefix = `${FOLDER}/`) {
   const keys = new Set();
   let token;
   do {
-    const res = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: `${FOLDER}/`, ContinuationToken: token }));
+    const res = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: token }));
     for (const o of res.Contents ?? []) keys.add(o.Key);
     token = res.IsTruncated ? res.NextContinuationToken : undefined;
   } while (token);
@@ -320,6 +332,126 @@ function startModel(engine = ENGINE) {
   });
 }
 
+function loadModels() {
+  console.log(ENGINE === 'mlx'
+    ? `Loading ${WORKERS} Kokoro model(s) on the GPU (MLX)${CPU_WORKERS ? ` + ${CPU_WORKERS} on the CPU, ${THREADS} threads each` : ''}…`
+    : `Loading ${WORKERS} Kokoro model(s) on the CPU, ${THREADS} threads each…`);
+  return Promise.all([
+    ...Array.from({ length: WORKERS }, () => startModel()),
+    ...Array.from({ length: CPU_WORKERS }, () => startModel('onnx')),
+  ]);
+}
+
+async function upload(key, body, contentType) {
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+    CacheControl: 'public, max-age=31536000, immutable',
+  }));
+}
+
+// ─── Podcasts: one file per episode, with a timed transcript ───────
+
+const PODCAST_FOLDER = `podcasts/${FOLDER}`;
+// Silence between the pieces, in seconds — a beat between sentences, a
+// breath at a paragraph, nearly nothing where one long sentence was cut.
+const GAP = { chunk: 0.08, sentence: 0.35, paragraph: 0.8 };
+
+/** Every episode: its sentences as the player splits them, grouped by paragraph. */
+async function podcastManifest() {
+  const { podcasts } = await import('../src/data/englishListening.ts');
+  const picked = (ONLY ? podcasts.filter((p) => ONLY.includes(p.id)) : podcasts).slice(0, LIMIT);
+  return picked.map((p) => {
+    // splitSentences cuts at newlines first, so per paragraph it gives the
+    // same sentences — this just remembers where the paragraphs were.
+    const paragraphs = p.script.split(/\n+/).map(splitSentences).filter((s) => s.length);
+    const lines = paragraphs.flat();
+    if (lines.join('\n') !== splitSentences(p.script).join('\n')) throw new Error(`${p.id}: paragraph split disagrees with splitSentences`);
+    const hash = sha256(episodeHashInput(lines));
+    return { id: p.id, title: p.title, paragraphs, lines, base: `${PODCAST_FOLDER}/${hash}` };
+  });
+}
+
+/** Each sentence's pieces as speakText would read it: cleanMarkdown, then splitIntoChunks. */
+function sentenceChunks(line) {
+  const clean = cleanMarkdown(line);
+  return clean ? splitIntoChunks(clean) : [];
+}
+
+async function recordEpisode(ep, models) {
+  const jobs = ep.paragraphs.flatMap((para, pi) => para.flatMap((line, li) =>
+    sentenceChunks(line).map((text, ci) => ({ pi, li, ci, text, label: `${ep.id}: ${text}` }))));
+  const audio = new Array(jobs.length);
+  let next = 0;
+  await Promise.all(models.map(async (m) => {
+    while (next < jobs.length) {
+      const i = next++;
+      audio[i] = await m.generate(jobs[i]);
+    }
+  }));
+
+  const rate = audio[0].rate;
+  const parts = [];
+  const lines = [];
+  let samples = 0;
+  const pad = (seconds) => { const n = Math.round(seconds * rate); parts.push(new Float32Array(n)); samples += n; };
+  const at = () => Math.round((samples / rate) * 1000) / 1000;
+  let line = null;
+  jobs.forEach((job, i) => {
+    if (job.ci === 0) {
+      if (line) { line.end = at(); lines.push(line); pad(job.li === 0 ? GAP.paragraph : GAP.sentence); }
+      line = { start: at(), end: 0, text: ep.paragraphs[job.pi][job.li] };
+    } else pad(GAP.chunk);
+    parts.push(audio[i].samples);
+    samples += audio[i].samples.length;
+  });
+  line.end = at();
+  lines.push(line);
+  if (lines.length !== ep.lines.length) throw new Error(`${ep.id}: ${lines.length} timed lines for ${ep.lines.length} sentences`);
+
+  const pcm = new Float32Array(samples);
+  let o = 0;
+  for (const p of parts) { pcm.set(p, o); o += p.length; }
+  const mp3 = await toMp3(pcm, rate);
+  const timeline = JSON.stringify({ duration: at(), lines });
+  await upload(`${ep.base}.mp3`, mp3, 'audio/mpeg');
+  await upload(`${ep.base}.json`, timeline, 'application/json');
+  if (OUT) {
+    fs.writeFileSync(path.join(OUT, `${ep.id}.mp3`), mp3);
+    fs.writeFileSync(path.join(OUT, `${ep.id}.json`), timeline);
+  }
+  return { seconds: at(), bytes: mp3.length };
+}
+
+async function podcastsMain() {
+  const episodes = await podcastManifest();
+  const have = await existing(`${PODCAST_FOLDER}/`);
+  const todo = episodes.filter((e) => !have.has(`${e.base}.json`));
+  const sentences = episodes.reduce((n, e) => n + e.lines.length, 0);
+  console.log(`${episodes.length} episodes (${sentences} sentences) for ${PODCAST_FOLDER}; ${episodes.length - todo.length} already recorded, ${todo.length} to record.`);
+  if (DRY_RUN || !todo.length) return;
+
+  if (OUT) fs.mkdirSync(OUT, { recursive: true });
+  const models = await loadModels();
+  const started = Date.now();
+  let done = 0, failed = 0;
+  for (const ep of todo) {
+    const t0 = Date.now();
+    try {
+      const { seconds, bytes } = await recordEpisode(ep, models);
+      done++;
+      console.log(`✓ ${ep.id} ${ep.title} — ${Math.round(seconds)} s of audio, ${(bytes / 1e6).toFixed(1)} MB, in ${Math.round((Date.now() - t0) / 1000)} s  (${done}/${todo.length})`);
+    } catch (err) {
+      failed++;
+      console.warn(`✗ ${ep.id} ${ep.title}: ${err.message}`);
+    }
+  }
+  for (const m of models) await m.close();
+  console.log(`\n${done} episodes uploaded, ${failed} failed, in ${Math.round((Date.now() - started) / 60000)} min.`);
+}
+
 async function main() {
   const { words, clips } = await manifest();
   const have = await existing();
@@ -332,13 +464,7 @@ async function main() {
   if (DRY_RUN || !todo.length) return;
 
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
-  console.log(ENGINE === 'mlx'
-    ? `Loading ${WORKERS} Kokoro model(s) on the GPU (MLX)${CPU_WORKERS ? ` + ${CPU_WORKERS} on the CPU, ${THREADS} threads each` : ''}…`
-    : `Loading ${WORKERS} Kokoro model(s) on the CPU, ${THREADS} threads each…`);
-  const models = await Promise.all([
-    ...Array.from({ length: WORKERS }, () => startModel()),
-    ...Array.from({ length: CPU_WORKERS }, () => startModel('onnx')),
-  ]);
+  const models = await loadModels();
 
   const started = Date.now();
   const pending = new Set();
@@ -346,15 +472,9 @@ async function main() {
   let done = 0, failed = 0, bytes = 0, next = 0;
 
   // Encoding and upload overlap the next generation; cap what's in flight.
-  const upload = async (clip, { samples, rate }) => {
+  const record = async (clip, { samples, rate }) => {
     const mp3 = await toMp3(samples, rate);
-    await s3.send(new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: clip.key,
-      Body: mp3,
-      ContentType: 'audio/mpeg',
-      CacheControl: 'public, max-age=31536000, immutable',
-    }));
+    await upload(clip.key, mp3, 'audio/mpeg');
     if (OUT) {
       const file = path.basename(clip.key);
       fs.writeFileSync(path.join(OUT, file), mp3);
@@ -381,7 +501,7 @@ async function main() {
         console.warn(`✗ ${clip.label}: ${err.message}`);
         continue;
       }
-      const job = upload(clip, audio).catch((err) => { failed++; console.warn(`✗ ${clip.label}: ${err.message}`); });
+      const job = record(clip, audio).catch((err) => { failed++; console.warn(`✗ ${clip.label}: ${err.message}`); });
       pending.add(job);
       job.finally(() => pending.delete(job));
       if (pending.size >= UPLOADS) await Promise.race(pending);
@@ -401,4 +521,4 @@ async function main() {
   console.log(`\n${done} uploaded (${(bytes / 1e6).toFixed(1)} MB), ${failed} failed, in ${Math.round((Date.now() - started) / 60000)} min.`);
 }
 
-await main();
+await (PODCASTS ? podcastsMain() : main());

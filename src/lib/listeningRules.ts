@@ -89,15 +89,9 @@ export function scoreAnswers(questions: { correctIndex: number }[], answers: (nu
   return questions.reduce((n, q, i) => n + (answers[i] === q.correctIndex ? 1 : 0), 0);
 }
 
-/** A long script as its sentences, so it can be played — and followed — one
- *  sentence at a time. Paragraph breaks end a sentence too. */
-export function splitSentences(text: string): string[] {
-  return text
-    .split(/\n+/)
-    .flatMap((para) => para.match(/[^.!?]+(?:[.!?]+["”’)]*|$)\s*/g) ?? [])
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+// splitSentences lives with the rest of how speech is cut (speechChunks), so
+// the podcast recorder splits a script exactly as the player does.
+export { splitSentences } from './speechChunks';
 
 /** One voice per speaker, handed out from `pool` in the order speakers first
  *  speak — so each keeps the same voice for the whole recording, however

@@ -32,8 +32,8 @@ const KEY_BASE = 'https://speech-cache.voca/';
 //
 // Which folder each voice reads mirrors SPEECH_RECORDED_DEFAULTS on the
 // server; add `male` here when kokoro-am_michael is recorded.
-const AUDIO_CDN = 'https://dtlkjqn6y6ve2.cloudfront.net';
-const RECORDED: Partial<Record<string, string>> = { female: 'kokoro-af_heart' };
+export const AUDIO_CDN = 'https://dtlkjqn6y6ve2.cloudfront.net';
+export const RECORDED: Partial<Record<string, string>> = { female: 'kokoro-af_heart' };
 /** A CDN answer is fast or the network is bad; either way, don't hold the read up. */
 const DIRECT_TIMEOUT_MS = 4000;
 

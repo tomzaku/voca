@@ -9,6 +9,7 @@ import {
 } from '../data/englishListening';
 import { assignVoices, gradeDictation, scoreAnswers } from '../lib/listeningRules';
 import { ReadAloud } from './ReadAloud';
+import { PodcastScript } from './PodcastScript';
 import { PracticeButton } from './PracticeButton';
 import { ReadAloudVoice, PlaySequence } from './EnglishSpeakingPage';
 import { speakText, stopSpeaking, preloadTts, RECORDING_VOICES } from '../lib/tts';
@@ -135,13 +136,7 @@ function PodcastTab() {
                       size="sm"
                     />
                   </div>
-                  <div className="px-5 py-3 flex items-center justify-between border-b border-border">
-                    <span className="text-xs font-semibold text-accent-purple"><FormattedMessage id="listening.fullScript" /></span>
-                    <ReadAloud text={p.script} />
-                  </div>
-                  <div className="px-5 py-4">
-                    <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{p.script}</p>
-                  </div>
+                  <PodcastScript key={p.id} script={p.script} />
 
                   {p.vocabulary && p.vocabulary.length > 0 && (
                     <div className="px-5 py-3 bg-accent-cyan/5 border-t border-accent-cyan/10">

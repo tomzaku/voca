@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { podcasts, podcastTopics, type Podcast as Episode } from '../../data/englishListening';
-import { useScriptPlayer, type ScriptLine } from '../../hooks/useScriptPlayer';
-import { getTtsVoice } from '../../hooks/useTtsSettings';
+import { usePodcastPlayer } from '../../hooks/useEpisodePlayer';
+import { clock } from '../../lib/podcastAudio';
 import { splitSentences } from '../../lib/listeningRules';
 import { playSelect } from '../../lib/sfx';
 import { HudCenter, HudDock, PixelButton, PixelChip, PixelIcon } from './pixel';
 
-// Podcasts at the royal theatre — the Listen page's episodes, read aloud a
-// sentence at a time (lib/listeningRules splitSentences, the role-plays'
-// script player) so the line being said lights up and any line can be
-// replayed. Hide the text to listen first; the key words and discussion
-// questions are a tab away.
+// Podcasts at the royal theatre — the Listen page's episodes, followed a
+// sentence at a time (lib/listeningRules splitSentences) so the line being
+// said lights up and any line can be replayed. A recorded episode streams as
+// one file and its timed transcript drives the highlight (useEpisodePlayer);
+// one with no recording yet is read sentence by sentence (the role-plays'
+// script player). Hide the text to listen first; the key words and
+// discussion questions are a tab away.
 
 type Pane = 'script' | 'words' | 'discuss';
 
@@ -55,12 +57,10 @@ function Picker({ onPick, onRandom }: { onPick: (e: Episode) => void; onRandom: 
 }
 
 function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisodes: () => void; onRandom: () => void }) {
-  const lines = useMemo<ScriptLine[]>(() => {
-    const voice = getTtsVoice();
-    return splitSentences(episode.script).map((text) => ({ speaker: 'a', text, voice }));
-  }, [episode]);
+  const sentences = useMemo(() => splitSentences(episode.script), [episode]);
   const [at, setAt] = useState(0);
-  const player = useScriptPlayer(lines, null, () => setAt(0));
+  const player = usePodcastPlayer(sentences, () => setAt(0));
+  const { recorded } = player;
   const [pane, setPane] = useState<Pane>('script');
   const [hidden, setHidden] = useState(false);
   // Sentences already said stay readable when the text is hidden — you hear
@@ -70,7 +70,7 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
   // Where Play picks up after a stop.
   if (player.index >= 0 && player.index !== at) setAt(player.index);
 
-  const toggle = () => (player.running ? player.stop() : void player.playFrom(at));
+  const toggle = () => (player.running ? player.stop() : player.playFrom(at));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -106,7 +106,7 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
 
         {pane === 'script' && (
           <div ref={listRef} className="max-h-[34vh] overflow-y-auto pr-1 text-[16px] leading-relaxed">
-            {lines.map((l, i) => {
+            {sentences.map((text, i) => {
               const current = player.index === i;
               const masked = hidden && i > heard;
               return (
@@ -117,11 +117,12 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
                   role="button"
                   tabIndex={0}
                   data-line={i}
-                  onClick={() => void player.playFrom(i)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') void player.playFrom(i); }}
+                  title={recorded ? clock(recorded.lines[i].start) : undefined}
+                  onClick={() => player.playFrom(i)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') player.playFrom(i); }}
                   className={`cursor-pointer mr-1 px-0.5 ${current ? 'bg-[var(--px-gold)] text-[var(--px-ink)]' : masked ? 'text-[var(--px-muted)] tracking-widest' : 'hover:text-[var(--px-gold)]'}`}
                 >
-                  {masked ? '• • • •' : l.text}
+                  {masked ? '• • • •' : text}
                 </span>
               );
             })}
@@ -145,6 +146,7 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
       </HudCenter>
 
       <HudDock>
+        {recorded && <Scrubber time={player.time} duration={recorded.duration} onSeek={player.playAt} />}
         <div className="flex flex-wrap items-center gap-2">
           <PixelButton tone="sky" onClick={toggle}>
             <PixelIcon name={player.running ? 'close' : 'play'} size={2} />
@@ -154,7 +156,7 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
             <span className="inline-flex items-center gap-1.5"><PixelIcon name="eye" size={2} /><FormattedMessage id="world.podHideText" /></span>
           </PixelChip>
           {player.index >= 0 && (
-            <span className="px-num text-[18px] text-[var(--px-muted)]">{player.index + 1} / {lines.length}</span>
+            <span className="px-num text-[18px] text-[var(--px-muted)]">{player.index + 1} / {sentences.length}</span>
           )}
           <span className="flex-1" />
           <PixelButton tone="paper" onClick={() => { player.stop(); onRandom(); }}>
@@ -164,5 +166,22 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
         </div>
       </HudDock>
     </>
+  );
+}
+
+/** Where the episode is, and a tap anywhere along it to jump there. */
+function Scrubber({ time, duration, onSeek }: { time: number; duration: number; onSeek: (seconds: number) => void }) {
+  const seek = (e: React.PointerEvent<HTMLDivElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    onSeek(Math.min(1, Math.max(0, (e.clientX - box.left) / box.width)) * duration);
+  };
+  return (
+    <div className="flex items-center gap-2 mb-2">
+      <span className="px-num text-[15px] text-[var(--px-muted)] w-10 text-right">{clock(time)}</span>
+      <div onPointerDown={seek} className="flex-1 h-3 cursor-pointer bg-[var(--px-ink)] border-2 border-[var(--px-muted)] relative">
+        <div className="absolute inset-y-0 left-0 bg-[var(--px-gold)]" style={{ width: `${Math.min(100, (time / duration) * 100)}%` }} />
+      </div>
+      <span className="px-num text-[15px] text-[var(--px-muted)] w-10">{clock(duration)}</span>
+    </div>
   );
 }
