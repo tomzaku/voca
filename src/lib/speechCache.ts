@@ -15,7 +15,10 @@
 import { speechUrl, type SpeechVoice } from './speechApi';
 import { clipHashInput } from './speechChunks';
 
-const CACHE = 'voca-speech-v1';
+// v2: the default voice became Kokoro's recordings, so the Google clips v1
+// holds for `female` are replaced rather than replayed forever.
+const CACHE = 'voca-speech-v2';
+const OLD_CACHES = ['voca-speech-v1'];
 /** ~20KB a clip, so this is a few tens of MB at most. */
 const MAX_CLIPS = 1500;
 /** Not a real host — Cache Storage just needs an http(s) URL as the key. */
@@ -33,10 +36,19 @@ async function keyFor(text: string, voice: SpeechVoice, ipa?: string): Promise<s
   return `${KEY_BASE}${encodeURIComponent(voice)}/${hex}`;
 }
 
+let oldDropped = false;
+
 /** Null where Cache Storage is missing or refused (private mode, insecure origin). */
 async function openCache(): Promise<Cache | null> {
   try {
-    return typeof caches === 'undefined' ? null : await caches.open(CACHE);
+    if (typeof caches === 'undefined') return null;
+    // A retired version is tens of MB nobody will read again.
+    if (!oldDropped) {
+      oldDropped = true;
+      // Deferred, so a failure — even a synchronous one — never costs the clip.
+      for (const name of OLD_CACHES) void Promise.resolve().then(() => caches.delete(name)).catch(() => {});
+    }
+    return await caches.open(CACHE);
   } catch {
     return null;
   }
