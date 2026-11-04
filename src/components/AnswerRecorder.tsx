@@ -109,7 +109,7 @@ function Elapsed() {
   const [now, setNow] = useState(from);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
   return (
-    <span className="font-normal text-text-muted px-num">
+    <span className="font-normal text-text-muted tabular-nums">
       · <FormattedMessage id="conversation.recordListening" /> {clock(now - from)} / {clock(MAX_MS)}
     </span>
   );
