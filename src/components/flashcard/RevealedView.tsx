@@ -89,7 +89,10 @@ export function RevealedView({
               </div>
             </div>
             <button
-              onClick={speech.speakWord}
+              // Only a word with several meanings needs telling how to say
+              // it — "live" is /lɪv/ or /laɪv/ by tab. One meaning reads fine
+              // from the spelling, and keeps the clips it already has.
+              onClick={() => speech.speakWord(senses.length > 1 ? wordData.phonetics : undefined)}
               className={`btn-3d w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-1 ${speech.isSpeaking
                   ? 'bg-accent-cyan text-bg-primary'
                   : 'bg-bg-tertiary text-text-secondary hover:text-accent-cyan'

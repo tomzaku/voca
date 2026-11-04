@@ -95,3 +95,35 @@ export function familyOf(id: string): Family | null {
 export function isOffered(id: string): boolean {
   return CLOUD_VOICES.some((x) => x.id === id);
 }
+
+// ─── Pre-recorded voices ───────────────────────────────────────────
+//
+// Kokoro (the same model the app runs on capable devices) can't run in an
+// edge function — too much CPU and memory. Instead scripts/pregen-speech.mjs
+// records the word list and its examples on a laptop and uploads them to
+// `speech/<id>/`. The server only ever serves these; a sentence nobody
+// recorded is read by `fallback`, the Google slot of the same gender, so a
+// learner hears a cloud voice either way and only the uncommon text costs
+// Google characters.
+
+export interface RecordedVoice {
+  /** `kokoro-<kokoro voice id>`, which is also the storage folder. */
+  id: string;
+  name: string;
+  gender: 'Female' | 'Male';
+  accent: 'American' | 'British';
+  tier: 'Kokoro';
+  fallback: 'female' | 'male';
+}
+
+/**
+ * A voice goes on this list once its clips are uploaded — until then a learner
+ * picking it would hear nothing but the fallback. Planned:
+ *   { id: 'kokoro-af_heart', name: 'Heart', gender: 'Female', accent: 'American', tier: 'Kokoro', fallback: 'female' },
+ *   { id: 'kokoro-am_michael', name: 'Michael', gender: 'Male', accent: 'American', tier: 'Kokoro', fallback: 'male' },
+ */
+export const RECORDED_VOICES: RecordedVoice[] = [];
+
+export function recordedVoice(id: string): RecordedVoice | null {
+  return RECORDED_VOICES.find((x) => x.id === id) ?? null;
+}

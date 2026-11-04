@@ -63,6 +63,7 @@ export default {
   'settings.cloudTierChirp': 'most natural · 1M characters free a month',
   'settings.cloudTierNeural2': 'natural · 1M characters free a month',
   'settings.cloudTierWavenet': 'good · 4M characters free a month, shared with Standard',
+  'settings.cloudTierKokoro': 'pre-recorded words and examples · free · other text uses Chirp 3 HD',
   'settings.cloudTierStandard': 'basic · shares WaveNet’s 4M free a month',
   'settings.engineNativeDesc': 'Uses your OS/browser built-in speech synthesis. Instant, no download.',
   'settings.enginePiper': 'Piper AI',

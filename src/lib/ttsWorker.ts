@@ -13,7 +13,7 @@ import { KOKORO_MODEL_ID } from './ttsModel';
 
 export type WorkerInMsg =
   | { type: 'load'; device: 'webgpu' | 'wasm'; dtype: string }
-  | { type: 'generate'; id: number; text: string; voice: string; speed: number };
+  | { type: 'generate'; id: number; text: string; voice: string; speed: number; phonemes?: string };
 
 export type WorkerOutMsg =
   | { type: 'progress'; progress?: number; status?: string }
@@ -65,8 +65,13 @@ self.onmessage = async (e: MessageEvent<WorkerInMsg>) => {
     // here.
     if (!ttsPromise) throw new Error('generate requested before load');
     const tts = await ttsPromise;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await tts.generate(msg.text, { voice: msg.voice as any, speed: msg.speed });
+    // Given phonemes, skip Kokoro's own reading of the spelling — it reads
+    // "live" as /laɪv/ even when the card means the verb.
+    const result = msg.phonemes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? await tts.generate_from_ids(tts.tokenizer(msg.phonemes, { truncation: true }).input_ids, { voice: msg.voice as any, speed: msg.speed })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      : await tts.generate(msg.text, { voice: msg.voice as any, speed: msg.speed });
     post({ type: 'generated', id: msg.id, blob: result.toBlob() });
   } catch (err) {
     post({ type: 'generate-error', id: msg.id, error: err instanceof Error ? err.message : String(err) });

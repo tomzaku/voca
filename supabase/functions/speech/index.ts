@@ -4,7 +4,7 @@
 // `speech` bucket, so each sentence is paid for once and served from the CDN
 // after that.
 //
-//   POST /speech         { text, voice? }  → 200 { url }
+//   POST /speech         { text, voice?, ipa? }  → 200 { url }
 //   GET  /speech/voices                    → 200 { voices, defaults }
 //
 // `voice` is either a slot — `female` (default) or `male`, which the
@@ -12,8 +12,17 @@
 // voice ids GET /speech/voices lists (the picker in Settings). Anything else
 // is a 400. A different voice simply starts a fresh cache folder.
 //
+// A `kokoro-*` voice (see RECORDED_VOICES) is never synthesized here: its
+// clips are recorded ahead of time by scripts/pregen-speech.mjs, and a
+// sentence without one is read by that voice's Google fallback instead.
+//
 // POST rather than GET: the text can be a few hundred characters of sentence,
 // and it's what creates the clip on a miss.
+//
+// `ipa` says how to pronounce `text` when the spelling doesn't — "live" the
+// verb is /lɪv/, the adjective /laɪv/. It's sent for a single word with more
+// than one reading, passed to Google as a custom pronunciation, and part of
+// the cache key, so each reading is its own clip.
 //
 // Speed isn't a parameter: the client sets playbackRate, so one cached clip
 // serves every speed setting.
@@ -50,11 +59,13 @@
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
-import { CLOUD_VOICES, type Family, familyOf, isOffered, monthlyLimit } from './voices.ts';
+import { CLOUD_VOICES, type Family, familyOf, isOffered, monthlyLimit, RECORDED_VOICES, recordedVoice } from './voices.ts';
 
 const BUCKET = 'speech';
 /** The client splits long text into sentences of ≤300; this leaves headroom. */
 const MAX_CHARS = 500;
+/** Longer than any one word's IPA; anything past it isn't a pronunciation. */
+const MAX_IPA = 80;
 
 const VOICES = {
   female: () => Deno.env.get('GOOGLE_TTS_VOICE_FEMALE') || 'en-US-Chirp3-HD-Aoede',
@@ -68,7 +79,7 @@ function resolveVoice(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   // hasOwn, not `in`: 'constructor' is `in` every object.
   if (Object.hasOwn(VOICES, v)) return VOICES[v as Slot]();
-  return isOffered(v) ? v : null;
+  return isOffered(v) || recordedVoice(v) ? v : null;
 }
 
 async function sha256(s: string): Promise<string> {
@@ -112,7 +123,7 @@ async function withinMonthlyBudget(svc: SupabaseClient, family: Family, chars: n
 }
 
 /** Google Cloud TTS → MP3 bytes. Throws with Google's own message on failure. */
-async function synthesize(text: string, voiceName: string): Promise<Uint8Array> {
+async function synthesize(text: string, voiceName: string, ipa: string | null): Promise<Uint8Array> {
   const res = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
     method: 'POST',
     headers: {
@@ -122,7 +133,11 @@ async function synthesize(text: string, voiceName: string): Promise<Uint8Array> 
       'user-agent': '',
     },
     body: JSON.stringify({
-      input: { text },
+      // Custom pronunciation rather than SSML <phoneme>: Chirp 3 HD ignores
+      // the SSML one.
+      input: ipa
+        ? { text, customPronunciations: { pronunciations: [{ phrase: text, phoneticEncoding: 'PHONETIC_ENCODING_IPA', pronunciation: ipa }] } }
+        : { text },
       voice: { languageCode: voiceName.split('-').slice(0, 2).join('-'), name: voiceName },
       audioConfig: { audioEncoding: 'MP3' },
     }),
@@ -144,7 +159,7 @@ export default async function handler(req: Request): Promise<Response> {
   const sub = parts.slice(parts.lastIndexOf('speech') + 1).join('/');
   if (sub === 'voices' && req.method === 'GET') {
     return jsonResponse(200, {
-      voices: CLOUD_VOICES.map(({ id, name, gender, accent, tier }) => ({ id, name, gender, accent, tier })),
+      voices: [...RECORDED_VOICES, ...CLOUD_VOICES].map(({ id, name, gender, accent, tier }) => ({ id, name, gender, accent, tier })),
       defaults: { female: VOICES.female(), male: VOICES.male() },
     });
   }
@@ -161,7 +176,13 @@ export default async function handler(req: Request): Promise<Response> {
   const text = typeof body.text === 'string' ? body.text.replace(/\s+/g, ' ').trim() : '';
   if (!text) return jsonResponse(400, { error: '"text" must be a non-empty string.' });
   if (text.length > MAX_CHARS) return jsonResponse(400, { error: `"text" must be at most ${MAX_CHARS} characters.` });
-  const voiceName = resolveVoice(body.voice);
+  const ipa = typeof body.ipa === 'string' ? body.ipa.replace(/^\/|\/$/g, '').trim() : '';
+  if (ipa.length > MAX_IPA || /[<>"&]/.test(ipa)) return jsonResponse(400, { error: `"ipa" must be at most ${MAX_IPA} characters of IPA.` });
+  const asked = resolveVoice(body.voice);
+  const recorded = asked ? recordedVoice(asked) : null;
+  // A recorded voice falls back to Google, so budgets and synthesis below
+  // always deal in a Google voice.
+  const voiceName = recorded ? VOICES[recorded.fallback]() : asked;
   const family = voiceName ? familyOf(voiceName) : null;
   if (!voiceName || !family) {
     return jsonResponse(400, { error: '"voice" must be female, male, or a voice from GET /speech/voices.' });
@@ -170,9 +191,15 @@ export default async function handler(req: Request): Promise<Response> {
   const svc = serviceClient();
   if (!svc) return jsonResponse(500, { error: 'Speech is not configured.' });
 
-  const path = `${voiceName}/${await sha256(text)}.mp3`;
+  // Without ipa the key is the text alone, as it always was, so every clip
+  // made before ipa existed still hits.
+  const hash = await sha256(ipa ? `${text}\n${ipa}` : text);
+  const path = `${voiceName}/${hash}.mp3`;
 
   try {
+    if (recorded && await isCached(`${recorded.id}/${hash}.mp3`)) {
+      return jsonResponse(200, { url: publicUrl(`${recorded.id}/${hash}.mp3`) });
+    }
     if (await isCached(path)) return jsonResponse(200, { url: publicUrl(path) });
 
     const auth = await requireUser(req);
@@ -187,7 +214,7 @@ export default async function handler(req: Request): Promise<Response> {
       return jsonResponse(429, { error: 'Speech limit reached for this month.' });
     }
 
-    const mp3 = await synthesize(text, voiceName);
+    const mp3 = await synthesize(text, voiceName, ipa || null);
     // upsert: two callers missing at once both synthesize; the second write
     // just replaces an identical file instead of failing.
     const { error } = await svc.storage.from(BUCKET).upload(path, mp3, {

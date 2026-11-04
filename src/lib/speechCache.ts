@@ -7,7 +7,8 @@
 // this is most of what a learner hears.
 //
 // Keyed by the voice asked for plus the text, normalized the way the server
-// normalizes it. A slot (`female`/`male`) keeps whatever voice it had when the
+// normalizes it — and the IPA, when one was given, so each reading of "live"
+// is its own entry. A slot (`female`/`male`) keeps whatever voice it had when the
 // clip was cached; that only matters if the server's default voice changes,
 // and the cache name below can be bumped for that.
 
@@ -29,8 +30,9 @@ function normalize(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-async function keyFor(text: string, voice: SpeechVoice): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalize(text)));
+async function keyFor(text: string, voice: SpeechVoice, ipa?: string): Promise<string> {
+  const keyText = ipa ? `${normalize(text)}\n${ipa}` : normalize(text);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(keyText));
   const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
   return `${KEY_BASE}${encodeURIComponent(voice)}/${hex}`;
 }
@@ -57,9 +59,9 @@ async function trim(cache: Cache) {
  * there, otherwise from the server (and stored for next time). Null when the
  * server can't supply one — the caller reads with the device voice.
  */
-export async function getClip(text: string, voice: SpeechVoice): Promise<Clip | null> {
+export async function getClip(text: string, voice: SpeechVoice, ipa?: string): Promise<Clip | null> {
   const cache = await openCache();
-  const key = cache ? await keyFor(text, voice) : '';
+  const key = cache ? await keyFor(text, voice, ipa) : '';
 
   if (cache) {
     try {
@@ -68,7 +70,7 @@ export async function getClip(text: string, voice: SpeechVoice): Promise<Clip | 
     } catch { /* a broken entry is just a miss */ }
   }
 
-  const url = await speechUrl(text, voice);
+  const url = await speechUrl(text, voice, ipa);
   if (!url) return null;
   if (!cache) return { src: url, owned: false };
 

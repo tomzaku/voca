@@ -1,4 +1,5 @@
 import { cleanMarkdown } from './cleanMarkdown';
+import { splitIntoChunks } from './speechChunks';
 import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, getCloudVoice, demoteAutoEngine, PIPER_VOICES, type TtsEngine } from '../hooks/useTtsSettings';
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
@@ -10,7 +11,7 @@ import { t } from '../i18n';
 
 type KokoroTTSInstance = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  generate(text: string, options: { voice: any; speed: number }): Promise<{ toBlob(): Blob }>;
+  generate(text: string, options: { voice: any; speed: number; phonemes?: string }): Promise<{ toBlob(): Blob }>;
 };
 
 type PiperTTSModule = {
@@ -189,7 +190,7 @@ export async function getKokoroTTS(): Promise<KokoroTTSInstance> {
       return new Promise((resolve, reject) => {
         const id = ++genCounter;
         pendingGenerations.set(id, { resolve: (blob) => resolve({ toBlob: () => blob }), reject });
-        send({ type: 'generate', id, text, voice: options.voice, speed: options.speed });
+        send({ type: 'generate', id, text, voice: options.voice, speed: options.speed, phonemes: options.phonemes });
       });
     },
   };
@@ -336,27 +337,6 @@ function playBlob(blob: Blob, ticket: number): Promise<void> {
   return playSrc(URL.createObjectURL(blob), ticket, 1, true);
 }
 
-const FIRST_CHUNK_CHARS = 120;
-const MAX_CHUNK_CHARS = 300;
-
-function splitIntoChunks(text: string): string[] {
-  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  const chunks: string[] = [];
-  for (const para of paragraphs) {
-    const limit = chunks.length === 0 ? FIRST_CHUNK_CHARS : MAX_CHUNK_CHARS;
-    if (para.length <= limit) { chunks.push(para); continue; }
-    const sentences = para.match(/[^.!?]+[.!?]+\s*/g) || [para];
-    let current = '';
-    for (const sentence of sentences) {
-      const curLimit = chunks.length === 0 && current === '' ? FIRST_CHUNK_CHARS : MAX_CHUNK_CHARS;
-      if (current.length + sentence.length > curLimit && current) { chunks.push(current.trim()); current = ''; }
-      current += sentence;
-    }
-    if (current.trim()) chunks.push(current.trim());
-  }
-  return chunks.length > 0 ? chunks : [text];
-}
-
 async function speakPiper(text: string, ticket: number, options?: { voice?: string; onStart?: () => void; onEnd?: () => void }): Promise<void> {
   const piper = await getPiperTTS();
   if (stale(ticket)) return;
@@ -394,10 +374,19 @@ async function speakPiper(text: string, ticket: number, options?: { voice?: stri
  * Settings, or the server's default.
  */
 function cloudVoiceFor(voice?: string): SpeechVoice {
-  if (voice && /^en-[A-Z]{2}-/.test(voice)) return voice;
-  if (voice && (voice === 'male' || /^[ab]m_/.test(voice) || /(^|[-_])male\b/.test(voice))) return 'male';
-  return getCloudVoice() || 'female';
+  if (voice && /^(en-[A-Z]{2}-|kokoro-)/.test(voice)) return voice;
+  const picked = getCloudVoice();
+  if (voice && (voice === 'male' || /^[ab]m_/.test(voice) || /(^|[-_])male\b/.test(voice))) {
+    // A pre-recorded female pick keeps the dialogue's second speaker in the
+    // same recorded family.
+    return picked === KOKORO_CLOUD_FEMALE ? KOKORO_CLOUD_MALE : 'male';
+  }
+  return picked || 'female';
 }
+
+/** Mirrors RECORDED_VOICES in supabase/functions/speech/voices.ts. */
+const KOKORO_CLOUD_FEMALE = 'kokoro-af_heart';
+const KOKORO_CLOUD_MALE = 'kokoro-am_michael';
 
 /**
  * Read `text` with server-made clips, a sentence at a time, fetching the next
@@ -405,13 +394,15 @@ function cloudVoiceFor(voice?: string): SpeechVoice {
  * (offline, unconfigured, over the limit) so the caller can use the native
  * voice instead; a failure part-way reads the rest natively.
  */
-async function speakCloud(text: string, ticket: number, options?: { voice?: string; speed?: number; onStart?: () => void }): Promise<boolean> {
+async function speakCloud(text: string, ticket: number, options?: { voice?: string; speed?: number; phonetics?: Record<string, string>; onStart?: () => void }): Promise<boolean> {
   const chunks = splitIntoChunks(text);
   const slot = cloudVoiceFor(options?.voice);
+  // A pronunciation only makes sense for the word itself — one chunk.
+  const ipa = chunks.length === 1 ? ipaFor(options?.phonetics, slot) : undefined;
   const speed = options?.speed ?? getTtsSpeed();
   // A clip that arrives after the read was stopped is never played; free it.
   const discard = (c: Clip | null) => { if (c?.owned) URL.revokeObjectURL(c.src); };
-  let clip = await getClip(chunks[0], slot);
+  let clip = await getClip(chunks[0], slot, ipa);
   if (stale(ticket)) { discard(clip); return true; }
   if (!clip) return false;
   options?.onStart?.();
@@ -516,9 +507,34 @@ export async function speakConversation(
   options?.onEnd?.();
 }
 
+/**
+ * The IPA to read a word with, in the accent of `voice` — British Kokoro
+ * voices (bf_/bm_) and Google en-GB ids get en-GB, everything else en-US.
+ */
+function ipaFor(phonetics: Record<string, string> | undefined, voice: string): string | undefined {
+  if (!phonetics) return undefined;
+  const british = /^b[fm]_/.test(voice) || voice.startsWith('en-GB');
+  const ipa = (british ? phonetics['en-GB'] : phonetics['en-US']) ?? phonetics['en-US'] ?? phonetics['en-GB'];
+  return ipa?.replace(/^\/|\/$/g, '').trim() || undefined;
+}
+
+/**
+ * IPA as Kokoro's tokenizer wants it: the stored IPA is eSpeak's, and these
+ * are the few substitutions kokoro-js makes to eSpeak output itself.
+ */
+function kokoroPhonemes(ipa: string): string {
+  return ipa.replace(/ʲ/g, 'j').replace(/r/g, 'ɹ').replace(/x/g, 'k').replace(/ɬ/g, 'l');
+}
+
+/**
+ * `phonetics` (IPA by locale) reads a single word the way its meaning says —
+ * "live" the verb /lɪv/ rather than the /laɪv/ the spelling suggests. Kokoro
+ * and the cloud voice honour it; Piper and the device voice can only read the
+ * spelling.
+ */
 export async function speakText(
   text: string,
-  options?: { voice?: string; speed?: number; onStart?: () => void; onEnd?: () => void },
+  options?: { voice?: string; speed?: number; phonetics?: Record<string, string>; onStart?: () => void; onEnd?: () => void },
 ): Promise<void> {
   stopSpeaking();
   const ticket = session;
@@ -579,11 +595,13 @@ export async function speakText(
   const chunks = splitIntoChunks(clean);
   const voice = (options?.voice ?? getTtsVoice()) as 'af_heart';
   const speed = options?.speed ?? getTtsSpeed();
+  const ipa = chunks.length === 1 ? ipaFor(options?.phonetics, voice) : undefined;
+  const phonemes = ipa ? kokoroPhonemes(ipa) : undefined;
 
   const generateChunk = async (i: number): Promise<Blob | null> => {
     if (stale(ticket) || i >= chunks.length) return null;
     const start = performance.now();
-    const result = await tts.generate(chunks[i], { voice, speed });
+    const result = await tts.generate(chunks[i], { voice, speed, phonemes });
     judgeSpeed('kokoro', voice, chunks[i], performance.now() - start);
     if (stale(ticket)) return null;
     return result.toBlob();

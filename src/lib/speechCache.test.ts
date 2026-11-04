@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Replays must not reach the speech function at all — that's the point of the
 // device cache — and any failure in it must still leave something playable.
 
-const speechUrl = vi.fn<(text: string, voice: string) => Promise<string | null>>();
-vi.mock('./speechApi', () => ({ speechUrl: (t: string, v: string) => speechUrl(t, v) }));
+const speechUrl = vi.fn<(text: string, voice: string, ipa?: string) => Promise<string | null>>();
+vi.mock('./speechApi', () => ({ speechUrl: (t: string, v: string, ipa?: string) => speechUrl(t, v, ipa) }));
 
 const { getClip } = await import('./speechCache');
 
@@ -52,6 +52,14 @@ describe('getClip', () => {
     await getClip('serendipity', 'female');
     await getClip('serendipity', 'male');
     expect(speechUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps each reading of a word apart, and asks the server for the one meant', async () => {
+    vi.stubGlobal('caches', fakeCaches().api);
+    await getClip('live', 'female', 'lˈɪv');
+    await getClip('live', 'female', 'lˈaɪv');
+    await getClip('live', 'female', 'lˈɪv');
+    expect(speechUrl.mock.calls).toEqual([['live', 'female', 'lˈɪv'], ['live', 'female', 'lˈaɪv']]);
   });
 
   it('returns null when the server has no clip, so the caller uses the device voice', async () => {

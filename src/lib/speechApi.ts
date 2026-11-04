@@ -11,7 +11,7 @@ export interface CloudVoice {
   name: string;
   gender: 'Female' | 'Male';
   accent: 'American' | 'British';
-  tier: 'Chirp 3 HD' | 'Neural2' | 'WaveNet' | 'Standard';
+  tier: 'Kokoro' | 'Chirp 3 HD' | 'Neural2' | 'WaveNet' | 'Standard';
 }
 
 export interface CloudVoiceList {
@@ -33,9 +33,12 @@ const TIMEOUT_MS = 15_000;
  * the device's own voice, so offline or over the daily limit still speaks.
  * `allowAnon`: a guest still gets clips that already exist; making a new one
  * needs a sign-in, and that 401 is just another null here.
+ *
+ * `ipa` pronounces a word whose spelling has more than one reading ("live"
+ * /lɪv/ vs /laɪv/); each reading is its own clip.
  */
-export async function speechUrl(text: string, voice: SpeechVoice, signal?: AbortSignal): Promise<string | null> {
-  const res = await request.post<{ url: string }>('/speech', { text, voice }, {
+export async function speechUrl(text: string, voice: SpeechVoice, ipa?: string, signal?: AbortSignal): Promise<string | null> {
+  const res = await request.post<{ url: string }>('/speech', { text, voice, ipa }, {
     quiet: true,
     allowAnon: true,
     timeout: TIMEOUT_MS,

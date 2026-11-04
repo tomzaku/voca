@@ -14,6 +14,7 @@ import { speakText, stopSpeaking } from '../lib/tts';
 const SAMPLE = 'The word "serendipity" means happy accident. What a beautiful discovery!';
 
 const TIERS: { tier: CloudVoice['tier']; noteId: string }[] = [
+  { tier: 'Kokoro', noteId: 'settings.cloudTierKokoro' },
   { tier: 'Chirp 3 HD', noteId: 'settings.cloudTierChirp' },
   { tier: 'Neural2', noteId: 'settings.cloudTierNeural2' },
   { tier: 'WaveNet', noteId: 'settings.cloudTierWavenet' },

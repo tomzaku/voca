@@ -20,8 +20,12 @@ export interface CardSpeech {
   isSpeaking: boolean;
   /** Index of the example being read aloud, or null. */
   speakingExample: number | null;
-  /** Read the headword. Repeated calls cycle voices under Kokoro. */
-  speakWord: () => Promise<void>;
+  /**
+   * Read the headword. Repeated calls cycle voices under Kokoro. `phonetics`
+   * is the IPA of the meaning on screen, for a word whose spelling has more
+   * than one reading ("live" the verb /lɪv/ vs the adjective /laɪv/).
+   */
+  speakWord: (phonetics?: Record<string, string>) => Promise<void>;
   speakExample: (index: number, text: string) => Promise<void>;
   /** Silence everything — used when the card moves to another word. */
   stop: () => void;
@@ -52,7 +56,7 @@ export function useCardSpeech(wordData: VocabularyWord | null): CardSpeech {
     setSpeakingExample(null);
   }, []);
 
-  const speakWord = useCallback(async () => {
+  const speakWord = useCallback(async (phonetics?: Record<string, string>) => {
     if (!wordData) return;
     const word = wordData.headword || wordData.word;
 
@@ -72,7 +76,7 @@ export function useCardSpeech(wordData: VocabularyWord | null): CardSpeech {
       stopSpeaking();
       setSpeakingExample(null);
       setIsSpeaking(true);
-      await speakText(word, { voice: voiceId, onEnd: () => setIsSpeaking(false) });
+      await speakText(word, { voice: voiceId, phonetics, onEnd: () => setIsSpeaking(false) });
       return;
     }
 
@@ -85,7 +89,7 @@ export function useCardSpeech(wordData: VocabularyWord | null): CardSpeech {
     stopSpeaking();
     setSpeakingExample(null);
     setIsSpeaking(true);
-    await speakText(word, { onEnd: () => setIsSpeaking(false) });
+    await speakText(word, { phonetics, onEnd: () => setIsSpeaking(false) });
   }, [wordData, isSpeaking]);
 
   const speakExample = useCallback(async (index: number, text: string) => {

@@ -63,6 +63,7 @@ export default {
   'settings.cloudTierChirp': 'tự nhiên nhất · miễn phí 1 triệu ký tự mỗi tháng',
   'settings.cloudTierNeural2': 'tự nhiên · miễn phí 1 triệu ký tự mỗi tháng',
   'settings.cloudTierWavenet': 'khá · miễn phí 4 triệu ký tự mỗi tháng, chung với Standard',
+  'settings.cloudTierKokoro': 'thu sẵn từ vựng và ví dụ · miễn phí · câu khác dùng Chirp 3 HD',
   'settings.cloudTierStandard': 'cơ bản · dùng chung 4 triệu ký tự miễn phí với WaveNet',
   'settings.engineNativeDesc': 'Dùng giọng đọc có sẵn của hệ điều hành/trình duyệt. Tức thì, không cần tải.',
   'settings.enginePiper': 'Piper AI',
