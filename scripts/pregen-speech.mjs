@@ -30,6 +30,13 @@
 //   npm run speech:pregen -- --dry-run                            # count, record nothing
 //   npm run speech:pregen                                         # everything missing
 //   npm run speech:pregen -- --voice am_michael                   # the male voice
+//   npm run speech:pregen -- --shard 1/3 --threads 3              # one of 3 parallel runs
+//
+// One Kokoro process keeps about half of a 10-core Mac busy — short clips
+// don't parallelise well inside ONNX — so several processes, each taking the
+// clips whose hash falls in its shard and a share of the cores, finish sooner.
+// Shards never overlap, and each skips what's uploaded, so they can be
+// stopped and restarted independently.
 
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -37,6 +44,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
+import { AutoTokenizer, StyleTextToSpeech2Model } from '@huggingface/transformers';
 import { KokoroTTS } from 'kokoro-js';
 import { cleanMarkdown } from '../src/lib/cleanMarkdown.ts';
 import { bareIpa, clipHashInput, kokoroPhonemes, splitIntoChunks } from '../src/lib/speechChunks.ts';
@@ -49,6 +57,9 @@ const FOLDER = `kokoro-${VOICE}`;
 const LIMIT = Number(strArg('--limit')) || Infinity;
 const OUT = strArg('--out');
 const DRY_RUN = args.includes('--dry-run');
+const [SHARD, SHARDS] = (strArg('--shard') ?? '1/1').split('/').map(Number);
+if (!(SHARDS >= 1 && SHARD >= 1 && SHARD <= SHARDS)) throw new Error('--shard must be i/n with 1 ≤ i ≤ n');
+const THREADS = Number(strArg('--threads')) || undefined;
 const BUCKET = process.env.AUDIO_S3_BUCKET || 'trile-voca-audio';
 const REGION = process.env.AUDIO_S3_REGION || 'ap-southeast-2';
 /** Mono at Kokoro's 24 kHz; 48 kb/s keeps speech clean at ~6 KB a second. */
@@ -159,11 +170,22 @@ function toMp3(samples, rate) {
 async function main() {
   const { words, clips } = await manifest();
   const have = await existing();
-  const todo = clips.filter((c) => !have.has(c.key));
-  console.log(`${words} words → ${clips.length} clips for ${FOLDER}; ${clips.length - todo.length} already uploaded, ${todo.length} to record.`);
+  // A clip's shard is fixed by its name, so every run agrees on who owns it.
+  const mine = (c) => SHARDS === 1 || parseInt(path.basename(c.key).slice(0, 8), 16) % SHARDS === SHARD - 1;
+  const todo = clips.filter((c) => mine(c) && !have.has(c.key));
+  const tag = SHARDS > 1 ? ` [shard ${SHARD}/${SHARDS}]` : '';
+  console.log(`${words} words → ${clips.length} clips for ${FOLDER}; ${clips.length - clips.filter((c) => !have.has(c.key)).length} already uploaded, ${todo.length} to record${tag}.`);
   if (DRY_RUN || !todo.length) return;
 
-  const tts = await KokoroTTS.from_pretrained(KOKORO_MODEL_ID, { dtype: 'fp32', device: 'cpu' });
+  // Loaded by hand rather than KokoroTTS.from_pretrained, which has no way to
+  // pass ONNX session options — and the thread count is what lets shards
+  // share the cores instead of fighting over them.
+  const session_options = THREADS ? { intraOpNumThreads: THREADS, interOpNumThreads: 1 } : undefined;
+  const [model, tokenizer] = await Promise.all([
+    StyleTextToSpeech2Model.from_pretrained(KOKORO_MODEL_ID, { dtype: 'fp32', device: 'cpu', session_options }),
+    AutoTokenizer.from_pretrained(KOKORO_MODEL_ID),
+  ]);
+  const tts = new KokoroTTS(model, tokenizer);
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
 
   const started = Date.now();
@@ -202,7 +224,7 @@ async function main() {
       if (done % 50 === 0 || done === todo.length) {
         const rate = done / ((Date.now() - started) / 1000);
         const left = Math.round((todo.length - done) / rate / 60);
-        console.log(`${done}/${todo.length}  ${(bytes / 1e6).toFixed(1)} MB  ~${left} min left`);
+        console.log(`${done}/${todo.length}${tag}  ${(bytes / 1e6).toFixed(1)} MB  ~${left} min left`);
       }
     })().catch((err) => { failed++; console.warn(`✗ ${clip.label}: ${err.message}`); });
     pending.add(job);
