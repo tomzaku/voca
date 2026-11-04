@@ -67,6 +67,18 @@
 //   npm run speech:pregen:podcasts                                # every episode not yet recorded
 //   npm run speech:pregen:podcasts -- --words pod-1,pod-2 --out /tmp/pods
 //   npm run speech:status:podcasts
+//
+// --scripts records the app's fixed scripts instead of the word list: Daily
+// Dialogue, IELTS Speaking and IELTS Listening, line by line, plus the
+// comprehension clips, dictation sentences and phrase chips. Each line is
+// recorded only in the voice that reads it on the cloud engine — speaker A and
+// the examiner in the female slot (af_heart), speaker B and the candidate in
+// the male one (am_michael) — so it takes a run per voice. Clips land beside
+// the word clips, named the same way, so a line plays from the CDN instead of
+// a ~1.3 s round trip to the speech function.
+//   npm run speech:pregen:scripts                                 # af_heart's lines
+//   npm run speech:pregen:scripts -- --voice am_michael           # am_michael's lines
+//   npm run speech:status:scripts -- --voice am_michael
 
 import { fork, spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -89,6 +101,7 @@ const ONLY = strArg('--words')?.split(',').map((w) => w.trim().toLowerCase()).fi
 const OUT = strArg('--out');
 const DRY_RUN = args.includes('--dry-run');
 const PODCASTS = args.includes('--podcasts');
+const SCRIPTS = args.includes('--scripts');
 const [SHARD, SHARDS] = (strArg('--shard') ?? '1/1').split('/').map(Number);
 if (!(SHARDS >= 1 && SHARD >= 1 && SHARD <= SHARDS)) throw new Error('--shard must be i/n with 1 ≤ i ≤ n');
 /** Where `npm run speech:setup-mlx` puts the GPU engine's Python. */
@@ -184,7 +197,66 @@ async function manifest() {
       for (const c of chunks(ex)) add(c, undefined, `${head}: ${c}`);
     }
   }
-  return { words: words.length, clips: [...clips.values()] };
+  return { source: `${words.length} words`, clips: [...clips.values()] };
+}
+
+/**
+ * The cloud slot a script voice reads in — the rule cloudVoiceFor applies in
+ * src/lib/tts.ts: a male Kokoro id (am_/bm_) is the male slot, anything else
+ * the female one.
+ */
+const slotOf = (voice) => (voice === 'male' || /^[ab]m_/.test(voice ?? '') ? 'male' : 'female');
+
+/** Every script line this run's voice reads: { key, text, label }. */
+async function scriptManifest() {
+  const { dialogues } = await import('../src/data/englishDialogues.ts');
+  const { ieltsConversations } = await import('../src/data/englishIelts.ts');
+  const { comprehensionClips, dictationSentences, ieltsListeningSections } = await import('../src/data/englishListening.ts');
+  // assignVoices from src/lib/listeningRules, which Node can't import (its
+  // own imports have no extension): speakers take the pool's voices in order.
+  const assignVoices = (speakers, pool) => {
+    const voice = {};
+    for (const sp of speakers) if (!(sp in voice)) voice[sp] = pool[Object.keys(voice).length % pool.length];
+    return voice;
+  };
+  // Not imported from src/lib/tts — that module needs a browser. The voices
+  // each screen gives its speakers: DailyDialogueTab, IeltsSpeakingTab,
+  // EnglishListeningPage (RECORDING_VOICES).
+  const A = 'af_sarah', B = 'am_michael';
+  const IELTS = { examiner: 'bf_emma', candidate: 'am_michael' };
+  const RECORDING_VOICES = [A, B, 'bf_emma', 'bm_george'];
+
+  /** [text, voice, label] for every line any script reads aloud. */
+  const lines = [];
+  const keep = (id) => !ONLY || ONLY.includes(id);
+  for (const d of dialogues.filter((d) => keep(d.id))) {
+    for (const l of d.lines) lines.push([l.text, l.speaker === 'a' ? A : B, d.id]);
+    for (const p of d.usefulPhrases ?? []) lines.push([p, A, `${d.id} phrase`]);
+  }
+  for (const c of ieltsConversations.filter((c) => keep(c.id))) {
+    for (const e of c.exchanges) lines.push([e.text, IELTS[e.role], c.id]);
+    for (const p of c.keyPhrases ?? []) lines.push([p, IELTS.candidate, `${c.id} phrase`]);
+  }
+  for (const s of ieltsListeningSections.filter((s) => keep(s.id))) {
+    const voice = assignVoices(s.transcript.map((t) => t.speaker), RECORDING_VOICES);
+    for (const t of s.transcript) lines.push([t.text, voice[t.speaker], s.id]);
+  }
+  for (const c of comprehensionClips.filter((c) => keep(c.id))) lines.push([c.script, undefined, c.id]);
+  for (const d of dictationSentences.filter((d) => keep(d.id))) lines.push([d.text, undefined, d.id]);
+
+  const slot = slotOf(VOICE);
+  const clips = new Map();
+  let read = 0;
+  for (const [text, voice, label] of lines) {
+    if (slotOf(voice) !== slot) continue;
+    read++;
+    const clean = cleanMarkdown(text);
+    for (const c of clean ? splitIntoChunks(clean) : []) {
+      const key = `${FOLDER}/${sha256(clipHashInput(c))}.mp3`;
+      if (!clips.has(key)) clips.set(key, { key, text: c, label: `${label}: ${c}` });
+    }
+  }
+  return { source: `${read} script lines (${slot} slot)`, clips: [...clips.values()].slice(0, LIMIT) };
 }
 
 async function existing(prefix = `${FOLDER}/`) {
@@ -453,14 +525,14 @@ async function podcastsMain() {
 }
 
 async function main() {
-  const { words, clips } = await manifest();
+  const { source, clips } = await (SCRIPTS ? scriptManifest() : manifest());
   const have = await existing();
   // A clip's shard is fixed by its name, so every run agrees on who owns it.
   const mine = (c) => SHARDS === 1 || parseInt(path.basename(c.key).slice(0, 8), 16) % SHARDS === SHARD - 1;
   const todo = clips.filter((c) => mine(c) && !have.has(c.key));
   const tag = SHARDS > 1 ? ` [shard ${SHARD}/${SHARDS}]` : '';
   const uploaded = clips.length - clips.filter((c) => !have.has(c.key)).length;
-  console.log(`${words} words → ${clips.length} clips for ${FOLDER}; ${uploaded} already uploaded (${Math.floor((uploaded / clips.length) * 100)}%), ${todo.length} to record${tag}.`);
+  console.log(`${source} → ${clips.length} clips for ${FOLDER}; ${uploaded} already uploaded (${Math.floor((uploaded / clips.length) * 100)}%), ${todo.length} to record${tag}.`);
   if (DRY_RUN || !todo.length) return;
 
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
