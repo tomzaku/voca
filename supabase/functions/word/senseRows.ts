@@ -46,6 +46,28 @@ export async function fetchSenses(svc: Svc, wordKey: string, motherLang: string)
   }));
 }
 
+/** The parts of speech the lexicon table covers — see its migration. */
+export const LEXICON_POS = ['noun', 'verb', 'adjective', 'adverb'];
+
+/**
+ * The senses a dictionary agrees with. The model invents some — "lamp" as a
+ * verb, "abandoned" as a verb — so each is checked against `lexicon`
+ * (WordNet). A part of speech WordNet doesn't cover passes through, and so
+ * does everything when the lookup fails: the check is a filter, not a gate
+ * the word depends on.
+ */
+export async function knownSenses<S extends { partOfSpeech: string }>(svc: Svc, wordKey: string, senses: S[]): Promise<S[]> {
+  const checkable = senses.filter((s) => LEXICON_POS.includes(s.partOfSpeech));
+  if (!svc || !checkable.length) return senses;
+  const { data, error } = await svc.from('lexicon').select('pos').eq('word', wordKey).in('pos', LEXICON_POS);
+  if (error) {
+    console.warn(`[word] lexicon check failed for "${wordKey}":`, error.message);
+    return senses;
+  }
+  const known = new Set(((data ?? []) as { pos: string }[]).map((r) => r.pos));
+  return senses.filter((s) => !LEXICON_POS.includes(s.partOfSpeech) || known.has(s.partOfSpeech));
+}
+
 /**
  * Every part of speech for the response, primary first — [] for a word with
  * one meaning, so the key is always there and always an array.

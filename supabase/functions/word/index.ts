@@ -70,7 +70,7 @@ import {
   underRateLimit,
 } from '../_shared/ai.ts';
 import { buildTranslations, type CachedWord, mergeTranslations, readByTranslation, readWord, storeWord, translationFor } from './cache.ts';
-import { allSenses, fetchSenses, storeSenses } from './senseRows.ts';
+import { allSenses, fetchSenses, knownSenses, storeSenses } from './senseRows.ts';
 import { readReject, storeReject } from './rejects.ts';
 import { fetchFamily, storeFamily } from './family.ts';
 import { fetchIdioms, storeIdioms } from './idioms.ts';
@@ -188,7 +188,7 @@ export default async function handler(req: Request): Promise<Response> {
     return await hitResponse(svc, auth, already, motherLang);
   }
 
-  const others = otherSenses ?? [];
+  const others = await knownSenses(svc, resolvedKey, otherSenses ?? []);
   storeSenses(svc, resolvedKey, others, motherLang, storeWord(svc, resolvedKey, learnLang, motherLang, data));
   storeFamily(svc, resolvedKey, data);
   storeIdioms(svc, resolvedKey, data);

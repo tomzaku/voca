@@ -33,12 +33,18 @@
 //   npm run senses:backfill -- --word live --dry-run
 //   npm run senses:backfill -- --limit 50
 //   npm run senses:backfill                         # everything unchecked
+//   npm run senses:backfill -- --prune [--dry-run]  # delete stored senses the
+//                                                   # lexicon table rejects
+//
+// Senses are checked against `lexicon` (WordNet — npm run lexicon:build) before
+// they're stored, like the function does. --prune applies that check to senses
+// stored before it existed.
 
 import { createClient } from '@supabase/supabase-js';
 import { phonemize } from 'phonemizer';
 import { ipaContext, sensesOnlyPrompt, stripLeadIn } from '../supabase/functions/word/senses.ts';
 import { asSenses, sameIpa } from '../supabase/functions/word/sanitize.ts';
-import { writeSenses } from '../supabase/functions/word/senseRows.ts';
+import { knownSenses, LEXICON_POS, writeSenses } from '../supabase/functions/word/senseRows.ts';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const { SUPABASE_SERVICE_ROLE_KEY, GOOGLE_API_KEY, AI_MODEL = 'gemini-2.5-flash' } = process.env;
@@ -106,7 +112,7 @@ async function process1(row) {
   const langs = Object.keys(row.translations ?? {}).filter((k) => k !== LEARN_KEY);
   const answer = await ask(sensesOnlyPrompt(word, row.part_of_speech || 'word', row.definition, langs.length ? langs : ['vietnamese']));
   // Flash sometimes answers with the bare array instead of the wrapper object.
-  const senses = asSenses(Array.isArray(answer) ? answer : answer.otherSenses, row.part_of_speech);
+  const senses = await knownSenses(svc, row.word, asSenses(Array.isArray(answer) ? answer : answer.otherSenses, row.part_of_speech));
   for (const s of senses) s.phonetics = await ipaAs(row.word, s.partOfSpeech);
   const primary = senses.length ? await ipaAs(row.word, row.part_of_speech, row.phonetics) : null;
   const us = primary?.['en-US'];
@@ -151,6 +157,40 @@ async function* unchecked() {
     }
     after = data[data.length - 1].word;
   }
+}
+
+/** Delete stored senses whose word + part of speech the lexicon doesn't know. */
+async function prune() {
+  const { count } = await svc.from('lexicon').select('word', { count: 'exact', head: true });
+  if (!count) throw new Error('lexicon is empty — run `npm run lexicon:build` first.');
+  let after = '', checked = 0, removed = 0;
+  for (;;) {
+    const { data, error } = await svc.from('word_senses').select('word, rank, part_of_speech')
+      .in('part_of_speech', LEXICON_POS).gt('word', after).order('word').limit(PAGE);
+    if (error) throw error;
+    if (!data.length) break;
+    after = data[data.length - 1].word;
+    const words = [...new Set(data.map((r) => r.word))];
+    const { data: lex, error: lexErr } = await svc.from('lexicon').select('word, pos').in('word', words);
+    if (lexErr) throw lexErr;
+    const known = new Set(lex.map((r) => `${r.word}|${r.pos}`));
+    for (const r of data) {
+      checked++;
+      if (known.has(`${r.word}|${r.part_of_speech}`)) continue;
+      removed++;
+      console.log(`✂ ${r.word} / ${r.part_of_speech}`);
+      if (DRY_RUN) continue;
+      // Its translations go with it (on delete cascade).
+      const { error: delErr } = await svc.from('word_senses').delete().eq('word', r.word).eq('rank', r.rank);
+      if (delErr) throw delErr;
+    }
+  }
+  console.log(`\n${DRY_RUN ? '[dry run] ' : ''}${checked} senses checked, ${removed} ${DRY_RUN ? 'would be ' : ''}removed.`);
+}
+
+if (args.includes('--prune')) {
+  await prune();
+  process.exit(0);
 }
 
 const failed = new Set();
