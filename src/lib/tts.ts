@@ -4,7 +4,7 @@ import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, getCloudVoice, d
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
 import type { SpeechVoice } from './speechApi';
-import { getClip, prefetchClip, RECORDED, type Clip } from './speechCache';
+import { getClip, prefetchClip, warmClip, RECORDED, type Clip } from './speechCache';
 import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
@@ -455,6 +455,21 @@ export function prefetchSpeech(text: string, options?: { voice?: string; phoneti
   const slot = cloudVoiceFor(options?.voice);
   const ipa = chunks.length === 1 ? ipaFor(options?.phonetics, slot) : undefined;
   for (const c of chunks) void prefetchClip(c, slot, ipa).catch(() => {});
+}
+
+/**
+ * Fetch the clips for a line that's about to be read — the next lines of a
+ * script while one plays — so it starts without a wait. Cloud voice only:
+ * the device engines make their audio as they read. Unlike prefetchSpeech it
+ * asks the server for text nobody recorded, so call it only for lines that
+ * will be read.
+ */
+export function warmSpeech(text: string, options?: { voice?: string }): void {
+  if (getTtsEngine() !== 'cloud') return;
+  const clean = cleanMarkdown(text);
+  if (!clean) return;
+  const slot = cloudVoiceFor(options?.voice);
+  for (const c of splitIntoChunks(clean)) void warmClip(c, slot).catch(() => {});
 }
 
 function speakNative(text: string, options?: { speed?: number; onStart?: () => void; onEnd?: () => void }): Promise<void> {

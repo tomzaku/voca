@@ -93,6 +93,40 @@ async function store(cache: Cache, key: string, blob: Blob) {
   } catch { /* quota full */ }
 }
 
+/** A clip being fetched: its audio, or a URL to play when it couldn't be kept. */
+type Fetched = { blob: Blob } | { url: string } | null;
+
+/**
+ * Fetches under way, by cache key — so a line warmed ahead (warmClip) and the
+ * read that catches up with it share one request instead of asking twice.
+ * Shared as a Blob, not a blob URL: each caller makes and revokes its own.
+ */
+const inflight = new Map<string, Promise<Fetched>>();
+
+async function fetchClip(cache: Cache | null, key: string, hash: string, text: string, voice: SpeechVoice, ipa?: string): Promise<Fetched> {
+  const folder = RECORDED[voice];
+  const recorded = folder ? await fetchRecorded(folder, hash) : null;
+  if (recorded) {
+    if (cache) await store(cache, key, recorded);
+    return { blob: recorded };
+  }
+
+  const url = await speechUrl(text, voice, ipa);
+  if (!url) return null;
+  if (!cache) return { url };
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return { url };
+    const blob = await res.blob();
+    await store(cache, key, blob);
+    return { blob };
+  } catch {
+    // Quota full or the download failed: the URL still plays.
+    return { url };
+  }
+}
+
 /**
  * A playable source for `text` in `voice`: from the device cache when it's
  * there, else the pre-recorded clip from the CDN, else from the server — and
@@ -111,27 +145,25 @@ export async function getClip(text: string, voice: SpeechVoice, ipa?: string): P
     } catch { /* a broken entry is just a miss */ }
   }
 
-  const folder = RECORDED[voice];
-  const recorded = folder ? await fetchRecorded(folder, hash) : null;
-  if (recorded) {
-    if (cache) await store(cache, key, recorded);
-    return { src: URL.createObjectURL(recorded), owned: true };
+  let pending = inflight.get(key);
+  if (!pending) {
+    pending = fetchClip(cache, key, hash, text, voice, ipa).finally(() => inflight.delete(key));
+    inflight.set(key, pending);
   }
+  const got = await pending;
+  if (!got) return null;
+  return 'blob' in got ? { src: URL.createObjectURL(got.blob), owned: true } : { src: got.url, owned: false };
+}
 
-  const url = await speechUrl(text, voice, ipa);
-  if (!url) return null;
-  if (!cache) return { src: url, owned: false };
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return { src: url, owned: false };
-    const blob = await res.blob();
-    await store(cache, key, blob);
-    return { src: URL.createObjectURL(blob), owned: true };
-  } catch {
-    // Quota full or the download failed: the URL still plays.
-    return { src: url, owned: false };
-  }
+/**
+ * Have a clip ready before it's read — any clip, asking the server when
+ * nobody recorded it. Unlike prefetchClip this can cost a synthesis, so it's
+ * for text about to be read for certain: the next lines of a script that's
+ * already playing.
+ */
+export async function warmClip(text: string, voice: SpeechVoice): Promise<void> {
+  const clip = await getClip(text, voice);
+  if (clip?.owned) URL.revokeObjectURL(clip.src);
 }
 
 /**

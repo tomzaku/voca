@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const speechUrl = vi.fn<(text: string, voice: string, ipa?: string) => Promise<string | null>>();
 vi.mock('./speechApi', () => ({ speechUrl: (t: string, v: string, ipa?: string) => speechUrl(t, v, ipa) }));
 
-const { getClip } = await import('./speechCache');
+const { getClip, warmClip } = await import('./speechCache');
 
 /** Just enough of Cache Storage: one named cache, keyed by URL string. */
 function fakeCaches() {
@@ -102,5 +102,16 @@ describe('getClip', () => {
     vi.stubGlobal('caches', fakeCaches().api);
     fetchMock.mockRejectedValue(new Error('offline'));
     expect(await getClip('serendipity', 'female')).toEqual({ src: 'https://cdn.example/clip.mp3', owned: false });
+  });
+
+  it('a read that catches up with a warm-up shares its request', async () => {
+    const { api } = fakeCaches();
+    vi.stubGlobal('caches', api);
+    const [, a, b] = await Promise.all([warmClip('next line', 'male'), getClip('next line', 'male'), getClip('next line', 'male')]);
+    expect(speechUrl).toHaveBeenCalledTimes(1);
+    expect(serverDownloads()).toBe(1);
+    // Each caller revokes its own blob URL, so they mustn't share one.
+    expect(a?.owned && b?.owned).toBe(true);
+    expect(a?.src).not.toBe(b?.src);
   });
 });
