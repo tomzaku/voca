@@ -17,7 +17,7 @@ export interface QuestionProgress {
   saved?: boolean;
 }
 
-interface SpeakingProgressState {
+export interface PracticeProgressState {
   questions: Record<string, QuestionProgress>;
   markPracticed: (id: string) => void;
   /** Undo for a mis-tap — clears the practiced state but keeps `saved`. */
@@ -25,7 +25,10 @@ interface SpeakingProgressState {
   toggleSaved: (id: string) => void;
 }
 
-export const useSpeakingProgress = create<SpeakingProgressState>()(
+/** One device-local practiced/saved store, persisted under `name`. Listening's
+ *  podcasts keep their own (`useListeningProgress`) with the same rules. */
+export function createPracticeProgress(name: string) {
+  return create<PracticeProgressState>()(
   persist(
     (set) => ({
       questions: {},
@@ -47,10 +50,13 @@ export const useSpeakingProgress = create<SpeakingProgressState>()(
         }),
     }),
     {
-      name: 'voca-speaking-progress',
+      name,
       storage: createJSONStorage(() => safeLocalStorage),
     },
   ),
-);
+  );
+}
+
+export const useSpeakingProgress = createPracticeProgress('voca-speaking-progress');
 
 export const isPracticed = (p: QuestionProgress | undefined) => !!p?.practicedAt;

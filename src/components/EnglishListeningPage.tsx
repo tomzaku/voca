@@ -2,184 +2,18 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
-  podcasts, podcastTopics,
   dictationSentences, dictationTopics, type DictationSentence,
   comprehensionClips, comprehensionTopics, type ComprehensionQuestion,
   ieltsListeningSections, ieltsListeningTopics,
 } from '../data/englishListening';
 import { assignVoices, gradeDictation, scoreAnswers } from '../lib/listeningRules';
 import { ReadAloud } from './ReadAloud';
-import { PodcastScript } from './PodcastScript';
-import { PracticeButton } from './PracticeButton';
+import { PodcastTab } from './PodcastTab';
 import { ReadAloudVoice, PlaySequence } from './EnglishSpeakingPage';
 import { speakText, stopSpeaking, preloadTts, RECORDING_VOICES } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
 
 type Tab = 'podcast' | 'comprehension' | 'dictation' | 'ielts';
-
-/* ─── Tab: Podcast ───────────────────────────────────────────── */
-function PodcastTab() {
-  const intl = useIntl();
-  const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const filtered = useMemo(
-    () => selectedTopic === 'all' ? podcasts : podcasts.filter((p) => p.topic === selectedTopic),
-    [selectedTopic],
-  );
-
-  const topicCounts = useMemo(() => {
-    const map: Record<string, number> = {};
-    podcasts.forEach((p) => { map[p.topic] = (map[p.topic] || 0) + 1; });
-    return map;
-  }, []);
-
-  const levelColor = (level: string) => {
-    switch (level) {
-      case 'Intermediate': return 'text-accent-green bg-accent-green/10 border-accent-green/20';
-      case 'Upper-Intermediate': return 'text-accent-orange bg-accent-orange/10 border-accent-orange/20';
-      case 'Advanced': return 'text-accent-red bg-accent-red/10 border-accent-red/20';
-      default: return 'text-text-muted bg-bg-tertiary border-transparent';
-    }
-  };
-
-  return (
-    <>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-text-muted">
-          {selectedTopic === 'all'
-            ? intl.formatMessage({ id: 'listening.episodeCount' }, { count: podcasts.length })
-            : `${intl.formatMessage({ id: 'listening.episodeCount' }, { count: filtered.length })} · ${selectedTopic}`}
-        </span>
-        <PracticeButton
-          topic={selectedTopic === 'all' ? 'Podcast Topics' : selectedTopic}
-          label={selectedTopic === 'all' ? undefined : intl.formatMessage({ id: 'listening.practiceThisTopic' })}
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 mb-6">
-        <button
-          onClick={() => setSelectedTopic('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-            selectedTopic === 'all'
-              ? 'bg-accent-purple/10 text-accent-purple border-accent-purple/20'
-              : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-          }`}
-        >
-          <FormattedMessage id="listening.all" /> <span className="ml-1 opacity-60">{podcasts.length}</span>
-        </button>
-        {podcastTopics.map((topic) => (
-          <button
-            key={topic}
-            onClick={() => setSelectedTopic(topic)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-              selectedTopic === topic
-                ? 'bg-accent-purple/10 text-accent-purple border-accent-purple/20'
-                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-            }`}
-          >
-            {topic} <span className="ml-1 opacity-60">{topicCounts[topic] || 0}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {filtered.map((p) => {
-          const isExpanded = expandedId === p.id;
-          return (
-            <div key={p.id} className="rounded-lg border border-border bg-bg-card overflow-hidden transition-all">
-              <button
-                onClick={() => setExpandedId(isExpanded ? null : p.id)}
-                className="w-full text-left px-5 py-4 flex items-start gap-3 cursor-pointer hover:bg-bg-hover/50 transition-colors"
-              >
-                <span className="w-7 h-7 rounded-md bg-accent-purple/15 text-accent-purple flex items-center justify-center shrink-0 mt-0.5">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="23" />
-                    <line x1="8" y1="23" x2="16" y2="23" />
-                  </svg>
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-medium text-text-primary leading-relaxed">{p.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[11px] text-text-muted">{p.topic}</span>
-                    <span className="text-[10px] text-text-muted">·</span>
-                    <span className="text-[11px] text-text-muted flex items-center gap-1">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <polyline points="12 6 12 12 16 14" />
-                      </svg>
-                      {p.duration}
-                    </span>
-                    <span className="text-[10px] text-text-muted">·</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${levelColor(p.level)}`}>{p.level}</span>
-                  </div>
-                </div>
-                <svg
-                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  className={`text-text-muted shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-
-              {isExpanded && (
-                <div className="border-t border-border animate-fade-in">
-                  <div className="px-5 py-3 bg-bg-tertiary/50 flex items-start justify-between gap-3">
-                    <p className="text-xs text-text-secondary leading-relaxed">{p.description}</p>
-                    <PracticeButton
-                      topic={p.topic}
-                      focus={p.discussionQuestions?.[0]
-                        ?? `What are your thoughts on the podcast "${p.title}"?`}
-                      label={intl.formatMessage({ id: 'listening.discussEpisode' })}
-                      size="sm"
-                    />
-                  </div>
-                  <PodcastScript key={p.id} id={p.id} script={p.script} />
-
-                  {p.vocabulary && p.vocabulary.length > 0 && (
-                    <div className="px-5 py-3 bg-accent-cyan/5 border-t border-accent-cyan/10">
-                      <p className="text-xs font-semibold text-accent-cyan mb-2"><FormattedMessage id="listening.keyVocabulary" /></p>
-                      <div className="space-y-1.5">
-                        {p.vocabulary.map((v, i) => (
-                          <div key={i} className="flex items-baseline gap-2">
-                            <span className="text-xs font-medium text-text-primary">{v.word}</span>
-                            <span className="text-[11px] text-text-muted">— {v.definition}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {p.discussionQuestions && p.discussionQuestions.length > 0 && (
-                    <div className="px-5 py-3 bg-accent-yellow/5 border-t border-accent-yellow/10">
-                      <p className="text-xs font-semibold text-accent-yellow mb-2"><FormattedMessage id="listening.discussionQuestions" /></p>
-                      <ul className="space-y-1">
-                        {p.discussionQuestions.map((q, i) => (
-                          <li key={i} className="text-xs text-text-secondary flex items-start gap-2">
-                            <span className="text-accent-yellow/60 mt-0.5 shrink-0">{i + 1}.</span>
-                            {q}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-text-muted">
-          <p className="text-sm"><FormattedMessage id="listening.noPodcasts" /></p>
-        </div>
-      )}
-    </>
-  );
-}
 
 /* ─── Shared: multiple-choice question block, self-graded ───────
  * Used by Comprehension and IELTS Listening — a clip's questions are answered

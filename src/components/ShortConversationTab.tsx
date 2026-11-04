@@ -13,6 +13,7 @@ import { useSpeakingProgress, isPracticed, type QuestionProgress } from '../hook
 import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
 import { AnswerPanel, RecordButton, useAnswerRecorder } from './AnswerRecorder';
+import { Overview, TopicNav, TopicPickerButton, TopicSheet, Bar } from './TopicBrowser';
 
 // "Short Conversation" — a big bank of everyday questions, organised so a
 // learner can see what they've covered: topics grouped in a sidebar (a bottom
@@ -88,116 +89,6 @@ function timeAgo(intl: IntlShape, ms: number): string {
   const days = Math.floor((Date.now() - ms) / 86_400_000);
   if (days < 30) return intl.formatRelativeTime(-days, 'day', { numeric: 'auto', style: 'narrow' });
   return intl.formatDate(ms, { month: 'short', day: 'numeric' });
-}
-
-/* ─── Progress bits ──────────────────────────────────────────── */
-function Bar({ done, total, className = '' }: { done: number; total: number; className?: string }) {
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  return (
-    <div className={`h-1.5 rounded-full bg-bg-tertiary overflow-hidden ${className}`}>
-      <div className="h-full rounded-full bg-accent-green transition-all duration-500" style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
-function Overview({ practiced, total, saved, thisWeek }: { practiced: number; total: number; saved: number; thisWeek: number }) {
-  const pct = total ? Math.round((practiced / total) * 100) : 0;
-  return (
-    <div className="rounded-xl border border-border bg-bg-card p-4">
-      <div className="flex items-end justify-between gap-3 mb-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted"><FormattedMessage id="conversation.yourProgress" /></p>
-          <p className="text-2xl font-extrabold text-text-primary leading-tight">
-            {practiced}<span className="text-sm font-semibold text-text-muted"> / {total}</span>
-          </p>
-        </div>
-        <span className="text-sm font-bold text-accent-green">{pct}%</span>
-      </div>
-      <Bar done={practiced} total={total} />
-      <div className="flex items-center gap-4 mt-3 text-[11px] text-text-muted">
-        <span className="flex items-center gap-1"><Icon icon="lucide:flame" className="text-accent-orange" /><FormattedMessage id="conversation.thisWeek" values={{ count: thisWeek }} /></span>
-        <span className="flex items-center gap-1"><Icon icon="lucide:bookmark" className="text-accent-yellow" /><FormattedMessage id="conversation.savedCount" values={{ count: saved }} /></span>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Topic navigation (sidebar on desktop, sheet on mobile) ─── */
-function TopicNav({ active, stats, total, practicedTotal, onSelect }: {
-  active: TopicFilter;
-  stats: Record<string, { done: number; total: number }>;
-  total: number;
-  practicedTotal: number;
-  onSelect: (t: TopicFilter) => void;
-}) {
-  const intl = useIntl();
-  const row = (key: TopicFilter, label: string, icon: string, done: number, count: number) => {
-    const on = active === key;
-    const complete = count > 0 && done === count;
-    return (
-      <button
-        key={key}
-        onClick={() => onSelect(key)}
-        aria-current={on ? 'true' : undefined}
-        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer ${
-          on ? 'bg-accent-green/10 text-text-primary' : 'text-text-secondary hover:bg-bg-hover/60'
-        }`}
-      >
-        <span className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-          on ? 'bg-accent-green/20 text-accent-green' : 'bg-bg-tertiary text-text-muted'
-        }`}>
-          <Icon icon={complete ? 'lucide:check' : icon} width={14} />
-        </span>
-        <span className="flex-1 min-w-0">
-          <span className={`block text-[13px] truncate ${on ? 'font-semibold' : 'font-medium'}`}>{label}</span>
-          <Bar done={done} total={count} className="mt-1 h-1" />
-        </span>
-        <span className="text-[11px] tabular-nums text-text-muted shrink-0">{done}/{count}</span>
-      </button>
-    );
-  };
-
-  return (
-    <nav className="space-y-4">
-      {row('all', intl.formatMessage({ id: 'conversation.allTopics' }), 'lucide:layout-grid', practicedTotal, total)}
-      {speakingTopicGroups.map((g) => (
-        <div key={g.label}>
-          <p className="px-2.5 mb-1 text-[10px] font-bold uppercase tracking-wider text-text-muted">{g.label}</p>
-          <div className="space-y-0.5">
-            {g.topics.map((t) => row(t, t, TOPIC_ICON[t], stats[t]?.done ?? 0, stats[t]?.total ?? 0))}
-          </div>
-        </div>
-      ))}
-    </nav>
-  );
-}
-
-function TopicSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
-  const intl = useIntl();
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [open, onClose]);
-
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label={intl.formatMessage({ id: 'conversation.chooseTopic' })}>
-      <div className="absolute inset-0 bg-black/50 animate-fade-in" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 max-h-[85vh] flex flex-col rounded-t-2xl border-t border-border bg-bg-primary animate-fade-in">
-        <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
-          <span className="text-sm font-bold text-text-primary"><FormattedMessage id="conversation.topics" /></span>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:bg-bg-hover cursor-pointer" aria-label={intl.formatMessage({ id: 'conversation.close' })}>
-            <Icon icon="lucide:x" width={18} />
-          </button>
-        </div>
-        <div className="overflow-y-auto px-2 py-3 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
-      </div>
-    </div>
-  );
 }
 
 /* ─── One question ───────────────────────────────────────────── */
@@ -517,7 +408,15 @@ export function ShortConversationTab() {
   );
 
   const nav = (
-    <TopicNav active={topic} stats={stats} total={speakingQuestions.length} practicedTotal={practicedTotal} onSelect={selectTopic} />
+    <TopicNav
+      active={topic}
+      all={{ done: practicedTotal, total: speakingQuestions.length }}
+      groups={speakingTopicGroups.map((g) => ({
+        label: g.label,
+        topics: g.topics.map((t) => ({ key: t, label: t, icon: TOPIC_ICON[t], done: stats[t]?.done ?? 0, total: stats[t]?.total ?? 0 })),
+      }))}
+      onSelect={selectTopic}
+    />
   );
   const activeStats = topic === 'all' ? { done: practicedTotal, total: speakingQuestions.length } : stats[topic];
 
@@ -525,30 +424,19 @@ export function ShortConversationTab() {
     <div className="lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-6">
       {/* Desktop sidebar */}
       <aside className="hidden lg:block sticky top-[calc(4.75rem+env(safe-area-inset-top))] self-start max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 space-y-4">
-        <Overview practiced={practicedTotal} total={speakingQuestions.length} saved={savedTotal} thisWeek={thisWeek} />
+        <Overview done={practicedTotal} total={speakingQuestions.length} saved={savedTotal} thisWeek={thisWeek} />
         {nav}
       </aside>
 
       <section className="min-w-0">
         {/* Mobile: compact progress + topic picker */}
-        <div className="lg:hidden mb-3">
-          <button
-            onClick={() => setSheetOpen(true)}
-            className="w-full flex items-center gap-3 rounded-xl border border-border bg-bg-card px-3 py-2.5 text-left cursor-pointer active:scale-[0.99] transition-transform"
-          >
-            <span className="w-9 h-9 rounded-lg bg-accent-green/15 text-accent-green flex items-center justify-center shrink-0">
-              <Icon icon={topic === 'all' ? 'lucide:layout-grid' : TOPIC_ICON[topic]} width={18} />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-text-primary truncate">{topic === 'all' ? intl.formatMessage({ id: 'conversation.allTopics' }) : topic}</span>
-              <span className="flex items-center gap-2 mt-1">
-                <Bar done={activeStats.done} total={activeStats.total} className="flex-1" />
-                <span className="text-[11px] tabular-nums text-text-muted">{activeStats.done}/{activeStats.total}</span>
-              </span>
-            </span>
-            <Icon icon="lucide:chevrons-up-down" width={16} className="text-text-muted shrink-0" />
-          </button>
-        </div>
+        <TopicPickerButton
+          icon={topic === 'all' ? 'lucide:layout-grid' : TOPIC_ICON[topic]}
+          label={topic === 'all' ? intl.formatMessage({ id: 'conversation.allTopics' }) : topic}
+          done={activeStats.done}
+          total={activeStats.total}
+          onClick={() => setSheetOpen(true)}
+        />
 
         {/* Toolbar */}
         <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] z-[5] mb-4 p-2.5 rounded-xl border border-border bg-bg-card/90 backdrop-blur shadow-sm space-y-2.5">

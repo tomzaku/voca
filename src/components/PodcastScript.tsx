@@ -14,7 +14,8 @@ import { loadTranslation, setTranslationPref, translationFolder, translationPref
 // translation in the user's mother language right under it — one line at a
 // time, so the English stays the thing being read.
 
-export function PodcastScript({ id, script }: { id: string; script: string }) {
+/** `onFinish` fires only when the episode plays through to its end. */
+export function PodcastScript({ id, script, onFinish }: { id: string; script: string; onFinish?: () => void }) {
   const intl = useIntl();
   // Paragraphs kept for layout; numbered across the whole script, as the
   // player counts them — splitSentences cuts at newlines first, so the two
@@ -26,7 +27,7 @@ export function PodcastScript({ id, script }: { id: string; script: string }) {
   }, [script]);
   const sentences = useMemo(() => paragraphs.flat().map((s) => s.text), [paragraphs]);
   const [at, setAt] = useState(0);
-  const player = usePodcastPlayer(sentences, () => setAt(0));
+  const player = usePodcastPlayer(sentences, () => { setAt(0); onFinish?.(); });
   if (player.index >= 0 && player.index !== at) setAt(player.index);
   const { recorded } = player;
 
