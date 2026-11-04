@@ -20,8 +20,10 @@
 // Resumable: the bucket is listed first and anything already there is
 // skipped, so a re-run records only what's new (words added since).
 //
-// Requires: ffmpeg with libmp3lame, `aws login` for the voca profile (the
-// npm script exports its session), and .env for Supabase.
+// Requires: ffmpeg with libmp3lame, `aws login` for the voca profile, and
+// .env for Supabase. The npm script sets AWS_PROFILE rather than exporting
+// the session: exported credentials last minutes, and a full run is hours —
+// the SDK refreshes a profile's session itself.
 //
 // Usage:
 //   npm run speech:pregen -- --limit 100 --out /tmp/voca-listen   # a sample to listen to
