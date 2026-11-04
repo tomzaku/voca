@@ -1,0 +1,22 @@
+{
+  "In the last few years, artificial intelligence has gone from a technical curiosity to front-page news.": "Trong vài năm trở lại đây, trí tuệ nhân tạo đã từ một sự tò mò trong giới kỹ thuật trở thành tin tức hàng đầu.",
+  "ChatGPT, image generators, self-driving cars — the headlines make it sound like we're living in science fiction.": "ChatGPT, các công cụ tạo ảnh, xe tự lái — những tiêu đề này khiến chúng ta có cảm giác như đang sống trong một bộ phim khoa học viễn tưởng.",
+  "But how much of this is real, and how much is hype?": "Nhưng bao nhiêu trong số này là thật, và bao nhiêu chỉ là phóng đại?",
+  "What most people are excited or worried about right now is \"generative AI\" — systems like large language models that can produce text, images, code, and other content.": "Điều mà hầu hết mọi người đang hào hứng hoặc lo lắng lúc này là \"AI tạo sinh\" — các hệ thống như mô hình ngôn ngữ lớn có thể tạo ra văn bản, hình ảnh, mã code và các nội dung khác.",
+  "These models don't understand meaning the way humans do.": "Những mô hình này không hiểu ý nghĩa theo cách con người hiểu.",
+  "Instead, they're incredibly good at predicting what should come next, whether that's the next word in a sentence or the next pixel in an image.": "Thay vào đó, chúng cực kỳ giỏi trong việc dự đoán điều gì nên tiếp theo, cho dù đó là từ tiếp theo trong một câu hay pixel tiếp theo trong một hình ảnh.",
+  "Let's talk about what AI is genuinely good at.": "Hãy cùng nói về những điều mà AI thực sự giỏi.",
+  "Pattern recognition is perhaps its greatest strength — medical AI systems can detect certain cancers in scans with accuracy equal to or better than human radiologists.": "Nhận dạng mẫu có lẽ là thế mạnh lớn nhất của nó — các hệ thống AI y tế có thể phát hiện một số bệnh ung thư trong các bản quét với độ chính xác ngang bằng hoặc tốt hơn các bác sĩ X quang người thật.",
+  "Large language models have demonstrated remarkable abilities in text generation, summarization, and coding assistance.": "Các mô hình ngôn ngữ lớn đã thể hiện khả năng đáng kinh ngạc trong việc tạo văn bản, tóm tắt và hỗ trợ viết mã.",
+  "Now let's talk about what AI is not good at.": "Bây giờ chúng ta hãy nói về những điều mà AI không giỏi.",
+  "The most fundamental limitation is that current AI doesn't truly understand anything — which means it can confidently state things that are completely wrong, a phenomenon called \"hallucination.\"": "Hạn chế cơ bản nhất là AI hiện tại không thực sự hiểu bất cứ điều gì — điều này có nghĩa là nó có thể tự tin đưa ra những điều hoàn toàn sai, một hiện tượng gọi là \"ảo giác\".",
+  "Common sense reasoning is another major weakness.": "Khả năng suy luận thông thường là một điểm yếu lớn khác.",
+  "AI systems, which learn from text and images rather than lived experience, often struggle with basic reasoning that humans take for granted.": "Các hệ thống AI, học từ văn bản và hình ảnh thay vì kinh nghiệm sống, thường gặp khó khăn với những lý luận cơ bản mà con người coi là hiển nhiên.",
+  "Let's address the biggest fear: \"AI will take all our jobs.\"": "Hãy cùng giải quyết nỗi sợ lớn nhất: \"AI sẽ lấy hết việc làm của chúng ta.\"",
+  "The reality is more nuanced — technology has historically created more jobs than it's destroyed, just different ones.": "Thực tế phức tạp hơn — công nghệ trong lịch sử đã tạo ra nhiều việc làm hơn là hủy diệt, chỉ là những loại việc làm khác nhau.",
+  "That said, the transition can be painful, and it may happen faster than previous technological shifts.": "Tuy nhiên, quá trình chuyển đổi có thể gây đau đớn, và nó có thể diễn ra nhanh hơn so với các thay đổi công nghệ trước đây.",
+  "Perhaps the most important thing to understand about AI is that it's a tool — like fire or electricity.": "Có lẽ điều quan trọng nhất cần hiểu về AI là nó là một công cụ — giống như lửa hoặc điện.",
+  "Tools are neither good nor bad; what matters is how they're used.": "Công cụ không tốt cũng không xấu; điều quan trọng là cách chúng được sử dụng.",
+  "For individuals, the practical advice is straightforward: learn to use AI tools effectively, but don't rely on them blindly.": "Đối với cá nhân, lời khuyên thực tế rất đơn giản: học cách sử dụng công cụ AI một cách hiệu quả, nhưng đừng phụ thuộc vào chúng một cách mù quáng.",
+  "Use them to augment your work, not replace your thinking.": "Sử dụng chúng để tăng cường công việc của bạn, không phải để thay thế tư duy của bạn."
+}

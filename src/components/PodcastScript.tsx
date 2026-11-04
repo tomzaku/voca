@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { usePodcastPlayer } from '../hooks/useEpisodePlayer';
 import { clock } from '../lib/podcastAudio';
 import { splitSentences } from '../lib/listeningRules';
+import { loadTranslation, setTranslationPref, translationFolder, translationPref } from '../lib/podcastTranslation';
 
 // The Listen page's podcast script, played and followed: the sentence being
 // said lights up, tapping one plays from there, and a recorded episode
 // streams as one file with a bar to jump along it (usePodcastPlayer). The
 // world's theatre has the pixel version of this (worldgames/Podcast).
+//
+// With Translation on, the sentence being said (or last tapped) shows its
+// translation in the user's mother language right under it — one line at a
+// time, so the English stays the thing being read.
 
-export function PodcastScript({ script }: { script: string }) {
+export function PodcastScript({ id, script }: { id: string; script: string }) {
   const intl = useIntl();
   // Paragraphs kept for layout; numbered across the whole script, as the
   // player counts them — splitSentences cuts at newlines first, so the two
@@ -25,6 +30,18 @@ export function PodcastScript({ script }: { script: string }) {
   if (player.index >= 0 && player.index !== at) setAt(player.index);
   const { recorded } = player;
 
+  const folder = translationFolder(id);
+  const [translate, setTranslate] = useState(translationPref);
+  const [lines, setLines] = useState<Record<string, string> | null>(null);
+  useEffect(() => {
+    if (!folder || !translate || lines) return;
+    let live = true;
+    void loadTranslation(folder, id).then((t) => { if (live) setLines(t); });
+    return () => { live = false; };
+  }, [folder, translate, id, lines]);
+  const toggleTranslate = () => { setTranslate(!translate); setTranslationPref(!translate); };
+  const shownTranslation = folder && translate && lines ? lines[sentences[at]] : undefined;
+
   const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (player.index < 0) return;
@@ -39,6 +56,12 @@ export function PodcastScript({ script }: { script: string }) {
       <div className="px-5 py-3 flex items-center gap-3 border-b border-border">
         <span className="text-xs font-semibold text-accent-purple"><FormattedMessage id="listening.fullScript" /></span>
         <span className="flex-1" />
+        {folder && (
+          <label className="flex items-center gap-1.5 text-[11px] font-medium text-text-muted hover:text-text-secondary cursor-pointer select-none">
+            <input type="checkbox" checked={translate} onChange={toggleTranslate} className="accent-accent-purple cursor-pointer" />
+            <FormattedMessage id="listening.translation" />
+          </label>
+        )}
         {recorded && <span className="text-[11px] tabular-nums text-text-muted">{clock(player.time)} / {clock(recorded.duration)}</span>}
         <button
           onClick={toggle}
@@ -75,20 +98,26 @@ export function PodcastScript({ script }: { script: string }) {
         {paragraphs.map((para) => (
           <p key={para[0].i}>
             {para.map(({ text, i }) => (
-              <span
-                key={i}
-                role="button"
-                tabIndex={0}
-                data-line={i}
-                title={recorded ? clock(recorded.lines[i].start) : undefined}
-                onClick={() => player.playFrom(i)}
-                onKeyDown={(e) => { if (e.key === 'Enter') player.playFrom(i); }}
-                className={`cursor-pointer rounded px-0.5 transition-colors ${
-                  player.index === i ? 'bg-accent-purple/15 text-text-primary' : 'hover:text-text-primary'
-                }`}
-              >
-                {text}{' '}
-              </span>
+              <Fragment key={i}>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  data-line={i}
+                  title={recorded ? clock(recorded.lines[i].start) : undefined}
+                  onClick={() => player.playFrom(i)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') player.playFrom(i); }}
+                  className={`cursor-pointer rounded px-0.5 transition-colors ${
+                    player.index === i ? 'bg-accent-purple/15 text-text-primary' : 'hover:text-text-primary'
+                  }`}
+                >
+                  {text}{' '}
+                </span>
+                {i === at && shownTranslation && (
+                  <span className="block my-1.5 pl-2.5 border-l-2 border-accent-purple/40 text-[13px] text-text-muted italic">
+                    {shownTranslation}
+                  </span>
+                )}
+              </Fragment>
             ))}
           </p>
         ))}

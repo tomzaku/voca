@@ -136,7 +136,7 @@ function PodcastTab() {
                       size="sm"
                     />
                   </div>
-                  <PodcastScript key={p.id} script={p.script} />
+                  <PodcastScript key={p.id} id={p.id} script={p.script} />
 
                   {p.vocabulary && p.vocabulary.length > 0 && (
                     <div className="px-5 py-3 bg-accent-cyan/5 border-t border-accent-cyan/10">

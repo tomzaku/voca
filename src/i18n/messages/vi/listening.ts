@@ -16,6 +16,7 @@ export default {
   'listening.practiceThisTopic': 'Luyện tập chủ đề này',
   'listening.discussEpisode': 'Thảo luận tập này',
   'listening.fullScript': 'Toàn bộ lời thoại',
+  'listening.translation': 'Bản dịch',
   'listening.keyVocabulary': 'Từ vựng chính',
   'listening.discussionQuestions': 'Câu hỏi thảo luận',
   'listening.noPodcasts': 'Không có podcast nào cho chủ đề này.',

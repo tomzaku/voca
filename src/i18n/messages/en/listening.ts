@@ -16,6 +16,7 @@ export default {
   'listening.practiceThisTopic': 'Practice this topic',
   'listening.discussEpisode': 'Discuss this episode',
   'listening.fullScript': 'Full Script',
+  'listening.translation': 'Translation',
   'listening.keyVocabulary': 'Key Vocabulary',
   'listening.discussionQuestions': 'Discussion Questions',
   'listening.noPodcasts': 'No podcasts found for this topic.',

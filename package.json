@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.187",
+  "version": "0.1.188",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -48,7 +48,8 @@
     "speech:setup-mlx": "uv venv --allow-existing --python 3.12 ~/.cache/voca-mlx/.venv && uv pip install --python ~/.cache/voca-mlx/.venv/bin/python -r scripts/requirements-mlx.txt",
     "infra:audio:init": "terraform -chdir=infra/aws/audio-bucket init",
     "infra:audio:plan": "eval \"$(aws configure export-credentials --profile voca --format env)\" && terraform -chdir=infra/aws/audio-bucket plan",
-    "infra:audio:apply": "eval \"$(aws configure export-credentials --profile voca --format env)\" && terraform -chdir=infra/aws/audio-bucket apply"
+    "infra:audio:apply": "eval \"$(aws configure export-credentials --profile voca --format env)\" && terraform -chdir=infra/aws/audio-bucket apply",
+    "podcasts:translate": "node --env-file=.env scripts/translate-podcasts.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
