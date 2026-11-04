@@ -35,20 +35,20 @@
 //   npm run speech:pregen -- --shard 1/2                          # half the clips (another machine)
 //
 // One Kokoro model keeps about half of a 10-core Mac busy — short clips don't
-// parallelise well inside ONNX — so --workers runs several, each in a worker
-// thread with a share of the cores. They're threads of ONE process, not
-// separate runs, on purpose: each process refreshes the `aws login` session
-// on its own, and three of them racing on its cache file corrupted it.
+// parallelise well inside ONNX — so --workers runs several, each a child
+// process with a share of the cores (onnxruntime-node can't share one process
+// between threads). The children only make audio; this process encodes and
+// uploads everything, on purpose: each process refreshes the `aws login`
+// session on its own, and three of them racing on its cache file corrupted it.
 // --shard splits the clips by hash across machines; shards never overlap.
 
-import { spawn } from 'node:child_process';
+import { fork, spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import os from 'node:os';
-import { Worker } from 'node:worker_threads';
 import { cleanMarkdown } from '../src/lib/cleanMarkdown.ts';
 import { bareIpa, clipHashInput, kokoroPhonemes, splitIntoChunks } from '../src/lib/speechChunks.ts';
 import { KOKORO_MODEL_ID } from '../src/lib/ttsModel.ts';
@@ -173,28 +173,32 @@ function toMp3(samples, rate) {
   });
 }
 
-/** A Kokoro model in a worker thread: generate(clip) → { samples, rate }. */
+/** A Kokoro model in a child process: generate(clip) → { samples, rate }. */
 function startModel() {
-  const worker = new Worker(new URL('./pregen-speech-worker.mjs', import.meta.url), {
-    workerData: { modelId: KOKORO_MODEL_ID, voice: VOICE, threads: THREADS },
+  // 'advanced' serialization carries the Float32Array of samples as-is.
+  const worker = fork(new URL('./pregen-speech-worker.mjs', import.meta.url), [], {
+    serialization: 'advanced',
+    env: { ...process.env, PREGEN_WORKER: JSON.stringify({ modelId: KOKORO_MODEL_ID, voice: VOICE, threads: THREADS }) },
   });
   const waiting = new Map();
   let ids = 0;
   return new Promise((resolve, reject) => {
-    worker.on('error', (err) => {
+    const fail = (err) => {
       reject(err);
       for (const w of waiting.values()) w.reject(err);
       waiting.clear();
-    });
+    };
+    worker.on('error', fail);
+    worker.on('exit', (code) => { if (code) fail(new Error(`Kokoro worker exited ${code}`)); });
     worker.on('message', (msg) => {
       if (msg.type === 'ready') {
         resolve({
           generate: (clip) => new Promise((res, rej) => {
             const id = ++ids;
             waiting.set(id, { resolve: res, reject: rej });
-            worker.postMessage({ id, text: clip.text, phonemes: clip.phonemes });
+            worker.send({ id, text: clip.text, phonemes: clip.phonemes });
           }),
-          close: () => worker.terminate(),
+          close: () => worker.kill(),
         });
         return;
       }

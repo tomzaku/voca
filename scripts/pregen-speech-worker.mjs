@@ -1,13 +1,15 @@
-// One Kokoro model for scripts/pregen-speech.mjs, in a worker thread. The main
-// thread hands it { id, text, phonemes? } and gets back the raw samples; it
-// encodes and uploads itself, so a single process holds the AWS session.
-// Separate processes each refreshed that session and raced on its cache file.
+// One Kokoro model for scripts/pregen-speech.mjs, as a child process. The
+// parent hands it { id, text, phonemes? } and gets back the raw samples; the
+// parent encodes and uploads, so only it ever touches the AWS session —
+// several processes each refreshing it raced on its cache file and broke it.
+//
+// A process, not a worker thread: onnxruntime-node crashes when loaded in
+// more than one thread of a process.
 
-import { parentPort, workerData } from 'node:worker_threads';
 import { AutoTokenizer, StyleTextToSpeech2Model } from '@huggingface/transformers';
 import { KokoroTTS } from 'kokoro-js';
 
-const { modelId, voice, threads } = workerData;
+const { modelId, voice, threads } = JSON.parse(process.env.PREGEN_WORKER);
 
 // Loaded by hand rather than KokoroTTS.from_pretrained, which can't pass ONNX
 // session options — and the thread count is what lets several models share
@@ -21,16 +23,15 @@ const [model, tokenizer] = await Promise.all([
   AutoTokenizer.from_pretrained(modelId),
 ]);
 const tts = new KokoroTTS(model, tokenizer);
-parentPort.postMessage({ type: 'ready' });
+process.send({ type: 'ready' });
 
-parentPort.on('message', async ({ id, text, phonemes }) => {
+process.on('message', async ({ id, text, phonemes }) => {
   try {
     const audio = phonemes
       ? await tts.generate_from_ids(tts.tokenizer(phonemes, { truncation: true }).input_ids, { voice })
       : await tts.generate(text, { voice });
-    const samples = audio.audio;
-    parentPort.postMessage({ type: 'done', id, samples, rate: audio.sampling_rate }, [samples.buffer]);
+    process.send({ type: 'done', id, samples: audio.audio, rate: audio.sampling_rate });
   } catch (err) {
-    parentPort.postMessage({ type: 'error', id, error: err instanceof Error ? err.message : String(err) });
+    process.send({ type: 'error', id, error: err instanceof Error ? err.message : String(err) });
   }
 });
