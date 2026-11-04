@@ -20,6 +20,11 @@
 // Resumable: the bucket is listed first and anything already there is
 // skipped, so a re-run records only what's new (words added since).
 //
+// The audio engine is Kokoro on the Apple GPU through MLX — ~3.4x the CPU —
+// once `npm run speech:setup-mlx` has made its Python environment; without it,
+// ONNX on the CPU. Either way this process phonemizes, names, encodes and
+// uploads; the engine only turns phonemes into samples.
+//
 // Requires: ffmpeg with libmp3lame, `aws login` for the voca profile, and
 // .env for Supabase. The npm script sets AWS_PROFILE rather than exporting
 // the session: exported credentials last minutes, and a full run is hours —
@@ -30,7 +35,8 @@
 //   npm run speech:pregen -- --dry-run                            # count, record nothing
 //   npm run speech:pregen                                         # everything missing
 //   npm run speech:pregen -- --voice am_michael                   # the male voice
-//   npm run speech:pregen -- --workers 3                          # 3 models in parallel (default)
+//   npm run speech:pregen                                         # GPU (MLX) when set up, else CPU
+//   npm run speech:pregen -- --engine onnx --workers 3            # CPU: 3 ONNX models in parallel
 //   npm run speech:pregen -- --words live,use,tear                # just these words, now
 //   npm run speech:pregen -- --shard 1/2                          # half the clips (another machine)
 //
@@ -49,6 +55,7 @@ import path from 'node:path';
 import { ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import os from 'node:os';
+import { KokoroTTS } from 'kokoro-js';
 import { cleanMarkdown } from '../src/lib/cleanMarkdown.ts';
 import { bareIpa, clipHashInput, kokoroPhonemes, splitIntoChunks } from '../src/lib/speechChunks.ts';
 import { KOKORO_MODEL_ID } from '../src/lib/ttsModel.ts';
@@ -63,7 +70,13 @@ const OUT = strArg('--out');
 const DRY_RUN = args.includes('--dry-run');
 const [SHARD, SHARDS] = (strArg('--shard') ?? '1/1').split('/').map(Number);
 if (!(SHARDS >= 1 && SHARD >= 1 && SHARD <= SHARDS)) throw new Error('--shard must be i/n with 1 ≤ i ≤ n');
-const WORKERS = Math.max(1, Number(strArg('--workers')) || 3);
+/** Where `npm run speech:setup-mlx` puts the GPU engine's Python. */
+const MLX_PYTHON = path.join(os.homedir(), '.cache/voca-mlx/.venv/bin/python');
+// MLX (the Apple GPU, ~3.4x the CPU) when it's set up, ONNX on the CPU otherwise.
+const ENGINE = strArg('--engine') || (fs.existsSync(MLX_PYTHON) ? 'mlx' : 'onnx');
+if (!['mlx', 'onnx'].includes(ENGINE)) throw new Error('--engine must be mlx or onnx');
+// One GPU model keeps the GPU busy; CPU models need several to fill the cores.
+const WORKERS = Math.max(1, Number(strArg('--workers')) || (ENGINE === 'mlx' ? 1 : 3));
 const THREADS = Number(strArg('--threads')) || Math.max(1, Math.floor(os.availableParallelism() / WORKERS));
 const BUCKET = process.env.AUDIO_S3_BUCKET || 'trile-voca-audio';
 const REGION = process.env.AUDIO_S3_REGION || 'ap-southeast-2';
@@ -173,8 +186,89 @@ function toMp3(samples, rate) {
   });
 }
 
+// ─── Phonemes ──────────────────────────────────────────────────────
+//
+// The GPU engine takes phonemes, not text, so text is phonemized here — by
+// kokoro-js itself, so a recording is pronounced (and paused, at the commas)
+// exactly as the in-browser Kokoro would say it. kokoro-js doesn't export its
+// phonemizer, but generate() hands the phonemes straight to the tokenizer: a
+// tokenizer that throws them back ends the call there, before any model runs.
+
+const CAPTURED = Symbol('phonemes');
+const phonemizer = new KokoroTTS({}, (ps) => { throw { [CAPTURED]: ps }; });
+
+async function phonemesOf(text) {
+  try {
+    await phonemizer.generate(text, { voice: VOICE });
+  } catch (err) {
+    if (err && CAPTURED in err) return err[CAPTURED];
+    throw err;
+  }
+  throw new Error('kokoro-js generated without tokenizing — has its internals changed?');
+}
+
+/** Kokoro on the Apple GPU (scripts/pregen_speech_mlx.py): generate(clip) → { samples, rate }. */
+function startMlxModel() {
+  const py = spawn(MLX_PYTHON, [new URL('./pregen_speech_mlx.py', import.meta.url).pathname, VOICE], {
+    stdio: ['pipe', 'pipe', 'inherit'],
+  });
+  const waiting = new Map();
+  let ids = 0;
+  // stdout is header lines, each followed by the raw float32 bytes it announces.
+  let buf = Buffer.alloc(0);
+  let header = null;
+  return new Promise((resolve, reject) => {
+    const fail = (err) => {
+      reject(err);
+      for (const w of waiting.values()) w.reject(err);
+      waiting.clear();
+    };
+    py.on('error', fail);
+    py.on('exit', (code) => fail(new Error(`MLX worker exited ${code}`)));
+    py.stdout.on('data', (chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      for (;;) {
+        if (!header) {
+          const nl = buf.indexOf(10);
+          if (nl < 0) return;
+          header = JSON.parse(buf.subarray(0, nl).toString());
+          buf = buf.subarray(nl + 1);
+          if (header.ready) {
+            header = null;
+            resolve({
+              generate: async (clip) => {
+                const phonemes = clip.phonemes ?? await phonemesOf(clip.text);
+                return new Promise((res, rej) => {
+                  const id = ++ids;
+                  waiting.set(id, { resolve: res, reject: rej });
+                  py.stdin.write(JSON.stringify({ id, phonemes }) + '\n');
+                });
+              },
+              close: () => { py.removeAllListeners('exit'); py.kill(); },
+            });
+            continue;
+          }
+        }
+        const need = header.error ? 0 : header.samples * 4;
+        if (buf.length < need) return;
+        const w = waiting.get(header.id);
+        waiting.delete(header.id);
+        if (header.error) w?.reject(new Error(header.error));
+        else {
+          // Copy out: the slice shares the buffer the next chunk replaces.
+          const bytes = Buffer.from(buf.subarray(0, need));
+          w?.resolve({ samples: new Float32Array(bytes.buffer, bytes.byteOffset, header.samples), rate: header.rate });
+        }
+        buf = buf.subarray(need);
+        header = null;
+      }
+    });
+  });
+}
+
 /** A Kokoro model in a child process: generate(clip) → { samples, rate }. */
 function startModel() {
+  if (ENGINE === 'mlx') return startMlxModel();
   // 'advanced' serialization carries the Float32Array of samples as-is.
   const worker = fork(new URL('./pregen-speech-worker.mjs', import.meta.url), [], {
     serialization: 'advanced',
@@ -222,7 +316,9 @@ async function main() {
   if (DRY_RUN || !todo.length) return;
 
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
-  console.log(`Loading ${WORKERS} Kokoro model(s), ${THREADS} threads each…`);
+  console.log(ENGINE === 'mlx'
+    ? `Loading ${WORKERS} Kokoro model(s) on the GPU (MLX)…`
+    : `Loading ${WORKERS} Kokoro model(s) on the CPU, ${THREADS} threads each…`);
   const models = await Promise.all(Array.from({ length: WORKERS }, () => startModel()));
 
   const started = Date.now();
