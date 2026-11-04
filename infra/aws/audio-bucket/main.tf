@@ -66,6 +66,21 @@ resource "aws_s3_bucket_lifecycle_configuration" "audio" {
   }
 }
 
+# Lets S3 answer CORS preflights (OPTIONS). A plain GET doesn't need one,
+# but any added request header makes the browser send it first, and without
+# this S3 answers 403 — which fails the fetch outright, so the app falls back
+# to the slow path for every clip.
+resource "aws_s3_bucket_cors_configuration" "audio" {
+  bucket = aws_s3_bucket.audio.id
+
+  cors_rule {
+    allowed_methods = ["GET", "HEAD"]
+    allowed_origins = ["*"]
+    allowed_headers = ["*"]
+    max_age_seconds = 86400
+  }
+}
+
 # ─── CloudFront ────────────────────────────────────────────────────
 
 resource "aws_cloudfront_origin_access_control" "audio" {
@@ -76,15 +91,41 @@ resource "aws_cloudfront_origin_access_control" "audio" {
   signing_protocol                  = "sigv4"
 }
 
-# AWS-managed policies: cache by path only (the clip names never change), and
-# Access-Control-Allow-Origin: * so the app can fetch() a clip into its
-# on-device cache, not just play it.
+# Cache by path only: the clip names never change.
 data "aws_cloudfront_cache_policy" "optimized" {
   name = "Managed-CachingOptimized"
 }
 
-data "aws_cloudfront_response_headers_policy" "cors" {
-  name = "Managed-SimpleCORS"
+# Access-Control-Allow-Origin: * on every response, so the app can fetch() a
+# clip into its on-device cache, not just play it. Our own policy rather than
+# AWS's Managed-SimpleCORS: with that one, a request carrying Chrome's
+# `priority: u=1, i` header came back without the header, so every fetch from
+# Chrome failed. origin_override sets it whatever S3 sent.
+resource "aws_cloudfront_response_headers_policy" "cors" {
+  name    = "${var.bucket_name}-cors"
+  comment = "Public audio: any origin may fetch it"
+
+  cors_config {
+    access_control_allow_credentials = false
+    origin_override                  = true
+    access_control_max_age_sec       = 86400
+
+    access_control_allow_origins {
+      items = ["*"]
+    }
+    access_control_allow_methods {
+      items = ["GET", "HEAD", "OPTIONS"]
+    }
+    access_control_allow_headers {
+      items = ["*"]
+    }
+  }
+}
+
+# Forwards Origin and the Access-Control-Request-* headers, so S3 can answer
+# a preflight with its CORS rules above.
+data "aws_cloudfront_origin_request_policy" "cors_s3" {
+  name = "Managed-CORS-S3Origin"
 }
 
 resource "aws_cloudfront_distribution" "audio" {
@@ -104,10 +145,11 @@ resource "aws_cloudfront_distribution" "audio" {
     target_origin_id           = "audio-s3"
     viewer_protocol_policy     = "redirect-to-https"
     allowed_methods            = ["GET", "HEAD", "OPTIONS"]
-    cached_methods             = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD", "OPTIONS"]
     compress                   = false # MP3 is already compressed
     cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
-    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.cors.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.cors_s3.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.cors.id
   }
 
   # A miss must not be remembered: the speech function makes a clip moments
