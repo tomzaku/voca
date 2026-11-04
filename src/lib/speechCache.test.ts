@@ -21,12 +21,17 @@ function fakeCaches() {
 }
 
 const fetchMock = vi.fn<(url: string) => Promise<Response>>();
+/** Downloads of a server clip, leaving out the recordings-CDN lookups. */
+const serverDownloads = () => fetchMock.mock.calls.filter(([u]) => !u.includes('cloudfront.net')).length;
 
 beforeEach(() => {
   speechUrl.mockReset();
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
-  fetchMock.mockResolvedValue(new Response(new Blob(['mp3'], { type: 'audio/mpeg' })));
+  // The recordings CDN has nothing unless a test says so; the server's clip URL plays.
+  fetchMock.mockImplementation(async (url: string) => url.includes('cloudfront.net')
+    ? new Response(null, { status: 404 })
+    : new Response(new Blob(['mp3'], { type: 'audio/mpeg' })));
   speechUrl.mockResolvedValue('https://cdn.example/clip.mp3');
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -44,7 +49,7 @@ describe('getClip', () => {
     const again = await getClip('  serendipity ', 'female'); // same text once normalized
     expect(again?.owned).toBe(true);
     expect(speechUrl).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(serverDownloads()).toBe(1);
   });
 
   it('keeps voices apart', async () => {
@@ -62,6 +67,25 @@ describe('getClip', () => {
     expect(speechUrl.mock.calls).toEqual([['live', 'female', 'lˈɪv'], ['live', 'female', 'lˈaɪv']]);
   });
 
+  it('plays a pre-recorded clip straight from the CDN, without asking the server', async () => {
+    const { store, api } = fakeCaches();
+    vi.stubGlobal('caches', api);
+    fetchMock.mockImplementation(async () => new Response(new Blob(['kokoro'], { type: 'audio/mpeg' })));
+
+    const clip = await getClip('live', 'female', 'lˈɪv');
+    expect(clip?.owned).toBe(true);
+    expect(speechUrl).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toMatch(/cloudfront\.net\/kokoro-af_heart\/[0-9a-f]{64}\.mp3$/);
+    expect(store.size).toBe(1);
+  });
+
+  it('only looks for recordings of voices that have them', async () => {
+    vi.stubGlobal('caches', fakeCaches().api);
+    await getClip('serendipity', 'en-US-Chirp3-HD-Kore');
+    expect(fetchMock.mock.calls.some(([u]) => u.includes('cloudfront.net'))).toBe(false);
+    expect(speechUrl).toHaveBeenCalledTimes(1);
+  });
+
   it('returns null when the server has no clip, so the caller uses the device voice', async () => {
     vi.stubGlobal('caches', fakeCaches().api);
     speechUrl.mockResolvedValue(null);
@@ -71,7 +95,7 @@ describe('getClip', () => {
   it('plays the URL directly when Cache Storage is unavailable', async () => {
     vi.stubGlobal('caches', undefined);
     expect(await getClip('serendipity', 'female')).toEqual({ src: 'https://cdn.example/clip.mp3', owned: false });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(serverDownloads()).toBe(0);
   });
 
   it('falls back to the URL when the download fails', async () => {

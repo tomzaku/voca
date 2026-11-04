@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { speakText, stopSpeaking, isTtsPlaying, isKokoroSupported } from '../../lib/tts';
+import { speakText, stopSpeaking, isTtsPlaying, isKokoroSupported, prefetchSpeech } from '../../lib/tts';
 import { getTtsEngine, getTtsVoice, KOKORO_VOICES } from '../../hooks/useTtsSettings';
 import type { VocabularyWord } from '../../types';
 
@@ -44,6 +44,21 @@ export function useCardSpeech(wordData: VocabularyWord | null): CardSpeech {
   const [speakingExample, setSpeakingExample] = useState<number | null>(null);
   // How many times the pronunciation button was clicked for the current word.
   const clicks = useRef(0);
+
+  // Fetch what the card's speakers can play as soon as the word is on screen,
+  // so a tap plays at once instead of waiting on the network: the word, the
+  // word as each meaning on the tabs (live /lɪv/, /laɪv/), and every example.
+  // Mirrors what speakWord / speakExample send — the same text and IPA — or the
+  // clip fetched wouldn't be the one played. A no-op off the cloud voice.
+  useEffect(() => {
+    if (!wordData) return;
+    const word = wordData.headword || wordData.word;
+    const senses = wordData.senses ?? [];
+    prefetchSpeech(word);
+    if (senses.length > 1) for (const s of senses) prefetchSpeech(word, { phonetics: s.phonetics ?? wordData.phonetics });
+    const examples = new Set([...wordData.examples, ...senses.flatMap((s) => s.examples)]);
+    for (const ex of examples) prefetchSpeech(ex);
+  }, [wordData]);
 
   useEffect(() => {
     if (!wordData) return;

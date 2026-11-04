@@ -4,7 +4,7 @@ import { getTtsEngine, getTtsVoice, getTtsSpeed, getPiperVoice, getCloudVoice, d
 import { classifyDevice, readDeviceSignals, isSafariBrowser, hasWebGPU } from './deviceTier';
 import { KOKORO_MODEL_ID } from './ttsModel';
 import type { SpeechVoice } from './speechApi';
-import { getClip, type Clip } from './speechCache';
+import { getClip, prefetchClip, type Clip } from './speechCache';
 import type { WorkerInMsg, WorkerOutMsg } from './ttsWorker';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
@@ -419,6 +419,23 @@ async function speakCloud(text: string, ticket: number, options?: { voice?: stri
     clip = nextClip;
   }
   return true;
+}
+
+/**
+ * Have the clips for `text` on the device before anyone taps — the flash card
+ * calls this as a word appears. Cloud voice only, recordings only (see
+ * prefetchClip); the other engines make audio on the device and have nothing
+ * to fetch. Cut and voiced exactly as speakText would, or the clip fetched
+ * wouldn't be the one played.
+ */
+export function prefetchSpeech(text: string, options?: { voice?: string; phonetics?: Record<string, string> }): void {
+  if (getTtsEngine() !== 'cloud') return;
+  const clean = cleanMarkdown(text);
+  if (!clean) return;
+  const chunks = splitIntoChunks(clean);
+  const slot = cloudVoiceFor(options?.voice);
+  const ipa = chunks.length === 1 ? ipaFor(options?.phonetics, slot) : undefined;
+  for (const c of chunks) void prefetchClip(c, slot, ipa).catch(() => {});
 }
 
 function speakNative(text: string, options?: { speed?: number; onStart?: () => void; onEnd?: () => void }): Promise<void> {
