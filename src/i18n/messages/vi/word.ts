@@ -1,6 +1,7 @@
 import type en from '../en/word';
 
 export default {
+  'word.partsOfSpeech': 'Từ loại',
   'word.whatDoesMean': '“{word}” nghĩa là gì?',
   'word.levelBeginner': 'cơ bản',
   'word.levelIntermediate': 'trung cấp',

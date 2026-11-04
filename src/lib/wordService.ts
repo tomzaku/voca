@@ -18,11 +18,11 @@ export { WORD_LIST } from '../data/curatedWords';
 // Cache key includes the mother language so switching it regenerates entries
 // (each carries a translation into that language).
 function cachePrefix(): string {
-  // Bump the version when the cached word shape changes (v7: idioms) so stale
+  // Bump the version when the cached word shape changes (v8: senses) so stale
   // entries are re-fetched instead of shown missing — or worse, outdated —
   // fields. A cached entry is never refreshed on its own, so a shape that
   // landed without a bump stays wrong on that device forever.
-  return `voca-word-v7-${getLearnLanguage()}-${getMotherLanguage()}-`;
+  return `voca-word-v8-${getLearnLanguage()}-${getMotherLanguage()}-`;
 }
 
 function cacheKey(word: string): string {

@@ -1,6 +1,7 @@
 import type { Catalog } from '../..';
 
 export default {
+  'word.partsOfSpeech': 'Parts of speech',
   'word.whatDoesMean': 'What does “{word}” mean?',
   'word.levelBeginner': 'beginner',
   'word.levelIntermediate': 'intermediate',

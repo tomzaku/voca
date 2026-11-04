@@ -10,7 +10,10 @@
 //   word        the vocabulary object — phonetics { "en-US":…, "en-GB":… },
 //               partOfSpeech, definition, translation, examples, synonyms,
 //               antonyms, collocations, wordFamily [{word,pos}],
-//               idioms [{idiom,meaning,example}], level, imageKeywords —
+//               idioms [{idiom,meaning,example}], level, imageKeywords,
+//               senses [{partOfSpeech,phonetics,definition,shortDefinition,
+//               translation,examples}] (every part of speech, primary first;
+//               [] when the word has one) —
 //               or null when the lookup isn't a real word (a typo, nonsense).
 //   suggestions "did you mean" spellings, filled in exactly when word is null.
 //
@@ -67,6 +70,7 @@ import {
   underRateLimit,
 } from '../_shared/ai.ts';
 import { buildTranslations, type CachedWord, mergeTranslations, readByTranslation, readWord, storeWord, translationFor } from './cache.ts';
+import { allSenses, fetchSenses, storeSenses } from './senseRows.ts';
 import { readReject, storeReject } from './rejects.ts';
 import { fetchFamily, storeFamily } from './family.ts';
 import { fetchIdioms, storeIdioms } from './idioms.ts';
@@ -78,14 +82,16 @@ type Auth = Awaited<ReturnType<typeof optionalUser>>;
 
 /** Build the 200 response for a word already in the cache: translation, family, idioms. */
 async function hitResponse(svc: Svc, auth: Auth, cached: CachedWord, motherLang: string): Promise<Response> {
-  const [translation, wordFamily, idioms] = await Promise.all([
+  const [translation, wordFamily, idioms, senses] = await Promise.all([
     // Null client for a visitor: they get the translations already stored,
     // never a fresh translate call (nobody to rate-limit).
     translationFor(svc, auth.user ? auth.supabase : null, cached.word, cached, motherLang),
     fetchFamily(svc, cached.word, cached.headword),
     fetchIdioms(svc, cached.word),
+    fetchSenses(svc, cached.word, motherLang),
   ]);
-  return jsonResponse(200, { word: { ...cached.data, translation, wordFamily, idioms }, suggestions: [] });
+  const word = { ...cached.data, translation, wordFamily, idioms };
+  return jsonResponse(200, { word: { ...word, senses: allSenses(word, senses) }, suggestions: [] });
 }
 
 /** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
@@ -169,7 +175,7 @@ export default async function handler(req: Request): Promise<Response> {
   // The model resolved which language "${word}" was in and settled on this
   // English seed key — strip it before the response reaches the client, it's
   // an internal cache key, not part of the documented word shape.
-  const { seedWord, ...data } = result;
+  const { seedWord, otherSenses, ...data } = result;
   const resolvedKey = asSeedWord(seedWord, wordKey);
 
   const already = resolvedKey !== wordKey ? await readWord(svc, resolvedKey) : null;
@@ -182,11 +188,12 @@ export default async function handler(req: Request): Promise<Response> {
     return await hitResponse(svc, auth, already, motherLang);
   }
 
-  storeWord(svc, resolvedKey, learnLang, motherLang, data);
+  const others = otherSenses ?? [];
+  storeSenses(svc, resolvedKey, others, motherLang, storeWord(svc, resolvedKey, learnLang, motherLang, data));
   storeFamily(svc, resolvedKey, data);
   storeIdioms(svc, resolvedKey, data);
   console.log(`[word] generated "${wordKey}" -> "${resolvedKey}" (${Date.now() - t0}ms, family=${data.wordFamily?.length ?? 0})`);
-  return jsonResponse(200, { word: data, suggestions: [] });
+  return jsonResponse(200, { word: { ...data, senses: allSenses(data, others) }, suggestions: [] });
 }
 
 if (import.meta.main) Deno.serve(handler);

@@ -5,6 +5,7 @@
 // isn't: it drops stress marks, invents symbols, or gives US and GB the
 // same answer.
 import { phonemize } from 'npm:phonemizer@1.2.1';
+import { ipaContext, stripLeadIn } from './senses.ts';
 
 // eSpeak's short "en-gb" code silently resolves to the same voice as
 // "en-us" in this build (a bug/quirk in the compiled voice data, not a typo
@@ -17,11 +18,11 @@ const VOICES: Record<'en-US' | 'en-GB', string> = {
   'en-GB': 'en-gb-x-rp',
 };
 
-async function tryPhonemize(word: string, voice: string): Promise<string | null> {
+async function tryPhonemize(word: string, voice: string, pos?: string): Promise<string | null> {
   try {
-    const [out] = await phonemize(word, voice);
-    const trimmed = out?.trim();
-    return trimmed ? `/${trimmed}/` : null;
+    const { text, drop } = ipaContext(word, pos);
+    const [out] = await phonemize(text, voice);
+    return out ? stripLeadIn(out, drop) : null;
   } catch (err) {
     console.warn(`[word] phonemize failed for "${word}" (${voice}):`, (err as Error).message);
     return null;
@@ -34,15 +35,19 @@ async function tryPhonemize(word: string, voice: string): Promise<string | null>
  * eSpeak mangles, an odd token, or the module failing to load at all — so a
  * phonemizer miss degrades to the old AI-generated value instead of leaving
  * the locale blank.
+ *
+ * `pos` reads the word as that part of speech ("use" the verb is /juːz/) —
+ * see ipaContext. Without it, the bare spelling.
  */
 export async function withPhonemizedIpa(
   seedWord: string,
   aiPhonetics: Record<string, string> | undefined,
+  pos?: string,
 ): Promise<Record<string, string>> {
   const result: Record<string, string> = { ...aiPhonetics };
   const entries = await Promise.all(
     (Object.entries(VOICES) as [keyof typeof VOICES, string][])
-      .map(async ([locale, voice]) => [locale, await tryPhonemize(seedWord, voice)] as const),
+      .map(async ([locale, voice]) => [locale, await tryPhonemize(seedWord, voice, pos)] as const),
   );
   for (const [locale, ipa] of entries) {
     if (ipa) result[locale] = ipa;

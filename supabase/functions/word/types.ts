@@ -14,6 +14,21 @@ export interface IdiomEntry {
   example?: string;
 }
 
+/**
+ * One part of speech of a word, as the client sees it. `senses` on a response
+ * lists them all, primary first — and is empty when the word has only one.
+ */
+export interface Sense {
+  partOfSpeech: string;
+  phonetics?: Record<string, string>;
+  definition: string;
+  shortDefinition?: string;
+  translation?: string;
+  /** Several languages at once — only the backfill asks for these; never sent to clients. */
+  translations?: Record<string, string>;
+  examples: string[];
+}
+
 export interface WordData {
   // The resolved English seed key, used only to store/find the row — the
   // language the search term was actually typed in (English, mother tongue, or
@@ -34,6 +49,10 @@ export interface WordData {
   idioms?: IdiomEntry[]; // popular idioms containing the word (English generation only)
   level?: string;
   imageKeywords?: string[];
+  // The model's other parts of speech (generation only; see generate.ts).
+  otherSenses?: Sense[];
+  // Every part of speech, primary first; [] when there's only one. Response only.
+  senses?: Sense[];
 }
 
 /** The model's answer when the word it was asked about isn't real. */

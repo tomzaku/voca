@@ -17,7 +17,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { underRateLimit } from '../_shared/ai.ts';
 import { translateWord } from './generate.ts';
-import { fireAndForget, type Svc } from './db.ts';
+import { fireAndForget, keepAlive, type Svc } from './db.ts';
 import { asArray, asLevel } from './sanitize.ts';
 import type { WordData } from './types.ts';
 
@@ -164,10 +164,14 @@ export async function translationFor(
   }
 }
 
-/** Store a freshly generated word (non-blocking). See `buildTranslations` for the `translations` map. */
-export function storeWord(svc: Svc, wordKey: string, learnLang: string, motherLang: string, d: WordData): void {
-  if (!svc) return;
-  fireAndForget(svc.from('word_cache').upsert({
+/**
+ * Store a freshly generated word (non-blocking). See `buildTranslations` for
+ * the `translations` map. Resolves whether the row landed, for writes that
+ * reference it (word_senses has a foreign key to it).
+ */
+export function storeWord(svc: Svc, wordKey: string, learnLang: string, motherLang: string, d: WordData): Promise<boolean> {
+  if (!svc) return Promise.resolve(false);
+  const write = Promise.resolve(svc.from('word_cache').upsert({
     word: wordKey,
     headword: typeof d.word === 'string' ? d.word : wordKey,
     phonetics: d.phonetics ?? {},
@@ -183,5 +187,10 @@ export function storeWord(svc: Svc, wordKey: string, learnLang: string, motherLa
     image_keywords: asArray(d.imageKeywords),
     level: asLevel(d.level),
     translations: buildTranslations(learnLang, motherLang, d),
-  }));
+  })).then((res: { error: unknown }) => {
+    if (res.error) console.warn('[word] cache write failed:', res.error);
+    return !res.error;
+  });
+  keepAlive(write);
+  return write;
 }

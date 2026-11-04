@@ -602,7 +602,6 @@ export function FlashCard() {
           key={wordData.word}
           wordData={wordData}
           doodle={doodle}
-          definition={definitionText(wordData)}
           fullDef={fullDef}
           onToggleFullDef={toggleFullDef}
           speech={speech}

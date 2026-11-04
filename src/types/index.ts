@@ -1,3 +1,13 @@
+/** One part of speech of a word ("live" the verb, "live" the adjective). */
+export interface WordSense {
+  partOfSpeech: string;
+  phonetics?: Record<string, string>;
+  definition: string;
+  shortDefinition?: string;
+  translation?: string;
+  examples: string[];
+}
+
 export interface VocabularyWord {
   word: string;            // stable identity (the English seed) — used for progress/selection
   headword?: string;       // the word to display/guess, in the learn language (falls back to `word`)
@@ -15,6 +25,9 @@ export interface VocabularyWord {
   level: 'beginner' | 'intermediate' | 'advanced';
   hints?: string[]; // legacy — no longer shown in UI
   imageKeywords: string[];
+  /** Every part of speech, primary first (the top-level fields are senses[0]);
+   *  empty or missing when the word has only one. */
+  senses?: WordSense[];
 }
 
 // A word's learning outcome. Saving (bookmarking) is tracked separately via the

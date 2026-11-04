@@ -16,7 +16,7 @@ import { getMotherLanguage } from '../../lib/languages';
 import { isKokoroSupported } from '../../lib/tts';
 import { getTtsEngine } from '../../hooks/useTtsSettings';
 import type { CardSpeech } from './useCardSpeech';
-import type { VocabularyWord, WordProgress } from '../../types';
+import type { VocabularyWord, WordProgress, WordSense } from '../../types';
 
 /**
  * The card once the word is on screen — whether it was solved, given up on, or
@@ -29,14 +29,12 @@ import type { VocabularyWord, WordProgress } from '../../types';
  * surrounds it.
  */
 export function RevealedView({
-  wordData, doodle, definition, fullDef, onToggleFullDef, speech, progress,
+  wordData: word, doodle, fullDef, onToggleFullDef, speech, progress,
   isBookmarked, showKnowIt, busy, onNext, onBookmark, onKnow, onSkip,
 }: {
   wordData: VocabularyWord;
   /** The word's sketch, once it has been drawn (never waited on). */
   doodle: string | null;
-  /** The chosen definition text — short or full, per the toggle. */
-  definition: string;
   fullDef: boolean;
   onToggleFullDef: () => void;
   speech: CardSpeech;
@@ -52,6 +50,12 @@ export function RevealedView({
   onSkip: () => void;
 }) {
   const intl = useIntl();
+  // Which part of speech is on screen. Keyed by word upstream, so every card
+  // opens on the primary meaning.
+  const [senseIdx, setSenseIdx] = useState(0);
+  const senses = word.senses ?? [];
+  const wordData = useMemo(() => withSense(word, word.senses?.[senseIdx]), [word, senseIdx]);
+  const definition = !fullDef && wordData.shortDefinition ? wordData.shortDefinition : wordData.definition;
   const headword = wordData.headword || wordData.word;
   // Phrases and family open at two each; keyed by word upstream, so these
   // close again on the next card.
@@ -115,7 +119,21 @@ export function RevealedView({
               not squeezed into the column beside the doodle; where you stand
               sits at the right edge. */}
           <div className="flex items-center flex-wrap gap-1.5 mt-3">
-            {wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[11px]" />}
+            {senses.length > 1 ? (
+              <div role="tablist" aria-label={intl.formatMessage({ id: 'word.partsOfSpeech' })} className="flex items-center gap-1">
+                {senses.map((s, i) => (
+                  <button
+                    key={s.partOfSpeech}
+                    role="tab"
+                    aria-selected={i === senseIdx}
+                    onClick={() => { speech.stop(); setSenseIdx(i); }}
+                    className={`rounded transition-colors ${i === senseIdx ? 'ring-1 ring-accent-purple' : 'opacity-60 hover:opacity-100'}`}
+                  >
+                    <PosChip pos={s.partOfSpeech} className="text-[11px] block" />
+                  </button>
+                ))}
+              </div>
+            ) : wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[11px]" />}
             <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
               {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
             </span>
@@ -437,4 +455,22 @@ function IdiomsCard({ idioms }: { idioms: NonNullable<VocabularyWord['idioms']> 
       )}
     </div>
   );
+}
+
+/**
+ * The word as one of its parts of speech: the meaning-specific fields swapped
+ * for that sense's, everything about the word itself (family, phrases, level)
+ * left alone. A missing sense is the word as it came.
+ */
+function withSense(word: VocabularyWord, sense: WordSense | undefined): VocabularyWord {
+  if (!sense) return word;
+  return {
+    ...word,
+    partOfSpeech: sense.partOfSpeech,
+    phonetics: sense.phonetics ?? word.phonetics,
+    definition: sense.definition,
+    shortDefinition: sense.shortDefinition,
+    translation: sense.translation,
+    examples: sense.examples,
+  };
 }

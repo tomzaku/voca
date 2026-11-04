@@ -4,7 +4,7 @@
 // cache tables shared by every user, so nothing here trusts its input: each
 // helper keeps only well-formed entries, caps their size, and drops the rest.
 
-import type { FamilyEntry, Generated, IdiomEntry, Level, Verdict } from './types.ts';
+import type { FamilyEntry, Generated, IdiomEntry, Level, Sense, Verdict } from './types.ts';
 
 /** Did the model judge the word unreal, rather than generate it? */
 export const isVerdict = (g: Generated): g is Verdict => (g as Verdict).valid === false;
@@ -63,3 +63,60 @@ export const asIdioms = (v: unknown): IdiomEntry[] =>
     }))
     .filter((e) => e.idiom && e.meaning)
     .slice(0, 6);
+
+const asText = (v: unknown, max: number): string | undefined =>
+  typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined;
+
+/** A { language: text } map from the backfill prompt, keys lowercased. */
+const asTranslations = (v: unknown): Record<string, string> | undefined => {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, t] of Object.entries(v as Record<string, unknown>)) {
+    const key = k.toLowerCase().trim();
+    const text = asText(t, 200);
+    if (/^[a-z ]{1,40}$/.test(key) && text) out[key] = text;
+  }
+  return Object.keys(out).length ? out : undefined;
+};
+
+/** IPA keyed by locale; only en-US / en-GB, only strings. */
+export const asPhonetics = (v: unknown): Record<string, string> | undefined => {
+  if (!v || typeof v !== 'object') return undefined;
+  const out: Record<string, string> = {};
+  for (const locale of ['en-US', 'en-GB']) {
+    const ipa = asText((v as Record<string, unknown>)[locale], 60);
+    if (ipa) out[locale] = ipa;
+  }
+  return Object.keys(out).length ? out : undefined;
+};
+
+/**
+ * Sanitize the model's other parts of speech: well-formed entries only, at
+ * most one per part of speech and never the primary's, three at most.
+ */
+export const asSenses = (v: unknown, primaryPos: string | undefined): Sense[] => {
+  const seen = new Set([(primaryPos ?? '').toLowerCase().trim()]);
+  const out: Sense[] = [];
+  for (const e of Array.isArray(v) ? v : []) {
+    if (!e || typeof e !== 'object') continue;
+    const pos = asText(e.partOfSpeech, 30)?.toLowerCase();
+    const definition = asText(e.definition, 400);
+    if (!pos || !definition || seen.has(pos)) continue;
+    seen.add(pos);
+    out.push({
+      partOfSpeech: pos,
+      phonetics: asPhonetics(e.phonetics),
+      definition,
+      shortDefinition: asText(e.shortDefinition, 200),
+      translation: asText(e.translation, 200),
+      translations: asTranslations(e.translations),
+      examples: asArray(e.examples).map((x) => x.trim().slice(0, 300)).filter(Boolean).slice(0, 3),
+    });
+    if (out.length === 3) break;
+  }
+  return out;
+};
+
+/** Same sounds, ignoring stress marks, slashes and spacing — eSpeak marks stress, the model often doesn't. */
+export const sameIpa = (a: string | undefined, b: string | undefined): boolean =>
+  !!a && !!b && a.replace(/[\/ˈˌ.\s]/g, '') === b.replace(/[\/ˈˌ.\s]/g, '');

@@ -2,7 +2,8 @@
 // This is the only module in the `word` function that spends tokens.
 
 import { callProvider, stripFences, type ChatMessage } from '../_shared/ai.ts';
-import { asSuggestions, isVerdict } from './sanitize.ts';
+import { asSenses, asSuggestions, isVerdict } from './sanitize.ts';
+import { SENSES_RULE, sensesField } from './senses.ts';
 import { withPhonemizedIpa } from './phonemize.ts';
 import type { Generated } from './types.ts';
 
@@ -28,19 +29,29 @@ export async function generateWordData(word: string, learnLang: string, motherLa
   for (let attempt = 1; attempt <= GENERATE_ATTEMPTS; attempt++) {
     try {
       // Generous budget: the word JSON (examples, collocations, family, idioms
-      // with examples, two phonetics) can exceed 1000 tokens and truncate into
-      // invalid JSON.
-      const raw = await callProvider(SYSTEM, messages, 2600);
+      // with examples, two phonetics, up to three other senses) can exceed
+      // 1000 tokens and truncate into invalid JSON.
+      const raw = await callProvider(SYSTEM, messages, 3400);
       const data = JSON.parse(stripFences(raw)) as Generated;
 
       // A verdict is a complete answer — retrying only buys the same one.
       if (isVerdict(data)) return { valid: false, suggestions: asSuggestions(data.suggestions, word) };
       if (typeof data.definition === 'string' && data.definition) {
+        data.otherSenses = asSenses(data.otherSenses, data.partOfSpeech);
         // Prefer eSpeak's deterministic IPA over the model's guess; fall
         // back to whatever the model produced for any locale eSpeak can't
         // handle. seedWord is always the canonical English form, so this
         // never needs to know which language the user actually typed in.
-        if (data.seedWord) data.phonetics = await withPhonemizedIpa(data.seedWord, data.phonetics);
+        //
+        // A word with several senses is read once per part of speech, so
+        // "use" the verb gets /juːz/ and the noun /juːs/ (see ipaContext);
+        // a one-meaning word keeps the bare-spelling reading it always had.
+        if (data.seedWord) {
+          const seed = data.seedWord;
+          const several = data.otherSenses.length > 0;
+          data.phonetics = await withPhonemizedIpa(seed, data.phonetics, several ? data.partOfSpeech : undefined);
+          for (const s of data.otherSenses) s.phonetics = await withPhonemizedIpa(seed, s.phonetics, s.partOfSpeech);
+        }
         return data;
       }
       throw new Error('Model returned incomplete word data.');
@@ -114,7 +125,8 @@ Otherwise, once you've identified the concept "${word}" refers to, return this e
   "collocations": ["natural phrase 1", "natural phrase 2", "phrase 3", "phrase 4", "phrase 5"],
   "wordFamily": [{ "word": "related form", "pos": "noun | verb | adjective | adverb" }],${idiomsSpec}
   "level": "beginner | intermediate | advanced",
-  "imageKeywords": ["concrete visual noun 1", "concept 2"]
+  "imageKeywords": ["concrete visual noun 1", "concept 2"],
+  ${sensesField([motherLang])}
 }
 
 Set "level" to how hard this word is for someone learning English: "beginner" for everyday core vocabulary, "intermediate" for words a confident learner would meet in books or news, "advanced" for rare, literary, or technical words. Provide 5 to 15 "collocations": short, natural word pairings that commonly go with the word (e.g. for "decision": "make a decision", "tough decision", "final decision"). Give more for very common words with many natural pairings (e.g. "go", "make"), fewer for rare or specialized words. ${
@@ -123,5 +135,7 @@ Set "level" to how hard this word is for someone learning English: "beginner" fo
       : ''
   }For "wordFamily", list 2-6 derivationally related forms across OTHER parts of speech (e.g. for "decide": decision/noun, decisive/adjective, decidedly/adverb) — do NOT include the word itself; use an empty array if none exist. The "translation" field MUST be written in ${motherLang}. The "shortDefinition" MUST always be in simple English${
     isEnglish ? '' : `, even though the "word", "definition", "examples", "synonyms", "antonyms", "collocations", and "wordFamily" MUST all be written in ${learnLang}`
-  }. For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search).`;
+  }. For imageKeywords, always use 1-2 simple concrete English nouns or short phrases that visually represent the meaning (used for image search). The top-level "partOfSpeech", "phonetics", "definition" and "examples" describe the word's MOST COMMON meaning. ${SENSES_RULE}${
+    isEnglish ? '' : ` Write each sense's "definition" and "examples" in ${learnLang}, and its "translation" in ${motherLang}.`
+  }`;
 }
