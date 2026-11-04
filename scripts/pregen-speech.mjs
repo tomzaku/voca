@@ -30,13 +30,16 @@
 //   npm run speech:pregen -- --dry-run                            # count, record nothing
 //   npm run speech:pregen                                         # everything missing
 //   npm run speech:pregen -- --voice am_michael                   # the male voice
-//   npm run speech:pregen -- --shard 1/3 --threads 3              # one of 3 parallel runs
+//   npm run speech:pregen -- --workers 3                          # 3 models in parallel (default)
+//   npm run speech:pregen -- --words live,use,tear                # just these words, now
+//   npm run speech:pregen -- --shard 1/2                          # half the clips (another machine)
 //
-// One Kokoro process keeps about half of a 10-core Mac busy — short clips
-// don't parallelise well inside ONNX — so several processes, each taking the
-// clips whose hash falls in its shard and a share of the cores, finish sooner.
-// Shards never overlap, and each skips what's uploaded, so they can be
-// stopped and restarted independently.
+// One Kokoro model keeps about half of a 10-core Mac busy — short clips don't
+// parallelise well inside ONNX — so --workers runs several, each in a worker
+// thread with a share of the cores. They're threads of ONE process, not
+// separate runs, on purpose: each process refreshes the `aws login` session
+// on its own, and three of them racing on its cache file corrupted it.
+// --shard splits the clips by hash across machines; shards never overlap.
 
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -44,8 +47,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
-import { AutoTokenizer, StyleTextToSpeech2Model } from '@huggingface/transformers';
-import { KokoroTTS } from 'kokoro-js';
+import os from 'node:os';
+import { Worker } from 'node:worker_threads';
 import { cleanMarkdown } from '../src/lib/cleanMarkdown.ts';
 import { bareIpa, clipHashInput, kokoroPhonemes, splitIntoChunks } from '../src/lib/speechChunks.ts';
 import { KOKORO_MODEL_ID } from '../src/lib/ttsModel.ts';
@@ -55,11 +58,13 @@ const strArg = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i 
 const VOICE = strArg('--voice') || 'af_heart';
 const FOLDER = `kokoro-${VOICE}`;
 const LIMIT = Number(strArg('--limit')) || Infinity;
+const ONLY = strArg('--words')?.split(',').map((w) => w.trim().toLowerCase()).filter(Boolean);
 const OUT = strArg('--out');
 const DRY_RUN = args.includes('--dry-run');
 const [SHARD, SHARDS] = (strArg('--shard') ?? '1/1').split('/').map(Number);
 if (!(SHARDS >= 1 && SHARD >= 1 && SHARD <= SHARDS)) throw new Error('--shard must be i/n with 1 ≤ i ≤ n');
-const THREADS = Number(strArg('--threads')) || undefined;
+const WORKERS = Math.max(1, Number(strArg('--workers')) || 3);
+const THREADS = Number(strArg('--threads')) || Math.max(1, Math.floor(os.availableParallelism() / WORKERS));
 const BUCKET = process.env.AUDIO_S3_BUCKET || 'trile-voca-audio';
 const REGION = process.env.AUDIO_S3_REGION || 'ap-southeast-2';
 /** Mono at Kokoro's 24 kHz; 48 kb/s keeps speech clean at ~6 KB a second. */
@@ -94,7 +99,8 @@ async function pageAll(table, columns, key) {
 
 /** Every clip, deduplicated by name: { key, text, phonemes?, label }. */
 async function manifest() {
-  const words = (await pageAll('word_cache', 'word, headword, phonetics, examples', 'word')).slice(0, LIMIT);
+  const all = await pageAll('word_cache', 'word, headword, phonetics, examples', 'word');
+  const words = (ONLY ? all.filter((w) => ONLY.includes(w.word)) : all).slice(0, LIMIT);
   const keep = new Set(words.map((w) => w.word));
   const senses = new Map();
   for (const s of await pageAll('word_senses', 'word, rank, ipa_us, ipa_gb, examples', 'word')) {
@@ -167,6 +173,40 @@ function toMp3(samples, rate) {
   });
 }
 
+/** A Kokoro model in a worker thread: generate(clip) → { samples, rate }. */
+function startModel() {
+  const worker = new Worker(new URL('./pregen-speech-worker.mjs', import.meta.url), {
+    workerData: { modelId: KOKORO_MODEL_ID, voice: VOICE, threads: THREADS },
+  });
+  const waiting = new Map();
+  let ids = 0;
+  return new Promise((resolve, reject) => {
+    worker.on('error', (err) => {
+      reject(err);
+      for (const w of waiting.values()) w.reject(err);
+      waiting.clear();
+    });
+    worker.on('message', (msg) => {
+      if (msg.type === 'ready') {
+        resolve({
+          generate: (clip) => new Promise((res, rej) => {
+            const id = ++ids;
+            waiting.set(id, { resolve: res, reject: rej });
+            worker.postMessage({ id, text: clip.text, phonemes: clip.phonemes });
+          }),
+          close: () => worker.terminate(),
+        });
+        return;
+      }
+      const w = waiting.get(msg.id);
+      if (!w) return;
+      waiting.delete(msg.id);
+      if (msg.type === 'done') w.resolve({ samples: msg.samples, rate: msg.rate });
+      else w.reject(new Error(msg.error));
+    });
+  });
+}
+
 async function main() {
   const { words, clips } = await manifest();
   const have = await existing();
@@ -177,61 +217,59 @@ async function main() {
   console.log(`${words} words → ${clips.length} clips for ${FOLDER}; ${clips.length - clips.filter((c) => !have.has(c.key)).length} already uploaded, ${todo.length} to record${tag}.`);
   if (DRY_RUN || !todo.length) return;
 
-  // Loaded by hand rather than KokoroTTS.from_pretrained, which has no way to
-  // pass ONNX session options — and the thread count is what lets shards
-  // share the cores instead of fighting over them.
-  const session_options = THREADS ? { intraOpNumThreads: THREADS, interOpNumThreads: 1 } : undefined;
-  const [model, tokenizer] = await Promise.all([
-    StyleTextToSpeech2Model.from_pretrained(KOKORO_MODEL_ID, { dtype: 'fp32', device: 'cpu', session_options }),
-    AutoTokenizer.from_pretrained(KOKORO_MODEL_ID),
-  ]);
-  const tts = new KokoroTTS(model, tokenizer);
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
+  console.log(`Loading ${WORKERS} Kokoro model(s), ${THREADS} threads each…`);
+  const models = await Promise.all(Array.from({ length: WORKERS }, () => startModel()));
 
   const started = Date.now();
   const pending = new Set();
   const listened = [];
-  let done = 0, failed = 0, bytes = 0;
+  let done = 0, failed = 0, bytes = 0, next = 0;
 
-  for (const clip of todo) {
-    let audio;
-    try {
-      audio = clip.phonemes
-        ? await tts.generate_from_ids(tts.tokenizer(clip.phonemes, { truncation: true }).input_ids, { voice: VOICE })
-        : await tts.generate(clip.text, { voice: VOICE });
-    } catch (err) {
-      failed++;
-      console.warn(`✗ ${clip.label}: ${err.message}`);
-      continue;
+  // Encoding and upload overlap the next generation; cap what's in flight.
+  const upload = async (clip, { samples, rate }) => {
+    const mp3 = await toMp3(samples, rate);
+    await s3.send(new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: clip.key,
+      Body: mp3,
+      ContentType: 'audio/mpeg',
+      CacheControl: 'public, max-age=31536000, immutable',
+    }));
+    if (OUT) {
+      const file = path.basename(clip.key);
+      fs.writeFileSync(path.join(OUT, file), mp3);
+      listened.push({ file, label: clip.label });
     }
-    // Encoding and upload overlap the next generation; cap what's in flight.
-    const job = (async () => {
-      const mp3 = await toMp3(audio.audio, audio.sampling_rate);
-      await s3.send(new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: clip.key,
-        Body: mp3,
-        ContentType: 'audio/mpeg',
-        CacheControl: 'public, max-age=31536000, immutable',
-      }));
-      if (OUT) {
-        const file = path.basename(clip.key);
-        fs.writeFileSync(path.join(OUT, file), mp3);
-        listened.push({ file, label: clip.label });
+    bytes += mp3.length;
+    done++;
+    if (done % 50 === 0 || done === todo.length) {
+      const rate = done / ((Date.now() - started) / 1000);
+      const left = Math.round((todo.length - done) / rate / 60);
+      console.log(`${done}/${todo.length}${tag}  ${(bytes / 1e6).toFixed(1)} MB  ~${left} min left`);
+    }
+  };
+
+  // Each model pulls the next clip as soon as it's free.
+  await Promise.all(models.map(async (m) => {
+    while (next < todo.length) {
+      const clip = todo[next++];
+      let audio;
+      try {
+        audio = await m.generate(clip);
+      } catch (err) {
+        failed++;
+        console.warn(`✗ ${clip.label}: ${err.message}`);
+        continue;
       }
-      bytes += mp3.length;
-      done++;
-      if (done % 50 === 0 || done === todo.length) {
-        const rate = done / ((Date.now() - started) / 1000);
-        const left = Math.round((todo.length - done) / rate / 60);
-        console.log(`${done}/${todo.length}${tag}  ${(bytes / 1e6).toFixed(1)} MB  ~${left} min left`);
-      }
-    })().catch((err) => { failed++; console.warn(`✗ ${clip.label}: ${err.message}`); });
-    pending.add(job);
-    job.finally(() => pending.delete(job));
-    if (pending.size >= UPLOADS) await Promise.race(pending);
-  }
+      const job = upload(clip, audio).catch((err) => { failed++; console.warn(`✗ ${clip.label}: ${err.message}`); });
+      pending.add(job);
+      job.finally(() => pending.delete(job));
+      if (pending.size >= UPLOADS) await Promise.race(pending);
+    }
+  }));
   await Promise.all(pending);
+  for (const m of models) await m.close();
 
   if (OUT) {
     const rows = listened
