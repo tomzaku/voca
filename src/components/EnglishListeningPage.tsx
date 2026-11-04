@@ -3,9 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   dictationSentences, dictationTopics, type DictationSentence,
-  comprehensionClips, comprehensionTopics, type ComprehensionQuestion,
-  ieltsListeningSections, ieltsListeningTopics,
+  comprehensionClips, comprehensionTopics, type ComprehensionQuestion, type ComprehensionClip,
+  ieltsListeningSections, ieltsListeningTopics, type IeltsListeningSection,
 } from '../data/englishListening';
+import { Icon } from '@iconify/react';
+import { useComprehensionProgress, useIeltsListeningProgress } from '../hooks/useListeningProgress';
+import { LEVEL_CHIPS, LEVEL_CLASS } from '../lib/listeningLevels';
+import { ListeningBank, type BankChip, type BankLabels } from './ListeningBank';
 import { assignVoices, gradeDictation, scoreAnswers } from '../lib/listeningRules';
 import { ReadAloud } from './ReadAloud';
 import { PodcastTab } from './PodcastTab';
@@ -20,9 +24,11 @@ type Tab = 'podcast' | 'comprehension' | 'dictation' | 'ielts';
  * locally (no server round-trip; there's nothing here worth persisting past
  * the session) and checked all at once, matching how a real listening test
  * is marked at the end of a section rather than question by question. */
-function QuestionBlock({ questions, tone }: {
+function QuestionBlock({ questions, tone, onChecked }: {
   questions: ComprehensionQuestion[];
   tone: 'cyan' | 'pink';
+  /** Called with the number correct each time the answers are checked. */
+  onChecked?: (correct: number) => void;
 }) {
   // No reset-on-prop-change effect needed: the card that owns this only
   // renders it while expanded (`{isExpanded && ...}` below), so it mounts
@@ -37,6 +43,7 @@ function QuestionBlock({ questions, tone }: {
   const check = () => {
     setChecked(true);
     (score === questions.length ? playCorrect : playWrong)();
+    onChecked?.(score);
   };
 
   const toneClass = tone === 'pink'
@@ -99,145 +106,119 @@ function QuestionBlock({ questions, tone }: {
 }
 
 /* ─── Tab: Comprehension — listen, then answer ───────────────── */
-function ComprehensionTab() {
-  const intl = useIntl();
-  const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [showTranscript, setShowTranscript] = useState<Record<string, boolean>>({});
+// Laid out like Podcasts (ListeningBank). A clip counts as done once its
+// answers are checked, and keeps the last score.
+type ComprehensionTopic = (typeof comprehensionTopics)[number];
+const COMPREHENSION_ICON: Record<ComprehensionTopic, string> = {
+  'Daily Life': 'lucide:coffee',
+  Announcements: 'lucide:megaphone',
+  Work: 'lucide:briefcase',
+  Travel: 'lucide:plane',
+  Science: 'lucide:flask-conical',
+  Health: 'lucide:heart-pulse',
+  Culture: 'lucide:landmark',
+};
+const comprehensionIcon = (t: string) => COMPREHENSION_ICON[t as ComprehensionTopic] ?? 'lucide:headphones';
 
-  const filtered = useMemo(
-    () => selectedTopic === 'all' ? comprehensionClips : comprehensionClips.filter((c) => c.topic === selectedTopic),
-    [selectedTopic],
+// Comprehension and IELTS are both graded quizzes, so they share the words.
+const QUIZ_LABELS = {
+  allDoneReview: 'listening.allAnsweredReview',
+  todo: 'listening.statusNotAnswered',
+  done: 'listening.statusAnswered',
+  markDone: 'listening.markAnswered',
+  markNotDone: 'listening.markNotAnswered',
+  doneAgo: 'listening.answeredAgo',
+  emptySaved: 'listening.emptySavedQuiz',
+  emptyDone: 'listening.emptyAnswered',
+  emptyTodo: 'listening.emptyNotAnswered',
+};
+
+const COMPREHENSION_LABELS: BankLabels = {
+  ...QUIZ_LABELS,
+  search: 'listening.searchClips',
+  next: 'listening.nextClip',
+  nextTitle: 'listening.nextClipTitle',
+  backToList: 'listening.backToClips',
+  count: 'listening.clipCount',
+  emptyMatch: 'listening.noClips',
+};
+
+const clipLevel = (c: ComprehensionClip) => c.level;
+const clipMatches = (c: ComprehensionClip, needle: string) =>
+  c.title.toLowerCase().includes(needle) || c.topic.toLowerCase().includes(needle);
+
+function QuestionCount({ count }: { count: number }) {
+  return (
+    <span className="flex items-center gap-1 text-[11px] text-text-muted">
+      <Icon icon="lucide:list-checks" width={11} />
+      <FormattedMessage id="listening.questionCount" values={{ count }} />
+    </span>
   );
+}
 
-  const topicCounts = useMemo(() => {
-    const map: Record<string, number> = {};
-    comprehensionClips.forEach((c) => { map[c.topic] = (map[c.topic] || 0) + 1; });
-    return map;
-  }, []);
+function Duration({ value }: { value: string }) {
+  return (
+    <span className="flex items-center gap-1 text-[11px] text-text-muted">
+      <Icon icon="lucide:clock" width={11} /> {value}
+    </span>
+  );
+}
 
-  const levelColor = (level: string) => {
-    switch (level) {
-      case 'Intermediate': return 'text-accent-green bg-accent-green/10 border-accent-green/20';
-      case 'Upper-Intermediate': return 'text-accent-orange bg-accent-orange/10 border-accent-orange/20';
-      case 'Advanced': return 'text-accent-red bg-accent-red/10 border-accent-red/20';
-      default: return 'text-text-muted bg-bg-tertiary border-transparent';
-    }
-  };
-
+function ComprehensionBody({ clip, onChecked }: { clip: ComprehensionClip; onChecked: (correct: number) => void }) {
+  const [showTranscript, setShowTranscript] = useState(false);
   return (
     <>
-      <p className="text-xs text-text-muted mb-3">
-        <FormattedMessage id="listening.comprehensionIntro" />
-      </p>
-
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-text-muted">
-          {selectedTopic === 'all'
-            ? intl.formatMessage({ id: 'listening.clipCount' }, { count: comprehensionClips.length })
-            : `${intl.formatMessage({ id: 'listening.clipCount' }, { count: filtered.length })} · ${selectedTopic}`}
+      <div className="px-3 sm:px-5 py-3 flex items-center justify-between gap-3 bg-bg-tertiary/50">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-accent-cyan">
+          <Icon icon="lucide:headphones" width={14} /> <FormattedMessage id="listening.listen" />
         </span>
+        <ReadAloud text={clip.script} />
       </div>
 
-      <div className="flex flex-wrap gap-1.5 mb-6">
+      <div className="px-3 sm:px-5 py-4 border-t border-border">
+        <QuestionBlock questions={clip.questions} tone="cyan" onChecked={onChecked} />
+      </div>
+
+      <div className="border-t border-border">
         <button
-          onClick={() => { setSelectedTopic('all'); setExpandedId(null); }}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-            selectedTopic === 'all'
-              ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20'
-              : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-          }`}
+          onClick={() => setShowTranscript((s) => !s)}
+          className="w-full text-left px-3 sm:px-5 py-2.5 text-xs font-semibold text-text-muted hover:text-text-secondary cursor-pointer flex items-center gap-1.5"
+          aria-expanded={showTranscript}
         >
-          <FormattedMessage id="listening.all" /> <span className="ml-1 opacity-60">{comprehensionClips.length}</span>
+          <Icon icon="lucide:chevron-right" width={13} className={`transition-transform ${showTranscript ? 'rotate-90' : ''}`} />
+          <FormattedMessage id={showTranscript ? 'listening.hideTranscript' : 'listening.showTranscript'} />
         </button>
-        {comprehensionTopics.map((topic) => (
-          <button
-            key={topic}
-            onClick={() => { setSelectedTopic(topic); setExpandedId(null); }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-              selectedTopic === topic
-                ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20'
-                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-            }`}
-          >
-            {topic} <span className="ml-1 opacity-60">{topicCounts[topic] || 0}</span>
-          </button>
-        ))}
+        {showTranscript && (
+          <p className="px-3 sm:px-5 pb-4 text-sm text-text-secondary leading-relaxed whitespace-pre-line">{clip.script}</p>
+        )}
       </div>
-
-      <div className="space-y-3">
-        {filtered.map((c) => {
-          const isExpanded = expandedId === c.id;
-          return (
-            <div key={c.id} className="rounded-lg border border-border bg-bg-card overflow-hidden transition-all">
-              <button
-                onClick={() => setExpandedId(isExpanded ? null : c.id)}
-                className="w-full text-left px-5 py-4 flex items-start gap-3 cursor-pointer hover:bg-bg-hover/50 transition-colors"
-              >
-                <span className="w-7 h-7 rounded-md bg-accent-cyan/15 text-accent-cyan flex items-center justify-center shrink-0 mt-0.5">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
-                    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
-                  </svg>
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-medium text-text-primary leading-relaxed">{c.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[11px] text-text-muted">{c.topic}</span>
-                    <span className="text-[10px] text-text-muted">·</span>
-                    <span className="text-[11px] text-text-muted">{c.duration}</span>
-                    <span className="text-[10px] text-text-muted">·</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${levelColor(c.level)}`}>{c.level}</span>
-                    <span className="text-[10px] text-text-muted">·</span>
-                    <span className="text-[11px] text-text-muted"><FormattedMessage id="listening.questionCount" values={{ count: c.questions.length }} /></span>
-                  </div>
-                </div>
-                <svg
-                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  className={`text-text-muted shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-
-              {isExpanded && (
-                <div className="border-t border-border animate-fade-in">
-                  <div className="px-5 py-3 flex items-center justify-between border-b border-border bg-bg-tertiary/50">
-                    <span className="text-xs font-semibold text-accent-cyan"><FormattedMessage id="listening.listen" /></span>
-                    <ReadAloud text={c.script} />
-                  </div>
-
-                  <div className="px-5 py-4">
-                    <QuestionBlock questions={c.questions} tone="cyan" />
-                  </div>
-
-                  <div className="border-t border-border">
-                    <button
-                      onClick={() => setShowTranscript((s) => ({ ...s, [c.id]: !s[c.id] }))}
-                      className="w-full text-left px-5 py-2.5 text-xs font-semibold text-text-muted hover:text-text-secondary cursor-pointer flex items-center gap-1.5"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showTranscript[c.id] ? 'rotate-90' : ''}`}>
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                      <FormattedMessage id={showTranscript[c.id] ? 'listening.hideTranscript' : 'listening.showTranscript'} />
-                    </button>
-                    {showTranscript[c.id] && (
-                      <p className="px-5 pb-4 text-sm text-text-secondary leading-relaxed whitespace-pre-line">{c.script}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-text-muted">
-          <p className="text-sm"><FormattedMessage id="listening.noClips" /></p>
-        </div>
-      )}
     </>
+  );
+}
+
+function ComprehensionTab() {
+  return (
+    <ListeningBank
+      items={comprehensionClips}
+      topics={comprehensionTopics}
+      topicIcon={comprehensionIcon}
+      store={useComprehensionProgress}
+      labels={COMPREHENSION_LABELS}
+      chips={LEVEL_CHIPS}
+      chipOf={clipLevel}
+      matches={clipMatches}
+      intro={<FormattedMessage id="listening.comprehensionIntro" />}
+      meta={(c) => (
+        <>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${LEVEL_CLASS[c.level]}`}>{c.level}</span>
+          <Duration value={c.duration} />
+          <QuestionCount count={c.questions.length} />
+        </>
+      )}
+      body={(c, { markDone }) => (
+        <ComprehensionBody key={c.id} clip={c} onChecked={(correct) => markDone({ correct, total: c.questions.length })} />
+      )}
+    />
   );
 }
 
@@ -494,189 +475,119 @@ function speakerAssignments(transcript: { speaker: string }[]) {
   return { voice, tone };
 }
 
-function IeltsListeningTab() {
-  const intl = useIntl();
-  const [selectedTopic, setSelectedTopic] = useState<string | 'all'>('all');
-  const [selectedSection, setSelectedSection] = useState<string | 'all'>('all');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+// Laid out like Podcasts (ListeningBank), with the section number as the
+// filter chip in place of level. Done once the answers are checked.
+type IeltsTopic = (typeof ieltsListeningTopics)[number];
+type IeltsSection = IeltsListeningSection['section'];
+const IELTS_ICON: Record<IeltsTopic, string> = {
+  'Everyday Services': 'lucide:phone',
+  'Campus Life': 'lucide:graduation-cap',
+  'Academic Discussion': 'lucide:messages-square',
+  Lecture: 'lucide:presentation',
+};
+const ieltsIcon = (t: string) => IELTS_ICON[t as IeltsTopic] ?? 'lucide:headphones';
+const SECTION_CLASS = 'text-accent-pink bg-accent-pink/10 border-accent-pink/20';
+const SECTION_CHIPS: BankChip<IeltsSection>[] = IELTS_SECTIONS.map((s) => ({ key: s, label: s, className: SECTION_CLASS }));
 
-  const filtered = useMemo(
-    () => ieltsListeningSections.filter((s) => {
-      if (selectedTopic !== 'all' && s.topic !== selectedTopic) return false;
-      if (selectedSection !== 'all' && s.section !== selectedSection) return false;
-      return true;
-    }),
-    [selectedTopic, selectedSection],
-  );
+const IELTS_LABELS: BankLabels = {
+  ...QUIZ_LABELS,
+  search: 'listening.searchSections',
+  next: 'listening.nextSection',
+  nextTitle: 'listening.nextSectionTitle',
+  backToList: 'listening.backToSections',
+  count: 'listening.sectionCount',
+  emptyMatch: 'listening.noSections',
+};
 
-  const topicCounts = useMemo(() => {
-    const map: Record<string, number> = {};
-    ieltsListeningSections.forEach((s) => { map[s.topic] = (map[s.topic] || 0) + 1; });
-    return map;
-  }, []);
+const sectionOf = (s: IeltsListeningSection) => s.section;
+const sectionMatches = (s: IeltsListeningSection, needle: string) =>
+  s.title.toLowerCase().includes(needle) || s.description.toLowerCase().includes(needle);
 
+function IeltsBody({ s, onChecked }: { s: IeltsListeningSection; onChecked: (correct: number) => void }) {
+  const { voice, tone } = useMemo(() => speakerAssignments(s.transcript), [s.transcript]);
   return (
     <>
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-text-muted">
-          <FormattedMessage id="listening.sectionCount" values={{ count: filtered.length }} />
-          {selectedTopic !== 'all' ? ` · ${selectedTopic}` : ''}
-          {selectedSection !== 'all' ? ` · ${selectedSection}` : ''}
-        </span>
+      <div className="px-3 sm:px-5 py-3 bg-bg-tertiary/50 flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-text-secondary leading-relaxed">{s.description}</p>
+          <div className="flex flex-wrap items-center gap-3 mt-2">
+            {Object.keys(voice).map((sp) => (
+              <div key={sp} className="flex items-center gap-1.5">
+                <span className={`w-2.5 h-2.5 rounded-full ${TONE_CLASSES[tone[sp]].dot}`} />
+                <span className="text-[10px] text-text-muted">{sp}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <PlaySequence lines={s.transcript.map((t) => ({ text: t.text, voice: voice[t.speaker] }))} />
       </div>
 
-      <div className="flex gap-1.5 mb-3">
-        {(['all', ...IELTS_SECTIONS] as const).map((section) => (
-          <button
-            key={section}
-            onClick={() => setSelectedSection(section)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-              selectedSection === section
-                ? 'bg-accent-pink/10 text-accent-pink border-accent-pink/20'
-                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-            }`}
-          >
-            {section === 'all' ? intl.formatMessage({ id: 'listening.allSections' }) : section}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 mb-6">
-        <button
-          onClick={() => setSelectedTopic('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-            selectedTopic === 'all'
-              ? 'bg-accent-pink/10 text-accent-pink border-accent-pink/20'
-              : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-          }`}
-        >
-          <FormattedMessage id="listening.all" /> <span className="ml-1 opacity-60">{ieltsListeningSections.length}</span>
-        </button>
-        {ieltsListeningTopics.map((topic) => (
-          <button
-            key={topic}
-            onClick={() => setSelectedTopic(topic)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-              selectedTopic === topic
-                ? 'bg-accent-pink/10 text-accent-pink border-accent-pink/20'
-                : 'bg-bg-tertiary text-text-muted border-transparent hover:text-text-secondary'
-            }`}
-          >
-            {topic} <span className="ml-1 opacity-60">{topicCounts[topic] || 0}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {filtered.map((s) => {
-          const isExpanded = expandedId === s.id;
-          const { voice, tone } = speakerAssignments(s.transcript);
+      <div className="px-3 sm:px-5 py-4 space-y-4 border-t border-border">
+        {s.transcript.map((t, i) => {
+          const tc = TONE_CLASSES[tone[t.speaker]];
           return (
-            <div key={s.id} className="rounded-lg border border-border bg-bg-card overflow-hidden transition-all">
-              <button
-                onClick={() => setExpandedId(isExpanded ? null : s.id)}
-                className="w-full text-left px-5 py-4 flex items-start gap-3 cursor-pointer hover:bg-bg-hover/50 transition-colors"
-              >
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold shrink-0 mt-0.5 border text-accent-pink bg-accent-pink/10 border-accent-pink/20">
-                  {s.section}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-medium text-text-primary leading-relaxed">{s.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[11px] text-text-muted">{s.topic}</span>
-                    <span className="text-[10px] text-text-muted">·</span>
-                    <span className="text-[11px] text-text-muted flex items-center gap-1">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <polyline points="12 6 12 12 16 14" />
-                      </svg>
-                      {s.duration}
-                    </span>
-                    <span className="text-[10px] text-text-muted">·</span>
-                    <span className="text-[11px] text-text-muted"><FormattedMessage id="listening.questionCount" values={{ count: s.questions.length }} /></span>
-                  </div>
-                </div>
-                <svg
-                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  className={`text-text-muted shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-
-              {isExpanded && (
-                <div className="border-t border-border animate-fade-in">
-                  <div className="px-5 py-3 bg-bg-tertiary/50 flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-text-secondary leading-relaxed">{s.description}</p>
-                      <div className="flex flex-wrap items-center gap-3 mt-2">
-                        {Object.keys(voice).map((sp) => (
-                          <div key={sp} className="flex items-center gap-1.5">
-                            <span className={`w-2.5 h-2.5 rounded-full ${TONE_CLASSES[tone[sp]].dot}`} />
-                            <span className="text-[10px] text-text-muted">{sp}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <PlaySequence lines={s.transcript.map((t) => ({ text: t.text, voice: voice[t.speaker] }))} />
-                  </div>
-
-                  <div className="px-5 py-4 space-y-4 border-b border-border">
-                    {s.transcript.map((t, i) => {
-                      const tc = TONE_CLASSES[tone[t.speaker]];
-                      return (
-                        <div key={i} className="flex gap-3">
-                          <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${tc.badgeBg} ${tc.badgeText}`}>
-                            {t.speaker.charAt(0).toUpperCase()}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <span className={`text-[10px] font-semibold block mb-1 ${tc.badgeText}`}>{t.speaker}</span>
-                            <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{t.text}</p>
-                          </div>
-                          <div className="shrink-0 mt-5">
-                            <ReadAloudVoice
-                              text={t.text}
-                              voice={voice[t.speaker]}
-                              tone={tc.readAloud}
-                              voiceLabel={t.speaker}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="px-5 py-4">
-                    <p className="text-xs font-semibold text-accent-pink mb-3"><FormattedMessage id="listening.questions" /></p>
-                    <QuestionBlock questions={s.questions} tone="pink" />
-                  </div>
-
-                  {s.tips && s.tips.length > 0 && (
-                    <div className="px-5 py-3 bg-accent-green/5 border-t border-accent-green/10">
-                      <p className="text-xs font-semibold text-accent-green mb-2"><FormattedMessage id="listening.tips" /></p>
-                      <ul className="space-y-1">
-                        {s.tips.map((tip, i) => (
-                          <li key={i} className="text-xs text-text-secondary flex items-start gap-2">
-                            <span className="text-accent-green/60 mt-0.5 shrink-0">•</span>
-                            {tip}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
+            <div key={i} className="flex gap-3">
+              <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${tc.badgeBg} ${tc.badgeText}`}>
+                {t.speaker.charAt(0).toUpperCase()}
+              </span>
+              <div className="flex-1 min-w-0">
+                <span className={`text-[10px] font-semibold block mb-1 ${tc.badgeText}`}>{t.speaker}</span>
+                <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-line">{t.text}</p>
+              </div>
+              <div className="shrink-0 mt-5">
+                <ReadAloudVoice text={t.text} voice={voice[t.speaker]} tone={tc.readAloud} voiceLabel={t.speaker} />
+              </div>
             </div>
           );
         })}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-text-muted">
-          <p className="text-sm"><FormattedMessage id="listening.noSections" /></p>
+      <div className="px-3 sm:px-5 py-4 border-t border-border">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-accent-pink mb-3">
+          <Icon icon="lucide:list-checks" width={14} /> <FormattedMessage id="listening.questions" />
+        </p>
+        <QuestionBlock questions={s.questions} tone="pink" onChecked={onChecked} />
+      </div>
+
+      {s.tips && s.tips.length > 0 && (
+        <div className="px-3 sm:px-5 py-3 bg-accent-green/5 border-t border-accent-green/10">
+          <p className="text-xs font-semibold text-accent-green mb-2"><FormattedMessage id="listening.tips" /></p>
+          <ul className="space-y-1">
+            {s.tips.map((tip, i) => (
+              <li key={i} className="text-xs text-text-secondary flex items-start gap-2">
+                <span className="text-accent-green/60 mt-0.5 shrink-0">•</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </>
+  );
+}
+
+function IeltsListeningTab() {
+  return (
+    <ListeningBank
+      items={ieltsListeningSections}
+      topics={ieltsListeningTopics}
+      topicIcon={ieltsIcon}
+      store={useIeltsListeningProgress}
+      labels={IELTS_LABELS}
+      chips={SECTION_CHIPS}
+      chipOf={sectionOf}
+      matches={sectionMatches}
+      meta={(s) => (
+        <>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${SECTION_CLASS}`}>{s.section}</span>
+          <Duration value={s.duration} />
+          <QuestionCount count={s.questions.length} />
+        </>
+      )}
+      body={(s, { markDone }) => (
+        <IeltsBody key={s.id} s={s} onChecked={(correct) => markDone({ correct, total: s.questions.length })} />
+      )}
+    />
   );
 }
 

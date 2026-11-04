@@ -15,11 +15,13 @@ export interface QuestionProgress {
   /** Epoch ms of the last practice; absent once unmarked. */
   practicedAt?: number;
   saved?: boolean;
+  /** Last result, for banks that grade an attempt (Listening's quizzes). */
+  score?: { correct: number; total: number };
 }
 
 export interface PracticeProgressState {
   questions: Record<string, QuestionProgress>;
-  markPracticed: (id: string) => void;
+  markPracticed: (id: string, score?: QuestionProgress['score']) => void;
   /** Undo for a mis-tap — clears the practiced state but keeps `saved`. */
   clearPracticed: (id: string) => void;
   toggleSaved: (id: string) => void;
@@ -32,10 +34,10 @@ export function createPracticeProgress(name: string) {
   persist(
     (set) => ({
       questions: {},
-      markPracticed: (id) =>
+      markPracticed: (id, score) =>
         set((s) => {
           const prev = s.questions[id];
-          return { questions: { ...s.questions, [id]: { ...prev, count: (prev?.count ?? 0) + 1, practicedAt: Date.now() } } };
+          return { questions: { ...s.questions, [id]: { ...prev, count: (prev?.count ?? 0) + 1, practicedAt: Date.now(), ...(score && { score }) } } };
         }),
       clearPracticed: (id) =>
         set((s) => {
@@ -46,7 +48,7 @@ export function createPracticeProgress(name: string) {
       toggleSaved: (id) =>
         set((s) => {
           const prev = s.questions[id];
-          return { questions: { ...s.questions, [id]: { count: prev?.count ?? 0, practicedAt: prev?.practicedAt, saved: !prev?.saved } } };
+          return { questions: { ...s.questions, [id]: { ...prev, count: prev?.count ?? 0, saved: !prev?.saved } } };
         }),
     }),
     {
