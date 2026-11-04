@@ -34,8 +34,8 @@ ${SENSES_RULE}`;
 // use" /juːs/, "is content" /kəntˈɛnt/, "the content" /kˈɑːntɛnt/. So each
 // sense is phonemized behind a lead-in word for its part of speech, which is
 // then dropped. Deterministic, unlike asking the model, which gets heteronyms
-// wrong and writes symbols Kokoro doesn't read. Used only for words with
-// several senses; a one-meaning word keeps its bare-word IPA.
+// wrong and writes symbols Kokoro doesn't read. For a word that isn't a
+// heteronym the lead-in changes nothing.
 
 const LEAD_INS: [RegExp, string][] = [
   [/^verb|phrasal verb/, 'to'],

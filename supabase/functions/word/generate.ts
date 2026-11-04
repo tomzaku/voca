@@ -43,13 +43,13 @@ export async function generateWordData(word: string, learnLang: string, motherLa
         // handle. seedWord is always the canonical English form, so this
         // never needs to know which language the user actually typed in.
         //
-        // A word with several senses is read once per part of speech, so
-        // "use" the verb gets /juːz/ and the noun /juːs/ (see ipaContext);
-        // a one-meaning word keeps the bare-spelling reading it always had.
+        // Each sense is read as its part of speech, so "use" the verb gets
+        // /juːz/ and the noun /juːs/ (see ipaContext) — the primary one too,
+        // even when the model listed no other senses: a missed sense mustn't
+        // leave the verb "live" with the adjective's /laɪv/.
         if (data.seedWord) {
           const seed = data.seedWord;
-          const several = data.otherSenses.length > 0;
-          data.phonetics = await withPhonemizedIpa(seed, data.phonetics, several ? data.partOfSpeech : undefined);
+          data.phonetics = await withPhonemizedIpa(seed, data.phonetics, data.partOfSpeech);
           for (const s of data.otherSenses) s.phonetics = await withPhonemizedIpa(seed, s.phonetics, s.partOfSpeech);
         }
         return data;
