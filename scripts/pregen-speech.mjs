@@ -37,6 +37,15 @@
 //   npm run speech:pregen -- --voice am_michael                   # the male voice
 //   npm run speech:pregen                                         # GPU (MLX) when set up, else CPU
 //   npm run speech:pregen -- --engine onnx --workers 3            # CPU: 3 ONNX models in parallel
+//   npm run speech:pregen -- --cpu-workers 2 --threads 4          # GPU + 2 CPU models, fastest
+//   npm run speech:pregen:background                              # low priority: the Mac stays usable
+//   npm run speech:status                                         # how many are uploaded / left
+//
+// Full speed (the GPU plus CPU models) takes the whole machine — the display
+// shares that GPU — so it's for when nobody's using it. While someone is,
+// :background runs it at macOS's background priority (taskpolicy -b):
+// efficiency cores, last in line for the GPU and disk, slower but out of the
+// way.
 //   npm run speech:pregen -- --words live,use,tear                # just these words, now
 //   npm run speech:pregen -- --shard 1/2                          # half the clips (another machine)
 //
@@ -75,9 +84,15 @@ const MLX_PYTHON = path.join(os.homedir(), '.cache/voca-mlx/.venv/bin/python');
 // MLX (the Apple GPU, ~3.4x the CPU) when it's set up, ONNX on the CPU otherwise.
 const ENGINE = strArg('--engine') || (fs.existsSync(MLX_PYTHON) ? 'mlx' : 'onnx');
 if (!['mlx', 'onnx'].includes(ENGINE)) throw new Error('--engine must be mlx or onnx');
-// One GPU model keeps the GPU busy; CPU models need several to fill the cores.
+// One GPU model keeps the GPU busy — a second only queues behind it (86 vs
+// ~100 clips a minute) — while CPU models need several to fill the cores.
 const WORKERS = Math.max(1, Number(strArg('--workers')) || (ENGINE === 'mlx' ? 1 : 3));
-const THREADS = Number(strArg('--threads')) || Math.max(1, Math.floor(os.availableParallelism() / WORKERS));
+// CPU models alongside the GPU one, on cores the GPU run leaves idle: they
+// pull from the same queue, so the two engines just add up. Both say the same
+// phonemes with the same weights (bf16 vs fp32) and sound alike.
+const CPU_WORKERS = ENGINE === 'mlx' ? Math.max(0, Number(strArg('--cpu-workers')) || 0) : 0;
+const CPU_MODELS = ENGINE === 'mlx' ? CPU_WORKERS : WORKERS;
+const THREADS = Number(strArg('--threads')) || Math.max(1, Math.floor(os.availableParallelism() / Math.max(1, CPU_MODELS)));
 const BUCKET = process.env.AUDIO_S3_BUCKET || 'trile-voca-audio';
 const REGION = process.env.AUDIO_S3_REGION || 'ap-southeast-2';
 /** Mono at Kokoro's 24 kHz; 48 kb/s keeps speech clean at ~6 KB a second. */
@@ -267,8 +282,8 @@ function startMlxModel() {
 }
 
 /** A Kokoro model in a child process: generate(clip) → { samples, rate }. */
-function startModel() {
-  if (ENGINE === 'mlx') return startMlxModel();
+function startModel(engine = ENGINE) {
+  if (engine === 'mlx') return startMlxModel();
   // 'advanced' serialization carries the Float32Array of samples as-is.
   const worker = fork(new URL('./pregen-speech-worker.mjs', import.meta.url), [], {
     serialization: 'advanced',
@@ -312,14 +327,18 @@ async function main() {
   const mine = (c) => SHARDS === 1 || parseInt(path.basename(c.key).slice(0, 8), 16) % SHARDS === SHARD - 1;
   const todo = clips.filter((c) => mine(c) && !have.has(c.key));
   const tag = SHARDS > 1 ? ` [shard ${SHARD}/${SHARDS}]` : '';
-  console.log(`${words} words → ${clips.length} clips for ${FOLDER}; ${clips.length - clips.filter((c) => !have.has(c.key)).length} already uploaded, ${todo.length} to record${tag}.`);
+  const uploaded = clips.length - clips.filter((c) => !have.has(c.key)).length;
+  console.log(`${words} words → ${clips.length} clips for ${FOLDER}; ${uploaded} already uploaded (${Math.floor((uploaded / clips.length) * 100)}%), ${todo.length} to record${tag}.`);
   if (DRY_RUN || !todo.length) return;
 
   if (OUT) fs.mkdirSync(OUT, { recursive: true });
   console.log(ENGINE === 'mlx'
-    ? `Loading ${WORKERS} Kokoro model(s) on the GPU (MLX)…`
+    ? `Loading ${WORKERS} Kokoro model(s) on the GPU (MLX)${CPU_WORKERS ? ` + ${CPU_WORKERS} on the CPU, ${THREADS} threads each` : ''}…`
     : `Loading ${WORKERS} Kokoro model(s) on the CPU, ${THREADS} threads each…`);
-  const models = await Promise.all(Array.from({ length: WORKERS }, () => startModel()));
+  const models = await Promise.all([
+    ...Array.from({ length: WORKERS }, () => startModel()),
+    ...Array.from({ length: CPU_WORKERS }, () => startModel('onnx')),
+  ]);
 
   const started = Date.now();
   const pending = new Set();

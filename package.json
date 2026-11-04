@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.184",
+  "version": "0.1.185",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -41,6 +41,8 @@
     "senses:backfill": "node --env-file=.env scripts/backfill-senses.mjs",
     "lexicon:build": "node --env-file=.env scripts/build-lexicon.mjs",
     "speech:pregen": "AWS_PROFILE=voca node --env-file=.env scripts/pregen-speech.mjs",
+    "speech:pregen:background": "taskpolicy -b npm run speech:pregen --",
+    "speech:status": "npm run -s speech:pregen -- --dry-run",
     "speech:setup-mlx": "uv venv --allow-existing --python 3.12 ~/.cache/voca-mlx/.venv && uv pip install --python ~/.cache/voca-mlx/.venv/bin/python -r scripts/requirements-mlx.txt",
     "infra:audio:init": "terraform -chdir=infra/aws/audio-bucket init",
     "infra:audio:plan": "eval \"$(aws configure export-credentials --profile voca --format env)\" && terraform -chdir=infra/aws/audio-bucket plan",
