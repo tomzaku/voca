@@ -117,6 +117,21 @@ interface PatchSlot {
 
 /** Each patch's rect in map px: from its corner to the next patch's along each
  *  axis, or to the map's edge. */
+/** An image the browser has finished decoding, off the main thread. */
+function decodedImage(url: string): Promise<HTMLImageElement> {
+  const img = new Image();
+  img.src = url;
+  return img.decode().then(() => img);
+}
+
+const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+/** One GPU upload a frame, across every patch: a 1280² texture is 5–18 ms of
+ *  main thread even decoded, and patches arriving together each waiting for
+ *  "the next frame" all woke in the same one — four of them, a 60 ms hitch. */
+let uploadTurn = Promise.resolve();
+const nextUploadFrame = () => (uploadTurn = uploadTurn.then(nextFrame));
+
 function patchRects(patches: DetailPatch[], mapW: number, mapH: number) {
   const xs = [...new Set(patches.map((p) => p.x))].sort((a, b) => a - b);
   const ys = [...new Set(patches.map((p) => p.y))].sort((a, b) => a - b);
@@ -2135,23 +2150,36 @@ export class WorldScene extends Phaser.Scene {
     return [{ key: `detail-${p.key}-ground`, file: p.ground }, { key: `detail-${p.key}-over`, file: p.over }];
   }
 
+  /**
+   * Not through `this.load`: Phaser's loader hands the GPU an image the
+   * browser hasn't decoded yet, so each ~1280² PNG decodes inside the upload,
+   * on the main thread — 10–30 ms on a laptop, far more on a phone, and on a
+   * lite device that's a hitch every time the walk crosses a patch edge.
+   * `decode()` does that work off the main thread; what's left is the upload,
+   * queued so that only one lands in any frame.
+   */
   private loadPatch(s: PatchSlot) {
     s.loading = true;
     const files = this.patchKeys(s.patch!);
-    let left = files.length;
-    const done = () => {
-      if (--left > 0) return;
-      s.loading = false;
-      // Landed after the scene moved on (or restarted without this slot).
-      if (!this.sys.isActive() || !this.patchSlots.includes(s)) return;
-      this.showPatch(s);
-    };
-    for (const f of files) {
-      if (this.textures.exists(f.key)) { done(); continue; }
-      this.load.once(`filecomplete-image-${f.key}`, done);
-      this.load.image(f.key, `${this.patchDir}${f.file}`);
-    }
-    this.load.start();   // a no-op while it's already running; queued files join in
+    // Landed after the scene moved on (or restarted without this slot).
+    const stale = () => !this.sys.isActive() || !this.patchSlots.includes(s);
+    Promise.all(files.map((f) => (this.textures.exists(f.key) ? null : decodedImage(`${this.patchDir}${f.file}`))))
+      .then(async (imgs) => {
+        for (let i = 0; i < files.length; i++) {
+          const img = imgs[i];
+          if (!img) continue;
+          await nextUploadFrame();
+          if (stale()) { s.loading = false; return; }   // the sweep asks again if it's still wanted
+          if (!this.textures.exists(files[i].key)) this.textures.addImage(files[i].key, img);
+        }
+        // Showing it costs a few ms more (its first draw) — a frame of its own.
+        await nextUploadFrame();
+        s.loading = false;
+        if (!stale()) this.showPatch(s);
+      })
+      // A patch that won't load stays `loading`, so the sweep doesn't retry it
+      // four times a second; its 1× crops keep covering that part of the map.
+      .catch((err) => console.warn('[world] detail patch failed', err));
   }
 
   private showPatch(s: PatchSlot) {

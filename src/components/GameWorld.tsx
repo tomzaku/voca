@@ -128,6 +128,28 @@ const DOT: Record<string, string> = {
 
 type MinimapPos = { x: number; y: number; areaIndex: number };
 
+type DebugPos = { buddy: [number, number]; cursor: [number, number] | null };
+
+/** Local development only: where the buddy and the pointer are, in the map
+ *  generator's tiles. Its own state for the same reason as the minimap — as
+ *  state on the world screen it re-rendered all of it ten times a second
+ *  while walking (7–10 ms a time), which is what made walking stutter in dev. */
+function DebugReadout({ listeners }: { listeners: Set<(p: DebugPos) => void> }) {
+  const [pos, setPos] = useState<DebugPos | null>(null);
+  useEffect(() => {
+    listeners.add(setPos);
+    return () => { listeners.delete(setPos); };
+  }, [listeners]);
+  if (!pos) return null;
+  return (
+    <div className="absolute top-[3.6rem] right-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white hidden sm:block">
+      you {pos.buddy.join(', ')}
+      {pos.cursor && <> · cursor {pos.cursor.join(', ')}</>}
+      <span className="text-white/50"> · P logs it</span>
+    </div>
+  );
+}
+
 /** The area you're in, its buildings, and you. Holds the buddy's position as
  *  its own state, so walking re-renders this and not the whole world screen.
  *  Hidden on phones — where it'd re-render for nothing, it doesn't subscribe. */
@@ -464,8 +486,7 @@ export function GameWorld({
   const [sceneUp, setSceneUp] = useState(false);
   const posListeners = useRef(new Set<(p: MinimapPos) => void>());
   const lastPos = useRef<MinimapPos | null>(null);
-  // Local development only: where the buddy and the pointer are, in map tiles.
-  const [debugPos, setDebugPos] = useState<{ buddy: [number, number]; cursor: [number, number] | null } | null>(null);
+  const debugListeners = useRef(new Set<(p: DebugPos) => void>());
   const [arrival, setArrival] = useState<{ name: string; key: number } | null>(null);
   const arrivalKey = useRef(0);
 
@@ -591,7 +612,8 @@ export function GameWorld({
     game.events.on(WORLD_EVENTS.play, setAtPlay);
     const onPeer = (id: string) => { const p = liveRef.current?.peer(id); if (p) setPeerCard({ id, name: p.name }); };
     game.events.on(WORLD_EVENTS.peer, onPeer);
-    if (import.meta.env.DEV) game.events.on(WORLD_EVENTS.debug, setDebugPos);
+    const onDebug = (p: DebugPos) => { for (const f of debugListeners.current) f(p); };
+    if (import.meta.env.DEV) game.events.on(WORLD_EVENTS.debug, onDebug);
     const ro = new ResizeObserver(() => {
       game.scale.resize(parent.clientWidth * dpr, parent.clientHeight * dpr);
     });
@@ -611,7 +633,7 @@ export function GameWorld({
       game.events.off(WORLD_EVENTS.vendor, onVendor);
       game.events.off(WORLD_EVENTS.play, setAtPlay);
       game.events.off(WORLD_EVENTS.peer, onPeer);
-      if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, setDebugPos);
+      if (import.meta.env.DEV) game.events.off(WORLD_EVENTS.debug, onDebug);
       game.destroy(true);
     };
   }, [animal.id, stage, playerName, locale]);
@@ -999,13 +1021,7 @@ export function GameWorld({
              building's HUD is up. ── */}
       {/* Local development only: the position readout, in the map generator's
           tiles, for saying exactly where something on the map is wrong. */}
-      {import.meta.env.DEV && debugPos && (
-        <div className="absolute top-[3.6rem] right-2 z-30 pointer-events-none rounded bg-black/70 px-2 py-1 font-mono text-[11px] text-white hidden sm:block">
-          you {debugPos.buddy.join(', ')}
-          {debugPos.cursor && <> · cursor {debugPos.cursor.join(', ')}</>}
-          <span className="text-white/50"> · P logs it</span>
-        </div>
-      )}
+      {import.meta.env.DEV && <DebugReadout listeners={debugListeners.current} />}
 
       {/* ── Status bar ── the world's menu (back to the app), you — your
              buddy as dressed, your name — and what the city shows of your
