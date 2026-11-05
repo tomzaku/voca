@@ -80,25 +80,61 @@ const TABS = [
 type SettingsTab = (typeof TABS)[number]['value'];
 const isTab = (v: string | null): v is SettingsTab => TABS.some((t) => t.value === v);
 
-function Section({ title, hint, children }: { title: ReactNode; hint?: ReactNode; children: ReactNode }) {
+// Each setting gets a colour: its icon tile, and the fill of whichever option
+// is chosen. Spelled out in full so Tailwind sees every class.
+type Tone = 'orange' | 'cyan' | 'purple' | 'blue' | 'green' | 'yellow' | 'red' | 'pink';
+const TONE: Record<Tone, { badge: string; on: string }> = {
+  orange: { badge: 'bg-accent-orange/15 text-accent-orange', on: 'bg-accent-orange text-bg-primary' },
+  cyan: { badge: 'bg-accent-cyan/15 text-accent-cyan', on: 'bg-accent-cyan text-bg-primary' },
+  purple: { badge: 'bg-accent-purple/15 text-accent-purple', on: 'bg-accent-purple text-bg-primary' },
+  blue: { badge: 'bg-accent-blue/15 text-accent-blue', on: 'bg-accent-blue text-bg-primary' },
+  green: { badge: 'bg-accent-green/15 text-accent-green', on: 'bg-accent-green text-bg-primary' },
+  yellow: { badge: 'bg-accent-yellow/20 text-accent-yellow', on: 'bg-accent-yellow text-bg-primary' },
+  red: { badge: 'bg-accent-red/15 text-accent-red', on: 'bg-accent-red text-bg-primary' },
+  pink: { badge: 'bg-accent-pink/15 text-accent-pink', on: 'bg-accent-pink text-bg-primary' },
+};
+
+/** One setting: a card with a coloured icon, a title that reads as a
+ *  question's subject (not a shouty label), a hint, then the control. */
+function SettingCard({ icon, tone, title, hint, children }: {
+  icon: string;
+  tone: Tone;
+  title: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <section className="mb-7">
-      <h2 className={`text-sm font-display font-bold text-text-secondary uppercase tracking-wider ${hint ? 'mb-1' : 'mb-3'}`}>{title}</h2>
-      {hint && <p className="text-xs text-text-muted mb-3">{hint}</p>}
-      {children}
+    <section className="card-game p-4 sm:p-5 mb-5">
+      <div className="flex items-start gap-3">
+        <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${TONE[tone].badge}`}>
+          <Icon icon={icon} className="text-xl" />
+        </span>
+        <div className="flex-1 min-w-0 pt-0.5">
+          <h2 className="text-base font-display font-bold text-text-primary leading-tight">{title}</h2>
+          {hint && <p className="text-xs text-text-muted mt-1">{hint}</p>}
+        </div>
+      </div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
 
-/** A row of mutually exclusive options — the compact form of the old card grids. */
-function Segmented<T extends string | number>({ value, options, onChange, label }: {
+/**
+ * Pick-one options as raised tiles. The chosen one is filled with the card's
+ * colour and ticked, so it reads at a glance — the flat grey segmented control
+ * this replaced was hard to tell apart from its own background.
+ */
+function OptionTiles<T extends string | number>({ value, options, onChange, label, tone, cols }: {
   value: T;
-  options: { value: T; label: ReactNode; icon?: string; sub?: ReactNode }[];
+  options: { value: T; label: ReactNode; icon?: string; sub?: ReactNode; big?: boolean }[];
   onChange: (v: T) => void;
   label: string;
+  tone: Tone;
+  /** Tailwind grid-cols classes, e.g. 'grid-cols-2 sm:grid-cols-4'. */
+  cols: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1 p-1 rounded-xl bg-bg-tertiary">
+    <div role="radiogroup" aria-label={label} className={`grid gap-2.5 ${cols}`}>
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -108,15 +144,18 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`flex-1 min-w-[4.5rem] flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-lg text-sm font-bold transition-colors ${
-              on ? 'bg-bg-card text-accent-cyan shadow-sm' : 'text-text-muted hover:text-text-primary'
+            className={`btn-3d relative flex flex-col items-center justify-center gap-1 px-2 py-3 min-h-[4.25rem] text-center ${
+              on ? TONE[tone].on : 'bg-bg-tertiary text-text-secondary'
             }`}
           >
-            <span className="flex items-center gap-1.5">
-              {o.icon && <Icon icon={o.icon} className="text-base" />}
-              {o.label}
-            </span>
-            {o.sub && <span className="text-[10px] font-medium opacity-80">{o.sub}</span>}
+            {on && (
+              <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-white/30 flex items-center justify-center">
+                <Icon icon="lucide:check" className="text-[11px]" />
+              </span>
+            )}
+            {o.icon && <Icon icon={o.icon} className="text-xl" />}
+            <span className={o.big ? 'text-2xl leading-none tabular-nums' : 'text-sm leading-tight'}>{o.label}</span>
+            {o.sub && <span className={`text-[11px] font-bold ${on ? 'opacity-90' : 'text-text-muted'}`}>{o.sub}</span>}
           </button>
         );
       })}
@@ -124,18 +163,26 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
   );
 }
 
-function ToggleRow({ title, hint, checked, onToggle }: { title: ReactNode; hint: ReactNode; checked: boolean; onToggle: () => void }) {
+/** A switch with its label, inside a card — rows separated by a hairline. */
+function ToggleRow({ icon, title, hint, checked, onToggle }: {
+  icon: string;
+  title: ReactNode;
+  hint: ReactNode;
+  checked: boolean;
+  onToggle: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onToggle}
       aria-pressed={checked}
-      className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all cursor-pointer"
+      className="w-full flex items-center gap-3 py-3 first:pt-0 last:pb-0 border-b last:border-b-0 border-border text-left cursor-pointer"
     >
-      <div className="flex-1 text-left">
-        <span className="text-sm font-medium text-text-primary block">{title}</span>
+      <Icon icon={icon} className={`text-lg shrink-0 ${checked ? 'text-accent-green' : 'text-text-muted'}`} />
+      <span className="flex-1 min-w-0">
+        <span className="text-sm font-bold text-text-primary block">{title}</span>
         <span className="text-xs text-text-muted mt-0.5 block">{hint}</span>
-      </div>
+      </span>
       <ToggleSwitch checked={checked} />
     </button>
   );
@@ -145,15 +192,17 @@ function ToggleRow({ title, hint, checked, onToggle }: { title: ReactNode; hint:
  *  out, but only on this device — worth saying before they set it all up. */
 function GuestNote({ onSignIn }: { onSignIn: () => void }) {
   return (
-    <div className="mb-6 flex items-center gap-3 p-3 rounded-xl border border-accent-green/30 bg-accent-green/5">
+    <div className="mb-5 flex items-center gap-3 p-3 rounded-2xl border-2 border-accent-green/30 bg-accent-green/5">
       <Icon icon="lucide:hard-drive" className="text-lg text-accent-green shrink-0" />
       <p className="flex-1 text-xs text-text-secondary"><FormattedMessage id="settings.guestNote" /></p>
-      <button onClick={onSignIn} className="btn-3d shrink-0 px-3 py-1.5 rounded-lg bg-accent-green text-bg-primary text-xs font-bold">
+      <button onClick={onSignIn} className="btn-3d shrink-0 px-3 py-1.5 bg-accent-green text-bg-primary text-xs">
         <FormattedMessage id="navbar.signIn" />
       </button>
     </div>
   );
 }
+
+const SELECT_CLASS = 'select-field w-full bg-bg-tertiary border-2 border-transparent rounded-xl pl-3 py-2.5 text-sm font-bold text-text-primary focus:outline-none focus:border-accent-blue/50 cursor-pointer';
 
 export function SettingsPage() {
   const intl = useIntl();
@@ -247,12 +296,12 @@ export function SettingsPage() {
 
     return (
       <div className="mt-5">
-        <h3 className="text-xs font-bold text-text-secondary mb-1"><FormattedMessage id="settings.voice" /></h3>
+        <h3 className="text-sm font-display font-bold text-text-primary"><FormattedMessage id="settings.voice" /></h3>
         <p className="text-xs text-text-muted mb-3"><FormattedMessage id="settings.voiceHint" values={{ engine: isKokoro ? 'Kokoro' : 'Piper' }} /></p>
         <div className="space-y-4">
           {voiceGroups.map((group) => (
             <div key={group.labelId}>
-              <h4 className="text-xs font-medium text-text-muted mb-2"><FormattedMessage id={group.labelId} /></h4>
+              <h4 className="text-xs font-bold text-text-muted mb-2"><FormattedMessage id={group.labelId} /></h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {group.voices.map((v) => {
                   const selected = currentVoice === v.id;
@@ -262,25 +311,23 @@ export function SettingsPage() {
                     <div
                       key={v.id}
                       onClick={() => setCurrentVoice(v.id)}
-                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${selected ? 'bg-accent-cyan/5 border-accent-cyan/30' : 'bg-bg-card border-border hover:border-text-muted/30'}`}
+                      className={`flex items-center gap-3 p-2.5 rounded-xl border-2 transition-all cursor-pointer ${selected ? 'bg-accent-purple/10 border-accent-purple' : 'bg-bg-tertiary border-transparent hover:border-border'}`}
                     >
-                      <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${selected ? 'border-accent-cyan' : 'border-text-muted/40'}`}>
-                        {selected && <span className="w-1.5 h-1.5 rounded-full bg-accent-cyan" />}
+                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${selected ? 'border-accent-purple' : 'border-text-muted/40'}`}>
+                        {selected && <span className="w-2 h-2 rounded-full bg-accent-purple" />}
                       </span>
                       <div className="flex-1 min-w-0 flex items-center gap-2">
-                        <span className={`text-sm font-medium ${selected ? 'text-accent-cyan' : 'text-text-primary'}`}>{v.name}</span>
+                        <span className={`text-sm font-bold ${selected ? 'text-accent-purple' : 'text-text-primary'}`}>{v.name}</span>
                         <span className={`text-[10px] font-code font-bold ${gradeColor[v.grade] ?? 'text-text-muted'}`}>{v.grade}</span>
                       </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); (isPlaying || isLoading) ? stopPreview() : preview(v.id); }}
                         aria-label={v.name}
-                        className={`w-7 h-7 rounded-md flex items-center justify-center border transition-all shrink-0 cursor-pointer ${
-                          isPlaying || isLoading
-                            ? 'bg-accent-cyan/10 text-accent-cyan border-accent-cyan/20'
-                            : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-cyan hover:border-accent-cyan/30'
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                          isPlaying || isLoading ? 'bg-accent-purple text-bg-primary' : 'bg-bg-card text-text-muted hover:text-accent-purple'
                         }`}
                       >
-                        <Icon icon={isLoading ? 'lucide:loader-circle' : isPlaying ? 'lucide:square' : 'lucide:play'} className={`text-xs ${isLoading ? 'animate-spin' : ''}`} />
+                        <Icon icon={isLoading ? 'lucide:loader-circle' : isPlaying ? 'lucide:square' : 'lucide:play'} className={`text-sm ${isLoading ? 'animate-spin' : ''}`} />
                       </button>
                     </div>
                   );
@@ -294,7 +341,7 @@ export function SettingsPage() {
   })();
 
   return (
-    <div className="max-w-page mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-display font-bold text-text-primary mb-4"><FormattedMessage id="settings.title" /></h1>
 
       <div className="overflow-x-auto -mx-4 px-4 mb-6">
@@ -309,27 +356,29 @@ export function SettingsPage() {
 
       {tab === 'learning' && (
         <>
-          <Section title={<FormattedMessage id="settings.dailyGoal" />} hint={<FormattedMessage id="settings.dailyGoalHint" />}>
-            <Segmented
+          <SettingCard icon="lucide:target" tone="orange" title={<FormattedMessage id="settings.dailyGoal" />} hint={<FormattedMessage id="settings.dailyGoalHint" />}>
+            <OptionTiles
+              tone="orange"
+              cols="grid-cols-2 sm:grid-cols-4"
               label={intl.formatMessage({ id: 'settings.dailyGoal' })}
               value={dailyGoal}
               onChange={setDailyGoal}
-              options={GOAL_OPTIONS.map((n) => ({ value: n, label: n, sub: <FormattedMessage id={`flashcard.start.goal${n}`} /> }))}
+              options={GOAL_OPTIONS.map((n) => ({ value: n, label: n, big: true, sub: <FormattedMessage id={`flashcard.start.goal${n}`} /> }))}
             />
-          </Section>
+          </SettingCard>
 
-          <Section title={<FormattedMessage id="settings.collection" />} hint={<FormattedMessage id="settings.collectionHint" />}>
-            <div className="flex items-center gap-3 p-3 mb-3 rounded-lg border border-border bg-bg-card">
-              <Icon icon={activeEntry.icon ?? 'lucide:library'} className="text-xl text-accent-cyan shrink-0" />
+          <SettingCard icon="lucide:library" tone="cyan" title={<FormattedMessage id="settings.collection" />} hint={<FormattedMessage id="settings.collectionHint" />}>
+            <div className="flex items-center gap-3 p-3 mb-3 rounded-xl bg-accent-cyan/10">
+              <Icon icon={activeEntry.icon ?? 'lucide:book-open'} className="text-2xl text-accent-cyan shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-text-primary truncate">{activeEntry.name}</p>
+                <p className="text-sm font-display font-bold text-text-primary truncate">{activeEntry.name}</p>
                 <p className="text-xs text-text-muted truncate">{activeEntry.description}</p>
               </div>
-              <Link to="/collections" className="shrink-0 text-xs font-bold text-accent-cyan hover:underline">
+              <Link to="/collections" className="btn-3d shrink-0 px-3 py-1.5 bg-bg-card text-accent-cyan text-xs">
                 <FormattedMessage id="settings.browseTopics" />
               </Link>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {collections.map((c) => {
                 const on = activeCollection === c.id;
                 return (
@@ -339,129 +388,114 @@ export function SettingsPage() {
                     aria-pressed={on}
                     title={c.description}
                     onClick={() => handlePackChange(c.id)}
-                    className={`px-3 py-1.5 rounded-full border text-xs font-bold transition-colors ${
-                      on ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border bg-bg-card text-text-secondary hover:border-border-light'
-                    }`}
+                    className={`btn-3d px-3.5 py-1.5 rounded-full text-xs ${on ? TONE.cyan.on : 'bg-bg-tertiary text-text-secondary'}`}
                   >
                     {c.name}
                   </button>
                 );
               })}
             </div>
-          </Section>
+          </SettingCard>
 
-          <Section title={<FormattedMessage id="settings.guessGame" />} hint={<FormattedMessage id="settings.guessGameHint" />}>
-            <div className="flex flex-wrap gap-1.5">
-              {GUESS_GAMES.map((g) => {
-                const on = guessGame === g.id;
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => {
-                      setGuessGame(g.id);
-                      toast.success(intl.formatMessage({ id: 'settings.defaultGameToast' }, { game: intl.formatMessage({ id: g.labelId }) }));
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-colors ${
-                      on ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border bg-bg-card text-text-secondary hover:border-border-light'
-                    }`}
-                  >
-                    <Icon icon={g.icon} className="text-sm" />
-                    <FormattedMessage id={g.labelId} />
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs text-text-muted mt-2"><FormattedMessage id={selectedGame.descriptionId} /></p>
-          </Section>
+          <SettingCard icon="lucide:gamepad-2" tone="purple" title={<FormattedMessage id="settings.guessGame" />} hint={<FormattedMessage id="settings.guessGameHint" />}>
+            <OptionTiles
+              tone="purple"
+              cols="grid-cols-3"
+              label={intl.formatMessage({ id: 'settings.guessGame' })}
+              value={guessGame}
+              onChange={(id) => {
+                setGuessGame(id);
+                const g = GUESS_GAMES.find((x) => x.id === id)!;
+                toast.success(intl.formatMessage({ id: 'settings.defaultGameToast' }, { game: intl.formatMessage({ id: g.labelId }) }));
+              }}
+              options={GUESS_GAMES.map((g) => ({ value: g.id, label: <FormattedMessage id={g.labelId} />, icon: g.icon }))}
+            />
+            <p className="flex items-start gap-1.5 text-xs text-text-secondary mt-3 p-2.5 rounded-xl bg-accent-purple/10">
+              <Icon icon="lucide:info" className="text-sm text-accent-purple shrink-0 mt-px" />
+              <FormattedMessage id={selectedGame.descriptionId} />
+            </p>
+          </SettingCard>
 
-          <Section title={<FormattedMessage id="settings.languages" />} hint={<FormattedMessage id="settings.languagesHint" />}>
+          <SettingCard icon="lucide:languages" tone="blue" title={<FormattedMessage id="settings.languages" />} hint={<FormattedMessage id="settings.languagesHint" />}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-text-secondary block mb-1.5"><FormattedMessage id="settings.learnLanguage" /></label>
-                <select
-                  value={learnLang}
-                  onChange={(e) => handleLearnLangChange(e.target.value)}
-                  className="select-field w-full bg-bg-card border border-border rounded-lg pl-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
-                >
+              <label className="block">
+                <span className="text-xs font-bold text-text-secondary block mb-1.5"><FormattedMessage id="settings.learnLanguage" /></span>
+                <select value={learnLang} onChange={(e) => handleLearnLangChange(e.target.value)} className={SELECT_CLASS}>
                   {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-text-secondary block mb-1.5"><FormattedMessage id="settings.motherLanguage" /></label>
-                <select
-                  value={motherLang}
-                  onChange={(e) => handleMotherLangChange(e.target.value)}
-                  className="select-field w-full bg-bg-card border border-border rounded-lg pl-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent-cyan/50 cursor-pointer"
-                >
+              </label>
+              <label className="block">
+                <span className="text-xs font-bold text-text-secondary block mb-1.5"><FormattedMessage id="settings.motherLanguage" /></span>
+                <select value={motherLang} onChange={(e) => handleMotherLangChange(e.target.value)} className={SELECT_CLASS}>
                   {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
-              </div>
+              </label>
             </div>
-          </Section>
+          </SettingCard>
         </>
       )}
 
       {tab === 'sound' && (
         <>
-          <div className="mb-7">
-            <div className="space-y-2">
-              <ToggleRow
-                title={<FormattedMessage id="settings.speakAutomatically" />}
-                hint={<FormattedMessage id="settings.speakAutomaticallyHint" />}
-                checked={autoSpeakOn}
-                onToggle={() => {
-                  const next = !autoSpeakOn;
-                  localStorage.setItem('voca-auto-speak', String(next));
-                  setAutoSpeakOn(next);
-                  toast.success(intl.formatMessage({ id: next ? 'settings.autoSpeakOn' : 'settings.autoSpeakOff' }));
-                }}
-              />
-              <ToggleRow
-                title={<FormattedMessage id="settings.gameSounds" />}
-                hint={<FormattedMessage id="settings.gameSoundsHint" />}
-                checked={sfxOn}
-                onToggle={() => {
-                  const next = !sfxOn;
-                  setSfxEnabled(next);
-                  setSfxOn(next);
-                  if (next) playCorrect(); // preview the sound when turning it on
-                  toast.success(intl.formatMessage({ id: next ? 'settings.sfxOn' : 'settings.sfxOff' }));
-                }}
-              />
-            </div>
-          </div>
+          <SettingCard icon="lucide:volume-2" tone="green" title={<FormattedMessage id="settings.tabSound" />}>
+            <ToggleRow
+              icon="lucide:speech"
+              title={<FormattedMessage id="settings.speakAutomatically" />}
+              hint={<FormattedMessage id="settings.speakAutomaticallyHint" />}
+              checked={autoSpeakOn}
+              onToggle={() => {
+                const next = !autoSpeakOn;
+                localStorage.setItem('voca-auto-speak', String(next));
+                setAutoSpeakOn(next);
+                toast.success(intl.formatMessage({ id: next ? 'settings.autoSpeakOn' : 'settings.autoSpeakOff' }));
+              }}
+            />
+            <ToggleRow
+              icon="lucide:music-2"
+              title={<FormattedMessage id="settings.gameSounds" />}
+              hint={<FormattedMessage id="settings.gameSoundsHint" />}
+              checked={sfxOn}
+              onToggle={() => {
+                const next = !sfxOn;
+                setSfxEnabled(next);
+                setSfxOn(next);
+                if (next) playCorrect(); // preview the sound when turning it on
+                toast.success(intl.formatMessage({ id: next ? 'settings.sfxOn' : 'settings.sfxOff' }));
+              }}
+            />
+          </SettingCard>
 
-          <Section title={<FormattedMessage id="settings.playbackSpeed" />}>
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-text-muted w-8 text-right">0.5x</span>
+          <SettingCard icon="lucide:gauge" tone="cyan" title={<FormattedMessage id="settings.playbackSpeed" />}>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-text-muted">0.5x</span>
               <input
                 type="range" min="0.5" max="2" step="0.1" value={speed}
                 onChange={(e) => setSpeed(parseFloat(e.target.value))}
                 aria-label={intl.formatMessage({ id: 'settings.playbackSpeed' })}
-                className="flex-1 h-1.5 accent-accent-cyan cursor-pointer"
+                className="flex-1 h-2 accent-accent-cyan cursor-pointer"
               />
-              <span className="text-xs text-text-muted w-8">2x</span>
-              <span className="text-sm font-code font-medium text-accent-cyan w-12 text-center">{speed.toFixed(1)}x</span>
+              <span className="text-xs font-bold text-text-muted">2x</span>
+              <span className="min-w-[3.5rem] text-center px-2 py-1 rounded-lg bg-accent-cyan text-bg-primary text-sm font-display font-bold tabular-nums">{speed.toFixed(1)}x</span>
             </div>
-          </Section>
+          </SettingCard>
 
           {/* Engines and voices are for the curious — "Automatic" is right for
               nearly everyone, so the list waits behind a disclosure. Opened
               already when someone has picked an engine by hand. */}
-          <details className="group mb-7 rounded-xl border border-border bg-bg-card" open={enginePref !== 'auto'}>
-            <summary className="flex items-center gap-3 p-4 cursor-pointer list-none">
-              <Icon icon="lucide:audio-lines" className="text-lg text-text-muted shrink-0" />
-              <span className="flex-1">
-                <span className="block text-sm font-medium text-text-primary"><FormattedMessage id="settings.advancedVoice" /></span>
-                <span className="block text-xs text-text-muted">
+          <details className="group card-game mb-5" open={enginePref !== 'auto'}>
+            <summary className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer list-none">
+              <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${TONE.purple.badge}`}>
+                <Icon icon="lucide:audio-lines" className="text-xl" />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-base font-display font-bold text-text-primary"><FormattedMessage id="settings.advancedVoice" /></span>
+                <span className="block text-xs text-text-muted mt-0.5">
                   <FormattedMessage id="settings.advancedVoiceHint" values={{ engine: intl.formatMessage({ id: ENGINE_NAME_ID[engine] }) }} />
                 </span>
               </span>
-              <Icon icon="lucide:chevron-down" className="text-text-muted transition-transform group-open:rotate-180" />
+              <Icon icon="lucide:chevron-down" className="text-xl text-text-muted transition-transform group-open:rotate-180" />
             </summary>
-            <div className="px-4 pb-4">
+            <div className="px-4 sm:px-5 pb-5">
               <div className="space-y-2">
                 {engines.map((e) => {
                   const disabled = e.id === 'kokoro' && isSafari;
@@ -472,26 +506,26 @@ export function SettingsPage() {
                       key={e.id}
                       onClick={() => !disabled && setEngine(e.id)}
                       disabled={disabled}
-                      className={`w-full text-left p-3 rounded-lg border transition-all ${
+                      className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
                         disabled
-                          ? 'opacity-40 cursor-not-allowed bg-bg-card border-border'
+                          ? 'opacity-40 cursor-not-allowed bg-bg-tertiary border-transparent'
                           : on
-                            ? 'bg-accent-cyan/5 border-accent-cyan/30 ring-1 ring-accent-cyan/20 cursor-pointer'
-                            : 'bg-bg-card border-border hover:border-text-muted/30 cursor-pointer'
+                            ? 'bg-accent-purple/10 border-accent-purple cursor-pointer'
+                            : 'bg-bg-tertiary border-transparent hover:border-border cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center gap-3 mb-1">
-                        <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${on ? 'border-accent-cyan' : 'border-text-muted/40'}`}>
-                          {on && <span className="w-2 h-2 rounded-full bg-accent-cyan" />}
+                        <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${on ? 'border-accent-purple' : 'border-text-muted/40'}`}>
+                          {on && <span className="w-2 h-2 rounded-full bg-accent-purple" />}
                         </span>
-                        <span className={`text-sm font-medium ${on ? 'text-accent-cyan' : 'text-text-primary'}`}><FormattedMessage id={e.labelId} /></span>
+                        <span className={`text-sm font-bold ${on ? 'text-accent-purple' : 'text-text-primary'}`}><FormattedMessage id={e.labelId} /></span>
                         {e.badgeId && (
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${on ? 'bg-accent-cyan/15 text-accent-cyan' : 'bg-bg-tertiary text-text-muted'}`}>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${on ? 'bg-accent-purple text-bg-primary' : 'bg-bg-card text-text-muted'}`}>
                             <FormattedMessage id={e.badgeId} />
                           </span>
                         )}
                         {heavy && (
-                          <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-orange/10 text-accent-orange">
+                          <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent-orange/15 text-accent-orange">
                             <Icon icon="lucide:triangle-alert" className="text-[11px]" />
                             <FormattedMessage id="settings.badgeHeavy" />
                           </span>
@@ -513,32 +547,40 @@ export function SettingsPage() {
 
       {tab === 'look' && (
         <>
-          <Section title={<FormattedMessage id="settings.uiLanguage" />}>
-            <Segmented
+          <SettingCard icon="lucide:globe" tone="blue" title={<FormattedMessage id="settings.uiLanguage" />}>
+            <OptionTiles
+              tone="blue"
+              cols="grid-cols-2"
               label={intl.formatMessage({ id: 'settings.uiLanguage' })}
               value={locale}
               onChange={setLocale}
               options={LOCALES.map((l) => ({ value: l.id, label: l.label, icon: l.flag }))}
             />
-          </Section>
+          </SettingCard>
 
-          <Section title={<FormattedMessage id="settings.theme" />}>
-            <Segmented
+          <SettingCard icon="lucide:sun-moon" tone="yellow" title={<FormattedMessage id="settings.theme" />}>
+            <OptionTiles
+              tone="yellow"
+              cols="grid-cols-2"
               label={intl.formatMessage({ id: 'settings.theme' })}
               value={theme}
               onChange={(id) => setTheme(id)}
               options={THEMES.map((t) => ({ value: t.id, label: <FormattedMessage id={t.labelId} />, icon: t.icon }))}
             />
-          </Section>
+          </SettingCard>
 
-          <Section
+          <SettingCard
+            icon="game-icons:paper-lantern"
+            tone="red"
             title={<FormattedMessage id="settings.festive" />}
             hint={<FormattedMessage
               id="settings.festiveHint"
               values={{ date: nextTet ? intl.formatDate(nextTet, { day: 'numeric', month: 'long', year: 'numeric' }) : '—' }}
             />}
           >
-            <Segmented
+            <OptionTiles
+              tone="red"
+              cols="grid-cols-3"
               label={intl.formatMessage({ id: 'settings.festive' })}
               value={festiveMode}
               onChange={setFestiveMode}
@@ -548,13 +590,14 @@ export function SettingsPage() {
                 icon: m === 'auto' ? 'lucide:calendar-heart' : m === 'on' ? 'game-icons:paper-lantern' : 'lucide:circle-off',
               }))}
             />
-            <p className="text-xs text-text-muted mt-2">
+            <p className="text-xs text-text-muted mt-3">
               <FormattedMessage id={festiveOn ? 'settings.festiveNowOn' : 'settings.festiveNowOff'} />
             </p>
-          </Section>
+          </SettingCard>
 
-          <Section title={<FormattedMessage id="settings.worldGame" />}>
+          <SettingCard icon="lucide:map" tone="green" title={<FormattedMessage id="settings.worldGame" />}>
             <ToggleRow
+              icon="lucide:gamepad-2"
               title={<FormattedMessage id="settings.enableWorldGame" />}
               hint={<FormattedMessage id="settings.worldGameHint" />}
               checked={gameEnabled}
@@ -564,17 +607,17 @@ export function SettingsPage() {
                 toast.success(intl.formatMessage({ id: next ? 'settings.worldGameOn' : 'settings.worldGameOff' }));
               }}
             />
-          </Section>
+          </SettingCard>
         </>
       )}
 
       {tab === 'account' && (
         <>
-          <Section title={<FormattedMessage id="settings.account" />}>
+          <SettingCard icon="lucide:user-round" tone="cyan" title={<FormattedMessage id="settings.account" />}>
             {user ? (
-              <div className="p-4 rounded-lg border border-border bg-bg-card flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{user.email}</p>
+                  <p className="text-sm font-bold text-text-primary truncate">{user.email}</p>
                   <p className="text-xs text-text-muted mt-0.5">
                     <FormattedMessage
                       id="settings.accountStats"
@@ -582,19 +625,16 @@ export function SettingsPage() {
                     />
                   </p>
                 </div>
-                <button
-                  onClick={signOut}
-                  className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-border text-text-muted hover:text-accent-red hover:border-accent-red/30 transition-colors"
-                >
+                <button onClick={signOut} className="btn-3d shrink-0 px-3 py-1.5 bg-bg-tertiary text-text-secondary text-xs">
                   <FormattedMessage id="settings.signOut" />
                 </button>
               </div>
             ) : (
-              <div className="p-4 rounded-lg border border-border bg-bg-card">
+              <>
                 <p className="text-sm text-text-secondary mb-3"><FormattedMessage id="settings.signInPrompt" /></p>
                 <button
                   onClick={signInWithGoogle}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-gray-800 text-sm font-medium hover:bg-gray-50 transition-colors border border-gray-200"
+                  className="btn-3d flex items-center gap-2 px-4 py-2.5 bg-white text-gray-800 text-sm"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -604,32 +644,36 @@ export function SettingsPage() {
                   </svg>
                   <FormattedMessage id="auth.continueGoogle" />
                 </button>
-              </div>
+              </>
             )}
-          </Section>
+          </SettingCard>
 
-          <Section title={<FormattedMessage id="settings.data" />}>
+          <SettingCard icon="lucide:database" tone="red" title={<FormattedMessage id="settings.data" />}>
             <button
               onClick={handleResetProgress}
-              className="w-full p-4 rounded-lg border border-accent-red/20 bg-accent-red/5 text-accent-red text-sm font-medium hover:bg-accent-red/10 transition-colors cursor-pointer text-left"
+              className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-accent-red/30 bg-accent-red/5 text-left hover:bg-accent-red/10 transition-colors cursor-pointer"
             >
-              <FormattedMessage id="settings.resetProgress" />
-              <span className="block text-xs font-normal text-accent-red/60 mt-0.5"><FormattedMessage id="settings.resetProgressHint" /></span>
+              <Icon icon="lucide:rotate-ccw" className="text-lg text-accent-red shrink-0" />
+              <span className="flex-1">
+                <span className="block text-sm font-bold text-accent-red"><FormattedMessage id="settings.resetProgress" /></span>
+                <span className="block text-xs text-accent-red/70 mt-0.5"><FormattedMessage id="settings.resetProgressHint" /></span>
+              </span>
             </button>
-          </Section>
+          </SettingCard>
 
           {/* Developer tools — kept, but folded away from learners. */}
-          <details className="group mb-7">
+          <details className="group mb-5 px-1">
             <summary className="flex items-center gap-1.5 text-xs font-bold text-text-muted cursor-pointer list-none">
               <Icon icon="lucide:chevron-right" className="transition-transform group-open:rotate-90" />
               <FormattedMessage id="settings.developer" />
             </summary>
             <Link
               to="/debug/network"
-              className="mt-3 w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-bg-card hover:border-border-light transition-all"
+              className="mt-3 w-full flex items-center gap-3 p-4 rounded-xl border-2 border-border bg-bg-card hover:border-border-light transition-all"
             >
+              <Icon icon="lucide:network" className="text-lg text-text-muted shrink-0" />
               <div className="flex-1 text-left">
-                <span className="text-sm font-medium text-text-primary block"><FormattedMessage id="settings.networkDebug" /></span>
+                <span className="text-sm font-bold text-text-primary block"><FormattedMessage id="settings.networkDebug" /></span>
                 <span className="text-xs text-text-muted mt-0.5 block"><FormattedMessage id="settings.networkDebugHint" /></span>
               </div>
               <Icon icon="lucide:chevron-right" className="text-text-muted shrink-0" />
