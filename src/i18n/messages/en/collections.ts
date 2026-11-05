@@ -38,6 +38,7 @@ export default {
   'collections.viewName': 'View {name}',
   'collections.quizName': 'Quiz {name}',
   'collections.presentName': 'Present {name} as slides',
+  'collections.progressShort': 'Progress',
   'collections.nameProgress': '{name} progress',
   'collections.wordsPctKnown': '{count, plural, one {# word} other {# words}} · {pct}% known',
   'collections.wordsPct': '{count, plural, one {# word} other {# words}} · {pct}%',

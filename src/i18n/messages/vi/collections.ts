@@ -38,6 +38,7 @@ export default {
   'collections.viewName': 'Xem {name}',
   'collections.quizName': 'Kiểm tra {name}',
   'collections.presentName': 'Trình chiếu {name} dạng slide',
+  'collections.progressShort': 'Tiến độ',
   'collections.nameProgress': 'Tiến độ {name}',
   'collections.wordsPctKnown': '{count} từ · đã biết {pct}%',
   'collections.wordsPct': '{count} từ · {pct}%',

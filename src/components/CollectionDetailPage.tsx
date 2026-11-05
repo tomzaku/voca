@@ -9,7 +9,7 @@ import { collectionShareUrl, presentPath, useCollections } from '../hooks/useCol
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useProgressForWords } from '../hooks/useProgressQuery';
 import { getCollection, isCollectionId } from '../lib/collections';
-import { PHOTO_SCRIM, topicCover, topicPhoto } from '../lib/topicTheme';
+import { topicPhoto } from '../lib/topicTheme';
 import {
   fetchCollectionDetail,
   fetchMembers,
@@ -31,6 +31,7 @@ import { AddFriendButton } from './AddFriendButton';
 import { useFriendStatuses } from '../hooks/useFriendStatuses';
 import { LoadWordDetails } from './WordDetails';
 import { CollectionSlides } from './CollectionSlides';
+import { COVER_GLASS, COVER_PRIMARY, CollectionCover, CoverChip } from './CollectionCover';
 import { asSlideThemeId, suggestedSlideTheme } from '../lib/slideThemes';
 
 /** Podium colours, matching the team leaderboard's medals. */
@@ -604,126 +605,78 @@ export function CollectionDetail({ id, onClose, present = false }: { id: string;
 
   const owner = fetched?.owner;
   const shownBuckets = BUCKET_ORDER.filter((b) => counts[b] > 0);
-  const knownPct = words.length ? Math.round((known / words.length) * 100) : 0;
-  // On the cover: translucent, so the photo or gradient stays the backdrop.
-  const glass = 'flex items-center gap-1.5 px-3 h-9 rounded-xl bg-white/15 ring-1 ring-white/25 backdrop-blur-sm text-white text-xs font-bold hover:bg-white/25 transition-colors disabled:opacity-50';
-  const chipOnCover = 'flex items-center gap-1 px-2 py-1 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur-sm';
-
   return shell(
     <>
       {/* ── Cover ── the same art as the collection's banner and card, so the
-          popup reads as that card opened up. Edge to edge in the popup (which
-          floats its close buttons over the top-right), rounded on the page. */}
-      <header
-        className={`relative overflow-hidden text-white ${inModal ? 'px-6 pb-6 pt-16' : 'rounded-3xl px-5 sm:px-7 pb-6 pt-14 sm:pt-20 mb-6'}`}
-        // The card's drop shadow reads as a stray glow line inside the popup.
-        style={inModal ? { ...topicCover(id), boxShadow: 'none' } : topicCover(id)}
-      >
-        {topic && <img src={topicPhoto(id)} alt="" decoding="async" className="pointer-events-none absolute inset-0 w-full h-full object-cover" />}
-        <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
-
-        <div className="relative flex flex-col lg:flex-row lg:items-end gap-5">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3">
-              {topic && (
-                <span className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-white/20 ring-1 ring-white/30 backdrop-blur-sm">
-                  <Icon icon={topic.icon} className="text-2xl" />
-                </span>
-              )}
-              <h1 className="min-w-0 text-3xl sm:text-4xl font-display font-extrabold leading-tight break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.3)]">
-                {name}
-              </h1>
-            </div>
-            {description && <p className="mt-2 max-w-2xl text-sm text-white/90">{description}</p>}
-
-            <div className="flex flex-wrap items-center gap-1.5 mt-3 text-[11px] font-bold">
-              <span className={chipOnCover}>
-                <Icon icon="lucide:book-open" /> <FormattedMessage id="collections.wordCount" values={{ count: words.length }} />
-              </span>
-              {col && (
-                <span className={chipOnCover}>
-                  <Icon icon="lucide:users" /> <FormattedMessage id="collections.learnerCount" values={{ count: col.memberCount }} />
-                </span>
-              )}
-              {col && !col.isPublic && (
-                <span className={chipOnCover}><Icon icon="lucide:lock" /> <FormattedMessage id="collections.private" /></span>
-              )}
-              {system && (
-                <span className={chipOnCover}>
-                  <Icon icon="lucide:sparkles" /> <FormattedMessage id={topic ? 'collections.builtInTopic' : 'collections.builtIn'} />
-                </span>
-              )}
-              {owner?.name && (
-                <span className={chipOnCover}>
-                  {owner.avatarUrl
-                    ? <img src={owner.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-4 h-4 rounded-full" />
-                    : <Icon icon="lucide:user" />}
-                  <FormattedMessage
-                    id={isOwner ? 'collections.byYou' : 'collections.byOwner'}
-                    values={{ name: owner.name, b: (c) => <span>{c}</span> }}
-                  />
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4 max-w-md">
-              <div className="h-2 rounded-full bg-white/25 overflow-hidden">
-                <div className="h-full rounded-full bg-white transition-all" style={{ width: `${knownPct}%` }} />
-              </div>
-              <p className="text-xs font-bold text-white/90 mt-1.5">
-                <FormattedMessage id="collections.youKnowOf" values={{ known, total: words.length }} />
-              </p>
-            </div>
-          </div>
-
-          {/* One clear next step, and the other ways in beside it, quieter. */}
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:max-w-[22rem]">
+          popup reads as that card opened up. */}
+      <CollectionCover
+        id={id}
+        name={name}
+        description={description}
+        icon={topic?.icon}
+        photo={topic ? topicPhoto(id) : undefined}
+        flush={inModal}
+        known={known}
+        total={words.length}
+        chips={
+          <>
+            <CoverChip icon="lucide:book-open"><FormattedMessage id="collections.wordCount" values={{ count: words.length }} /></CoverChip>
+            {col && <CoverChip icon="lucide:users"><FormattedMessage id="collections.learnerCount" values={{ count: col.memberCount }} /></CoverChip>}
+            {col && !col.isPublic && <CoverChip icon="lucide:lock"><FormattedMessage id="collections.private" /></CoverChip>}
+            {system && (
+              <CoverChip icon="lucide:sparkles"><FormattedMessage id={topic ? 'collections.builtInTopic' : 'collections.builtIn'} /></CoverChip>
+            )}
+            {owner?.name && (
+              <CoverChip icon={owner.avatarUrl
+                ? <img src={owner.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-4 h-4 rounded-full" />
+                : 'lucide:user'}
+              >
+                <FormattedMessage id={isOwner ? 'collections.byYou' : 'collections.byOwner'} values={{ name: owner.name, b: (c) => <span>{c}</span> }} />
+              </CoverChip>
+            )}
+          </>
+        }
+        actions={
+          <>
             {/* A visitor can read and present someone's list, but studying it
                 means joining, and joining needs an account. Built-in lists
                 study on this device alone, so they need none. */}
             {!user && !system ? (
-              <button
-                onClick={() => void signInWithGoogle()}
-                className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5"
-              >
+              <button onClick={() => void signInWithGoogle()} className={COVER_PRIMARY}>
                 <Icon icon="lucide:log-in" /> <FormattedMessage id="collections.signInToStudy" />
               </button>
             ) : (
-              <button
-                onClick={study}
-                disabled={joining}
-                className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5 disabled:opacity-80"
-              >
+              <button onClick={study} disabled={joining} className={COVER_PRIMARY}>
                 <Icon icon={joined || system || isOwner ? 'lucide:play' : 'lucide:user-plus'} />
                 <FormattedMessage
                   id={active ? 'collections.continueStudying' : joining ? 'collections.joining' : joined || system || isOwner ? 'collections.studyThis' : 'collections.joinAndStudy'}
                 />
               </button>
             )}
-            <button onClick={() => setPickingQuiz(true)} className={glass}>
+            <button onClick={() => setPickingQuiz(true)} className={COVER_GLASS}>
               <Icon icon="lucide:circle-check-big" className="text-sm" /> <FormattedMessage id="collections.quiz" />
             </button>
             <button
               onClick={() => navigate(presentPath(id, { filter, q: query }))}
               disabled={shownWords.length === 0}
               title={intl.formatMessage({ id: 'collections.presentTitle' })}
-              className={glass}
+              className={COVER_GLASS}
             >
               <Icon icon="lucide:presentation" className="text-sm" /> <FormattedMessage id="collections.present" />
             </button>
-            <MindMapButton words={words} isPro={isPro} onOpenInteractive={() => setMode('mindmap')} className={glass}>
+            <MindMapButton words={words} isPro={isPro} onOpenInteractive={() => setMode('mindmap')} className={COVER_GLASS}>
               <Icon icon="lucide:git-fork" className="text-sm" />
               <FormattedMessage id="mindmap.button" />
               <Icon icon="lucide:chevron-down" className="text-[11px] opacity-70" />
             </MindMapButton>
             {col && (isOwner || col.isPublic) && (
-              <button onClick={share} className={glass}>
+              <button onClick={share} className={COVER_GLASS}>
                 <Icon icon="lucide:share-2" className="text-sm" /> <FormattedMessage id="collections.share" />
               </button>
             )}
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] ${inModal ? 'p-6' : ''}`}>
         {/* ── Words ── */}

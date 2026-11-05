@@ -10,8 +10,9 @@ import { CollectionStats } from './CollectionStats';
 import { MemberAvatars } from './MemberAvatars';
 import { CollectionForm } from './CollectionForm';
 import { CollectionDetailModal, Popup } from './CollectionDetailModal';
+import { COVER_GLASS, COVER_PRIMARY, CollectionCover, CoverChip } from './CollectionCover';
 import { LevelTest } from './LevelTestPage';
-import { completionPct } from '../lib/completion';
+import { completionCount, completionPct } from '../lib/completion';
 import { PHOTO_SCRIM, topicCover, topicPhoto } from '../lib/topicTheme';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useAuth } from '../hooks/useAuth';
@@ -422,7 +423,7 @@ export function CollectionsPage() {
   const activeSystem = !activeUser && isCollectionId(activeId) ? getCollection(activeId) : null;
   const activeName = activeUser?.name ?? activeSystem?.name ?? getCollection(activeId).name;
   const activeWords = activeUser?.words ?? systemWords(activeSystem?.id ?? activeId);
-  const activePct = completionPct(activeWords, progress);
+  const activeKnown = completionCount(activeWords, progress);
   const activeIsTopic = activeSystem?.kind === 'topic';
 
   if (sharedId) return <Navigate to={`/collections/${sharedId}`} replace />;
@@ -462,50 +463,50 @@ export function CollectionsPage() {
 
   return (
     <div className="mx-auto max-w-page px-4 py-8">
-      {/* ── Hero: what you're studying now ── */}
-      <section
-        className="group relative overflow-hidden rounded-3xl text-white p-5 sm:p-7 mb-6"
-        style={topicCover(activeId)}
-      >
-        {activeIsTopic && (
-          <img src={topicPhoto(activeId)} alt="" decoding="async" className="pointer-events-none absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
-        )}
-        <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
-        {/* The whole banner opens the list, like a card below does — the
-            buttons on it sit above this and keep their own jobs. */}
-        <button
-          onClick={() => openDetails(activeId)}
-          aria-label={intl.formatMessage({ id: 'collections.viewName' }, { name: activeName })}
-          className="absolute inset-0 rounded-3xl focus-visible:outline-2 focus-visible:outline-white"
-        />
-        <div className="relative pointer-events-none flex flex-col sm:flex-row sm:items-end gap-5">
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/80"><FormattedMessage id="collections.nowStudying" /></p>
-            <h1 className="mt-1 text-3xl sm:text-4xl font-display font-extrabold leading-tight break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.3)]">
-              {activeName}
-            </h1>
-            <div className="mt-4 max-w-md">
-              <div className="h-2 rounded-full bg-white/25 overflow-hidden">
-                <div className="h-full rounded-full bg-white transition-all" style={{ width: `${activePct}%` }} />
-              </div>
-              <p className="text-xs font-bold text-white/90 mt-1.5">
-                <FormattedMessage id="collections.pctKnownWords" values={{ pct: activePct, count: activeWords.length }} />
-              </p>
-            </div>
-          </div>
-          <div className="pointer-events-auto flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => navigate('/')}
-              className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5"
-            >
+      {/* ── Hero: what you're studying now ── the same cover as the
+          collection's own page, so tapping it opens what it already shows. */}
+      <CollectionCover
+        id={activeId}
+        name={activeName}
+        description={activeUser?.description ?? activeSystem?.description}
+        icon={activeIsTopic ? activeSystem?.icon : undefined}
+        photo={activeIsTopic ? topicPhoto(activeId) : undefined}
+        kicker={<FormattedMessage id="collections.nowStudying" />}
+        known={activeKnown}
+        total={activeWords.length}
+        onOpen={() => openDetails(activeId)}
+        openLabel={intl.formatMessage({ id: 'collections.viewName' }, { name: activeName })}
+        chips={
+          <>
+            <CoverChip icon="lucide:book-open"><FormattedMessage id="collections.wordCount" values={{ count: activeWords.length }} /></CoverChip>
+            {activeUser && <CoverChip icon="lucide:users"><FormattedMessage id="collections.learnerCount" values={{ count: activeUser.memberCount }} /></CoverChip>}
+            {activeUser && !activeUser.isPublic && <CoverChip icon="lucide:lock"><FormattedMessage id="collections.private" /></CoverChip>}
+            {activeSystem && (
+              <CoverChip icon="lucide:sparkles"><FormattedMessage id={activeIsTopic ? 'collections.builtInTopic' : 'collections.builtIn'} /></CoverChip>
+            )}
+          </>
+        }
+        actions={
+          <>
+            <button onClick={() => navigate('/')} className={COVER_PRIMARY}>
               <Icon icon="lucide:play" /> <FormattedMessage id="collections.continueLearning" />
             </button>
-            <IconAction glass icon="lucide:eye" label={intl.formatMessage({ id: 'collections.viewName' }, { name: activeName })} onClick={() => openDetails(activeId)} />
-            <IconAction glass icon="lucide:chart-pie" label={intl.formatMessage({ id: 'collections.nameProgress' }, { name: activeName })} onClick={() => setStats({ name: activeName, words: activeWords })} />
-            <IconAction glass icon="lucide:presentation" label={intl.formatMessage({ id: 'collections.presentName' }, { name: activeName })} onClick={() => navigate(presentPath(activeId))} />
-          </div>
-        </div>
-      </section>
+            <button onClick={() => setQuiz({ name: activeName, words: activeWords })} className={COVER_GLASS}>
+              <Icon icon="lucide:circle-check-big" className="text-sm" /> <FormattedMessage id="collections.quiz" />
+            </button>
+            <button
+              onClick={() => navigate(presentPath(activeId))}
+              title={intl.formatMessage({ id: 'collections.presentName' }, { name: activeName })}
+              className={COVER_GLASS}
+            >
+              <Icon icon="lucide:presentation" className="text-sm" /> <FormattedMessage id="collections.present" />
+            </button>
+            <button onClick={() => setStats({ name: activeName, words: activeWords })} className={COVER_GLASS}>
+              <Icon icon="lucide:chart-pie" className="text-sm" /> <FormattedMessage id="collections.progressShort" />
+            </button>
+          </>
+        }
+      />
 
       {/* ── Search + jump links ── */}
       <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] z-[5] mb-8 flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-2xl border border-border bg-bg-card/90 backdrop-blur shadow-sm">
