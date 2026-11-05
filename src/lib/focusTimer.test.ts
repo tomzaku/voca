@@ -34,6 +34,22 @@ describe('pomodoro', () => {
     expect(state.today.seconds).toBe(25 * 60);
   });
 
+  it('catches up every missed phase at once, silently, when you come back hours later', () => {
+    const s = start(initialFocus(T0), T0);
+    const back = T0 + 3 * 60 * MIN;
+    const { state, finished } = tick(s, back);
+    expect(finished).toBeNull();                       // no chime for phases nobody was here for
+    expect(state.endsAt!).toBeGreaterThan(back);       // nothing left to finish…
+    expect(tick(state, back + 1000).finished).toBeNull(); // …so the next second doesn't chime either
+    expect(state.today.seconds % (25 * 60)).toBe(0);   // only whole work phases credited
+    expect(state.today.seconds).toBeGreaterThan(25 * 60);
+  });
+
+  it('still chimes for a phase noticed a little late, as in a background tab', () => {
+    const { finished } = tick(start(initialFocus(T0), T0), T0 + 25 * MIN + 60_000);
+    expect(finished).toBe('work');
+  });
+
   it('does nothing before the phase ends', () => {
     const s = start(initialFocus(T0), T0);
     expect(tick(s, T0 + MIN).finished).toBeNull();

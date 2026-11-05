@@ -119,19 +119,31 @@ export function setPreset(s: FocusState, preset: number, now: number): FocusStat
   return { ...reset(s, now), preset };
 }
 
-/** Move a running pomodoro on if its phase has ended. Returns the new state
- *  and the phase that just finished, if one did (for the chime). The next
- *  phase starts straight away, from when the last one ended. */
+/** How late a phase's end can be noticed and still chime. A background tab's
+ *  timers run about once a minute, so that much and a little more. */
+const CHIME_WINDOW_MS = 90_000;
+
+/** Move a running pomodoro on past every phase that has ended. Returns the
+ *  new state and the phase that just finished, if one did (for the chime).
+ *  Each next phase starts straight away, from when the last one ended.
+ *
+ *  All of them in one call: come back after hours away and a phase-at-a-time
+ *  tick would find another one "just" finished every second — a chime a
+ *  second for as many phases as you missed. Those ended while nobody was
+ *  here, so catching up is silent; only a phase that ended just now chimes. */
 export function tick(s: FocusState, now: number): { state: FocusState; finished: PhaseKind | null } {
-  if (s.mode !== 'pomodoro' || !s.running || !s.endsAt || now < s.endsAt) return { state: s, finished: null };
-  const kind = phaseAt(s.phase);
-  const today = kind === 'work' ? credit(s, s.left, s.endsAt) : s.today;
-  const phase = s.phase + 1;
-  const len = phaseSeconds(phaseAt(phase), durations(s));
-  return {
-    state: { ...s, phase, today, left: len, endsAt: s.endsAt + len * 1000 },
-    finished: kind,
-  };
+  let state = s;
+  let last: PhaseKind | null = null;
+  while (state.mode === 'pomodoro' && state.running && state.endsAt && now >= state.endsAt) {
+    const kind = phaseAt(state.phase);
+    const ended = state.endsAt;
+    const today = kind === 'work' ? credit(state, state.left, ended) : state.today;
+    const phase = state.phase + 1;
+    const len = phaseSeconds(phaseAt(phase), durations(state));
+    state = { ...state, phase, today, left: len, endsAt: ended + len * 1000 };
+    last = now - ended <= CHIME_WINDOW_MS ? kind : null;
+  }
+  return { state, finished: last };
 }
 
 /** Today's focus, as minutes, counting a stretch still running. */

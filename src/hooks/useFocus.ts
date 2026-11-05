@@ -53,7 +53,8 @@ export const useFocus = create<FocusStore>((set, get) => {
     setRain: (rain) => set({ rain }),
     tick: () => {
       const { state, finished } = tick(get().timer, Date.now());
-      if (finished) apply(() => state);
+      // A silent catch-up changes the state too, without a phase to chime for.
+      if (state !== get().timer) apply(() => state);
       return finished;
     },
   };
