@@ -7,4 +7,5 @@ export default {
   'navbar.viewProfile': 'Xem hồ sơ — đã đăng nhập với tên {name}',
   'navbar.account': 'tài khoản',
   'navbar.signIn': 'Đăng nhập',
+  'navbar.goalProgress': 'Hôm nay {done}/{goal} từ',
 } satisfies Record<keyof typeof en, string>;

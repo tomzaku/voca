@@ -25,6 +25,7 @@ import { useCollections } from '../hooks/useCollections';
 import { listCollections, getCollection } from '../lib/collections';
 import { clearPrefetchQueue } from '../lib/prefetchService';
 import { useAuth } from '../hooks/useAuth';
+import { GOAL_OPTIONS, useDailyGoal } from '../hooks/useDailyGoal';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import toast from 'react-hot-toast';
 
@@ -71,6 +72,8 @@ export function SettingsPage() {
   const [nextTet] = useState(() => nextLunarNewYear(new Date()));
   const { enginePref, engine, recommended, setEngine, voice, setVoice, piperVoice, setPiperVoice, speed, setSpeed } = useTtsSettings();
   const { user, signInWithGoogle, signOut } = useAuth();
+  const dailyGoal = useDailyGoal((s) => s.goal);
+  const setDailyGoal = useDailyGoal((s) => s.setGoal);
   const store = useVocabularyStore();
 
   const { game: guessGame, setGame: setGuessGame } = useGuessGame();
@@ -373,6 +376,33 @@ export function SettingsPage() {
       </section>
 
       {/* Guess Game */}
+      {/* Daily goal */}
+      <section className="mb-8">
+        <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1"><FormattedMessage id="settings.dailyGoal" /></h2>
+        <p className="text-xs text-text-muted mb-3"><FormattedMessage id="settings.dailyGoalHint" /></p>
+        <div role="radiogroup" aria-label={intl.formatMessage({ id: 'settings.dailyGoal' })} className="grid grid-cols-4 gap-2">
+          {GOAL_OPTIONS.map((n) => {
+            const selected = dailyGoal === n;
+            return (
+              <button
+                key={n}
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setDailyGoal(n)}
+                className={`p-3 rounded-xl border text-center transition-all ${
+                  selected
+                    ? 'bg-accent-orange/5 border-accent-orange/30 ring-1 ring-accent-orange/20'
+                    : 'bg-bg-card border-border hover:border-border-light'
+                }`}
+              >
+                <span className={`block text-lg font-display font-bold tabular-nums ${selected ? 'text-accent-orange' : 'text-text-primary'}`}>{n}</span>
+                <span className="block text-[11px] text-text-muted"><FormattedMessage id={`flashcard.start.goal${n}`} /></span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <section className="mb-8">
         <h2 className="text-sm font-display font-bold text-text-secondary uppercase tracking-wider mb-1"><FormattedMessage id="settings.guessGame" /></h2>
         <p className="text-xs text-text-muted mb-3"><FormattedMessage id="settings.guessGameHint" /></p>

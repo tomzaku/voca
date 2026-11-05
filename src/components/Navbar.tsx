@@ -13,6 +13,8 @@ import { useWordSearch } from '../hooks/useWordSearch';
 import { QuickPrefs } from './QuickPrefs';
 import { FestiveGarland } from './FestiveGarland';
 import { accountName, MAX_ACCOUNT_NAME } from '../lib/accountName';
+import { useDailyGoal, useWordsToday } from '../hooks/useDailyGoal';
+import { GoalRing } from './GoalRing';
 
 // Desktop's Rail is always on screen, so this bar is just search + account
 // there, offset to clear its fixed-left column. Mobile hides Rail entirely
@@ -31,6 +33,14 @@ export function Navbar() {
   // Subscribe to lastActiveDay rather than calling countedToday(), so the badge
   // re-renders the moment today's first answer lands.
   const countedToday = useStreak((s) => s.lastActiveDay) === localDateString();
+  // The ring around the flame: today's reviews against the daily goal. A
+  // visitor sees it too once they've started, since the goal is theirs before
+  // any account is.
+  const goal = useDailyGoal((s) => s.goal);
+  const goalChosen = useDailyGoal((s) => s.chosen);
+  const wordsToday = useWordsToday();
+  const showGoal = !!user || goalChosen || wordsToday > 0;
+  const goalLabel = intl.formatMessage({ id: 'navbar.goalProgress' }, { done: wordsToday, goal });
 
   const [searchOpen, setSearchOpen] = useState(false);
   // Inside the world, search is a building (the library) — open that instead
@@ -91,12 +101,12 @@ export function Navbar() {
                 pill hugs the avatar. */}
             <Link
               to={user ? '/profile' : '/login'}
-              aria-label={user
+              aria-label={`${user
                 ? intl.formatMessage({ id: 'navbar.viewProfile' }, { name: name || intl.formatMessage({ id: 'navbar.account' }) })
-                : intl.formatMessage({ id: 'navbar.signIn' })}
-              title={user ? name : intl.formatMessage({ id: 'navbar.signIn' })}
+                : intl.formatMessage({ id: 'navbar.signIn' })}${showGoal ? ` · ${goalLabel}` : ''}`}
+              title={`${user ? name : intl.formatMessage({ id: 'navbar.signIn' })}${showGoal ? ` · ${goalLabel}` : ''}`}
               className={`btn-3d flex items-center gap-1.5 pl-1 h-9 rounded-full transition-colors shrink-0 ${
-                user && streak === 0 ? 'pr-1' : 'pr-2.5'
+                user && streak === 0 ? 'pr-1.5' : 'pr-2.5'
               } ${
                 user
                   ? countedToday
@@ -126,16 +136,19 @@ export function Navbar() {
                   )}
                 </span>
               ) : (
-                <span className="text-sm font-extrabold text-accent-green"><FormattedMessage id="navbar.signIn" /></span>
+                <>
+                  {showGoal && <GoalRing done={wordsToday} goal={goal} active={wordsToday > 0} />}
+                  <span className="text-sm font-extrabold text-accent-green"><FormattedMessage id="navbar.signIn" /></span>
+                </>
               )}
-              {streak > 0 && (
+              {user && (
                 <span
-                  className={`flex items-center gap-0.5 text-sm font-bold tabular-nums ${
+                  className={`flex items-center gap-1 text-sm font-bold tabular-nums ${
                     countedToday ? 'text-accent-orange' : 'text-text-muted'
                   }`}
                 >
-                  <Icon icon={countedToday ? 'lucide:flame' : 'lucide:flame-kindling'} className="text-base" />
-                  {streak}
+                  <GoalRing done={wordsToday} goal={goal} active={countedToday} />
+                  {streak > 0 && streak}
                 </span>
               )}
             </Link>

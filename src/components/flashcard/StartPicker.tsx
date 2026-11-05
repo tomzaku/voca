@@ -5,6 +5,7 @@ import { FormattedMessage } from 'react-intl';
 import { getCollection, DEFAULT_COLLECTION_ID } from '../../lib/collections';
 import { topicCover } from '../../lib/topicTheme';
 import { LevelPicker } from '../LevelPicker';
+import { DEFAULT_GOAL, GOAL_OPTIONS, useDailyGoal } from '../../hooks/useDailyGoal';
 
 // The topics offered up front — broad, everyday ones a beginner recognises.
 // The rest are a tap away on /collections.
@@ -22,9 +23,19 @@ const STARTER_TOPICS = [
  * that there's a choice of what to study before the first word appears.
  * Every path ends in `onPick(collectionId)` — including "just start", which
  * picks the default collection so the card doesn't come back.
+ *
+ * The daily goal is chosen here too, beside the topic, because this is the one
+ * moment a new learner is deciding how they'll study. Whatever path they take,
+ * the goal shown (the default unless they changed it) is the one they keep.
  */
-export function StartPicker({ onPick }: { onPick: (collectionId: string, label: string) => void }) {
+export function StartPicker({ onPick: pick }: { onPick: (collectionId: string, label: string) => void }) {
   const [testing, setTesting] = useState(false);
+  const [goal, setGoalChoice] = useState<number>(DEFAULT_GOAL);
+  const saveGoal = useDailyGoal((s) => s.setGoal);
+  const onPick = (collectionId: string, label: string) => {
+    saveGoal(goal);
+    pick(collectionId, label);
+  };
 
   if (testing) {
     return (
@@ -45,6 +56,28 @@ export function StartPicker({ onPick }: { onPick: (collectionId: string, label: 
       <p className="text-sm text-text-muted mt-1 mb-5">
         <FormattedMessage id="flashcard.start.subtitle" />
       </p>
+
+      <p className="text-xs font-bold uppercase tracking-wide text-text-muted mb-2">
+        <FormattedMessage id="flashcard.start.goal" />
+      </p>
+      <div role="radiogroup" className="grid grid-cols-4 gap-2 mb-5">
+        {GOAL_OPTIONS.map((n) => (
+          <button
+            key={n}
+            role="radio"
+            aria-checked={goal === n}
+            onClick={() => setGoalChoice(n)}
+            className={`btn-3d flex flex-col items-center py-2 rounded-xl ${
+              goal === n ? 'bg-accent-orange text-bg-primary' : 'bg-bg-tertiary text-text-secondary'
+            }`}
+          >
+            <span className="text-lg font-display font-bold leading-tight tabular-nums">{n}</span>
+            <span className="text-[10px] font-bold opacity-80">
+              <FormattedMessage id={`flashcard.start.goal${n}`} />
+            </span>
+          </button>
+        ))}
+      </div>
 
       <button
         onClick={() => setTesting(true)}

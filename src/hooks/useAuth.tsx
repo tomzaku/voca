@@ -7,6 +7,7 @@ import { useCompanion } from './useCompanion';
 import { useCollections } from './useCollections';
 import { useGuessGame } from './useGuessGame';
 import { useStreak } from './useStreak';
+import { useDailyGoal } from './useDailyGoal';
 import { useTeams } from './useTeams';
 import { useActivity } from './useActivity';
 
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         useCollections.getState().loadFromRemote();
         useGuessGame.getState().loadFromRemote();
         useStreak.getState().loadFromRemote();
+        useDailyGoal.getState().loadFromRemote();
       }
       setLoading(false);
     });
@@ -82,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           useCollections.getState().loadFromRemote();
           useGuessGame.getState().loadFromRemote();
           useStreak.getState().loadFromRemote();
+          useDailyGoal.getState().loadFromRemote();
         }
         setLoading(false);
       }, 0);

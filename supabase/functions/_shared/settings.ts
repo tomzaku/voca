@@ -25,6 +25,7 @@ export const FIELDS = {
   // Where the learner left off
   activeCollection: 'active_collection',
   guessGame: 'guess_game',
+  dailyGoal: 'daily_goal',
   // Reminders
   reminderEnabled: 'reminder_enabled',
   reminderTimezone: 'reminder_timezone',
@@ -58,7 +59,10 @@ export function toSettings(row: Record<string, unknown> | null): Record<string, 
 export function fromSettings(body: Record<string, unknown>): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   for (const [name, column] of Object.entries(FIELDS)) {
-    if (name in body) patch[column] = name === 'companionDress' ? cleanDress(body[name]) : body[name] ?? null;
+    if (!(name in body)) continue;
+    patch[column] = name === 'companionDress' ? cleanDress(body[name])
+      : name === 'dailyGoal' ? cleanGoal(body[name])
+      : body[name] ?? null;
   }
   return patch;
 }
@@ -80,4 +84,17 @@ export function cleanDress(v: unknown): Record<string, string> | null {
     if (typeof value === 'string' && value.length <= 24) out[part] = value;
   }
   return Object.keys(out).length ? out : null;
+}
+
+/** Highest daily goal accepted — matches the column's check constraint. */
+export const MAX_DAILY_GOAL = 100;
+
+/**
+ * A daily goal, as a whole number of words in 1..MAX_DAILY_GOAL. Anything else
+ * clears it rather than failing the whole PATCH — the client has a default.
+ */
+export function cleanGoal(v: unknown): number | null {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+  const n = Math.round(v);
+  return n >= 1 ? Math.min(n, MAX_DAILY_GOAL) : null;
 }

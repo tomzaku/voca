@@ -7,4 +7,5 @@ export default {
   'navbar.viewProfile': 'View profile — signed in as {name}',
   'navbar.account': 'account',
   'navbar.signIn': 'Sign in',
+  'navbar.goalProgress': '{done} of {goal} words today',
 } satisfies Catalog;

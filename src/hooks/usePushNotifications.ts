@@ -87,27 +87,35 @@ export function usePushNotifications(userId: string | undefined) {
     };
   }, [userId]);
 
-  /** Prompt for permission, then subscribe. Must be called from a user gesture. */
-  const enable = useCallback(async () => {
-    if (!userId || busy) return;
+  /**
+   * Prompt for permission, then subscribe. Must be called from a user gesture.
+   * `withTimes` replaces the schedule in the same save — the reminder prompt
+   * offers a time of its own. Resolves whether reminders ended up on.
+   */
+  const enable = useCallback(async (withTimes?: number[]): Promise<boolean> => {
+    if (!userId || busy) return false;
     setBusy(true);
     try {
       const permission = await Notification.requestPermission();
       setStatus(permission as PushStatus);
-      if (permission !== 'granted') return;
+      if (permission !== 'granted') return false;
 
       const ok = await subscribeDevice();
       if (!ok) {
         toast.error(t('profile.setupFailed'));
-        return;
+        return false;
       }
-      await saveReminderPrefs({ enabled: true, notifyStreak, notifyReview, times, days });
+      const nextTimes = withTimes?.length ? withTimes : times;
+      await saveReminderPrefs({ enabled: true, notifyStreak, notifyReview, times: nextTimes, days });
+      setTimesState(nextTimes);
       setEnabled(true);
+      return true;
     } catch (err) {
       // Never let a rejection escape: an unhandled one leaves the control
       // looking simply broken, with the reason buried in the console.
       console.warn('[voca] enabling reminders failed:', err);
       toast.error((err as Error).message || t('profile.enableFailed'));
+      return false;
     } finally {
       setBusy(false);
     }

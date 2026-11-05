@@ -29,6 +29,8 @@ export interface UserSettings {
   companionDress: Record<string, string> | null;
   activeCollection: string | null;
   guessGame: string | null;
+  /** Words a day the learner aims to review (1–100). */
+  dailyGoal: number | null;
   reminderEnabled: boolean | null;
   reminderTimezone: string | null;
   reminderTimes: number[] | null;

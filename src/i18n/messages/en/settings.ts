@@ -103,4 +103,6 @@ export default {
   'settings.ttsLoadingProgress': 'Loading {engine}... {percent}%',
   'settings.ttsReady': '{engine} voice model ready',
   'settings.ttsFailed': '{engine} failed to load',
+  'settings.dailyGoal': 'Daily goal',
+  'settings.dailyGoalHint': 'Words to review each day — the ring around the flame in the header fills as you go.',
 } satisfies Catalog;

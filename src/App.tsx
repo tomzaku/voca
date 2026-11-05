@@ -9,6 +9,7 @@ import { FlashCard } from './components/FlashCard';
 import { EnglishPractice } from './components/EnglishPractice';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
+import { DailyLoop } from './components/DailyLoop';
 
 // Every page but the home flash card loads when it's first opened. Eagerly,
 // they put all the learning content (src/data/*, ~1.7 MB) and lottie in the
@@ -69,6 +70,7 @@ function Shell({ children }: { children: ReactNode }) {
       <main className={fullscreen ? '' : `transition-[padding] duration-200 ${expanded ? 'sm:pl-60' : 'sm:pl-16'}`}>
         {children}
       </main>
+      <DailyLoop />
     </div>
   );
 }

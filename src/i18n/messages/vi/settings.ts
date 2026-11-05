@@ -103,4 +103,6 @@ export default {
   'settings.ttsLoadingProgress': 'Đang tải {engine}... {percent}%',
   'settings.ttsReady': 'Mô hình giọng {engine} đã sẵn sàng',
   'settings.ttsFailed': 'Không tải được {engine}',
+  'settings.dailyGoal': 'Mục tiêu mỗi ngày',
+  'settings.dailyGoalHint': 'Số từ ôn mỗi ngày — vòng quanh ngọn lửa trên thanh tiêu đề sẽ đầy dần khi bạn học.',
 } satisfies Record<keyof typeof en, string>;
