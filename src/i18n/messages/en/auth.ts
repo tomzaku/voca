@@ -6,6 +6,8 @@ export default {
   'auth.syncTitle': 'Sign in to sync progress',
   'auth.syncBody': 'Your learned and bookmarked words will be synced across all your devices.',
   'auth.continueWithout': 'You can also <link>continue without signing in</link>. Progress will be saved locally.',
+  'auth.settingsLink': 'Settings',
+  'auth.settingsHint': 'Language, voice, theme and daily goal — no account needed',
   'auth.someone': 'Someone',
   'auth.invitedYou': '<name>{owner}</name> invited you to join a vocabulary list collection',
   'auth.learnerCount': '{count, plural, one {# learner} other {# learners}}',

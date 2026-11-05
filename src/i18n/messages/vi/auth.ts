@@ -6,6 +6,8 @@ export default {
   'auth.syncTitle': 'Đăng nhập để đồng bộ tiến độ',
   'auth.syncBody': 'Các từ bạn đã học và đã lưu sẽ được đồng bộ trên mọi thiết bị của bạn.',
   'auth.continueWithout': 'Bạn cũng có thể <link>tiếp tục mà không đăng nhập</link>. Tiến độ sẽ được lưu trên máy này.',
+  'auth.settingsLink': 'Cài đặt',
+  'auth.settingsHint': 'Ngôn ngữ, giọng đọc, giao diện và mục tiêu mỗi ngày — không cần tài khoản',
   'auth.someone': 'Ai đó',
   'auth.invitedYou': '<name>{owner}</name> đã mời bạn tham gia một bộ sưu tập từ vựng',
   'auth.learnerCount': '{count} người học',

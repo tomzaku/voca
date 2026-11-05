@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import { FormattedMessage } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 
@@ -52,6 +53,22 @@ export function LoginPage() {
           }}
         />
       </p>
+
+      {/* Preferences don't need an account — and a visitor otherwise only
+          reaches Settings through the language button's popover. */}
+      <Link
+        to="/settings"
+        className="btn-3d mt-8 flex items-center gap-3 p-3 rounded-xl bg-bg-card text-left hover:bg-bg-hover"
+      >
+        <span className="w-9 h-9 rounded-lg bg-accent-cyan/15 text-accent-cyan flex items-center justify-center shrink-0">
+          <Icon icon="lucide:settings" className="text-lg" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-bold text-text-primary"><FormattedMessage id="auth.settingsLink" /></span>
+          <span className="block text-xs text-text-muted"><FormattedMessage id="auth.settingsHint" /></span>
+        </span>
+        <Icon icon="lucide:chevron-right" className="text-text-muted shrink-0" />
+      </Link>
     </div>
   );
 }
