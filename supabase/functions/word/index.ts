@@ -8,7 +8,9 @@
 // One shape either way, as everywhere else:
 //
 //   word        the vocabulary object — phonetics { "en-US":…, "en-GB":… },
-//               partOfSpeech, definition, translation, examples, synonyms,
+//               partOfSpeech, definition, translation, examples,
+//               exampleTranslations (examples in the mother tongue, same
+//               order; [] when none), synonyms,
 //               antonyms, collocations, wordFamily [{word,pos}],
 //               idioms [{idiom,meaning,example}], level, imageKeywords,
 //               senses [{partOfSpeech,phonetics,definition,shortDefinition,
@@ -69,7 +71,9 @@ import {
   underAnonRateLimit,
   underRateLimit,
 } from '../_shared/ai.ts';
-import { buildTranslations, type CachedWord, mergeTranslations, readByTranslation, readWord, storeWord, translationFor } from './cache.ts';
+import {
+  buildTranslations, type CachedWord, exampleTranslationsFor, mergeTranslations, readByTranslation, readWord, storeWord, translationFor,
+} from './cache.ts';
 import { allSenses, fetchSenses, knownSenses, storeSenses } from './senseRows.ts';
 import { readReject, storeReject } from './rejects.ts';
 import { fetchFamily, storeFamily } from './family.ts';
@@ -81,16 +85,18 @@ type Svc = ReturnType<typeof serviceClient>;
 type Auth = Awaited<ReturnType<typeof optionalUser>>;
 
 /** Build the 200 response for a word already in the cache: translation, family, idioms. */
-async function hitResponse(svc: Svc, auth: Auth, cached: CachedWord, motherLang: string): Promise<Response> {
-  const [translation, wordFamily, idioms, senses] = await Promise.all([
-    // Null client for a visitor: they get the translations already stored,
-    // never a fresh translate call (nobody to rate-limit).
-    translationFor(svc, auth.user ? auth.supabase : null, cached.word, cached, motherLang),
+async function hitResponse(svc: Svc, auth: Auth, cached: CachedWord, learnLang: string, motherLang: string): Promise<Response> {
+  // Null client for a visitor: they get the translations already stored,
+  // never a fresh translate call (nobody to rate-limit).
+  const userClient = auth.user ? auth.supabase : null;
+  const [translation, exampleTranslations, wordFamily, idioms, senses] = await Promise.all([
+    translationFor(svc, userClient, cached.word, cached, motherLang),
+    exampleTranslationsFor(svc, userClient, cached, learnLang, motherLang),
     fetchFamily(svc, cached.word, cached.headword),
     fetchIdioms(svc, cached.word),
     fetchSenses(svc, cached.word, motherLang),
   ]);
-  const word = { ...cached.data, translation, wordFamily, idioms };
+  const word = { ...cached.data, translation, exampleTranslations, wordFamily, idioms };
   return jsonResponse(200, { word: { ...word, senses: allSenses(word, senses) }, suggestions: [] });
 }
 
@@ -128,14 +134,14 @@ export default async function handler(req: Request): Promise<Response> {
   const cached = await readWord(svc, wordKey);
   if (cached) {
     console.log(`[word] cache HIT "${wordKey}" (${Date.now() - t0}ms)`);
-    return await hitResponse(svc, auth, cached, motherLang);
+    return await hitResponse(svc, auth, cached, learnLang, motherLang);
   }
 
   // ── 1.5 Known under a different language — a prior cross-language search? ──
   const byTranslation = await readByTranslation(svc, wordKey, motherLang, learnLang);
   if (byTranslation) {
     console.log(`[word] translation HIT "${wordKey}" -> "${byTranslation.word}" (${Date.now() - t0}ms, no AI call)`);
-    return await hitResponse(svc, auth, byTranslation, motherLang);
+    return await hitResponse(svc, auth, byTranslation, learnLang, motherLang);
   }
 
   // ── 2. Known typo? ──
@@ -185,7 +191,7 @@ export default async function handler(req: Request): Promise<Response> {
     // regeneration, and just record the language this search came in as.
     mergeTranslations(svc, resolvedKey, already.translations, buildTranslations(learnLang, motherLang, data));
     console.log(`[word] resolved "${wordKey}" -> "${resolvedKey}" (${Date.now() - t0}ms, already cached)`);
-    return await hitResponse(svc, auth, already, motherLang);
+    return await hitResponse(svc, auth, already, learnLang, motherLang);
   }
 
   const others = await knownSenses(svc, resolvedKey, otherSenses ?? []);
@@ -193,7 +199,10 @@ export default async function handler(req: Request): Promise<Response> {
   storeFamily(svc, resolvedKey, data);
   storeIdioms(svc, resolvedKey, data);
   console.log(`[word] generated "${wordKey}" -> "${resolvedKey}" (${Date.now() - t0}ms, family=${data.wordFamily?.length ?? 0})`);
-  return jsonResponse(200, { word: { ...data, senses: allSenses(data, others) }, suggestions: [] });
+  return jsonResponse(200, {
+    word: { ...data, exampleTranslations: data.exampleTranslations ?? [], senses: allSenses(data, others) },
+    suggestions: [],
+  });
 }
 
 if (import.meta.main) Deno.serve(handler);

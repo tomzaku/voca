@@ -24,7 +24,12 @@ export function WordDetails({ data }: { data: VocabularyWord }) {
             {data.examples.map((ex, i) => (
               <li key={i} className="flex gap-2 text-sm text-text-secondary">
                 <span className="text-accent-cyan shrink-0">▸</span>
-                <span>{ex}</span>
+                <span>
+                  {ex}
+                  {data.exampleTranslations?.[i] && (
+                    <span className="block text-xs text-text-muted mt-0.5">{data.exampleTranslations[i]}</span>
+                  )}
+                </span>
               </li>
             ))}
           </ul>

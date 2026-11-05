@@ -1,0 +1,11 @@
+-- Each example sentence in the learner's mother tongue, so a class can read
+-- "The region has abundant rainfall" beside its Vietnamese. Keyed by mother
+-- language like `translations`, each value index-aligned with `examples`:
+--   { "vietnamese": ["Khu vực này có lượng mưa dồi dào…", "…"] }
+-- A language whose array doesn't match `examples` in length is treated as
+-- missing (and re-translated), so a later edit to the examples can't pair a
+-- sentence with someone else's translation.
+--
+-- Filled by the `word` function on generation and on a cache hit that lacks
+-- the caller's language; older rows by `npm run examples:backfill`.
+alter table word_cache add column if not exists example_translations jsonb not null default '{}';

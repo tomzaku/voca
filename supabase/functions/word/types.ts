@@ -42,6 +42,9 @@ export interface WordData {
   shortDefinition?: string; // one-liner in simple English — shared with the Pro mind map
   translation?: string;
   examples?: string[];
+  // `examples` in the caller's mother tongue, same order; [] in a response
+  // when there are none (or the mother tongue is the learn language).
+  exampleTranslations?: string[];
   synonyms?: string[];
   antonyms?: string[];
   collocations?: string[];

@@ -16,7 +16,8 @@
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { underRateLimit } from '../_shared/ai.ts';
-import { translateWord } from './generate.ts';
+import { translateExamples, translateWord } from './generate.ts';
+import { storedExampleTranslations } from './exampleTranslations.ts';
 import { fireAndForget, keepAlive, type Svc } from './db.ts';
 import { asArray, asLevel } from './sanitize.ts';
 import type { WordData } from './types.ts';
@@ -27,6 +28,8 @@ export interface CachedWord {
   data: WordData;
   headword: string;
   translations: Record<string, string>;
+  /** { "<mother_lang>": [per example] } — see exampleTranslations.ts. */
+  exampleTranslations: Record<string, unknown>;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -36,6 +39,7 @@ function mapRow(row: Record<string, any>): CachedWord {
     word: row.word as string,
     headword,
     translations: (row.translations ?? {}) as Record<string, string>,
+    exampleTranslations: (row.example_translations ?? {}) as Record<string, unknown>,
     data: {
       word: headword,
       phonetics: (row.phonetics ?? {}) as Record<string, string>,
@@ -165,6 +169,48 @@ export async function translationFor(
 }
 
 /**
+ * This user's examples in their mother tongue — stored, or translated now and
+ * stored, under the same rules as `translationFor`: a visitor only gets what's
+ * there, a signed-in user's top-up is rate-limited, and any failure is an
+ * empty list rather than an error, since the examples still read without it.
+ *
+ * Words cached before this existed are what the top-up is for; the backfill
+ * (scripts/backfill-example-translations.mjs) does the same ahead of time.
+ */
+export async function exampleTranslationsFor(
+  svc: Svc,
+  userClient: SupabaseClient | null,
+  cached: CachedWord,
+  learnLang: string,
+  motherLang: string,
+): Promise<string[]> {
+  const examples = cached.data.examples ?? [];
+  const motherKey = motherLang.toLowerCase();
+  if (!examples.length || motherKey === learnLang.toLowerCase()) return [];
+  const stored = storedExampleTranslations(cached.exampleTranslations, motherKey, examples);
+  if (stored) return stored;
+  if (!userClient) return [];
+  if (!await underRateLimit(userClient)) return [];
+
+  try {
+    console.log(`[word] AI call: translate examples "${cached.word}" -> ${motherKey}`);
+    const fresh = await translateExamples(cached.headword, examples, motherLang);
+    if (!fresh) return [];
+    if (svc) {
+      fireAndForget(
+        svc.from('word_cache')
+          .update({ example_translations: { ...cached.exampleTranslations, [motherKey]: fresh } })
+          .eq('word', cached.word),
+      );
+    }
+    return fresh;
+  } catch (err) {
+    console.warn(`[word] translate examples failed for "${cached.word}":`, (err as Error).message);
+    return [];
+  }
+}
+
+/**
  * Store a freshly generated word (non-blocking). See `buildTranslations` for
  * the `translations` map. Resolves whether the row landed, for writes that
  * reference it (word_senses has a foreign key to it).
@@ -187,6 +233,9 @@ export function storeWord(svc: Svc, wordKey: string, learnLang: string, motherLa
     image_keywords: asArray(d.imageKeywords),
     level: asLevel(d.level),
     translations: buildTranslations(learnLang, motherLang, d),
+    example_translations: d.exampleTranslations?.length
+      ? { [motherLang.toLowerCase()]: d.exampleTranslations }
+      : {},
   })).then((res: { error: unknown }) => {
     if (res.error) console.warn('[word] cache write failed:', res.error);
     return !res.error;

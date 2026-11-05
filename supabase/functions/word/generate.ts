@@ -2,7 +2,8 @@
 // This is the only module in the `word` function that spends tokens.
 
 import { callProvider, stripFences, type ChatMessage } from '../_shared/ai.ts';
-import { asSenses, asSuggestions, isVerdict } from './sanitize.ts';
+import { asArray, asSenses, asSuggestions, isVerdict } from './sanitize.ts';
+import { asExampleTranslations, exampleTranslationsField, exampleTranslationsPrompt } from './exampleTranslations.ts';
 import { SENSES_RULE, sensesField } from './senses.ts';
 import { withPhonemizedIpa } from './phonemize.ts';
 import type { Generated } from './types.ts';
@@ -38,6 +39,9 @@ export async function generateWordData(word: string, learnLang: string, motherLa
       if (isVerdict(data)) return { valid: false, suggestions: asSuggestions(data.suggestions, word) };
       if (typeof data.definition === 'string' && data.definition) {
         data.otherSenses = asSenses(data.otherSenses, data.partOfSpeech);
+        // Paired with the examples as stored (asArray), or dropped: a count
+        // that doesn't match would caption a sentence with another's line.
+        data.exampleTranslations = asExampleTranslations(data.exampleTranslations, asArray(data.examples).length) ?? undefined;
         // Prefer eSpeak's deterministic IPA over the model's guess; fall
         // back to whatever the model produced for any locale eSpeak can't
         // handle. seedWord is always the canonical English form, so this
@@ -81,8 +85,27 @@ export async function translateWord(word: string, definition: string, motherLang
   return text.trim().replace(/^["']|["']$/g, '').slice(0, 200);
 }
 
+/**
+ * A cached word's examples in `motherLang`, for a row generated before they
+ * were asked for (or for another mother tongue). Null when the answer can't be
+ * paired with the examples one to one.
+ */
+export async function translateExamples(word: string, examples: string[], motherLang: string): Promise<string[] | null> {
+  const prompt = exampleTranslationsPrompt([{ word, examples }], [motherLang]);
+  const raw = await callProvider(SYSTEM, [{ role: 'user', content: prompt }], 1200);
+  const obj = JSON.parse(stripFences(raw)) as Record<string, Record<string, unknown>>;
+  // Keyed by the word as written — but one word asked, so take the one answer.
+  const answer = obj[word] ?? Object.values(obj)[0];
+  return asExampleTranslations(answer?.[motherLang.toLowerCase()], examples.length);
+}
+
 function buildPrompt(word: string, learnLang: string, motherLang: string): string {
   const isEnglish = learnLang.toLowerCase() === 'english';
+  // Nothing to translate into when the examples are already in the mother tongue.
+  const exampleTranslations = motherLang.toLowerCase() === learnLang.toLowerCase()
+    ? ''
+    : `
+  ${exampleTranslationsField(motherLang)},`;
 
   // The searcher's mother tongue and learn language are both real candidates for
   // what script "${word}" is in, not just English — a Vietnamese-mother-tongue
@@ -119,7 +142,7 @@ Otherwise, once you've identified the concept "${word}" refers to, return this e
     "Natural example sentence showing the word in context.",
     "Another example with different usage.",
     "A third example if the word has notable nuance."
-  ],
+  ],${exampleTranslations}
   "synonyms": ["synonym1", "synonym2", "synonym3"],
   "antonyms": ["antonym1", "antonym2"],
   "collocations": ["natural phrase 1", "natural phrase 2", "phrase 3", "phrase 4", "phrase 5"],

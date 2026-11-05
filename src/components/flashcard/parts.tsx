@@ -146,6 +146,10 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
                 {!masked && i === examples.length - 1 && (
                   <MoreToggle hidden={wordData.examples.length - REVEALED_EXAMPLES} open={showAll} onToggle={() => setShowAll((v) => !v)} className="ml-2" />
                 )}
+                {/* The translation would give the word away while guessing. */}
+                {!masked && wordData.exampleTranslations?.[i] && (
+                  <span className="block text-xs text-text-muted mt-0.5">{wordData.exampleTranslations[i]}</span>
+                )}
               </span>
             </li>
           );

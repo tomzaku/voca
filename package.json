@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.195",
+  "version": "0.1.196",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -39,6 +39,7 @@
     "export:tests": "node --env-file=supabase/functions/.env scripts/build-builtin-tests.mjs",
     "words:chain": "node scripts/build-chain-words.mjs",
     "senses:backfill": "node --env-file=.env scripts/backfill-senses.mjs",
+    "examples:backfill": "node --env-file=.env scripts/backfill-example-translations.mjs",
     "lexicon:build": "node --env-file=.env scripts/build-lexicon.mjs",
     "speech:pregen": "AWS_PROFILE=voca node --env-file=.env scripts/pregen-speech.mjs",
     "speech:pregen:background": "taskpolicy -b npm run speech:pregen --",

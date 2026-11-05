@@ -16,6 +16,9 @@ export interface VocabularyWord {
   definition: string;
   shortDefinition?: string; // one-liner in simple English (also used by the Pro mind map)
   examples: string[];
+  /** `examples` in the mother tongue, same order — missing or [] when there
+   *  are none, so index by example and check each line exists. */
+  exampleTranslations?: string[];
   synonyms?: string[];
   antonyms?: string[];
   collocations?: string[]; // common natural word pairings (e.g. "make a decision")
