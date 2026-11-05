@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useCollections } from '../../hooks/useCollections';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Selector, type SelectorOption } from '../Selector';
 import { BUCKET_META, BUCKET_ORDER } from '../../lib/progress';
@@ -15,6 +16,11 @@ const FILTER_OPTIONS: (Omit<SelectorOption<Filter>, 'label'> & { labelId: string
   { value: 'saved', labelId: 'bucket.saved', icon: 'lucide:bookmark' },
   ...BUCKET_ORDER.map((b) => ({ value: BUCKET_META[b].tab, labelId: BUCKET_META[b].labelId, icon: BUCKET_META[b].icon })),
 ];
+
+// Loaded on first tap: the detail view is a page's worth of code (word list,
+// leaderboard, tests, slides) that most flash-card sessions never open, and
+// the flash card ships in the main chunk.
+const CollectionDetailModal = lazy(() => import('../CollectionDetailModal'));
 
 function useFilterOptions(): SelectorOption<Filter>[] {
   const intl = useIntl();
@@ -62,6 +68,9 @@ export function HistoryStrip({
   const filterOptions = useFilterOptions();
   const scroller = useRef<HTMLDivElement>(null);
   const [showList, setShowList] = useState(false);
+  const [showCollection, setShowCollection] = useState(false);
+  const activeCollectionId = useCollections((s) => s.activeId);
+  const navigate = useNavigate();
   const currentFilter = filterOptions.find((o) => o.value === filter) ?? filterOptions[0];
 
   // Keep the current chip visible as the strip grows past the viewport.
@@ -79,15 +88,26 @@ export function HistoryStrip({
   return (
     <div className="max-w-page mx-auto mb-5">
       <div className="flex items-center gap-2">
-        {/* Active collection — tap to switch on the Collections page */}
-        <Link
-          to="/collections"
-          title={intl.formatMessage({ id: 'flashcard.changeCollection' })}
+        {/* Active collection — tap for its details, with a way on to pick
+            another from the Collections page. */}
+        <button
+          type="button"
+          onClick={() => setShowCollection(true)}
+          title={intl.formatMessage({ id: 'flashcard.aboutCollection' })}
           className="btn-3d shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent-purple/15 border-2 border-accent-purple/30 text-accent-purple text-xs font-extrabold max-w-[10rem]"
         >
           <Icon icon="lucide:library" className="text-sm shrink-0" />
           <span className="truncate">{collectionName}</span>
-        </Link>
+        </button>
+        {showCollection && (
+          <Suspense fallback={null}>
+            <CollectionDetailModal
+              id={activeCollectionId}
+              onClose={() => setShowCollection(false)}
+              onPickOther={() => { setShowCollection(false); navigate('/collections'); }}
+            />
+          </Suspense>
+        )}
 
         <Selector
           value={filter}

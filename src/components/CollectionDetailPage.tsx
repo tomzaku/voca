@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAuth } from '../hooks/useAuth';
 import { useIsPro } from '../hooks/useProStatus';
-import { collectionShareUrl, useCollections } from '../hooks/useCollections';
+import { collectionShareUrl, presentPath, useCollections } from '../hooks/useCollections';
 import { useVocabularyStore } from '../hooks/useVocabulary';
 import { useProgressForWords } from '../hooks/useProgressQuery';
 import { getCollection, isCollectionId } from '../lib/collections';
@@ -30,6 +30,7 @@ import { CollectionTests } from './tests/CollectionTests';
 import { AddFriendButton } from './AddFriendButton';
 import { useFriendStatuses } from '../hooks/useFriendStatuses';
 import { LoadWordDetails } from './WordDetails';
+import { CollectionSlides } from './CollectionSlides';
 
 /** Podium colours, matching the team leaderboard's medals. */
 const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
@@ -131,8 +132,8 @@ function WordRow({ word, bucket, p, open, onToggle, onTriage }: {
   const intl = useIntl();
   const meta = BUCKET_META[bucket];
   return (
-    <li className={`rounded-xl border transition-colors ${open ? 'border-accent-cyan/30' : 'border-border hover:border-border-light'}`}>
-      <div className="flex items-center gap-3 px-4 py-3">
+    <li className={`transition-colors ${open ? 'bg-accent-cyan/5' : 'hover:bg-bg-tertiary/40'}`}>
+      <div className="flex items-center gap-3 px-4 sm:px-5 py-3">
         <div className="flex-1 min-w-0">
           <button
             onClick={(e) => peekWord(word, e.currentTarget)}
@@ -186,11 +187,64 @@ function WordRow({ word, bucket, p, open, onToggle, onTriage }: {
         </button>
       </div>
       {open && (
-        <div className="px-4 pb-4 pt-4 border-t border-border animate-fade-in">
+        <div className="px-4 sm:px-5 pb-5 pt-1 animate-fade-in">
           <LoadWordDetails word={word} />
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * Where you stand on the list, group by group — the same groups as the
+ * filter chips, and each row is one: tapping "Struggling" shows those words.
+ */
+function ProgressCard({ counts, total, known, filter, onFilter }: {
+  counts: Record<WordBucket, number>;
+  total: number;
+  known: number;
+  filter: WordBucket | 'all';
+  onFilter: (f: WordBucket | 'all') => void;
+}) {
+  const pct = total ? Math.round((known / total) * 100) : 0;
+  const groups = BUCKET_ORDER.filter((b) => counts[b] > 0);
+  return (
+    <section className="rounded-2xl border border-border bg-bg-card p-5 flex flex-col gap-4">
+      <div className="flex items-end justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
+          <Icon icon="lucide:chart-pie" className="text-accent-cyan" />
+          <FormattedMessage id="collections.yourProgress" />
+        </h2>
+        <span className="text-2xl font-display font-extrabold tabular-nums text-text-primary leading-none">{pct}%</span>
+      </div>
+      {/* One bar, a segment per group, in the groups' own order. */}
+      <div className="flex h-2.5 rounded-full overflow-hidden bg-bg-tertiary">
+        {groups.map((b) => (
+          <div key={b} className={BUCKET_META[b].bar} style={{ width: `${(counts[b] / Math.max(total, 1)) * 100}%` }} />
+        ))}
+      </div>
+      <ul className="flex flex-col gap-0.5 -mx-2">
+        {groups.map((b) => {
+          const meta = BUCKET_META[b];
+          const on = filter === b;
+          return (
+            <li key={b}>
+              <button
+                onClick={() => onFilter(on ? 'all' : b)}
+                aria-pressed={on}
+                className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors ${on ? 'bg-bg-tertiary' : 'hover:bg-bg-tertiary/60'}`}
+              >
+                <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${meta.chip}`}>
+                  <Icon icon={meta.icon} className="text-xs" />
+                </span>
+                <span className="flex-1 min-w-0 text-sm font-bold text-text-secondary"><FormattedMessage id={meta.labelId} /></span>
+                <span className="text-sm font-display font-extrabold tabular-nums text-text-primary">{counts[b]}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -302,12 +356,23 @@ export function CollectionDetailPage() {
 }
 
 /**
+ * /collections/:id/present — the collection as slides, at a link of its own,
+ * so a teacher can bookmark it, open it on the classroom computer, or reload
+ * mid-lesson. `?filter=` and `?q=` narrow the words the way the list's chips
+ * and search do; `?slide=` is where the deck is.
+ */
+export function CollectionPresentPage() {
+  const { id = '' } = useParams();
+  return <CollectionDetail id={id} present />;
+}
+
+/**
  * The detail view itself. On its own route it's a full page; given `onClose`
  * it's the body of the desktop popup on /collections (CollectionDetailModal),
  * so it drops the back link and page chrome, and opens quiz / mind map as a
  * full-screen layer over the popup instead of replacing it.
  */
-export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => void }) {
+export function CollectionDetail({ id, onClose, present = false }: { id: string; onClose?: () => void; present?: boolean }) {
   const intl = useIntl();
   const inModal = !!onClose;
   const { user } = useAuth();
@@ -375,8 +440,14 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
     return { bucketOf, counts, known };
   }, [prog, words]);
 
-  const [filter, setFilter] = useState<WordBucket | 'all'>('all');
-  const [query, setQuery] = useState('');
+  // The slides' link carries the list's filter and search, so it opens on the
+  // same words the presenter picked.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filter, setFilter] = useState<WordBucket | 'all'>(() => {
+    const f = present ? searchParams.get('filter') : null;
+    return f && (BUCKET_ORDER as string[]).includes(f) ? (f as WordBucket) : 'all';
+  });
+  const [query, setQuery] = useState(() => (present ? searchParams.get('q') ?? '' : ''));
   const shownWords = useMemo(() => {
     const q = query.trim().toLowerCase();
     return words.filter((w) =>
@@ -423,13 +494,13 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
   // there, rather than ticking itself and leaving you to work out where to go.
   const study = async () => {
     if (active) {
-      navigate('/');
+      goStudy();
       return;
     }
     if (system) {
       setActive(id);
       toast.success(intl.formatMessage({ id: 'collections.toastStudying' }, { name }));
-      navigate('/');
+      goStudy();
       return;
     }
     setJoining(true);
@@ -442,13 +513,20 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
       setActive(id);
       await joinCollection(id);
       toast.success(intl.formatMessage({ id: joined ? 'collections.toastStudying' : 'collections.toastJoined' }, { name }));
-      navigate('/');
+      goStudy();
     } catch (err) {
       toast.error((err as Error).message || intl.formatMessage({ id: 'collections.couldNotStudy' }));
     } finally {
       setJoining(false);
     }
   };
+
+  // Going to the flash card also closes the popup this may be in — over the
+  // flash card itself, navigating to "/" alone would leave it open.
+  function goStudy() {
+    navigate('/');
+    onClose?.();
+  }
 
   const share = async () => {
     try {
@@ -493,150 +571,197 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
     );
   }
 
+  // The deck covers the screen on its own. It shows the words as filtered, so
+  // a teacher can present just part of a long list.
+  if (present) {
+    const slideParam = Number(searchParams.get('slide'));
+    return (
+      <CollectionSlides
+        name={name}
+        description={description}
+        words={shownWords}
+        photo={topic ? topicPhoto(id) : undefined}
+        initialSlide={Number.isInteger(slideParam) ? slideParam : 0}
+        onSlideChange={(n) => setSearchParams((p) => {
+          const next = new URLSearchParams(p);
+          if (n > 0) next.set('slide', String(n)); else next.delete('slide');
+          return next;
+        }, { replace: true })}
+        shareUrl={collectionShareUrl(id, presentPath(id, { filter, q: query }))}
+        onClose={() => navigate(`/collections/${encodeURIComponent(id)}`)}
+      />
+    );
+  }
+
   const owner = fetched?.owner;
   const shownBuckets = BUCKET_ORDER.filter((b) => counts[b] > 0);
+  const knownPct = words.length ? Math.round((known / words.length) * 100) : 0;
+  // On the cover: translucent, so the photo or gradient stays the backdrop.
+  const glass = 'flex items-center gap-1.5 px-3 h-9 rounded-xl bg-white/15 ring-1 ring-white/25 backdrop-blur-sm text-white text-xs font-bold hover:bg-white/25 transition-colors disabled:opacity-50';
+  const chipOnCover = 'flex items-center gap-1 px-2 py-1 rounded-full bg-white/15 ring-1 ring-white/20 backdrop-blur-sm';
 
   return shell(
     <>
-      {/* ── Header ── (topic collections open on their gradient cover) */}
-      <header className="mb-6">
-        {topic ? (
-          <div className="relative overflow-hidden rounded-2xl p-5 sm:p-6 pt-20 sm:pt-28 text-white" style={topicCover(id)}>
-            <img src={topicPhoto(id)} alt="" decoding="async" className="pointer-events-none absolute inset-0 w-full h-full object-cover" />
-            <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
-            <div className="relative flex items-center gap-4">
-              <span className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 bg-white/20 ring-1 ring-white/30 backdrop-blur-sm">
-                <Icon icon={topic.icon} className="text-3xl" />
-              </span>
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-display font-extrabold break-words [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]">{name}</h1>
-                {description && <p className="text-sm text-white/90 mt-0.5">{description}</p>}
-              </div>
-            </div>
-            <div className="relative flex flex-wrap items-center gap-2 mt-4 text-xs font-bold">
-              <span className="px-2 py-1 rounded-full bg-white/20 ring-1 ring-white/25"><FormattedMessage id="collections.wordCount" values={{ count: words.length }} /></span>
-              <span className="px-2 py-1 rounded-full bg-white/20 ring-1 ring-white/25"><FormattedMessage id="collections.builtInTopic" /></span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-display font-bold text-text-primary break-words">{name}</h1>
-              <div className="flex items-center flex-wrap gap-2 mt-1.5 text-xs text-text-muted">
-                <span className="px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold"><FormattedMessage id="collections.wordCount" values={{ count: words.length }} /></span>
-                {col && (
-                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent-purple/10 text-accent-purple font-bold">
-                    <Icon icon="lucide:users" className="text-[11px]" />
-                    <FormattedMessage id="collections.learnerCount" values={{ count: col.memberCount }} />
-                  </span>
-                )}
-                {col && !col.isPublic && (
-                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-bg-tertiary font-bold">
-                    <Icon icon="lucide:lock" className="text-[11px]" /> <FormattedMessage id="collections.private" />
-                  </span>
-                )}
-                {system && <span className="px-1.5 py-0.5 rounded-full bg-accent-cyan/10 text-accent-cyan font-bold"><FormattedMessage id="collections.builtIn" /></span>}
-                {owner?.name && (
-                  <span className="flex items-center gap-1.5">
-                    {owner.avatarUrl ? (
-                      <img src={owner.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-5 h-5 rounded-full" />
-                    ) : (
-                      <Icon icon="lucide:user" />
-                    )}
-                    <FormattedMessage
-                      id={isOwner ? 'collections.byYou' : 'collections.byOwner'}
-                      values={{ name: owner.name, b: (c) => <span className="font-bold text-text-secondary">{c}</span> }}
-                    />
-                  </span>
-                )}
-              </div>
-              {description && <p className="text-sm text-text-muted mt-2">{description}</p>}
-            </div>
-          </div>
-        )}
+      {/* ── Cover ── the same art as the collection's banner and card, so the
+          popup reads as that card opened up. Edge to edge in the popup (which
+          floats its close buttons over the top-right), rounded on the page. */}
+      <header
+        className={`relative overflow-hidden text-white ${inModal ? 'px-6 pb-6 pt-16' : 'rounded-3xl px-5 sm:px-7 pb-6 pt-14 sm:pt-20 mb-6'}`}
+        // The card's drop shadow reads as a stray glow line inside the popup.
+        style={inModal ? { ...topicCover(id), boxShadow: 'none' } : topicCover(id)}
+      >
+        {topic && <img src={topicPhoto(id)} alt="" decoding="async" className="pointer-events-none absolute inset-0 w-full h-full object-cover" />}
+        <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
 
-        <div className="relative flex flex-wrap items-center gap-2 mt-4">
-          <button
-            onClick={study}
-            disabled={joining}
-            className={`btn-3d px-4 py-2 text-sm font-bold disabled:opacity-80 ${
-              joined || system || isOwner ? 'bg-accent-cyan text-bg-primary' : 'bg-accent-purple text-bg-primary'
-            }`}
-          >
-            <FormattedMessage
-              id={active ? 'collections.continueStudying' : joining ? 'collections.joining' : joined || system || isOwner ? 'collections.studyThis' : 'collections.joinAndStudy'}
-            />
-          </button>
-          <button
-            onClick={() => setPickingQuiz(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-tertiary text-text-secondary text-xs font-medium hover:text-accent-green hover:border-accent-green/30 transition-all"
-          >
-            <Icon icon="lucide:play" className="text-sm" /> <FormattedMessage id="collections.quiz" />
-          </button>
-          <MindMapButton words={words} isPro={isPro} onOpenInteractive={() => setMode('mindmap')} />
-          {col && (isOwner || col.isPublic) && (
+        <div className="relative flex flex-col lg:flex-row lg:items-end gap-5">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3">
+              {topic && (
+                <span className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-white/20 ring-1 ring-white/30 backdrop-blur-sm">
+                  <Icon icon={topic.icon} className="text-2xl" />
+                </span>
+              )}
+              <h1 className="min-w-0 text-3xl sm:text-4xl font-display font-extrabold leading-tight break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.3)]">
+                {name}
+              </h1>
+            </div>
+            {description && <p className="mt-2 max-w-2xl text-sm text-white/90">{description}</p>}
+
+            <div className="flex flex-wrap items-center gap-1.5 mt-3 text-[11px] font-bold">
+              <span className={chipOnCover}>
+                <Icon icon="lucide:book-open" /> <FormattedMessage id="collections.wordCount" values={{ count: words.length }} />
+              </span>
+              {col && (
+                <span className={chipOnCover}>
+                  <Icon icon="lucide:users" /> <FormattedMessage id="collections.learnerCount" values={{ count: col.memberCount }} />
+                </span>
+              )}
+              {col && !col.isPublic && (
+                <span className={chipOnCover}><Icon icon="lucide:lock" /> <FormattedMessage id="collections.private" /></span>
+              )}
+              {system && (
+                <span className={chipOnCover}>
+                  <Icon icon="lucide:sparkles" /> <FormattedMessage id={topic ? 'collections.builtInTopic' : 'collections.builtIn'} />
+                </span>
+              )}
+              {owner?.name && (
+                <span className={chipOnCover}>
+                  {owner.avatarUrl
+                    ? <img src={owner.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-4 h-4 rounded-full" />
+                    : <Icon icon="lucide:user" />}
+                  <FormattedMessage
+                    id={isOwner ? 'collections.byYou' : 'collections.byOwner'}
+                    values={{ name: owner.name, b: (c) => <span>{c}</span> }}
+                  />
+                </span>
+              )}
+            </div>
+
+            <div className="mt-4 max-w-md">
+              <div className="h-2 rounded-full bg-white/25 overflow-hidden">
+                <div className="h-full rounded-full bg-white transition-all" style={{ width: `${knownPct}%` }} />
+              </div>
+              <p className="text-xs font-bold text-white/90 mt-1.5">
+                <FormattedMessage id="collections.youKnowOf" values={{ known, total: words.length }} />
+              </p>
+            </div>
+          </div>
+
+          {/* One clear next step, and the other ways in beside it, quieter. */}
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:max-w-[22rem]">
             <button
-              onClick={share}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-bg-tertiary text-text-secondary text-xs font-medium hover:text-accent-cyan hover:border-accent-cyan/30 transition-all"
+              onClick={study}
+              disabled={joining}
+              className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5 disabled:opacity-80"
             >
-              <Icon icon="lucide:share-2" className="text-sm" /> <FormattedMessage id="collections.share" />
+              <Icon icon={joined || system || isOwner ? 'lucide:play' : 'lucide:user-plus'} />
+              <FormattedMessage
+                id={active ? 'collections.continueStudying' : joining ? 'collections.joining' : joined || system || isOwner ? 'collections.studyThis' : 'collections.joinAndStudy'}
+              />
             </button>
-          )}
+            <button onClick={() => setPickingQuiz(true)} className={glass}>
+              <Icon icon="lucide:circle-check-big" className="text-sm" /> <FormattedMessage id="collections.quiz" />
+            </button>
+            <button
+              onClick={() => navigate(presentPath(id, { filter, q: query }))}
+              disabled={shownWords.length === 0}
+              title={intl.formatMessage({ id: 'collections.presentTitle' })}
+              className={glass}
+            >
+              <Icon icon="lucide:presentation" className="text-sm" /> <FormattedMessage id="collections.present" />
+            </button>
+            <MindMapButton words={words} isPro={isPro} onOpenInteractive={() => setMode('mindmap')} className={glass}>
+              <Icon icon="lucide:git-fork" className="text-sm" />
+              <FormattedMessage id="mindmap.button" />
+              <Icon icon="lucide:chevron-down" className="text-[11px] opacity-70" />
+            </MindMapButton>
+            {col && (isOwner || col.isPublic) && (
+              <button onClick={share} className={glass}>
+                <Icon icon="lucide:share-2" className="text-sm" /> <FormattedMessage id="collections.share" />
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className={`grid gap-6 ${system && !user ? '' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]'}`}>
+      <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] ${inModal ? 'p-6' : ''}`}>
         {/* ── Words ── */}
-        <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4 min-w-0">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
-              <Icon icon="lucide:book-open" className="text-accent-cyan" />
-              <FormattedMessage id="collections.words" />
-            </h2>
-            <span className="text-[11px] text-text-muted">
-              <FormattedMessage id="collections.youKnowOf" values={{ known, total: words.length }} />
-            </span>
-          </div>
+        <section className="rounded-2xl border border-border bg-bg-card flex flex-col min-w-0">
+          {/* Search and filters stay in reach while a long list scrolls under
+              them — the popup scrolls itself, the page under the navbar. */}
+          <div className={`sticky z-[5] flex flex-col gap-3 p-4 sm:p-5 pb-3 rounded-t-2xl bg-bg-card/95 backdrop-blur border-b border-border ${
+            inModal ? 'top-0' : 'top-[calc(4.5rem+env(safe-area-inset-top))]'
+          }`}>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
+                <Icon icon="lucide:book-open" className="text-accent-cyan" />
+                <FormattedMessage id="collections.words" />
+              </h2>
+              <span className="text-[11px] tabular-nums text-text-muted">
+                {shownWords.length === words.length ? words.length : `${shownWords.length} / ${words.length}`}
+              </span>
+            </div>
 
-          <div className="relative">
-            <Icon icon="lucide:search" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={intl.formatMessage({ id: 'collections.findAWord' })}
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-border bg-bg-tertiary text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
-            />
-          </div>
+            <div className="relative">
+              <Icon icon="lucide:search" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={intl.formatMessage({ id: 'collections.findAWord' })}
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-border bg-bg-tertiary text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/50"
+              />
+            </div>
 
-          {/* Each filter carries an icon and a label, so state never rests on colour alone. */}
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
-                filter === 'all' ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border text-text-muted hover:text-text-primary'
-              }`}
-            >
-              <FormattedMessage id="collections.all" /> <span className="tabular-nums opacity-70">{words.length}</span>
-            </button>
-            {shownBuckets.map((b) => (
+            {/* Each filter carries an icon and a label, so state never rests on colour alone. */}
+            <div className="flex flex-wrap gap-1.5">
               <button
-                key={b}
-                onClick={() => setFilter(filter === b ? 'all' : b)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
-                  filter === b ? `${BUCKET_META[b].chip} border-current` : 'border-border text-text-muted hover:text-text-primary'
+                onClick={() => setFilter('all')}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                  filter === 'all' ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border text-text-muted hover:text-text-primary'
                 }`}
               >
-                <Icon icon={BUCKET_META[b].icon} className="text-[11px]" />
-                <FormattedMessage id={BUCKET_META[b].labelId} /> <span className="tabular-nums opacity-70">{counts[b]}</span>
+                <FormattedMessage id="collections.all" /> <span className="tabular-nums opacity-70">{words.length}</span>
               </button>
-            ))}
+              {shownBuckets.map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setFilter(filter === b ? 'all' : b)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                    filter === b ? `${BUCKET_META[b].chip} border-current` : 'border-border text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  <Icon icon={BUCKET_META[b].icon} className="text-[11px]" />
+                  <FormattedMessage id={BUCKET_META[b].labelId} /> <span className="tabular-nums opacity-70">{counts[b]}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {shownWords.length === 0 ? (
-            <p className="text-xs text-text-muted"><FormattedMessage id="collections.noWordsMatch" /></p>
+            <p className="p-5 text-xs text-text-muted"><FormattedMessage id="collections.noWordsMatch" /></p>
           ) : (
             <>
-              <ul className="flex flex-col gap-2">
+              <ul className="divide-y divide-border">
                 {shownWords.slice(0, limit).map((w) => (
                   <WordRow
                     key={w}
@@ -652,7 +777,7 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
               {shownWords.length > limit && (
                 <button
                   onClick={() => setLimit((n) => n + ROWS_PAGE)}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-border text-sm font-extrabold text-text-secondary hover:border-border-light hover:text-text-primary transition-all"
+                  className="flex items-center justify-center gap-2 py-3 border-t border-border rounded-b-2xl text-sm font-extrabold text-text-secondary hover:bg-bg-tertiary/50 hover:text-text-primary transition-all"
                 >
                   <Icon icon="lucide:chevron-down" />
                   <FormattedMessage id="collections.showMoreWords" values={{ count: shownWords.length - limit }} />
@@ -662,70 +787,56 @@ export function CollectionDetail({ id, onClose }: { id: string; onClose?: () => 
           )}
         </section>
 
-        {/* A built-in collection's side column: its practice tests, no deadline. */}
-        {system && user && (
-          <div className="flex flex-col gap-6 self-start w-full min-w-0">
-            <CollectionTests collectionId={system.id} isOwner={false} />
-          </div>
-        )}
+        {/* The side column — one grid cell, so nothing in it drops below the
+            word list: where you stand, then tests, then everyone else. */}
+        <div className="flex flex-col gap-6 self-start w-full min-w-0">
+          <ProgressCard counts={counts} total={words.length} known={known} filter={filter} onFilter={setFilter} />
 
-        {/* The side column: tests, then the leaderboard — one grid cell, so
-            neither drops below the word list. */}
-        {col && (
-          <div className="flex flex-col gap-6 self-start w-full min-w-0">
-            {/* ── Tests ── the owner sends them; members take them. */}
-            {user && (isOwner || joined || col.isPublic) && (
-              <CollectionTests collectionId={col.id} isOwner={isOwner} />
-            )}
+          {/* ── Tests ── the owner sends them; members take them. A built-in
+              collection has practice tests, no deadline. */}
+          {system && user && <CollectionTests collectionId={system.id} isOwner={false} />}
+          {col && user && (isOwner || joined || col.isPublic) && (
+            <CollectionTests collectionId={col.id} isOwner={isOwner} />
+          )}
 
-            {/* ── Leaderboard ── (server lists only — the Levels have no members) */}
-            {col && (
-              <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4 self-start w-full">
-                <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
-                  <Icon icon="lucide:trending-up" className="text-accent-cyan" />
-                  <FormattedMessage id="collections.leaderboard" />
-                </h2>
+          {/* ── Leaderboard ── (server lists only — the Levels have no members) */}
+          {col && (
+            <section className="rounded-2xl border border-border bg-bg-card p-5 flex flex-col gap-4 w-full">
+              <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
+                <Icon icon="lucide:trending-up" className="text-accent-cyan" />
+                <FormattedMessage id="collections.leaderboard" />
+              </h2>
 
-                {!col.isPublic && isOwner && (
-                  <p className="text-xs text-text-muted leading-relaxed">
-                    <FormattedMessage id="collections.privateBoardHint" />
-                  </p>
-                )}
-
-                {!joined && !isOwner && user && (
-                  <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
-                    <p className="text-xs text-text-secondary leading-relaxed">
-                      <FormattedMessage id="collections.joinToAppear" />
-                    </p>
-                    <button
-                      onClick={study}
-                      disabled={joining}
-                      className="btn-3d self-start px-4 py-2 text-xs font-bold bg-accent-purple text-bg-primary disabled:opacity-50"
-                    >
-                      <FormattedMessage id={joining ? 'collections.joining' : 'collections.joinThisCollection'} />
-                    </button>
-                  </div>
-                )}
-
-                <CollectionLeaderboard members={members} meId={user?.id} ownerId={col.ownerId} loading={membersLoading} />
-
-                <p className="text-[11px] text-text-muted/70">
-                  <FormattedMessage id="collections.rankedBy" />
+              {!col.isPublic && isOwner && (
+                <p className="text-xs text-text-muted leading-relaxed">
+                  <FormattedMessage id="collections.privateBoardHint" />
                 </p>
-              </section>
-            )}
-          </div>
-        )}
-      </div>
+              )}
 
-      {!inModal && (
-        <button
-          onClick={() => navigate('/')}
-          className="btn-3d block w-full sm:w-auto sm:min-w-72 mx-auto mt-8 px-10 py-3 bg-accent-cyan text-bg-primary font-bold"
-        >
-          <FormattedMessage id="collections.startLearning" />
-        </button>
-      )}
+              {!joined && !isOwner && user && (
+                <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    <FormattedMessage id="collections.joinToAppear" />
+                  </p>
+                  <button
+                    onClick={study}
+                    disabled={joining}
+                    className="btn-3d self-start px-4 py-2 text-xs font-bold bg-accent-purple text-bg-primary disabled:opacity-50"
+                  >
+                    <FormattedMessage id={joining ? 'collections.joining' : 'collections.joinThisCollection'} />
+                  </button>
+                </div>
+              )}
+
+              <CollectionLeaderboard members={members} meId={user?.id} ownerId={col.ownerId} loading={membersLoading} />
+
+              <p className="text-[11px] text-text-muted/70">
+                <FormattedMessage id="collections.rankedBy" />
+              </p>
+            </section>
+          )}
+        </div>
+      </div>
 
       {pickingQuiz && (
         <QuizGroupPicker

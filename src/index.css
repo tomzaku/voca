@@ -336,6 +336,21 @@ body {
   animation: confettiFall 0.95s ease-out forwards;
 }
 
+/* ── Slide themes (src/lib/slideThemes.ts, SlideDecor) ──────────────
+   Slow on purpose: a class is reading the word, so nothing behind it should
+   move fast enough to catch the eye. All of it stops for reduced motion —
+   the accents then simply show, already drawn. */
+@keyframes slideSpin    { to { transform: rotate(360deg); } }
+@keyframes slideDrift   { from { translate: -40vw 0; } to { translate: 130vw 0; } }
+@keyframes slideWave    { to { transform: translateX(-50%); } }
+@keyframes slideBreathe { from { transform: scale(1.1); } to { transform: scale(1.17); } }
+@keyframes slideSwipe   { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes slideDraw    { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .slide-decor, .slide-decor *, .slide-accent, .slide-accent * { animation: none !important; }
+  .slide-accent path { stroke-dashoffset: 0; }
+}
+
 /* ── Test themes (src/lib/testThemes.ts) ─────────────────────────────
    The pieces drifting behind a themed test, and the question card's entrance.
    Each piece gets its own delay and duration inline so they don't move in step. */

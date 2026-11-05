@@ -1,6 +1,7 @@
 import type en from '../en/flashcard';
 
 export default {
+  'flashcard.aboutCollection': 'Xem bộ sưu tập này — hoặc chọn bộ khác',
   'flashcard.changeCollection': 'Đổi bộ sưu tập',
   'flashcard.wordList': 'Danh sách từ',
   'flashcard.loading': 'Đang tải…',

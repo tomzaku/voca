@@ -27,6 +27,7 @@ const DashboardPage = lazy(() => import('./components/DashboardPage').then((m) =
 const QuickReview = lazy(() => import('./components/QuickReview').then((m) => ({ default: m.QuickReview })));
 const CollectionsPage = lazy(() => import('./components/CollectionsPage').then((m) => ({ default: m.CollectionsPage })));
 const CollectionDetailPage = lazy(() => import('./components/CollectionDetailPage').then((m) => ({ default: m.CollectionDetailPage })));
+const CollectionPresentPage = lazy(() => import('./components/CollectionDetailPage').then((m) => ({ default: m.CollectionPresentPage })));
 const WritingLegacyRedirect = lazy(() => import('./components/WritingPage').then((m) => ({ default: m.WritingLegacyRedirect })));
 const WritingPage = lazy(() => import('./components/WritingPage').then((m) => ({ default: m.WritingPage })));
 const WorldGame = lazy(() => import('./components/WorldGame').then((m) => ({ default: m.WorldGame })));
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="/streak" element={<Navigate to="/dashboard" replace />} />
             <Route path="/collections" element={<CollectionsPage />} />
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
+            <Route path="/collections/:id/present" element={<CollectionPresentPage />} />
             <Route path="/collections/:id/tests/new" element={<TestCreatePage />} />
             <Route path="/tests/:id" element={<TestPage />} />
             <Route path="/tests/:id/edit" element={<TestEditPage />} />

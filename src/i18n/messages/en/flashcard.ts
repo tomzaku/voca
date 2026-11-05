@@ -1,6 +1,7 @@
 import type { Catalog } from '../..';
 
 export default {
+  'flashcard.aboutCollection': 'About this collection — or pick another',
   'flashcard.changeCollection': 'Change collection',
   'flashcard.wordList': 'Word list',
   'flashcard.loading': 'Loading…',

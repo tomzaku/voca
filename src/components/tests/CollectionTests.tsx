@@ -34,7 +34,7 @@ export function CollectionTests({ collectionId, isOwner }: { collectionId: strin
   const sorted = [...(tests ?? [])].sort((a, b) => Number(todo(b)) - Number(todo(a)));
 
   return (
-    <section className="rounded-2xl border-[3px] border-border bg-bg-card p-5 sm:p-6 flex flex-col gap-4 self-start w-full">
+    <section className="rounded-2xl border border-border bg-bg-card p-5 flex flex-col gap-4 self-start w-full">
       <div className="flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text-primary">
           <Icon icon="lucide:clipboard-check" className="text-accent-green" />

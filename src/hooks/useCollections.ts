@@ -70,9 +70,21 @@ function saveUserCache(mine: UserCollection[], shared: Record<string, UserCollec
  * The public share URL for a collection (matches the router basename) — its
  * detail page. Older `/collections?c=<id>` links still redirect there.
  */
-export function collectionShareUrl(id: string): string {
+export function collectionShareUrl(id: string, path = `/collections/${id}`): string {
   const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
-  return `${window.location.origin}${base}/collections/${id}`;
+  return `${window.location.origin}${base}${path}`;
+}
+
+/**
+ * The router path of a collection's slides — `filter` and `q` narrow the words
+ * the way the list's chips and search do (see CollectionPresentPage).
+ */
+export function presentPath(id: string, opts: { filter?: string; q?: string } = {}): string {
+  const params = new URLSearchParams();
+  if (opts.filter && opts.filter !== 'all') params.set('filter', opts.filter);
+  if (opts.q?.trim()) params.set('q', opts.q.trim());
+  const qs = params.toString();
+  return `/collections/${encodeURIComponent(id)}/present${qs ? `?${qs}` : ''}`;
 }
 
 interface CollectionsState {

@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useCollections, type UserCollection } from '../hooks/useCollections';
+import { presentPath, useCollections, type UserCollection } from '../hooks/useCollections';
 import { listCollections, getCollection, isCollectionId, type CollectionInfo } from '../lib/collections';
 import { QuizSetup } from './QuizSetup';
 import { CollectionStats } from './CollectionStats';
 import { MemberAvatars } from './MemberAvatars';
 import { CollectionForm } from './CollectionForm';
-import { CollectionDetail } from './CollectionDetailPage';
+import { CollectionDetailModal, Popup } from './CollectionDetailModal';
 import { LevelTest } from './LevelTestPage';
 import { completionPct } from '../lib/completion';
 import { PHOTO_SCRIM, topicCover, topicPhoto } from '../lib/topicTheme';
@@ -318,73 +317,6 @@ function UserCard({ c, active, pct, owned, menuOpen, membersSignal, onView, onSt
 const DETAIL_POPUP_QUERY = '(min-width: 1024px)';
 
 /**
- * A dimmed popup over /collections (desktop only). Portalled to <body>, and
- * the backdrop is a sibling of the panel, not its parent: a filter or
- * transform on an ancestor would trap the content's own fixed-position layers
- * (quiz picker, full-screen quiz) inside it.
- */
-function Popup({ width, actions, onClose, children }: {
-  width: string;
-  actions?: React.ReactNode;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const intl = useIntl();
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [onClose]);
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-6 lg:p-10" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className={`relative w-full ${width} max-h-full overflow-y-auto rounded-3xl border-2 border-border bg-bg-primary shadow-2xl p-6`}>
-        <div className="sticky top-0 z-10 flex justify-end gap-2 -mt-2 -mr-2 mb-2 h-0">
-          {actions}
-          <button
-            onClick={onClose}
-            title={intl.formatMessage({ id: 'collections.close' })}
-            aria-label={intl.formatMessage({ id: 'collections.close' })}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-bg-card/90 border border-border text-text-muted hover:text-text-primary shadow-sm"
-          >
-            <Icon icon="lucide:x" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-/** A collection's detail view in a popup. */
-function CollectionDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
-  const intl = useIntl();
-  const navigate = useNavigate();
-  return (
-    <Popup
-      width="max-w-5xl"
-      onClose={onClose}
-      actions={
-        <button
-          onClick={() => navigate(`/collections/${id}`)}
-          title={intl.formatMessage({ id: 'collections.openAsPage' })}
-          aria-label={intl.formatMessage({ id: 'collections.openAsPage' })}
-          className="w-9 h-9 rounded-full flex items-center justify-center bg-bg-card/90 border border-border text-text-muted hover:text-text-primary shadow-sm"
-        >
-          <Icon icon="lucide:maximize-2" />
-        </button>
-      }
-    >
-      <CollectionDetail id={id} onClose={onClose} />
-    </Popup>
-  );
-}
-
-/**
  * Browse and pick the active vocabulary collection: a hero for what you're
  * studying now, then the Curated + CEFR level ladder (where a newcomer starts),
  * themed Topics, and your own collections (create / share / delete) and ones
@@ -532,14 +464,21 @@ export function CollectionsPage() {
     <div className="mx-auto max-w-page px-4 py-8">
       {/* ── Hero: what you're studying now ── */}
       <section
-        className="relative overflow-hidden rounded-3xl text-white p-5 sm:p-7 mb-6"
+        className="group relative overflow-hidden rounded-3xl text-white p-5 sm:p-7 mb-6"
         style={topicCover(activeId)}
       >
         {activeIsTopic && (
-          <img src={topicPhoto(activeId)} alt="" decoding="async" className="pointer-events-none absolute inset-0 w-full h-full object-cover" />
+          <img src={topicPhoto(activeId)} alt="" decoding="async" className="pointer-events-none absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
         )}
         <div aria-hidden className="pointer-events-none absolute inset-0" style={PHOTO_SCRIM} />
-        <div className="relative flex flex-col sm:flex-row sm:items-end gap-5">
+        {/* The whole banner opens the list, like a card below does — the
+            buttons on it sit above this and keep their own jobs. */}
+        <button
+          onClick={() => openDetails(activeId)}
+          aria-label={intl.formatMessage({ id: 'collections.viewName' }, { name: activeName })}
+          className="absolute inset-0 rounded-3xl focus-visible:outline-2 focus-visible:outline-white"
+        />
+        <div className="relative pointer-events-none flex flex-col sm:flex-row sm:items-end gap-5">
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/80"><FormattedMessage id="collections.nowStudying" /></p>
             <h1 className="mt-1 text-3xl sm:text-4xl font-display font-extrabold leading-tight break-words [text-shadow:0_1px_3px_rgba(0,0,0,0.3)]">
@@ -554,7 +493,7 @@ export function CollectionsPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="pointer-events-auto flex items-center gap-2 shrink-0">
             <button
               onClick={() => navigate('/')}
               className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5"
@@ -563,6 +502,7 @@ export function CollectionsPage() {
             </button>
             <IconAction glass icon="lucide:eye" label={intl.formatMessage({ id: 'collections.viewName' }, { name: activeName })} onClick={() => openDetails(activeId)} />
             <IconAction glass icon="lucide:chart-pie" label={intl.formatMessage({ id: 'collections.nameProgress' }, { name: activeName })} onClick={() => setStats({ name: activeName, words: activeWords })} />
+            <IconAction glass icon="lucide:presentation" label={intl.formatMessage({ id: 'collections.presentName' }, { name: activeName })} onClick={() => navigate(presentPath(activeId))} />
           </div>
         </div>
       </section>
