@@ -95,4 +95,11 @@ export default {
   'flashcard.reminder.signIn': 'Sign in with Google',
   'flashcard.reminder.notNow': 'Not now',
   'flashcard.reminder.set': 'Reminder set for {time}. Change it any time in your profile.',
+  'flashcard.start.orLevel': 'Or pick your level',
+  'flashcard.start.level1': 'Beginner',
+  'flashcard.start.level2': 'Elementary',
+  'flashcard.start.level3': 'Intermediate',
+  'flashcard.start.level4': 'Upper-int.',
+  'flashcard.start.level5': 'Advanced',
+  'flashcard.start.level6': 'Proficient',
 } satisfies Catalog;

@@ -9,6 +9,17 @@ import { DEFAULT_GOAL, GOAL_OPTIONS, useDailyGoal } from '../../hooks/useDailyGo
 
 // The topics offered up front — broad, everyday ones a beginner recognises.
 // The rest are a tap away on /collections.
+// The CEFR bands, for a learner who already knows theirs — the test is the
+// way in for everyone else. Ids match the `level-N` collections.
+const LEVELS = [
+  { id: 'level-1', cefr: 'A1' },
+  { id: 'level-2', cefr: 'A2' },
+  { id: 'level-3', cefr: 'B1' },
+  { id: 'level-4', cefr: 'B2' },
+  { id: 'level-5', cefr: 'C1' },
+  { id: 'level-6', cefr: 'C2' },
+];
+
 const STARTER_TOPICS = [
   'topic-travel',
   'topic-food',
@@ -90,6 +101,25 @@ export function StartPicker({ onPick: pick }: { onPick: (collectionId: string, l
         </span>
         <Icon icon="lucide:chevron-right" className="text-xl shrink-0" />
       </button>
+
+      <p className="text-xs font-bold uppercase tracking-wide text-text-muted mt-6 mb-2">
+        <FormattedMessage id="flashcard.start.orLevel" />
+      </p>
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {LEVELS.map(({ id, cefr }, i) => (
+          <button
+            key={id}
+            onClick={() => onPick(id, `${cefr} · ${getCollection(id).name}`)}
+            title={getCollection(id).description}
+            className="btn-3d flex flex-col items-center py-2 rounded-xl bg-bg-tertiary text-text-primary"
+          >
+            <span className="text-base font-display font-bold leading-tight text-accent-cyan">{cefr}</span>
+            <span className="text-[10px] font-bold text-text-muted truncate max-w-full px-1">
+              <FormattedMessage id={`flashcard.start.level${i + 1}`} />
+            </span>
+          </button>
+        ))}
+      </div>
 
       <p className="text-xs font-bold uppercase tracking-wide text-text-muted mt-6 mb-2">
         <FormattedMessage id="flashcard.start.orTopic" />

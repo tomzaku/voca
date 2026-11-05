@@ -95,4 +95,11 @@ export default {
   'flashcard.reminder.signIn': 'Đăng nhập bằng Google',
   'flashcard.reminder.notNow': 'Để sau',
   'flashcard.reminder.set': 'Đã đặt lời nhắc lúc {time}. Bạn có thể đổi bất cứ lúc nào trong hồ sơ.',
+  'flashcard.start.orLevel': 'Hoặc chọn trình độ',
+  'flashcard.start.level1': 'Mới bắt đầu',
+  'flashcard.start.level2': 'Sơ cấp',
+  'flashcard.start.level3': 'Trung cấp',
+  'flashcard.start.level4': 'Trung cao',
+  'flashcard.start.level5': 'Nâng cao',
+  'flashcard.start.level6': 'Thành thạo',
 } satisfies Record<keyof typeof en, string>;
