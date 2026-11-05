@@ -105,4 +105,11 @@ export default {
   'settings.ttsFailed': 'Không tải được {engine}',
   'settings.dailyGoal': 'Mục tiêu mỗi ngày',
   'settings.dailyGoalHint': 'Số từ ôn mỗi ngày — vòng quanh ngọn lửa trên thanh tiêu đề sẽ đầy dần khi bạn học.',
+  'settings.tabLearning': 'Học tập',
+  'settings.tabSound': 'Âm thanh',
+  'settings.tabLook': 'Hiển thị',
+  'settings.tabAccount': 'Tài khoản',
+  'settings.guestNote': 'Mọi thứ ở đây đều dùng được khi chưa có tài khoản, nhưng chỉ lưu trên thiết bị này. Đăng nhập để giữ cài đặt và tiến độ ở mọi nơi.',
+  'settings.advancedVoice': 'Bộ đọc & giọng đọc',
+  'settings.advancedVoiceHint': 'Đang dùng {engine}. Tự động sẽ chọn bộ đọc tốt nhất cho thiết bị này.',
 } satisfies Record<keyof typeof en, string>;

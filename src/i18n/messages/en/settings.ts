@@ -105,4 +105,11 @@ export default {
   'settings.ttsFailed': '{engine} failed to load',
   'settings.dailyGoal': 'Daily goal',
   'settings.dailyGoalHint': 'Words to review each day — the ring around the flame in the header fills as you go.',
+  'settings.tabLearning': 'Learning',
+  'settings.tabSound': 'Sound',
+  'settings.tabLook': 'Look',
+  'settings.tabAccount': 'Account',
+  'settings.guestNote': 'Everything here works without an account, but it’s saved on this device only. Sign in to keep your settings and progress everywhere.',
+  'settings.advancedVoice': 'Voice engine & voice',
+  'settings.advancedVoiceHint': 'Now using {engine}. Automatic picks the best one for this device.',
 } satisfies Catalog;
