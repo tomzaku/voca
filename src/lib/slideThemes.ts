@@ -14,9 +14,12 @@ import type { CSSProperties } from 'react';
 //
 // Unlike test themes (testThemes.ts), nothing drifts across the middle.
 
-export type SlideThemeId = 'app' | 'paper' | 'chalk' | 'night' | 'sunny' | 'ocean' | 'photo';
+export type SlideThemeId =
+  | 'app' | 'paper' | 'chalk' | 'night' | 'sunny' | 'ocean'
+  | 'school' | 'travel' | 'garden' | 'kitchen' | 'city'
+  | 'photo';
 
-export type SlideDecorKind = 'none' | 'paper' | 'chalk' | 'night' | 'sunny' | 'ocean' | 'photo';
+export type SlideDecorKind = Exclude<SlideThemeId, 'app'> | 'none';
 
 export interface SlideTheme {
   id: SlideThemeId;
@@ -31,10 +34,18 @@ export interface SlideTheme {
   decor: SlideDecorKind;
   /** The headword's face, when the theme has a hand of its own. */
   wordFont?: string;
-  accent?: 'highlight' | 'chalk';
+  accent?: SlideAccent;
+  /** The accent's colour, where the theme wants its own. */
+  accentColor?: string;
   /** Only offered when the collection has a cover photo. */
   needsPhoto?: boolean;
+  /** Built-in topics this theme suits — offered first, and used when the
+   *  presenter hasn't picked a theme of their own yet. */
+  topics?: string[];
 }
+
+/** One touch on the headword: a marker swipe, a chalk line, a travel route. */
+export type SlideAccent = 'highlight' | 'chalk' | 'route';
 
 const tokens = (t: {
   bg: string; card: string; tertiary: string; border: string;
@@ -108,6 +119,62 @@ export const SLIDE_THEMES: SlideTheme[] = [
       cyan: '#7df9ff', purple: '#ffc9e3', yellow: '#ffe17a',
     }),
   },
+  // ── Topic themes — each pairs with the built-in topics it suits.
+  {
+    id: 'school', labelId: 'collections.slidesThemeSchool', icon: 'lucide:graduation-cap', dark: false,
+    decor: 'school', accent: 'highlight', accentColor: 'rgba(255,214,102,0.6)',
+    topics: ['topic-school'],
+    background: 'linear-gradient(180deg, #eef8f2 0%, #f6fbf7 60%, #fdf8ec 100%)',
+    vars: tokens({
+      bg: '#f3faf6', card: '#ffffff', tertiary: '#e3f1e8', border: '#c9e1d2',
+      text: '#23324a', secondary: '#45546e', muted: '#7a8798',
+      cyan: '#2a8fd6', purple: '#7b5cd6', yellow: '#d99a00',
+    }),
+  },
+  {
+    id: 'travel', labelId: 'collections.slidesThemeTravel', icon: 'lucide:plane', dark: false,
+    decor: 'travel', accent: 'route', accentColor: '#b5523b',
+    topics: ['topic-travel', 'topic-transport'],
+    background: 'radial-gradient(120% 100% at 50% 40%, #f8f1df 0%, #f1e6cc 70%, #e8d9b8 100%)',
+    vars: tokens({
+      bg: '#f4ecd8', card: '#fbf6e9', tertiary: '#ebdfc3', border: '#d6c49c',
+      text: '#2f2a22', secondary: '#54493a', muted: '#857761',
+      cyan: '#1e7fa8', purple: '#b5523b', yellow: '#c98a00',
+    }),
+  },
+  {
+    id: 'garden', labelId: 'collections.slidesThemeGarden', icon: 'lucide:flower-2', dark: false,
+    decor: 'garden', accent: 'highlight', accentColor: 'rgba(167,224,140,0.6)',
+    topics: ['topic-nature', 'topic-animals', 'topic-weather'],
+    background: 'linear-gradient(180deg, #eaf6e3 0%, #f3faee 55%, #f7fbf2 100%)',
+    vars: tokens({
+      bg: '#eef7e6', card: '#fbfef8', tertiary: '#dfeed4', border: '#bfdcae',
+      text: '#23361f', secondary: '#425a3c', muted: '#73886c',
+      cyan: '#2f8f4e', purple: '#b0558d', yellow: '#c98f00',
+    }),
+  },
+  {
+    id: 'kitchen', labelId: 'collections.slidesThemeKitchen', icon: 'lucide:chef-hat', dark: false,
+    decor: 'kitchen', accent: 'highlight', accentColor: 'rgba(255,170,140,0.5)',
+    topics: ['topic-food', 'topic-cooking'],
+    background: 'linear-gradient(180deg, #fff6ec 0%, #fffaf4 70%)',
+    vars: tokens({
+      bg: '#fff7ef', card: '#fffdf9', tertiary: '#fbe8d6', border: '#efcfae',
+      text: '#3b2618', secondary: '#5f4330', muted: '#8f725d',
+      cyan: '#c4572a', purple: '#7a4a8c', yellow: '#c98a00',
+    }),
+  },
+  {
+    id: 'city', labelId: 'collections.slidesThemeCity', icon: 'lucide:building-2', dark: true,
+    decor: 'city',
+    topics: ['topic-city', 'topic-shopping'],
+    background: 'linear-gradient(180deg, #141a36 0%, #262150 55%, #43305e 100%)',
+    vars: tokens({
+      bg: '#1b2140', card: '#232a4f', tertiary: '#2c3360', border: '#48508a',
+      text: '#ffffff', secondary: '#d6daf3', muted: '#9aa1c8',
+      cyan: '#ffd479', purple: '#ff9ecb', yellow: '#ffd479',
+    }),
+  },
   {
     id: 'photo', labelId: 'collections.slidesThemePhoto', icon: 'lucide:image', dark: true,
     decor: 'photo', needsPhoto: true,
@@ -130,13 +197,26 @@ export function slideTheme(id: SlideThemeId, hasPhoto: boolean): SlideTheme {
   return availableSlideThemes(hasPhoto).find((t) => t.id === id) ?? SLIDE_THEMES[0];
 }
 
-/** The presenter's last pick — a per-device convenience, so storage may fail. */
-export function loadSlideTheme(): SlideThemeId {
+/** A theme id from outside — a link's `?theme=` — or undefined if it isn't one. */
+export function asSlideThemeId(v: string | null | undefined): SlideThemeId | undefined {
+  return SLIDE_THEMES.find((t) => t.id === v)?.id;
+}
+
+/** The theme made for a built-in topic, if there is one. */
+export function suggestedSlideTheme(collectionId: string): SlideThemeId | undefined {
+  return SLIDE_THEMES.find((t) => t.topics?.includes(collectionId))?.id;
+}
+
+/**
+ * The presenter's last pick — a per-device convenience, so storage may fail.
+ * Null until they've picked one, so a topic can open in its own theme.
+ */
+export function loadSlideTheme(): SlideThemeId | null {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
     if (SLIDE_THEMES.some((t) => t.id === v)) return v as SlideThemeId;
   } catch { /* storage unavailable */ }
-  return 'app';
+  return null;
 }
 
 export function saveSlideTheme(id: SlideThemeId): void {

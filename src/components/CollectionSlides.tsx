@@ -149,7 +149,7 @@ function WordSlide({ word, revealed, doodle, inkFilter, theme, showExampleTransl
         >
           <span className="relative isolate">
             {headword}
-            {theme.accent && <WordAccent kind={theme.accent} />}
+            {theme.accent && <WordAccent kind={theme.accent} color={theme.accentColor} />}
           </span>
           <Icon icon="lucide:volume-2" className="text-3xl sm:text-4xl text-text-muted group-hover:text-accent-cyan shrink-0" />
         </button>
@@ -325,12 +325,22 @@ function SlideSearch({ words, current, onPick, onClose }: {
  * Each word is two steps — the word, then its meaning — so "next" walks
  * through a reveal before moving on, the way a teacher would with cards.
  */
-export function CollectionSlides({ name, description, words, photo, initialSlide = 0, onSlideChange, shareUrl, onClose }: {
+export function CollectionSlides({
+  name, description, words, photo, suggestedTheme, linkTheme, onThemeChange, initialSlide = 0, onSlideChange, shareUrl, onClose,
+}: {
   name: string;
   description?: string | null;
   words: string[];
   /** The collection's cover photo, which the Photo theme sits on. */
   photo?: string;
+  /** The theme made for this collection's topic — used until the presenter
+   *  picks one of their own, and marked in the menu. */
+  suggestedTheme?: SlideThemeId;
+  /** A theme the link asked for (`?theme=`) — it wins over the presenter's
+   *  saved pick, so a shared link looks the way its sender set it up. */
+  linkTheme?: SlideThemeId;
+  /** A theme picked from the menu, for the caller to put in the URL. */
+  onThemeChange?: (id: SlideThemeId) => void;
   /** Where to open — the page keeps this in the URL, so a reload stays put. */
   initialSlide?: number;
   onSlideChange?: (slide: number) => void;
@@ -351,13 +361,15 @@ export function CollectionSlides({ name, description, words, photo, initialSlide
     saveShowExampleTranslations(!on);
     return !on;
   }), []);
-  const [themeId, setThemeId] = useState<SlideThemeId>(loadSlideTheme);
+  const [themeId, setThemeId] = useState<SlideThemeId>(() => linkTheme ?? loadSlideTheme() ?? suggestedTheme ?? 'app');
   // One menu open at a time.
   const [menu, setMenu] = useState<'search' | 'theme' | 'options' | null>(null);
   const toggleMenu = (m: 'search' | 'theme' | 'options') => setMenu((cur) => (cur === m ? null : m));
   const theme = slideTheme(themeId, !!photo);
   const themes = availableSlideThemes(!!photo);
-  const pickTheme = (id: SlideThemeId) => { setThemeId(id); saveSlideTheme(id); };
+  // Only a pick made here is remembered on the device; one that arrived in a
+  // link is that link's, and shouldn't become the presenter's default.
+  const pickTheme = (id: SlideThemeId) => { setThemeId(id); saveSlideTheme(id); onThemeChange?.(id); };
   const last = words.length + 1;
   const word = slide >= 1 && slide <= words.length ? words[slide - 1] : null;
   const showMeaning = revealed || revealFirst;
@@ -390,7 +402,11 @@ export function CollectionSlides({ name, description, words, photo, initialSlide
   const copyLink = async () => {
     if (!shareUrl) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      // The link carries the look on screen, however it was arrived at — a
+      // pick, a saved default or the topic's suggestion.
+      const url = new URL(shareUrl);
+      url.searchParams.set('theme', themeId);
+      await navigator.clipboard.writeText(url.toString());
       toast.success(intl.formatMessage({ id: 'collections.slidesLinkCopied' }));
     } catch {
       toast.error(intl.formatMessage({ id: 'collections.couldNotShare' }));
@@ -500,7 +516,7 @@ export function CollectionSlides({ name, description, words, photo, initialSlide
             <span className="hidden sm:inline"><FormattedMessage id="collections.slidesTheme" /></span>
           </button>
           {menu === 'theme' && (
-            <div className="absolute right-0 top-full mt-2 z-10 w-48 rounded-xl border border-border bg-bg-card shadow-xl p-1.5 flex flex-col gap-0.5">
+            <div className="absolute right-0 top-full mt-2 z-10 w-56 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-bg-card shadow-xl p-1.5 flex flex-col gap-0.5">
               {themes.map((t) => (
                 <button
                   key={t.id}
@@ -512,6 +528,11 @@ export function CollectionSlides({ name, description, words, photo, initialSlide
                 >
                   <Icon icon={t.icon} className="text-base shrink-0" />
                   <span className="flex-1"><FormattedMessage id={t.labelId} /></span>
+                  {t.id === suggestedTheme && t.id !== themeId && (
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-px rounded bg-accent-cyan/15 text-accent-cyan">
+                      <FormattedMessage id="collections.slidesThemeSuggested" />
+                    </span>
+                  )}
                   {t.id === themeId && <Icon icon="lucide:check" />}
                 </button>
               ))}
@@ -600,7 +621,8 @@ export function CollectionSlides({ name, description, words, photo, initialSlide
           title={intl.formatMessage({ id: 'collections.slidesPrev' })}>
           <Icon icon="lucide:chevron-left" className="text-xl" />
         </button>
-        <span className="text-sm font-bold tabular-nums text-text-muted">
+        {/* Backed, so a theme's grass or tablecloth never runs through it. */}
+        <span className={`text-sm font-bold tabular-nums text-text-muted ${word ? 'px-2.5 py-0.5 rounded-full bg-bg-primary/80 backdrop-blur-sm' : ''}`}>
           {word ? `${slide} / ${words.length}` : ''}
         </span>
         <button onClick={next} disabled={slide === last}

@@ -3,12 +3,13 @@
 //
 //   GET    /collections            → { mine, joined }
 //   POST   /collections            → { collection }   { name, words }
-//   GET    /collections/:id        → { collection, owner }   a shared link's target / detail page
+//   GET    /collections/:id        → { collection, owner }   a shared link's target / detail page — open to signed-out visitors
 //   PATCH  /collections/:id        → { collection }   { name?, words?, isPublic? }
 //   DELETE /collections/:id        → { ok }
 //   POST   /collections/:id/join   → { ok }           counts you as a learner
 //   GET    /collections/:id/members → { members }     per-member progress, most words known first
 //   GET    /collections/:id/invite → { invite }       who shared it — open to signed-out visitors
+//                                    (the old sign-in card's; kept for clients still running it)
 //
 // Ids are UUIDs, so they sit in the path — unlike a `word`, they can't contain
 // a slash or a space.
@@ -131,6 +132,22 @@ export default async function handler(req: Request): Promise<Response> {
     });
   }
 
+  // Anyone may look at a list — a share link, or slides on a classroom
+  // computer nobody's signed into. The caller's own client, so RLS still
+  // decides: public lists for everyone, private ones for their owner.
+  if (id !== undefined && sub === undefined && req.method === 'GET') {
+    const { supabase } = await optionalUser(req);
+    const { data, error } = await supabase.from('collections').select('*').eq('id', id).maybeSingle();
+    if (error) {
+      console.error('[collections]', error);
+      return jsonResponse(500, { error: 'Something went wrong.' });
+    }
+    // Not found and not-allowed-to-see are the same answer on purpose: a
+    // private list must not be discoverable by probing ids.
+    if (!data) return jsonResponse(404, { error: 'Collection not found.' });
+    return jsonResponse(200, { collection: toCollection(data), owner: await ownerOf(data.owner_id as string) });
+  }
+
   const auth = await requireUser(req);
   if (!auth) return jsonResponse(401, { error: 'Please sign in to use this feature.' });
   const db = auth.supabase;
@@ -190,16 +207,7 @@ export default async function handler(req: Request): Promise<Response> {
 
     if (sub !== undefined) return jsonResponse(404, { error: 'Not found' });
 
-    // ── /collections/:id ────────────────────────────────────────────
-    if (req.method === 'GET') {
-      const { data, error } = await db.from('collections').select('*').eq('id', id).maybeSingle();
-      if (error) throw new Error(error.message);
-      // Not found and not-allowed-to-see are the same answer on purpose: a
-      // private list must not be discoverable by probing ids.
-      if (!data) return jsonResponse(404, { error: 'Collection not found.' });
-      return jsonResponse(200, { collection: toCollection(data), owner: await ownerOf(data.owner_id as string) });
-    }
-
+    // ── /collections/:id ── (GET is answered above, signed in or not)
     if (req.method === 'PATCH') {
       const b = await body();
       // Only what was sent, so renaming can't blank the word list.

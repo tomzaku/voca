@@ -31,6 +31,7 @@ import { AddFriendButton } from './AddFriendButton';
 import { useFriendStatuses } from '../hooks/useFriendStatuses';
 import { LoadWordDetails } from './WordDetails';
 import { CollectionSlides } from './CollectionSlides';
+import { asSlideThemeId, suggestedSlideTheme } from '../lib/slideThemes';
 
 /** Podium colours, matching the team leaderboard's medals. */
 const PODIUM = ['text-accent-yellow', 'text-text-secondary', 'text-accent-orange'];
@@ -375,7 +376,7 @@ export function CollectionPresentPage() {
 export function CollectionDetail({ id, onClose, present = false }: { id: string; onClose?: () => void; present?: boolean }) {
   const intl = useIntl();
   const inModal = !!onClose;
-  const { user } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const { isPro } = useIsPro();
   const navigate = useNavigate();
   const activeId = useCollections((s) => s.activeId);
@@ -404,15 +405,16 @@ export function CollectionDetail({ id, onClose, present = false }: { id: string;
   const col = fetched?.collection ?? cached ?? null;
 
   const [members, setMembers] = useState<MemberProgress[]>([]);
-  const [membersLoading, setMembersLoading] = useState(!system);
+  const [membersLoading, setMembersLoading] = useState(!system && !!user);
   const loadMembers = useCallback(async () => {
     setMembersLoading(true);
     setMembers(await fetchMembers(id));
     setMembersLoading(false);
   }, [id]);
+  // The board needs an account to read; a visitor gets a sign-in prompt there.
   useEffect(() => {
-    if (!system) void loadMembers();
-  }, [system, loadMembers]);
+    if (!system && user) void loadMembers();
+  }, [system, user, loadMembers]);
 
   const name = system?.name ?? col?.name ?? '';
   const description = system?.description ?? col?.description ?? null;
@@ -575,18 +577,25 @@ export function CollectionDetail({ id, onClose, present = false }: { id: string;
   // a teacher can present just part of a long list.
   if (present) {
     const slideParam = Number(searchParams.get('slide'));
+    const themeParam = asSlideThemeId(searchParams.get('theme'));
+    // One writer for the deck's params, so a slide change and a theme pick
+    // landing together don't overwrite each other.
+    const setParam = (key: string, value: string | null) => setSearchParams((p) => {
+      const next = new URLSearchParams(p);
+      if (value) next.set(key, value); else next.delete(key);
+      return next;
+    }, { replace: true });
     return (
       <CollectionSlides
         name={name}
         description={description}
         words={shownWords}
         photo={topic ? topicPhoto(id) : undefined}
+        suggestedTheme={suggestedSlideTheme(id)}
+        linkTheme={themeParam}
+        onThemeChange={(t) => setParam('theme', t)}
         initialSlide={Number.isInteger(slideParam) ? slideParam : 0}
-        onSlideChange={(n) => setSearchParams((p) => {
-          const next = new URLSearchParams(p);
-          if (n > 0) next.set('slide', String(n)); else next.delete('slide');
-          return next;
-        }, { replace: true })}
+        onSlideChange={(n) => setParam('slide', n > 0 ? String(n) : null)}
         shareUrl={collectionShareUrl(id, presentPath(id, { filter, q: query }))}
         onClose={() => navigate(`/collections/${encodeURIComponent(id)}`)}
       />
@@ -669,16 +678,28 @@ export function CollectionDetail({ id, onClose, present = false }: { id: string;
 
           {/* One clear next step, and the other ways in beside it, quieter. */}
           <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:max-w-[22rem]">
-            <button
-              onClick={study}
-              disabled={joining}
-              className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5 disabled:opacity-80"
-            >
-              <Icon icon={joined || system || isOwner ? 'lucide:play' : 'lucide:user-plus'} />
-              <FormattedMessage
-                id={active ? 'collections.continueStudying' : joining ? 'collections.joining' : joined || system || isOwner ? 'collections.studyThis' : 'collections.joinAndStudy'}
-              />
-            </button>
+            {/* A visitor can read and present someone's list, but studying it
+                means joining, and joining needs an account. Built-in lists
+                study on this device alone, so they need none. */}
+            {!user && !system ? (
+              <button
+                onClick={() => void signInWithGoogle()}
+                className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5"
+              >
+                <Icon icon="lucide:log-in" /> <FormattedMessage id="collections.signInToStudy" />
+              </button>
+            ) : (
+              <button
+                onClick={study}
+                disabled={joining}
+                className="btn-3d px-5 py-2.5 bg-white text-gray-900 text-sm font-bold flex items-center gap-1.5 disabled:opacity-80"
+              >
+                <Icon icon={joined || system || isOwner ? 'lucide:play' : 'lucide:user-plus'} />
+                <FormattedMessage
+                  id={active ? 'collections.continueStudying' : joining ? 'collections.joining' : joined || system || isOwner ? 'collections.studyThis' : 'collections.joinAndStudy'}
+                />
+              </button>
+            )}
             <button onClick={() => setPickingQuiz(true)} className={glass}>
               <Icon icon="lucide:circle-check-big" className="text-sm" /> <FormattedMessage id="collections.quiz" />
             </button>
@@ -828,7 +849,21 @@ export function CollectionDetail({ id, onClose, present = false }: { id: string;
                 </div>
               )}
 
-              <CollectionLeaderboard members={members} meId={user?.id} ownerId={col.ownerId} loading={membersLoading} />
+              {user ? (
+                <CollectionLeaderboard members={members} meId={user.id} ownerId={col.ownerId} loading={membersLoading} />
+              ) : (
+                <div className="flex flex-col gap-3 rounded-xl bg-bg-tertiary/50 p-4">
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    <FormattedMessage id="collections.signInForBoard" values={{ count: col.memberCount }} />
+                  </p>
+                  <button
+                    onClick={() => void signInWithGoogle()}
+                    className="btn-3d self-start px-4 py-2 text-xs font-bold bg-accent-purple text-bg-primary"
+                  >
+                    <FormattedMessage id="collections.signInToJoin" />
+                  </button>
+                </div>
+              )}
 
               <p className="text-[11px] text-text-muted/70">
                 <FormattedMessage id="collections.rankedBy" />

@@ -77,12 +77,14 @@ export function collectionShareUrl(id: string, path = `/collections/${id}`): str
 
 /**
  * The router path of a collection's slides — `filter` and `q` narrow the words
- * the way the list's chips and search do (see CollectionPresentPage).
+ * the way the list's chips and search do, `theme` sets the look (see
+ * CollectionPresentPage).
  */
-export function presentPath(id: string, opts: { filter?: string; q?: string } = {}): string {
+export function presentPath(id: string, opts: { filter?: string; q?: string; theme?: string } = {}): string {
   const params = new URLSearchParams();
   if (opts.filter && opts.filter !== 'all') params.set('filter', opts.filter);
   if (opts.q?.trim()) params.set('q', opts.q.trim());
+  if (opts.theme) params.set('theme', opts.theme);
   const qs = params.toString();
   return `/collections/${encodeURIComponent(id)}/present${qs ? `?${qs}` : ''}`;
 }

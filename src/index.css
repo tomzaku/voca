@@ -346,6 +346,12 @@ body {
 @keyframes slideBreathe { from { transform: scale(1.1); } to { transform: scale(1.17); } }
 @keyframes slideSwipe   { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes slideDraw    { to { stroke-dashoffset: 0; } }
+@keyframes slideFlyX    { from { left: -4%; } to { left: 104%; } }
+@keyframes slideFlyY    { 0%, 100% { transform: translateY(86px) rotate(-14deg); } 50% { transform: translateY(29px) rotate(0deg); } 99.9% { transform: translateY(86px) rotate(14deg); } }
+@keyframes slideSwayGentle { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+@keyframes slideFlap    { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.35); } }
+@keyframes slideSteam   { 0% { transform: translateY(6px); opacity: 0; } 40% { opacity: 0.6; } 100% { transform: translateY(-18px); opacity: 0; } }
+@keyframes slideWindow  { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.85; } }
 @media (prefers-reduced-motion: reduce) {
   .slide-decor, .slide-decor *, .slide-accent, .slide-accent * { animation: none !important; }
   .slide-accent path { stroke-dashoffset: 0; }
