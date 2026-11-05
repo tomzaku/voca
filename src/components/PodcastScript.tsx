@@ -6,7 +6,8 @@ import { splitSentences } from '../lib/listeningRules';
 import { loadTranslation, setTranslationPref, translationFolder, translationPref } from '../lib/podcastTranslation';
 
 // The Listen page's podcast script, played and followed: the sentence being
-// said lights up, tapping one plays from there, and a recorded episode
+// said lights up, tapping one plays just that sentence (Play carries on from
+// it), and a recorded episode
 // streams as one file with a bar to jump along it (usePodcastPlayer). The
 // world's theatre has the pixel version of this (worldgames/Podcast).
 //
@@ -105,8 +106,8 @@ export function PodcastScript({ id, script, onFinish }: { id: string; script: st
                   tabIndex={0}
                   data-line={i}
                   title={recorded ? clock(recorded.lines[i].start) : undefined}
-                  onClick={() => player.playFrom(i)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') player.playFrom(i); }}
+                  onClick={() => { setAt(i); player.playLine(i); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setAt(i); player.playLine(i); } }}
                   className={`cursor-pointer rounded px-0.5 transition-colors ${
                     player.index === i ? 'bg-accent-purple/15 text-text-primary' : 'hover:text-text-primary'
                   }`}

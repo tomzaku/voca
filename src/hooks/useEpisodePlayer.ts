@@ -22,6 +22,8 @@ export function useEpisodePlayer(sentences: string[], onFinish: () => void) {
   const [running, setRunning] = useState(false);
   const [time, setTime] = useState(0);
   const elRef = useRef<HTMLAudioElement | null>(null);
+  // Where a one-sentence play (playLine) pauses; null plays on to the end.
+  const untilRef = useRef<number | null>(null);
   const finishRef = useRef(onFinish);
   useEffect(() => { finishRef.current = onFinish; });
 
@@ -42,6 +44,13 @@ export function useEpisodePlayer(sentences: string[], onFinish: () => void) {
     if (!running || !el || !audio) return;
     let frame = 0;
     const tick = () => {
+      if (untilRef.current !== null && el.currentTime >= untilRef.current) {
+        untilRef.current = null;
+        el.pause();
+        setRunning(false);
+        setIndex(-1);
+        return;
+      }
       setIndex(lineAt(audio.lines, el.currentTime));
       setTime(Math.floor(el.currentTime * 4) / 4);
       frame = requestAnimationFrame(tick);
@@ -55,10 +64,13 @@ export function useEpisodePlayer(sentences: string[], onFinish: () => void) {
     const el = new Audio();
     el.preload = 'auto';
     el.onended = () => {
+      // The last sentence tapped on its own isn't the episode played through.
+      const single = untilRef.current !== null;
+      untilRef.current = null;
       setRunning(false);
       setIndex(-1);
       setTime(0);
-      finishRef.current();
+      if (!single) finishRef.current();
     };
     // Paused from outside — a call, the lock-screen control.
     el.onpause = () => { if (!el.ended) setRunning(false); };
@@ -67,8 +79,9 @@ export function useEpisodePlayer(sentences: string[], onFinish: () => void) {
   }, []);
 
   /** Jump to `seconds` and play from there. */
-  const playAt = useCallback((seconds: number) => {
+  const playAt = useCallback((seconds: number, until: number | null = null) => {
     if (!audio) return;
+    untilRef.current = until;
     stopSpeaking();
     const el = element();
     if (el.src !== audio.src) el.src = audio.src;
@@ -85,7 +98,14 @@ export function useEpisodePlayer(sentences: string[], onFinish: () => void) {
 
   const playFrom = useCallback((i: number) => playAt(audio?.lines[i]?.start ?? 0), [audio, playAt]);
 
+  /** Sentence `i` on its own, then pause. */
+  const playLine = useCallback((i: number) => {
+    const line = audio?.lines[i];
+    if (line) playAt(line.start, line.end);
+  }, [audio, playAt]);
+
   const stop = useCallback(() => {
+    untilRef.current = null;
     elRef.current?.pause();
     setRunning(false);
     setIndex(-1);
@@ -101,7 +121,7 @@ export function useEpisodePlayer(sentences: string[], onFinish: () => void) {
     el.load();
   }, []);
 
-  return { audio, index, running, time, playFrom, playAt, stop };
+  return { audio, index, running, time, playFrom, playLine, playAt: (seconds: number) => playAt(seconds), stop };
 }
 
 /**
@@ -128,6 +148,8 @@ export function usePodcastPlayer(sentences: string[], onFinish: () => void) {
     loading: !recorded && script.status === 'loading',
     time: episode.time,
     playFrom: (i: number) => void active.playFrom(i),
+    /** Just sentence `i`, then stop — tapping a sentence. */
+    playLine: (i: number) => void active.playLine(i),
     playAt: episode.playAt,
     stop: active.stop,
   };

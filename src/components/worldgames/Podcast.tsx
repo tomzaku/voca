@@ -118,8 +118,8 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
                   tabIndex={0}
                   data-line={i}
                   title={recorded ? clock(recorded.lines[i].start) : undefined}
-                  onClick={() => player.playFrom(i)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') player.playFrom(i); }}
+                  onClick={() => { setAt(i); player.playLine(i); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setAt(i); player.playLine(i); } }}
                   className={`cursor-pointer mr-1 px-0.5 ${current ? 'bg-[var(--px-gold)] text-[var(--px-ink)]' : masked ? 'text-[var(--px-muted)] tracking-widest' : 'hover:text-[var(--px-gold)]'}`}
                 >
                   {masked ? '• • • •' : text}
