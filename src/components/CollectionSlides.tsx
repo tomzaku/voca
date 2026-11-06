@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useTypedExample } from '../hooks/useTypedExample';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import toast from 'react-hot-toast';
@@ -95,6 +96,32 @@ function useDeckDoodles(words: string[], index: number, isPro: boolean): Record<
  * back — and the next press reveals the meaning, unless the presenter turned
  * that off.
  */
+/**
+ * The headword typed out letter by letter, the way the search box types its
+ * examples (useTypedExample), then left standing — on every theme; `after`
+ * (the theme's highlighter or chalk line) only once it's all there. The whole
+ * word sits underneath, invisible, so the line is its final size from the
+ * start and nothing shifts as letters land. Under reduced motion it's simply
+ * the word.
+ */
+function TypedWord({ text, after }: { text: string; after?: ReactNode }) {
+  const examples = useMemo(() => [text], [text]);
+  const typed = useTypedExample(examples, true, { once: true, typeMs: 75 });
+  if (typed === null && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return <>{text}{after}</>;
+  const done = typed === text;
+  return (
+    <>
+      <span className="sr-only">{text}</span>
+      <span aria-hidden className="invisible">{text}</span>
+      <span aria-hidden className="absolute inset-0 text-left whitespace-pre-wrap">
+        {typed}
+        {!done && <span className="inline-block w-[0.06em] h-[0.9em] -mb-[0.1em] ml-[0.04em] bg-current animate-pulse" />}
+      </span>
+      {done && after}
+    </>
+  );
+}
+
 function WordSlide({ word, revealed, doodle, inkFilter, theme, showExampleTranslations }: {
   word: string;
   revealed: boolean;
@@ -118,12 +145,13 @@ function WordSlide({ word, revealed, doodle, inkFilter, theme, showExampleTransl
   }, [word]);
 
   const headword = data?.headword || word;
+  const accent = theme.accent && <WordAccent kind={theme.accent} color={theme.accentColor} />;
   const ipa = data?.phonetics?.['en-US'] || data?.phonetics?.['en-GB'];
   const definition = data?.shortDefinition || data?.definition;
 
   return (
     <div className="w-full max-w-4xl mx-auto flex flex-col items-center text-center gap-6">
-      <div className="flex flex-col items-center gap-3">
+      <div className="@container w-full flex flex-col items-center gap-3">
         {/* With the word, before the meaning: the picture is the clue the
             class guesses from. */}
         {doodle && (
@@ -139,17 +167,24 @@ function WordSlide({ word, revealed, doodle, inkFilter, theme, showExampleTransl
             {data.partOfSpeech}
           </span>
         )}
+        {/* As big as the screen size allows, but never so big that a phrase
+            breaks onto a second line ("sustainable / tourism" reads as two
+            words): the line's width over the letter count, ~0.62em a letter
+            in the widest face, less the speaker icon. A floor, so a long
+            phrase on a phone wraps (evenly) rather than shrinking to nothing. */}
         <button
           onClick={() => void speakText(headword, { phonetics: data?.phonetics })}
-          className={`group flex items-center gap-4 font-display text-text-primary text-5xl sm:text-7xl lg:text-8xl break-words leading-tight hover:text-accent-cyan transition-colors ${
+          className={`group flex items-center gap-4 font-display text-text-primary [--hw:3rem] sm:[--hw:4.5rem] lg:[--hw:6rem] break-words text-balance leading-tight hover:text-accent-cyan transition-colors ${
             theme.wordFont ? 'font-normal' : 'font-extrabold'
           }`}
-          // A handwriting face has one weight; asking for bold only smears it.
-          style={theme.wordFont ? { fontFamily: theme.wordFont } : undefined}
+          style={{
+            fontSize: `max(1.75rem, min(var(--hw), calc((100cqi - 4rem) / ${(Math.max(headword.length, 6) * 0.62).toFixed(2)})))`,
+            // A handwriting face has one weight; asking for bold only smears it.
+            ...(theme.wordFont ? { fontFamily: theme.wordFont } : {}),
+          }}
         >
           <span className="relative isolate">
-            {headword}
-            {theme.accent && <WordAccent kind={theme.accent} color={theme.accentColor} />}
+            <TypedWord text={headword} after={accent} />
           </span>
           <Icon icon="lucide:volume-2" className="text-3xl sm:text-4xl text-text-muted group-hover:text-accent-cyan shrink-0" />
         </button>
@@ -473,6 +508,9 @@ export function CollectionSlides({
   }, [next, prev, last, word, onClose, toggleExampleTranslations, menu]);
 
   const pct = (slide / last) * 100;
+  // The title and end slides are the deck's covers: their own stage, a band
+  // across the middle for the title, and the theme's mark behind it.
+  const cover = slide === 0 || !word;
   const chip = (on: boolean) =>
     `flex items-center gap-1.5 px-2.5 h-8 rounded-lg text-xs font-bold border transition-colors ${
       on ? 'border-accent-cyan/40 bg-accent-cyan/10 text-accent-cyan' : 'border-border text-text-muted hover:text-text-primary'
@@ -480,13 +518,20 @@ export function CollectionSlides({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex flex-col bg-bg-primary text-text-primary select-none"
-      style={slideThemeStyle(theme)}
+      className="fixed inset-0 z-[70] flex flex-col overflow-hidden bg-bg-primary text-text-primary select-none"
+      style={slideThemeStyle(theme, cover)}
       role="dialog"
       aria-modal
       aria-label={name}
     >
       <SlideDecor kind={theme.decor} photo={photo} />
+      {cover && (
+        <Icon
+          icon={theme.icon}
+          aria-hidden
+          className="pointer-events-none absolute -bottom-[8vmin] -right-[6vmin] text-[58vmin] text-accent-cyan opacity-[0.07] rotate-[-12deg]"
+        />
+      )}
 
       {/* Positioned, so they paint above the decor. */}
       <div className="relative h-1 bg-bg-tertiary">
@@ -587,32 +632,40 @@ export function CollectionSlides({
           if (!(e.target as HTMLElement).closest('button')) next();
         }}
       >
-        {slide === 0 ? (
-          <div className="w-full max-w-3xl mx-auto text-center flex flex-col items-center gap-4">
-            <Icon icon="lucide:presentation" className="text-5xl text-accent-cyan" />
-            <h1 className="font-display font-extrabold text-text-primary text-4xl sm:text-6xl break-words">{name}</h1>
-            {description && <p className="text-xl sm:text-2xl text-text-secondary">{description}</p>}
-            <p className="text-lg text-text-muted"><FormattedMessage id="collections.wordCount" values={{ count: words.length }} /></p>
-            <p className="text-sm text-text-muted mt-6"><FormattedMessage id="collections.slidesKeysHint" /></p>
-          </div>
-        ) : word ? (
-          <WordSlide key={word} word={word} revealed={showMeaning} doodle={doodles[doodleKey(word)]} inkFilter={doodleFilter(theme)} theme={theme} showExampleTranslations={showExampleTranslations} />
-        ) : (
-          <div className="w-full max-w-3xl mx-auto text-center flex flex-col items-center gap-5">
-            <Icon icon="lucide:party-popper" className="text-5xl text-accent-yellow" />
-            <h2 className="font-display font-extrabold text-text-primary text-3xl sm:text-5xl">
-              <FormattedMessage id="collections.slidesDone" values={{ count: words.length }} />
-            </h2>
-            <div className="flex flex-wrap justify-center gap-3">
-              <button onClick={() => goTo(1)} className="btn-3d px-5 py-2.5 text-sm font-bold bg-accent-cyan text-bg-primary">
-                <FormattedMessage id="collections.slidesRestart" />
-              </button>
-              <button onClick={onClose} className="btn-3d px-5 py-2.5 text-sm font-bold bg-bg-tertiary text-text-primary">
-                <FormattedMessage id="collections.close" />
-              </button>
-            </div>
-          </div>
+        {cover && (
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 h-[min(18rem,60%)] bg-bg-card/55 border-y-2 border-border backdrop-blur-[2px]" />
         )}
+        {/* Everything on a slide at 80%: the type and the doodle were sized
+            for a projector across a room and crowded a laptop's screen. One
+            zoom rather than every size by hand, so they keep their proportions. */}
+        <div className="relative w-full" style={{ zoom: 0.8 }}>
+          {slide === 0 ? (
+            <div className="relative w-full max-w-3xl mx-auto text-center flex flex-col items-center gap-4">
+              <Icon icon="lucide:presentation" className="text-5xl text-accent-cyan" />
+              <h1 className="font-display font-extrabold text-text-primary text-4xl sm:text-6xl break-words">{name}</h1>
+              {description && <p className="text-xl sm:text-2xl text-text-secondary">{description}</p>}
+              <p className="text-lg text-text-muted"><FormattedMessage id="collections.wordCount" values={{ count: words.length }} /></p>
+              <p className="text-sm text-text-muted mt-6"><FormattedMessage id="collections.slidesKeysHint" /></p>
+            </div>
+          ) : word ? (
+            <WordSlide key={word} word={word} revealed={showMeaning} doodle={doodles[doodleKey(word)]} inkFilter={doodleFilter(theme)} theme={theme} showExampleTranslations={showExampleTranslations} />
+          ) : (
+            <div className="relative w-full max-w-3xl mx-auto text-center flex flex-col items-center gap-5">
+              <Icon icon="lucide:party-popper" className="text-5xl text-accent-yellow" />
+              <h2 className="font-display font-extrabold text-text-primary text-3xl sm:text-5xl">
+                <FormattedMessage id="collections.slidesDone" values={{ count: words.length }} />
+              </h2>
+              <div className="flex flex-wrap justify-center gap-3">
+                <button onClick={() => goTo(1)} className="btn-3d px-5 py-2.5 text-sm font-bold bg-accent-cyan text-bg-primary">
+                  <FormattedMessage id="collections.slidesRestart" />
+                </button>
+                <button onClick={onClose} className="btn-3d px-5 py-2.5 text-sm font-bold bg-bg-tertiary text-text-primary">
+                  <FormattedMessage id="collections.close" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="relative flex items-center justify-between gap-3 px-4 py-3">
