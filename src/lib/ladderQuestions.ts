@@ -8,7 +8,7 @@
 // name) or an [English, Vietnamese] pair. The right answer is listed first;
 // the ladder shuffles the options.
 
-export type QLevel = 'easy' | 'medium' | 'hard';
+export type QLevel = 'easy' | 'medium' | 'hard' | 'expert';
 export type QType = 'nature' | 'science' | 'math' | 'world' | 'life';
 export type Text = string | readonly [en: string, vi: string];
 
@@ -48,6 +48,13 @@ const NATURE: Row[] = [
   ['hard', ['What is a group of lions called?', 'Một đàn sư tử trong tiếng Anh gọi là gì?'], ['A pride', 'A pack', 'A herd', 'A flock']],
   ['hard', ['Which bird is a symbol of peace?', 'Loài chim nào là biểu tượng của hòa bình?'], [['The dove', 'Chim bồ câu'], ['The crow', 'Con quạ'], ['The owl', 'Con cú'], ['The swan', 'Thiên nga']]],
   ['hard', ['How long is an elephant pregnant for, roughly?', 'Voi mang thai khoảng bao lâu?'], [['About 2 years', 'Khoảng 2 năm'], ['About 9 months', 'Khoảng 9 tháng'], ['About 6 months', 'Khoảng 6 tháng'], ['About 4 years', 'Khoảng 4 năm']], ['The longest of any land animal — about 22 months.', 'Lâu nhất trong các loài trên cạn — khoảng 22 tháng.']],
+
+  ['expert', ['Which is the only mammal that can truly fly?', 'Động vật có vú duy nhất thật sự bay được là con gì?'], [['The bat', 'Con dơi'], ['The flying squirrel', 'Sóc bay'], ['The flying fish', 'Cá chuồn'], ['The colugo', 'Chồn bay']], ['Flying squirrels and colugos only glide.', 'Sóc bay và chồn bay chỉ lượn chứ không bay.']],
+  ['expert', ['How many chambers does a cow\'s stomach have?', 'Dạ dày của bò có mấy ngăn?'], ['4', '1', '2', '3']],
+  ['expert', ['A koala eats almost nothing but…', 'Gấu koala gần như chỉ ăn…'], [['Eucalyptus leaves', 'Lá bạch đàn'], ['Bamboo', 'Tre, trúc'], ['Grass', 'Cỏ'], ['Insects', 'Côn trùng']]],
+  ['expert', ['Which is the largest living bird?', 'Loài chim lớn nhất hiện nay là loài nào?'], [['The ostrich', 'Đà điểu châu Phi'], ['The emu', 'Đà điểu emu'], ['The albatross', 'Chim hải âu lớn'], ['The condor', 'Kền kền condor']]],
+  ['expert', ['Which of these usually lives the longest?', 'Con nào sau đây thường sống lâu nhất?'], [['The giant tortoise', 'Rùa khổng lồ'], ['The elephant', 'Con voi'], ['The parrot', 'Con vẹt'], ['The horse', 'Con ngựa']], ['Giant tortoises can pass 150 years.', 'Rùa khổng lồ có thể sống hơn 150 năm.']],
+  ['expert', ['Which gas do plants take from the air to make their food?', 'Cây lấy khí nào từ không khí để tạo ra chất dinh dưỡng?'], [['Carbon dioxide', 'Khí cacbonic (CO₂)'], ['Oxygen', 'Ôxi'], ['Nitrogen', 'Nitơ'], ['Hydrogen', 'Hiđrô']]],
 ];
 
 const SCIENCE: Row[] = [
@@ -73,6 +80,13 @@ const SCIENCE: Row[] = [
   ['hard', ['Which planet has the most famous rings?', 'Hành tinh nào có vành đai nổi tiếng nhất?'], [['Saturn', 'Sao Thổ'], ['Mars', 'Sao Hỏa'], ['Mercury', 'Sao Thủy'], ['Venus', 'Sao Kim']]],
   ['hard', ['Who was the first person to walk on the Moon?', 'Ai là người đầu tiên đặt chân lên Mặt Trăng?'], ['Neil Armstrong', 'Yuri Gagarin', 'Buzz Aldrin', 'Albert Einstein'], ['In 1969. Gagarin was the first person in space, in 1961.', 'Năm 1969. Gagarin là người đầu tiên bay vào vũ trụ, năm 1961.']],
   ['hard', ['What part of your eye gives it its colour?', 'Phần nào của mắt quyết định màu mắt?'], [['The iris', 'Mống mắt'], ['The pupil', 'Đồng tử'], ['The eyelid', 'Mí mắt'], ['The eyelash', 'Lông mi']]],
+
+  ['expert', ['What is the chemical symbol for gold?', 'Ký hiệu hóa học của vàng là gì?'], ['Au', 'Ag', 'Go', 'Gd'], ['From the Latin "aurum". Ag is silver.', 'Từ tiếng Latinh "aurum". Ag là bạc.']],
+  ['expert', ['Which gas makes up most of the air?', 'Khí nào chiếm phần lớn không khí?'], [['Nitrogen', 'Nitơ'], ['Oxygen', 'Ôxi'], ['Carbon dioxide', 'Khí cacbonic'], ['Argon', 'Agon']], ['About 78% — oxygen is about 21%.', 'Khoảng 78% — ôxi chỉ khoảng 21%.']],
+  ['expert', ['Roughly how long does sunlight take to reach Earth?', 'Ánh sáng Mặt Trời mất khoảng bao lâu để tới Trái Đất?'], [['8 minutes', '8 phút'], ['8 seconds', '8 giây'], ['8 hours', '8 giờ'], ['1 day', '1 ngày']]],
+  ['expert', ['Which blood type can be given to almost anyone?', 'Nhóm máu nào có thể truyền cho hầu hết mọi người?'], ['O−', 'AB+', 'A+', 'B−']],
+  ['expert', ['Which part of a cell holds most of its DNA?', 'Phần nào của tế bào chứa phần lớn ADN?'], [['The nucleus', 'Nhân tế bào'], ['The membrane', 'Màng tế bào'], ['The mitochondria', 'Ti thể'], ['The vacuole', 'Không bào']]],
+  ['expert', ['At which temperature do °C and °F show the same number?', 'Ở nhiệt độ nào thì độ C và độ F có cùng con số?'], ['−40°', '0°', '−32°', '100°']],
 ];
 
 const MATH: Row[] = [
@@ -98,6 +112,14 @@ const MATH: Row[] = [
   ['hard', ['How many seconds are in an hour?', 'Một giờ có bao nhiêu giây?'], ['3,600', '360', '600', '6,000']],
   ['hard', ['If 3x + 5 = 20, what is x?', 'Nếu 3x + 5 = 20 thì x bằng bao nhiêu?'], ['5', '4', '6', '15']],
   ['hard', ['Pi (π) is about…', 'Số pi (π) xấp xỉ bằng…'], ['3.14', '2.71', '1.62', '4.13']],
+
+  ['expert', ['What is 17 × 23?', '17 × 23 bằng bao nhiêu?'], ['391', '381', '401', '371']],
+  ['expert', ['What is 15% of 240?', '15% của 240 là bao nhiêu?'], ['36', '24', '32', '40']],
+  ['expert', ['What do the inside angles of a hexagon add up to?', 'Tổng các góc trong của hình lục giác bằng bao nhiêu?'], ['720°', '540°', '900°', '360°'], ['(6 − 2) × 180° = 720°.', '(6 − 2) × 180° = 720°.']],
+  ['expert', ['What is the next prime number after 89?', 'Số nguyên tố liền sau 89 là số nào?'], ['97', '91', '93', '95'], ['91 = 7 × 13, 93 = 3 × 31, 95 = 5 × 19.', '91 = 7 × 13, 93 = 3 × 31, 95 = 5 × 19.']],
+  ['expert', ['$80, 25% off, then 10% off the new price. What do you pay?', 'Giá $80, giảm 25%, rồi giảm thêm 10% trên giá mới. Bạn trả bao nhiêu?'], ['$54', '$52', '$56', '$60'], ['$80 × 0.75 = $60, then $60 × 0.9 = $54 — not 35% off.', '$80 × 0,75 = $60, rồi $60 × 0,9 = $54 — không phải giảm 35%.']],
+  ['expert', ['What is the smallest number that 4, 6 and 10 all divide into?', 'Số nhỏ nhất chia hết cho cả 4, 6 và 10 là số nào?'], ['60', '30', '120', '240']],
+  ['expert', ['You drive 120 km in 1.5 hours. What is your average speed?', 'Bạn lái 120 km trong 1,5 giờ. Tốc độ trung bình là bao nhiêu?'], ['80 km/h', '60 km/h', '75 km/h', '90 km/h']],
 ];
 
 const WORLD: Row[] = [
@@ -123,6 +145,13 @@ const WORLD: Row[] = [
   ['hard', ['Which river flows through Cairo?', 'Sông nào chảy qua Cairo?'], [['The Nile', 'Sông Nin'], ['The Amazon', 'Sông Amazon'], ['The Danube', 'Sông Đa-nuýp'], ['The Ganges', 'Sông Hằng']]],
   ['hard', ['Machu Picchu, the old Inca city, is in which country?', 'Machu Picchu, thành cổ của người Inca, ở nước nào?'], ['Peru', 'Mexico', 'Chile', ['Egypt', 'Ai Cập']]],
   ['hard', ['Which is the deepest lake in the world?', 'Hồ sâu nhất thế giới là hồ nào?'], ['Baikal', ['Lake Victoria', 'Hồ Victoria'], ['Lake Superior', 'Hồ Superior'], ['Lake Titicaca', 'Hồ Titicaca']]],
+
+  ['expert', ['Which country has the most people?', 'Nước nào đông dân nhất thế giới?'], [['India', 'Ấn Độ'], ['China', 'Trung Quốc'], ['The USA', 'Hoa Kỳ'], ['Indonesia', 'Indonesia']], ['India passed China in 2023.', 'Ấn Độ vượt Trung Quốc vào năm 2023.']],
+  ['expert', ['Which is the longest river in Asia?', 'Sông nào dài nhất châu Á?'], [['The Yangtze', 'Trường Giang (Dương Tử)'], ['The Mekong', 'Mê Kông'], ['The Ganges', 'Sông Hằng'], ['The Yellow River', 'Hoàng Hà']]],
+  ['expert', ['Mount Kilimanjaro is in which country?', 'Núi Kilimanjaro nằm ở nước nào?'], ['Tanzania', 'Kenya', 'Uganda', ['Ethiopia', 'Ethiopia (Ê-ti-ô-pi-a)']]],
+  ['expert', ['Which city used to be called Constantinople?', 'Thành phố nào từng có tên Constantinople?'], ['Istanbul', ['Athens', 'Athens (A-ten)'], ['Rome', 'Roma'], ['Cairo', 'Cairo (Cai-rô)']]],
+  ['expert', ['Which country has the longest coastline?', 'Nước nào có đường bờ biển dài nhất?'], ['Canada', ['Russia', 'Nga'], ['Australia', 'Úc'], 'Indonesia']],
+  ['expert', ['Machu Picchu is in which country?', 'Machu Picchu nằm ở nước nào?'], ['Peru', 'Mexico', 'Chile', 'Bolivia']],
 ];
 
 const LIFE: Row[] = [
@@ -148,6 +177,13 @@ const LIFE: Row[] = [
   ['hard', ['Which country gave the world the Olympic Games, in ancient times?', 'Thế vận hội bắt nguồn từ nước nào thời cổ đại?'], [['Greece', 'Hy Lạp'], ['Italy', 'Ý'], ['Egypt', 'Ai Cập'], ['China', 'Trung Quốc']]],
   ['hard', ['Who invented the light bulb that became widely used?', 'Ai phát minh ra bóng đèn điện được dùng rộng rãi?'], ['Thomas Edison', 'Isaac Newton', 'Alexander Graham Bell', 'Albert Einstein'], ['Bell is famous for the telephone.', 'Bell nổi tiếng với điện thoại.']],
   ['hard', ['How many cards are in a standard deck, without jokers?', 'Bộ bài tây tiêu chuẩn (không tính phăng teo) có bao nhiêu lá?'], ['52', '54', '48', '60']],
+
+  ['expert', ['About how long is a marathon?', 'Một cuộc chạy marathon dài khoảng bao nhiêu?'], ['42 km', '21 km', '10 km', '50 km']],
+  ['expert', ['How many keys does a standard piano have?', 'Đàn piano tiêu chuẩn có bao nhiêu phím?'], ['88', '76', '64', '100']],
+  ['expert', ['Who painted "The Starry Night"?', 'Ai vẽ bức "Đêm đầy sao"?'], ['Vincent van Gogh', 'Claude Monet', 'Pablo Picasso', 'Leonardo da Vinci']],
+  ['expert', ['A golden wedding anniversary is how many years?', 'Đám cưới vàng là kỷ niệm bao nhiêu năm?'], ['50', '25', '40', '60'], ['25 years is silver.', '25 năm là đám cưới bạc.']],
+  ['expert', ['In tennis, what is a score of zero called?', 'Trong quần vợt, điểm 0 được gọi là gì?'], ['Love', 'Nil', 'Duck', 'Blank']],
+  ['expert', ['How many notes, black and white, are in one octave on a piano?', 'Một quãng tám trên đàn piano có bao nhiêu nốt, tính cả phím đen và trắng?'], ['12', '7', '8', '10']],
 ];
 
 const BY_TYPE: Record<QType, Row[]> = { nature: NATURE, science: SCIENCE, math: MATH, world: WORLD, life: LIFE };

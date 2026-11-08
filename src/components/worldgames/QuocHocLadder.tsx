@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
-  answer, banked, canUse, current, floorPoints, LIFELINES, levelOf, newLadder, recordScore, bestScores,
-  RUNG_COUNT, RUNG_POINTS, SAFE_RUNGS, say, stop, askClass, takeHalf, swapQuestion,
-  type LadderGame, type LadderType, type Lifeline,
+  answer, banked, bestKey, canUse, current, floorPoints, LIFELINES, levelOf, newLadder, recordScore, bestScores,
+  RANGES, RANGE_LEVELS, RUNG_COUNT, RUNG_POINTS, SAFE_RUNGS, say, saveRange, savedRange, stop, askClass, takeHalf, swapQuestion,
+  type LadderGame, type LadderRange, type LadderType, type Lifeline,
 } from '../../lib/quocHocLadder';
 import { QUESTION_TYPES } from '../../lib/ladderQuestions';
 import { playCorrect, playSelect, playWin, playWrong } from '../../lib/sfx';
@@ -11,7 +11,7 @@ import { PixelButton, PixelChip, PixelIcon, type PixelIconName } from './pixel';
 
 const LIFELINE_ICON: Record<Lifeline, PixelIconName> = { half: 'percent', class: 'people', swap: 'retry' };
 const LETTERS = ['A', 'B', 'C', 'D'];
-const LEVEL_TONE = { easy: 'text-[var(--px-jade,#6fd39a)]', medium: 'text-[var(--px-sky)]', hard: 'text-[#ff8a7a]' };
+const LEVEL_TONE = { easy: 'text-[var(--px-jade,#6fd39a)]', medium: 'text-[var(--px-sky)]', hard: 'text-[#ff8a7a]', expert: 'text-[#c79bff]' };
 /** How long an answer is held, locked in, before it's revealed. */
 const SUSPENSE_MS = 900;
 
@@ -20,12 +20,14 @@ const SUSPENSE_MS = 900;
  * easy to hard, with safe rungs and three helps (lib/quocHocLadder). It
  * opens straight on a climb of every type mixed at random; one type only is
  * a choice you can make before the first answer (or after a climb ends), not
- * a step in the way. Your best climb per type is kept on this device.
+ * a step in the way. So is the range — easy → hard, or medium → expert for
+ * grown-ups — and the range chosen last is the one it opens on. Your best
+ * climb per type and range is kept on this device.
  */
 export function QuocHocLadder({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
   const locale = intl.locale;
-  const [game, setGame] = useState<LadderGame>(() => newLadder('all'));
+  const [game, setGame] = useState<LadderGame>(() => newLadder('all', savedRange()));
   /** Choosing one type of question instead — optional, over the climb. */
   const [choosing, setChoosing] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
@@ -35,7 +37,10 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  const start = (type: LadderType) => { setGame(newLadder(type)); setPicked(null); setResult(null); setChoosing(false); };
+  const start = (type: LadderType, range: LadderRange = game.range) => { setGame(newLadder(type, range)); setPicked(null); setResult(null); setChoosing(false); };
+  /** Picking a range keeps the picker open: the type is usually next. */
+  const pickRange = (range: LadderRange) => { playSelect(); saveRange(range); setGame(newLadder(game.type, range)); setPicked(null); setResult(null); };
+  const levelName = (i: 0 | 1 | 2) => intl.formatMessage({ id: `world.ladderLevel.${RANGE_LEVELS[game.range][i]}` }).toLowerCase();
 
   const pick = (i: number) => {
     if (picked !== null || game.hidden.includes(i)) return;
@@ -43,7 +48,7 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
     playSelect();
     timer.current = window.setTimeout(() => {
       const { game: next, correct } = answer(game, i);
-      const record = next.over ? recordScore(next.type, next.over.points) : false;
+      const record = next.over ? recordScore(next.type, next.range, next.over.points) : false;
       if (next.over) setBest(bestScores());
       if (next.over?.how === 'top') playWin(); else if (correct) playCorrect(); else playWrong();
       setResult({ correct, next, record });
@@ -64,7 +69,7 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
   const quit = () => {
     if (picked !== null) return;
     const g = stop(game);
-    const record = recordScore(g.type, g.over!.points);
+    const record = recordScore(g.type, g.range, g.over!.points);
     setBest(bestScores());
     setGame(g);
     setResult({ correct: true, next: g, record });
@@ -84,19 +89,27 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
         <div className="flex items-start justify-between gap-2 mb-3">
           <div>
             <p className="px-title !text-[18px] text-[var(--px-gold)] flex items-center gap-2"><PixelIcon name="cap" size={2} /> <FormattedMessage id="world.ladderTitle" /></p>
-            <p className="text-[12px] opacity-80"><FormattedMessage id="world.ladderHow" /></p>
+            <p className="text-[12px] opacity-80"><FormattedMessage id="world.ladderHow" values={{ a: levelName(0), b: levelName(1), c: levelName(2) }} /></p>
           </div>
           <PixelButton tone="paper" onClick={onClose} className="!px-2.5 !py-1 !text-[13px] shrink-0"><FormattedMessage id="world.close" /></PixelButton>
         </div>
 
         {choosing ? (
           <div className="py-3 space-y-3 text-center">
+            <p className="text-[14px]"><FormattedMessage id="world.ladderPickRange" /></p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {RANGES.map((r) => (
+                <PixelChip key={r} on={r === game.range} onClick={() => pickRange(r)}>
+                  <FormattedMessage id={`world.ladderRange.${r}`} />
+                </PixelChip>
+              ))}
+            </div>
             <p className="text-[14px]"><FormattedMessage id="world.ladderPickType" /></p>
             <div className="flex flex-wrap justify-center gap-2">
               {(['all', ...QUESTION_TYPES] as LadderType[]).map((t) => (
                 <PixelChip key={t} on={t === game.type} onClick={() => start(t)}>
                   <FormattedMessage id={`world.ladderType.${t}`} />
-                  {best[t] ? <span className="opacity-70 text-[11px] ml-1 inline-flex items-center gap-0.5"><PixelIcon name="star" size={1} />{best[t]}</span> : null}
+                  {best[bestKey(t, game.range)] ? <span className="opacity-70 text-[11px] ml-1 inline-flex items-center gap-0.5"><PixelIcon name="star" size={1} />{best[bestKey(t, game.range)]}</span> : null}
                 </PixelChip>
               ))}
             </div>
@@ -108,7 +121,7 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
             <div className="space-y-3 min-w-0">
               {canChange && (
                 <div className="flex items-center justify-between gap-2 text-[12px]">
-                  <span className="opacity-80"><FormattedMessage id="world.ladderPlaying" values={{ type: intl.formatMessage({ id: `world.ladderType.${game.type}` }) }} /></span>
+                  <span className="opacity-80"><FormattedMessage id="world.ladderPlaying" values={{ type: intl.formatMessage({ id: `world.ladderType.${game.type}` }), range: intl.formatMessage({ id: `world.ladderRange.${game.range}` }) }} /></span>
                   <PixelButton tone="paper" onClick={() => { playSelect(); setChoosing(true); }} className="!px-2 !py-0.5 !text-[12px]">
                     <PixelIcon name="sliders" size={1} /> <FormattedMessage id="world.ladderChangeType" />
                   </PixelButton>
@@ -193,7 +206,7 @@ export function QuocHocLadder({ onClose }: { onClose: () => void }) {
                 const safe = (SAFE_RUNGS as readonly number[]).includes(r);
                 return (
                   <li key={r} className={`flex items-center justify-between gap-2 px-1.5 py-0.5 shrink-0 ${here ? 'bg-[var(--px-gold)] text-black' : ''} ${safe && !here ? 'text-[var(--px-gold)]' : ''} ${passed && !here ? 'opacity-55' : ''}`}>
-                    <span className={`${LEVEL_TONE[levelOf(r)]} ${here ? '!text-black' : ''} opacity-90`}>{r + 1}</span>
+                    <span className={`${LEVEL_TONE[levelOf(r, game.range)]} ${here ? '!text-black' : ''} opacity-90`}>{r + 1}</span>
                     <span className="hidden sm:inline-flex items-center gap-1">{passed && <PixelIcon name="check" size={1} />}{p}</span>
                   </li>
                 );

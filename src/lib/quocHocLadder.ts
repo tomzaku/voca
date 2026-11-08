@@ -6,9 +6,20 @@ import { QUESTIONS, type LadderQuestion, type QLevel, type QType, type Text } fr
 // climbed. Three helps, once each a game: take away two wrong answers, ask
 // the class (a show of hands, surer on easy questions), or swap the question
 // for another of its level. Pure — the screen is worldgames/QuocHocLadder.
+//
+// Two ranges: easy → hard (the default — a child can climb it), and
+// medium → expert for grown-ups, for whom the first five were a formality.
 
 export type Lifeline = 'half' | 'class' | 'swap';
 export type LadderType = QType | 'all';
+export type LadderRange = 'starter' | 'challenge';
+
+export const RANGES: LadderRange[] = ['starter', 'challenge'];
+/** The three levels a range climbs through, five rungs each. */
+export const RANGE_LEVELS: Record<LadderRange, readonly [QLevel, QLevel, QLevel]> = {
+  starter: ['easy', 'medium', 'hard'],
+  challenge: ['medium', 'hard', 'expert'],
+};
 
 export const RUNG_COUNT = 15;
 /** Points at each rung, bottom first. */
@@ -17,8 +28,8 @@ export const RUNG_POINTS = [10, 20, 30, 50, 100, 150, 200, 300, 500, 800, 1200, 
 export const SAFE_RUNGS = [4, 9] as const;
 export const LIFELINES: Lifeline[] = ['half', 'class', 'swap'];
 
-export function levelOf(rung: number): QLevel {
-  return rung < 5 ? 'easy' : rung < 10 ? 'medium' : 'hard';
+export function levelOf(rung: number, range: LadderRange = 'starter'): QLevel {
+  return RANGE_LEVELS[range][rung < 5 ? 0 : rung < 10 ? 1 : 2];
 }
 
 /** A question as it's asked: its options in this game's order. */
@@ -30,6 +41,7 @@ export interface Asked {
 
 export interface LadderGame {
   type: LadderType;
+  range: LadderRange;
   /** The question on each rung. */
   ladder: Asked[];
   /** One unused question per level, for the swap. */
@@ -67,16 +79,16 @@ export function poolOf(type: LadderType): LadderQuestion[] {
   return type === 'all' ? QUESTIONS : QUESTIONS.filter((q) => q.type === type);
 }
 
-export function newLadder(type: LadderType, rand: () => number = Math.random): LadderGame {
+export function newLadder(type: LadderType, range: LadderRange = 'starter', rand: () => number = Math.random): LadderGame {
   const pool = poolOf(type);
   const ladder: Asked[] = [];
   const spares: LadderGame['spares'] = {};
-  for (const level of ['easy', 'medium', 'hard'] as const) {
+  for (const level of RANGE_LEVELS[range]) {
     const picked = shuffled(pool.filter((q) => q.level === level), rand).slice(0, 6);
     ladder.push(...picked.slice(0, 5).map((q) => ask(q, rand)));
     if (picked[5]) spares[level] = ask(picked[5], rand);
   }
-  return { type, ladder, spares, rung: 0, used: [], hidden: [], poll: null, over: null };
+  return { type, range, ladder, spares, rung: 0, used: [], hidden: [], poll: null, over: null };
 }
 
 /** What you'd leave with if you stopped now. */
@@ -115,7 +127,7 @@ export function stop(g: LadderGame): LadderGame {
 
 export function canUse(g: LadderGame, l: Lifeline): boolean {
   if (g.over || g.used.includes(l)) return false;
-  if (l === 'swap') return !!g.spares[levelOf(g.rung)];
+  if (l === 'swap') return !!g.spares[levelOf(g.rung, g.range)];
   return true;
 }
 
@@ -138,7 +150,7 @@ function renormalise(ps: number[]): number[] {
 }
 
 /** The share of the class that knows the answer, by level. */
-const CLASS_KNOWS: Record<QLevel, [number, number]> = { easy: [0.6, 0.85], medium: [0.4, 0.65], hard: [0.25, 0.45] };
+const CLASS_KNOWS: Record<QLevel, [number, number]> = { easy: [0.6, 0.85], medium: [0.4, 0.65], hard: [0.25, 0.45], expert: [0.15, 0.35] };
 
 /** The class votes: some know the answer, the rest guess among what's left. */
 export function askClass(g: LadderGame, rand: () => number = Math.random): LadderGame {
@@ -157,16 +169,21 @@ export function askClass(g: LadderGame, rand: () => number = Math.random): Ladde
 /** Swaps the current question for the spare of its level. */
 export function swapQuestion(g: LadderGame): LadderGame {
   if (!canUse(g, 'swap')) return g;
-  const level = levelOf(g.rung);
+  const level = levelOf(g.rung, g.range);
   const ladder = [...g.ladder];
   ladder[g.rung] = g.spares[level]!;
   return { ...g, ladder, spares: { ...g.spares, [level]: undefined }, used: [...g.used, 'swap'], hidden: [], poll: null };
 }
 
 const BEST_KEY = 'voca-quochoc-ladder-best';
+const RANGE_KEY = 'voca-quochoc-ladder-range';
 
-/** The most points kept from a ladder of each type, on this device. */
-export function bestScores(): Partial<Record<LadderType, number>> {
+/** Where a best is kept: the starter range under the bare type, as it was
+ *  before there were ranges, so old records still count. */
+export const bestKey = (type: LadderType, range: LadderRange) => (range === 'starter' ? type : `${type}:${range}`);
+
+/** The most points kept from a ladder of each type and range, on this device. */
+export function bestScores(): Record<string, number> {
   try {
     return JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') ?? {};
   } catch {
@@ -174,10 +191,20 @@ export function bestScores(): Partial<Record<LadderType, number>> {
   }
 }
 
-/** Records a finished game; true when it beat the best for its type. */
-export function recordScore(type: LadderType, points: number): boolean {
+/** Records a finished game; true when it beat the best for its type and range. */
+export function recordScore(type: LadderType, range: LadderRange, points: number): boolean {
   const best = bestScores();
-  if (points <= (best[type] ?? 0)) return false;
-  try { localStorage.setItem(BEST_KEY, JSON.stringify({ ...best, [type]: points })); } catch { /* private mode: no record kept */ }
+  const key = bestKey(type, range);
+  if (points <= (best[key] ?? 0)) return false;
+  try { localStorage.setItem(BEST_KEY, JSON.stringify({ ...best, [key]: points })); } catch { /* private mode: no record kept */ }
   return true;
+}
+
+/** The range last chosen on this device, so grown-ups needn't pick it each time. */
+export function savedRange(): LadderRange {
+  try { return localStorage.getItem(RANGE_KEY) === 'challenge' ? 'challenge' : 'starter'; } catch { return 'starter'; }
+}
+
+export function saveRange(range: LadderRange) {
+  try { localStorage.setItem(RANGE_KEY, range); } catch { /* private mode: picked again next time */ }
 }
