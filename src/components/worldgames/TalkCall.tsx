@@ -5,6 +5,7 @@ import { useCompanion } from '../../hooks/useCompanion';
 import { useMatch } from '../../hooks/useMatch';
 import { DEFAULT_LOOK } from '../../game/wardrobe';
 import { VoiceCall, isSignal, type CallState, type Signal } from '../../lib/voiceCall';
+import { FATAL_ERRORS, joinResults, liveRecognition, type LiveRecognition } from '../../lib/liveSpeech';
 import type { MatchLink } from '../../lib/worldLive';
 import { LookSprite } from './LookSprite';
 import { PixelButton, PixelIcon, PixelLoader } from './pixel';
@@ -13,6 +14,9 @@ import { PixelButton, PixelIcon, PixelLoader } from './pixel';
 // (lib/voiceCall), and a sample dialogue to follow if you'd like something
 // to say — the host reads one part, the guest the other, and whoever's line
 // it is moves it on. Either of you can pick another, or just talk.
+// While connected, what each of you says is captioned on both screens
+// (the browser's speech recognition, where it has one), so a word missed on
+// a bad line can still be read.
 
 type Script = { id: string; at: number };
 
@@ -22,6 +26,55 @@ const pick = (not?: string) => {
   return pool[Math.floor(Math.random() * pool.length)].id;
 };
 const byId = (id: unknown): Dialogue | undefined => dialogues.find((d) => d.id === id);
+/** Longest caption sent: recognition sessions can run on for a while. */
+const CAPTION_MAX = 280;
+const clip = (t: string) => (t.length > CAPTION_MAX ? '…' + t.slice(-CAPTION_MAX) : t);
+
+/** Live captions of your own voice while `on`, each one also handed to
+ *  `share`. Recognition sessions end on their own after a pause, so a new one
+ *  starts while still wanted; a fatal error (no permission, no support) stops
+ *  trying. Interim words are sent at most every 400ms — the link is a
+ *  broadcast channel, not a data channel. */
+function useCaptions(on: boolean, share: (text: string) => void) {
+  const [mine, setMine] = useState('');
+  const shareRef = useRef(share);
+  shareRef.current = share;
+  const supported = liveRecognition() !== null;
+
+  useEffect(() => {
+    const Rec = liveRecognition();
+    if (!on || !Rec) return;
+    let alive = true, rec: LiveRecognition | null = null, lastSent = 0, pending = '';
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const flush = () => { timer = undefined; lastSent = Date.now(); shareRef.current(pending); };
+    const send = (text: string, final: boolean) => {
+      pending = text;
+      if (final || Date.now() - lastSent > 400) { clearTimeout(timer); flush(); }
+      else if (!timer) timer = setTimeout(flush, 400 - (Date.now() - lastSent));
+    };
+    const begin = () => {
+      if (!alive) return;
+      rec = new Rec();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+      rec.onresult = (e) => {
+        const text = clip(joinResults(e.results));
+        const last = e.results[e.results.length - 1];
+        setMine(text);
+        send(text, !!last?.isFinal);
+      };
+      rec.onerror = (e) => { if (FATAL_ERRORS.has(e.error)) alive = false; };
+      rec.onend = () => { if (alive) setTimeout(begin, 250); };
+      try { rec.start(); } catch { alive = false; }
+    };
+    begin();
+    return () => { alive = false; clearTimeout(timer); rec?.abort(); };
+  }, [on]);
+
+  return { mine, supported };
+}
+
 const parseStart = (raw: unknown): Script | null => {
   const r = raw as { id?: unknown } | null;
   return r && byId(r.id) ? { id: String(r.id), at: 0 } : null;
@@ -36,6 +89,8 @@ export function TalkCall({ link, onClose }: { link: MatchLink; onClose: () => vo
   /** A description that came before the call was set up, handed to it then. */
   const early = useRef<Signal | null>(null);
   const [peerNoMic, setPeerNoMic] = useState(false);
+  const [theirs, setTheirs] = useState('');
+  const [captionsOn, setCaptionsOn] = useState(true);
 
   const { start, left } = useMatch<Script>(
     link,
@@ -44,6 +99,7 @@ export function TalkCall({ link, onClose }: { link: MatchLink; onClose: () => vo
     (d) => {
       if (isSignal(d)) { if (callRef.current) void callRef.current.receive(d); else early.current = d; }
       else if (d.kind === 'nomic') setPeerNoMic(true);
+      else if (d.kind === 'said' && typeof d.text === 'string') setTheirs(clip(d.text));
       else if (d.kind === 'script' && byId(d.id) && Number.isInteger(d.at)) setScript({ id: String(d.id), at: Number(d.at) });
     },
     (s) => setScript(s),
@@ -74,6 +130,9 @@ export function TalkCall({ link, onClose }: { link: MatchLink; onClose: () => vo
   const listRef = useRef<HTMLOListElement>(null);
   useEffect(() => { listRef.current?.querySelector('[data-now="true"]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [script?.at, script?.id]);
 
+  const listening = captionsOn && !muted && !left && state === 'connected';
+  const { mine: said, supported: canCaption } = useCaptions(listening, (text) => link.send({ kind: 'said', text }));
+
   const toggleMute = () => { const m = !muted; setMuted(m); callRef.current?.setMuted(m); };
 
   return (
@@ -97,6 +156,27 @@ export function TalkCall({ link, onClose }: { link: MatchLink; onClose: () => vo
             <PixelIcon name="mic" size={2} /> <FormattedMessage id={muted ? 'world.talkUnmute' : 'world.talkMute'} />
           </PixelButton>
         </div>
+
+        {/* Live captions: the last thing each of you said, as text. */}
+        {start && !left && (state === 'connected' || said || theirs) && (
+          <div className="px-inset px-notch p-2 mb-3 space-y-1 text-[14px] leading-snug">
+            <p className="flex items-baseline gap-1.5 min-w-0">
+              <span className="px-title !text-[11px] shrink-0 text-[var(--px-sky)]">{name}</span>
+              <span className={`min-w-0 break-words ${theirs ? '' : 'text-[var(--px-muted)] italic'}`}>{theirs || '…'}</span>
+            </p>
+            <p className="flex items-baseline gap-1.5 min-w-0">
+              <span className="px-title !text-[11px] shrink-0 text-[var(--px-gold)]"><FormattedMessage id="world.duelYou" /></span>
+              <span className={`min-w-0 flex-1 break-words ${said && listening ? '' : 'text-[var(--px-muted)] italic'}`}>
+                {!canCaption ? <FormattedMessage id="world.talkCaptionsUnsupported" /> : said || (listening ? '…' : <FormattedMessage id="world.talkCaptionsOff" />)}
+              </span>
+              {canCaption && (
+                <button onClick={() => setCaptionsOn((c) => !c)} className="px-title !text-[11px] shrink-0 text-[var(--px-muted)] hover:text-[var(--px-text)]">
+                  <FormattedMessage id={captionsOn ? 'world.talkCaptionsHide' : 'world.talkCaptionsShow'} />
+                </button>
+              )}
+            </p>
+          </div>
+        )}
 
         {!start && !left && <PixelLoader label={<FormattedMessage id="world.duelWaiting" values={{ name }} />} />}
 
