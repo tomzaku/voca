@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { usePodcastPlayer } from '../hooks/useEpisodePlayer';
 import { clock } from '../lib/podcastAudio';
@@ -14,6 +14,10 @@ import { loadTranslation, setTranslationPref, translationFolder, translationPref
 // With Translation on, the sentence being said (or last tapped) shows its
 // translation in the user's mother language right under it — one line at a
 // time, so the English stays the thing being read.
+//
+// The page doesn't scroll to follow the sentence being said: the script sits
+// in the page itself, so following it would move the whole page out from
+// under the reader. The highlight shows where the audio is.
 
 /** `onFinish` fires only when the episode plays through to its end. */
 export function PodcastScript({ id, script, onFinish }: { id: string; script: string; onFinish?: () => void }) {
@@ -43,12 +47,6 @@ export function PodcastScript({ id, script, onFinish }: { id: string; script: st
   }, [folder, translate, id, lines]);
   const toggleTranslate = () => { setTranslate(!translate); setTranslationPref(!translate); };
   const shownTranslation = folder && translate && lines ? lines[sentences[at]] : undefined;
-
-  const listRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (player.index < 0) return;
-    listRef.current?.querySelector(`[data-line="${player.index}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [player.index]);
 
   const toggle = () => (player.running ? player.stop() : player.playFrom(at));
   const label = intl.formatMessage({ id: player.running ? 'word.stopReading' : player.loading ? 'word.generatingAudio' : 'word.readAloud' });
@@ -96,7 +94,7 @@ export function PodcastScript({ id, script, onFinish }: { id: string; script: st
           <div className="h-full bg-accent-purple" style={{ width: `${Math.min(100, (player.time / recorded.duration) * 100)}%` }} />
         </div>
       )}
-      <div ref={listRef} className="px-5 py-4 space-y-3 text-sm text-text-secondary leading-relaxed">
+      <div className="px-5 py-4 space-y-3 text-sm text-text-secondary leading-relaxed">
         {paragraphs.map((para) => (
           <p key={para[0].i}>
             {para.map(({ text, i }) => (
