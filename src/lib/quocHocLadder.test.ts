@@ -10,8 +10,8 @@ const right = (g: LadderGame) => answer(g, current(g)!.answer).game;
 const wrong = (g: LadderGame) => answer(g, (current(g)!.answer + 1) % 4).game;
 
 describe('the question bank', () => {
-  it('has 100 questions for the starter range, more for experts, each with its own id', () => {
-    expect(QUESTIONS.filter((q) => q.level !== 'expert')).toHaveLength(100);
+  it('has 181 questions, each with its own id', () => {
+    expect(QUESTIONS).toHaveLength(181);
     expect(new Set(QUESTIONS.map((q) => q.id)).size).toBe(QUESTIONS.length);
   });
 

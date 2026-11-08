@@ -1,8 +1,7 @@
-// The question bank for the Quốc Học ladder (lib/quocHocLadder): 100 general
+// The question bank for the Quốc Học ladder (lib/quocHocLadder): 181 general
 // questions a child or an adult could answer — nothing about Huế or the school,
-// nothing that needs a textbook. 20 of each type, every type with 7 easy, 7
-// medium and 6 hard, so a ladder of one type (5 a level) still has a spare per
-// level to swap in. "Hard" means less common knowledge, not specialist.
+// nothing that needs a textbook. Every type has at least 6 of each level, so a
+// ladder of one type (5 a level) still has a spare per level to swap in. "Hard" means less common knowledge, not specialist.
 //
 // A Text is either a string that reads the same in both languages (a number, a
 // name) or an [English, Vietnamese] pair. The right answer is listed first;
@@ -54,7 +53,18 @@ const NATURE: Row[] = [
   ['expert', ['A koala eats almost nothing but…', 'Gấu koala gần như chỉ ăn…'], [['Eucalyptus leaves', 'Lá bạch đàn'], ['Bamboo', 'Tre, trúc'], ['Grass', 'Cỏ'], ['Insects', 'Côn trùng']]],
   ['expert', ['Which is the largest living bird?', 'Loài chim lớn nhất hiện nay là loài nào?'], [['The ostrich', 'Đà điểu châu Phi'], ['The emu', 'Đà điểu emu'], ['The albatross', 'Chim hải âu lớn'], ['The condor', 'Kền kền condor']]],
   ['expert', ['Which of these usually lives the longest?', 'Con nào sau đây thường sống lâu nhất?'], [['The giant tortoise', 'Rùa khổng lồ'], ['The elephant', 'Con voi'], ['The parrot', 'Con vẹt'], ['The horse', 'Con ngựa']], ['Giant tortoises can pass 150 years.', 'Rùa khổng lồ có thể sống hơn 150 năm.']],
-  ['expert', ['Which gas do plants take from the air to make their food?', 'Cây lấy khí nào từ không khí để tạo ra chất dinh dưỡng?'], [['Carbon dioxide', 'Khí cacbonic (CO₂)'], ['Oxygen', 'Ôxi'], ['Nitrogen', 'Nitơ'], ['Hydrogen', 'Hiđrô']]],
+  ['expert', ['What is a male bee called?', 'Ong đực trong tiếng Anh gọi là gì?'], ['A drone', 'A worker', 'A soldier', 'A king'], ['The queen lays the eggs; workers are female.', 'Ong chúa đẻ trứng; ong thợ là ong cái.']],
+
+  ['medium', ['What do we call an animal that eats only plants?', 'Động vật chỉ ăn thực vật được gọi là gì?'], [['A herbivore', 'Động vật ăn cỏ'], ['A carnivore', 'Động vật ăn thịt'], ['An omnivore', 'Động vật ăn tạp'], ['A predator', 'Động vật săn mồi']]],
+  ['medium', ['Which animal changes colour to match what is around it?', 'Con vật nào đổi màu cho giống xung quanh?'], [['The chameleon', 'Tắc kè hoa'], ['The iguana', 'Cự đà'], ['The gecko', 'Thạch sùng'], ['The frog', 'Con ếch']]],
+  ['medium', ['Where does a camel store fat?', 'Lạc đà dự trữ mỡ ở đâu?'], [['In its hump', 'Ở bướu'], ['In its tail', 'Ở đuôi'], ['In its legs', 'Ở chân'], ['In its neck', 'Ở cổ']], ['Not water, as people often think.', 'Không phải nước như nhiều người vẫn nghĩ.']],
+  ['hard', ['What is a baby swan called?', 'Thiên nga con trong tiếng Anh gọi là gì?'], ['A cygnet', 'A duckling', 'A gosling', 'A chick']],
+  ['hard', ['Which is the largest fish?', 'Loài cá nào lớn nhất?'], [['The whale shark', 'Cá mập voi'], ['The great white shark', 'Cá mập trắng'], ['The blue whale', 'Cá voi xanh'], ['The manta ray', 'Cá đuối manta']], ['The blue whale is bigger, but it is a mammal, not a fish.', 'Cá voi xanh lớn hơn, nhưng nó là động vật có vú chứ không phải cá.']],
+  ['hard', ['How do bats find their way in the dark?', 'Dơi tìm đường trong bóng tối bằng cách nào?'], [['By listening to echoes', 'Nghe tiếng vang'], ['By smell', 'Bằng mùi'], ['By starlight', 'Nhờ ánh sao'], ['By feeling heat', 'Cảm nhận hơi nóng']]],
+  ['expert', ['How many eyes does a honeybee have?', 'Ong mật có mấy mắt?'], ['5', '2', '4', '8'], ['Two big compound eyes and three small ones on top.', 'Hai mắt kép lớn và ba mắt đơn nhỏ trên đỉnh đầu.']],
+  ['expert', ['Which land snake has the strongest venom?', 'Loài rắn trên cạn nào có nọc độc mạnh nhất?'], [['The inland taipan', 'Rắn taipan nội địa'], ['The king cobra', 'Rắn hổ mang chúa'], ['The black mamba', 'Rắn mamba đen'], ['The rattlesnake', 'Rắn đuôi chuông']]],
+  ['expert', ['Which animal has fingerprints almost like ours?', 'Con vật nào có vân tay gần giống người?'], [['The koala', 'Gấu koala'], ['The dog', 'Con chó'], ['The cat', 'Con mèo'], ['The panda', 'Gấu trúc']]],
+  ['expert', ['An animal that is active at night is called…', 'Động vật hoạt động về đêm trong tiếng Anh gọi là…'], ['Nocturnal', 'Diurnal', 'Migratory', 'Dormant']],
 ];
 
 const SCIENCE: Row[] = [
@@ -87,6 +97,17 @@ const SCIENCE: Row[] = [
   ['expert', ['Which blood type can be given to almost anyone?', 'Nhóm máu nào có thể truyền cho hầu hết mọi người?'], ['O−', 'AB+', 'A+', 'B−']],
   ['expert', ['Which part of a cell holds most of its DNA?', 'Phần nào của tế bào chứa phần lớn ADN?'], [['The nucleus', 'Nhân tế bào'], ['The membrane', 'Màng tế bào'], ['The mitochondria', 'Ti thể'], ['The vacuole', 'Không bào']]],
   ['expert', ['At which temperature do °C and °F show the same number?', 'Ở nhiệt độ nào thì độ C và độ F có cùng con số?'], ['−40°', '0°', '−32°', '100°']],
+
+  ['medium', ['Which planet is farthest from the Sun?', 'Hành tinh nào xa Mặt Trời nhất?'], [['Neptune', 'Sao Hải Vương'], ['Uranus', 'Sao Thiên Vương'], ['Saturn', 'Sao Thổ'], ['Pluto', 'Sao Diêm Vương']], ['Pluto is now called a dwarf planet.', 'Sao Diêm Vương nay được xếp là hành tinh lùn.']],
+  ['medium', ['What makes a compass needle point north?', 'Điều gì khiến kim la bàn chỉ hướng bắc?'], [['Magnetism', 'Từ trường'], ['Gravity', 'Trọng lực'], ['Friction', 'Ma sát'], ['The wind', 'Gió']]],
+  ['medium', ['How many teeth does an adult usually have?', 'Người trưởng thành thường có bao nhiêu chiếc răng?'], ['32', '28', '24', '36']],
+  ['hard', ['Which vitamin does your skin make in sunlight?', 'Da tạo ra vitamin nào khi gặp ánh nắng?'], ['Vitamin D', 'Vitamin A', 'Vitamin C', 'Vitamin B12']],
+  ['hard', ['Which planet spins on its side?', 'Hành tinh nào quay nghiêng hẳn sang một bên?'], [['Uranus', 'Sao Thiên Vương'], ['Venus', 'Sao Kim'], ['Mars', 'Sao Hỏa'], ['Mercury', 'Sao Thủy']]],
+  ['hard', ['What do we call animals with no backbone?', 'Động vật không có xương sống được gọi là gì?'], [['Invertebrates', 'Động vật không xương sống'], ['Vertebrates', 'Động vật có xương sống'], ['Mammals', 'Động vật có vú'], ['Reptiles', 'Bò sát']]],
+  ['expert', ['What is the most common element in the universe?', 'Nguyên tố phổ biến nhất trong vũ trụ là gì?'], [['Hydrogen', 'Hiđrô'], ['Helium', 'Heli'], ['Oxygen', 'Ôxi'], ['Carbon', 'Cacbon']]],
+  ['expert', ['Which organ makes insulin?', 'Cơ quan nào tiết ra insulin?'], [['The pancreas', 'Tuyến tụy'], ['The liver', 'Gan'], ['The kidneys', 'Thận'], ['The stomach', 'Dạ dày']]],
+  ['expert', ['What is the chemical symbol for sodium?', 'Ký hiệu hóa học của natri là gì?'], ['Na', 'So', 'Sd', 'S'], ['From the Latin "natrium". S is sulfur.', 'Từ tiếng Latinh "natrium". S là lưu huỳnh.']],
+  ['expert', ['Electrical resistance is measured in…', 'Điện trở được đo bằng đơn vị nào?'], [['Ohms', 'Ôm'], ['Volts', 'Vôn'], ['Watts', 'Oát'], ['Amperes', 'Ampe']]],
 ];
 
 const MATH: Row[] = [
@@ -120,6 +141,17 @@ const MATH: Row[] = [
   ['expert', ['$80, 25% off, then 10% off the new price. What do you pay?', 'Giá $80, giảm 25%, rồi giảm thêm 10% trên giá mới. Bạn trả bao nhiêu?'], ['$54', '$52', '$56', '$60'], ['$80 × 0.75 = $60, then $60 × 0.9 = $54 — not 35% off.', '$80 × 0,75 = $60, rồi $60 × 0,9 = $54 — không phải giảm 35%.']],
   ['expert', ['What is the smallest number that 4, 6 and 10 all divide into?', 'Số nhỏ nhất chia hết cho cả 4, 6 và 10 là số nào?'], ['60', '30', '120', '240']],
   ['expert', ['You drive 120 km in 1.5 hours. What is your average speed?', 'Bạn lái 120 km trong 1,5 giờ. Tốc độ trung bình là bao nhiêu?'], ['80 km/h', '60 km/h', '75 km/h', '90 km/h']],
+
+  ['medium', ['What is 25% of 80?', '25% của 80 là bao nhiêu?'], ['20', '25', '40', '16']],
+  ['medium', ['How many centimetres are in a metre?', 'Một mét bằng bao nhiêu xăng-ti-mét?'], ['100', '10', ['1,000', '1.000'], '60']],
+  ['hard', ['What is 0.5 × 0.5?', '0,5 × 0,5 bằng bao nhiêu?'], [['0.25', '0,25'], '1', ['0.1', '0,1'], ['2.5', '2,5']]],
+  ['hard', ['How many edges does a cube have?', 'Hình lập phương có bao nhiêu cạnh?'], ['12', '6', '8', '24']],
+  ['hard', ['What is the average of 4, 8 and 12?', 'Trung bình cộng của 4, 8 và 12 là bao nhiêu?'], ['8', '6', '24', '10']],
+  ['expert', ['What is 13²?', '13² bằng bao nhiêu?'], ['169', '139', '156', '196']],
+  ['expert', ['A train leaves at 9:45 and the trip takes 2 h 30 min. When does it arrive?', 'Tàu chạy lúc 9:45, đi mất 2 giờ 30 phút. Mấy giờ tàu đến?'], ['12:15', '11:15', '12:45', '11:45']],
+  ['expert', ['Roughly what is the area of a circle with a 10 cm radius?', 'Hình tròn bán kính 10 cm có diện tích khoảng bao nhiêu?'], ['314 cm²', ['31.4 cm²', '31,4 cm²'], ['62.8 cm²', '62,8 cm²'], '100 cm²'], ['π × 10 × 10 ≈ 314. 62.8 cm is the distance round it.', 'π × 10 × 10 ≈ 314. 62,8 cm là chu vi.']],
+  ['expert', ['In how many orders can you line up the letters A, B and C?', 'Có bao nhiêu cách xếp ba chữ A, B, C thành một hàng?'], ['6', '3', '9', '8'], ['3 × 2 × 1 = 6.', '3 × 2 × 1 = 6.']],
+  ['expert', ['What is 1/8 as a percentage?', '1/8 bằng bao nhiêu phần trăm?'], [['12.5%', '12,5%'], '8%', '18%', ['0.125%', '0,125%']]],
 ];
 
 const WORLD: Row[] = [
@@ -151,7 +183,18 @@ const WORLD: Row[] = [
   ['expert', ['Mount Kilimanjaro is in which country?', 'Núi Kilimanjaro nằm ở nước nào?'], ['Tanzania', 'Kenya', 'Uganda', ['Ethiopia', 'Ethiopia (Ê-ti-ô-pi-a)']]],
   ['expert', ['Which city used to be called Constantinople?', 'Thành phố nào từng có tên Constantinople?'], ['Istanbul', ['Athens', 'Athens (A-ten)'], ['Rome', 'Roma'], ['Cairo', 'Cairo (Cai-rô)']]],
   ['expert', ['Which country has the longest coastline?', 'Nước nào có đường bờ biển dài nhất?'], ['Canada', ['Russia', 'Nga'], ['Australia', 'Úc'], 'Indonesia']],
-  ['expert', ['Machu Picchu is in which country?', 'Machu Picchu nằm ở nước nào?'], ['Peru', 'Mexico', 'Chile', 'Bolivia']],
+  ['expert', ['What is the capital of New Zealand?', 'Thủ đô của New Zealand là gì?'], ['Wellington', 'Auckland', 'Christchurch', 'Queenstown']],
+
+  ['medium', ['What is the capital of Thailand?', 'Thủ đô của Thái Lan là gì?'], [['Bangkok', 'Băng Cốc'], 'Chiang Mai', 'Phuket', 'Pattaya']],
+  ['medium', ['On which continent is Brazil?', 'Brazil nằm ở châu lục nào?'], [['South America', 'Nam Mỹ'], ['Africa', 'Châu Phi'], ['North America', 'Bắc Mỹ'], ['Europe', 'Châu Âu']]],
+  ['medium', ['What is the capital of South Korea?', 'Thủ đô của Hàn Quốc là gì?'], ['Seoul', 'Busan', 'Incheon', ['Pyongyang', 'Bình Nhưỡng']]],
+  ['hard', ['What is the capital of Brazil?', 'Thủ đô của Brazil là gì?'], ['Brasília', 'Rio de Janeiro', 'São Paulo', 'Buenos Aires']],
+  ['hard', ['The city of Marrakesh is in which country?', 'Thành phố Marrakesh nằm ở nước nào?'], [['Morocco', 'Ma-rốc'], ['Egypt', 'Ai Cập'], 'Tunisia', 'Algeria']],
+  ['hard', ['Which sea lies between Europe and Africa?', 'Biển nào nằm giữa châu Âu và châu Phi?'], [['The Mediterranean', 'Địa Trung Hải'], ['The Red Sea', 'Biển Đỏ'], ['The Black Sea', 'Biển Đen'], ['The Caspian Sea', 'Biển Caspi']]],
+  ['expert', ['What is the capital of Turkey?', 'Thủ đô của Thổ Nhĩ Kỳ là gì?'], ['Ankara', 'Istanbul', 'Izmir', 'Antalya']],
+  ['expert', ['Which river flows through London?', 'Sông nào chảy qua London?'], [['The Thames', 'Sông Thames'], ['The Seine', 'Sông Seine'], ['The Danube', 'Sông Danube'], ['The Rhine', 'Sông Rhine']]],
+  ['expert', ['What is the capital of Switzerland?', 'Thủ đô của Thụy Sĩ là gì?'], ['Bern', 'Zurich', 'Geneva', 'Basel']],
+  ['expert', ['The old desert city of Timbuktu is in which country?', 'Thành phố sa mạc cổ Timbuktu nằm ở nước nào?'], ['Mali', 'Niger', 'Chad', 'Sudan']],
 ];
 
 const LIFE: Row[] = [
@@ -184,6 +227,17 @@ const LIFE: Row[] = [
   ['expert', ['A golden wedding anniversary is how many years?', 'Đám cưới vàng là kỷ niệm bao nhiêu năm?'], ['50', '25', '40', '60'], ['25 years is silver.', '25 năm là đám cưới bạc.']],
   ['expert', ['In tennis, what is a score of zero called?', 'Trong quần vợt, điểm 0 được gọi là gì?'], ['Love', 'Nil', 'Duck', 'Blank']],
   ['expert', ['How many notes, black and white, are in one octave on a piano?', 'Một quãng tám trên đàn piano có bao nhiêu nốt, tính cả phím đen và trắng?'], ['12', '7', '8', '10']],
+
+  ['medium', ['How many players are on a volleyball team on the court?', 'Một đội bóng chuyền có bao nhiêu người trên sân?'], ['6', '5', '7', '9']],
+  ['medium', ['What is the Japanese art of folding paper called?', 'Nghệ thuật gấp giấy của Nhật Bản gọi là gì?'], ['Origami', 'Ikebana', 'Karate', 'Haiku']],
+  ['medium', ['Guacamole is made mostly from which fruit?', 'Món guacamole làm chủ yếu từ quả gì?'], [['Avocado', 'Quả bơ'], ['Mango', 'Xoài'], ['Lime', 'Chanh'], ['Banana', 'Chuối']]],
+  ['hard', ['Which language has the most native speakers?', 'Ngôn ngữ nào có nhiều người nói như tiếng mẹ đẻ nhất?'], [['Mandarin Chinese', 'Tiếng Quan Thoại'], ['English', 'Tiếng Anh'], ['Spanish', 'Tiếng Tây Ban Nha'], ['Hindi', 'Tiếng Hindi']], ['English has more speakers in all, counting those who learnt it.', 'Tính cả người học thì tiếng Anh có nhiều người nói hơn.']],
+  ['hard', ['Who wrote the Harry Potter books?', 'Ai viết bộ truyện Harry Potter?'], ['J. K. Rowling', 'J. R. R. Tolkien', 'Roald Dahl', 'C. S. Lewis']],
+  ['hard', ['How long is a football (soccer) match, without extra time?', 'Một trận bóng đá kéo dài bao lâu, không tính hiệp phụ?'], [['90 minutes', '90 phút'], ['60 minutes', '60 phút'], ['80 minutes', '80 phút'], ['100 minutes', '100 phút']]],
+  ['expert', ['Who painted the ceiling of the Sistine Chapel?', 'Ai vẽ trần nhà nguyện Sistine?'], ['Michelangelo', 'Raphael', 'Leonardo da Vinci', 'Donatello']],
+  ['expert', ['How many players does a rugby union team have on the field?', 'Một đội bóng bầu dục (rugby union) có bao nhiêu người trên sân?'], ['15', '11', '13', '12']],
+  ['expert', ['What does "www" stand for in a web address?', 'Chữ "www" trong địa chỉ trang web là viết tắt của gì?'], ['World Wide Web', 'World Web Window', 'Wide World Web', 'Web World Wide']],
+  ['expert', ['Which composer kept writing music after he went deaf?', 'Nhà soạn nhạc nào vẫn sáng tác sau khi bị điếc?'], ['Beethoven', 'Mozart', 'Bach', 'Vivaldi']],
 ];
 
 const BY_TYPE: Record<QType, Row[]> = { nature: NATURE, science: SCIENCE, math: MATH, world: WORLD, life: LIFE };
