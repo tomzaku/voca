@@ -20,8 +20,8 @@ const SUSPENSE_MS = 900;
  * easy to hard, with safe rungs and three helps (lib/quocHocLadder). It
  * opens straight on a climb of every type mixed at random; one type only is
  * a choice you can make before the first answer (or after a climb ends), not
- * a step in the way. So is the range — easy → hard, or medium → expert for
- * grown-ups — and the range chosen last is the one it opens on. Your best
+ * a step in the way. So is the range — medium → expert, or easy → hard for
+ * children — and it opens on the one chosen last (medium → expert at first). Your best
  * climb per type and range is kept on this device.
  */
 export function QuocHocLadder({ onClose }: { onClose: () => void }) {

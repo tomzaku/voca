@@ -7,14 +7,14 @@ import { QUESTIONS, type LadderQuestion, type QLevel, type QType, type Text } fr
 // the class (a show of hands, surer on easy questions), or swap the question
 // for another of its level. Pure — the screen is worldgames/QuocHocLadder.
 //
-// Two ranges: easy → hard (the default — a child can climb it), and
-// medium → expert for grown-ups, for whom the first five were a formality.
+// Two ranges: medium → expert (the default — grown-ups found the easy rungs a
+// formality), and easy → hard, which a child can climb.
 
 export type Lifeline = 'half' | 'class' | 'swap';
 export type LadderType = QType | 'all';
 export type LadderRange = 'starter' | 'challenge';
 
-export const RANGES: LadderRange[] = ['starter', 'challenge'];
+export const RANGES: LadderRange[] = ['challenge', 'starter'];
 /** The three levels a range climbs through, five rungs each. */
 export const RANGE_LEVELS: Record<LadderRange, readonly [QLevel, QLevel, QLevel]> = {
   starter: ['easy', 'medium', 'hard'],
@@ -202,7 +202,7 @@ export function recordScore(type: LadderType, range: LadderRange, points: number
 
 /** The range last chosen on this device, so grown-ups needn't pick it each time. */
 export function savedRange(): LadderRange {
-  try { return localStorage.getItem(RANGE_KEY) === 'challenge' ? 'challenge' : 'starter'; } catch { return 'starter'; }
+  try { return localStorage.getItem(RANGE_KEY) === 'starter' ? 'starter' : 'challenge'; } catch { return 'challenge'; }
 }
 
 export function saveRange(range: LadderRange) {
