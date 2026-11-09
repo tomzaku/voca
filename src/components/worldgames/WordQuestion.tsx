@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCollections } from '../../hooks/useCollections';
 import { getCollection, listCollections } from '../../lib/collections';
-import { checkAnswer, fetchQuestions, type WordQuestion } from '../../lib/questionsApi';
+import { checkAnswer, fetchQuestions, type AnswerResult, type WordQuestion, type WordReveal } from '../../lib/questionsApi';
 import { playCorrect, playSelect, playWrong } from '../../lib/sfx';
+import { speakText, stopSpeaking } from '../../lib/tts';
 import { KIND_META } from './collectionKinds';
 import { PixelButton, PixelIcon, PixelLoader, type PixelTone } from './pixel';
 
 /**
  * One question: the prompt and four options. Choosing asks the server
  * whether it was right — this device doesn't know — then shows the answer
- * and calls `onAnswered` a moment later.
+ * explained (its definition, how it's said, your own language's word for it,
+ * an example), so even a wrong guess leaves something learned. `onAnswered`
+ * waits for Continue — there's reading to do — unless there's nothing to read.
  *
  * Top right, the collection the question came from, and a way to change it:
  * a word that's far too hard is better swapped for an easier list than
@@ -63,18 +66,17 @@ export function WordQuestionCard({ q, onAnswered, lead, onCollectionChanged }: {
 
 function Choices({ q, onChose, onAnswered }: { q: WordQuestion; onChose: () => void; onAnswered: (correct: boolean, answer: string) => void }) {
   const [picked, setPicked] = useState<string | null>(null);
-  const [result, setResult] = useState<{ correct: boolean; answer: string } | null>(null);
+  const [result, setResult] = useState<AnswerResult | null>(null);
 
   const pick = async (o: string) => {
     if (picked) return;
     setPicked(o);
     onChose();
     const r = await checkAnswer(q.token, o);
-    // Couldn't check (offline, expired): counted as wrong, with no answer to show.
-    const res = r ?? { correct: false, answer: '' };
-    setResult(res);
-    if (res.correct) playCorrect(); else playWrong();
-    window.setTimeout(() => onAnswered(res.correct, res.answer), 1100);
+    setResult(r);
+    if (r?.correct) playCorrect(); else playWrong();
+    // Couldn't check (offline, expired): counted as wrong, with nothing to read — move on.
+    if (!r) window.setTimeout(() => onAnswered(false, ''), 1100);
   };
 
   const tone = (o: string): PixelTone => {
@@ -94,7 +96,39 @@ function Choices({ q, onChose, onAnswered }: { q: WordQuestion; onChose: () => v
           </PixelButton>
         ))}
       </div>
+      {result && (
+        <>
+          {result.reveal && <RevealCard r={result.reveal} />}
+          <PixelButton tone="gold" block onClick={() => { stopSpeaking(); playSelect(); onAnswered(result.correct, result.answer); }} className="!py-2 !text-[14px]">
+            <FormattedMessage id="world.questionContinue" />
+          </PixelButton>
+        </>
+      )}
     </>
+  );
+}
+
+/** The answer, explained: the word and how it sounds, then what it means in both languages. */
+function RevealCard({ r }: { r: WordReveal }) {
+  return (
+    <div className="px-inset px-notch p-3 space-y-1.5 px-in-up">
+      <div className="flex items-baseline flex-wrap gap-x-2">
+        <span className="px-title !text-[18px] text-[var(--px-gold)]">{r.word}</span>
+        {r.phonetic && <span className="text-[13px] text-[var(--px-muted)]">{r.phonetic}</span>}
+        {r.partOfSpeech && <span className="text-[12px] italic text-[var(--px-muted)]">{r.partOfSpeech}</span>}
+        <button onClick={() => { stopSpeaking(); void speakText(r.word); }} className="self-center text-[var(--px-sky)]" aria-label={r.word}>
+          <PixelIcon name="speaker" size={2} />
+        </button>
+      </div>
+      {r.translation && <p className="text-[15px] font-bold">{r.translation}</p>}
+      {r.definition && <p className="text-[13px] leading-snug">{r.definition}</p>}
+      {r.example && (
+        <p className="text-[13px] leading-snug text-[var(--px-muted)] border-l-2 border-[#5a4630] pl-2">
+          <span className="italic">“{r.example}”</span>
+          {r.exampleTranslation && <span className="block">{r.exampleTranslation}</span>}
+        </p>
+      )}
+    </div>
   );
 }
 

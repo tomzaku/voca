@@ -4,7 +4,10 @@
 //
 //   GET  /questions ?count=&collection= → { questions, collection }
 //        questions: { token, prompt, options }[]   no answer in sight
-//   POST /questions/check { token, choice } → { correct, answer }
+//   POST /questions/check { token, choice, lang } → { correct, answer, reveal }
+//        reveal: the answer explained — definition, phonetic, part of speech,
+//        the translation into `lang` (the learner's mother tongue) and an
+//        example, from the same stored row; '' for any piece not stored yet
 //
 // Which words: the collection the caller is studying — the device names it
 // (`?collection=`, so a switch made from a question takes effect on the very
@@ -31,7 +34,7 @@
 
 import { corsHeaders, jsonResponse, optionalUser, serviceClient } from '../_shared/ai.ts';
 import { loadProgress, pickLearnWord } from '../_shared/pick.ts';
-import { distractors, matches, open, promptFor, seal, shuffle, TOKEN_TTL_MS, type Question } from '../_shared/questions.ts';
+import { distractors, langKey, matches, open, promptFor, revealFor, seal, shuffle, TOKEN_TTL_MS, type Question } from '../_shared/questions.ts';
 import SYSTEM from '../_shared/systemCollections.json' with { type: 'json' };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,7 +128,11 @@ export default async function handler(req: Request): Promise<Response> {
       const choice = typeof body.choice === 'string' ? body.choice.slice(0, 100) : '';
       const sealed = await open(token, key, me, Date.now());
       if (!sealed) return jsonResponse(400, { error: 'This question has expired — try another.' });
-      return jsonResponse(200, { correct: matches(choice, sealed.a), answer: sealed.a });
+      const lang = langKey(body.lang);
+      const { data: row } = await db.from('word_cache')
+        .select('headword, phonetics, part_of_speech, definition, translations, examples, example_translations')
+        .eq('word', sealed.a.toLowerCase()).maybeSingle();
+      return jsonResponse(200, { correct: matches(choice, sealed.a), answer: sealed.a, reveal: revealFor(sealed.a, row, lang) });
     }
 
     return jsonResponse(404, { error: 'Not found' });

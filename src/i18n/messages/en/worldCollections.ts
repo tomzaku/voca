@@ -39,4 +39,5 @@ export default {
   'world.questionKeep': 'Keep this',
   'world.questionChangeLead': 'Too hard? Pick a list to study — the next question comes from it.',
   'world.questionSwitching': 'Finding a word from your new list…',
+  'world.questionContinue': 'Continue',
 } satisfies Catalog;

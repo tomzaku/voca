@@ -109,3 +109,44 @@ export async function open(token: string, secret: string, userId: string, now: n
 
 /** Whether a choice is the answer — case and stray spaces don't matter. */
 export const matches = (choice: string, answer: string) => choice.trim().toLowerCase() === answer.trim().toLowerCase();
+
+// ── The answer, explained ──────────────────────────────────────────────────
+// Once a question is answered, the word it asked for: what it means, how it's
+// said, and the learner's own-language word for it — so a guess, right or
+// wrong, leaves something learned. Read from the word_cache row the question
+// was made from; nothing is generated, so a missing piece is just ''.
+
+export interface Reveal {
+  word: string;
+  phonetic: string;
+  partOfSpeech: string;
+  definition: string;
+  /** In the learner's mother tongue — '' until someone has looked it up in that language. */
+  translation: string;
+  example: string;
+  exampleTranslation: string;
+}
+
+/** A mother-tongue name as a translations key ("Vietnamese" → "vietnamese"), or '' if it isn't one. */
+export function langKey(lang: unknown): string {
+  const k = typeof lang === 'string' ? lang.trim().toLowerCase() : '';
+  return /^[a-z][a-z ()-]{0,39}$/.test(k) ? k : '';
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
+// deno-lint-ignore no-explicit-any
+export function revealFor(answer: string, row: Record<string, any> | null, lang: string): Reveal {
+  const phonetics = (row?.phonetics ?? {}) as Record<string, unknown>;
+  const examples = Array.isArray(row?.examples) ? row!.examples : [];
+  const exTr = row?.example_translations?.[lang];
+  return {
+    word: str(row?.headword) || answer,
+    phonetic: str(phonetics['en-US']) || str(phonetics['en-GB']) || str(Object.values(phonetics)[0]),
+    partOfSpeech: str(row?.part_of_speech),
+    definition: str(row?.definition),
+    translation: lang ? str(row?.translations?.[lang]) : '',
+    example: str(examples[0]),
+    exampleTranslation: lang && Array.isArray(exTr) ? str(exTr[0]) : '',
+  };
+}

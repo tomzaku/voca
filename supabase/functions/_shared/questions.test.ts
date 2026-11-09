@@ -3,7 +3,7 @@
 // away, and the wrong options are real, different words.
 
 import { describe, expect, it } from 'vitest';
-import { distractors, matches, open, promptFor, seal, TOKEN_TTL_MS } from './questions';
+import { distractors, langKey, matches, open, promptFor, revealFor, seal, TOKEN_TTL_MS } from './questions';
 
 const SECRET = 'test-secret';
 
@@ -48,5 +48,33 @@ describe('distractors', () => {
   it('matches a choice regardless of case and spaces', () => {
     expect(matches(' Luggage ', 'luggage')).toBe(true);
     expect(matches('baggage', 'luggage')).toBe(false);
+  });
+});
+
+describe('revealFor', () => {
+  const row = {
+    headword: 'Journey', phonetics: { 'en-GB': '/ˈdʒɜː.ni/', 'en-US': '/ˈdʒɝː.ni/' }, part_of_speech: 'noun',
+    definition: 'an act of travelling from one place to another', translations: { vietnamese: 'chuyến đi' },
+    examples: ['a long journey', 'b'], example_translations: { vietnamese: ['một chuyến đi dài'] },
+  };
+
+  it('reads the stored word in the learner’s language', () => {
+    expect(revealFor('journey', row, langKey('Vietnamese'))).toEqual({
+      word: 'Journey', phonetic: '/ˈdʒɝː.ni/', partOfSpeech: 'noun',
+      definition: 'an act of travelling from one place to another', translation: 'chuyến đi',
+      example: 'a long journey', exampleTranslation: 'một chuyến đi dài',
+    });
+  });
+
+  it('leaves what isn’t stored empty, never missing', () => {
+    expect(revealFor('journey', row, langKey('Spanish')).translation).toBe('');
+    expect(revealFor('journey', null, '')).toEqual({
+      word: 'journey', phonetic: '', partOfSpeech: '', definition: '', translation: '', example: '', exampleTranslation: '',
+    });
+  });
+
+  it('refuses a language that isn’t a plain name', () => {
+    expect(langKey('vietnamese,definition')).toBe('');
+    expect(langKey(42)).toBe('');
   });
 });

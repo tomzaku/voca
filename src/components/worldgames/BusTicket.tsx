@@ -7,12 +7,12 @@ import { WordQuestionCard } from './WordQuestion';
 
 // A bus ticket, bought from the Travel drawer: the fare is one word. The
 // conductor reads out a definition and you pick the word — right or wrong you
-// get your ticket (a wrong answer shows the right word), and the bus takes
-// you. The question comes from the server (lib/questionsApi), from the
+// get your ticket, once you've read the word explained (WordQuestionCard),
+// and the bus takes you. The question comes from the server (lib/questionsApi), from the
 // collection you're studying, its answer sealed until you choose. Nothing is
 // written to your progress; it's a moment's practice, not a test. With no
-// question to ask, the ride is free. Either way the bus comes by itself a
-// moment later — no second button to press.
+// question to ask, the ride is free. Either way, ticket in hand, the bus comes
+// by itself a moment later.
 
 /** How long the bus takes to come once you have your ticket. */
 const ARRIVES_MS = 2000;

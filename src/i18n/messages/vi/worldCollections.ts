@@ -37,4 +37,5 @@ export default {
   'world.questionKeep': 'Giữ nguyên',
   'world.questionChangeLead': 'Khó quá? Chọn bộ để học — câu tiếp theo sẽ lấy từ bộ đó.',
   'world.questionSwitching': 'Đang tìm một từ trong bộ mới…',
+  'world.questionContinue': 'Tiếp tục',
 } satisfies Record<keyof typeof en, string>;
