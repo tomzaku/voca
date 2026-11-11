@@ -26,6 +26,7 @@ export default {
   'speaking.cloudVoiceHint': 'Using the cloud voice — pick Piper or Kokoro in Settings to choose one here.',
   'speaking.deviceVoiceHint': "Using your device's voice — pick an AI voice in Settings to choose one here.",
   'speaking.voice': 'Voice',
+  'speaking.speed': 'Speed',
   'speaking.play': 'Play',
   'speaking.pause': 'Pause',
   'speaking.editText': 'Edit text',

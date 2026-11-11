@@ -306,6 +306,7 @@ export function PlaySequence({ lines, tone = 'cyan' }: {
 
 /* ─── Tab: Read Aloud — paste your own text, pick a voice, practice ── */
 const MAX_READ_TEXT = 4000;
+const READ_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5];
 
 // Paste, then Read aloud turns the box into the text itself, played the way
 // a podcast script is: one sentence at a time (a whole paragraph sent as one
@@ -314,7 +315,7 @@ const MAX_READ_TEXT = 4000;
 // Play carries on from where it stopped.
 function ReadAloudTab() {
   const intl = useIntl();
-  const { engine } = useTtsSettings();
+  const { engine, speed, setSpeed } = useTtsSettings();
   const voices = engine === 'piper' ? PIPER_VOICES : KOKORO_VOICES;
   const [text, setText] = useState('');
   const [voice, setVoice] = useState(voices[0].id);
@@ -354,6 +355,22 @@ function ReadAloudTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines]);
   const pickVoice = (v: string) => { resumeRef.current = player.running; setVoice(v); };
+  // Speed is the app-wide reading speed (Settings shows the same one), read
+  // as each sentence starts — so say the current sentence again at the new
+  // speed rather than finish it at the old one.
+  const pickSpeed = (v: string) => {
+    setSpeed(parseFloat(v));
+    if (player.running) void player.playFrom(at);
+  };
+  const speeds = READ_SPEEDS.includes(speed) ? READ_SPEEDS : [...READ_SPEEDS, speed].sort((a, b) => a - b);
+  const speedPicker = (
+    <Selector
+      value={String(speed)}
+      options={speeds.map((v) => ({ value: String(v), label: `${v}×` }))}
+      onChange={pickSpeed}
+      ariaLabel={intl.formatMessage({ id: 'speaking.speed' })}
+    />
+  );
 
   const start = () => {
     if (!text.trim()) return;
@@ -426,6 +443,7 @@ function ReadAloudTab() {
             </button>
             <span className="text-xs tabular-nums text-text-muted">{Math.min(at + 1, lines.length)} / {lines.length}</span>
             <span className="flex-1" />
+            {speedPicker}
             {voicePicker}
           </div>
           <div className="px-4 py-4 space-y-3 text-base text-text-secondary leading-relaxed">
@@ -506,6 +524,7 @@ function ReadAloudTab() {
           </svg>
           <FormattedMessage id="speaking.readAloud" />
         </button>
+        {speedPicker}
         {voicePicker}
       </div>
     </div>
