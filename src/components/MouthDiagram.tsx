@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useIntl } from 'react-intl';
-import { articulationFor, REST_POSE, type MouthPose } from '../data/articulation';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { articulationFor, REST_POSE, type Articulation, type MouthPose } from '../data/articulation';
+import { useIpaText } from '../hooks/useIpaText';
 
 /**
  * Side view of a mouth making one IPA sound — jaw, lips, tongue and soft
@@ -8,6 +9,9 @@ import { articulationFor, REST_POSE, type MouthPose } from '../data/articulation
  * rest → sound → rest so the movement is what reads, not just the end
  * position; diphthongs and affricates glide through both of their poses.
  * Static (or under reduced motion) it holds the sound's first pose.
+ *
+ * With `view="both"` the lips are drawn from the front too — the side view
+ * shows the tongue, but only the front shows the lips' shape.
  *
  * Given a `ghost`, it also outlines that sound's tongue and lips, dashed,
  * on the same timeline — the Compare view's pairs differ by a few pixels,
@@ -132,24 +136,67 @@ function shapes(f: Frame) {
   };
 }
 
-export function MouthDiagram({ symbol, ghost, animate = true, className = '' }: {
-  symbol: string;
-  /** Another sound to outline on top, for comparing the two. */
-  ghost?: string;
-  animate?: boolean;
-  className?: string;
-}) {
-  const intl = useIntl();
-  const art = useMemo(() => articulationFor(symbol), [symbol]);
-  const ghostArt = useMemo(() => (ghost ? articulationFor(ghost) : null), [ghost]);
-  const [f, gf] = useMouthFrames(ghostArt ? [art?.poses ?? [], ghostArt.poses] : [art?.poses ?? []], animate);
-  if (!art) return null;
+/** The lips from the front: how wide, how round, how open, and what shows
+ *  between them — teeth, the tongue, its tip between the teeth for /θ ð/,
+ *  the top teeth on the lower lip for /f v/. The side view can't show any of
+ *  that, and the lip shape is the part a learner can check in a mirror. */
+function frontShapes(f: Frame) {
+  const clamp = (n: number) => Math.min(1, Math.max(0, n));
+  const open = clamp((f.jaw - 0.04) / 0.86);
+  const shut = 1 - Math.max(f.close, f.labio);
+  // A front tongue pulls the lips into a smile; rounding pinches them in.
+  const spread = clamp((124 - f.bx) / 38) * (1 - f.round) * shut;
+  const ow = 30 + spread * 5 - f.round * 13;
+  const iw = ow * (1 - f.round * 0.45);
+  const gap = shut * Math.max(1.5 + open * 26, f.round * 9);
+  const yu = 50 - gap * 0.3;
+  const yl = 50 + gap * 0.7;
+  const yc = (yu + yl) / 2;
+  const lipU = 7 + f.round * 3;
+  const lipL = 9 + f.round * 3;
+  const k = 0.6 + f.round * 0.3; // bulge: rounder lips make an oval hole
+  const n = (v: number) => v.toFixed(1);
+  const hole = `M${n(60 - iw)} ${n(yc)} C${n(60 - iw * k)} ${n(yu)} ${n(60 + iw * k)} ${n(yu)} ${n(60 + iw)} ${n(yc)} `
+    + `C${n(60 + iw * k)} ${n(yl)} ${n(60 - iw * k)} ${n(yl)} ${n(60 - iw)} ${n(yc)} Z`;
+  const top = yu - lipU;
+  const outline = `M${n(60 - ow)} ${n(yc)} C${n(60 - ow * 0.7)} ${n(top + 2)} ${n(50)} ${n(top - 1)} ${n(54)} ${n(top)} `
+    + `Q60 ${n(top + 2.5)} 66 ${n(top)} C70 ${n(top - 1)} ${n(60 + ow * 0.7)} ${n(top + 2)} ${n(60 + ow)} ${n(yc)} `
+    + `C${n(60 + ow * (0.6 + f.round * 0.2))} ${n(yl + lipL)} ${n(60 - ow * (0.6 + f.round * 0.2))} ${n(yl + lipL)} ${n(60 - ow)} ${n(yc)} Z`;
+  // The hole's curves only get 3/4 of the way to their control points, so
+  // its real top and bottom edges sit inside yu/yl — place teeth on those.
+  const holeTop = yc - (yc - yu) * 0.75;
+  const holeBottom = yc + (yl - yc) * 0.75;
+  return {
+    hole,
+    lips: `${outline} ${hole}`,
+    outline,
+    yu: holeTop,
+    yl: holeBottom,
+    yc,
+    iw,
+    upperTeeth: 3.5 * (1 - f.round * 0.8),
+    lowerTeeth: 3 * open * (1 - f.round),
+    // A back tongue sits low and out of sight; a front one fills the floor.
+    tongueY: holeBottom + 3 + clamp((f.bx - 96) / 40) * 5,
+    tongueRy: 5 + open * 9,
+    tipOut: f.tx < 52,
+    labio: f.labio > 0.5,
+  };
+}
 
+function SideView({ f, g, art, animate, label, className }: {
+  f: Frame;
+  g: Frame | undefined;
+  art: Articulation;
+  animate: boolean;
+  label: string;
+  className: string;
+}) {
   const { jawTransform, tongue, upperLip, lowerLip, lowerLipTransform, velumTip } = shapes(f);
-  const g = gf ? shapes(gf) : null;
+  const gs = g ? shapes(g) : null;
 
   return (
-    <svg viewBox="0 14 186 146" className={className} role="img" aria-label={intl.formatMessage({ id: 'ipa.mouthPositionFor' }, { symbol })}>
+    <svg viewBox="0 14 186 146" className={className} role="img" aria-label={label}>
       {/* Head */}
       <path
         d="M200 0 L80 0 C74 14 60 28 36 40 Q24 45 30 51 L40 54 L47 57 L47 70 L62 70 L62 150 L200 160 Z"
@@ -200,12 +247,12 @@ export function MouthDiagram({ symbol, ghost, animate = true, className = '' }: 
       />
 
       {/* The compared sound, outlined */}
-      {g && (
+      {gs && (
         <g fill="none" stroke={INK.ghost} strokeWidth="1.6" strokeDasharray="3 2.5" strokeLinejoin="round">
-          <path d={g.tongue} />
-          <path d={g.upperLip} />
-          <g transform={g.lowerLipTransform}>
-            <path d={g.lowerLip} />
+          <path d={gs.tongue} />
+          <path d={gs.upperLip} />
+          <g transform={gs.lowerLipTransform}>
+            <path d={gs.lowerLip} />
           </g>
         </g>
       )}
@@ -240,15 +287,94 @@ export function MouthDiagram({ symbol, ghost, animate = true, className = '' }: 
   );
 }
 
+function FrontView({ f, g, label, className }: { f: Frame; g: Frame | undefined; label: string; className: string }) {
+  const clip = useId();
+  const m = frontShapes(f);
+  const gm = g ? frontShapes(g) : null;
+  const tw = Math.min(15, m.iw);
+  return (
+    <svg viewBox="16 12 88 82" className={className} role="img" aria-label={label}>
+      <rect x="16" y="12" width="88" height="82" rx="20" fill={INK.head} />
+      {/* Nose base and chin, just enough to say "a face, from the front" */}
+      <path d="M48 19 Q53 23 60 21.5 Q67 23 72 19" fill="none" stroke={INK.outline} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M44 86 Q60 92 76 86" fill="none" stroke={INK.outline} strokeWidth="1.5" strokeLinecap="round" />
+
+      <clipPath id={clip}><path d={m.hole} /></clipPath>
+      <g clipPath={`url(#${clip})`}>
+        <rect x="0" y="0" width="120" height="110" fill={INK.cavity} />
+        <ellipse cx="60" cy={m.tongueY} rx={m.iw * 0.85} ry={m.tongueRy} fill={INK.tongue} stroke={INK.tongueEdge} strokeWidth="0.8" />
+        {m.lowerTeeth > 0.3 && (
+          <path
+            d={`M${60 - tw} ${m.yl + 4} L${60 - tw} ${m.yl - m.lowerTeeth} L${60 + tw} ${m.yl - m.lowerTeeth} L${60 + tw} ${m.yl + 4} Z M${60 - tw / 2} ${m.yl - m.lowerTeeth} L${60 - tw / 2} ${m.yl} M60 ${m.yl - m.lowerTeeth} L60 ${m.yl} M${60 + tw / 2} ${m.yl - m.lowerTeeth} L${60 + tw / 2} ${m.yl}`}
+            fill={INK.teeth}
+            stroke={INK.teethEdge}
+            strokeWidth="0.6"
+          />
+        )}
+        <path
+          d={`M${60 - tw} ${m.yu - 4} L${60 - tw} ${m.yu + m.upperTeeth} L${60 + tw} ${m.yu + m.upperTeeth} L${60 + tw} ${m.yu - 4} Z M${60 - tw / 2} ${m.yu} L${60 - tw / 2} ${m.yu + m.upperTeeth} M60 ${m.yu} L60 ${m.yu + m.upperTeeth} M${60 + tw / 2} ${m.yu} L${60 + tw / 2} ${m.yu + m.upperTeeth}`}
+          fill={INK.teeth}
+          stroke={INK.teethEdge}
+          strokeWidth="0.6"
+        />
+        {m.tipOut && <ellipse cx="60" cy={m.yc + 0.5} rx="9" ry="3.2" fill={INK.tongue} stroke={INK.tongueEdge} strokeWidth="0.8" />}
+      </g>
+      <path d={m.lips} fill={INK.lips} fillRule="evenodd" />
+      {/* /f v/: the top teeth resting on the lower lip */}
+      {m.labio && <rect x="49" y={m.yc - 2} width="22" height="5" rx="1.2" fill={INK.teeth} stroke={INK.teethEdge} strokeWidth="0.6" />}
+
+      {gm && (
+        <g fill="none" stroke={INK.ghost} strokeWidth="1.4" strokeDasharray="3 2.5" strokeLinejoin="round">
+          <path d={gm.outline} />
+          <path d={gm.hole} />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+export function MouthDiagram({ symbol, ghost, animate = true, view = 'side', className = '' }: {
+  symbol: string;
+  /** Another sound to outline on top, for comparing the two. */
+  ghost?: string;
+  animate?: boolean;
+  /** `both` adds the lips from the front beside the side view, on one
+   *  timeline. `className` then sizes the pair; each view keeps its ratio. */
+  view?: 'side' | 'both';
+  className?: string;
+}) {
+  const intl = useIntl();
+  const art = useMemo(() => articulationFor(symbol), [symbol]);
+  const ghostArt = useMemo(() => (ghost ? articulationFor(ghost) : null), [ghost]);
+  const [f, gf] = useMouthFrames(ghostArt ? [art?.poses ?? [], ghostArt.poses] : [art?.poses ?? []], animate);
+  if (!art) return null;
+
+  const label = intl.formatMessage({ id: 'ipa.mouthPositionFor' }, { symbol });
+  if (view === 'side') return <SideView f={f} g={gf} art={art} animate={animate} label={label} className={className} />;
+  return (
+    <div className={`grid grid-cols-[127fr_107fr] gap-2 items-end ${className}`}>
+      <figure className="min-w-0">
+        <SideView f={f} g={gf} art={art} animate={animate} label={label} className="w-full h-auto" />
+        <figcaption className="text-center text-[10px] font-bold uppercase tracking-wider text-text-muted"><FormattedMessage id="ipa.viewSide" /></figcaption>
+      </figure>
+      <figure className="min-w-0">
+        <FrontView f={f} g={gf} label={intl.formatMessage({ id: 'ipa.lipsFor' }, { symbol })} className="w-full h-auto" />
+        <figcaption className="text-center text-[10px] font-bold uppercase tracking-wider text-text-muted"><FormattedMessage id="ipa.viewFront" /></figcaption>
+      </figure>
+    </div>
+  );
+}
+
 /** The sound's tags ("Tongue high · front", "Voiced") as small chips. */
 export function MouthTags({ symbol }: { symbol: string }) {
+  const text = useIpaText();
   const art = articulationFor(symbol);
   if (!art) return null;
   return (
     <div className="flex flex-wrap gap-1.5">
       {art.tags.map((t) => (
         <span key={t} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-bg-tertiary text-text-secondary">
-          {t}
+          {text.mouth(t)}
         </span>
       ))}
     </div>

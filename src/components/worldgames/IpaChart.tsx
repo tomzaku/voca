@@ -4,6 +4,7 @@ import { CATEGORY_LABEL_IDS, CATEGORY_ORDER, IPA_SOUNDS, type IpaCategory, type 
 import { IPA_RECORDINGS } from '../../data/ipaAudio';
 import { sayWord, saySound, stopIpa } from '../../lib/ipaPlayback';
 import { HudCenter, PixelButton, PixelIcon } from './pixel';
+import { useIpaText } from '../../hooks/useIpaText';
 
 // Learning the sounds in the royal theatre: every sound of English the IPA
 // page teaches (data/ipa), laid out as a chart by kind — short vowels, long
@@ -71,6 +72,7 @@ function SoundPage({ sound, playing, onHear, onWord, onOpen, onBack }: {
   onBack: () => void;
 }) {
   const intl = useIntl();
+  const text = useIpaText();
   const i = IPA_SOUNDS.indexOf(sound);
   const prev = IPA_SOUNDS[(i - 1 + IPA_SOUNDS.length) % IPA_SOUNDS.length];
   const next = IPA_SOUNDS[(i + 1) % IPA_SOUNDS.length];
@@ -101,11 +103,11 @@ function SoundPage({ sound, playing, onHear, onWord, onOpen, onBack }: {
       <div className="space-y-3 text-[15px] leading-snug">
         <div>
           <p className="px-title !text-[12px] text-[var(--px-muted)]"><FormattedMessage id="world.ipaHow" /></p>
-          <p>{sound.howTo}</p>
+          <p>{text.howTo(sound)}</p>
         </div>
         <div>
           <p className="px-title !text-[12px] text-[var(--px-bad)]"><FormattedMessage id="world.ipaWatch" /></p>
-          <p>{sound.tip}</p>
+          <p>{text.tip(sound)}</p>
         </div>
         <div>
           <p className="px-title !text-[12px] text-[var(--px-muted)] mb-1"><FormattedMessage id="world.ipaWords" /></p>

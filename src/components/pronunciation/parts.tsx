@@ -7,6 +7,7 @@ import { chartSymbol, ipaChartLink } from '../../lib/pronunciation';
 import type { PhoneScore } from '../../lib/phonemeScore';
 import type { IpaSound } from '../../data/ipa';
 import { BAR, TEXT, TILE, tone } from './styles';
+import { useIpaText } from '../../hooks/useIpaText';
 
 // The pieces of a pronunciation result, shared by the word card's check
 // (flashcard/PronunciationCheck) and the sentence results (SentenceScore).
@@ -69,6 +70,7 @@ export function Coaching({ phone }: { phone: PhoneScore }) {
   const symbol = chartSymbol(phone.ipa);
   const heardSymbol = phone.heard ? chartSymbol(phone.heard) : null;
   const [sound, setSound] = useState<IpaSound | null>(null);
+  const text = useIpaText();
   useEffect(() => {
     let live = true;
     if (symbol) void loadSounds().then((m) => { if (live) setSound(m.get(symbol) ?? null); });
@@ -80,10 +82,10 @@ export function Coaching({ phone }: { phone: PhoneScore }) {
   return (
     <div className="mt-3 flex gap-3 sm:gap-4 rounded-xl bg-bg-card border border-border p-3 animate-fade-in">
       {symbol && (
-        <div className="shrink-0 w-24 sm:w-28">
+        <div className="shrink-0 w-36 sm:w-44">
           {/* Your sound outlined over the one to make — the difference is
               often visible: the tongue tip that never left the ridge. */}
-          <MouthDiagram symbol={symbol} ghost={heardSymbol && heardSymbol !== symbol ? heardSymbol : undefined} className="w-full" />
+          <MouthDiagram symbol={symbol} ghost={heardSymbol && heardSymbol !== symbol ? heardSymbol : undefined} view="both" className="w-full" />
         </div>
       )}
       <div className="min-w-0 text-sm">
@@ -99,11 +101,11 @@ export function Coaching({ phone }: { phone: PhoneScore }) {
         </p>
         {sound && (
           <>
-            <p className="text-text-secondary mt-1 leading-snug">{sound.howTo}</p>
+            <p className="text-text-secondary mt-1 leading-snug">{text.howTo(sound)}</p>
             {!good && (
               <p className="flex gap-1.5 text-text-muted text-xs mt-1.5 leading-snug">
                 <Icon icon="lucide:lightbulb" className="shrink-0 mt-px text-accent-yellow" />
-                <span>{sound.tip}</span>
+                <span>{text.tip(sound)}</span>
               </p>
             )}
           </>

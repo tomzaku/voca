@@ -21,6 +21,7 @@ import { speakText, stopSpeaking } from '../lib/tts';
 import { sayWord, saySound, stopIpa } from '../lib/ipaPlayback';
 import { playCorrect, playWrong } from '../lib/sfx';
 import { MouthDiagram, MouthTags } from './MouthDiagram';
+import { useIpaText } from '../hooks/useIpaText';
 import { articulationFor, contrast, sameMouth } from '../data/articulation';
 
 type View = 'list' | 'practice' | 'detail';
@@ -335,7 +336,7 @@ function CompareSide({ side, other, animate, onOpen }: {
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen(side.symbol); }}
       className="flex-1 min-w-0 flex flex-col p-3 rounded-xl bg-bg-tertiary hover:bg-bg-hover cursor-pointer transition-colors"
     >
-      <MouthDiagram symbol={side.symbol} ghost={same ? undefined : other.symbol} animate={animate} className="w-full h-32 mb-2" />
+      <MouthDiagram symbol={side.symbol} ghost={same ? undefined : other.symbol} animate={animate} view="both" className="w-full mb-2" />
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <span className="flex items-center gap-1.5">
           <span className={`font-code text-xl font-black ${styleFor(side.symbol).text}`}>/{side.symbol}/</span>
@@ -350,6 +351,7 @@ function CompareSide({ side, other, animate, onOpen }: {
 
 /** What one sound does differently from the other, as a short bullet list. */
 function ContrastList({ symbol, other }: { symbol: string; other: string }) {
+  const text = useIpaText();
   const points = contrast(symbol, other);
   if (points.length === 0) return null;
   return (
@@ -357,7 +359,7 @@ function ContrastList({ symbol, other }: { symbol: string; other: string }) {
       {points.map((t) => (
         <li key={t} className="flex items-start gap-1 text-[11px] font-bold text-text-secondary leading-snug">
           <Icon icon="lucide:chevron-right" className={`shrink-0 mt-px ${styleFor(symbol).text}`} />
-          {t}
+          {text.mouth(t)}
         </li>
       ))}
     </ul>
@@ -555,6 +557,7 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
   const sound = soundFor(symbol);
   const pairs = useMemo(() => pairsForSymbol(symbol), [symbol]);
   const { playing, speak, speakSound } = useSpeak();
+  const text = useIpaText();
   // Prev/next and "often confused with" swap the sound in place; start each
   // one at the top rather than wherever the last one was scrolled to.
   useEffect(() => { window.scrollTo({ top: 0 }); }, [symbol]);
@@ -579,7 +582,7 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
     <section className="flex items-start gap-2.5 rounded-2xl border-2 border-accent-orange/30 bg-accent-orange/5 px-4 py-3 mb-4">
       <Icon icon="lucide:triangle-alert" className="shrink-0 mt-0.5 text-accent-orange" />
       <p className="text-sm text-text-primary leading-relaxed">
-        <b className="text-accent-orange"><FormattedMessage id="ipa.watchOut" /> · </b>{sound.tip}
+        <b className="text-accent-orange"><FormattedMessage id="ipa.watchOut" /> · </b>{text.tip(sound)}
       </p>
     </section>
   );
@@ -607,9 +610,9 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
       </div>
 
       {/* Hero: the moving mouth beside the symbol and how to make it */}
-      <div className="card-game p-5 sm:p-6 mb-5 grid grid-cols-1 sm:grid-cols-[15rem_1fr] gap-5 items-center">
+      <div className="card-game p-5 sm:p-6 mb-5 grid grid-cols-1 sm:grid-cols-[20rem_1fr] gap-5 items-center">
         <div className="rounded-2xl bg-bg-secondary border-2 border-border p-3">
-          <MouthDiagram symbol={sound.symbol} className="w-full h-auto" />
+          <MouthDiagram symbol={sound.symbol} view="both" className="w-full" />
           <div className="mt-2"><MouthTags symbol={sound.symbol} /></div>
         </div>
         <div className="min-w-0">
@@ -620,7 +623,7 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
             </span>
           </div>
           <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-1"><FormattedMessage id="ipa.howToSay" /></h3>
-          <p className="text-[15px] text-text-primary leading-relaxed mb-4">{sound.howTo}</p>
+          <p className="text-[15px] text-text-primary leading-relaxed mb-4">{text.howTo(sound)}</p>
           <div className="flex flex-wrap gap-2">
             {IPA_RECORDINGS[sound.symbol] && <button
               onClick={() => speakSound(sound.symbol)}
