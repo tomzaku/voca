@@ -20,7 +20,8 @@ import { pairKey, pairPool, randomRound, type PairRound } from '../lib/ipaRules'
 import { speakText, stopSpeaking } from '../lib/tts';
 import { sayWord, saySound, stopIpa } from '../lib/ipaPlayback';
 import { playCorrect, playWrong } from '../lib/sfx';
-import { MouthDiagram, MouthTags } from './MouthDiagram';
+import { MouthControls, MouthDiagram, MouthTags } from './MouthDiagram';
+import { useMouthControls } from '../hooks/useMouthControls';
 import { useIpaText } from '../hooks/useIpaText';
 import { articulationFor, contrast, sameMouth } from '../data/articulation';
 
@@ -558,6 +559,7 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
   const pairs = useMemo(() => pairsForSymbol(symbol), [symbol]);
   const { playing, speak, speakSound } = useSpeak();
   const text = useIpaText();
+  const mouth = useMouthControls();
   // Prev/next and "often confused with" swap the sound in place; start each
   // one at the top rather than wherever the last one was scrolled to.
   useEffect(() => { window.scrollTo({ top: 0 }); }, [symbol]);
@@ -612,7 +614,8 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
       {/* Hero: the moving mouth beside the symbol and how to make it */}
       <div className="card-game p-5 sm:p-6 mb-5 grid grid-cols-1 sm:grid-cols-[20rem_1fr] gap-5 items-center">
         <div className="rounded-2xl bg-bg-secondary border-2 border-border p-3">
-          <MouthDiagram symbol={sound.symbol} view="both" className="w-full" />
+          <MouthDiagram symbol={sound.symbol} view={mouth.view} at={mouth.at} className="w-full" />
+          <MouthControls {...mouth} className="mt-2" />
           <div className="mt-2"><MouthTags symbol={sound.symbol} /></div>
         </div>
         <div className="min-w-0">

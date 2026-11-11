@@ -1,7 +1,11 @@
 import { useEffect, useId, useMemo, useState } from 'react';
+import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { articulationFor, REST_POSE, type Articulation, type MouthPose } from '../data/articulation';
 import { useIpaText } from '../hooks/useIpaText';
+import { frontShapes, INK, MAX_JAW_DEG, PIVOT, type Frame } from './mouthGeometry';
+import Mouth3D from './Mouth3D';
+import type { useMouthControls } from '../hooks/useMouthControls';
 
 /**
  * Side view of a mouth making one IPA sound — jaw, lips, tongue and soft
@@ -22,24 +26,6 @@ const MOVE_MS = 380;
 const HOLD_MS = 650;
 const REST_HOLD_MS = 700;
 
-// Mostly fixed illustration colours: a cavity that followed `bg-primary`
-// would turn pale in the light theme, so it has its own `--mouth-cavity`.
-const INK = {
-  head: 'var(--color-bg-tertiary)',
-  outline: 'var(--color-border-light)',
-  cavity: 'var(--mouth-cavity)',
-  tongue: '#f27a96',
-  tongueEdge: '#d3536f',
-  lips: '#e45d80',
-  teeth: '#ffffff',
-  teethEdge: '#c9cede',
-  cue: 'var(--color-accent-cyan)',
-  // Yellow reads on both the dark cavity and the light theme's grey head.
-  ghost: 'var(--color-accent-yellow)',
-};
-
-type Frame = MouthPose & { active: number };
-
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
@@ -57,21 +43,28 @@ function prefersReducedMotion(): boolean {
  *  for several sounds at once, on one timeline, so a ghost moves with the
  *  sound it's compared to. A shorter script holds its last pose while a
  *  longer one (an affricate, a diphthong) takes its second step. */
-function useMouthFrames(sets: MouthPose[][], animate: boolean): Frame[] {
+function useMouthFrames(sets: MouthPose[][], animate: boolean, at: number | null): Frame[] {
   const stillFrames = () => sets.map((poses) => ({ ...(poses[0] ?? REST_POSE), active: 1 }));
   const [frames, setFrames] = useState<Frame[]>(stillFrames);
   const key = JSON.stringify(sets);
 
   useEffect(() => {
     const steps = Math.max(0, ...sets.map((p) => p.length));
-    if (!animate || prefersReducedMotion() || steps === 0) {
-      setFrames(stillFrames());
-      return;
-    }
     const keys: Frame[][] = sets.map((poses) => [
       { ...REST_POSE, active: 0 },
       ...Array.from({ length: steps }, (_, i) => ({ ...(poses[Math.min(i, poses.length - 1)] ?? REST_POSE), active: 1 })),
     ]);
+    // Held by the slider: 0 is rest, 1 the last pose, the others spread between.
+    if (at !== null && steps > 0) {
+      const p = Math.min(1, Math.max(0, at)) * steps;
+      const i = Math.min(steps - 1, Math.floor(p));
+      setFrames(keys.map((k) => mix(k[i], k[i + 1], ease(p - i))));
+      return;
+    }
+    if (!animate || prefersReducedMotion() || steps === 0) {
+      setFrames(stillFrames());
+      return;
+    }
     const holds = keys[0].map((_, i) => (i === 0 ? REST_HOLD_MS : HOLD_MS));
     const cycle = holds.reduce((n, h) => n + MOVE_MS + h, 0);
     let raf = 0;
@@ -91,13 +84,10 @@ function useMouthFrames(sets: MouthPose[][], animate: boolean): Frame[] {
     return () => cancelAnimationFrame(raf);
     // `key` stands in for `sets`, which is a fresh array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, animate]);
+  }, [key, animate, at]);
 
   return frames;
 }
-
-const PIVOT = { x: 150, y: 58 };
-const MAX_JAW_DEG = 13;
 
 /** The moving parts of one frame, as SVG paths and transforms. */
 function shapes(f: Frame) {
@@ -133,54 +123,6 @@ function shapes(f: Frame) {
     lowerLip: `M49 73 C${36 - p} 72 ${32 - p} 75 ${32 - p} 78 C${33 - p} 83 40 85 49 85 Z`,
     lowerLipTransform: `${jawTransform} translate(${lowerLip.x.toFixed(1)} ${lowerLip.y.toFixed(1)})`,
     velumTip: { x: 156 - f.velum * 10, y: 58 + f.velum * 16 },
-  };
-}
-
-/** The lips from the front: how wide, how round, how open, and what shows
- *  between them — teeth, the tongue, its tip between the teeth for /θ ð/,
- *  the top teeth on the lower lip for /f v/. The side view can't show any of
- *  that, and the lip shape is the part a learner can check in a mirror. */
-function frontShapes(f: Frame) {
-  const clamp = (n: number) => Math.min(1, Math.max(0, n));
-  const open = clamp((f.jaw - 0.04) / 0.86);
-  const shut = 1 - Math.max(f.close, f.labio);
-  // A front tongue pulls the lips into a smile; rounding pinches them in.
-  const spread = clamp((124 - f.bx) / 38) * (1 - f.round) * shut;
-  const ow = 30 + spread * 5 - f.round * 13;
-  const iw = ow * (1 - f.round * 0.45);
-  const gap = shut * Math.max(1.5 + open * 26, f.round * 9);
-  const yu = 50 - gap * 0.3;
-  const yl = 50 + gap * 0.7;
-  const yc = (yu + yl) / 2;
-  const lipU = 7 + f.round * 3;
-  const lipL = 9 + f.round * 3;
-  const k = 0.6 + f.round * 0.3; // bulge: rounder lips make an oval hole
-  const n = (v: number) => v.toFixed(1);
-  const hole = `M${n(60 - iw)} ${n(yc)} C${n(60 - iw * k)} ${n(yu)} ${n(60 + iw * k)} ${n(yu)} ${n(60 + iw)} ${n(yc)} `
-    + `C${n(60 + iw * k)} ${n(yl)} ${n(60 - iw * k)} ${n(yl)} ${n(60 - iw)} ${n(yc)} Z`;
-  const top = yu - lipU;
-  const outline = `M${n(60 - ow)} ${n(yc)} C${n(60 - ow * 0.7)} ${n(top + 2)} ${n(50)} ${n(top - 1)} ${n(54)} ${n(top)} `
-    + `Q60 ${n(top + 2.5)} 66 ${n(top)} C70 ${n(top - 1)} ${n(60 + ow * 0.7)} ${n(top + 2)} ${n(60 + ow)} ${n(yc)} `
-    + `C${n(60 + ow * (0.6 + f.round * 0.2))} ${n(yl + lipL)} ${n(60 - ow * (0.6 + f.round * 0.2))} ${n(yl + lipL)} ${n(60 - ow)} ${n(yc)} Z`;
-  // The hole's curves only get 3/4 of the way to their control points, so
-  // its real top and bottom edges sit inside yu/yl — place teeth on those.
-  const holeTop = yc - (yc - yu) * 0.75;
-  const holeBottom = yc + (yl - yc) * 0.75;
-  return {
-    hole,
-    lips: `${outline} ${hole}`,
-    outline,
-    yu: holeTop,
-    yl: holeBottom,
-    yc,
-    iw,
-    upperTeeth: 3.5 * (1 - f.round * 0.8),
-    lowerTeeth: 3 * open * (1 - f.round),
-    // A back tongue sits low and out of sight; a front one fills the floor.
-    tongueY: holeBottom + 3 + clamp((f.bx - 96) / 40) * 5,
-    tongueRy: 5 + open * 9,
-    tipOut: f.tx < 52,
-    labio: f.labio > 0.5,
   };
 }
 
@@ -333,23 +275,26 @@ function FrontView({ f, g, label, className }: { f: Frame; g: Frame | undefined;
   );
 }
 
-export function MouthDiagram({ symbol, ghost, animate = true, view = 'side', className = '' }: {
+export function MouthDiagram({ symbol, ghost, animate = true, view = 'side', at = null, className = '' }: {
   symbol: string;
   /** Another sound to outline on top, for comparing the two. */
   ghost?: string;
   animate?: boolean;
   /** `both` adds the lips from the front beside the side view, on one
    *  timeline. `className` then sizes the pair; each view keeps its ratio. */
-  view?: 'side' | 'both';
+  view?: 'side' | 'both' | '3d';
+  /** Hold the movement here (0 rest … 1 the sound) instead of looping. */
+  at?: number | null;
   className?: string;
 }) {
   const intl = useIntl();
   const art = useMemo(() => articulationFor(symbol), [symbol]);
   const ghostArt = useMemo(() => (ghost ? articulationFor(ghost) : null), [ghost]);
-  const [f, gf] = useMouthFrames(ghostArt ? [art?.poses ?? [], ghostArt.poses] : [art?.poses ?? []], animate);
+  const [f, gf] = useMouthFrames(ghostArt ? [art?.poses ?? [], ghostArt.poses] : [art?.poses ?? []], animate, at);
   if (!art) return null;
 
   const label = intl.formatMessage({ id: 'ipa.mouthPositionFor' }, { symbol });
+  if (view === '3d') return <Mouth3D f={f} g={gf} label={label} className={`w-full h-auto ${className}`} />;
   if (view === 'side') return <SideView f={f} g={gf} art={art} animate={animate} label={label} className={className} />;
   return (
     <div className={`grid grid-cols-[127fr_107fr] gap-2 items-end ${className}`}>
@@ -361,6 +306,59 @@ export function MouthDiagram({ symbol, ghost, animate = true, view = 'side', cla
         <FrontView f={f} g={gf} label={intl.formatMessage({ id: 'ipa.lipsFor' }, { symbol })} className="w-full h-auto" />
         <figcaption className="text-center text-[10px] font-bold uppercase tracking-wider text-text-muted"><FormattedMessage id="ipa.viewFront" /></figcaption>
       </figure>
+    </div>
+  );
+}
+
+/** 2D/3D, play/pause, and a slider from rest to the sound — dragging it
+ *  holds the mouth anywhere along the movement, to see it step by step. */
+export function MouthControls({ view, setView, at, setAt, className = '' }: ReturnType<typeof useMouthControls> & { className?: string }) {
+  const intl = useIntl();
+  const seg = 'px-2.5 py-1 rounded-md text-[11px] font-extrabold transition-colors';
+  return (
+    <div className={className}>
+      <div className="flex items-center gap-2">
+        <div className="flex shrink-0 rounded-lg bg-bg-tertiary p-0.5" role="group" aria-label={intl.formatMessage({ id: 'ipa.mouthView' })}>
+          {(['both', '3d'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              aria-pressed={view === v}
+              className={`${seg} ${view === v ? 'bg-bg-card text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+            >
+              {v === '3d' ? '3D' : '2D'}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setAt(at === null ? 1 : null)}
+          aria-label={intl.formatMessage({ id: at === null ? 'ipa.pauseMotion' : 'ipa.playMotion' })}
+          title={intl.formatMessage({ id: at === null ? 'ipa.pauseMotion' : 'ipa.playMotion' })}
+          className="shrink-0 p-1.5 rounded-lg bg-bg-tertiary text-text-secondary hover:text-accent-cyan transition-colors"
+        >
+          <Icon icon={at === null ? 'lucide:pause' : 'lucide:play'} />
+        </button>
+        <label className="flex-1 min-w-0 flex flex-col">
+          <span className="sr-only"><FormattedMessage id="ipa.slideMotion" /></span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={Math.round((at ?? 1) * 100)}
+            onChange={(e) => setAt(Number(e.target.value) / 100)}
+            className="w-full accent-accent-cyan cursor-pointer"
+          />
+          <span className="flex justify-between text-[10px] font-bold text-text-muted leading-none">
+            <span><FormattedMessage id="ipa.motionRest" /></span>
+            <span><FormattedMessage id="ipa.motionSound" /></span>
+          </span>
+        </label>
+      </div>
+      {view === '3d' && (
+        <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-text-muted">
+          <Icon icon="lucide:rotate-3d" /> <FormattedMessage id="ipa.dragToTurn" />
+        </p>
+      )}
     </div>
   );
 }

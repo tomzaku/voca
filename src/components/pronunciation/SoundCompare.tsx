@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { MouthDiagram, MouthTags } from '../MouthDiagram';
+import { MouthControls, MouthDiagram, MouthTags } from '../MouthDiagram';
+import { useMouthControls, type MouthView } from '../../hooks/useMouthControls';
 import { contrast } from '../../data/articulation';
 import { IPA_SOUNDS } from '../../data/ipa';
 import { saySound, sayWord, stopIpa } from '../../lib/ipaPlayback';
@@ -20,6 +21,7 @@ import { useIpaText } from '../../hooks/useIpaText';
 export default function SoundCompare({ target, heard, onClose }: { target: string; heard: string; onClose: () => void }) {
   const intl = useIntl();
   const [playing, setPlaying] = useState<string | null>(null);
+  const mouth = useMouthControls();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -81,9 +83,10 @@ export default function SoundCompare({ target, heard, onClose }: { target: strin
           </div>
         </div>
 
+        <MouthControls {...mouth} className="mb-3" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Side symbol={target} other={heard} good playing={playing} onSound={hearSound} onWord={hearWord} />
-          <Side symbol={heard} other={target} good={false} playing={playing} onSound={hearSound} onWord={hearWord} />
+          <Side symbol={target} other={heard} good view={mouth.view} at={mouth.at} playing={playing} onSound={hearSound} onWord={hearWord} />
+          <Side symbol={heard} other={target} good={false} view={mouth.view} at={mouth.at} playing={playing} onSound={hearSound} onWord={hearWord} />
         </div>
         <p className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-text-muted">
           <span className="inline-block w-5 border-t-2 border-dashed border-accent-yellow" />
@@ -95,10 +98,12 @@ export default function SoundCompare({ target, heard, onClose }: { target: strin
   );
 }
 
-function Side({ symbol, other, good, playing, onSound, onWord }: {
+function Side({ symbol, other, good, view, at, playing, onSound, onWord }: {
   symbol: string;
   other: string;
   good: boolean;
+  view: MouthView;
+  at: number | null;
   playing: string | null;
   onSound: (s: string) => void;
   onWord: (w: string) => void;
@@ -117,7 +122,7 @@ function Side({ symbol, other, good, playing, onSound, onWord }: {
       <p className={`text-[11px] font-extrabold uppercase tracking-wider mb-1 ${accent}`}>
         <FormattedMessage id={good ? 'pron.target' : 'pron.youSaid'} />
       </p>
-      <MouthDiagram symbol={symbol} ghost={other} view="both" className="w-full mb-2" />
+      <MouthDiagram symbol={symbol} ghost={other} view={view} at={at} className="w-full mb-2" />
       <div className="flex items-center gap-2 flex-wrap mb-2">
         <span className={`font-code text-3xl font-black leading-none mr-1 ${accent}`}>/{symbol}/</span>
         <button onClick={() => onSound(symbol)} className={`${chip} ${playing === `/${symbol}/` ? on : off}`}>
