@@ -10,6 +10,8 @@ import { AnswerTally } from './AnswerTally';
 import { BucketTag } from './BucketTag';
 import { DefLengthToggle, ExampleList, PosChip } from './parts';
 import { MoreToggle } from '../MoreToggle';
+import { PhrasalVerbsCard, Syllables, UsageBadges, UsageSection, WatchOutCard } from './UsageParts';
+import { useWordUsage } from '../../hooks/useWordUsage';
 import { LEVEL_COLOR, LEVEL_LABEL_ID } from './constants';
 import { peekWord } from '../../hooks/useWordPeek';
 import { getMotherLanguage } from '../../lib/languages';
@@ -57,6 +59,9 @@ export function RevealedView({
   const wordData = useMemo(() => withSense(word, word.senses?.[senseIdx]), [word, senseIdx]);
   const definition = !fullDef && wordData.shortDefinition ? wordData.shortDefinition : wordData.definition;
   const headword = wordData.headword || wordData.word;
+  // The learner's-dictionary notes arrive a moment after the card (see
+  // useWordUsage); every piece below that uses them renders nothing until then.
+  const usage = useWordUsage(word.word);
   // Phrases and family open at two each; keyed by word upstream, so these
   // close again on the next card.
   const [allPhrases, setAllPhrases] = useState(false);
@@ -85,7 +90,10 @@ export function RevealedView({
                 <h1 className="text-3xl sm:text-5xl font-display font-extrabold leading-tight text-text-primary break-words mb-1">
                   {headword}
                 </h1>
-                <PhoneticList wordData={wordData} />
+                <div className="flex items-center flex-wrap gap-x-4 gap-y-1">
+                  <PhoneticList wordData={wordData} />
+                  <Syllables usage={usage} />
+                </div>
               </div>
             </div>
             <button
@@ -137,9 +145,14 @@ export function RevealedView({
                 ))}
               </div>
             ) : wordData.partOfSpeech && <PosChip pos={wordData.partOfSpeech} className="text-[11px]" />}
-            <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
-              {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
-            </span>
+            {/* A CEFR level says what "beginner" does, more precisely — so
+                once it's known it replaces the coarse level, not joins it. */}
+            {!usage?.cefr && (
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${LEVEL_COLOR[wordData.level]}`}>
+                {LEVEL_LABEL_ID[wordData.level] ? <FormattedMessage id={LEVEL_LABEL_ID[wordData.level]} /> : wordData.level}
+              </span>
+            )}
+            {usage && <UsageBadges usage={usage} />}
             <span className="ml-auto"><BucketTag word={wordData.word} progress={progress} align="right" /></span>
           </div>
 
@@ -226,6 +239,8 @@ export function RevealedView({
             </div>
             )}
 
+            {usage && <UsageSection usage={usage} />}
+
             <AnswerTally progress={progress} />
           </div>
         </div>
@@ -298,6 +313,8 @@ export function RevealedView({
       {/* ── Right column ── stays in view while the (now taller) word card
           scrolls past it, so the tools beside the word stay beside it. */}
       <div className="space-y-4 lg:sticky lg:top-20">
+        {usage && <WatchOutCard usage={usage} />}
+        {usage && <PhrasalVerbsCard usage={usage} />}
         {/* Idioms — popular fixed expressions containing the word */}
         {(wordData.idioms?.length ?? 0) > 0 && (
           <IdiomsCard key={`${wordData.word}-${wordData.idioms?.[0].idiom}`} idioms={wordData.idioms!} />

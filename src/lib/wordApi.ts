@@ -4,7 +4,7 @@
 // only sometimes generates.
 
 import { request } from './api';
-import type { VocabularyWord } from '../types';
+import type { VocabularyWord, WordUsage } from '../types';
 
 export interface WordDataParams {
   word: string;
@@ -37,4 +37,16 @@ export function fetchWordData(
   signal?: AbortSignal,
 ): Promise<WordDataResult> {
   return request.post<WordDataResult>('/word', params, { signal, timeout: TIMEOUT_MS, allowAnon: true });
+}
+
+/**
+ * A word's usage notes, by its English seed (`VocabularyWord.word`). Quiet: the
+ * card is complete without them, so a failure just leaves the section out.
+ * Generated on first request for a signed-in user, hence the longer timeout.
+ */
+export async function fetchWordUsage(word: string, signal?: AbortSignal): Promise<WordUsage | null> {
+  const res = await request.get<{ usage: WordUsage }>('/word/usage', {
+    params: { word }, signal, timeout: TIMEOUT_MS, allowAnon: true, quiet: true,
+  });
+  return res?.usage ?? null;
 }

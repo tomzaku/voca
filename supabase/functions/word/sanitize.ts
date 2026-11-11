@@ -4,7 +4,7 @@
 // cache tables shared by every user, so nothing here trusts its input: each
 // helper keeps only well-formed entries, caps their size, and drops the rest.
 
-import type { FamilyEntry, Generated, IdiomEntry, Level, Sense, Verdict } from './types.ts';
+import type { FamilyEntry, Generated, IdiomEntry, Level, Sense, Usage, Verdict } from './types.ts';
 
 /** Did the model judge the word unreal, rather than generate it? */
 export const isVerdict = (g: Generated): g is Verdict => (g as Verdict).valid === false;
@@ -120,3 +120,61 @@ export const asSenses = (v: unknown, primaryPos: string | undefined): Sense[] =>
 /** Same sounds, ignoring stress marks, slashes and spacing — eSpeak marks stress, the model often doesn't. */
 export const sameIpa = (a: string | undefined, b: string | undefined): boolean =>
   !!a && !!b && a.replace(/[\/ˈˌ.\s]/g, '') === b.replace(/[\/ˈˌ.\s]/g, '');
+
+const CEFR = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
+
+/** Short lowercase tags, deduplicated: "Formal" and "formal " are one label. */
+const asTags = (v: unknown, max: number): string[] =>
+  [...new Set(asArray(v).map((t) => t.trim().toLowerCase().slice(0, 30)).filter(Boolean))].slice(0, max);
+
+/**
+ * A list of small records, each keeping only the named string fields. An entry
+ * missing any `required` field is dropped — a mistake with no correction, or a
+ * pattern with no example, is worse than none.
+ */
+function asRecords<K extends string>(
+  v: unknown,
+  keys: readonly K[],
+  required: readonly K[],
+  max: number,
+  maxLen = 200,
+): Record<K, string>[] {
+  const out: Record<K, string>[] = [];
+  for (const e of Array.isArray(v) ? v : []) {
+    if (!e || typeof e !== 'object') continue;
+    const rec = {} as Record<K, string>;
+    for (const k of keys) rec[k] = asText((e as Record<string, unknown>)[k], maxLen) ?? '';
+    if (required.some((k) => !rec[k])) continue;
+    out.push(rec);
+    if (out.length === max) break;
+  }
+  return out;
+}
+
+/**
+ * Sanitize a usage answer — from the model, or a stored row read back in the
+ * same shape. Anything malformed becomes the empty value for its field, so
+ * the result is always a complete Usage.
+ */
+export function asUsage(v: unknown): Usage {
+  const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  const cefr = typeof o.cefr === 'string' ? o.cefr.trim().toUpperCase() : '';
+  const freq = Number(o.frequency);
+  return {
+    cefr: CEFR.has(cefr) ? cefr : null,
+    frequency: Number.isInteger(freq) && freq >= 1 && freq <= 3 ? freq : null,
+    syllables: asText(o.syllables, 60) ?? null,
+    labels: asTags(o.labels, 5),
+    grammar: asTags(o.grammar, 5),
+    patterns: asRecords(o.patterns, ['pattern', 'example'], ['pattern', 'example'], 6),
+    forms: asRecords(o.forms, ['label', 'form'], ['label', 'form'], 8, 60),
+    variants: asRecords(o.variants, ['region', 'spelling'], ['region', 'spelling'], 3, 60),
+    // The model sometimes "corrects" a sentence into itself.
+    mistakes: asRecords(o.mistakes, ['wrong', 'right', 'why'], ['wrong', 'right'], 4)
+      .filter((m) => m.wrong.toLowerCase() !== m.right.toLowerCase()),
+    confusables: asRecords(o.confusables, ['word', 'difference'], ['word', 'difference'], 3),
+    synonymNotes: asRecords(o.synonymNotes, ['word', 'difference'], ['word', 'difference'], 5),
+    phrasalVerbs: asRecords(o.phrasalVerbs, ['phrase', 'meaning'], ['phrase', 'meaning'], 10),
+    origin: asText(o.origin, 300) ?? null,
+  };
+}

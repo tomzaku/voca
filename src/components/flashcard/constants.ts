@@ -9,6 +9,13 @@ export const LEVEL_COLOR: Record<string, string> = {
   advanced: 'text-accent-red bg-accent-red/10',
 };
 
+/** CEFR chip colours — A/B/C bands share the beginner/intermediate/advanced ones. */
+export const CEFR_COLOR: Record<string, string> = {
+  A: LEVEL_COLOR.beginner,
+  B: LEVEL_COLOR.intermediate,
+  C: LEVEL_COLOR.advanced,
+};
+
 /** Display label (message id) for each level; the level values themselves are data. */
 export const LEVEL_LABEL_ID: Record<string, string> = {
   beginner: 'word.levelBeginner',

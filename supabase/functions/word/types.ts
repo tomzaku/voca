@@ -66,3 +66,25 @@ export interface Verdict {
 
 /** A generation either produced word data, or judged the word not to be real. */
 export type Generated = WordData | Verdict;
+
+/**
+ * A learner's-dictionary layer over the definition: how the word is built into
+ * a sentence, how common and hard it is, when it fits, and how learners get it
+ * wrong. Served by GET /word/usage; every list is [] and every scalar null when
+ * there's nothing to say (or nothing generated yet).
+ */
+export interface Usage {
+  cefr: string | null; // A1..C2
+  frequency: number | null; // 3 = among the ~3000 most common, 2 = common, 1 = less common
+  syllables: string | null; // "de·cide"
+  labels: string[]; // register / region: formal, informal, slang, US, UK…
+  grammar: string[]; // countable, uncountable, transitive, intransitive, usually passive…
+  patterns: { pattern: string; example: string }[]; // decide to do sth
+  forms: { label: string; form: string }[]; // past tense: decided
+  variants: { region: string; spelling: string }[]; // UK: colour
+  mistakes: { wrong: string; right: string; why: string }[];
+  confusables: { word: string; difference: string }[]; // affect ↔ effect
+  synonymNotes: { word: string; difference: string }[]; // how each synonym differs
+  phrasalVerbs: { phrase: string; meaning: string }[];
+  origin: string | null;
+}

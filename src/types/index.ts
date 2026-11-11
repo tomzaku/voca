@@ -33,6 +33,27 @@ export interface VocabularyWord {
   senses?: WordSense[];
 }
 
+/**
+ * The learner's-dictionary layer of a word (GET /word/usage): how it's built
+ * into a sentence, how common and hard it is, when it fits, and how learners
+ * get it wrong. Lists are [] and scalars null when there's nothing to say.
+ */
+export interface WordUsage {
+  cefr: string | null;          // A1..C2
+  frequency: number | null;     // 3 = core (~3000 most common), 2 = common, 1 = less common
+  syllables: string | null;     // "de·cide"
+  labels: string[];             // formal, informal, slang, us, uk… (lowercase)
+  grammar: string[];            // countable, transitive…
+  patterns: { pattern: string; example: string }[];
+  forms: { label: string; form: string }[];
+  variants: { region: string; spelling: string }[];
+  mistakes: { wrong: string; right: string; why: string }[];
+  confusables: { word: string; difference: string }[];
+  synonymNotes: { word: string; difference: string }[];
+  phrasalVerbs: { phrase: string; meaning: string }[];
+  origin: string | null;
+}
+
 // A word's learning outcome. Saving (bookmarking) is tracked separately via the
 // `bookmarked` flag so a word can be both "known" and "saved" at the same time.
 // 'skipped' = couldn't guess it (gave up) — repeats until learned.

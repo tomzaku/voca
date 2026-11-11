@@ -2,8 +2,19 @@
 // with NO AI call, which is why it lives apart from the always-generative `ai`
 // function.
 //
-//   POST /word  { word, learnLang, motherLang }
-//   → 200 { word, suggestions }
+//   POST /word        { word, learnLang, motherLang }  → { word, suggestions }
+//   GET  /word/usage  ?word=<English seed>             → { usage }
+//
+// POST /word is a read despite the verb: it predates the REST conversion and
+// its clients, and the body is what it has always taken.
+//
+// /usage is the learner's-dictionary layer — grammar patterns, forms, CEFR,
+// register, common mistakes (see usage.ts). Fetched separately so the card
+// shows the definition without waiting on it. A word with nothing stored and a
+// signed-in caller is generated on the spot and cached for everyone, the same
+// way POST /word fills in a missing translation; a visitor gets what's there.
+// Only words already in word_cache have usage — 404 otherwise — so this can't
+// be used to generate notes for arbitrary strings.
 //
 // One shape either way, as everywhere else:
 //
@@ -80,6 +91,7 @@ import { fetchFamily, storeFamily } from './family.ts';
 import { fetchIdioms, storeIdioms } from './idioms.ts';
 import { generateWordData } from './generate.ts';
 import { asSeedWord, isVerdict } from './sanitize.ts';
+import { usageFor } from './usage.ts';
 
 type Svc = ReturnType<typeof serviceClient>;
 type Auth = Awaited<ReturnType<typeof optionalUser>>;
@@ -100,9 +112,42 @@ async function hitResponse(svc: Svc, auth: Auth, cached: CachedWord, learnLang: 
   return jsonResponse(200, { word: { ...word, senses: allSenses(word, senses) }, suggestions: [] });
 }
 
+/** GET /word/usage?word=… */
+async function usage(url: URL, auth: Auth): Promise<Response> {
+  const word = (url.searchParams.get('word') ?? '').trim().toLowerCase();
+  if (!word || word.length > 100) return jsonResponse(400, { error: 'word is required (max 100 characters).' });
+  const svc = serviceClient();
+  const cached = await readWord(svc, word);
+  if (!cached) return jsonResponse(404, { error: 'Unknown word.' });
+  return jsonResponse(200, { usage: await usageFor(svc, auth.user ? auth.supabase : null, cached) });
+}
+
+/** The path under the function's own name — see progress/index.ts. */
+function subPath(url: URL): string {
+  const parts = url.pathname.split('/').filter(Boolean);
+  const at = parts.lastIndexOf('word');
+  return '/' + (at === -1 ? parts : parts.slice(at + 1)).join('/');
+}
+
 /** Exported for supabase/functions/_local/serve.ts — see progress/index.ts. */
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const url = new URL(req.url);
+  const path = subPath(url);
+  if (req.method === 'GET' && path === '/usage') {
+    try {
+      return await usage(url, await optionalUser(req));
+    } catch (err) {
+      console.error('[word] usage', err);
+      return jsonResponse(500, { error: 'Something went wrong.' });
+    }
+  }
+  if (path !== '/') return jsonResponse(404, { error: 'Not found' });
+  return lookup(req);
+}
+
+/** POST /word */
+async function lookup(req: Request): Promise<Response> {
   if (req.method !== 'POST') return jsonResponse(405, { error: 'Method not allowed' });
 
   const auth = await optionalUser(req);
