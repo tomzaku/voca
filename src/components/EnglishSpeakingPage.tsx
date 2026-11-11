@@ -372,12 +372,32 @@ function ReadAloudTab() {
     />
   );
 
-  const start = () => {
-    if (!text.trim()) return;
+  const start = (from = text, play = true) => {
+    if (!from.trim()) return;
     setAt(0);
     setReading(true);
-    resumeRef.current = true;
+    resumeRef.current = play;
   };
+
+  // ── Deep link: ?text=…&autoAnswer=true ── the same shape as Improve
+  // Writing's, so a bookmarklet or share action can send text here to be
+  // read. Consumed once on mount, then stripped so a refresh doesn't redo it.
+  // A page opened cold from outside may not play sound until it's tapped,
+  // and a refused clip ends at once — the run would race through every
+  // sentence in silence — so without a tap on this page yet, it opens the
+  // reader paused and Play starts it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const urlText = searchParams.get('text');
+    if (urlText === null) return;
+    const seeded = urlText.slice(0, MAX_READ_TEXT);
+    setText(seeded);
+    if (searchParams.get('autoAnswer') === 'true') {
+      start(seeded, navigator.userActivation?.hasBeenActive ?? false);
+    }
+    setSearchParams({ tab: 'read' }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const edit = () => { player.stop(); setReading(false); };
   const toggle = () => (player.running ? player.stop() : void player.playFrom(at));
 
@@ -513,7 +533,7 @@ function ReadAloudTab() {
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          onClick={start}
+          onClick={() => start()}
           disabled={!text.trim()}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-accent-orange text-bg-primary border-accent-orange hover:bg-accent-orange/90"
         >
@@ -548,10 +568,14 @@ const tabs: { key: Tab; labelId: string }[] = [
 function useSpeakingTab(): Tab {
   const [searchParams, setSearchParams] = useSearchParams();
   const raw = searchParams.get('tab');
-  const resolved = (tabs.find((t) => t.key === raw)?.key ?? 'conversation') as Tab;
+  // Text sent in with no tab (`/speaking?text=…`) is text to read aloud.
+  const fallback: Tab = searchParams.has('text') ? 'read' : 'conversation';
+  const resolved = (tabs.find((t) => t.key === raw)?.key ?? fallback) as Tab;
   useEffect(() => {
-    if (raw !== resolved) setSearchParams({ tab: resolved }, { replace: true });
-  }, [raw, resolved, setSearchParams]);
+    // Text sent in is Read Aloud's to consume, and it rewrites the URL
+    // itself (tab included) — a second rewrite here would put ?text= back.
+    if (raw !== resolved && !searchParams.has('text')) setSearchParams({ tab: resolved }, { replace: true });
+  }, [raw, resolved, searchParams, setSearchParams]);
   return resolved;
 }
 
