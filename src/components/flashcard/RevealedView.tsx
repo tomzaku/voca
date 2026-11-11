@@ -12,6 +12,9 @@ import { DefLengthToggle, ExampleList, PosChip } from './parts';
 import { MoreToggle } from '../MoreToggle';
 import { PhrasalVerbsCard, Syllables, UsageBadges, UsageSection, WatchOutCard } from './UsageParts';
 import { useWordUsage } from '../../hooks/useWordUsage';
+import { PronunciationCheck } from './PronunciationCheck';
+import { canScorePronunciation } from '../../lib/pronunciation';
+import { getLearnLanguage } from '../../lib/languages';
 import { LEVEL_COLOR, LEVEL_LABEL_ID } from './constants';
 import { peekWord } from '../../hooks/useWordPeek';
 import { getMotherLanguage } from '../../lib/languages';
@@ -62,6 +65,10 @@ export function RevealedView({
   // The learner's-dictionary notes arrive a moment after the card (see
   // useWordUsage); every piece below that uses them renders nothing until then.
   const usage = useWordUsage(word.word);
+  // Scored against every accent we have IPA for; English only, since that's
+  // what the phonetics and the model's phone set describe.
+  const ipas = Object.values(wordData.phonetics ?? {});
+  const canCheck = ipas.length > 0 && getLearnLanguage().toLowerCase() === 'english' && canScorePronunciation();
   // Phrases and family open at two each; keyed by word upstream, so these
   // close again on the next card.
   const [allPhrases, setAllPhrases] = useState(false);
@@ -125,6 +132,9 @@ export function RevealedView({
               )}
             </button>
           </div>
+          {/* Say it and see which sounds landed — keyed by word and sense so
+              a new card (or "live" the adjective vs the verb) starts clean. */}
+          {canCheck && <PronunciationCheck key={`${wordData.word}-${senseIdx}`} ipas={ipas} />}
           {/* Everything that classifies the word — what it is, how hard, where
               the learner stands with it — on one row across the whole card,
               not squeezed into the column beside the doodle; where you stand

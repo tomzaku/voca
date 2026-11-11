@@ -50,7 +50,8 @@ export function UsageBadges({ usage }: { usage: WordUsage }) {
 
 /** "de·cide" — beside the IPA, where you're already looking at how it sounds. */
 export function Syllables({ usage }: { usage: WordUsage | null }) {
-  if (!usage?.syllables) return null;
+  // One syllable is just the word again.
+  if (!usage?.syllables?.includes('·')) return null;
   return <span className="text-sm font-code text-text-muted">{usage.syllables}</span>;
 }
 
