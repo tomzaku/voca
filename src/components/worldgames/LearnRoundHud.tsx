@@ -248,7 +248,7 @@ function Reveal({ wordData, answer, solved, onNext }: { wordData: VocabularyWord
       <p className="mt-2 text-[17px] leading-snug">{wordData.definition}</p>
       {example && <p className="mt-3 text-[15px] italic text-[var(--px-muted)] leading-snug">“{example}”</p>}
       <PixelButton tone="red" block className="mt-5" onClick={onNext}>
-        <FormattedMessage id="flashcard.nextWord" /> ↵
+        <FormattedMessage id="flashcard.nextWord" /> <span className="max-sm:hidden">↵</span>
       </PixelButton>
     </HudCenter>
   );

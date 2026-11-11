@@ -141,7 +141,7 @@ function Dictation({ onScore }: { onScore: (n: ReactNode) => void }) {
           />
           {grade ? (
             <PixelButton type="submit" tone="red">
-              <FormattedMessage id="flashcard.next" /> ↵
+              <FormattedMessage id="flashcard.next" /> <span className="max-sm:hidden">↵</span>
             </PixelButton>
           ) : (
             <PixelButton type="submit" tone="jade" disabled={!typed.trim()}>
@@ -232,7 +232,7 @@ function Comprehension({ onScore }: { onScore: (n: ReactNode) => void }) {
         </div>
         {transcript && <p className="mt-3 text-[15px] leading-relaxed text-[var(--px-muted)]">{clip.script}</p>}
         <PixelButton tone="red" block className="mt-5" onClick={nextClip}>
-          <FormattedMessage id="world.boatNextClip" /> ↵
+          <FormattedMessage id="world.boatNextClip" /> <span className="max-sm:hidden">↵</span>
         </PixelButton>
       </HudCenter>
     );

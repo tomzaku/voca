@@ -170,7 +170,7 @@ export function VanMieuStele() {
             </PixelButton>
           ) : (
             <PixelButton tone="red" className="flex-1" onClick={() => void carve()} disabled={!text.trim() || busy}>
-              <PixelIcon name="sword" size={2} /> <FormattedMessage id="world.steleCarve" /> ↵
+              <PixelIcon name="sword" size={2} /> <FormattedMessage id="world.steleCarve" /> <span className="max-sm:hidden">↵</span>
             </PixelButton>
           )}
           <PixelButton tone="paper" onClick={nextWord}><FormattedMessage id="world.steleNext" /></PixelButton>

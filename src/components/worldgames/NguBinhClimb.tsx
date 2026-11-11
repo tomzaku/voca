@@ -82,7 +82,7 @@ function Climb({ onDone }: { onDone: (r: LevelResult) => void }) {
             </PixelButton>
           )}
           <PixelButton tone="red" className="flex-1" onClick={test.submit}>
-            <FormattedMessage id={advances ? 'levelTest.nextRound' : 'levelTest.seeLevel'} /> ↵
+            <FormattedMessage id={advances ? 'levelTest.nextRound' : 'levelTest.seeLevel'} /> <span className="max-sm:hidden">↵</span>
           </PixelButton>
         </div>
       </HudDock>

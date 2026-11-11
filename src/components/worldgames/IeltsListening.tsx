@@ -173,7 +173,7 @@ function Paper({ section, onSections, onRandom }: { section: IeltsListeningSecti
         <div className="flex flex-wrap items-center gap-2">
           <PixelButton tone="sky" onClick={toggle}>
             <PixelIcon name={player.running ? 'close' : 'play'} size={2} />
-            <FormattedMessage id={player.running ? 'listening.stop' : 'world.ilPlay'} /> <span className="opacity-70">␣</span>
+            <FormattedMessage id={player.running ? 'listening.stop' : 'world.ilPlay'} /> <span className="opacity-70 max-sm:hidden">␣</span>
           </PixelButton>
           {player.running && player.index >= 0 && (
             <span className="px-title !text-[12px] text-[var(--px-muted)]">{section.transcript[player.index]?.speaker}</span>

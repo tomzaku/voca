@@ -118,10 +118,10 @@ export function Shadowing() {
           {!noMic && (
             <PixelButton tone={recording ? 'bad' : 'red'} className="flex-1" onClick={toggle} disabled={busy}>
               <PixelIcon name="mic" size={2} />
-              <FormattedMessage id={recording ? 'world.speakStop' : 'world.shadowSay'} /> <span className="opacity-70">␣</span>
+              <FormattedMessage id={recording ? 'world.speakStop' : 'world.shadowSay'} /> <span className="opacity-70 max-sm:hidden">␣</span>
             </PixelButton>
           )}
-          <PixelButton tone={grade ? 'gold' : 'paper'} onClick={next}><FormattedMessage id="flashcard.next" /> ↵</PixelButton>
+          <PixelButton tone={grade ? 'gold' : 'paper'} onClick={next}><FormattedMessage id="flashcard.next" /> <span className="max-sm:hidden">↵</span></PixelButton>
         </div>
       </HudDock>
     </>

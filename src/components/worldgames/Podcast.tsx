@@ -150,7 +150,7 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
         <div className="flex flex-wrap items-center gap-2">
           <PixelButton tone="sky" onClick={toggle}>
             <PixelIcon name={player.running ? 'close' : 'play'} size={2} />
-            <FormattedMessage id={player.running ? 'listening.stop' : 'listening.play'} /> <span className="opacity-70">␣</span>
+            <FormattedMessage id={player.running ? 'listening.stop' : 'listening.play'} /> <span className="opacity-70 max-sm:hidden">␣</span>
           </PixelButton>
           <PixelChip on={hidden} onClick={() => setHidden((h) => !h)}>
             <span className="inline-flex items-center gap-1.5"><PixelIcon name="eye" size={2} /><FormattedMessage id="world.podHideText" /></span>

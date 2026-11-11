@@ -76,7 +76,7 @@ export function DuyetThiDuong() {
                   <PixelIcon name="speaker" size={2} /> {side.word}
                 </PixelButton>
               ))}
-              <PixelButton tone="red" onClick={next}><FormattedMessage id="flashcard.next" /> ↵</PixelButton>
+              <PixelButton tone="red" onClick={next}><FormattedMessage id="flashcard.next" /> <span className="max-sm:hidden">↵</span></PixelButton>
             </>
           ) : (
             <span className="text-[14px] text-[var(--px-muted)]"><FormattedMessage id="world.ipaReplay" /></span>
