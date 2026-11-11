@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { usePronunciationCheck } from '../../hooks/usePronunciationCheck';
 import { pronunciationModelCached } from '../../lib/pronunciation';
 import { PHONEME_MODEL_MB } from '../../lib/pronunciationModel';
-import { Coaching, PhoneTile, ScoreRing } from '../pronunciation/parts';
+import { Coaching, LevelMeter, PhoneTile, PlayButton, ScoreRing } from '../pronunciation/parts';
 import { TEXT, VERDICT_ID, tone } from '../pronunciation/styles';
 
 // "Say it" on the word card: one try at the word, scored sound by sound on the
@@ -138,49 +138,5 @@ export function PronunciationCheck({ ipas, word, onHear }: {
         </div>
       )}
     </div>
-  );
-}
-
-/** Seven bars that rise with your voice. */
-function LevelMeter({ level }: { level: number }) {
-  const shape = [0.35, 0.6, 0.85, 1, 0.85, 0.6, 0.35];
-  return (
-    <div className="flex items-end gap-1 h-5 mt-1.5" aria-hidden>
-      {shape.map((k, i) => (
-        <span
-          key={i}
-          className="w-1.5 rounded-full bg-accent-red transition-[height] duration-75"
-          style={{ height: `${Math.max(12, Math.min(100, level * k * 140))}%` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** Play back the learner's own try. */
-function PlayButton({ url }: { url: string }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  useEffect(() => () => { audioRef.current?.pause(); }, []);
-  const toggle = () => {
-    if (!audioRef.current || audioRef.current.src !== url) {
-      audioRef.current?.pause();
-      audioRef.current = new Audio(url);
-      audioRef.current.onended = () => setPlaying(false);
-    }
-    if (playing) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setPlaying(false);
-    } else {
-      void audioRef.current.play();
-      setPlaying(true);
-    }
-  };
-  return (
-    <button onClick={toggle} className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-text-muted hover:text-accent-cyan cursor-pointer">
-      <Icon icon={playing ? 'lucide:square' : 'lucide:play'} />
-      <FormattedMessage id="pron.hearYourself" />
-    </button>
   );
 }

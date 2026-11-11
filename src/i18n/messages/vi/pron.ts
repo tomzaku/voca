@@ -32,4 +32,6 @@ export default {
   'pron.wordScore': 'Phát âm {score} — chạm để xem các âm',
   'pron.wordMissing': 'Bị bỏ sót — chạm để xem các âm',
   'pron.tooLong': 'Chỉ kiểm tra phát âm cho câu trả lời dài tối đa {seconds} giây.',
+  'pron.sayExample': 'Đọc câu này',
+  'pron.sayExampleHint': 'Chạm micro và đọc câu — mỗi từ đều được chấm điểm',
 } satisfies Record<keyof typeof en, string>;
