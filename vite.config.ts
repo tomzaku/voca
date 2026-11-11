@@ -11,6 +11,9 @@ export default defineConfig(() => ({
   // public/CNAME), not GitHub's default /voca/ subpath, so build and dev
   // both use '/'.
   base: '/',
+  // Workers are started with { type: 'module' }, and pronunciationWorker
+  // lazy-imports phonemizer — a split chunk, which the default 'iife' can't do.
+  worker: { format: 'es' as const },
   plugins: [
     react(),
     tailwindcss(),
