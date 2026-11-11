@@ -123,8 +123,14 @@ const CHART = new Set([
   'p', 'b', 't', 'd', 'k', 'g', 'f', 'v', 'θ', 'ð', 's', 'z', 'ʃ', 'ʒ', 'h', 'tʃ', 'dʒ', 'm', 'n', 'ŋ', 'l', 'r', 'j', 'w',
 ]);
 
+/** A phone as the IPA chart writes it, or null if the chart doesn't have it. */
+export function chartSymbol(phone: string): string | null {
+  const symbol = CHART_SYMBOL[phone] ?? phone;
+  return CHART.has(symbol) ? symbol : null;
+}
+
 /** The /ipa page for a phone — its mouth diagram and drills — or null if the chart lacks it. */
 export function ipaChartLink(phone: string): string | null {
-  const symbol = CHART_SYMBOL[phone] ?? phone;
-  return CHART.has(symbol) ? `/ipa?view=detail&symbol=${encodeURIComponent(symbol)}` : null;
+  const symbol = chartSymbol(phone);
+  return symbol ? `/ipa?view=detail&symbol=${encodeURIComponent(symbol)}` : null;
 }

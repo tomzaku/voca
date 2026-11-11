@@ -134,7 +134,14 @@ export function RevealedView({
           </div>
           {/* Say it and see which sounds landed — keyed by word and sense so
               a new card (or "live" the adjective vs the verb) starts clean. */}
-          {canCheck && <PronunciationCheck key={`${wordData.word}-${senseIdx}`} ipas={ipas} />}
+          {canCheck && (
+            <PronunciationCheck
+              key={`${wordData.word}-${senseIdx}`}
+              ipas={ipas}
+              word={headword}
+              onHear={() => speech.speakWord(senses.length > 1 ? wordData.phonetics : undefined)}
+            />
+          )}
           {/* Everything that classifies the word — what it is, how hard, where
               the learner stands with it — on one row across the whole card,
               not squeezed into the column beside the doodle; where you stand
