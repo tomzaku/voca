@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bareWord, drillAnswer, GRAMMAR_LESSONS } from './grammar';
+import { bareWord, drillAnswer, GRAMMAR_LESSONS } from '.';
 
 // Lesson content is hand-written, so these catch the slips that would break a
 // drill on screen: a gap with no blank, an answer index off the end, a
@@ -14,6 +14,7 @@ describe('Grammar lessons', () => {
   it.each(GRAMMAR_LESSONS.map((l) => [l.id, l] as const))('%s has well-formed drills', (_, lesson) => {
     expect(lesson.drills.length).toBeGreaterThanOrEqual(5);
     expect(lesson.examples.length).toBeGreaterThan(0);
+    expect(lesson.icon).toMatch(/^lucide:[a-z0-9-]+$/);
     for (const d of lesson.drills) {
       if (d.kind === 'choice') {
         expect(d.prompt.split('___').length, d.prompt).toBe(2);

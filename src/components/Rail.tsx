@@ -52,15 +52,6 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: 'grammar',
-    tint: 'bg-accent-yellow/10',
-    labelId: 'app.navGrammar',
-    icon: 'lucide:spell-check',
-    items: [
-      { to: '/grammar', labelId: 'app.navGrammarLessons', icon: 'lucide:list-ordered' },
-    ],
-  },
-  {
     id: 'speak',
     tint: 'bg-accent-purple/10',
     labelId: 'app.navSpeak',
@@ -93,6 +84,15 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/writing/improve', labelId: 'app.navImproveWriting', icon: 'lucide:wand-2' },
       { to: '/writing/ielts', labelId: 'app.navIeltsWriting', icon: 'lucide:users' },
+    ],
+  },
+  {
+    id: 'grammar',
+    tint: 'bg-accent-yellow/10',
+    labelId: 'app.navGrammar',
+    icon: 'lucide:spell-check',
+    items: [
+      { to: '/grammar', labelId: 'app.navGrammarLessons', icon: 'lucide:list-ordered' },
     ],
   },
 ];

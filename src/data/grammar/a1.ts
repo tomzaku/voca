@@ -1,55 +1,12 @@
-// The Grammar course: lessons in the order they're meant to be learned, each
-// a short rule, a few examples, a note on why Vietnamese speakers tend to get
-// it wrong, and a round of drills. Static content, the same for everyone, so
-// it lives here rather than being generated — progress is the only per-user
-// part (useGrammarProgress / the `grammar` resource).
-//
-// Lesson ids are stored server-side as slugs: renaming one orphans everyone's
-// progress on it. Add new lessons anywhere; never reuse an id.
-//
-// Prose is `{ en, vi }` — content keyed by lesson, not UI strings, so it sits
-// beside the data like ipaVi.ts rather than in the message catalogs. English
-// example sentences and drills stay English in both: they're what's learned.
-// `**word**` in an example marks the part the lesson is about.
+// A1 grammar lessons, in teaching order. See ./index.ts for the shape.
 
-export type GrammarLevel = 'A1' | 'A2';
+import type { GrammarLesson } from './types';
 
-export interface Text { en: string; vi: string }
-
-export type Drill =
-  /** Fill the gap: `prompt` contains `___`, `answer` indexes `options`. */
-  | { kind: 'choice'; prompt: string; options: string[]; answer: number }
-  /** Tap the wrong word: `wrong` is one word of `sentence` (unique in it,
-   *  ignoring punctuation), `correct` the whole sentence put right. */
-  | { kind: 'error'; sentence: string; wrong: string; correct: string }
-  /** Build the sentence: `chunks` in the right order — shuffled for display. */
-  | { kind: 'order'; chunks: string[] };
-
-export interface GrammarLesson {
-  id: string;
-  level: GrammarLevel;
-  title: Text;
-  /** One line for the course list. */
-  summary: Text;
-  /** The form, as formula lines — English, since it's the English form. */
-  pattern: string[];
-  rule: Text;
-  examples: string[];
-  /** Why this trips up Vietnamese speakers, and what to watch for. */
-  viNote: Text;
-  drills: Drill[];
-}
-
-export const GRAMMAR_LEVELS: { level: GrammarLevel; title: Text }[] = [
-  { level: 'A1', title: { en: 'Beginner', vi: 'Sơ cấp' } },
-  { level: 'A2', title: { en: 'Elementary', vi: 'Cơ bản' } },
-];
-
-export const GRAMMAR_LESSONS: GrammarLesson[] = [
-  // ─── A1 ───────────────────────────────────────────────────────────
+export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'be-present',
     level: 'A1',
+    icon: 'lucide:user-round',
     title: { en: 'am / is / are', vi: 'am / is / are' },
     summary: { en: 'The verb "to be" in the present', vi: 'Động từ "to be" ở hiện tại' },
     pattern: ['I + am', 'he / she / it + is', 'you / we / they + are'],
@@ -75,6 +32,7 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
   {
     id: 'plural-nouns',
     level: 'A1',
+    icon: 'lucide:copy',
     title: { en: 'Plural nouns', vi: 'Danh từ số nhiều' },
     summary: { en: 'one book → two books', vi: 'one book → two books' },
     pattern: ['noun + s  (book → books)', 'noun + es  after s, sh, ch, x  (box → boxes)', 'consonant + y → ies  (city → cities)', 'irregular: man → men, child → children, person → people'],
@@ -100,6 +58,7 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
   {
     id: 'articles-a-an',
     level: 'A1',
+    icon: 'lucide:apple',
     title: { en: 'a / an', vi: 'a / an' },
     summary: { en: 'One of something: a cat, an apple', vi: 'Một cái gì đó: a cat, an apple' },
     pattern: ['a + consonant sound  (a car, a university)', 'an + vowel sound  (an egg, an hour)'],
@@ -125,6 +84,7 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
   {
     id: 'article-the',
     level: 'A1',
+    icon: 'lucide:sun',
     title: { en: 'the', vi: 'the' },
     summary: { en: 'The one we both know', vi: 'Cái mà cả hai đều biết' },
     pattern: ['a / an + first mention', 'the + something already known or the only one', 'no article + things in general (plural / uncountable)'],
@@ -150,6 +110,7 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
   {
     id: 'present-simple',
     level: 'A1',
+    icon: 'lucide:repeat',
     title: { en: 'Present simple', vi: 'Thì hiện tại đơn' },
     summary: { en: 'I work, she works', vi: 'I work, she works' },
     pattern: ['I / you / we / they + verb', 'he / she / it + verb + s  (works, goes, watches, studies)', 'have → has'],
@@ -175,6 +136,7 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
   {
     id: 'present-simple-questions',
     level: 'A1',
+    icon: 'lucide:circle-help',
     title: { en: 'do / does: questions and negatives', vi: 'do / does: câu hỏi và phủ định' },
     summary: { en: 'Do you…? She doesn’t…', vi: 'Do you…? She doesn’t…' },
     pattern: ['Do / Does + subject + verb?', 'subject + don’t / doesn’t + verb', 'does / doesn’t + base verb (no -s)'],
@@ -198,8 +160,35 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
     ],
   },
   {
+    id: 'question-words',
+    level: 'A1',
+    icon: 'lucide:message-circle-question',
+    title: { en: 'what / where / when / who / how', vi: 'what / where / when / who / how' },
+    summary: { en: 'Asking for information', vi: 'Hỏi để lấy thông tin' },
+    pattern: ['question word + be + subject?  (Where is the bank?)', 'question word + do / does + subject + verb?  (What do you do?)', 'who · what · where · when · why · how · how much · how many · how old'],
+    rule: {
+      en: 'Put the question word first, then the same order as a yes/no question: "be" before the subject, or "do/does" before the subject. Don’t keep the statement order.',
+      vi: 'Đặt từ để hỏi lên đầu, sau đó là thứ tự như câu hỏi có/không: "be" trước chủ ngữ, hoặc "do/does" trước chủ ngữ. Không giữ nguyên thứ tự của câu kể.',
+    },
+    examples: ['**Where** is your office?', '**What** do you do?', '**When** does the film start?', '**How old** is your son?'],
+    viNote: {
+      en: 'Vietnamese puts the question word where the answer would go: "Bạn đi đâu?" (you go where?). English moves it to the front and adds "do": "Where do you go?", not "You go where?". With "be": "Where is she?", not "Where she is?".',
+      vi: 'Tiếng Việt đặt từ để hỏi đúng chỗ của câu trả lời: "Bạn đi đâu?". Tiếng Anh đưa nó lên đầu và thêm "do": "Where do you go?", không phải "You go where?". Với "be": "Where is she?", không phải "Where she is?".',
+    },
+    drills: [
+      { kind: 'choice', prompt: '___ is your birthday? — In March.', options: ['Where', 'When', 'Who'], answer: 1 },
+      { kind: 'choice', prompt: '___ is that man? — He’s my uncle.', options: ['Who', 'What', 'How'], answer: 0 },
+      { kind: 'choice', prompt: 'Where ___ your parents live?', options: ['are', 'does', 'do'], answer: 2 },
+      { kind: 'error', sentence: 'Where you work?', wrong: 'you', correct: 'Where do you work?' },
+      { kind: 'error', sentence: 'What time it is?', wrong: 'it', correct: 'What time is it?' },
+      { kind: 'order', chunks: ['How', 'do', 'you', 'go', 'to school?'] },
+      { kind: 'order', chunks: ['What', 'is', 'your', 'phone number?'] },
+    ],
+  },
+  {
     id: 'this-that',
     level: 'A1',
+    icon: 'lucide:hand',
     title: { en: 'this / that / these / those', vi: 'this / that / these / those' },
     summary: { en: 'Near or far, one or many', vi: 'Gần hay xa, một hay nhiều' },
     pattern: ['near: this + singular · these + plural', 'far: that + singular · those + plural'],
@@ -225,6 +214,7 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
   {
     id: 'possessives',
     level: 'A1',
+    icon: 'lucide:key-round',
     title: { en: 'my / your / his… and ’s', vi: 'my / your / his… và ’s' },
     summary: { en: 'Saying who something belongs to', vi: 'Nói vật gì thuộc về ai' },
     pattern: ['I → my · you → your · he → his · she → her', 'it → its · we → our · they → their', 'person + ’s + thing  (Lan’s phone)'],
@@ -248,8 +238,35 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
     ],
   },
   {
+    id: 'object-pronouns',
+    level: 'A1',
+    icon: 'lucide:users',
+    title: { en: 'me / him / her / them', vi: 'me / him / her / them' },
+    summary: { en: 'Pronouns after a verb or preposition', vi: 'Đại từ sau động từ hoặc giới từ' },
+    pattern: ['I → me · he → him · she → her · it → it', 'we → us · they → them · you → you', 'verb / preposition + object pronoun  (call me, with them)'],
+    rule: {
+      en: 'Use I, he, she, we, they before the verb (the one doing it). After a verb or a preposition — the one receiving it — use me, him, her, us, them.',
+      vi: 'Dùng I, he, she, we, they trước động từ (người làm). Sau động từ hoặc giới từ — người nhận hành động — dùng me, him, her, us, them.',
+    },
+    examples: ['Can you help **me**?', 'I see **him** every day.', 'She lives with **us**.', 'I love these songs. I listen to **them** a lot.'],
+    viNote: {
+      en: 'Vietnamese uses the same word in both places: "anh ấy gọi tôi", "tôi gọi anh ấy". English changes the form: "He calls me", "I call him" — never "I call he" or "Me like it".',
+      vi: 'Tiếng Việt dùng cùng một từ ở cả hai vị trí: "anh ấy gọi tôi", "tôi gọi anh ấy". Tiếng Anh thì đổi dạng: "He calls me", "I call him" — không bao giờ "I call he" hay "Me like it".',
+    },
+    drills: [
+      { kind: 'choice', prompt: 'Where is Lan? I can’t see ___.', options: ['she', 'her', 'hers'], answer: 1 },
+      { kind: 'choice', prompt: 'My friends are coming. Let’s wait for ___.', options: ['them', 'they', 'their'], answer: 0 },
+      { kind: 'choice', prompt: 'This message is for you and ___.', options: ['I', 'my', 'me'], answer: 2 },
+      { kind: 'error', sentence: 'I met he at the station.', wrong: 'he', correct: 'I met him at the station.' },
+      { kind: 'error', sentence: 'Please call we tomorrow.', wrong: 'we', correct: 'Please call us tomorrow.' },
+      { kind: 'order', chunks: ['She', 'sends', 'me', 'a message', 'every day.'] },
+      { kind: 'order', chunks: ['Can', 'you', 'give', 'it', 'to him?'] },
+    ],
+  },
+  {
     id: 'there-is-are',
     level: 'A1',
+    icon: 'lucide:map-pin',
     title: { en: 'there is / there are', vi: 'there is / there are' },
     summary: { en: 'Saying something exists', vi: 'Nói có cái gì đó' },
     pattern: ['there is + a / an + singular', 'there is + uncountable  (there is some milk)', 'there are + plural'],
@@ -273,8 +290,35 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
     ],
   },
   {
+    id: 'prepositions-place',
+    level: 'A1',
+    icon: 'lucide:box',
+    title: { en: 'in / on / at / under / next to', vi: 'in / on / at / under / next to' },
+    summary: { en: 'Saying where things are', vi: 'Nói vật ở đâu' },
+    pattern: ['in + inside a space  (in the box, in Hanoi)', 'on + a surface  (on the table, on the wall)', 'at + a point / place  (at the door, at work)', 'under · next to · behind · in front of · between'],
+    rule: {
+      en: '"In" is inside something, "on" is touching a surface, "at" is a point or a place where something happens. Cities and countries take "in"; home, work and school take "at".',
+      vi: '"In" là ở bên trong, "on" là trên một bề mặt, "at" là một điểm hoặc nơi diễn ra hoạt động. Thành phố, quốc gia dùng "in"; home, work, school dùng "at".',
+    },
+    examples: ['The keys are **in** my bag.', 'Your phone is **on** the table.', 'She is **at** work now.', 'The cat is sleeping **under** the bed.'],
+    viNote: {
+      en: 'Vietnamese "ở" covers all of these: "ở nhà", "ở Hà Nội", "ở trên bàn". In English you must choose: "at home", "in Hanoi", "on the table". Don’t add a preposition before "home" with "go": "go home", not "go to home".',
+      vi: '"ở" trong tiếng Việt dùng cho tất cả: "ở nhà", "ở Hà Nội", "ở trên bàn". Tiếng Anh phải chọn: "at home", "in Hanoi", "on the table". Với "go" thì không thêm giới từ trước "home": "go home", không phải "go to home".',
+    },
+    drills: [
+      { kind: 'choice', prompt: 'There is a picture ___ the wall.', options: ['in', 'on', 'at'], answer: 1 },
+      { kind: 'choice', prompt: 'My uncle lives ___ Da Nang.', options: ['in', 'on', 'at'], answer: 0 },
+      { kind: 'choice', prompt: 'I’ll meet you ___ the bus stop.', options: ['on', 'in', 'at'], answer: 2 },
+      { kind: 'error', sentence: 'My grandparents live on Vietnam.', wrong: 'on', correct: 'My grandparents live in Vietnam.' },
+      { kind: 'error', sentence: 'I usually go to home at six.', wrong: 'to', correct: 'I usually go home at six.' },
+      { kind: 'order', chunks: ['The bank', 'is', 'next to', 'the post office.'] },
+      { kind: 'order', chunks: ['My shoes', 'are', 'under', 'the bed.'] },
+    ],
+  },
+  {
     id: 'can-cant',
     level: 'A1',
+    icon: 'lucide:dumbbell',
     title: { en: 'can / can’t', vi: 'can / can’t' },
     summary: { en: 'Ability and permission', vi: 'Khả năng và sự cho phép' },
     pattern: ['subject + can / can’t + base verb', 'Can + subject + base verb?', 'no -s, no "to": she can swim'],
@@ -300,6 +344,7 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
   {
     id: 'present-continuous',
     level: 'A1',
+    icon: 'lucide:loader',
     title: { en: 'Present continuous', vi: 'Thì hiện tại tiếp diễn' },
     summary: { en: 'I am working right now', vi: 'I am working — đang làm' },
     pattern: ['am / is / are + verb-ing', 'Are you + verb-ing?', 'make → making · sit → sitting'],
@@ -325,6 +370,7 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
   {
     id: 'prepositions-time',
     level: 'A1',
+    icon: 'lucide:clock',
     title: { en: 'in / on / at for time', vi: 'in / on / at chỉ thời gian' },
     summary: { en: 'at 7, on Monday, in May', vi: 'at 7, on Monday, in May' },
     pattern: ['at + clock time · night · the weekend', 'on + day · date  (on Monday, on 2 May)', 'in + month · year · season · the morning'],
@@ -347,253 +393,4 @@ export const GRAMMAR_LESSONS: GrammarLesson[] = [
       { kind: 'order', chunks: ['We', 'go', 'to the beach', 'in', 'summer.'] },
     ],
   },
-
-  // ─── A2 ───────────────────────────────────────────────────────────
-  {
-    id: 'past-be',
-    level: 'A2',
-    title: { en: 'was / were', vi: 'was / were' },
-    summary: { en: 'The verb "to be" in the past', vi: 'Động từ "to be" ở quá khứ' },
-    pattern: ['I / he / she / it + was', 'you / we / they + were', 'wasn’t / weren’t · Was…? / Were…?'],
-    rule: {
-      en: '"Was" and "were" are the past of am/is/are. Use them for states and descriptions in the past: where you were, how you felt.',
-      vi: '"Was" và "were" là quá khứ của am/is/are. Dùng để nói trạng thái, mô tả trong quá khứ: bạn ở đâu, cảm thấy thế nào.',
-    },
-    examples: ['I **was** tired yesterday.', 'They **were** at the cinema.', 'The film **wasn’t** very good.', '**Were** you at home last night?'],
-    viNote: {
-      en: 'Vietnamese shows the past with "đã" or a time word, and "be" is often missing completely: "Hôm qua tôi mệt". English needs "was": "I was tired yesterday" — not "I tired" and not "I am tired yesterday".',
-      vi: 'Tiếng Việt diễn tả quá khứ bằng "đã" hoặc từ chỉ thời gian, và thường không có "be": "Hôm qua tôi mệt". Tiếng Anh cần "was": "I was tired yesterday" — không phải "I tired" hay "I am tired yesterday".',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'We ___ very busy last week.', options: ['was', 'were', 'are'], answer: 1 },
-      { kind: 'choice', prompt: 'It ___ cold yesterday morning.', options: ['was', 'were', 'is'], answer: 0 },
-      { kind: 'choice', prompt: '___ your parents at the party?', options: ['Was', 'Did', 'Were'], answer: 2 },
-      { kind: 'error', sentence: 'I am sick last Monday.', wrong: 'am', correct: 'I was sick last Monday.' },
-      { kind: 'error', sentence: 'The students was late this morning.', wrong: 'was', correct: 'The students were late this morning.' },
-      { kind: 'order', chunks: ['Where', 'were', 'you', 'last night?'] },
-      { kind: 'order', chunks: ['The hotel', 'wasn’t', 'very', 'clean.'] },
-    ],
-  },
-  {
-    id: 'past-simple-regular',
-    level: 'A2',
-    title: { en: 'Past simple: -ed verbs', vi: 'Quá khứ đơn: động từ -ed' },
-    summary: { en: 'I worked, she studied', vi: 'I worked, she studied' },
-    pattern: ['verb + ed  (work → worked)', 'e → d  (live → lived)', 'consonant + y → ied  (study → studied)', 'short vowel + consonant → double  (stop → stopped)'],
-    rule: {
-      en: 'Use the past simple for finished actions at a time in the past (yesterday, last year, in 2020). Regular verbs add -ed, the same for every person.',
-      vi: 'Dùng quá khứ đơn cho hành động đã xong tại một thời điểm trong quá khứ (yesterday, last year, in 2020). Động từ có quy tắc thêm -ed, giống nhau với mọi ngôi.',
-    },
-    examples: ['I **worked** late yesterday.', 'She **studied** in Australia.', 'We **watched** a film last night.', 'The bus **stopped** suddenly.'],
-    viNote: {
-      en: 'Vietnamese verbs don’t change for the past — "hôm qua tôi làm việc". Even with "yesterday" in the sentence, English still needs -ed: "I work yesterday" is wrong. Pronounce it, too: worked /t/, lived /d/, wanted /ɪd/.',
-      vi: 'Động từ tiếng Việt không đổi ở quá khứ — "hôm qua tôi làm việc". Dù đã có "yesterday", tiếng Anh vẫn cần -ed: "I work yesterday" là sai. Nhớ phát âm: worked /t/, lived /d/, wanted /ɪd/.',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'We ___ our grandparents last weekend.', options: ['visit', 'visited', 'visiting'], answer: 1 },
-      { kind: 'choice', prompt: 'She ___ for the test all night.', options: ['studied', 'studyed', 'studies'], answer: 0 },
-      { kind: 'choice', prompt: 'The rain ___ at 5 o’clock.', options: ['stoped', 'stop', 'stopped'], answer: 2 },
-      { kind: 'error', sentence: 'Yesterday I play badminton with my friends.', wrong: 'play', correct: 'Yesterday I played badminton with my friends.' },
-      { kind: 'error', sentence: 'They move to Da Nang in 2019.', wrong: 'move', correct: 'They moved to Da Nang in 2019.' },
-      { kind: 'order', chunks: ['I', 'cleaned', 'my room', 'this morning.'] },
-      { kind: 'order', chunks: ['He', 'arrived', 'late', 'for the meeting.'] },
-    ],
-  },
-  {
-    id: 'past-simple-irregular',
-    level: 'A2',
-    title: { en: 'Past simple: irregular verbs and did', vi: 'Quá khứ đơn: động từ bất quy tắc và did' },
-    summary: { en: 'went, saw, didn’t go, did you see?', vi: 'went, saw, didn’t go, did you see?' },
-    pattern: ['go → went · see → saw · eat → ate · buy → bought', 'didn’t + base verb', 'Did + subject + base verb?'],
-    rule: {
-      en: 'Many common verbs have their own past form — learn them as pairs. In questions and negatives use "did", and the main verb goes back to its base form: "Did you go?", "I didn’t see".',
-      vi: 'Nhiều động từ thông dụng có dạng quá khứ riêng — hãy học theo cặp. Câu hỏi và phủ định dùng "did", và động từ chính trở về dạng gốc: "Did you go?", "I didn’t see".',
-    },
-    examples: ['I **went** to Hue last summer.', 'She **bought** a new dress.', 'We **didn’t eat** breakfast.', '**Did** you **see** the news?'],
-    viNote: {
-      en: 'After "did" or "didn’t", the past is already shown — so don’t mark it twice: "Did you went?" and "I didn’t saw" are wrong. And without "did", don’t forget the past form: "I go there last year" → "I went there last year".',
-      vi: 'Sau "did" hoặc "didn’t", quá khứ đã được thể hiện — nên đừng chia hai lần: "Did you went?" và "I didn’t saw" là sai. Còn khi không có "did", đừng quên dạng quá khứ: "I go there last year" → "I went there last year".',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'We ___ a great film last night.', options: ['see', 'saw', 'seed'], answer: 1 },
-      { kind: 'choice', prompt: 'Did you ___ your homework?', options: ['finish', 'finished', 'finishing'], answer: 0 },
-      { kind: 'choice', prompt: 'He ___ come to class yesterday.', options: ['wasn’t', 'not', 'didn’t'], answer: 2 },
-      { kind: 'error', sentence: 'I didn’t went to work on Monday.', wrong: 'went', correct: 'I didn’t go to work on Monday.' },
-      { kind: 'error', sentence: 'She eat pho for breakfast yesterday.', wrong: 'eat', correct: 'She ate pho for breakfast yesterday.' },
-      { kind: 'order', chunks: ['Did', 'you', 'buy', 'any', 'fruit?'] },
-      { kind: 'order', chunks: ['They', 'took', 'a taxi', 'to the airport.'] },
-    ],
-  },
-  {
-    id: 'countable-uncountable',
-    level: 'A2',
-    title: { en: 'Countable and uncountable nouns', vi: 'Danh từ đếm được và không đếm được' },
-    summary: { en: 'many / much, some / any', vi: 'many / much, some / any' },
-    pattern: ['countable: a book, two books, many books', 'uncountable: water, rice, money, information, advice — no a/an, no -s', 'many + countable · much + uncountable · a lot of + both', 'some (positive) · any (questions, negatives)'],
-    rule: {
-      en: 'Countable nouns can be counted one by one and have a plural. Uncountable nouns are seen as a mass — they take no "a/an" and no -s. "How many" asks about countable, "how much" about uncountable.',
-      vi: 'Danh từ đếm được có thể đếm từng cái và có số nhiều. Danh từ không đếm được được xem là một khối — không dùng "a/an" và không thêm -s. "How many" hỏi danh từ đếm được, "how much" hỏi danh từ không đếm được.',
-    },
-    examples: ['How **many** students are there?', 'How **much** money do you have?', 'I need **some** information.', 'There isn’t **any** milk.'],
-    viNote: {
-      en: 'Some words are countable in Vietnamese thinking but uncountable in English: information, advice, homework, furniture, luggage, news. So it’s "some advice" or "a piece of advice", never "an advice" or "advices".',
-      vi: 'Một số từ người Việt nghĩ là đếm được nhưng trong tiếng Anh lại không: information, advice, homework, furniture, luggage, news. Nên nói "some advice" hoặc "a piece of advice", không bao giờ "an advice" hay "advices".',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'How ___ water do you drink a day?', options: ['many', 'much', 'a lot'], answer: 1 },
-      { kind: 'choice', prompt: 'There aren’t ___ eggs in the fridge.', options: ['any', 'some', 'much'], answer: 0 },
-      { kind: 'choice', prompt: 'Can you give me some ___?', options: ['advices', 'an advice', 'advice'], answer: 2 },
-      { kind: 'error', sentence: 'I have many homeworks tonight.', wrong: 'homeworks', correct: 'I have a lot of homework tonight.' },
-      { kind: 'error', sentence: 'How much people came to the party?', wrong: 'much', correct: 'How many people came to the party?' },
-      { kind: 'order', chunks: ['We', 'need', 'some', 'rice', 'and', 'eggs.'] },
-      { kind: 'order', chunks: ['Is', 'there', 'any', 'news', 'about the job?'] },
-    ],
-  },
-  {
-    id: 'comparatives',
-    level: 'A2',
-    title: { en: 'Comparatives', vi: 'So sánh hơn' },
-    summary: { en: 'bigger than, more expensive than', vi: 'bigger than, more expensive than' },
-    pattern: ['short adjective + er + than  (cheap → cheaper)', 'more + long adjective + than  (more expensive)', 'good → better · bad → worse · far → further'],
-    rule: {
-      en: 'To compare two things, add -er to short adjectives and use "more" before longer ones — never both. Follow it with "than".',
-      vi: 'Để so sánh hai thứ, thêm -er vào tính từ ngắn và dùng "more" trước tính từ dài — không dùng cả hai. Theo sau là "than".',
-    },
-    examples: ['Hanoi is **colder than** Ho Chi Minh City in winter.', 'This phone is **more expensive than** that one.', 'Her English is **better than** mine.', 'The bus is **slower than** the train.'],
-    viNote: {
-      en: 'Vietnamese uses "hơn" after the adjective for every word: "đắt hơn", "tốt hơn". English splits short and long adjectives, and "good/bad" are irregular. "More cheaper" and "gooder" are common mistakes.',
-      vi: 'Tiếng Việt chỉ cần "hơn" sau mọi tính từ: "đắt hơn", "tốt hơn". Tiếng Anh chia ra tính từ ngắn và dài, còn "good/bad" là bất quy tắc. "More cheaper" và "gooder" là lỗi hay gặp.',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'My room is ___ than yours.', options: ['more big', 'bigger', 'biger'], answer: 1 },
-      { kind: 'choice', prompt: 'English is ___ than I thought.', options: ['more difficult', 'difficulter', 'more difficulter'], answer: 0 },
-      { kind: 'choice', prompt: 'Today’s weather is ___ than yesterday’s.', options: ['gooder', 'more good', 'better'], answer: 2 },
-      { kind: 'error', sentence: 'This shirt is more cheaper than that one.', wrong: 'more', correct: 'This shirt is cheaper than that one.' },
-      { kind: 'error', sentence: 'My brother is taller then me.', wrong: 'then', correct: 'My brother is taller than me.' },
-      { kind: 'order', chunks: ['A plane', 'is', 'faster', 'than', 'a train.'] },
-      { kind: 'order', chunks: ['This book', 'is', 'more interesting', 'than', 'the film.'] },
-    ],
-  },
-  {
-    id: 'superlatives',
-    level: 'A2',
-    title: { en: 'Superlatives', vi: 'So sánh nhất' },
-    summary: { en: 'the biggest, the most beautiful', vi: 'the biggest, the most beautiful' },
-    pattern: ['the + short adjective + est  (the tallest)', 'the most + long adjective  (the most beautiful)', 'good → the best · bad → the worst'],
-    rule: {
-      en: 'Use the superlative to say one thing is at the top of a group of three or more. It nearly always takes "the". Often followed by "in" + a place or group, or "of" + a number.',
-      vi: 'Dùng so sánh nhất để nói một thứ đứng đầu trong nhóm từ ba trở lên. Gần như luôn có "the". Thường đi với "in" + nơi chốn/nhóm, hoặc "of" + số lượng.',
-    },
-    examples: ['Mount Fansipan is **the highest** mountain in Vietnam.', 'This is **the most beautiful** beach I know.', 'She is **the best** student in our class.', 'That was **the worst** day of the year.'],
-    viNote: {
-      en: 'Vietnamese says "cao nhất", "đẹp nhất" with no word like "the". In English "the" is needed: "She is best student" → "She is the best student". And use "in" for places: "the biggest city in Vietnam", not "of Vietnam".',
-      vi: 'Tiếng Việt nói "cao nhất", "đẹp nhất" mà không cần từ nào như "the". Tiếng Anh thì cần "the": "She is best student" → "She is the best student". Và dùng "in" với nơi chốn: "the biggest city in Vietnam", không phải "of Vietnam".',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'This is ___ restaurant in town.', options: ['the cheaper', 'the cheapest', 'cheapest'], answer: 1 },
-      { kind: 'choice', prompt: 'It was ___ day of my life.', options: ['the happiest', 'the most happy', 'happiest'], answer: 0 },
-      { kind: 'choice', prompt: 'Who is ___ singer in your country?', options: ['the most famousest', 'the famousest', 'the most famous'], answer: 2 },
-      { kind: 'error', sentence: 'He is best player on the team.', wrong: 'best', correct: 'He is the best player on the team.' },
-      { kind: 'error', sentence: 'It is the most hot month of the year.', wrong: 'most', correct: 'It is the hottest month of the year.' },
-      { kind: 'order', chunks: ['Hanoi', 'is', 'the oldest', 'city', 'I have visited.'] },
-      { kind: 'order', chunks: ['This', 'is', 'the most expensive', 'hotel', 'in the city.'] },
-    ],
-  },
-  {
-    id: 'adverbs-frequency',
-    level: 'A2',
-    title: { en: 'always / usually / never', vi: 'always / usually / never' },
-    summary: { en: 'How often, and where it goes', vi: 'Bao lâu một lần, và đặt ở đâu' },
-    pattern: ['always · usually · often · sometimes · rarely · never', 'before the main verb  (I often walk)', 'after "be"  (She is always late)'],
-    rule: {
-      en: 'These adverbs say how often something happens. Put them before the main verb but after "be". "Never" is already negative — don’t add "not".',
-      vi: 'Các trạng từ này nói mức độ thường xuyên. Đặt trước động từ chính nhưng sau "be". "Never" đã mang nghĩa phủ định — đừng thêm "not".',
-    },
-    examples: ['I **usually** get up at 6.', 'She **is always** busy.', 'We **sometimes** eat out.', 'He **never** drinks coffee.'],
-    viNote: {
-      en: 'Vietnamese word order is more flexible here. In English the place is fixed: "I usually get up", not "I get up usually". Double negatives like "I don’t never" are wrong in standard English.',
-      vi: 'Tiếng Việt khá linh hoạt về vị trí. Tiếng Anh thì cố định: "I usually get up", không phải "I get up usually". Phủ định kép như "I don’t never" là sai trong tiếng Anh chuẩn.',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'My boss ___ in a good mood on Mondays.', options: ['never is', 'is never', 'never'], answer: 1 },
-      { kind: 'choice', prompt: 'We ___ go to the cinema on Fridays.', options: ['often', 'are often', 'often are'], answer: 0 },
-      { kind: 'choice', prompt: 'I ___ eat meat. I’m vegetarian.', options: ['don’t never', 'not ever', 'never'], answer: 2 },
-      { kind: 'error', sentence: 'She is late always for class.', wrong: 'always', correct: 'She is always late for class.' },
-      { kind: 'error', sentence: 'I don’t never forget my keys.', wrong: 'don’t', correct: 'I never forget my keys.' },
-      { kind: 'order', chunks: ['He', 'usually', 'walks', 'to work.'] },
-      { kind: 'order', chunks: ['They', 'are', 'sometimes', 'late.'] },
-    ],
-  },
-  {
-    id: 'going-to',
-    level: 'A2',
-    title: { en: 'be going to', vi: 'be going to' },
-    summary: { en: 'Plans you’ve already made', vi: 'Kế hoạch đã định sẵn' },
-    pattern: ['am / is / are + going to + base verb', 'Are you going to + verb?', 'also: a prediction from what you can see  (It’s going to rain)'],
-    rule: {
-      en: 'Use "be going to" for plans and intentions you decided before speaking, and for predictions based on what you can see now. Don’t forget "be", and keep the verb in its base form.',
-      vi: 'Dùng "be going to" cho kế hoạch, dự định đã quyết từ trước khi nói, và cho dự đoán dựa vào điều đang thấy. Đừng quên "be", và giữ động từ ở dạng gốc.',
-    },
-    examples: ['I**’m going to** study abroad next year.', 'We **are going to** visit Da Lat this summer.', 'Look at those clouds — it**’s going to** rain.', '**Are** you **going to** take the job?'],
-    viNote: {
-      en: 'Vietnamese "sẽ" and "định" both become future in English, and "be" is easy to drop: "I going to travel". It must be "I am going to travel". After "to", use the base verb: "going to buy", not "going to bought".',
-      vi: '"sẽ" và "định" đều là tương lai trong tiếng Anh, và rất dễ bỏ sót "be": "I going to travel". Phải là "I am going to travel". Sau "to" dùng động từ gốc: "going to buy", không phải "going to bought".',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'She ___ start a new job next month.', options: ['going to', 'is going to', 'goes to'], answer: 1 },
-      { kind: 'choice', prompt: 'Be careful! You ___ fall.', options: ['are going to', 'going to', 'go to'], answer: 0 },
-      { kind: 'choice', prompt: 'What are you going ___ this weekend?', options: ['do', 'doing', 'to do'], answer: 2 },
-      { kind: 'error', sentence: 'We going to have a party on Saturday.', wrong: 'going', correct: 'We are going to have a party on Saturday.' },
-      { kind: 'error', sentence: 'They are going to moved house soon.', wrong: 'moved', correct: 'They are going to move house soon.' },
-      { kind: 'order', chunks: ['I', 'am', 'going to', 'learn', 'to drive.'] },
-      { kind: 'order', chunks: ['Is', 'he', 'going to', 'call', 'you?'] },
-    ],
-  },
-  {
-    id: 'will-future',
-    level: 'A2',
-    title: { en: 'will', vi: 'will' },
-    summary: { en: 'Decisions now, promises, predictions', vi: 'Quyết định tức thì, lời hứa, dự đoán' },
-    pattern: ['subject + will (’ll) + base verb', 'won’t = will not', 'Will + subject + base verb?'],
-    rule: {
-      en: 'Use "will" for decisions made at the moment of speaking ("I’ll get it!"), offers and promises, and predictions based on opinion ("I think it will be fine"). For plans made earlier, "going to" is more natural.',
-      vi: 'Dùng "will" cho quyết định ngay lúc nói ("I’ll get it!"), lời đề nghị, lời hứa, và dự đoán theo ý kiến ("I think it will be fine"). Với kế hoạch đã định từ trước, "going to" tự nhiên hơn.',
-    },
-    examples: ['The phone’s ringing — I**’ll** answer it.', 'I **will** call you tomorrow, I promise.', 'I think she **will** pass the exam.', 'It **won’t** take long.'],
-    viNote: {
-      en: 'Vietnamese uses "sẽ" for all future meaning. English chooses: a plan you already made → "going to"; a decision right now → "will". The verb after "will" never takes -s or -ed: "She will comes" is wrong.',
-      vi: 'Tiếng Việt dùng "sẽ" cho mọi ý tương lai. Tiếng Anh phải chọn: kế hoạch đã có → "going to"; quyết định ngay lúc nói → "will". Động từ sau "will" không bao giờ thêm -s hay -ed: "She will comes" là sai.',
-    },
-    drills: [
-      { kind: 'choice', prompt: 'It’s cold in here. — I ___ close the window.', options: ['am going to', '’ll', 'will to'], answer: 1 },
-      { kind: 'choice', prompt: 'Don’t worry, I ___ tell anyone.', options: ['won’t', 'don’t will', 'willn’t'], answer: 0 },
-      { kind: 'choice', prompt: 'I think it ___ sunny tomorrow.', options: ['will is', 'will being', 'will be'], answer: 2 },
-      { kind: 'error', sentence: 'He will helps you with your bags.', wrong: 'helps', correct: 'He will help you with your bags.' },
-      { kind: 'error', sentence: 'I will to finish it tonight.', wrong: 'to', correct: 'I will finish it tonight.' },
-      { kind: 'order', chunks: ['I', 'will', 'send', 'you', 'the photos.'] },
-      { kind: 'order', chunks: ['Will', 'you', 'be', 'home', 'for dinner?'] },
-    ],
-  },
 ];
-
-/** Strip punctuation so "today." matches a `wrong` of "today". */
-export const bareWord = (token: string) => token.replace(/^[^\p{L}\p{N}’']+|[^\p{L}\p{N}’']+$/gu, '');
-
-/** The finished sentence a drill is about — shown once it's answered. */
-export function drillAnswer(drill: Drill): string {
-  switch (drill.kind) {
-    case 'choice': {
-      const word = drill.options[drill.answer];
-      // "—" is the "no word here" option: close the gap instead of printing it.
-      return word === '—'
-        ? drill.prompt.replace(/\s*___\s*/, ' ').replace(/^\s+/, '').replace(/^./, (c) => c.toUpperCase())
-        : drill.prompt.replace('___', word);
-    }
-    case 'error':
-      return drill.correct;
-    case 'order':
-      return drill.chunks.join(' ');
-  }
-}
-
-export const lessonById = (id: string) => GRAMMAR_LESSONS.find((l) => l.id === id);
