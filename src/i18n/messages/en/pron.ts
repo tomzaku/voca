@@ -35,4 +35,6 @@ export default {
   'pron.tooLong': 'Pronunciation is checked for answers up to {seconds} seconds.',
   'pron.sayExample': 'Say this sentence',
   'pron.sayExampleHint': 'Tap the mic and read the sentence — each word gets scored',
+  'pron.sayIt': 'Say it',
+  'pron.closePractice': 'Close',
 } satisfies Catalog;

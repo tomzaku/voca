@@ -34,4 +34,6 @@ export default {
   'pron.tooLong': 'Chỉ kiểm tra phát âm cho câu trả lời dài tối đa {seconds} giây.',
   'pron.sayExample': 'Đọc câu này',
   'pron.sayExampleHint': 'Chạm micro và đọc câu — mỗi từ đều được chấm điểm',
+  'pron.sayIt': 'Đọc thử',
+  'pron.closePractice': 'Đóng',
 } satisfies Record<keyof typeof en, string>;

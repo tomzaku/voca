@@ -128,7 +128,6 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
               {masked ? (
                 <span className="text-accent-cyan shrink-0 mt-0.5">▸</span>
               ) : (
-                <span className="shrink-0 flex flex-col gap-1">
                 <button
                   onClick={() => onSpeak(i, text)}
                   title={intl.formatMessage({ id: 'word.readAloud' })}
@@ -149,25 +148,6 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
                     </svg>
                   )}
                 </button>
-                {canPractise && (
-                  <button
-                    onClick={() => setPractising((p) => (p === i ? null : i))}
-                    title={intl.formatMessage({ id: 'pron.sayExample' })}
-                    aria-label={intl.formatMessage({ id: 'pron.sayExample' })}
-                    aria-expanded={practising === i}
-                    className={`w-6 h-6 rounded-md flex items-center justify-center border transition-all ${
-                      practising === i
-                        ? 'bg-accent-red/15 text-accent-red border-accent-red/30'
-                        : 'bg-bg-tertiary text-text-muted border-border hover:text-accent-red hover:border-accent-red/30'
-                    }`}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="9" y="2" width="6" height="12" rx="3" />
-                      <path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="17" x2="12" y2="22" />
-                    </svg>
-                  </button>
-                )}
-                </span>
               )}
               <span className={`min-w-0 flex-1 ${masked ? 'italic' : ''}`}>
                 {masked ? text : <PeekText text={ex} highlight={answerWord} boldHighlight />}
@@ -178,6 +158,26 @@ export function ExampleList({ wordData, masked = false, speakingExample, onSpeak
                 {/* The translation would give the word away while guessing. */}
                 {!masked && wordData.exampleTranslations?.[i] && (
                   <span className="block text-xs text-text-muted mt-0.5">{wordData.exampleTranslations[i]}</span>
+                )}
+                {canPractise && (
+                  <button
+                    onClick={() => setPractising((p) => (p === i ? null : i))}
+                    aria-expanded={practising === i}
+                    className={`mt-1.5 inline-flex items-center gap-1 pl-1.5 pr-2.5 py-0.5 rounded-full border text-[11px] font-semibold transition-colors cursor-pointer ${
+                      practising === i
+                        ? 'bg-accent-red/10 text-accent-red border-accent-red/30'
+                        : 'text-text-muted border-border hover:text-accent-red hover:border-accent-red/30 hover:bg-accent-red/5'
+                    }`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      {practising === i ? (
+                        <><line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" /></>
+                      ) : (
+                        <><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0" /><line x1="12" y1="17" x2="12" y2="22" /></>
+                      )}
+                    </svg>
+                    <FormattedMessage id={practising === i ? 'pron.closePractice' : 'pron.sayIt'} />
+                  </button>
                 )}
                 {practising === i && <ExamplePractice key={ex} text={ex} />}
               </span>
