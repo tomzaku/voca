@@ -16,7 +16,8 @@ export function Bar({ done, total, className = '' }: { done: number; total: numb
   );
 }
 
-export function Overview({ done, total, saved, thisWeek }: { done: number; total: number; saved: number; thisWeek: number }) {
+/** `saved` is optional — a bank with nothing to bookmark (Grammar) leaves it out. */
+export function Overview({ done, total, saved, thisWeek }: { done: number; total: number; saved?: number; thisWeek: number }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
     <div className="rounded-xl border border-border bg-bg-card p-4">
@@ -32,7 +33,9 @@ export function Overview({ done, total, saved, thisWeek }: { done: number; total
       <Bar done={done} total={total} />
       <div className="flex items-center gap-4 mt-3 text-[11px] text-text-muted">
         <span className="flex items-center gap-1"><Icon icon="lucide:flame" className="text-accent-orange" /><FormattedMessage id="conversation.thisWeek" values={{ count: thisWeek }} /></span>
-        <span className="flex items-center gap-1"><Icon icon="lucide:bookmark" className="text-accent-yellow" /><FormattedMessage id="conversation.savedCount" values={{ count: saved }} /></span>
+        {saved !== undefined && (
+          <span className="flex items-center gap-1"><Icon icon="lucide:bookmark" className="text-accent-yellow" /><FormattedMessage id="conversation.savedCount" values={{ count: saved }} /></span>
+        )}
       </div>
     </div>
   );
@@ -46,10 +49,12 @@ export interface TopicRow<K extends string> {
   total: number;
 }
 
-/** `groups` without a label render as one plain list. */
-export function TopicNav<K extends string>({ active, all, groups, onSelect }: {
+/** `groups` without a label render as one plain list. `allLabel` renames the
+ *  first row where "All topics" doesn't fit (Grammar's "All lessons"). */
+export function TopicNav<K extends string>({ active, all, allLabel, groups, onSelect }: {
   active: K | 'all';
   all: { done: number; total: number };
+  allLabel?: string;
   groups: { label?: string; topics: TopicRow<K>[] }[];
   onSelect: (t: K | 'all') => void;
 }) {
@@ -82,7 +87,7 @@ export function TopicNav<K extends string>({ active, all, groups, onSelect }: {
 
   return (
     <nav className="space-y-4">
-      {row({ key: 'all', label: intl.formatMessage({ id: 'conversation.allTopics' }), icon: 'lucide:layout-grid', ...all })}
+      {row({ key: 'all', label: allLabel ?? intl.formatMessage({ id: 'conversation.allTopics' }), icon: 'lucide:layout-grid', ...all })}
       {groups.map((g, i) => (
         <div key={g.label ?? i}>
           {g.label && <p className="px-2.5 mb-1 text-[10px] font-bold uppercase tracking-wider text-text-muted">{g.label}</p>}

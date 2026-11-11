@@ -2,6 +2,9 @@ import type { Catalog } from '../..';
 
 export default {
   'grammar.title': 'Grammar',
+  'grammar.allLessons': 'All lessons',
+  'grammar.levels': 'Levels',
+  'grammar.topics': 'Topics',
   'grammar.startHere': 'Grammar · Start here',
   'grammar.upNext': 'Grammar · Up next',
   'grammar.allDone': 'Grammar · Course complete',

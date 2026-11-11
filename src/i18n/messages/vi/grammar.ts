@@ -2,6 +2,9 @@ import type en from '../en/grammar';
 
 export default {
   'grammar.title': 'Ngữ pháp',
+  'grammar.allLessons': 'Tất cả bài học',
+  'grammar.levels': 'Cấp độ',
+  'grammar.topics': 'Chủ đề',
   'grammar.startHere': 'Ngữ pháp · Bắt đầu từ đây',
   'grammar.upNext': 'Ngữ pháp · Bài tiếp theo',
   'grammar.allDone': 'Ngữ pháp · Đã hoàn thành',

@@ -24,6 +24,7 @@ import { PASS_SCORE, type GrammarProgress } from '../lib/grammarApi';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWin, playWrong } from '../lib/sfx';
 import { COVER_GLASS, COVER_PRIMARY, CoverChip } from './CollectionCover';
+import { Overview, TopicNav, TopicPickerButton, TopicSheet, type TopicRow } from './TopicBrowser';
 
 // The Grammar course: lessons in a suggested order, each one rule → examples
 // → a round of drills. Every lesson is open — the order is a path, not a gate
@@ -183,34 +184,6 @@ function CourseHero({ onOpen }: { onOpen: (id: string, mode: Mode) => void }) {
   );
 }
 
-function LevelCard({ level, title, active, onClick }: { level: GrammarLevel; title: string; active: boolean; onClick: () => void }) {
-  const records = useGrammarProgress((s) => s.records);
-  const lessons = GRAMMAR_LESSONS.filter((l) => l.level === level);
-  const done = lessons.filter((l) => isCompleted(records[l.id])).length;
-  const meta = LEVEL_META[level];
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={`flex flex-col text-left rounded-2xl border-2 bg-bg-card bg-linear-to-br ${meta.tint} to-transparent p-3.5 sm:p-4 transition-all hover:-translate-y-0.5 ${
-        active ? `${meta.ring} ring-2` : 'border-border hover:border-border-light'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <span className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center font-display font-extrabold ${meta.chip}`}>{level}</span>
-        {done === lessons.length && <Icon icon="lucide:badge-check" className="text-xl text-accent-green" />}
-      </div>
-      <p className="mt-2.5 font-display font-bold text-text-primary leading-tight">{title}</p>
-      <div className="mt-2.5 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${meta.bar}`} style={{ width: `${(done / lessons.length) * 100}%` }} />
-      </div>
-      <p className="mt-1.5 text-[11px] font-bold text-text-muted">
-        <FormattedMessage id="grammar.levelDone" values={{ done, total: lessons.length }} />
-      </p>
-    </button>
-  );
-}
-
 function LessonCard({ lesson, record, next, showLevel, onOpen }: {
   lesson: GrammarLesson;
   record: GrammarProgress | undefined;
@@ -302,51 +275,72 @@ function Section({ badge, title, lessons, showLevel, onOpen }: {
   );
 }
 
-function TopicChip({ topic, icon, title, active, onClick }: { topic: GrammarTopic; icon: string; title: string; active: boolean; onClick: () => void }) {
-  const records = useGrammarProgress((s) => s.records);
-  const lessons = GRAMMAR_LESSONS.filter((l) => l.topic === topic);
-  const done = lessons.filter((l) => isCompleted(records[l.id])).length;
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={`shrink-0 flex items-center gap-1.5 pl-2.5 pr-3 py-2 rounded-full border-2 text-sm font-bold transition-colors ${
-        active ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border bg-bg-card text-text-secondary hover:border-border-light hover:text-text-primary'
-      }`}
-    >
-      <Icon icon={icon} className="text-base" />
-      {title}
-      <span className={`text-[11px] font-extrabold ${active ? 'text-accent-cyan/80' : 'text-text-muted'}`}>{done}/{lessons.length}</span>
-    </button>
-  );
-}
+/** What the list is narrowed to: everything, one level, or one topic. */
+type Filter = 'all' | `level:${GrammarLevel}` | `topic:${GrammarTopic}`;
 
-function CoursePage({ view, level, topic, query, onChange, onOpen }: {
+const inFilter = (l: GrammarLesson, f: Filter) =>
+  f === 'all' || f === `level:${l.level}` || f === `topic:${l.topic}`;
+
+function CoursePage({ view, filter, query, onChange, onOpen }: {
   view: View;
-  level: GrammarLevel | null;
-  topic: GrammarTopic | null;
+  filter: Filter;
   query: string;
-  onChange: (next: { view?: View; level?: GrammarLevel | null; topic?: GrammarTopic | null; q?: string }) => void;
+  onChange: (next: { view?: View; filter?: Filter; q?: string }) => void;
   onOpen: (id: string, mode: Mode) => void;
 }) {
   const tr = useTr();
   const intl = useIntl();
+  const records = useGrammarProgress((s) => s.records);
   // The box keeps its own text: the URL copy lands a beat after each
   // keystroke, and an input driven by it alone drops letters typed in between.
   const [text, setText] = useState(query);
   const search = (q: string) => { setText(q); onChange({ q }); };
-  const matching = GRAMMAR_LESSONS.filter((l) => lessonMatches(l, text));
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  // One list of sections for either view, already narrowed by the filter
-  // and the search, with empty sections dropped.
-  const sections = view === 'level'
-    ? GRAMMAR_LEVELS.filter((l) => !level || l.level === level).map((l) => ({
+  const stat = (lessons: GrammarLesson[]) => ({ done: lessons.filter((l) => isCompleted(records[l.id])).length, total: lessons.length });
+  const levelRows = GRAMMAR_LEVELS.map((l) => ({
+    key: `level:${l.level}` as Filter,
+    label: `${l.level} · ${tr(l.title)}`,
+    icon: 'lucide:signal',
+    ...stat(GRAMMAR_LESSONS.filter((x) => x.level === l.level)),
+  }));
+  const topicRows = GRAMMAR_TOPICS.map((t) => ({
+    key: `topic:${t.topic}` as Filter,
+    label: tr(t.title),
+    icon: t.icon,
+    ...stat(GRAMMAR_LESSONS.filter((x) => x.topic === t.topic)),
+  }));
+  const all = stat(GRAMMAR_LESSONS);
+  // "This week" counts lessons practised in the last seven days.
+  // eslint-disable-next-line react-hooks/purity -- a week-old cutoff; render-time precision is plenty
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const thisWeek = Object.values(records).filter((r) => r.updatedAt >= weekAgo).length;
+
+  const select = (f: Filter | 'all') => { onChange({ filter: f }); setSheetOpen(false); window.scrollTo({ top: 0 }); };
+  const nav = (
+    <TopicNav<Exclude<Filter, 'all'>>
+      active={filter}
+      all={all}
+      allLabel={intl.formatMessage({ id: 'grammar.allLessons' })}
+      groups={[
+        { label: intl.formatMessage({ id: 'grammar.levels' }), topics: levelRows as TopicRow<Exclude<Filter, 'all'>>[] },
+        { label: intl.formatMessage({ id: 'grammar.topics' }), topics: topicRows as TopicRow<Exclude<Filter, 'all'>>[] },
+      ]}
+      onSelect={select}
+    />
+  );
+  const activeRow = [...levelRows, ...topicRows].find((r) => r.key === filter);
+
+  const matching = GRAMMAR_LESSONS.filter((l) => inFilter(l, filter) && lessonMatches(l, text));
+  // One list of sections for either grouping, with empty ones dropped.
+  const sections = (view === 'level'
+    ? GRAMMAR_LEVELS.map((l) => ({
         key: l.level,
         badge: <span className={`px-2 py-0.5 rounded-lg text-xs font-extrabold ${LEVEL_META[l.level].chip}`}>{l.level}</span>,
         title: tr(l.title),
         lessons: matching.filter((x) => x.level === l.level),
       }))
-    : GRAMMAR_TOPICS.filter((t) => !topic || t.topic === topic).map((t) => ({
+    : GRAMMAR_TOPICS.map((t) => ({
         key: t.topic,
         badge: (
           <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-accent-cyan/15 text-accent-cyan shrink-0">
@@ -355,87 +349,89 @@ function CoursePage({ view, level, topic, query, onChange, onOpen }: {
         ),
         title: tr(t.title),
         lessons: matching.filter((x) => x.topic === t.topic),
-      }));
-  const shown = sections.filter((s) => s.lessons.length > 0);
-  const found = shown.reduce((n, s) => n + s.lessons.length, 0);
-  const filtered = !!text.trim() || (view === 'level' ? !!level : !!topic);
+      }))
+  ).filter((s) => s.lessons.length > 0);
+  const filtered = !!text.trim() || filter !== 'all';
 
   return (
-    <>
-      <CourseHero onOpen={onOpen} />
+    <div className="lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-6">
+      {/* Desktop sidebar — the same frame as Speaking's Short Conversation. */}
+      <aside className="hidden lg:block sticky top-[calc(4.75rem+env(safe-area-inset-top))] self-start max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 space-y-4">
+        <Overview done={all.done} total={all.total} thisWeek={thisWeek} />
+        {nav}
+      </aside>
 
-      <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
-        <label className="relative flex-1">
-          <Icon icon="lucide:search" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-          <input
-            type="search"
-            value={text}
-            onChange={(e) => search(e.target.value)}
-            placeholder={intl.formatMessage({ id: 'grammar.searchPlaceholder' })}
-            aria-label={intl.formatMessage({ id: 'grammar.searchPlaceholder' })}
-            className="w-full h-11 pl-10 pr-10 rounded-2xl border-2 border-border bg-bg-card text-text-primary font-bold placeholder:text-text-muted placeholder:font-semibold focus:outline-none focus:border-accent-cyan [&::-webkit-search-cancel-button]:hidden"
-          />
-          {text && (
-            <button
-              onClick={() => search('')}
-              aria-label={intl.formatMessage({ id: 'grammar.clearSearch' })}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center text-text-muted hover:bg-bg-tertiary hover:text-text-primary"
-            >
-              <Icon icon="lucide:x" />
+      <section className="min-w-0">
+        <CourseHero onOpen={onOpen} />
+
+        {/* Mobile: the current filter, opening the same list as a sheet. */}
+        <TopicPickerButton
+          icon={activeRow?.icon ?? 'lucide:layout-grid'}
+          label={activeRow?.label ?? intl.formatMessage({ id: 'grammar.allLessons' })}
+          done={activeRow?.done ?? all.done}
+          total={activeRow?.total ?? all.total}
+          onClick={() => setSheetOpen(true)}
+        />
+
+        <div className="sticky top-[calc(4.5rem+env(safe-area-inset-top))] z-[5] mb-4 p-2.5 rounded-xl border border-border bg-bg-card/90 backdrop-blur shadow-sm flex flex-col sm:flex-row gap-2">
+          <label className="flex-1 min-w-0 flex items-center gap-2 px-3 rounded-full border border-border bg-bg-card focus-within:border-accent-cyan/50 transition-colors">
+            <Icon icon="lucide:search" width={15} className="text-text-muted shrink-0" />
+            <input
+              type="search"
+              value={text}
+              onChange={(e) => search(e.target.value)}
+              placeholder={intl.formatMessage({ id: 'grammar.searchPlaceholder' })}
+              aria-label={intl.formatMessage({ id: 'grammar.searchPlaceholder' })}
+              className="flex-1 min-w-0 py-2 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none [&::-webkit-search-cancel-button]:hidden"
+            />
+            {text && (
+              <button onClick={() => search('')} aria-label={intl.formatMessage({ id: 'grammar.clearSearch' })} className="text-text-muted hover:text-text-primary">
+                <Icon icon="lucide:x" width={14} />
+              </button>
+            )}
+          </label>
+          <div role="radiogroup" aria-label={intl.formatMessage({ id: 'grammar.groupBy' })} className="shrink-0 flex p-0.5 rounded-full bg-bg-tertiary">
+            {([['level', 'lucide:signal', 'grammar.byLevel'], ['topic', 'lucide:layout-grid', 'grammar.byTopic']] as const).map(([v, icon, id]) => (
+              <button
+                key={v}
+                role="radio"
+                aria-checked={view === v}
+                onClick={() => onChange({ view: v })}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                  view === v ? 'bg-accent-cyan text-bg-primary' : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                <Icon icon={icon} width={13} /> <FormattedMessage id={id} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filtered && (
+          <div className="flex items-center justify-between gap-2 mb-4 text-sm font-bold text-text-muted">
+            <span className="flex items-center gap-1.5 min-w-0">
+              {activeRow && <><Icon icon={activeRow.icon} className="shrink-0" /><span className="truncate text-text-primary">{activeRow.label}</span><span>·</span></>}
+              <FormattedMessage id="grammar.found" values={{ count: matching.length }} />
+            </span>
+            <button onClick={() => { setText(''); onChange({ q: '', filter: 'all' }); }} className="shrink-0 flex items-center gap-1 text-accent-cyan hover:underline">
+              <Icon icon="lucide:list" /> <FormattedMessage id="grammar.showAll" />
             </button>
-          )}
-        </label>
-        <div role="radiogroup" aria-label={intl.formatMessage({ id: 'grammar.groupBy' })} className="shrink-0 flex p-1 rounded-2xl border-2 border-border bg-bg-tertiary">
-          {([['level', 'lucide:signal', 'grammar.byLevel'], ['topic', 'lucide:layout-grid', 'grammar.byTopic']] as const).map(([v, icon, id]) => (
-            <button
-              key={v}
-              role="radio"
-              aria-checked={view === v}
-              onClick={() => onChange({ view: v })}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 h-8 rounded-xl text-sm font-bold transition-colors ${
-                view === v ? 'bg-bg-card text-accent-cyan shadow-sm' : 'text-text-muted hover:text-text-primary'
-              }`}
-            >
-              <Icon icon={icon} /> <FormattedMessage id={id} />
-            </button>
-          ))}
-        </div>
-      </div>
+          </div>
+        )}
 
-      {/* Filters: tap one to narrow the list to it, tap it again for everything. */}
-      {view === 'level' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-6">
-          {GRAMMAR_LEVELS.map((l) => (
-            <LevelCard key={l.level} level={l.level} title={tr(l.title)} active={l.level === level} onClick={() => onChange({ level: l.level === level ? null : l.level })} />
-          ))}
-        </div>
-      ) : (
-        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto sm:flex-wrap pb-1 mb-6">
-          {GRAMMAR_TOPICS.map((t) => (
-            <TopicChip key={t.topic} topic={t.topic} icon={t.icon} title={tr(t.title)} active={t.topic === topic} onClick={() => onChange({ topic: t.topic === topic ? null : t.topic })} />
-          ))}
-        </div>
-      )}
+        {sections.length ? sections.map((s) => (
+          <Section key={s.key} badge={s.badge} title={s.title} lessons={s.lessons} showLevel={view === 'topic'} onOpen={onOpen} />
+        )) : (
+          <div className="card-game p-8 text-center">
+            <Icon icon="lucide:search-x" className="mx-auto text-4xl text-text-muted mb-2" />
+            <p className="font-bold text-text-primary"><FormattedMessage id="grammar.noResults" values={{ query: text }} /></p>
+            <p className="text-sm text-text-muted mt-1"><FormattedMessage id="grammar.noResultsHint" /></p>
+          </div>
+        )}
+      </section>
 
-      {filtered && (
-        <div className="flex items-center justify-between gap-2 mb-4 text-sm font-bold text-text-muted">
-          <span><FormattedMessage id="grammar.found" values={{ count: found }} /></span>
-          <button onClick={() => { setText(''); onChange({ q: '', level: null, topic: null }); }} className="flex items-center gap-1 text-accent-cyan hover:underline">
-            <Icon icon="lucide:list" /> <FormattedMessage id="grammar.showAll" />
-          </button>
-        </div>
-      )}
-
-      {shown.length ? shown.map((s) => (
-        <Section key={s.key} badge={s.badge} title={s.title} lessons={s.lessons} showLevel={view === 'topic'} onOpen={onOpen} />
-      )) : (
-        <div className="card-game p-8 text-center">
-          <Icon icon="lucide:search-x" className="mx-auto text-4xl text-text-muted mb-2" />
-          <p className="font-bold text-text-primary"><FormattedMessage id="grammar.noResults" values={{ query: text }} /></p>
-          <p className="text-sm text-text-muted mt-1"><FormattedMessage id="grammar.noResultsHint" /></p>
-        </div>
-      )}
-    </>
+      <TopicSheet open={sheetOpen} onClose={() => setSheetOpen(false)}>{nav}</TopicSheet>
+    </div>
   );
 }
 
@@ -941,6 +937,7 @@ export function GrammarPage() {
   const view: View = params.get('view') === 'topic' ? 'topic' : 'level';
   const levelParam = params.get('level');
   const topicParam = params.get('topic');
+  const filter: Filter = isLevel(levelParam) ? `level:${levelParam}` : isTopic(topicParam) ? `topic:${topicParam}` : 'all';
   const query = params.get('q') ?? '';
 
   const open = (id: string, m: Mode) => {
@@ -950,24 +947,20 @@ export function GrammarPage() {
   // Back to the course on the lesson's own level, so you land where you were.
   const course = () => { setParams(lesson ? { level: lesson.level } : {}); window.scrollTo({ top: 0 }); };
 
-  // Each change rewrites the course's params as a whole; a view switch drops
-  // the other view's filter, and typing replaces history rather than adding
-  // a step per keystroke.
-  const change = (next: { view?: View; level?: GrammarLevel | null; topic?: GrammarTopic | null; q?: string }) => {
-    const v = next.view ?? view;
+  // Each change rewrites the course's params as a whole; typing replaces
+  // history rather than adding a step per keystroke.
+  const change = (next: { view?: View; filter?: Filter; q?: string }) => {
     const out: Record<string, string> = {};
-    if (v === 'topic') out.view = 'topic';
-    const lv = next.level !== undefined ? next.level : levelParam;
-    const tp = next.topic !== undefined ? next.topic : topicParam;
-    if (v === 'level' && lv) out.level = lv;
-    if (v === 'topic' && tp) out.topic = tp;
+    if ((next.view ?? view) === 'topic') out.view = 'topic';
+    const [kind, value] = (next.filter ?? filter).split(':');
+    if (kind === 'level' || kind === 'topic') out[kind] = value;
     const q = next.q ?? query;
     if (q) out.q = q;
     setParams(out, { replace: true });
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:py-8">
+    <div className="mx-auto max-w-page px-4 py-6 sm:py-8">
       {lesson ? (
         <div className="max-w-2xl mx-auto">
           {/* Keyed so moving to the next lesson starts it from the top. */}
@@ -976,8 +969,7 @@ export function GrammarPage() {
       ) : (
         <CoursePage
           view={view}
-          level={isLevel(levelParam) ? levelParam : null}
-          topic={isTopic(topicParam) ? topicParam : null}
+          filter={filter}
           query={query}
           onChange={change}
           onOpen={open}
