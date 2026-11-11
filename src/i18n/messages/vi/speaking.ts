@@ -26,6 +26,10 @@ export default {
   'speaking.cloudVoiceHint': 'Đang dùng giọng đám mây — chọn Piper hoặc Kokoro trong Cài đặt để chọn giọng tại đây.',
   'speaking.deviceVoiceHint': 'Đang dùng giọng của thiết bị — chọn giọng AI trong Cài đặt để chọn giọng tại đây.',
   'speaking.voice': 'Giọng đọc',
+  'speaking.play': 'Phát',
+  'speaking.pause': 'Tạm dừng',
+  'speaking.editText': 'Sửa văn bản',
+  'speaking.tapSentenceHint': 'Chạm vào một câu để nghe riêng câu đó.',
 
   // Script practice (Daily Dialogue + IELTS)
   'speaking.howToPractice': 'Cách luyện tập',

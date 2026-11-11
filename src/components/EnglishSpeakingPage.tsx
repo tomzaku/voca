@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import TextareaAutosize from 'react-textarea-autosize';
 import toast from 'react-hot-toast';
@@ -9,6 +9,8 @@ import { IeltsSpeakingTab } from './IeltsSpeakingTab';
 import { Selector } from './Selector';
 import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES } from '../hooks/useTtsSettings';
+import { useScriptPlayer, type ScriptLine } from '../hooks/useScriptPlayer';
+import { splitSentences } from '../lib/listeningRules';
 
 type Tab = 'conversation' | 'dialogue' | 'ielts' | 'read';
 
@@ -305,19 +307,18 @@ export function PlaySequence({ lines, tone = 'cyan' }: {
 /* ─── Tab: Read Aloud — paste your own text, pick a voice, practice ── */
 const MAX_READ_TEXT = 4000;
 
+// Paste, then Read aloud turns the box into the text itself, played the way
+// a podcast script is: one sentence at a time (a whole paragraph sent as one
+// read waited for all of it to be voiced before a sound came out), the
+// sentence being said lit up, a tap on any sentence plays just that one, and
+// Play carries on from where it stopped.
 function ReadAloudTab() {
   const intl = useIntl();
   const { engine } = useTtsSettings();
   const voices = engine === 'piper' ? PIPER_VOICES : KOKORO_VOICES;
   const [text, setText] = useState('');
   const [voice, setVoice] = useState(voices[0].id);
-  const [state, setState] = useState<'idle' | 'loading' | 'playing'>('idle');
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; stopSpeaking(); };
-  }, []);
+  const [reading, setReading] = useState(false);
 
   // The voice list depends on the engine chosen in Settings — if it changes
   // out from under this tab, fall back to that engine's first voice rather
@@ -327,30 +328,148 @@ function ReadAloudTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine]);
 
-  const play = useCallback(async () => {
-    if (state === 'loading' || state === 'playing') {
-      stopSpeaking();
-      setState('idle');
-      return;
-    }
+  // Paragraphs kept for layout, sentences numbered across all of them —
+  // splitSentences cuts at newlines first, so the two agree.
+  const paragraphs = useMemo(() => {
+    if (!reading) return [];
+    let n = 0;
+    return text.split(/\n+/).map(splitSentences).filter((p) => p.length)
+      .map((p) => p.map((s) => ({ text: s, i: n++ })));
+  }, [text, reading]);
+  const lines = useMemo<ScriptLine[]>(
+    () => paragraphs.flat().map((s) => ({ speaker: 'a', text: s.text, voice })),
+    [paragraphs, voice],
+  );
+
+  // Where Play starts: the sentence playing, or the one it stopped on.
+  const [at, setAt] = useState(0);
+  const player = useScriptPlayer(lines, null, () => setAt(0));
+  if (player.index >= 0 && player.index !== at) setAt(player.index);
+
+  // A new voice is a new script, which stops the player; pick up again in
+  // that voice from the same sentence.
+  const resumeRef = useRef(false);
+  useEffect(() => {
+    if (resumeRef.current) { resumeRef.current = false; void player.playFrom(at); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines]);
+  const pickVoice = (v: string) => { resumeRef.current = player.running; setVoice(v); };
+
+  const start = () => {
     if (!text.trim()) return;
-    setState('loading');
-    try {
-      await speakText(text, {
-        voice,
-        onStart: () => { if (mountedRef.current) setState('playing'); },
-        onEnd: () => { if (mountedRef.current) setState('idle'); },
-      });
-    } catch { /* ignore */ } finally {
-      if (mountedRef.current) setState('idle');
-    }
-  }, [text, voice, state]);
+    setAt(0);
+    setReading(true);
+    resumeRef.current = true;
+  };
+  const edit = () => { player.stop(); setReading(false); };
+  const toggle = () => (player.running ? player.stop() : void player.playFrom(at));
 
   const copy = async () => {
     if (!text.trim()) return;
     await navigator.clipboard.writeText(text);
     toast.success(intl.formatMessage({ id: 'speaking.copied' }));
   };
+
+  const copyButton = (
+    <button
+      onClick={copy}
+      disabled={!text.trim()}
+      title={intl.formatMessage({ id: 'speaking.copyText' })}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-50 transition-all cursor-pointer"
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+      <FormattedMessage id="speaking.copy" />
+    </button>
+  );
+
+  const voicePicker = engine === 'native' || engine === 'cloud' ? (
+    <span className="text-xs text-text-muted">
+      <FormattedMessage id={engine === 'cloud' ? 'speaking.cloudVoiceHint' : 'speaking.deviceVoiceHint'} />
+    </span>
+  ) : (
+    <Selector
+      value={voice}
+      options={voices.map((v) => ({ value: v.id, label: `${v.name} · ${v.accent} ${v.gender}` }))}
+      onChange={pickVoice}
+      ariaLabel={intl.formatMessage({ id: 'speaking.voice' })}
+    />
+  );
+
+  if (reading) {
+    const playLabel = intl.formatMessage({ id: player.running ? 'speaking.pause' : 'speaking.play' });
+    return (
+      <div>
+        <div className="rounded-xl border-2 border-border bg-bg-card mb-4">
+          <div className="px-4 py-3 flex flex-wrap items-center gap-3 border-b border-border">
+            <button
+              onClick={toggle}
+              title={playLabel}
+              aria-label={playLabel}
+              className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all cursor-pointer ${
+                player.running
+                  ? 'bg-accent-orange/10 text-accent-orange border-accent-orange/30'
+                  : 'bg-accent-orange text-bg-primary border-accent-orange hover:bg-accent-orange/90'
+              }`}
+            >
+              {player.status === 'loading' ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+              ) : player.running ? (
+                <svg width="14" height="14" viewBox="0 0 10 10" fill="currentColor"><rect x="1" y="0.5" width="3" height="9" rx="0.8" /><rect x="6" y="0.5" width="3" height="9" rx="0.8" /></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 10 10" fill="currentColor"><path d="M2 0.5v9l7.5-4.5z" /></svg>
+              )}
+            </button>
+            <span className="text-xs tabular-nums text-text-muted">{Math.min(at + 1, lines.length)} / {lines.length}</span>
+            <span className="flex-1" />
+            {voicePicker}
+          </div>
+          <div className="px-4 py-4 space-y-3 text-base text-text-secondary leading-relaxed">
+            {paragraphs.map((para) => (
+              <p key={para[0].i}>
+                {para.map(({ text: sentence, i }) => (
+                  <span
+                    key={i}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => { setAt(i); void player.playLine(i); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { setAt(i); void player.playLine(i); } }}
+                    className={`cursor-pointer rounded px-0.5 transition-colors ${
+                      player.index === i
+                        ? 'bg-accent-orange/15 text-text-primary'
+                        : !player.running && i === at
+                          ? 'underline decoration-accent-orange/40 decoration-2 underline-offset-4 hover:text-text-primary'
+                          : 'hover:text-text-primary'
+                    }`}
+                  >
+                    {sentence}{' '}
+                  </span>
+                ))}
+              </p>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={edit}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary transition-all cursor-pointer"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            <FormattedMessage id="speaking.editText" />
+          </button>
+          {copyButton}
+          <span className="text-xs text-text-muted"><FormattedMessage id="speaking.tapSentenceHint" /></span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -370,61 +489,24 @@ function ReadAloudTab() {
         />
         <div className="flex items-center justify-between mt-2.5">
           <span className="text-xs text-text-muted">{text.length}/{MAX_READ_TEXT}</span>
-          <button
-            onClick={copy}
-            disabled={!text.trim()}
-            title={intl.formatMessage({ id: 'speaking.copyText' })}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-50 transition-all cursor-pointer"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-            <FormattedMessage id="speaking.copy" />
-          </button>
+          {copyButton}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <button
-          onClick={play}
+          onClick={start}
           disabled={!text.trim()}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-            state === 'playing'
-              ? 'bg-accent-orange/10 text-accent-orange border-accent-orange/30'
-              : 'bg-accent-orange text-bg-primary border-accent-orange hover:bg-accent-orange/90'
-          }`}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-accent-orange text-bg-primary border-accent-orange hover:bg-accent-orange/90"
         >
-          {state === 'loading' ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 2a10 10 0 0 1 10 10" />
-            </svg>
-          ) : state === 'playing' ? (
-            <svg width="12" height="12" viewBox="0 0 10 10" fill="currentColor">
-              <rect x="0" y="0" width="10" height="10" rx="1" />
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-            </svg>
-          )}
-          {intl.formatMessage({ id: state === 'playing' ? 'speaking.stop' : state === 'loading' ? 'speaking.loading' : 'speaking.readAloud' })}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+          <FormattedMessage id="speaking.readAloud" />
         </button>
-
-        {engine === 'native' || engine === 'cloud' ? (
-          <span className="text-xs text-text-muted">
-            <FormattedMessage id={engine === 'cloud' ? 'speaking.cloudVoiceHint' : 'speaking.deviceVoiceHint'} />
-          </span>
-        ) : (
-          <Selector
-            value={voice}
-            options={voices.map((v) => ({ value: v.id, label: `${v.name} · ${v.accent} ${v.gender}` }))}
-            onChange={setVoice}
-            ariaLabel={intl.formatMessage({ id: 'speaking.voice' })}
-          />
-        )}
+        {voicePicker}
       </div>
     </div>
   );

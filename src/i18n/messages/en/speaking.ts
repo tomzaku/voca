@@ -26,6 +26,10 @@ export default {
   'speaking.cloudVoiceHint': 'Using the cloud voice — pick Piper or Kokoro in Settings to choose one here.',
   'speaking.deviceVoiceHint': "Using your device's voice — pick an AI voice in Settings to choose one here.",
   'speaking.voice': 'Voice',
+  'speaking.play': 'Play',
+  'speaking.pause': 'Pause',
+  'speaking.editText': 'Edit text',
+  'speaking.tapSentenceHint': 'Tap any sentence to hear just that one.',
 
   // Script practice (Daily Dialogue + IELTS)
   'speaking.howToPractice': 'How to practice',
