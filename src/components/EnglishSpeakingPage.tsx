@@ -407,6 +407,37 @@ function ReadAloudTab() {
     toast.success(intl.formatMessage({ id: 'speaking.copied' }));
   };
 
+  // A link that opens this text in the reader — the deep link above.
+  const shareLink = async () => {
+    if (!text.trim()) return;
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+    const url = new URL(`${window.location.origin}${base}/speaking`);
+    url.searchParams.set('tab', 'read');
+    url.searchParams.set('text', text);
+    url.searchParams.set('autoAnswer', 'true');
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      toast.success(intl.formatMessage({ id: 'speaking.linkCopied' }));
+    } catch {
+      toast.error(intl.formatMessage({ id: 'speaking.couldNotCopyLink' }));
+    }
+  };
+
+  const shareButton = (
+    <button
+      onClick={shareLink}
+      disabled={!text.trim()}
+      title={intl.formatMessage({ id: 'speaking.shareLinkTitle' })}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-50 transition-all cursor-pointer"
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+      <FormattedMessage id="speaking.shareLink" />
+    </button>
+  );
+
   const copyButton = (
     <button
       onClick={copy}
@@ -503,6 +534,7 @@ function ReadAloudTab() {
             <FormattedMessage id="speaking.editText" />
           </button>
           {copyButton}
+          {shareButton}
           <span className="text-xs text-text-muted"><FormattedMessage id="speaking.tapSentenceHint" /></span>
         </div>
       </div>
@@ -527,7 +559,10 @@ function ReadAloudTab() {
         />
         <div className="flex items-center justify-between mt-2.5">
           <span className="text-xs text-text-muted">{text.length}/{MAX_READ_TEXT}</span>
-          {copyButton}
+          <div className="flex items-center gap-2">
+            {copyButton}
+            {shareButton}
+          </div>
         </div>
       </div>
 
