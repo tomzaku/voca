@@ -21,6 +21,8 @@ export default {
   'app.navWriting': 'Writing',
   'app.navImproveWriting': 'Improve Writing',
   'app.navIeltsWriting': 'IELTS Writing',
+  'app.navGrammar': 'Grammar',
+  'app.navGrammarLessons': 'Lessons',
   'app.navWorld': 'World',
   'app.themeLight': 'Light mode',
   'app.themeDark': 'Dark mode',

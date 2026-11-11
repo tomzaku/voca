@@ -52,6 +52,15 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: 'grammar',
+    tint: 'bg-accent-yellow/10',
+    labelId: 'app.navGrammar',
+    icon: 'lucide:spell-check',
+    items: [
+      { to: '/grammar', labelId: 'app.navGrammarLessons', icon: 'lucide:list-ordered' },
+    ],
+  },
+  {
     id: 'speak',
     tint: 'bg-accent-purple/10',
     labelId: 'app.navSpeak',

@@ -23,6 +23,7 @@ const ProfilePage = lazy(() => import('./components/ProfilePage').then((m) => ({
 const EnglishSpeakingPage = lazy(() => import('./components/EnglishSpeakingPage').then((m) => ({ default: m.EnglishSpeakingPage })));
 const EnglishListeningPage = lazy(() => import('./components/EnglishListeningPage').then((m) => ({ default: m.EnglishListeningPage })));
 const IpaPage = lazy(() => import('./components/IpaPage').then((m) => ({ default: m.IpaPage })));
+const GrammarPage = lazy(() => import('./components/GrammarPage').then((m) => ({ default: m.GrammarPage })));
 const CompanionPage = lazy(() => import('./components/CompanionPage').then((m) => ({ default: m.CompanionPage })));
 const DashboardPage = lazy(() => import('./components/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const QuickReview = lazy(() => import('./components/QuickReview').then((m) => ({ default: m.QuickReview })));
@@ -105,6 +106,7 @@ export default function App() {
             {/* Old shape (`?tab=ielts`) — send it to the equivalent path, keeping any other query params. */}
             <Route path="/writing" element={<WritingLegacyRedirect />} />
             <Route path="/writing/:tab" element={<WritingPage />} />
+            <Route path="/grammar" element={<GrammarPage />} />
             <Route path="/world" element={<WorldGame />} />
             <Route path="/level-test" element={<LevelTestPage />} />
             <Route path="/quizzes" element={<MyQuizzes />} />

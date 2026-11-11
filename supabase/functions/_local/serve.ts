@@ -26,6 +26,7 @@ import chat from '../chat/index.ts';
 import collections from '../collections/index.ts';
 import doodles from '../doodles/index.ts';
 import friends from '../friends/index.ts';
+import grammar from '../grammar/index.ts';
 import hunts from '../hunts/index.ts';
 import ieltsSubmissions from '../ielts-submissions/index.ts';
 import me from '../me/index.ts';
@@ -66,6 +67,7 @@ const RESOURCES: Record<string, Handler> = {
   collections,
   doodles,
   friends,
+  grammar,
   hunts,
   'ielts-submissions': ieltsSubmissions,
   me,

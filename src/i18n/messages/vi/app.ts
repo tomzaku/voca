@@ -21,6 +21,8 @@ export default {
   'app.navWriting': 'Viết',
   'app.navImproveWriting': 'Cải thiện bài viết',
   'app.navIeltsWriting': 'IELTS Writing',
+  'app.navGrammar': 'Ngữ pháp',
+  'app.navGrammarLessons': 'Bài học',
   'app.navWorld': 'Thế giới',
   'app.themeLight': 'Chế độ sáng',
   'app.themeDark': 'Chế độ tối',
