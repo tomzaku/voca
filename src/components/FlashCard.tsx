@@ -390,14 +390,20 @@ export function FlashCard() {
   // Keep the URL in step with the mode: while the word is still hidden it's
   // `?w=<base64>` (sharing the link doesn't spoil the guess); once it's on
   // screen the link becomes `?word=<the word>`, which reopens it revealed.
+  // Runs on a card change only. setSearchParams changes with every URL, so
+  // with it as a dep a search's new `?word=` re-ran this with the old card
+  // still in state, wrote the old word back, and the URL-word effect reloaded
+  // that instead of the one searched.
+  const setSearchParamsRef = useRef(setSearchParams);
+  setSearchParamsRef.current = setSearchParams;
   useEffect(() => {
     if (!wordData) return;
     if (phase === 'introduce') {
-      setSearchParams({ w: encodeWord(wordData.word) }, { replace: true });
+      setSearchParamsRef.current({ w: encodeWord(wordData.word) }, { replace: true });
     } else if (phase === 'revealed') {
-      setSearchParams({ word: wordData.word }, { replace: true });
+      setSearchParamsRef.current({ word: wordData.word }, { replace: true });
     }
-  }, [wordData, phase, setSearchParams]);
+  }, [wordData, phase]);
 
   // `via` is the guess game that ended in giving up; the Reveal button (no
   // game finished) falls back to the generic flash-card tag.
