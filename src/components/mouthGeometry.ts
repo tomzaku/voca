@@ -1,6 +1,6 @@
 import type { MouthPose } from '../data/articulation';
 
-// Shared by the flat views (MouthDiagram) and the 3D one (Mouth3D).
+// The pose → shape maths behind MouthDiagram's side and front views.
 
 // Mostly fixed illustration colours: a cavity that followed `bg-primary`
 // would turn pale in the light theme, so it has its own `--mouth-cavity`.

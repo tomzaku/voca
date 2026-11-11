@@ -22,6 +22,7 @@ import { sayWord, saySound, stopIpa } from '../lib/ipaPlayback';
 import { playCorrect, playWrong } from '../lib/sfx';
 import { MouthControls, MouthDiagram, MouthTags } from './MouthDiagram';
 import { useMouthControls } from '../hooks/useMouthControls';
+import { bbcVideoLink } from '../data/bbcSounds';
 import { useIpaText } from '../hooks/useIpaText';
 import { articulationFor, contrast, sameMouth } from '../data/articulation';
 
@@ -614,7 +615,7 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
       {/* Hero: the moving mouth beside the symbol and how to make it */}
       <div className="card-game p-5 sm:p-6 mb-5 grid grid-cols-1 sm:grid-cols-[20rem_1fr] gap-5 items-center">
         <div className="rounded-2xl bg-bg-secondary border-2 border-border p-3">
-          <MouthDiagram symbol={sound.symbol} view={mouth.view} at={mouth.at} className="w-full" />
+          <MouthDiagram symbol={sound.symbol} view="both" at={mouth.at} className="w-full" />
           <MouthControls {...mouth} className="mt-2" />
           <div className="mt-2"><MouthTags symbol={sound.symbol} /></div>
         </div>
@@ -642,6 +643,18 @@ function DetailView({ symbol, onBack, onOpen, onPractice }: {
               <Icon icon={playing === sound.examples[0] ? 'lucide:square' : 'lucide:volume-2'} className="text-lg" />
               <FormattedMessage id="ipa.inWord" values={{ word: sound.examples[0] }} />
             </button>
+            {bbcVideoLink(sound.symbol) && (
+              <a
+                href={bbcVideoLink(sound.symbol)!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-3d inline-flex items-center gap-2 px-4 py-2.5 bg-bg-card text-text-primary"
+              >
+                <Icon icon="lucide:youtube" className="text-lg text-accent-red" />
+                <FormattedMessage id="ipa.watchVideo" />
+                <Icon icon="lucide:external-link" className="text-xs text-text-muted" />
+              </a>
+            )}
           </div>
           <RecordingCredit symbol={sound.symbol} />
         </div>

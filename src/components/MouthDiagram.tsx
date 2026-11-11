@@ -4,7 +4,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { articulationFor, REST_POSE, type Articulation, type MouthPose } from '../data/articulation';
 import { useIpaText } from '../hooks/useIpaText';
 import { frontShapes, INK, MAX_JAW_DEG, PIVOT, type Frame } from './mouthGeometry';
-import Mouth3D from './Mouth3D';
 import type { useMouthControls } from '../hooks/useMouthControls';
 
 /**
@@ -282,7 +281,7 @@ export function MouthDiagram({ symbol, ghost, animate = true, view = 'side', at 
   animate?: boolean;
   /** `both` adds the lips from the front beside the side view, on one
    *  timeline. `className` then sizes the pair; each view keeps its ratio. */
-  view?: 'side' | 'both' | '3d';
+  view?: 'side' | 'both';
   /** Hold the movement here (0 rest … 1 the sound) instead of looping. */
   at?: number | null;
   className?: string;
@@ -294,7 +293,6 @@ export function MouthDiagram({ symbol, ghost, animate = true, view = 'side', at 
   if (!art) return null;
 
   const label = intl.formatMessage({ id: 'ipa.mouthPositionFor' }, { symbol });
-  if (view === '3d') return <Mouth3D f={f} g={gf} label={label} className={`w-full h-auto ${className}`} />;
   if (view === 'side') return <SideView f={f} g={gf} art={art} animate={animate} label={label} className={className} />;
   return (
     <div className={`grid grid-cols-[127fr_107fr] gap-2 items-end ${className}`}>
@@ -310,26 +308,13 @@ export function MouthDiagram({ symbol, ghost, animate = true, view = 'side', at 
   );
 }
 
-/** 2D/3D, play/pause, and a slider from rest to the sound — dragging it
+/** Play/pause and a slider from rest to the sound — dragging it
  *  holds the mouth anywhere along the movement, to see it step by step. */
-export function MouthControls({ view, setView, at, setAt, className = '' }: ReturnType<typeof useMouthControls> & { className?: string }) {
+export function MouthControls({ at, setAt, className = '' }: ReturnType<typeof useMouthControls> & { className?: string }) {
   const intl = useIntl();
-  const seg = 'px-2.5 py-1 rounded-md text-[11px] font-extrabold transition-colors';
   return (
     <div className={className}>
       <div className="flex items-center gap-2">
-        <div className="flex shrink-0 rounded-lg bg-bg-tertiary p-0.5" role="group" aria-label={intl.formatMessage({ id: 'ipa.mouthView' })}>
-          {(['both', '3d'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              aria-pressed={view === v}
-              className={`${seg} ${view === v ? 'bg-bg-card text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
-            >
-              {v === '3d' ? '3D' : '2D'}
-            </button>
-          ))}
-        </div>
         <button
           onClick={() => setAt(at === null ? 1 : null)}
           aria-label={intl.formatMessage({ id: at === null ? 'ipa.pauseMotion' : 'ipa.playMotion' })}
@@ -354,11 +339,6 @@ export function MouthControls({ view, setView, at, setAt, className = '' }: Retu
           </span>
         </label>
       </div>
-      {view === '3d' && (
-        <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-text-muted">
-          <Icon icon="lucide:rotate-3d" /> <FormattedMessage id="ipa.dragToTurn" />
-        </p>
-      )}
     </div>
   );
 }
