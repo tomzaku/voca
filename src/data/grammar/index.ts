@@ -17,6 +17,8 @@ import { A1_LESSONS } from './a1';
 import { A2_LESSONS } from './a2';
 import { B1_LESSONS } from './b1';
 import { B2_LESSONS } from './b2';
+import { C1_LESSONS } from './c1';
+import { C2_LESSONS } from './c2';
 import type { Drill, GrammarLesson, GrammarLevel, GrammarTopic, Text } from './types';
 
 export type { Drill, GrammarLesson, GrammarLevel, GrammarTopic, Text };
@@ -26,9 +28,13 @@ export const GRAMMAR_LEVELS: { level: GrammarLevel; title: Text }[] = [
   { level: 'A2', title: { en: 'Elementary', vi: 'Cơ bản' } },
   { level: 'B1', title: { en: 'Intermediate', vi: 'Trung cấp' } },
   { level: 'B2', title: { en: 'Upper intermediate', vi: 'Trung cao cấp' } },
+  { level: 'C1', title: { en: 'Advanced', vi: 'Cao cấp' } },
+  { level: 'C2', title: { en: 'Proficiency', vi: 'Thành thạo' } },
 ];
 
-export const GRAMMAR_LESSONS: GrammarLesson[] = [...A1_LESSONS, ...A2_LESSONS, ...B1_LESSONS, ...B2_LESSONS];
+export const GRAMMAR_LESSONS: GrammarLesson[] = [
+  ...A1_LESSONS, ...A2_LESSONS, ...B1_LESSONS, ...B2_LESSONS, ...C1_LESSONS, ...C2_LESSONS,
+];
 
 /** The topics, in the order the course page lists them. A topic's lessons
  *  keep course order inside it, so it still runs easy → hard. */
@@ -43,6 +49,7 @@ export const GRAMMAR_TOPICS: { topic: GrammarTopic; icon: string; title: Text }[
   { topic: 'sentences', icon: 'lucide:message-circle-question', title: { en: 'Questions & verb patterns', vi: 'Câu hỏi & cấu trúc động từ' } },
   { topic: 'passive', icon: 'lucide:repeat-2', title: { en: 'Passive & reported speech', vi: 'Bị động & câu tường thuật' } },
   { topic: 'clauses', icon: 'lucide:link', title: { en: 'Clauses & linking words', vi: 'Mệnh đề & từ nối' } },
+  { topic: 'emphasis', icon: 'lucide:megaphone', title: { en: 'Emphasis & style', vi: 'Nhấn mạnh & văn phong' } },
 ];
 
 /** Lower-case, no accents, đ → d: so "thi hien tai" finds "Thì hiện tại". */

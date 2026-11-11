@@ -43,6 +43,8 @@ const LEVEL_META: Record<GrammarLevel, { chip: string; bar: string; ring: string
   A2: { chip: 'bg-accent-cyan/15 text-accent-cyan', bar: 'bg-accent-cyan', ring: 'border-accent-cyan ring-accent-cyan/25', tint: 'from-accent-cyan/10', hero: 'from-accent-cyan via-accent-blue to-accent-purple' },
   B1: { chip: 'bg-accent-blue/15 text-accent-blue', bar: 'bg-accent-blue', ring: 'border-accent-blue ring-accent-blue/25', tint: 'from-accent-blue/10', hero: 'from-accent-blue via-accent-purple to-accent-pink' },
   B2: { chip: 'bg-accent-purple/15 text-accent-purple', bar: 'bg-accent-purple', ring: 'border-accent-purple ring-accent-purple/25', tint: 'from-accent-purple/10', hero: 'from-accent-purple via-accent-pink to-accent-orange' },
+  C1: { chip: 'bg-accent-orange/15 text-accent-orange', bar: 'bg-accent-orange', ring: 'border-accent-orange ring-accent-orange/25', tint: 'from-accent-orange/10', hero: 'from-accent-orange via-accent-pink to-accent-red' },
+  C2: { chip: 'bg-accent-red/15 text-accent-red', bar: 'bg-accent-red', ring: 'border-accent-red ring-accent-red/25', tint: 'from-accent-red/10', hero: 'from-accent-red via-accent-pink to-accent-purple' },
 };
 
 /** Stars for a best score: a pass is one, a strong pass two, perfect three. */
@@ -135,7 +137,7 @@ function CourseHero({ onOpen }: { onOpen: (id: string, mode: Mode) => void }) {
   const pct = Math.round((done / total) * 100);
 
   return (
-    <Hero level={next?.level ?? 'B2'}>
+    <Hero level={next?.level ?? 'C2'}>
       <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/80">
         <FormattedMessage id={next ? (done ? 'grammar.upNext' : 'grammar.startHere') : 'grammar.allDone'} />
       </p>
@@ -402,7 +404,7 @@ function CoursePage({ view, level, topic, query, onChange, onOpen }: {
 
       {/* Filters: tap one to narrow the list to it, tap it again for everything. */}
       {view === 'level' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-6">
           {GRAMMAR_LEVELS.map((l) => (
             <LevelCard key={l.level} level={l.level} title={tr(l.title)} active={l.level === level} onClick={() => onChange({ level: l.level === level ? null : l.level })} />
           ))}

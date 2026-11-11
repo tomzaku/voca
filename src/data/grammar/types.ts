@@ -1,9 +1,9 @@
-export type GrammarLevel = 'A1' | 'A2' | 'B1' | 'B2';
+export type GrammarLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
 /** What a lesson is about — the second way to browse the course. */
 export type GrammarTopic =
   | 'tenses' | 'conditionals' | 'modals' | 'nouns' | 'pronouns'
-  | 'prepositions' | 'adjectives' | 'sentences' | 'passive' | 'clauses';
+  | 'prepositions' | 'adjectives' | 'sentences' | 'passive' | 'clauses' | 'emphasis';
 
 export interface Text { en: string; vi: string }
 
