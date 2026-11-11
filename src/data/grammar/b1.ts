@@ -6,6 +6,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'present-perfect-experience',
     level: 'B1',
+    topic: 'tenses',
     icon: 'lucide:plane',
     title: { en: 'Present perfect: ever / never', vi: 'Hiện tại hoàn thành: ever / never' },
     summary: { en: 'Have you ever…? Life experience', vi: 'Have you ever…? Trải nghiệm trong đời' },
@@ -32,6 +33,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'present-perfect-past-simple',
     level: 'B1',
+    topic: 'tenses',
     icon: 'lucide:git-compare',
     title: { en: 'Present perfect or past simple?', vi: 'Hiện tại hoàn thành hay quá khứ đơn?' },
     summary: { en: 'I’ve lost my keys / I lost them yesterday', vi: 'I’ve lost my keys / I lost them yesterday' },
@@ -58,6 +60,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'for-since',
     level: 'B1',
+    topic: 'tenses',
     icon: 'lucide:hourglass',
     title: { en: 'for / since', vi: 'for / since' },
     summary: { en: 'How long something has lasted', vi: 'Việc gì đó đã kéo dài bao lâu' },
@@ -84,6 +87,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'just-already-yet',
     level: 'B1',
+    topic: 'tenses',
     icon: 'lucide:list-checks',
     title: { en: 'just / already / yet', vi: 'just / already / yet' },
     summary: { en: 'Recent news and things not done', vi: 'Việc vừa xảy ra và việc chưa làm' },
@@ -110,6 +114,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'present-perfect-continuous',
     level: 'B1',
+    topic: 'tenses',
     icon: 'lucide:timer',
     title: { en: 'Present perfect continuous', vi: 'Hiện tại hoàn thành tiếp diễn' },
     summary: { en: 'I’ve been waiting for an hour', vi: 'I’ve been waiting for an hour' },
@@ -136,6 +141,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'past-perfect',
     level: 'B1',
+    topic: 'tenses',
     icon: 'lucide:rewind',
     title: { en: 'Past perfect', vi: 'Quá khứ hoàn thành' },
     summary: { en: 'The train had left when I arrived', vi: 'The train had left when I arrived' },
@@ -162,6 +168,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'used-to',
     level: 'B1',
+    topic: 'tenses',
     icon: 'lucide:archive',
     title: { en: 'used to', vi: 'used to' },
     summary: { en: 'Past habits that have stopped', vi: 'Thói quen trong quá khứ nay không còn' },
@@ -188,6 +195,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'first-conditional',
     level: 'B1',
+    topic: 'conditionals',
     icon: 'lucide:cloud-rain',
     title: { en: 'First conditional', vi: 'Câu điều kiện loại 1' },
     summary: { en: 'If it rains, I’ll stay home', vi: 'If it rains, I’ll stay home' },
@@ -214,6 +222,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'second-conditional',
     level: 'B1',
+    topic: 'conditionals',
     icon: 'lucide:cloud',
     title: { en: 'Second conditional', vi: 'Câu điều kiện loại 2' },
     summary: { en: 'If I had more time, I would travel', vi: 'If I had more time, I would travel' },
@@ -240,6 +249,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'passive',
     level: 'B1',
+    topic: 'passive',
     icon: 'lucide:factory',
     title: { en: 'The passive', vi: 'Câu bị động' },
     summary: { en: 'It is made in Vietnam / It was built in 1900', vi: 'It is made in Vietnam / It was built in 1900' },
@@ -266,6 +276,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'relative-clauses',
     level: 'B1',
+    topic: 'clauses',
     icon: 'lucide:link',
     title: { en: 'who / which / that / where', vi: 'who / which / that / where' },
     summary: { en: 'Joining extra information to a noun', vi: 'Nối thêm thông tin vào danh từ' },
@@ -292,6 +303,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'reported-statements',
     level: 'B1',
+    topic: 'passive',
     icon: 'lucide:messages-square',
     title: { en: 'Reported speech', vi: 'Câu tường thuật' },
     summary: { en: 'She said she was tired', vi: 'She said she was tired' },
@@ -318,6 +330,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'modals-deduction',
     level: 'B1',
+    topic: 'modals',
     icon: 'lucide:search',
     title: { en: 'must / might / can’t be', vi: 'must / might / can’t be' },
     summary: { en: 'How sure you are about something', vi: 'Bạn chắc chắn đến mức nào' },
@@ -344,6 +357,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'so-such',
     level: 'B1',
+    topic: 'adjectives',
     icon: 'lucide:zap',
     title: { en: 'so / such', vi: 'so / such' },
     summary: { en: 'so cold / such a cold day', vi: 'so cold / such a cold day' },
@@ -370,6 +384,7 @@ export const B1_LESSONS: GrammarLesson[] = [
   {
     id: 'although-however',
     level: 'B1',
+    topic: 'clauses',
     icon: 'lucide:split',
     title: { en: 'although / but / however / despite', vi: 'although / but / however / despite' },
     summary: { en: 'Contrasting two ideas', vi: 'Nối hai ý trái ngược' },

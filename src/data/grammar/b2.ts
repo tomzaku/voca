@@ -6,6 +6,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'third-conditional',
     level: 'B2',
+    topic: 'conditionals',
     icon: 'lucide:undo-2',
     title: { en: 'Third conditional', vi: 'Câu điều kiện loại 3' },
     summary: { en: 'If I had known, I would have come', vi: 'If I had known, I would have come' },
@@ -32,6 +33,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'wish',
     level: 'B2',
+    topic: 'conditionals',
     icon: 'lucide:star',
     title: { en: 'wish / if only', vi: 'wish / if only' },
     summary: { en: 'I wish I were taller / I wish I had gone', vi: 'I wish I were taller / I wish I had gone' },
@@ -58,6 +60,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'reported-questions',
     level: 'B2',
+    topic: 'passive',
     icon: 'lucide:mail-question',
     title: { en: 'Reported questions and requests', vi: 'Câu hỏi và yêu cầu gián tiếp' },
     summary: { en: 'She asked where I lived', vi: 'She asked where I lived' },
@@ -84,6 +87,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'non-defining-relatives',
     level: 'B2',
+    topic: 'clauses',
     icon: 'lucide:info',
     title: { en: 'Non-defining relative clauses', vi: 'Mệnh đề quan hệ không xác định' },
     summary: { en: 'My brother, who lives in Hue, is a chef', vi: 'My brother, who lives in Hue, is a chef' },
@@ -110,6 +114,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'causative',
     level: 'B2',
+    topic: 'sentences',
     icon: 'lucide:scissors',
     title: { en: 'have / get something done', vi: 'have / get something done' },
     summary: { en: 'I had my hair cut', vi: 'I had my hair cut' },
@@ -136,6 +141,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'future-continuous-perfect',
     level: 'B2',
+    topic: 'tenses',
     icon: 'lucide:calendar-clock',
     title: { en: 'will be doing / will have done', vi: 'will be doing / will have done' },
     summary: { en: 'Future continuous and future perfect', vi: 'Tương lai tiếp diễn và tương lai hoàn thành' },
@@ -162,6 +168,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'past-modals',
     level: 'B2',
+    topic: 'modals',
     icon: 'lucide:message-square-warning',
     title: { en: 'should have / must have / can’t have', vi: 'should have / must have / can’t have' },
     summary: { en: 'Regrets and guesses about the past', vi: 'Hối tiếc và suy đoán về quá khứ' },
@@ -188,6 +195,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'be-used-to',
     level: 'B2',
+    topic: 'sentences',
     icon: 'lucide:sofa',
     title: { en: 'be used to / get used to', vi: 'be used to / get used to' },
     summary: { en: 'I’m used to getting up early', vi: 'I’m used to getting up early' },
@@ -214,6 +222,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'passive-reporting',
     level: 'B2',
+    topic: 'passive',
     icon: 'lucide:newspaper',
     title: { en: 'It is said that… / He is thought to…', vi: 'It is said that… / He is thought to…' },
     summary: { en: 'Reporting what people say, formally', vi: 'Thuật lại điều mọi người nói, một cách trang trọng' },
@@ -240,6 +249,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'participle-clauses',
     level: 'B2',
+    topic: 'clauses',
     icon: 'lucide:scissors-line-dashed',
     title: { en: 'Participle clauses', vi: 'Mệnh đề phân từ' },
     summary: { en: 'Feeling tired, I went to bed', vi: 'Feeling tired, I went to bed' },
@@ -266,6 +276,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'few-little',
     level: 'B2',
+    topic: 'nouns',
     icon: 'lucide:pie-chart',
     title: { en: 'few / a few / little / a little', vi: 'few / a few / little / a little' },
     summary: { en: 'Small amounts — positive or negative', vi: 'Số lượng ít — tích cực hay tiêu cực' },
@@ -292,6 +303,7 @@ export const B2_LESSONS: GrammarLesson[] = [
   {
     id: 'unless-in-case',
     level: 'B2',
+    topic: 'conditionals',
     icon: 'lucide:umbrella',
     title: { en: 'unless / in case / as long as', vi: 'unless / in case / as long as' },
     summary: { en: 'Conditions beyond "if"', vi: 'Các điều kiện ngoài "if"' },

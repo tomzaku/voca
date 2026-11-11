@@ -6,6 +6,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'be-present',
     level: 'A1',
+    topic: 'tenses',
     icon: 'lucide:user-round',
     title: { en: 'am / is / are', vi: 'am / is / are' },
     summary: { en: 'The verb "to be" in the present', vi: 'Động từ "to be" ở hiện tại' },
@@ -32,6 +33,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'plural-nouns',
     level: 'A1',
+    topic: 'nouns',
     icon: 'lucide:copy',
     title: { en: 'Plural nouns', vi: 'Danh từ số nhiều' },
     summary: { en: 'one book → two books', vi: 'one book → two books' },
@@ -58,6 +60,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'articles-a-an',
     level: 'A1',
+    topic: 'nouns',
     icon: 'lucide:apple',
     title: { en: 'a / an', vi: 'a / an' },
     summary: { en: 'One of something: a cat, an apple', vi: 'Một cái gì đó: a cat, an apple' },
@@ -84,6 +87,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'article-the',
     level: 'A1',
+    topic: 'nouns',
     icon: 'lucide:sun',
     title: { en: 'the', vi: 'the' },
     summary: { en: 'The one we both know', vi: 'Cái mà cả hai đều biết' },
@@ -110,6 +114,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'present-simple',
     level: 'A1',
+    topic: 'tenses',
     icon: 'lucide:repeat',
     title: { en: 'Present simple', vi: 'Thì hiện tại đơn' },
     summary: { en: 'I work, she works', vi: 'I work, she works' },
@@ -136,6 +141,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'present-simple-questions',
     level: 'A1',
+    topic: 'tenses',
     icon: 'lucide:circle-help',
     title: { en: 'do / does: questions and negatives', vi: 'do / does: câu hỏi và phủ định' },
     summary: { en: 'Do you…? She doesn’t…', vi: 'Do you…? She doesn’t…' },
@@ -162,6 +168,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'question-words',
     level: 'A1',
+    topic: 'sentences',
     icon: 'lucide:message-circle-question',
     title: { en: 'what / where / when / who / how', vi: 'what / where / when / who / how' },
     summary: { en: 'Asking for information', vi: 'Hỏi để lấy thông tin' },
@@ -188,6 +195,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'this-that',
     level: 'A1',
+    topic: 'nouns',
     icon: 'lucide:hand',
     title: { en: 'this / that / these / those', vi: 'this / that / these / those' },
     summary: { en: 'Near or far, one or many', vi: 'Gần hay xa, một hay nhiều' },
@@ -214,6 +222,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'possessives',
     level: 'A1',
+    topic: 'pronouns',
     icon: 'lucide:key-round',
     title: { en: 'my / your / his… and ’s', vi: 'my / your / his… và ’s' },
     summary: { en: 'Saying who something belongs to', vi: 'Nói vật gì thuộc về ai' },
@@ -240,6 +249,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'object-pronouns',
     level: 'A1',
+    topic: 'pronouns',
     icon: 'lucide:users',
     title: { en: 'me / him / her / them', vi: 'me / him / her / them' },
     summary: { en: 'Pronouns after a verb or preposition', vi: 'Đại từ sau động từ hoặc giới từ' },
@@ -266,6 +276,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'there-is-are',
     level: 'A1',
+    topic: 'sentences',
     icon: 'lucide:map-pin',
     title: { en: 'there is / there are', vi: 'there is / there are' },
     summary: { en: 'Saying something exists', vi: 'Nói có cái gì đó' },
@@ -292,6 +303,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'prepositions-place',
     level: 'A1',
+    topic: 'prepositions',
     icon: 'lucide:box',
     title: { en: 'in / on / at / under / next to', vi: 'in / on / at / under / next to' },
     summary: { en: 'Saying where things are', vi: 'Nói vật ở đâu' },
@@ -318,6 +330,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'can-cant',
     level: 'A1',
+    topic: 'modals',
     icon: 'lucide:dumbbell',
     title: { en: 'can / can’t', vi: 'can / can’t' },
     summary: { en: 'Ability and permission', vi: 'Khả năng và sự cho phép' },
@@ -344,6 +357,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'present-continuous',
     level: 'A1',
+    topic: 'tenses',
     icon: 'lucide:loader',
     title: { en: 'Present continuous', vi: 'Thì hiện tại tiếp diễn' },
     summary: { en: 'I am working right now', vi: 'I am working — đang làm' },
@@ -370,6 +384,7 @@ export const A1_LESSONS: GrammarLesson[] = [
   {
     id: 'prepositions-time',
     level: 'A1',
+    topic: 'prepositions',
     icon: 'lucide:clock',
     title: { en: 'in / on / at for time', vi: 'in / on / at chỉ thời gian' },
     summary: { en: 'at 7, on Monday, in May', vi: 'at 7, on Monday, in May' },

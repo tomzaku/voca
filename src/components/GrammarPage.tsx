@@ -7,10 +7,13 @@ import {
   drillAnswer,
   GRAMMAR_LESSONS,
   GRAMMAR_LEVELS,
+  GRAMMAR_TOPICS,
   lessonById,
+  lessonMatches,
   type Drill,
   type GrammarLesson,
   type GrammarLevel,
+  type GrammarTopic,
   type Text,
 } from '../data/grammar';
 import { isCompleted, useGrammarProgress } from '../hooks/useGrammarProgress';
@@ -218,11 +221,13 @@ function LevelCard({ level, title, active, onClick }: { level: GrammarLevel; tit
   );
 }
 
-function LessonCard({ lesson, record, open, next, onOpen }: {
+function LessonCard({ lesson, record, open, next, showLevel, onOpen }: {
   lesson: GrammarLesson;
   record: GrammarProgress | undefined;
   open: boolean;
   next: boolean;
+  /** In a topic, lessons from several levels sit together — say which. */
+  showLevel: boolean;
   onOpen: (id: string, mode: Mode) => void;
 }) {
   const tr = useTr();
@@ -252,6 +257,7 @@ function LessonCard({ lesson, record, open, next, onOpen }: {
       </span>
       <div className="relative pointer-events-none flex-1 min-w-0">
         <div className="flex items-center gap-2 text-[11px] font-extrabold text-text-muted">
+          {showLevel && <span className={`px-1.5 py-px rounded-md text-[10px] ${meta.chip}`}>{lesson.level}</span>}
           <FormattedMessage id="grammar.lessonN" values={{ n }} />
           {next && (
             <span className={`px-1.5 py-px rounded-full uppercase tracking-wide text-[9px] ${meta.chip}`}>
@@ -283,28 +289,28 @@ function LessonCard({ lesson, record, open, next, onOpen }: {
   );
 }
 
-function CoursePage({ level, onLevel, onOpen }: { level: GrammarLevel; onLevel: (l: GrammarLevel) => void; onOpen: (id: string, mode: Mode) => void }) {
-  const tr = useTr();
+type View = 'level' | 'topic';
+
+/** One heading and its lessons — a level or a topic, depending on the view. */
+function Section({ badge, title, lessons, showLevel, onOpen }: {
+  badge: ReactNode;
+  title: string;
+  lessons: GrammarLesson[];
+  showLevel: boolean;
+  onOpen: (id: string, mode: Mode) => void;
+}) {
   const records = useGrammarProgress((s) => s.records);
   const unlocked = useUnlocked();
   const next = GRAMMAR_LESSONS.find((l) => !isCompleted(records[l.id]));
-  const levelTitle = GRAMMAR_LEVELS.find((l) => l.level === level)!.title;
-  const lessons = GRAMMAR_LESSONS.filter((l) => l.level === level);
-
+  const done = lessons.filter((l) => isCompleted(records[l.id])).length;
   return (
-    <>
-      <CourseHero onOpen={onOpen} />
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-7">
-        {GRAMMAR_LEVELS.map((l) => (
-          <LevelCard key={l.level} level={l.level} title={tr(l.title)} active={l.level === level} onClick={() => onLevel(l.level)} />
-        ))}
-      </div>
-
-      <h2 className="flex items-baseline gap-2 mb-3">
-        <span className={`px-2 py-0.5 rounded-lg text-xs font-extrabold ${LEVEL_META[level].chip}`}>{level}</span>
-        <span className="font-display font-extrabold text-lg text-text-primary">{tr(levelTitle)}</span>
-        <span className="text-xs font-bold text-text-muted"><FormattedMessage id="grammar.lessonCount" values={{ count: lessons.length }} /></span>
+    <section className="mb-7">
+      <h2 className="flex items-center gap-2 mb-3">
+        {badge}
+        <span className="font-display font-extrabold text-lg text-text-primary leading-tight">{title}</span>
+        <span className="ml-auto shrink-0 text-xs font-bold text-text-muted">
+          <FormattedMessage id="grammar.levelDone" values={{ done, total: lessons.length }} />
+        </span>
       </h2>
       <ol className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {lessons.map((lesson) => (
@@ -314,10 +320,148 @@ function CoursePage({ level, onLevel, onOpen }: { level: GrammarLevel; onLevel: 
             record={records[lesson.id]}
             open={unlocked.has(lesson.id)}
             next={lesson.id === next?.id}
+            showLevel={showLevel}
             onOpen={onOpen}
           />
         ))}
       </ol>
+    </section>
+  );
+}
+
+function TopicChip({ topic, icon, title, active, onClick }: { topic: GrammarTopic; icon: string; title: string; active: boolean; onClick: () => void }) {
+  const records = useGrammarProgress((s) => s.records);
+  const lessons = GRAMMAR_LESSONS.filter((l) => l.topic === topic);
+  const done = lessons.filter((l) => isCompleted(records[l.id])).length;
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`shrink-0 flex items-center gap-1.5 pl-2.5 pr-3 py-2 rounded-full border-2 text-sm font-bold transition-colors ${
+        active ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan' : 'border-border bg-bg-card text-text-secondary hover:border-border-light hover:text-text-primary'
+      }`}
+    >
+      <Icon icon={icon} className="text-base" />
+      {title}
+      <span className={`text-[11px] font-extrabold ${active ? 'text-accent-cyan/80' : 'text-text-muted'}`}>{done}/{lessons.length}</span>
+    </button>
+  );
+}
+
+function CoursePage({ view, level, topic, query, onChange, onOpen }: {
+  view: View;
+  level: GrammarLevel | null;
+  topic: GrammarTopic | null;
+  query: string;
+  onChange: (next: { view?: View; level?: GrammarLevel | null; topic?: GrammarTopic | null; q?: string }) => void;
+  onOpen: (id: string, mode: Mode) => void;
+}) {
+  const tr = useTr();
+  const intl = useIntl();
+  // The box keeps its own text: the URL copy lands a beat after each
+  // keystroke, and an input driven by it alone drops letters typed in between.
+  const [text, setText] = useState(query);
+  const search = (q: string) => { setText(q); onChange({ q }); };
+  const matching = GRAMMAR_LESSONS.filter((l) => lessonMatches(l, text));
+
+  // One list of sections for either view, already narrowed by the filter
+  // and the search, with empty sections dropped.
+  const sections = view === 'level'
+    ? GRAMMAR_LEVELS.filter((l) => !level || l.level === level).map((l) => ({
+        key: l.level,
+        badge: <span className={`px-2 py-0.5 rounded-lg text-xs font-extrabold ${LEVEL_META[l.level].chip}`}>{l.level}</span>,
+        title: tr(l.title),
+        lessons: matching.filter((x) => x.level === l.level),
+      }))
+    : GRAMMAR_TOPICS.filter((t) => !topic || t.topic === topic).map((t) => ({
+        key: t.topic,
+        badge: (
+          <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-accent-cyan/15 text-accent-cyan shrink-0">
+            <Icon icon={t.icon} />
+          </span>
+        ),
+        title: tr(t.title),
+        lessons: matching.filter((x) => x.topic === t.topic),
+      }));
+  const shown = sections.filter((s) => s.lessons.length > 0);
+  const found = shown.reduce((n, s) => n + s.lessons.length, 0);
+  const filtered = !!text.trim() || (view === 'level' ? !!level : !!topic);
+
+  return (
+    <>
+      <CourseHero onOpen={onOpen} />
+
+      <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
+        <label className="relative flex-1">
+          <Icon icon="lucide:search" className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          <input
+            type="search"
+            value={text}
+            onChange={(e) => search(e.target.value)}
+            placeholder={intl.formatMessage({ id: 'grammar.searchPlaceholder' })}
+            aria-label={intl.formatMessage({ id: 'grammar.searchPlaceholder' })}
+            className="w-full h-11 pl-10 pr-10 rounded-2xl border-2 border-border bg-bg-card text-text-primary font-bold placeholder:text-text-muted placeholder:font-semibold focus:outline-none focus:border-accent-cyan [&::-webkit-search-cancel-button]:hidden"
+          />
+          {text && (
+            <button
+              onClick={() => search('')}
+              aria-label={intl.formatMessage({ id: 'grammar.clearSearch' })}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center text-text-muted hover:bg-bg-tertiary hover:text-text-primary"
+            >
+              <Icon icon="lucide:x" />
+            </button>
+          )}
+        </label>
+        <div role="radiogroup" aria-label={intl.formatMessage({ id: 'grammar.groupBy' })} className="shrink-0 flex p-1 rounded-2xl border-2 border-border bg-bg-tertiary">
+          {([['level', 'lucide:signal', 'grammar.byLevel'], ['topic', 'lucide:layout-grid', 'grammar.byTopic']] as const).map(([v, icon, id]) => (
+            <button
+              key={v}
+              role="radio"
+              aria-checked={view === v}
+              onClick={() => onChange({ view: v })}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 h-8 rounded-xl text-sm font-bold transition-colors ${
+                view === v ? 'bg-bg-card text-accent-cyan shadow-sm' : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              <Icon icon={icon} /> <FormattedMessage id={id} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Filters: tap one to narrow the list to it, tap it again for everything. */}
+      {view === 'level' ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-6">
+          {GRAMMAR_LEVELS.map((l) => (
+            <LevelCard key={l.level} level={l.level} title={tr(l.title)} active={l.level === level} onClick={() => onChange({ level: l.level === level ? null : l.level })} />
+          ))}
+        </div>
+      ) : (
+        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto sm:flex-wrap pb-1 mb-6">
+          {GRAMMAR_TOPICS.map((t) => (
+            <TopicChip key={t.topic} topic={t.topic} icon={t.icon} title={tr(t.title)} active={t.topic === topic} onClick={() => onChange({ topic: t.topic === topic ? null : t.topic })} />
+          ))}
+        </div>
+      )}
+
+      {filtered && (
+        <div className="flex items-center justify-between gap-2 mb-4 text-sm font-bold text-text-muted">
+          <span><FormattedMessage id="grammar.found" values={{ count: found }} /></span>
+          <button onClick={() => { setText(''); onChange({ q: '', level: null, topic: null }); }} className="flex items-center gap-1 text-accent-cyan hover:underline">
+            <Icon icon="lucide:list" /> <FormattedMessage id="grammar.showAll" />
+          </button>
+        </div>
+      )}
+
+      {shown.length ? shown.map((s) => (
+        <Section key={s.key} badge={s.badge} title={s.title} lessons={s.lessons} showLevel={view === 'topic'} onOpen={onOpen} />
+      )) : (
+        <div className="card-game p-8 text-center">
+          <Icon icon="lucide:search-x" className="mx-auto text-4xl text-text-muted mb-2" />
+          <p className="font-bold text-text-primary"><FormattedMessage id="grammar.noResults" values={{ query: text }} /></p>
+          <p className="text-sm text-text-muted mt-1"><FormattedMessage id="grammar.noResultsHint" /></p>
+        </div>
+      )}
     </>
   );
 }
@@ -806,23 +950,24 @@ function LessonView({ lesson, mode, onOpen, onCourse }: {
 // ─── Page ────────────────────────────────────────────────────────────
 
 const isLevel = (v: string | null): v is GrammarLevel => GRAMMAR_LEVELS.some((l) => l.level === v);
+const isTopic = (v: string | null): v is GrammarTopic => GRAMMAR_TOPICS.some((t) => t.topic === v);
 
 export function GrammarPage() {
   const [params, setParams] = useSearchParams();
   const { user } = useAuth();
   const sync = useGrammarProgress((s) => s.sync);
-  const records = useGrammarProgress((s) => s.records);
   // Another device may have got further; fold its progress in once per visit.
   useEffect(() => { if (user) void sync(); }, [user, sync]);
   useEffect(() => () => stopSpeaking(), []);
 
   const lesson = lessonById(params.get('lesson') ?? '');
   const mode: Mode = params.get('mode') === 'test' ? 'test' : 'learn';
-  // The level shown defaults to wherever the learner is up to.
+  // The course list's state lives in the URL too, so coming back from a
+  // lesson lands on the same view, filter and search.
+  const view: View = params.get('view') === 'topic' ? 'topic' : 'level';
   const levelParam = params.get('level');
-  const level: GrammarLevel = isLevel(levelParam)
-    ? levelParam
-    : GRAMMAR_LESSONS.find((l) => !isCompleted(records[l.id]))?.level ?? 'A1';
+  const topicParam = params.get('topic');
+  const query = params.get('q') ?? '';
 
   const open = (id: string, m: Mode) => {
     setParams(m === 'test' ? { lesson: id, mode: 'test' } : { lesson: id });
@@ -830,6 +975,22 @@ export function GrammarPage() {
   };
   // Back to the course on the lesson's own level, so you land where you were.
   const course = () => { setParams(lesson ? { level: lesson.level } : {}); window.scrollTo({ top: 0 }); };
+
+  // Each change rewrites the course's params as a whole; a view switch drops
+  // the other view's filter, and typing replaces history rather than adding
+  // a step per keystroke.
+  const change = (next: { view?: View; level?: GrammarLevel | null; topic?: GrammarTopic | null; q?: string }) => {
+    const v = next.view ?? view;
+    const out: Record<string, string> = {};
+    if (v === 'topic') out.view = 'topic';
+    const lv = next.level !== undefined ? next.level : levelParam;
+    const tp = next.topic !== undefined ? next.topic : topicParam;
+    if (v === 'level' && lv) out.level = lv;
+    if (v === 'topic' && tp) out.topic = tp;
+    const q = next.q ?? query;
+    if (q) out.q = q;
+    setParams(out, { replace: true });
+  };
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:py-8">
@@ -839,7 +1000,14 @@ export function GrammarPage() {
           <LessonView key={`${lesson.id}:${mode}`} lesson={lesson} mode={mode} onOpen={open} onCourse={course} />
         </div>
       ) : (
-        <CoursePage level={level} onLevel={(l) => setParams({ level: l }, { replace: true })} onOpen={open} />
+        <CoursePage
+          view={view}
+          level={isLevel(levelParam) ? levelParam : null}
+          topic={isTopic(topicParam) ? topicParam : null}
+          query={query}
+          onChange={change}
+          onOpen={open}
+        />
       )}
     </div>
   );

@@ -1,5 +1,10 @@
 export type GrammarLevel = 'A1' | 'A2' | 'B1' | 'B2';
 
+/** What a lesson is about — the second way to browse the course. */
+export type GrammarTopic =
+  | 'tenses' | 'conditionals' | 'modals' | 'nouns' | 'pronouns'
+  | 'prepositions' | 'adjectives' | 'sentences' | 'passive' | 'clauses';
+
 export interface Text { en: string; vi: string }
 
 export type Drill =
@@ -14,6 +19,7 @@ export type Drill =
 export interface GrammarLesson {
   id: string;
   level: GrammarLevel;
+  topic: GrammarTopic;
   /** Iconify id for the lesson's tile — a hint at the topic, not decoration. */
   icon: string;
   title: Text;

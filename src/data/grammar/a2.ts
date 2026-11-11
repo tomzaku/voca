@@ -6,6 +6,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'past-be',
     level: 'A2',
+    topic: 'tenses',
     icon: 'lucide:history',
     title: { en: 'was / were', vi: 'was / were' },
     summary: { en: 'The verb "to be" in the past', vi: 'Động từ "to be" ở quá khứ' },
@@ -32,6 +33,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'past-simple-regular',
     level: 'A2',
+    topic: 'tenses',
     icon: 'lucide:calendar-check',
     title: { en: 'Past simple: -ed verbs', vi: 'Quá khứ đơn: động từ -ed' },
     summary: { en: 'I worked, she studied', vi: 'I worked, she studied' },
@@ -58,6 +60,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'past-simple-irregular',
     level: 'A2',
+    topic: 'tenses',
     icon: 'lucide:shuffle',
     title: { en: 'Past simple: irregular verbs and did', vi: 'Quá khứ đơn: động từ bất quy tắc và did' },
     summary: { en: 'went, saw, didn’t go, did you see?', vi: 'went, saw, didn’t go, did you see?' },
@@ -84,6 +87,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'past-continuous',
     level: 'A2',
+    topic: 'tenses',
     icon: 'lucide:film',
     title: { en: 'Past continuous', vi: 'Thì quá khứ tiếp diễn' },
     summary: { en: 'I was cooking when you called', vi: 'I was cooking when you called' },
@@ -110,6 +114,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'countable-uncountable',
     level: 'A2',
+    topic: 'nouns',
     icon: 'lucide:droplets',
     title: { en: 'Countable and uncountable nouns', vi: 'Danh từ đếm được và không đếm được' },
     summary: { en: 'many / much, some / any', vi: 'many / much, some / any' },
@@ -136,6 +141,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'comparatives',
     level: 'A2',
+    topic: 'adjectives',
     icon: 'lucide:scale',
     title: { en: 'Comparatives', vi: 'So sánh hơn' },
     summary: { en: 'bigger than, more expensive than', vi: 'bigger than, more expensive than' },
@@ -162,6 +168,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'superlatives',
     level: 'A2',
+    topic: 'adjectives',
     icon: 'lucide:trophy',
     title: { en: 'Superlatives', vi: 'So sánh nhất' },
     summary: { en: 'the biggest, the most beautiful', vi: 'the biggest, the most beautiful' },
@@ -188,6 +195,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'too-enough',
     level: 'A2',
+    topic: 'adjectives',
     icon: 'lucide:gauge',
     title: { en: 'too / enough', vi: 'too / enough' },
     summary: { en: 'too hot, not big enough', vi: 'too hot, not big enough' },
@@ -214,6 +222,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'adverbs-frequency',
     level: 'A2',
+    topic: 'adjectives',
     icon: 'lucide:calendar-days',
     title: { en: 'always / usually / never', vi: 'always / usually / never' },
     summary: { en: 'How often, and where it goes', vi: 'Bao lâu một lần, và đặt ở đâu' },
@@ -240,6 +249,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'adverbs-manner',
     level: 'A2',
+    topic: 'adjectives',
     icon: 'lucide:rabbit',
     title: { en: 'quick → quickly', vi: 'quick → quickly' },
     summary: { en: 'Adjectives describe things, adverbs describe actions', vi: 'Tính từ mô tả vật, trạng từ mô tả hành động' },
@@ -266,6 +276,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'going-to',
     level: 'A2',
+    topic: 'tenses',
     icon: 'lucide:map',
     title: { en: 'be going to', vi: 'be going to' },
     summary: { en: 'Plans you’ve already made', vi: 'Kế hoạch đã định sẵn' },
@@ -292,6 +303,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'will-future',
     level: 'A2',
+    topic: 'tenses',
     icon: 'lucide:sparkles',
     title: { en: 'will', vi: 'will' },
     summary: { en: 'Decisions now, promises, predictions', vi: 'Quyết định tức thì, lời hứa, dự đoán' },
@@ -318,6 +330,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'verb-patterns',
     level: 'A2',
+    topic: 'sentences',
     icon: 'lucide:git-branch',
     title: { en: 'want to do / enjoy doing', vi: 'want to do / enjoy doing' },
     summary: { en: 'Which verbs take "to", which take -ing', vi: 'Động từ nào đi với "to", động từ nào đi với -ing' },
@@ -344,6 +357,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'should-must',
     level: 'A2',
+    topic: 'modals',
     icon: 'lucide:signpost',
     title: { en: 'should / must', vi: 'should / must' },
     summary: { en: 'Advice and strong rules', vi: 'Lời khuyên và quy định bắt buộc' },
@@ -370,6 +384,7 @@ export const A2_LESSONS: GrammarLesson[] = [
   {
     id: 'have-to',
     level: 'A2',
+    topic: 'modals',
     icon: 'lucide:clipboard-check',
     title: { en: 'have to / don’t have to', vi: 'have to / don’t have to' },
     summary: { en: 'Necessary, or not necessary', vi: 'Cần thiết, hay không cần thiết' },

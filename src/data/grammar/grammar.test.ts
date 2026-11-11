@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bareWord, drillAnswer, GRAMMAR_LESSONS } from '.';
+import { bareWord, drillAnswer, GRAMMAR_LESSONS, GRAMMAR_TOPICS, lessonMatches } from '.';
 
 // Lesson content is hand-written, so these catch the slips that would break a
 // drill on screen: a gap with no blank, an answer index off the end, a
@@ -28,6 +28,21 @@ describe('Grammar lessons', () => {
         expect(d.chunks.length, d.chunks.join(' ')).toBeGreaterThanOrEqual(3);
       }
     }
+  });
+
+  it('puts every lesson under a topic the page lists', () => {
+    const topics = new Set(GRAMMAR_TOPICS.map((t) => t.topic));
+    for (const l of GRAMMAR_LESSONS) expect(topics.has(l.topic), l.id).toBe(true);
+    for (const t of topics) expect(GRAMMAR_LESSONS.some((l) => l.topic === t), t).toBe(true);
+  });
+
+  it('searches in either language, with or without accents', () => {
+    const find = (q: string) => GRAMMAR_LESSONS.filter((l) => lessonMatches(l, q)).map((l) => l.id);
+    expect(find('present perfect')).toContain('present-perfect-experience');
+    expect(find('cau dieu kien')).toEqual(expect.arrayContaining(['first-conditional', 'second-conditional', 'third-conditional']));
+    expect(find('Câu bị động')).toContain('passive');
+    expect(find('')).toHaveLength(GRAMMAR_LESSONS.length);
+    expect(find('zzzz')).toEqual([]);
   });
 
   it('fills a "no word" gap without leaving a dash behind', () => {

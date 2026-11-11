@@ -17,9 +17,9 @@ import { A1_LESSONS } from './a1';
 import { A2_LESSONS } from './a2';
 import { B1_LESSONS } from './b1';
 import { B2_LESSONS } from './b2';
-import type { Drill, GrammarLesson, GrammarLevel, Text } from './types';
+import type { Drill, GrammarLesson, GrammarLevel, GrammarTopic, Text } from './types';
 
-export type { Drill, GrammarLesson, GrammarLevel, Text };
+export type { Drill, GrammarLesson, GrammarLevel, GrammarTopic, Text };
 
 export const GRAMMAR_LEVELS: { level: GrammarLevel; title: Text }[] = [
   { level: 'A1', title: { en: 'Beginner', vi: 'Sơ cấp' } },
@@ -29,6 +29,42 @@ export const GRAMMAR_LEVELS: { level: GrammarLevel; title: Text }[] = [
 ];
 
 export const GRAMMAR_LESSONS: GrammarLesson[] = [...A1_LESSONS, ...A2_LESSONS, ...B1_LESSONS, ...B2_LESSONS];
+
+/** The topics, in the order the course page lists them. A topic's lessons
+ *  keep course order inside it, so it still runs easy → hard. */
+export const GRAMMAR_TOPICS: { topic: GrammarTopic; icon: string; title: Text }[] = [
+  { topic: 'tenses', icon: 'lucide:clock', title: { en: 'Tenses', vi: 'Các thì' } },
+  { topic: 'conditionals', icon: 'lucide:git-fork', title: { en: 'Conditionals & wishes', vi: 'Câu điều kiện & câu ước' } },
+  { topic: 'modals', icon: 'lucide:key-round', title: { en: 'Modal verbs', vi: 'Động từ khuyết thiếu' } },
+  { topic: 'nouns', icon: 'lucide:box', title: { en: 'Nouns, articles & quantity', vi: 'Danh từ, mạo từ & số lượng' } },
+  { topic: 'pronouns', icon: 'lucide:users', title: { en: 'Pronouns & possessives', vi: 'Đại từ & sở hữu' } },
+  { topic: 'prepositions', icon: 'lucide:map-pin', title: { en: 'Prepositions', vi: 'Giới từ' } },
+  { topic: 'adjectives', icon: 'lucide:scale', title: { en: 'Adjectives & adverbs', vi: 'Tính từ & trạng từ' } },
+  { topic: 'sentences', icon: 'lucide:message-circle-question', title: { en: 'Questions & verb patterns', vi: 'Câu hỏi & cấu trúc động từ' } },
+  { topic: 'passive', icon: 'lucide:repeat-2', title: { en: 'Passive & reported speech', vi: 'Bị động & câu tường thuật' } },
+  { topic: 'clauses', icon: 'lucide:link', title: { en: 'Clauses & linking words', vi: 'Mệnh đề & từ nối' } },
+];
+
+/** Lower-case, no accents, đ → d: so "thi hien tai" finds "Thì hiện tại". */
+export function foldText(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/gi, 'd').toLowerCase();
+}
+
+/** Everything a search can match a lesson on, folded once. */
+const SEARCH_TEXT = new Map(GRAMMAR_LESSONS.map((l) => {
+  const topic = GRAMMAR_TOPICS.find((t) => t.topic === l.topic)!.title;
+  return [l.id, foldText([
+    l.level, l.title.en, l.title.vi, l.summary.en, l.summary.vi, topic.en, topic.vi,
+    ...l.pattern, ...l.examples.map((e) => e.replace(/\*\*/g, '')),
+  ].join(' \n '))];
+}));
+
+/** Does the lesson match every word of `query`? An empty query matches all. */
+export function lessonMatches(lesson: GrammarLesson, query: string): boolean {
+  const words = foldText(query).split(/\s+/).filter(Boolean);
+  const text = SEARCH_TEXT.get(lesson.id)!;
+  return words.every((w) => text.includes(w));
+}
 
 /** Strip punctuation so "today." matches a `wrong` of "today". */
 export const bareWord = (token: string) => token.replace(/^[^\p{L}\p{N}’']+|[^\p{L}\p{N}’']+$/gu, '');
