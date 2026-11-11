@@ -138,8 +138,10 @@ const NASAL_VELUM = 1;
 
 /** The diagram's script for one sound, or null for a symbol it doesn't know. */
 export function articulationFor(symbol: string): Articulation | null {
+  // /a/ isn't one of the chart's 44, but the scorer hears it ("cat" said
+  // with an open /a/), so coaching can still draw it next to /æ/.
   const v = V[symbol];
-  if (v && symbol !== 'a') {
+  if (v) {
     return { poses: [vowel(...v)], voiced: true, nasal: false, airflow: false, tags: vowelTags(...v) };
   }
   const d = DIPHTHONGS[symbol];

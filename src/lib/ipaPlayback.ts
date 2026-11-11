@@ -23,14 +23,16 @@ export function sayWord(text: string, onEnd: () => void) {
 }
 
 /** Say a sound — its recording, or (diphthongs have none) its first example
- *  word. False if there's nothing to say for it. */
+ *  word, or — a sound off the chart, like the /a/ a learner said for /æ/ —
+ *  the voice reading that IPA. Only the cloud voice and Kokoro read IPA; the
+ *  others read the symbol as text. */
 export function saySound(symbol: string, onEnd: () => void): boolean {
   stopIpa();
   const rec = IPA_RECORDINGS[symbol];
   if (!rec) {
     const word = IPA_SOUNDS.find((s) => s.symbol === symbol)?.examples[0];
-    if (!word) return false;
-    sayWord(word, onEnd);
+    if (word) { sayWord(word, onEnd); return true; }
+    speakText(symbol, { phonetics: { 'en-GB': symbol, 'en-US': symbol }, onEnd }).catch(onEnd);
     return true;
   }
   const a = new Audio(recordingUrl(rec));

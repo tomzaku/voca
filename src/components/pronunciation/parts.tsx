@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
@@ -65,10 +65,41 @@ function loadSounds() {
   return soundsPromise;
 }
 
+const SoundCompare = lazy(() => import('./SoundCompare'));
+
+/** A sound's symbol with a speaker to hear it — its recording, or the voice
+ *  reading it (lib/ipaPlayback, loaded on first tap). */
+function SaySymbol({ label, symbol, className }: { label: string; symbol: string; className: string }) {
+  const intl = useIntl();
+  const [playing, setPlaying] = useState(false);
+  const say = async () => {
+    setPlaying(true);
+    const { saySound } = await import('../../lib/ipaPlayback');
+    if (!saySound(symbol, () => setPlaying(false))) setPlaying(false);
+  };
+  return (
+    <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
+      <span className={`font-code ${className}`}>/{label}/</span>
+      <button
+        onClick={say}
+        title={intl.formatMessage({ id: 'pron.hearSymbol' }, { ipa: `/${symbol}/` })}
+        aria-label={intl.formatMessage({ id: 'pron.hearSymbol' }, { ipa: `/${symbol}/` })}
+        className={`p-0.5 rounded align-middle transition-colors ${playing ? 'text-accent-cyan' : 'text-text-muted hover:text-accent-cyan'}`}
+      >
+        <Icon icon={playing ? 'lucide:audio-lines' : 'lucide:volume-2'} className="text-base" />
+      </button>
+    </span>
+  );
+}
+
 /** Keyed by sound upstream, so a new pick starts empty rather than on the last one's text. */
 export function Coaching({ phone }: { phone: PhoneScore }) {
   const symbol = chartSymbol(phone.ipa);
-  const heardSymbol = phone.heard ? chartSymbol(phone.heard) : null;
+  // Off-chart sounds (the /a/ said for /æ/) are kept: they can still be
+  // drawn, heard and compared, just not linked to a chart page.
+  const heardSymbol = phone.heard ? chartSymbol(phone.heard) ?? phone.heard : null;
+  const canCompare = !!symbol && !!heardSymbol && heardSymbol !== symbol && phone.status !== 'good';
+  const [comparing, setComparing] = useState(false);
   const [sound, setSound] = useState<IpaSound | null>(null);
   const text = useIpaText();
   useEffect(() => {
@@ -85,20 +116,40 @@ export function Coaching({ phone }: { phone: PhoneScore }) {
         <div className="shrink-0 w-36 sm:w-44">
           {/* Your sound outlined over the one to make — the difference is
               often visible: the tongue tip that never left the ridge. */}
-          <MouthDiagram symbol={symbol} ghost={heardSymbol && heardSymbol !== symbol ? heardSymbol : undefined} view="both" className="w-full" />
+          {canCompare ? (
+            <button onClick={() => setComparing(true)} className="block w-full rounded-lg hover:bg-bg-tertiary transition-colors" aria-label={`/${symbol}/ – /${heardSymbol}/`}>
+              <MouthDiagram symbol={symbol} ghost={heardSymbol!} view="both" className="w-full" />
+            </button>
+          ) : (
+            <MouthDiagram symbol={symbol} view="both" className="w-full" />
+          )}
         </div>
       )}
       <div className="min-w-0 text-sm">
         <p className="font-bold text-text-primary">
           {good
-            ? <FormattedMessage id="pron.coachGood" values={{ ipa: <span className="font-code text-accent-green">/{phone.ipa}/</span> }} />
+            ? <FormattedMessage id="pron.coachGood" values={{ ipa: symbol ? <SaySymbol label={phone.ipa} symbol={symbol} className="text-accent-green" /> : <span className="font-code text-accent-green">/{phone.ipa}/</span> }} />
             : phone.heard
               ? <FormattedMessage id="pron.coachHeard" values={{
-                  ipa: <span className="font-code text-accent-green">/{phone.ipa}/</span>,
-                  heard: <span className="font-code text-accent-red">/{phone.heard}/</span>,
+                  ipa: symbol ? <SaySymbol label={phone.ipa} symbol={symbol} className="text-accent-green" /> : <span className="font-code text-accent-green">/{phone.ipa}/</span>,
+                  heard: <SaySymbol label={phone.heard} symbol={heardSymbol!} className="text-accent-red" />,
                 }} />
-              : <FormattedMessage id="pron.coachMissing" values={{ ipa: <span className="font-code text-accent-red">/{phone.ipa}/</span> }} />}
+              : <FormattedMessage id="pron.coachMissing" values={{ ipa: symbol ? <SaySymbol label={phone.ipa} symbol={symbol} className="text-accent-red" /> : <span className="font-code text-accent-red">/{phone.ipa}/</span> }} />}
         </p>
+        {canCompare && (
+          <button
+            onClick={() => setComparing(true)}
+            className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-lg bg-accent-cyan/10 text-accent-cyan text-xs font-extrabold hover:bg-accent-cyan/20 transition-colors"
+          >
+            <Icon icon="lucide:git-compare-arrows" />
+            <FormattedMessage id="pron.compareSounds" values={{ a: `/${symbol}/`, b: `/${heardSymbol}/` }} />
+          </button>
+        )}
+        {comparing && canCompare && (
+          <Suspense fallback={null}>
+            <SoundCompare target={symbol!} heard={heardSymbol!} onClose={() => setComparing(false)} />
+          </Suspense>
+        )}
         {sound && (
           <>
             <p className="text-text-secondary mt-1 leading-snug">{text.howTo(sound)}</p>
