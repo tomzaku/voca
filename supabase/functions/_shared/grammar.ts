@@ -3,7 +3,7 @@
 
 import { BadRequest } from './ai.ts';
 
-/** A score at or above this completes a lesson and unlocks the next one.
+/** A score at or above this completes a lesson (its tick and "Up next" moving on).
  *  Mirrored as PASS_SCORE in src/lib/grammarApi.ts, which grades a round
  *  offline before the server has seen it — change both. */
 export const PASS_SCORE = 70;

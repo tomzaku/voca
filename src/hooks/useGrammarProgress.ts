@@ -1,5 +1,5 @@
 // The learner's progress through the Grammar course. The device's copy is the
-// one the UI reads, so a lesson unlocks the moment it's passed, offline or
+// one the UI reads, so a lesson shows as done the moment it's passed, offline or
 // signed out; the `grammar` resource is where it syncs to, and `sync` folds
 // the server's copy back in (another device may have got further).
 

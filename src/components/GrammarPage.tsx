@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { Icon } from '@iconify/react';
 import { useSearchParams } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -25,10 +25,10 @@ import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWin, playWrong } from '../lib/sfx';
 import { COVER_GLASS, COVER_PRIMARY, CoverChip } from './CollectionCover';
 
-// The Grammar course: lessons in a fixed order, each one rule → examples →
-// a round of drills. Passing a round unlocks the next lesson; a locked one
-// can still be "tested out of" by taking its drills cold, so a learner who
-// already knows the early lessons isn't made to sit through them.
+// The Grammar course: lessons in a suggested order, each one rule → examples
+// → a round of drills. Every lesson is open — the order is a path, not a gate
+// — and "Up next" points at the first one not yet passed. A quick test skips
+// the rule and goes straight to the drills, for a lesson you already know.
 //
 // The URL carries where you are (`?level=B1`, `?lesson=<id>&mode=test`), so a
 // lesson is linkable and the browser's back button leaves it.
@@ -52,18 +52,6 @@ const starsFor = (score: number) => (score >= 100 ? 3 : score >= 85 ? 2 : score 
 function useTr() {
   const locale = useLocale((s) => s.locale);
   return (t: Text) => t[locale] ?? t.en;
-}
-
-/** A lesson is open once the one before it is passed — or once it's been tried. */
-function useUnlocked() {
-  const records = useGrammarProgress((s) => s.records);
-  return useMemo(() => {
-    const open = new Set<string>();
-    GRAMMAR_LESSONS.forEach((l, i) => {
-      if (i === 0 || records[l.id] || isCompleted(records[GRAMMAR_LESSONS[i - 1].id])) open.add(l.id);
-    });
-    return open;
-  }, [records]);
 }
 
 /** `**part**` → that part highlighted, the rest plain. */
@@ -221,10 +209,9 @@ function LevelCard({ level, title, active, onClick }: { level: GrammarLevel; tit
   );
 }
 
-function LessonCard({ lesson, record, open, next, showLevel, onOpen }: {
+function LessonCard({ lesson, record, next, showLevel, onOpen }: {
   lesson: GrammarLesson;
   record: GrammarProgress | undefined;
-  open: boolean;
   next: boolean;
   /** In a topic, lessons from several levels sit together — say which. */
   showLevel: boolean;
@@ -238,22 +225,15 @@ function LessonCard({ lesson, record, open, next, showLevel, onOpen }: {
     <li
       className={`group relative min-w-0 flex gap-3 rounded-2xl border-2 bg-bg-card p-3.5 transition-all ${
         next ? `${meta.ring} ring-2` : 'border-border'
-      } ${open ? 'hover:-translate-y-0.5 hover:border-border-light' : ''}`}
+      } hover:-translate-y-0.5 hover:border-border-light`}
     >
-      {open && <button onClick={() => onOpen(lesson.id, 'learn')} aria-label={tr(lesson.title)} className="absolute inset-0 rounded-2xl" />}
+      <button onClick={() => onOpen(lesson.id, 'learn')} aria-label={tr(lesson.title)} className="absolute inset-0 rounded-2xl" />
       <span
         className={`relative pointer-events-none w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-xl ${
-          passed ? 'bg-accent-green text-bg-primary' : open ? meta.chip : 'bg-bg-tertiary text-text-muted'
+          passed ? 'bg-accent-green text-bg-primary' : meta.chip
         }`}
       >
         <Icon icon={passed ? 'lucide:check' : lesson.icon} />
-        {/* A badge, not a padlock in place of the icon: a course that's mostly
-            locked should still show what's coming, not a wall of locks. */}
-        {!open && (
-          <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-bg-card border-2 border-border flex items-center justify-center">
-            <Icon icon="lucide:lock" className="text-[10px] text-text-muted" />
-          </span>
-        )}
       </span>
       <div className="relative pointer-events-none flex-1 min-w-0">
         <div className="flex items-center gap-2 text-[11px] font-extrabold text-text-muted">
@@ -265,7 +245,7 @@ function LessonCard({ lesson, record, open, next, showLevel, onOpen }: {
             </span>
           )}
         </div>
-        <p className={`font-display font-bold leading-tight truncate ${open ? 'text-text-primary' : 'text-text-secondary'}`}>{tr(lesson.title)}</p>
+        <p className="font-display font-bold leading-tight truncate text-text-primary">{tr(lesson.title)}</p>
         <p className="text-xs text-text-muted truncate">{tr(lesson.summary)}</p>
       </div>
       <div className="relative flex flex-col items-end justify-center gap-1 shrink-0">
@@ -274,13 +254,6 @@ function LessonCard({ lesson, record, open, next, showLevel, onOpen }: {
             <Stars count={starsFor(record.bestScore)} />
             <span className={`text-[11px] font-extrabold ${passed ? 'text-accent-green' : 'text-accent-orange'}`}>{record.bestScore}%</span>
           </>
-        ) : !open ? (
-          <button
-            onClick={() => onOpen(lesson.id, 'test')}
-            className="text-xs font-bold px-2.5 py-1.5 rounded-full bg-bg-tertiary text-text-secondary hover:text-accent-cyan hover:bg-accent-cyan/10"
-          >
-            <FormattedMessage id="grammar.testOut" />
-          </button>
         ) : (
           <Icon icon="lucide:chevron-right" className="pointer-events-none text-text-muted text-lg" />
         )}
@@ -300,7 +273,6 @@ function Section({ badge, title, lessons, showLevel, onOpen }: {
   onOpen: (id: string, mode: Mode) => void;
 }) {
   const records = useGrammarProgress((s) => s.records);
-  const unlocked = useUnlocked();
   const next = GRAMMAR_LESSONS.find((l) => !isCompleted(records[l.id]));
   const done = lessons.filter((l) => isCompleted(records[l.id])).length;
   return (
@@ -318,7 +290,6 @@ function Section({ badge, title, lessons, showLevel, onOpen }: {
             key={lesson.id}
             lesson={lesson}
             record={records[lesson.id]}
-            open={unlocked.has(lesson.id)}
             next={lesson.id === next?.id}
             showLevel={showLevel}
             onOpen={onOpen}
@@ -480,14 +451,16 @@ const PART_COLORS = [
 /** "have / has + V3  (I have seen)" → coloured chips, then the example muted. */
 function Formula({ line }: { line: string }) {
   const [formula, example] = line.split(/\s{2,}(?=\()/);
-  const parts = formula.split(' + ');
+  // A comma also ends a part — "If + had + V3, would have + V3" is two
+  // clauses, and "V3, would have" isn't one piece. The split keeps each
+  // separator, so they alternate: part, separator, part…
+  const tokens = formula.split(/( \+ |, )/);
   return (
     <li className="flex flex-wrap items-center gap-1.5">
-      {parts.length > 1 ? parts.map((p, i) => (
-        <Fragment key={i}>
-          {i > 0 && <span className="text-text-muted font-bold">+</span>}
-          <span className={`px-2 py-1 rounded-lg text-sm font-bold ${PART_COLORS[i % PART_COLORS.length]}`}>{p}</span>
-        </Fragment>
+      {tokens.length > 1 ? tokens.map((t, i) => (
+        i % 2
+          ? <span key={i} className="text-text-muted font-bold">{t.trim()}</span>
+          : <span key={i} className={`px-2 py-1 rounded-lg text-sm font-bold ${PART_COLORS[(i / 2) % PART_COLORS.length]}`}>{t}</span>
       )) : <span className="text-sm font-bold text-text-primary">{formula}</span>}
       {example && <span className="text-xs text-text-muted italic">{example}</span>}
     </li>
@@ -504,7 +477,6 @@ function SectionTitle({ icon, id }: { icon: string; id: string }) {
 
 function LearnStep({ lesson, onPractice, onOpen }: { lesson: GrammarLesson; onPractice: () => void; onOpen: (id: string, mode: Mode) => void }) {
   const tr = useTr();
-  const unlocked = useUnlocked();
   const n = GRAMMAR_LESSONS.indexOf(lesson);
   const prev = GRAMMAR_LESSONS[n - 1];
   const next = GRAMMAR_LESSONS[n + 1];
@@ -554,7 +526,7 @@ function LearnStep({ lesson, onPractice, onOpen }: { lesson: GrammarLesson; onPr
             <Icon icon="lucide:chevron-left" className="shrink-0" /> <span className="truncate">{tr(prev.title)}</span>
           </button>
         ) : <span />}
-        {next && unlocked.has(next.id) && (
+        {next && (
           <button onClick={() => onOpen(next.id, 'learn')} className="flex items-center gap-1 min-w-0 text-text-muted hover:text-text-primary">
             <span className="truncate">{tr(next.title)}</span> <Icon icon="lucide:chevron-right" className="shrink-0" />
           </button>

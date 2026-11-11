@@ -84,8 +84,8 @@ export default async function handler(req: Request): Promise<Response> {
         best_score: Math.max(score, (prev?.best_score as number | undefined) ?? 0),
         last_score: score,
         attempts: ((prev?.attempts as number | undefined) ?? 0) + 1,
-        // Once passed, always passed — a worse retry doesn't re-lock the
-        // lessons after it.
+        // Once passed, always passed — a worse retry doesn't take the
+        // tick away.
         completed_at: (prev?.completed_at as string | null | undefined) ?? (score >= PASS_SCORE ? now : null),
         updated_at: now,
       }, { onConflict: 'user_id,lesson_id' })
