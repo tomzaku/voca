@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { t } from '../i18n';
 import { useWordPeek, type PeekAnchor } from '../hooks/useWordPeek';
-import { useWordSearch } from '../hooks/useWordSearch';
+import { wordUrl } from '../lib/wordSearch';
 import { cachedWordData, generateWordData, UnknownWordError } from '../lib/wordService';
 import { getMotherLanguage } from '../lib/languages';
 import { mergeSuggestions } from '../lib/spellSuggest';
@@ -172,8 +172,7 @@ function PeekCard({ word, anchor, onClose }: {
   // header search does. This is the only path that leaves the current card, and
   // it's now a deliberate choice rather than the cost of a curious tap.
   const openFull = () => {
-    navigate('/');
-    useWordSearch.getState().requestSearch(word);
+    navigate(wordUrl(word));
     onClose();
   };
 

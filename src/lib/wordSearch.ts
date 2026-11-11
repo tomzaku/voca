@@ -59,3 +59,8 @@ export function placeholderExamples(): string[] {
   }
   return out;
 }
+
+/** The flash card page opened on `word` — what a search or a word link goes to. */
+export function wordUrl(word: string): string {
+  return `/?${new URLSearchParams({ word })}`;
+}

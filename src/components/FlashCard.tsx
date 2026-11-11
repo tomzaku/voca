@@ -19,7 +19,6 @@ import { clearPrefetchQueue, dequeue, fillPrefetchQueue, getPrefetchedWords } fr
 import { useGuessGame } from '../hooks/useGuessGame';
 import { useGameScore } from '../hooks/useGameScore';
 import { useLearnRecorder } from '../hooks/useLearnRound';
-import { useWordSearch } from '../hooks/useWordSearch';
 import { useWordDoodle } from '../hooks/useWordDoodle';
 import { useIsPro } from '../hooks/useProStatus';
 import { ApiError } from '../lib/api';
@@ -164,8 +163,7 @@ export function FlashCard() {
     hasChosenCollection()
     || restoredHistory.length > 0
     || searchParams.has('w')
-    || searchParams.has('word')
-    || !!useWordSearch.getState().pending);
+    || searchParams.has('word'));
   const needsStart = !skipStart && Object.keys(store.progress).length === 0;
   const setActiveCollection = useCollections((s) => s.setActive);
   const handleStartPick = (id: string, name: string) => {
@@ -342,17 +340,13 @@ export function FlashCard() {
     // Two link shapes, two modes: `?w=<base64>` hides the answer and opens the
     // guess game, `?word=<plaintext>` names the word so it opens revealed.
     const encoded = searchParams.get('w');
-    const plain = searchParams.get('word');
-    const wordParam = encoded ? decodeWord(encoded) : plain;
-    const reveal = !encoded;
     const known = store.knownWords();
     const skipped = store.skippedWords();
     fillPrefetchQueue(known, skipped);
-    // A header search may already be pending (e.g. navigated here from another
-    // page) — the search effect below will load it, so don't load a default.
-    if (useWordSearch.getState().pending) return;
-    if (wordParam) {
-      loadSpecificWord(wordParam, reveal);
+    // `?word=` is the URL-word effect below's to load, here or later.
+    if (!encoded && searchParams.has('word')) return;
+    if (encoded) {
+      loadSpecificWord(decodeWord(encoded), false);
     } else {
       loadNextWord();
     }
@@ -363,18 +357,27 @@ export function FlashCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, needsStart]);
 
-  // Load a word requested from the header search (works whether this page was
-  // already open or was just navigated to).
-  const pendingSearch = useWordSearch((s) => s.pending);
+  // `?word=` is the word on this card. Searches and links just navigate to it,
+  // whether this page is already open or not, and Back walks to the last one.
+  // The URL is the only handoff: a side-channel store used to race the
+  // first-word load and open the wrong card. Typed text is keyed by the real
+  // word it turns out to be (fromSearch), and the sync effect below then
+  // rewrites the URL to that word — which matches the card, so it's a no-op.
+  const urlWord = searchParams.get('word');
   useEffect(() => {
-    if (!pendingSearch) return;
-    useWordSearch.getState().consume();
+    // Already on the card (the URL caught up with it) — unless it's still
+    // being guessed, when searching it means "just show me".
+    if (authLoading || !urlWord || (urlWord === wordData?.word && phase === 'revealed')) return;
     // A search from the start card skips it — and the first-word load, which
     // would otherwise supersede the searched word once the card goes away.
     didInit.current = true;
     setSkipStart(true);
-    loadSpecificWord(pendingSearch, true, true);
-  }, [pendingSearch, loadSpecificWord]);
+    loadSpecificWord(urlWord, true, true);
+    // Only a new URL word (or auth resolving) loads — not the card catching up
+    // with the URL, and not loadSpecificWord, which changes with every
+    // progress write (it closes over the whole store).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlWord, authLoading]);
 
   // Abort any in-flight work on unmount.
   useEffect(() => {

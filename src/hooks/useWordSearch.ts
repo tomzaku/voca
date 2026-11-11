@@ -1,10 +1,9 @@
 import { create } from 'zustand';
 
-// Bridges a search to whatever plays the word next. The header search sets a
-// pending word for FlashCard; in the world, the library sets one for the Đông
-// Ba stall (useLearnRound). Whoever is mounted picks it up and clears it. Kept
-// in a store so the search box can live in the global header while the
-// loading logic stays with the player.
+// Bridges a search to whatever plays the word next inside the world: the
+// library sets a pending word for the Đông Ba stall (useLearnRound), which
+// picks it up and clears it. The app's own searches don't come through here —
+// they navigate to the word's URL (wordUrl), which FlashCard follows.
 //
 // `openCount` is the world's door: on /world the header's search (button,
 // ⌘K) opens the library inside the game instead of the app's modal, and

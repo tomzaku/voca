@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useWordSearch } from '../hooks/useWordSearch';
 import { getLearnLanguage, getMotherLanguage } from '../lib/languages';
-import { normalizeQuery, placeholderExamples } from '../lib/wordSearch';
+import { normalizeQuery, placeholderExamples, wordUrl } from '../lib/wordSearch';
 import { useTypedExample } from '../hooks/useTypedExample';
 import { CatMascot } from './CatMascot';
 
@@ -17,7 +16,6 @@ import { CatMascot } from './CatMascot';
 export function SearchModal({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
   const navigate = useNavigate();
-  const requestSearch = useWordSearch((s) => s.requestSearch);
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [examples] = useState(placeholderExamples);
@@ -49,8 +47,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     const word = normalizeQuery(query);
     if (!word) return;
-    navigate('/');          // ensure the flashcard page is mounted
-    requestSearch(word);    // FlashCard picks this up and loads the word
+    navigate(wordUrl(word));
     onClose();
   };
 

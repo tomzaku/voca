@@ -20,6 +20,7 @@ import { generateWordData, recentCachedWords } from '../lib/wordService';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { playCorrect, playWrong } from '../lib/sfx';
 import type { VocabularyWord } from '../types';
+import { wordUrl } from '../lib/wordSearch';
 
 /** Options shown, including the right one. */
 const CHOICES = 4;
@@ -216,7 +217,7 @@ export function QuickReview() {
               <FormattedMessage id="review.quickKeepLearning" />
             </button>
             <Link
-              to={`/?word=${encodeURIComponent(target)}`}
+              to={wordUrl(target)}
               className="text-center text-xs text-text-muted hover:text-text-primary underline"
             >
               <FormattedMessage id="review.quickFullCard" />

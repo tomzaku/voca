@@ -22,6 +22,7 @@ import { WordMindMap } from './WordMindMap';
 import { MindMapButton } from './MindMapButton';
 import { SpeakingPractice } from './SpeakingPractice';
 import { WordDetails, WordDetailsLoading } from './WordDetails';
+import { wordUrl } from '../lib/wordSearch';
 
 const LEVEL_COLOR: Record<string, string> = {
   beginner: 'text-accent-green',
@@ -90,7 +91,7 @@ function DailyWords() {
     <section className="mb-8">
       {/* Today — hero card */}
       <Link
-        to={`/?word=${encodeURIComponent(today.word)}`}
+        to={wordUrl(today.word)}
         className="group block rounded-2xl border border-accent-cyan/30 bg-gradient-to-br from-accent-cyan/10 to-bg-card p-6 transition-all hover:border-accent-cyan/50"
       >
         <div className="flex items-center justify-between mb-3">
@@ -138,7 +139,7 @@ function DailyWords() {
               {past.map(({ date, word, level }) => (
                 <Link
                   key={date}
-                  to={`/?word=${encodeURIComponent(word)}`}
+                  to={wordUrl(word)}
                   className="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-tertiary transition-colors"
                 >
                   <span className="w-24 shrink-0 text-xs text-text-muted">{dayLabel(intl, date)}</span>
@@ -561,7 +562,7 @@ export function HistoryPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <Link
-                      to={`/?word=${encodeURIComponent(word)}`}
+                      to={wordUrl(word)}
                       onClick={(e) => e.stopPropagation()}
                       className="font-display font-extrabold text-base text-text-primary hover:text-accent-cyan hover:underline transition-colors truncate"
                       title={intl.formatMessage({ id: 'history.openWord' }, { word })}
