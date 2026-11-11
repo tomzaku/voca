@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { useSentenceScore } from '../hooks/useSentenceScore';
+import { gradeDictation } from '../lib/listeningRules';
 
 // Answer a speaking question out loud: record, read back what you said (the
 // words appear as you speak where the browser can recognise them, otherwise
@@ -18,18 +20,40 @@ const MAX_MS = 2 * 60_000;
 
 export type AnswerRecording = ReturnType<typeof useAnswerRecorder>;
 
-export function useAnswerRecorder(onAnswered?: () => void) {
+/**
+ * Below this share of the sample's words heard, the answer is taken as the
+ * learner's own rather than the sample read aloud.
+ */
+const READ_SAMPLE_ACCURACY = 70;
+
+/**
+ * On a desktop that can run it, the answer is also scored sound by sound
+ * (`pronunciation`). Against what? If the learner read the `sample` aloud —
+ * most of its words came through — against the sample: a script is the only
+ * target that catches a wrong *real* word ("right" for "light"). Otherwise
+ * against the answer's own transcript, since a free answer has no script: the
+ * recogniser writes the word you meant, and the scorer checks how you said it
+ * — though a recogniser that "corrects" an accent hides some of it.
+ */
+export function useAnswerRecorder(onAnswered?: () => void, sample?: string) {
   const [heard, setHeard] = useState<string | null>(null);
+  const pronunciation = useSentenceScore();
+  const audioRef = useRef<Blob | null>(null);
   const recorder = useVoiceRecorder({
     maxMs: MAX_MS,
     keepAudio: true,
+    onAudio: (blob) => { audioRef.current = blob; },
     onTranscript: (text) => {
       setHeard(text);
       if (text) onAnswered?.();
+      if (text && audioRef.current) {
+        const read = sample && gradeDictation(sample, text).accuracy >= READ_SAMPLE_ACCURACY;
+        void pronunciation.score(audioRef.current, read ? sample : text);
+      }
     },
   });
-  const start = () => { setHeard(null); void recorder.start(); };
-  return { ...recorder, heard, start };
+  const start = () => { setHeard(null); pronunciation.reset(); void recorder.start(); };
+  return { ...recorder, heard, start, pronunciation: pronunciation.state };
 }
 
 /** Record / Stop / Record again — sized to sit in the card's action bar. */

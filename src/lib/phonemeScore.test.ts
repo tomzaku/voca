@@ -1,10 +1,10 @@
 // The scoring math, on hand-built recogniser output: no model needed.
 
 import { describe, expect, it } from 'vitest';
-import { forcedAlign, greedyDecode, logSoftmax, makeVocab, scoreBest, scoreWord, tokenizeIpa, type Frames } from './phonemeScore';
+import { forcedAlign, greedyDecode, logSoftmax, makeVocab, scoreBest, scoreSentence, scoreWord, tokenizeIpa, type Frames } from './phonemeScore';
 
 // A slice of the real vocabulary's shape: id 0 is the CTC blank.
-const vocab = makeVocab({ '<pad>': 0, 'θ': 1, 's': 2, 'ɪ': 3, 'ŋ': 4, 'k': 5, 'i': 6, 'iː': 7, 'aɪ': 8, 'ɑːɹ': 9, 'ɑː': 10, 'ɹ': 11, 'i5': 12 });
+const vocab = makeVocab({ '<pad>': 0, 'θ': 1, 's': 2, 'ɪ': 3, 'ŋ': 4, 'k': 5, 'i': 6, 'iː': 7, 'aɪ': 8, 'ɑːɹ': 9, 'ɑː': 10, 'ɹ': 11, 'i5': 12, 't': 13, 'ə': 14, 'uː': 15 });
 
 /** Frames where each listed token is near-certain in turn ('_' = blank). */
 function frames(seq: string[]): Frames {
@@ -72,5 +72,38 @@ describe('scoreBest', () => {
     const r = scoreBest(frames(['_', 'ɑː', '_']), vocab, ['/ɑːɹ/', '/ɑː/'])!;
     expect(r.ipa).toBe('/ɑː/');
     expect(r.score).toBe(100);
+  });
+});
+
+describe('scoreSentence', () => {
+  const words = [{ text: 'think', ipa: 'θɪŋk' }, { text: 'to', ipa: 'tuː' }, { text: 'sit', ipa: 'sɪt' }];
+  it('scores each word on its own sounds', () => {
+    const r = scoreSentence(frames(['_', 'θ', 'ɪ', 'ŋ', 'k', '_', 't', 'uː', '_', 's', 'ɪ', 't', '_']), vocab, words)!;
+    expect(r.words.map((w) => w.status)).toEqual(['good', 'good', 'good']);
+    expect(r.completeness).toBe(100);
+  });
+  it('lets a weak word reduce its vowel, but not a content word', () => {
+    const r = scoreSentence(frames(['_', 's', 'ɪ', 'ŋ', 'k', '_', 't', 'ə', '_', 's', 'ɪ', 't', '_']), vocab, words)!;
+    expect(r.words[0].phones[0]).toMatchObject({ status: 'wrong', heard: 's' });
+    expect(r.words[1].status).toBe('good');
+  });
+  it('marks a word left out as missing, and counts it against completeness', () => {
+    const r = scoreSentence(frames(['_', 'θ', 'ɪ', 'ŋ', 'k', '_', '_', '_', '_', '_', '_']), vocab, [words[0], words[2]])!;
+    expect(r.words[1].missing).toBe(true);
+    expect(r.completeness).toBe(50);
+  });
+});
+
+describe('a sound the decode heard as another', () => {
+  it('is wrong even when the alignment found a frame for it', () => {
+    // /θ/ only narrowly loses to /s/ — a soft score near 90 — but the
+    // decode, picking the best sound per frame, plainly says /s/.
+    const V = vocab.tokens.length;
+    const seq = ['_', 's', 'ɪ', 'ŋ', 'k', '_'];
+    const logp = new Float32Array(seq.length * V).fill(-12);
+    seq.forEach((tok, t) => { logp[t * V + (tok === '_' ? 0 : vocab.ids.get(tok)!)] = 12; });
+    logp[1 * V + vocab.ids.get('θ')!] = 11.8;
+    const r = scoreWord(logSoftmax({ logp, T: seq.length, V }), vocab, '/θɪŋk/')!;
+    expect(r.phones[0]).toMatchObject({ status: 'wrong', heard: 's' });
   });
 });

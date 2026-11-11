@@ -39,7 +39,13 @@ const supported = () =>
  * `maxMs` is a hard stop, so a forgotten tap can't record forever.
  * `onTranscript` gets the text of each recording (possibly empty).
  */
-export function useVoiceRecorder({ maxMs, onTranscript, keepAudio = false }: { maxMs: number; onTranscript: (text: string) => void; keepAudio?: boolean }) {
+export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = false }: {
+  maxMs: number;
+  onTranscript: (text: string) => void;
+  /** The finished recording, as soon as it stops — before the transcript. */
+  onAudio?: (blob: Blob) => void;
+  keepAudio?: boolean;
+}) {
   const [phase, setPhase] = useState<RecorderPhase>(() => (supported() ? 'idle' : 'unsupported'));
   /** The last recording, playable (only with `keepAudio`); revoked when replaced. */
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -62,7 +68,8 @@ export function useVoiceRecorder({ maxMs, onTranscript, keepAudio = false }: { m
   // Guards every setState after an await — callers unmount mid-transcription.
   const aliveRef = useRef(true);
   const onTranscriptRef = useRef(onTranscript);
-  useEffect(() => { onTranscriptRef.current = onTranscript; });
+  const onAudioRef = useRef(onAudio);
+  useEffect(() => { onTranscriptRef.current = onTranscript; onAudioRef.current = onAudio; });
 
   useEffect(() => {
     aliveRef.current = true;
@@ -190,6 +197,7 @@ export function useVoiceRecorder({ maxMs, onTranscript, keepAudio = false }: { m
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
         if (keepAudio && blob.size > 0 && aliveRef.current) setUrl(URL.createObjectURL(blob));
+        if (blob.size > 0 && aliveRef.current) onAudioRef.current?.(blob);
         if (blob.size > 0) void handleAudio(blob);
         else if (aliveRef.current) setPhase('idle');
       };

@@ -27,4 +27,10 @@ export default {
   'pron.coachHeard': '{ipa} came out like {heard}',
   'pron.coachMissing': '{ipa} was left out',
   'pron.practise': 'Practise {ipa}',
+  'pron.sentenceTitle': 'Pronunciation',
+  'pron.completeness': '{pct}% of the words said',
+  'pron.tapWord': 'tap a word to see its sounds',
+  'pron.wordScore': 'Pronunciation {score} — tap for its sounds',
+  'pron.wordMissing': 'Left out — tap for its sounds',
+  'pron.tooLong': 'Pronunciation is checked for answers up to {seconds} seconds.',
 } satisfies Catalog;

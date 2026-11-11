@@ -26,4 +26,10 @@ export default {
   'pron.coachHeard': '{ipa} bị đọc thành {heard}',
   'pron.coachMissing': '{ipa} bị bỏ mất',
   'pron.practise': 'Luyện {ipa}',
+  'pron.sentenceTitle': 'Phát âm',
+  'pron.completeness': 'Đã nói {pct}% số từ',
+  'pron.tapWord': 'chạm vào một từ để xem các âm',
+  'pron.wordScore': 'Phát âm {score} — chạm để xem các âm',
+  'pron.wordMissing': 'Bị bỏ sót — chạm để xem các âm',
+  'pron.tooLong': 'Chỉ kiểm tra phát âm cho câu trả lời dài tối đa {seconds} giây.',
 } satisfies Record<keyof typeof en, string>;

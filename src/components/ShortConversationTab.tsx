@@ -13,6 +13,8 @@ import { useSpeakingProgress, isPracticed, type QuestionProgress } from '../hook
 import { ReadAloud } from './ReadAloud';
 import { PracticeButton } from './PracticeButton';
 import { AnswerPanel, RecordButton, useAnswerRecorder } from './AnswerRecorder';
+import { SentenceScorePanel } from './pronunciation/SentenceScore';
+import { speakText, stopSpeaking } from '../lib/tts';
 import { Overview, TopicNav, TopicPickerButton, TopicSheet, Bar } from './TopicBrowser';
 
 // "Short Conversation" — a big bank of everyday questions, organised so a
@@ -186,7 +188,8 @@ function QuestionBody({ q, done, onNext }: { q: SpeakingQuestion; done: boolean;
   // The sample stays covered so you answer in your own words first; it opens
   // by itself once you've recorded an answer, ready to compare.
   const [showSample, setShowSample] = useState(false);
-  const rec = useAnswerRecorder(() => { markPracticed(q.id); setShowSample(true); });
+  // The sample on screen is the script, should the learner read it aloud.
+  const rec = useAnswerRecorder(() => { markPracticed(q.id); setShowSample(true); }, showSample ? answer.answer : undefined);
 
   return (
     <div className="border-t border-border animate-fade-in">
@@ -252,6 +255,13 @@ function QuestionBody({ q, done, onNext }: { q: SpeakingQuestion; done: boolean;
       )}
 
       <AnswerPanel rec={rec} />
+      {rec.pronunciation.status !== 'off' && rec.pronunciation.status !== 'idle' && rec.phase !== 'recording' && (
+        <SentenceScorePanel
+          state={rec.pronunciation}
+          onHearWord={(w) => { stopSpeaking(); void speakText(w); }}
+          className="px-3 sm:px-4 py-3 border-t border-border"
+        />
+      )}
 
       <div className="px-3 sm:px-4 py-3 border-t border-border bg-bg-tertiary/40 flex flex-wrap items-center gap-2">
         <RecordButton rec={rec} />

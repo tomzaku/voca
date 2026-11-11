@@ -5,7 +5,7 @@
 // machines (canScorePronunciation). The model runs in pronunciationWorker.ts;
 // the scoring math is phonemeScore.ts.
 
-import type { WordScore } from './phonemeScore';
+import type { SentenceScore, WordScore } from './phonemeScore';
 import type { WorkerInMsg, WorkerOutMsg } from './pronunciationWorker';
 
 export type PronunciationResult = WordScore & { ipa: string };
@@ -37,7 +37,8 @@ export function pronunciationModelCached(): boolean {
 let worker: Worker | null = null;
 let ready: Promise<void> | null = null;
 let nextId = 1;
-const pending = new Map<number, { resolve: (r: PronunciationResult | null) => void; reject: (e: Error) => void }>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pending = new Map<number, { resolve: (r: any) => void; reject: (e: Error) => void }>();
 const progressListeners = new Set<(p: number) => void>();
 
 async function pickDevice(): Promise<'webgpu' | 'wasm'> {
@@ -64,7 +65,7 @@ export function loadPronunciationModel(onProgress?: (p: number) => void): Promis
           resolve();
         }
         else if (msg.type === 'load-error') reject(new Error(msg.error));
-        else if (msg.type === 'scored') { pending.get(msg.id)?.resolve(msg.result); pending.delete(msg.id); }
+        else if (msg.type === 'scored' || msg.type === 'scoredText') { pending.get(msg.id)?.resolve(msg.result); pending.delete(msg.id); }
         else if (msg.type === 'score-error') { pending.get(msg.id)?.reject(new Error(msg.error)); pending.delete(msg.id); }
       };
       w.postMessage({ type: 'load', device } satisfies WorkerInMsg);
@@ -110,6 +111,35 @@ export async function scorePronunciation(blob: Blob, ipas: string[], onProgress?
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
     worker!.postMessage({ type: 'score', id, audio, ipas } satisfies WorkerInMsg, [audio.buffer]);
+  });
+}
+
+/**
+ * Longest recording a sentence is scored for. Aligning grows with length ×
+ * sounds; past this an answer would take seconds and a lot of memory, and a
+ * learner reading the result can't take in more anyway.
+ */
+export const MAX_SENTENCE_SECONDS = 45;
+
+/**
+ * Score a recording of a sentence — a line to shadow, or a free answer
+ * against its own transcript — word by word and sound by sound. 'too-long'
+ * past MAX_SENTENCE_SECONDS; null when nothing usable was heard.
+ */
+export async function scoreSentencePronunciation(
+  blob: Blob,
+  text: string,
+  onProgress?: (p: number) => void,
+): Promise<SentenceScore | 'too-long' | null> {
+  if (!text.trim()) return null;
+  await loadPronunciationModel(onProgress);
+  const audio = await toPcm(blob);
+  if (audio.length > (MAX_SENTENCE_SECONDS + 1) * 16000) return 'too-long';
+  if (audio.length < 6400 + 3200) return null;
+  const id = nextId++;
+  return new Promise((resolve, reject) => {
+    pending.set(id, { resolve, reject });
+    worker!.postMessage({ type: 'scoreText', id, audio, text } satisfies WorkerInMsg, [audio.buffer]);
   });
 }
 

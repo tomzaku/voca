@@ -91,6 +91,8 @@ const ALSO_OK: Record<string, string[]> = {
   'ɑ': ['ɑː', 'ɒ', 'a'],
   'ɒ': ['ɑː', 'ɑ', 'ɔ'],
   'ɔː': ['ɔ', 'ɒ', 'ɑː'],
+  // Most Americans merge "cot" and "caught": "on" as /ɑːn/ is standard.
+  'ɔ': ['ɔː', 'ɑ', 'ɑː', 'ɒ'],
   'ɜː': ['ɜ', 'ɚ'],
   'ɚ': ['ɜː', 'ə', 'ɜ'],
   'oʊ': ['əʊ', 'o'],
@@ -210,18 +212,14 @@ export function forcedAlign(f: Frames, target: number[], blank = 0): [number, nu
 }
 
 /**
- * Score a recording against one expected pronunciation.
+ * Score each expected phone on the frames the alignment gave it. `lenient`
+ * marks phones of weak words, which may reduce or drop — see scoreSentence.
  */
-export function scoreWord(f: Frames, vocab: Vocab, expectedIpa: string): WordScore | null {
-  const expected = tokenizeIpa(expectedIpa, vocab);
-  if (!expected.length) return null;
-  const heard = greedyDecode(f, vocab).join('');
-  const spans = forcedAlign(f, expected.map((p) => vocab.ids.get(p)!));
-  if (!spans) return null;
-
-  const phones = expected.map((ipa, i): PhoneScore => {
+function scorePhones(f: Frames, vocab: Vocab, expected: string[], spans: [number, number][], lenient?: boolean[]): PhoneScore[] {
+  const decoded = lineUp(expected, lenient, greedyDecode(f, vocab), vocab);
+  return expected.map((ipa, i): PhoneScore => {
     const [a, b] = spans[i];
-    const ids = acceptedIds(ipa, vocab);
+    const ids = acceptedIds(ipa, vocab, lenient?.[i]);
     let sum = 0;
     const rivals = new Map<number, number>();
     for (let t = a; t <= b; t++) {
@@ -239,18 +237,115 @@ export function scoreWord(f: Frames, vocab: Vocab, expectedIpa: string): WordSco
       if (rival > own) rivals.set(rivalId, (rivals.get(rivalId) ?? 0) + 1);
     }
     const gop = sum / (b - a + 1); // ≤ 0: how far below its best rival, on average
-    const score = Math.round(100 * Math.exp(gop / 2));
+    let score = Math.round(100 * Math.exp(gop / 2));
     const top = [...rivals].sort((x, y) => y[1] - x[1])[0];
+    let heard = score < GOOD && top ? (top[0] === BLANK ? '' : vocab.tokens[top[0]]) : null;
+    const d = decoded[i];
+    if (d.kind === 'swap') {
+      // The decode heard another sound here outright: that outranks a score
+      // the alignment propped up on some in-between frame.
+      score = Math.min(score, SWAPPED_SCORE);
+      heard = d.heard;
+    } else if (heard === '' && (d.kind === 'match' || lenient?.[i])) {
+      // Low only because silence crowded its frames, but either the decode
+      // heard it (a soft final /ɹ/), or it's in a weak word that drops sounds
+      // in normal speech ("and" as /ən/, "for" as /fɚ/) — not a mistake.
+      score = Math.max(score, GOOD);
+      heard = null;
+    }
+    return { ipa, score, status: score >= GOOD ? 'good' : score >= CLOSE ? 'close' : 'wrong', heard };
+  });
+}
+
+const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((n, x) => n + x, 0) / xs.length) : 0);
+
+/**
+ * Score a recording against one expected pronunciation.
+ */
+export function scoreWord(f: Frames, vocab: Vocab, expectedIpa: string): WordScore | null {
+  const expected = tokenizeIpa(expectedIpa, vocab);
+  if (!expected.length) return null;
+  const spans = forcedAlign(f, expected.map((p) => vocab.ids.get(p)!));
+  if (!spans) return null;
+  const phones = scorePhones(f, vocab, expected, spans);
+  return { score: mean(phones.map((p) => p.score)), phones, heard: greedyDecode(f, vocab).join('') };
+}
+
+export interface SentenceWord {
+  /** The word as written in the sentence. */
+  text: string;
+  /** 0..100; 0 for a word with no sounds we can score (a stray symbol). */
+  score: number;
+  status: PhoneStatus;
+  /** Left out altogether — most of its sounds weren't heard at all. */
+  missing: boolean;
+  phones: PhoneScore[];
+}
+
+export interface SentenceScore {
+  /** 0..100 — the mean of the scored words' scores. */
+  score: number;
+  /** 0..100 — the share of words that were said at all. */
+  completeness: number;
+  words: SentenceWord[];
+  heard: string;
+}
+
+/**
+ * Words that are nearly always said weakly in a sentence — "to" as /tə/,
+ * "and" as /ən/, "can" as /kən/. Their vowels may come out as any reduced
+ * vowel without counting as a mistake; eSpeak gives some weak forms itself,
+ * but not all, and a learner saying the strong form isn't wrong either.
+ */
+const WEAK = new Set([
+  'a', 'an', 'the', 'to', 'of', 'and', 'or', 'but', 'for', 'from', 'at', 'as', 'than', 'that',
+  'can', 'could', 'do', 'does', 'was', 'were', 'have', 'has', 'had', 'is', 'are', 'am', 'be', 'been',
+  'will', 'would', 'shall', 'should', 'must', 'some', 'there', 'them', 'his', 'her', 'him', 'you', 'your',
+  'we', 'us', 'our', 'he', 'she', 'me', 'my', 'by', 'into', 'on', 'in', 'with', 'just',
+]);
+
+/**
+ * Score a sentence: every word's expected IPA, aligned as one sequence over
+ * the whole recording, then grouped back into words. `words[i].ipa` is that
+ * word's transcription (one accent); a word with none is kept for display
+ * and scored 0.
+ */
+export function scoreSentence(f: Frames, vocab: Vocab, words: { text: string; ipa: string }[]): SentenceScore | null {
+  const expected: string[] = [];
+  const lenient: boolean[] = [];
+  const owner: number[] = [];
+  words.forEach((w, i) => {
+    const weak = WEAK.has(w.text.toLowerCase().replace(/[^a-z']/g, ''));
+    for (const p of tokenizeIpa(w.ipa, vocab)) {
+      expected.push(p);
+      lenient.push(weak);
+      owner.push(i);
+    }
+  });
+  if (!expected.length) return null;
+  const spans = forcedAlign(f, expected.map((p) => vocab.ids.get(p)!));
+  if (!spans) return null;
+  const phones = scorePhones(f, vocab, expected, spans, lenient);
+
+  const out: SentenceWord[] = words.map((w, i) => {
+    const mine = phones.filter((_, k) => owner[k] === i);
+    const score = mean(mine.map((p) => p.score));
+    const dropped = mine.filter((p) => p.heard === '').length;
     return {
-      ipa,
+      text: w.text,
       score,
       status: score >= GOOD ? 'good' : score >= CLOSE ? 'close' : 'wrong',
-      heard: score < GOOD && top ? (top[0] === BLANK ? '' : vocab.tokens[top[0]]) : null,
+      missing: mine.length > 0 && dropped / mine.length > 0.5,
+      phones: mine,
     };
   });
-
-  const score = Math.round(phones.reduce((n, p) => n + p.score, 0) / phones.length);
-  return { score, phones, heard };
+  const scored = out.filter((w) => w.phones.length);
+  return {
+    score: mean(scored.map((w) => w.score)),
+    completeness: Math.round((100 * scored.filter((w) => !w.missing).length) / Math.max(1, scored.length)),
+    words: out,
+    heard: greedyDecode(f, vocab).join(''),
+  };
 }
 
 /** Score against each accent's IPA and keep the best — an accent isn't an error. */
@@ -278,9 +373,73 @@ export function logSoftmax(f: Frames): Frames {
   return f;
 }
 
-/** Ids that count as saying `ipa`: itself, its accent variants, and combos containing it. */
-function acceptedIds(ipa: string, vocab: Vocab): number[] {
+/** A phone the free decode heard in place of an expected one scores at most this. */
+const SWAPPED_SCORE = 30;
+
+/** Combos split into their parts, so the decode lines up phone for phone with the expected. */
+const COMBO_PARTS: Record<string, string[]> = {
+  'ɑːɹ': ['ɑː', 'ɹ'], 'ɔːɹ': ['ɔː', 'ɹ'], 'oːɹ': ['oː', 'ɹ'], 'ɪɹ': ['ɪ', 'ɹ'], 'ɛɹ': ['ɛ', 'ɹ'], 'ʊɹ': ['ʊ', 'ɹ'],
+  'aɪɚ': ['aɪ', 'ɚ'], 'aɪə': ['aɪ', 'ə'], 'əl': ['ə', 'l'], 'iə': ['i', 'ə'], 'ɪə': ['ɪ', 'ə'],
+};
+
+/** What the free decode had at an expected phone's place. */
+type Decoded = { kind: 'match' } | { kind: 'swap'; heard: string } | { kind: 'gap' };
+
+// Edit costs: a substitution costs more than one gap but less than two, so a
+// real swap stays a swap while an extra sound next to a right one ("vænd"
+// for "fæn f…") isn't explained as a chain of swaps.
+const SWAP_COST = 3;
+const GAP_COST = 2;
+/** A vowel heard as a consonant (or back) is no near miss — dearer than two gaps. */
+const CROSS_SWAP_COST = 5;
+const isVowel = (p: string) => /^[aeiouyɪɛæʌʊəɐᵻɑɒɔɜɚ]/.test(p);
+const swapCost = (a: string, b: string) => (isVowel(a) === isVowel(b) ? SWAP_COST : CROSS_SWAP_COST);
+
+/**
+ * The free decode lined up against the expected phones.
+ *
+ * Forced alignment alone can be fooled over a long clip: it is free to put
+ * /l/ on a transition frame where /l/ only narrowly loses to the /ɹ/ that was
+ * really said, which still scores high — while the decode, with nothing to
+ * steer it, plainly says /ɹ/. So the two sequences are lined up by edit
+ * distance (a variant counts as a match): a swap there is evidence of a wrong
+ * sound, and a match is evidence it was said. A gap is neither — the decode
+ * merges a doubled sound across words ("some more").
+ */
+function lineUp(expected: string[], lenient: boolean[] | undefined, decoded: string[], vocab: Vocab): Decoded[] {
+  const dec = decoded.flatMap((d) => COMBO_PARTS[d] ?? [d]);
+  const n = expected.length, m = dec.length, W = m + 1;
+  const ok = expected.map((e, i) => new Set(acceptedIds(e, vocab, lenient?.[i]).map((id) => vocab.tokens[id])));
+  const cost = new Uint32Array((n + 1) * W);
+  for (let i = 0; i <= n; i++) cost[i * W] = i * GAP_COST;
+  for (let j = 0; j <= m; j++) cost[j] = j * GAP_COST;
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      const diag = cost[(i - 1) * W + j - 1] + (ok[i - 1].has(dec[j - 1]) ? 0 : swapCost(expected[i - 1], dec[j - 1]));
+      cost[i * W + j] = Math.min(diag, cost[(i - 1) * W + j] + GAP_COST, cost[i * W + j - 1] + GAP_COST);
+    }
+  }
+  const out: Decoded[] = expected.map(() => ({ kind: 'gap' }));
+  let i = n, j = m;
+  while (i > 0 && j > 0) {
+    const here = cost[i * W + j];
+    const match = ok[i - 1].has(dec[j - 1]);
+    if (here === cost[(i - 1) * W + j - 1] + (match ? 0 : swapCost(expected[i - 1], dec[j - 1]))) {
+      out[i - 1] = match ? { kind: 'match' } : { kind: 'swap', heard: dec[j - 1] };
+      i--; j--;
+    } else if (here === cost[(i - 1) * W + j] + GAP_COST) i--;
+    else j--;
+  }
+  return out;
+}
+
+/**
+ * Ids that count as saying `ipa`: itself, its accent variants, and combos
+ * containing it — plus, for a weak-form vowel, any reduced vowel.
+ */
+function acceptedIds(ipa: string, vocab: Vocab, weak = false): number[] {
   const ok = [ipa, ...(ALSO_OK[ipa] ?? []), ...COMBOS.filter((c) => c.startsWith(ipa) || c.endsWith(ipa))];
+  if (weak && isVowel(ipa)) ok.push('ə', 'ɐ', 'ᵻ', 'ɪ', 'ʊ', 'ʌ', 'ɚ', 'ɜː');
   return [...new Set(ok)].map((p) => vocab.ids.get(p)).filter((id): id is number => id !== undefined);
 }
 
