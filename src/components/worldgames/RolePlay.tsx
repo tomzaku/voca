@@ -166,7 +166,7 @@ function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; sc
               <div
                 key={i}
                 data-line={i}
-                className={`px-notch px-3 py-2 ${l.speaker === 'a' ? 'mr-10 bg-[#2a221c]' : 'ml-10 bg-[#1d2a2d]'}`}
+                className={`px-notch px-3 py-2 ${l.speaker === 'a' ? 'mr-6 sm:mr-10 bg-[#2a221c]' : 'ml-6 sm:ml-10 bg-[#1d2a2d]'}`}
                 style={{ boxShadow: `inset 0 0 0 2px var(--px-ink)${current ? ', inset 0 0 0 4px var(--px-gold)' : ''}` }}
               >
                 <button onClick={() => void player.playLine(i)} className="px-title !text-[11px] text-[var(--px-muted)] flex items-center gap-1.5 mb-0.5">
@@ -191,10 +191,10 @@ function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; sc
 
       <HudDock>
         {waiting && (
-          <div className="flex items-center gap-3">
-            <span className="px-title text-[var(--px-gold)] shrink-0"><FormattedMessage id="world.rpYourLine" /></span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="px-title text-[var(--px-gold)]"><FormattedMessage id="world.rpYourLine" /></span>
             {left !== null && script.turnSeconds && (
-              <PixelBar className="flex-1" pct={(left / script.turnSeconds) * 100} color={left <= 5 ? 'var(--px-bad)' : 'var(--px-sky)'} label={`${intl.formatMessage({ id: 'world.rpTime' })} · ${left}s`} />
+              <PixelBar className="flex-1 min-w-[160px]" pct={(left / script.turnSeconds) * 100} color={left <= 5 ? 'var(--px-bad)' : 'var(--px-sky)'} label={`${intl.formatMessage({ id: 'world.rpTime' })} · ${left}s`} />
             )}
           </div>
         )}
@@ -206,22 +206,24 @@ function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; sc
               <FormattedMessage id="conversation.beRole" values={{ role: script.names[side].toLowerCase() }} />
             </PixelChip>
           ))}
-          <span className="flex-1" />
+          <span className="flex-1 max-sm:hidden" />
+          {/* On a phone the buttons take a row of their own, shared evenly. */}
+          <span className="basis-full sm:hidden" />
           {waiting ? (
             <>
-              <PixelButton tone="paper" onClick={() => setRevealed((r) => new Set(r).add(player.index))}><FormattedMessage id="world.rpReveal" /></PixelButton>
-              <PixelButton tone="red" onClick={continueTurn}><FormattedMessage id="world.rpContinue" /> ↵</PixelButton>
+              <PixelButton tone="paper" className="max-sm:flex-1 max-sm:!px-3" onClick={() => setRevealed((r) => new Set(r).add(player.index))}><FormattedMessage id="world.rpReveal" /></PixelButton>
+              <PixelButton tone="red" className="max-sm:flex-1 max-sm:!px-3" onClick={continueTurn}><FormattedMessage id="world.rpContinue" /> <span className="max-sm:hidden">↵</span></PixelButton>
             </>
           ) : (
-            <PixelButton tone="sky" onClick={() => (player.running ? player.stop() : void player.playFrom(0))}>
+            <PixelButton tone="sky" className="max-sm:flex-1 max-sm:!px-3" onClick={() => (player.running ? player.stop() : void player.playFrom(0))}>
               <PixelIcon name={player.running ? 'close' : 'play'} size={2} />
               <FormattedMessage id={player.running ? 'listening.stop' : 'listening.play'} />
             </PixelButton>
           )}
-          <PixelButton tone="paper" onClick={() => { player.stop(); onRandom(); }}>
+          <PixelButton tone="paper" className="max-sm:flex-1 max-sm:!px-3" onClick={() => { player.stop(); onRandom(); }}>
             <PixelIcon name="retry" size={2} /> <FormattedMessage id="world.rpRandom" />
           </PixelButton>
-          <PixelButton tone="paper" onClick={() => { player.stop(); onScripts(); }}><FormattedMessage id="world.rpScripts" /></PixelButton>
+          <PixelButton tone="paper" className="max-sm:flex-1 max-sm:!px-3" onClick={() => { player.stop(); onScripts(); }}><FormattedMessage id="world.rpScripts" /></PixelButton>
         </div>
       </HudDock>
     </>

@@ -76,7 +76,7 @@ function ChromeRow({ chrome, inline = false }: { chrome: Chrome; inline?: boolea
         <PixelIcon name="back" size={2} /> <FormattedMessage id="world.activityBack" />
       </PixelButton>
       {chrome.modes.length > 1 && (
-        <div className={`px-inset px-notch p-1 flex gap-1 ${inline ? 'min-w-0 overflow-x-auto [scrollbar-width:none]' : ''}`} role="tablist" ref={tabs}>
+        <div className="px-inset px-notch p-1 flex gap-1 min-w-0 max-w-full overflow-x-auto [scrollbar-width:none]" role="tablist" ref={tabs}>
           {chrome.modes.map((m) => {
             const on = m.id === chrome.current;
             return (
@@ -86,9 +86,13 @@ function ChromeRow({ chrome, inline = false }: { chrome: Chrome; inline?: boolea
                 onClick={() => chrome.setMode(m.id)}
                 role="tab"
                 aria-selected={on}
+                aria-label={m.label}
+                title={m.label}
                 className={`!px-2.5 !py-1.5 !text-[13px] shrink-0 whitespace-nowrap ${on ? '' : 'opacity-75'}`}
               >
-                <PixelIcon name={m.icon} size={2} /> {m.label}
+                {/* On a phone the other tabs are just their icons, so every
+                    tab fits beside Back instead of scrolling out of the frame. */}
+                <PixelIcon name={m.icon} size={2} /> <span className={on ? '' : 'max-sm:hidden'}>{m.label}</span>
               </PixelButton>
             );
           })}

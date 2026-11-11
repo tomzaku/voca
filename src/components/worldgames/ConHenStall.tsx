@@ -124,14 +124,14 @@ export function ConHenStall() {
       {header}
 
       <section key={question.id} className="px-inset px-notch px-4 py-3">
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="px-title !text-[12px] text-[var(--px-accent)]"><FormattedMessage id="world.speakAsks" /></span>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mb-1">
+          <span className="px-title !text-[12px] text-[var(--px-accent)] whitespace-nowrap"><FormattedMessage id="world.speakAsks" /></span>
           <span className="px-title !text-[12px] text-[var(--px-muted)]">
             {question.topic} · {intl.formatMessage({ id: `conversation.level${question.difficulty[0].toUpperCase()}${question.difficulty.slice(1)}` })}
           </span>
         </div>
         <div className="flex items-start gap-3">
-          <p className="flex-1 text-[19px] leading-snug">{question.question}</p>
+          <p className="flex-1 min-w-0 text-[17px] sm:text-[19px] leading-snug">{question.question}</p>
           <button onClick={() => say(question.question)} className="text-[var(--px-sky)] shrink-0 mt-1" aria-label={question.question}>
             <PixelIcon name="speaker" size={3} />
           </button>
@@ -184,7 +184,7 @@ export function ConHenStall() {
 
       {samples && (
         <section className={divider}>
-          <div className="flex items-baseline justify-between gap-2 mb-2.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 mb-2.5">
             <p className="px-title text-[var(--px-accent)]"><FormattedMessage id="world.speakSamples" /></p>
             {phrases.length > 0 && <p className="text-[12px] text-[var(--px-muted)]"><FormattedMessage id="world.speakSamplesHint" /></p>}
           </div>
@@ -207,34 +207,36 @@ export function ConHenStall() {
       {/* Pinned to the dialog's foot so a long sample never scrolls the
           buttons away. Before an answer speaking is the move, after it moving
           on is — the big button changes job rather than both shouting. */}
-      <div className={`${divider} sticky -bottom-5 -mx-5 -mb-5 px-5 pb-5 bg-[var(--px-paper)] flex flex-wrap gap-2`}>
+      {/* Inset by the frame's 5px border — the frame is an inset shadow, so a
+          footer reaching the edge would paint over it. */}
+      <div className={`${divider} sticky -bottom-[15px] -mx-[15px] -mb-[15px] px-[15px] pb-[15px] bg-[var(--px-paper)] flex flex-wrap gap-2 [&>*]:max-sm:!px-3`}>
         {reply && !recording ? (
           <>
-            <PixelButton tone="gold" className="flex-1" onClick={next}>
-              <FormattedMessage id="world.speakNext" /> ↵
+            <PixelButton tone="gold" className="flex-1 max-sm:basis-full" onClick={next}>
+              <FormattedMessage id="world.speakNext" /> <span className="max-sm:hidden">↵</span>
             </PixelButton>
             {!noMic && (
-              <PixelButton tone="paper" onClick={toggleRecording} disabled={busy}>
-                <PixelIcon name="mic" size={2} /> <FormattedMessage id="world.speakAgain" /> <span className="opacity-70">␣</span>
+              <PixelButton tone="paper" className="max-sm:flex-1" onClick={toggleRecording} disabled={busy}>
+                <PixelIcon name="mic" size={2} /> <FormattedMessage id="world.speakAgain" /> <span className="opacity-70 max-sm:hidden">␣</span>
               </PixelButton>
             )}
           </>
         ) : noMic ? (
-          <PixelButton tone="red" className="flex-1" onClick={saidIt}>
+          <PixelButton tone="red" className="flex-1 max-sm:basis-full" onClick={saidIt}>
             <PixelIcon name="check" size={2} /> <FormattedMessage id="world.speakSaidIt" />
           </PixelButton>
         ) : (
-          <PixelButton tone={recording ? 'bad' : 'red'} className="flex-1" onClick={toggleRecording} disabled={busy}>
+          <PixelButton tone={recording ? 'bad' : 'red'} className="flex-1 max-sm:basis-full" onClick={toggleRecording} disabled={busy}>
             <PixelIcon name="mic" size={2} />
             <FormattedMessage id={recording ? 'world.speakStop' : 'world.speakAnswer'} />
-            <span className="opacity-70">␣</span>
+            <span className="opacity-70 max-sm:hidden">␣</span>
           </PixelButton>
         )}
-        <PixelButton tone={samples ? 'jade' : 'paper'} onClick={() => setSamples((v) => !v)} aria-pressed={samples}>
+        <PixelButton tone={samples ? 'jade' : 'paper'} className="max-sm:flex-1" onClick={() => setSamples((v) => !v)} aria-pressed={samples}>
           <FormattedMessage id={samples ? 'world.speakHideSamples' : 'world.speakSamples'} />
         </PixelButton>
         {!reply && (
-          <PixelButton tone="paper" onClick={next}><FormattedMessage id="world.speakSkip" /></PixelButton>
+          <PixelButton tone="paper" className="max-sm:flex-1" onClick={next}><FormattedMessage id="world.speakSkip" /></PixelButton>
         )}
       </div>
     </HudCenter>
