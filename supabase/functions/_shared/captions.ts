@@ -1,9 +1,9 @@
-// Turning a YouTube caption track into lines worth shadowing — no network, so
-// it's testable on its own. captions/index.ts does the fetching.
+// Turning captions into lines worth shadowing — no network, so it's testable on
+// its own. captions/index.ts does the fetching.
 //
-// YouTube serves a track in a few XML dialects depending on how it was asked
-// for (srv1 `<text start dur>` in seconds, srv3 `<p t d>` in milliseconds) or as
-// json3. All three come out as the same `CaptionLine[]`.
+// Segments from the transcript service go through fromSegments(). parseTrack()
+// reads YouTube's own track files (srv1 `<text start dur>` in seconds, srv3
+// `<p t d>` in milliseconds, json3), for a track file someone has in hand.
 
 export interface CaptionLine {
   /** Seconds from the start of the video. */
@@ -133,6 +133,11 @@ function parseJson3(json: string): CaptionLine[] {
 
 function attr(attrs: string, name: string): string | undefined {
   return attrs.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
+}
+
+/** Timed segments from anywhere (a transcript service), tidied like a track. */
+export function fromSegments(raw: CaptionLine[]): CaptionLine[] {
+  return tidy(raw);
 }
 
 /**

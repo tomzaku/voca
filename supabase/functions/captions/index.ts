@@ -1,30 +1,36 @@
 // Captions of a YouTube video, as timed lines to shadow — the Speak page's
-// "Video" practice plays a line of a song or a film scene, pauses, and you say
-// it back.
+// "Video Shadowing" plays a line of a song or a talk, pauses, and you say it
+// back.
 //
 //   GET /captions?video=<id or URL>&lang=en
 //     → 200 { video: { id, title }, track: CaptionTrack | null, tracks, lines }
 //
 // `lines` is `[]` with `track: null` when the video has no captions in `lang`;
-// `tracks` then says which languages it does have. The client falls back to
-// captions the learner pastes in (an .srt or .vtt), parsed on the device.
+// `tracks` then says which languages it does have. The client falls back to a
+// transcript the learner pastes in, parsed on the device.
 //
-// The browser can't read these itself — YouTube sends no CORS headers — so the
-// fetch happens here. YouTube's caption list comes from its player API (the
-// Android client's answer still carries plain caption URLs); the watch page is
-// the fallback. Either can start refusing a datacenter IP at any time: that's a
-// 502, and the paste box is the answer to it.
+// The captions come from Supadata (supadata.ai), a transcript service, rather
+// than from YouTube directly: YouTube refuses requests from cloud servers, and
+// getting around that would mean evading its bot checks. `mode=native` asks
+// only for captions the video already has — one credit each — never an
+// AI-generated transcript, which is billed per minute. The title comes from
+// YouTube's public oEmbed endpoint.
 //
-// Signed-in only — it's a proxy, and a signed-out one is an open one. Results
-// are kept in this instance's memory for a while; a video's captions don't
-// change, and a class all opening the same song shouldn't each cost a fetch.
+// Without SUPADATA_API_KEY the route answers 503 and the app goes straight to
+// the paste box.
 //
-// Deploy: `supabase functions deploy captions`
+// Signed-in only: every miss spends a credit. Results are kept in this
+// instance's memory for a while — a video's captions don't change, and a class
+// all opening the same song shouldn't each cost one.
+//
+// Env:
+//   SUPADATA_API_KEY   from https://dash.supadata.ai — `supabase secrets set`
+//
+// Deploy: `npm run deploy:captions`
 
 import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
-import { type CaptionLine, type CaptionTrack, parseTrack, pickTrack, videoIdOf } from '../_shared/captions.ts';
+import { type CaptionLine, type CaptionTrack, fromSegments, videoIdOf } from '../_shared/captions.ts';
 
-interface SourceTrack extends CaptionTrack { url: string }
 interface Payload {
   video: { id: string; title: string };
   track: CaptionTrack | null;
@@ -32,124 +38,97 @@ interface Payload {
   lines: CaptionLine[];
 }
 
-const ANDROID_VERSION = '20.10.38';
-const FETCH_TIMEOUT_MS = 8000;
+const SUPADATA = 'https://api.supadata.ai/v1';
+const FETCH_TIMEOUT_MS = 10_000;
+/** A long video is answered with a job to poll; this is how long to wait on it. */
+const JOB_POLLS = 6;
+const JOB_POLL_MS = 1500;
 const CACHE_MAX = 300;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const cache = new Map<string, { at: number; payload: Payload }>();
 
+/** The service failed in a way the learner can't fix — they paste instead. */
 class Upstream extends Error {}
 
-function timed(ms = FETCH_TIMEOUT_MS): AbortSignal {
-  return AbortSignal.timeout(ms);
-}
+type Segment = { text?: string; offset?: number; duration?: number; lang?: string };
+type Transcript = { content?: Segment[] | string; lang?: string; availableLangs?: string[] };
 
-type RawTrack = {
-  baseUrl?: string;
-  languageCode?: string;
-  kind?: string;
-  name?: { simpleText?: string; runs?: { text?: string }[] };
-};
-
-function tracksOf(player: unknown): { title: string; tracks: SourceTrack[]; status: string } {
-  const p = player as {
-    playabilityStatus?: { status?: string };
-    videoDetails?: { title?: string };
-    captions?: { playerCaptionsTracklistRenderer?: { captionTracks?: RawTrack[] } };
-  };
-  const raw = p.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
-  return {
-    status: p.playabilityStatus?.status ?? '',
-    title: p.videoDetails?.title ?? '',
-    tracks: raw
-      .filter((t) => t.baseUrl && t.languageCode)
-      .map((t) => ({
-        url: t.baseUrl!,
-        lang: t.languageCode!,
-        auto: t.kind === 'asr',
-        name: t.name?.simpleText ?? t.name?.runs?.map((r) => r.text ?? '').join('') ?? t.languageCode!,
-      })),
-  };
-}
-
-/** The player API, as the Android app asks it. */
-async function fromPlayerApi(id: string) {
-  const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-    method: 'POST',
-    signal: timed(),
-    headers: {
-      'content-type': 'application/json',
-      'user-agent': `com.google.android.youtube/${ANDROID_VERSION} (Linux; U; Android 14) gzip`,
-    },
-    body: JSON.stringify({
-      context: { client: { clientName: 'ANDROID', clientVersion: ANDROID_VERSION, androidSdkVersion: 34, hl: 'en', gl: 'US' } },
-      videoId: id,
-    }),
+async function supadata(path: string, key: string): Promise<Response> {
+  return await fetch(`${SUPADATA}${path}`, {
+    headers: { 'x-api-key': key },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Upstream(`player ${res.status}`);
-  return tracksOf(await res.json());
 }
 
-/** The watch page's embedded player response. */
-async function fromWatchPage(id: string) {
-  const res = await fetch(`https://www.youtube.com/watch?v=${id}&hl=en`, {
-    signal: timed(),
-    // Without it, a European egress gets the cookie-consent page instead.
-    headers: { 'accept-language': 'en-US,en;q=0.9', cookie: 'CONSENT=YES+1; SOCS=CAI' },
-  });
-  if (!res.ok) throw new Upstream(`watch ${res.status}`);
-  const html = await res.text();
-  const m = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;\s*(?:var\s|<\/script>)/s);
-  if (!m) throw new Upstream('no player response on the watch page');
-  return tracksOf(JSON.parse(m[1]));
+/** The transcript, or null when the video has none. */
+async function transcript(id: string, lang: string, key: string): Promise<Transcript | null> {
+  const q = new URLSearchParams({ url: `https://www.youtube.com/watch?v=${id}`, lang, text: 'false', mode: 'native' });
+  const res = await supadata(`/transcript?${q}`, key);
+  // 206 is the service's "transcript unavailable"; 404 an unknown video.
+  if (res.status === 206 || res.status === 404) return null;
+  if (res.status === 202) {
+    const { jobId } = await res.json() as { jobId?: string };
+    if (!jobId) throw new Upstream('202 without a job id');
+    return await awaitJob(jobId, key);
+  }
+  if (!res.ok) throw new Upstream(`transcript ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return await res.json() as Transcript;
 }
 
-async function fetchLines(track: SourceTrack): Promise<CaptionLine[]> {
-  // The listed URL may name a format (srv3, json3) or not (srv1); parseTrack
-  // reads all of them, so take whatever it gives.
-  const res = await fetch(track.url, { signal: timed() });
-  if (!res.ok) throw new Upstream(`timedtext ${res.status}`);
-  return parseTrack(await res.text());
+async function awaitJob(jobId: string, key: string): Promise<Transcript | null> {
+  for (let i = 0; i < JOB_POLLS; i++) {
+    await new Promise((r) => setTimeout(r, JOB_POLL_MS));
+    const res = await supadata(`/transcript/${encodeURIComponent(jobId)}`, key);
+    if (!res.ok) throw new Upstream(`job ${res.status}`);
+    const job = await res.json() as Transcript & { status?: string };
+    if (job.status === 'completed') return job;
+    if (job.status === 'failed') return null;
+  }
+  throw new Upstream('job still running');
 }
 
-async function load(id: string, lang: string): Promise<Payload> {
-  const key = `${id}:${lang}`;
-  const hit = cache.get(key);
+/** The video's title from YouTube's public oEmbed — '' if it won't say. */
+async function titleOf(id: string): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`,
+      { signal: AbortSignal.timeout(5000) },
+    );
+    if (!res.ok) return '';
+    return String((await res.json() as { title?: unknown }).title ?? '').slice(0, 200);
+  } catch {
+    return '';
+  }
+}
+
+async function load(id: string, lang: string, key: string): Promise<Payload> {
+  const cacheKey = `${id}:${lang}`;
+  const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.payload;
 
-  let found: Awaited<ReturnType<typeof fromPlayerApi>> | null = null;
-  try {
-    found = await fromPlayerApi(id);
-  } catch (err) {
-    console.warn('[captions] player API', id, err);
-  }
-  // A bot check or a refused client answers with no tracks rather than an error.
-  if (!found || !found.tracks.length) {
-    try {
-      const page = await fromWatchPage(id);
-      if (page.tracks.length || !found) found = page;
-    } catch (err) {
-      console.warn('[captions] watch page', id, err);
-      if (!found) throw new Upstream('YouTube could not be reached.');
-    }
-  }
-  if (!found.title && !found.tracks.length && found.status && found.status !== 'OK') {
-    throw new Upstream(`playability ${found.status}`);
-  }
+  const [t, title] = await Promise.all([transcript(id, lang, key), titleOf(id)]);
+  const tracks: CaptionTrack[] = (t?.availableLangs ?? []).map((l) => ({ lang: l, name: l, auto: false }));
+  // Asked for `lang`, the service answers with the first language it has when
+  // that one's missing — which isn't English to shadow.
+  const got = t?.lang ?? '';
+  const matches = got === lang || got.startsWith(`${lang}-`);
+  const lines = matches && Array.isArray(t?.content)
+    ? fromSegments(t.content
+      .filter((s) => typeof s.text === 'string' && typeof s.offset === 'number')
+      .map((s) => ({ start: s.offset! / 1000, end: (s.offset! + (s.duration ?? 0)) / 1000, text: s.text! })))
+    : [];
 
-  const chosen = pickTrack(found.tracks, lang);
-  const lines = chosen ? await fetchLines(chosen) : [];
-  const strip = ({ lang, name, auto }: SourceTrack): CaptionTrack => ({ lang, name, auto });
   const payload: Payload = {
-    video: { id, title: found.title },
-    track: chosen ? strip(chosen) : null,
-    tracks: found.tracks.map(strip),
+    video: { id, title },
+    // The service doesn't say whether a track is a person's or speech
+    // recognition's, so none is marked automatic.
+    track: lines.length ? { lang: got, name: got, auto: false } : null,
+    tracks,
     lines,
   };
-  // Only a real answer is kept: an empty one may be a refusal that passes.
   if (lines.length) {
     if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!);
-    cache.set(key, { at: Date.now(), payload });
+    cache.set(cacheKey, { at: Date.now(), payload });
   }
   return payload;
 }
@@ -171,12 +150,15 @@ export default async function handler(req: Request): Promise<Response> {
   const lang = (url.searchParams.get('lang') || 'en').toLowerCase();
   if (!/^[a-z]{2,3}$/.test(lang)) return jsonResponse(400, { error: '"lang" must be a language code like "en".' });
 
+  const key = Deno.env.get('SUPADATA_API_KEY');
+  if (!key) return jsonResponse(503, { error: 'Automatic captions aren’t set up yet. Paste the transcript instead.' });
+
   try {
-    return jsonResponse(200, await load(id, lang));
+    return jsonResponse(200, await load(id, lang, key));
   } catch (err) {
     console.error('[captions]', id, err);
-    if (err instanceof Upstream) {
-      return jsonResponse(502, { error: 'YouTube didn’t send the captions for this video. Paste the transcript instead.' });
+    if (err instanceof Upstream || (err instanceof DOMException && err.name === 'TimeoutError')) {
+      return jsonResponse(502, { error: 'Couldn’t get the captions for this video. Paste the transcript instead.' });
     }
     return jsonResponse(500, { error: 'Something went wrong.' });
   }
