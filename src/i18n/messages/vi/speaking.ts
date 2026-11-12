@@ -126,7 +126,7 @@ export default {
   'speaking.videoSay': 'Nói',
   'speaking.videoStop': 'Dừng',
   'speaking.videoHeard': 'Nghe được:',
-  'speaking.videoChange': 'Video khác',
+  'speaking.videoChange': 'Tất cả video',
   'speaking.videoKeys': 'Space: ghi âm · R: nghe lại · ← →: câu trước / sau',
   'speaking.videoTally': 'Đạt {passed} / {tried} câu',
   'speaking.videoNoMic': 'Không có micro — bạn vẫn có thể nghe và nói theo.',

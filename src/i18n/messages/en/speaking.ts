@@ -126,7 +126,7 @@ export default {
   'speaking.videoSay': 'Say it',
   'speaking.videoStop': 'Stop',
   'speaking.videoHeard': 'Heard:',
-  'speaking.videoChange': 'Another video',
+  'speaking.videoChange': 'All videos',
   'speaking.videoKeys': 'Space: record · R: replay · ← →: previous / next line',
   'speaking.videoTally': '{passed} / {tried} lines passed',
   'speaking.videoNoMic': 'No microphone here — you can still listen and repeat aloud.',

@@ -64,7 +64,8 @@ const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60))
 const btn = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary disabled:opacity-50 transition-all cursor-pointer';
 const primary = 'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-accent-orange text-bg-primary border-accent-orange hover:bg-accent-orange/90';
 
-export function VideoShadowTab() {
+/** `onTitle`: the open video's title for the page's breadcrumb, null on the list. */
+export function VideoShadowTab({ onTitle }: { onTitle?: (title: string | null) => void }) {
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
   const [input, setInput] = useState('');
@@ -76,22 +77,32 @@ export function VideoShadowTab() {
   const [recent, setRecent] = useState(readRecent);
   const abortRef = useRef<AbortController | null>(null);
 
-  const load = useCallback(async (raw: string) => {
+  // The URL says which video is open (`?v=`), so Back returns to the list
+  // and the breadcrumb's link closes it — opening one is a navigation.
+  const openId = searchParams.get('v');
+  const open = (raw: string) => {
     const id = youtubeId(raw);
     if (!id) { setProblem(intl.formatMessage({ id: 'speaking.videoBadLink' })); return; }
+    setInput(`https://youtu.be/${id}`);
+    setSearchParams({ tab: 'video', v: id });
+  };
+
+  const fetchFor = useCallback(async (id: string) => {
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
-    setSearchParams({ tab: 'video', v: id }, { replace: true });
+    // A sample's or a recent video's title is known before YouTube answers —
+    // and stays when it doesn't.
+    const sample = VIDEO_SAMPLES.find((v) => v.id === id);
+    const known = (sample ? `${sample.by} – ${sample.title}` : '') || readRecent().find((r) => r.id === id)?.title || '';
     setLoading(true);
     setProblem(null);
     setPasting(false);
-    setSource({ id, title: '', lines: [], track: null });
+    setSource({ id, title: known, lines: [], track: null });
     try {
       const res = await getCaptions(id, 'en', ac.signal);
       if (ac.signal.aborted) return;
-      const sample = VIDEO_SAMPLES.find((v) => v.id === id);
-      const title = res.video.title || (sample ? `${sample.by} – ${sample.title}` : '');
+      const title = res.video.title || known;
       setSource({ id, title, lines: res.lines, track: res.track });
       if (title) { remember({ id, title }); setRecent(readRecent()); }
       if (!res.lines.length) {
@@ -107,24 +118,20 @@ export function VideoShadowTab() {
     } finally {
       if (!ac.signal.aborted) setLoading(false);
     }
-  }, [intl, setSearchParams]);
+  }, [intl]);
 
-  // Opened from a link with ?v= — load it once.
+  // Follow the URL: a new ?v= loads that video, none goes back to the list.
+  const id = openId && youtubeId(openId);
   useEffect(() => {
-    const v = searchParams.get('v');
-    if (v) { setInput(`https://youtu.be/${v}`); void load(v); }
-    return () => abortRef.current?.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const close = () => {
+    if (id) { void fetchFor(id); return () => abortRef.current?.abort(); }
     abortRef.current?.abort();
+    // Resetting to the list is what a URL without ?v= means.
     setSource(null);
-    setProblem(null);
-    setPasting(false);
     setLoading(false);
-    setSearchParams({ tab: 'video' }, { replace: true });
-  };
+    setPasting(false);
+  }, [id, fetchFor]);
+
+  useEffect(() => { onTitle?.(source ? source.title || '…' : null); }, [source, onTitle]);
 
   const usePasted = (lines: CaptionLine[]) => {
     if (!source) return;
@@ -138,7 +145,7 @@ export function VideoShadowTab() {
       <div>
         <p className="text-xs text-text-muted mb-3"><FormattedMessage id="speaking.videoHint" /></p>
         <form
-          onSubmit={(e) => { e.preventDefault(); void load(input); }}
+          onSubmit={(e) => { e.preventDefault(); open(input); }}
           className="rounded-xl border-2 border-border bg-bg-card p-4 mb-4 flex flex-wrap gap-2"
         >
           <input
@@ -161,7 +168,7 @@ export function VideoShadowTab() {
               {recent.map((r) => (
                 <button
                   key={r.id}
-                  onClick={() => { setInput(`https://youtu.be/${r.id}`); void load(r.id); }}
+                  onClick={() => open(r.id)}
                   className="text-left rounded-xl border border-border bg-bg-card overflow-hidden hover:border-accent-orange/50 transition-colors cursor-pointer"
                 >
                   <img src={`https://i.ytimg.com/vi/${r.id}/mqdefault.jpg`} alt="" className="w-full aspect-video object-cover bg-bg-tertiary" loading="lazy" />
@@ -171,8 +178,8 @@ export function VideoShadowTab() {
             </div>
           </>
         )}
-        <SampleShelf kind="song" onPick={(id) => { setInput(`https://youtu.be/${id}`); void load(id); }} />
-        <SampleShelf kind="talk" onPick={(id) => { setInput(`https://youtu.be/${id}`); void load(id); }} />
+        <SampleShelf kind="song" onPick={open} />
+        <SampleShelf kind="talk" onPick={open} />
       </div>
     );
   }
@@ -186,7 +193,7 @@ export function VideoShadowTab() {
       pasting={pasting}
       onPaste={() => setPasting((p) => !p)}
       onUsePasted={usePasted}
-      onClose={close}
+      onClose={() => setSearchParams({ tab: 'video' })}
     />
   );
 }
@@ -315,7 +322,7 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <h2 className="flex-1 min-w-0 text-sm font-bold text-text-primary truncate">{source.title || '…'}</h2>
+        <span className="flex-1" />
         {tried > 0 && (
           <span className="text-xs tabular-nums text-text-muted">
             <FormattedMessage id="speaking.videoTally" values={{ passed, tried }} />

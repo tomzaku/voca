@@ -620,24 +620,38 @@ export function EnglishSpeakingPage() {
   const activeTab = useSpeakingTab();
   const activeMeta = tabs.find((t) => t.key === activeTab)!;
   const contentRef = useRef<HTMLDivElement>(null);
+  // An open video adds its title to the trail, and its tab's name becomes the
+  // way back to the list of videos.
+  const [videoTitle, setVideoTitle] = useState<string | null>(null);
+  const deeper = activeTab === 'video' && videoTitle !== null;
 
   return (
     <div className="max-w-page mx-auto px-4 py-8 relative" ref={contentRef}>
       <SelectionSpeaker containerRef={contentRef} />
 
-      <h1 className="flex items-center gap-1.5 mb-6 text-base">
+      <h1 className="flex items-center gap-1.5 mb-6 text-base min-w-0">
         <Link to="/speaking" className="font-medium text-text-muted hover:text-text-secondary transition-colors">
           <FormattedMessage id="speaking.speak" />
         </Link>
         <span className="text-text-muted/50">/</span>
-        <span className="font-bold text-text-primary"><FormattedMessage id={activeMeta.labelId} /></span>
+        {deeper ? (
+          <>
+            <Link to="/speaking?tab=video" className="font-medium text-text-muted hover:text-text-secondary transition-colors shrink-0">
+              <FormattedMessage id={activeMeta.labelId} />
+            </Link>
+            <span className="text-text-muted/50">/</span>
+            <span className="font-bold text-text-primary truncate min-w-0">{videoTitle}</span>
+          </>
+        ) : (
+          <span className="font-bold text-text-primary"><FormattedMessage id={activeMeta.labelId} /></span>
+        )}
       </h1>
 
       {activeTab === 'conversation' && <ShortConversationTab />}
       {activeTab === 'dialogue' && <DailyDialogueTab />}
       {activeTab === 'ielts' && <IeltsSpeakingTab />}
       {activeTab === 'read' && <ReadAloudTab />}
-      {activeTab === 'video' && <VideoShadowTab />}
+      {activeTab === 'video' && <VideoShadowTab onTitle={setVideoTitle} />}
     </div>
   );
 }
