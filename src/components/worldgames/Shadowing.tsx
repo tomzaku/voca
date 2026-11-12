@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { dialogues } from '../../data/englishDialogues';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
-import { useSentenceScore, type SentenceScoreState } from '../../hooks/useSentenceScore';
-import type { SentenceWord } from '../../lib/phonemeScore';
+import { useSentenceScore } from '../../hooks/useSentenceScore';
 import { gradeDictation, type DictationGrade } from '../../lib/listeningRules';
 import { shuffle } from '../../lib/learnRules';
 import { shadowLines } from '../../lib/speakingRules';
 import { speakText, stopSpeaking } from '../../lib/tts';
 import { playCorrect, playSelect, playWrong } from '../../lib/sfx';
 import { HudBanner, HudDock, HudTop, PixelButton, PixelIcon } from './pixel';
+import { PX_TONE, PxPronStatus, PxSounds, PxWordChip } from './PxPronunciation';
 
 // Shadowing at Đông Ba market: hear a line from the Speak page's dialogues and say
 // it straight back. Your recording is transcribed on-device (the flash card's
@@ -110,7 +110,7 @@ export function Shadowing() {
                     />
                   ))}
                 </div>
-                {pickedWord !== null && scored.words[pickedWord]?.phones.length > 0 && <PxSounds word={scored.words[pickedWord]} />}
+                {pickedWord !== null && scored.words[pickedWord]?.phones.length > 0 && <PxSounds phones={scored.words[pickedWord].phones} />}
               </>
             ) : (
               <>
@@ -159,61 +159,5 @@ export function Shadowing() {
         </div>
       </HudDock>
     </>
-  );
-}
-
-// Pixel-HUD versions of the pronunciation result (pronunciation/SentenceScore
-// is the app's): flat notched chips in the world's own palette.
-const PX_TONE = {
-  good: { text: 'text-[var(--px-good)]', fill: '#1f4a25', edge: 'var(--px-good)' },
-  close: { text: 'text-[var(--px-gold)]', fill: '#4a3a12', edge: 'var(--px-gold)' },
-  wrong: { text: 'text-[var(--px-bad)]', fill: '#4d1a16', edge: 'var(--px-bad)' },
-} as const;
-
-function PxWordChip({ word, active, onClick }: { word: SentenceWord; active: boolean; onClick: () => void }) {
-  const intl = useIntl();
-  const t = PX_TONE[word.status];
-  return (
-    <button
-      onClick={onClick}
-      title={word.phones.length ? intl.formatMessage({ id: word.missing ? 'pron.wordMissing' : 'pron.wordScore' }, { score: word.score }) : undefined}
-      className={`px-notch px-2 py-0.5 text-[15px] font-bold cursor-pointer hover:brightness-125 ${word.missing ? 'line-through' : ''} ${active ? 'brightness-150' : ''}`}
-      style={{ background: t.fill, boxShadow: `inset 0 0 0 2px var(--px-ink), inset 0 0 0 ${active ? 4 : 3}px ${t.edge}` }}
-    >
-      {word.text}
-    </button>
-  );
-}
-
-/** A tapped word's sounds, each with what was heard instead where it missed. */
-function PxSounds({ word }: { word: SentenceWord }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1 mt-2">
-      {word.phones.map((p, i) => {
-        const t = PX_TONE[p.status];
-        return (
-          <span
-            key={i}
-            className={`px-notch px-1.5 py-0.5 font-code text-[15px] ${t.text}`}
-            style={{ background: t.fill, boxShadow: `inset 0 0 0 2px var(--px-ink), inset 0 0 0 3px ${t.edge}` }}
-          >
-            {p.ipa}{p.heard !== null && <span className="text-[11px] opacity-80">→{p.heard || '∅'}</span>}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-/** While the sounds are being scored (or why they won't be). */
-function PxPronStatus({ state }: { state: SentenceScoreState }) {
-  const intl = useIntl();
-  if (state.status !== 'working') return null;
-  return (
-    <p className="text-[12px] text-[var(--px-muted)] mt-1.5">
-      {state.progress !== null && state.progress < 100
-        ? intl.formatMessage({ id: 'pron.downloading' }, { pct: Math.round(state.progress) })
-        : intl.formatMessage({ id: 'pron.checking' })}
-    </p>
   );
 }
