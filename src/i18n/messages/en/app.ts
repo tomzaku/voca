@@ -12,6 +12,7 @@ export default {
   'app.navDialogue': 'Dialogue',
   'app.navIeltsSpeaking': 'IELTS Speaking',
   'app.navReadAloud': 'Read Aloud',
+  'app.navVideoShadow': 'Video Shadowing',
   'app.navIpaSounds': 'IPA Sounds',
   'app.navListen': 'Listen',
   'app.navPodcast': 'Podcast',

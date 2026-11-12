@@ -6,13 +6,14 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ShortConversationTab } from './ShortConversationTab';
 import { DailyDialogueTab } from './DailyDialogueTab';
 import { IeltsSpeakingTab } from './IeltsSpeakingTab';
+import { VideoShadowTab } from './VideoShadowTab';
 import { Selector } from './Selector';
 import { speakText, stopSpeaking, preloadTts } from '../lib/tts';
 import { useTtsSettings, KOKORO_VOICES, PIPER_VOICES } from '../hooks/useTtsSettings';
 import { useScriptPlayer, type ScriptLine } from '../hooks/useScriptPlayer';
 import { splitSentences } from '../lib/listeningRules';
 
-type Tab = 'conversation' | 'dialogue' | 'ielts' | 'read';
+type Tab = 'conversation' | 'dialogue' | 'ielts' | 'read' | 'video';
 
 function hasSelection() {
   const sel = window.getSelection();
@@ -594,6 +595,7 @@ const tabs: { key: Tab; labelId: string }[] = [
   { key: 'dialogue', labelId: 'speaking.tabDailyDialogue' },
   { key: 'ielts', labelId: 'speaking.tabIelts' },
   { key: 'read', labelId: 'speaking.readAloud' },
+  { key: 'video', labelId: 'speaking.tabVideo' },
 ];
 
 // Which sub-page this is — picked from the Vocabulary-style group in the Rail
@@ -635,6 +637,7 @@ export function EnglishSpeakingPage() {
       {activeTab === 'dialogue' && <DailyDialogueTab />}
       {activeTab === 'ielts' && <IeltsSpeakingTab />}
       {activeTab === 'read' && <ReadAloudTab />}
+      {activeTab === 'video' && <VideoShadowTab />}
     </div>
   );
 }

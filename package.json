@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.240",
+  "version": "0.1.241",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -24,6 +24,7 @@
     "deploy:functions:fast": "supabase functions deploy --use-api --jobs 4",
     "deploy:supabase": "npm run db:push && npm run deploy:functions",
     "deploy:progress": "supabase functions deploy progress",
+    "deploy:captions": "supabase functions deploy captions",
     "deploy:grammar": "supabase functions deploy grammar",
     "deploy:messages": "supabase functions deploy messages",
     "deploy:teams": "supabase functions deploy teams",

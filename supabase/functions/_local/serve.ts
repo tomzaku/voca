@@ -22,6 +22,7 @@ import aiTranslateWord from '../ai-translate-word/index.ts';
 import aiTutorReply from '../ai-tutor-reply/index.ts';
 import aiTutorStart from '../ai-tutor-start/index.ts';
 import aiWordDialogues from '../ai-word-dialogues/index.ts';
+import captions from '../captions/index.ts';
 import chat from '../chat/index.ts';
 import collections from '../collections/index.ts';
 import doodles from '../doodles/index.ts';
@@ -63,6 +64,7 @@ const RESOURCES: Record<string, Handler> = {
   'ai-tutor-reply': aiTutorReply,
   'ai-tutor-start': aiTutorStart,
   'ai-word-dialogues': aiWordDialogues,
+  captions,
   chat,
   collections,
   doodles,

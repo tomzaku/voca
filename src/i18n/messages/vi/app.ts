@@ -12,6 +12,7 @@ export default {
   'app.navDialogue': 'Đoạn hội thoại',
   'app.navIeltsSpeaking': 'IELTS Speaking',
   'app.navReadAloud': 'Đọc to',
+  'app.navVideoShadow': 'Nói theo video',
   'app.navIpaSounds': 'Âm IPA',
   'app.navListen': 'Nghe',
   'app.navPodcast': 'Podcast',
