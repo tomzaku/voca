@@ -11,7 +11,8 @@ export const DICTATION_PASS = 90;
 /** Words without punctuation or case — "Well done!" typed as "well done"
  *  still matches; this is a dictation drill, not a punctuation test. */
 export function normalizeWords(s: string): string[] {
-  return s.toLowerCase().replace(/[.,!?;:"'()]/g, '').trim().split(/\s+/).filter(Boolean);
+  // Curly quotes too: captions write "it’s", recognisers "it's".
+  return s.toLowerCase().replace(/[.,!?;:"'()‘’“”]/g, '').trim().split(/\s+/).filter(Boolean);
 }
 
 /** Spellings that are the same spoken word. */

@@ -4,7 +4,7 @@
  */
 
 interface TranscriberPipeline {
-  (audio: Float32Array): Promise<{ text: string }>;
+  (audio: Float32Array, opts?: { chunk_length_s: number; stride_length_s: number }): Promise<{ text: string }>;
 }
 
 let transcriberPromise: Promise<TranscriberPipeline> | null = null;
@@ -30,8 +30,8 @@ export async function getTranscriber(
           },
         },
       );
-      return (audio: Float32Array) =>
-        transcriber(audio) as Promise<{ text: string }>;
+      return (audio: Float32Array, opts?: { chunk_length_s: number; stride_length_s: number }) =>
+        transcriber(audio, opts) as Promise<{ text: string }>;
     })();
   }
   return transcriberPromise;
@@ -52,6 +52,9 @@ export async function transcribeBlob(
 ): Promise<string> {
   const transcriber = await getTranscriber(onProgress);
   const audio = await decodeAudioBlob(blob);
-  const result = await transcriber(audio);
+  // Whisper hears 30 seconds at a time; past that, without chunking, the rest
+  // is silently dropped — fine for a sentence, not for a song sung along.
+  const long = audio.length > 30 * 16000;
+  const result = await transcriber(audio, long ? { chunk_length_s: 30, stride_length_s: 5 } : undefined);
   return result.text.trim();
 }
