@@ -16,6 +16,13 @@ import { stopSpeaking } from '../lib/tts';
 // speaking page's answers record through this; each decides what a transcript
 // means. `keepAudio` also hands back the recording itself (`audioUrl`), for
 // hearing yourself.
+//
+// `stopOnSilence` ends a recording by itself once you've finished — for
+// hands-free turns, where there's no stop button to press (video karaoke).
+// It listens to the mic's loudness: the first moments set the room's own
+// noise, anything well above it is a voice, and once a voice has been heard a
+// long enough quiet stretch stops the recording. If no voice comes at all it
+// gives up, and the transcript is empty. `level` is that loudness, 0–1.
 
 export type RecorderPhase =
   | 'idle'
@@ -35,16 +42,34 @@ const supported = () =>
   // MediaRecorder is absent on some older mobile browsers even when it isn't.
   typeof MediaRecorder !== 'undefined' && typeof navigator?.mediaDevices !== 'undefined';
 
+export interface SilenceStop {
+  /** Quiet for this long after a voice has been heard ends the recording. */
+  quietMs: number;
+  /** No voice at all for this long, and it gives up. */
+  noVoiceMs: number;
+}
+
+/** How long the start of a recording is taken as the room's own noise. */
+const CALIBRATE_MS = 300;
+/** A voice is at least this loud (RMS), however quiet the room… */
+const MIN_VOICE_RMS = 0.02;
+/** …and this many times louder than the room. */
+const VOICE_OVER_ROOM = 2.5;
+/** Someone who starts singing at once mustn't be taken for the room. */
+const MAX_ROOM_RMS = 0.03;
+
 /**
- * `maxMs` is a hard stop, so a forgotten tap can't record forever.
+ * `maxMs` is a hard stop, so a forgotten tap can't record forever; a
+ * recording can ask for its own with `start({ maxMs })`.
  * `onTranscript` gets the text of each recording (possibly empty).
  */
-export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = false }: {
+export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = false, stopOnSilence }: {
   maxMs: number;
   onTranscript: (text: string) => void;
   /** The finished recording, as soon as it stops — before the transcript. */
   onAudio?: (blob: Blob) => void;
   keepAudio?: boolean;
+  stopOnSilence?: SilenceStop;
 }) {
   const [phase, setPhase] = useState<RecorderPhase>(() => (supported() ? 'idle' : 'unsupported'));
   /** The last recording, playable (only with `keepAudio`); revoked when replaced. */
@@ -56,6 +81,19 @@ export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = fal
     setAudioUrl(url);
   }, []);
   const [modelProgress, setModelProgress] = useState(0);
+  /** The mic's loudness while recording, 0–1 (only with `stopOnSilence`). */
+  const [level, setLevel] = useState(0);
+  const meterRef = useRef<{ ctx: AudioContext; timer: number } | null>(null);
+  const silenceRef = useRef(stopOnSilence);
+  useEffect(() => { silenceRef.current = stopOnSilence; });
+  const stopMeter = useCallback(() => {
+    const m = meterRef.current;
+    meterRef.current = null;
+    if (!m) return;
+    clearInterval(m.timer);
+    void m.ctx.close();
+    if (aliveRef.current) setLevel(0);
+  }, []);
   /** What the live recogniser has heard so far ('' without one). */
   const [live, setLive] = useState('');
 
@@ -76,12 +114,13 @@ export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = fal
     return () => {
       aliveRef.current = false;
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+      stopMeter();
       recorderRef.current?.stream.getTracks().forEach((t) => t.stop());
       const l = liveRef.current;
       if (l) { l.recording = false; l.rec?.abort(); }
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     };
-  }, []);
+  }, [stopMeter]);
 
   const handleAudio = useCallback(async (blob: Blob) => {
     setPhase('thinking');
@@ -115,10 +154,52 @@ export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = fal
   const stop = useCallback(() => {
     if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
     stopTimerRef.current = null;
+    stopMeter();
     const l = liveRef.current;
     if (l?.recording) { l.recording = false; try { l.rec?.stop(); } catch { /* already stopped */ } }
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
-  }, []);
+  }, [stopMeter]);
+
+  /** Watch the mic's loudness and stop when the voice has ended — see the header. */
+  const watchSilence = useCallback((stream: MediaStream, opts: SilenceStop) => {
+    try {
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      // Started outside a tap (a karaoke turn opens by itself), a browser may
+      // hand back a suspended context — silent, so it would hear no voice.
+      if (ctx.state !== 'running') void ctx.resume().catch(() => {});
+      const buf = new Float32Array(analyser.fftSize);
+      const t0 = performance.now();
+      let room = 0;
+      let voiced = false;
+      let quietSince = 0;
+      let shown = 0;
+      const timer = window.setInterval(() => {
+        // Still suspended: it hears nothing, so it decides nothing — the
+        // recording's hard stop ends it instead.
+        if (ctx.state !== 'running') return;
+        analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (const v of buf) sum += v * v;
+        const rms = Math.sqrt(sum / buf.length);
+        const now = performance.now();
+        const lvl = Math.min(1, rms * 6);
+        // Only a visible change re-renders.
+        if (Math.abs(lvl - shown) > 0.04) { shown = lvl; setLevel(lvl); }
+        if (now - t0 < CALIBRATE_MS) { room = Math.min(MAX_ROOM_RMS, Math.max(room, rms)); return; }
+        if (rms > Math.max(MIN_VOICE_RMS, room * VOICE_OVER_ROOM)) {
+          voiced = true;
+          quietSince = 0;
+        } else if (voiced) {
+          quietSince ||= now;
+          if (now - quietSince >= opts.quietMs) stop();
+        } else if (now - t0 >= opts.noVoiceMs) stop();
+      }, 50);
+      meterRef.current = { ctx, timer };
+    } catch { /* no meter — the hard stop still ends it */ }
+  }, [stop]);
 
   /** Start the browser's recogniser alongside the recording, if it has one.
    *  A recogniser session doesn't last a whole answer: Chrome ends one after
@@ -175,7 +256,7 @@ export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = fal
     if (listen()) liveRef.current = l;
   }, []);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (opts?: { maxMs?: number }) => {
     // Don't record our own read-aloud.
     stopSpeaking();
     setPhase('requesting');
@@ -194,6 +275,7 @@ export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = fal
       recorder.onstop = () => {
         // Release the mic immediately — a live indicator lingering after the
         // recording is over is alarming, and rightly so.
+        stopMeter();
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
         if (keepAudio && blob.size > 0 && aliveRef.current) setUrl(URL.createObjectURL(blob));
@@ -206,13 +288,14 @@ export function useVoiceRecorder({ maxMs, onTranscript, onAudio, keepAudio = fal
       if (keepAudio) setUrl(null);
       startLive();
       setPhase('recording');
-      stopTimerRef.current = setTimeout(stop, maxMs);
+      stopTimerRef.current = setTimeout(stop, opts?.maxMs ?? maxMs);
+      if (silenceRef.current) watchSilence(stream, silenceRef.current);
     } catch (err) {
       if (!aliveRef.current) return;
       console.warn('[voca] microphone unavailable:', err);
       setPhase('denied');
     }
-  }, [handleAudio, stop, maxMs, startLive, keepAudio, setUrl]);
+  }, [handleAudio, stop, maxMs, startLive, keepAudio, setUrl, stopMeter, watchSilence]);
 
-  return { phase, modelProgress, live, audioUrl, start, stop };
+  return { phase, modelProgress, live, level, audioUrl, start, stop };
 }

@@ -6,6 +6,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Selector } from './Selector';
 import { ToggleSwitch } from './ToggleSwitch';
 import { PlayButton } from './pronunciation/parts';
+import { KaraokeResult, KaraokeStage, type KaraokeStep } from './KaraokePanel';
 import { SentenceScorePanel } from './pronunciation/SentenceScore';
 import { useYouTubePlayer } from '../hooks/useYouTubePlayer';
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
@@ -17,6 +18,7 @@ import { gradeDictation, type DictationGrade } from '../lib/listeningRules';
 import { speakText, stopSpeaking } from '../lib/tts';
 import { type SampleLevel, type VideoSample, VIDEO_SAMPLES } from '../data/videoSamples';
 import { playCorrect, playWrong } from '../lib/sfx';
+import { KARAOKE_HIT, karaokeQueue, type KaraokeSummary, type KaraokeTake, summarize, turnLimitMs } from '../lib/karaoke';
 
 // Video shadowing: paste a YouTube link — a song, a film scene, a talk — and
 // practise it a caption line at a time. A line plays and the video pauses at
@@ -29,6 +31,12 @@ import { playCorrect, playWrong } from '../lib/sfx';
 // pastes subtitles (.srt / .vtt) instead and they're parsed here.
 //
 // `?v=<id>` is the video, so a link to this page opens it again.
+//
+// Karaoke runs the whole song that way, hands-free: a line plays, the video
+// pauses, the mic opens by itself and closes when you stop singing, and the
+// next line plays — with a score at the end (lib/karaoke). Singing back with
+// the music stopped, rather than over it, is what keeps the mic hearing only
+// you.
 
 interface Source {
   id: string;
@@ -42,6 +50,39 @@ const RECENT_MAX = 6;
 const SPEEDS = [0.5, 0.75, 1];
 /** A long film line said slowly. */
 const MAX_LINE_MS = 20_000;
+
+/** A karaoke turn ends this long after the singing stops… */
+const KARAOKE_SILENCE = { quietMs: 1400, noVoiceMs: 6000 };
+/** …and the next line plays after a beat to see the score. */
+const KARAOKE_BEAT_MS = 700;
+
+const BEST_KEY = 'voca.karaoke.best';
+function readBest(id: string): number | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}')?.[id];
+    return typeof v === 'number' ? v : null;
+  } catch {
+    return null;
+  }
+}
+function saveBest(id: string, score: number) {
+  try {
+    const all = JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}') ?? {};
+    localStorage.setItem(BEST_KEY, JSON.stringify({ ...all, [id]: score }));
+  } catch { /* private mode */ }
+}
+
+/** A karaoke run: the lines to sing, where it's got to, and every take. */
+interface Run {
+  queue: number[];
+  pos: number;
+  step: Exclude<KaraokeStep, 'check'>;
+  takes: KaraokeTake[];
+  /** Turns in a row with nothing heard — two pauses the run. */
+  misses: number;
+  last: { grade: DictationGrade } | null;
+  result: { summary: KaraokeSummary; best: number | null; newBest: boolean } | null;
+}
 
 type Recent = { id: string; title: string };
 function readRecent(): Recent[] {
@@ -222,12 +263,28 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
   // read the current values through these.
   const live = useRef({ at, line, pauseEach, lines, recording: false });
 
+  // The run lives in a ref as well: the player's and recorder's callbacks
+  // move it on, and must see where it is now, not where it was last render.
+  const runRef = useRef<Run | null>(null);
+  const [run, setRunState] = useState<Run | null>(null);
+  const setRun = useCallback((r: Run | null) => { runRef.current = r; setRunState(r); }, []);
+  const singing = !!run && !run.result;
+  /** Bumped by anything that ends or restarts a run, so a pending beat knows it's stale. */
+  const runToken = useRef(0);
+
   const pron = useSentenceScore();
   const recorder = useVoiceRecorder({
     maxMs: MAX_LINE_MS,
     keepAudio: true,
-    onAudio: (blob) => { const l = live.current.line; if (l) void pron.score(blob, l.text); },
+    stopOnSilence: singing ? KARAOKE_SILENCE : undefined,
+    onAudio: (blob) => {
+      // Sung, not said: the sound-by-sound score is for speech.
+      if (runRef.current) return;
+      const l = live.current.line;
+      if (l) void pron.score(blob, l.text);
+    },
     onTranscript: (text) => {
+      if (runRef.current) { onTake(text); return; }
       const { line: l, at: i } = live.current;
       if (!l || !text.trim()) { setHeard(''); setGrade(null); return; }
       const g = gradeDictation(l.text, text);
@@ -250,6 +307,7 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
   }, [clearTry]);
 
   const player = useYouTubePlayer(source.id, {
+    onSegmentEnd: () => onLineEnd(),
     onTick: (t) => {
       if (live.current.recording) return;
       const i = lineAt(live.current.lines, t);
@@ -278,6 +336,99 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
     player.playSegment(l.start, stop ? l.end : null);
   }, [moveTo, player, recorder]);
 
+  // ── Karaoke ──────────────────────────────────────────────────────────
+  const finishRun = useCallback(() => {
+    runToken.current++;
+    const r = runRef.current;
+    if (!r) return;
+    if (recorder.phase === 'recording') recorder.stop();
+    player.pause();
+    if (!r.takes.length) { setRun(null); return; }
+    const summary = summarize(r.takes);
+    const best = readBest(source.id);
+    // A best is a whole-song run's; singing the hard lines again isn't one.
+    const whole = r.queue.length === karaokeQueue(live.current.lines).length;
+    const newBest = whole && (best === null || summary.score > best);
+    if (newBest) saveBest(source.id, summary.score);
+    setRun({ ...r, result: { summary, best, newBest } });
+  }, [player, recorder, setRun, source.id]);
+
+  /** Play the line at `pos` in the run; when it ends, the turn to sing starts. */
+  const playTurn = useCallback((pos: number) => {
+    const r = runRef.current;
+    if (!r) return;
+    if (pos >= r.queue.length) { finishRun(); return; }
+    const l = live.current.lines[r.queue[pos]];
+    setRun({ ...r, pos, step: 'listen' });
+    moveTo(r.queue[pos]);
+    player.playSegment(l.start, l.end);
+  }, [finishRun, moveTo, player, setRun]);
+
+  const startRun = useCallback((queue: number[]) => {
+    if (!queue.length) return;
+    runToken.current++;
+    if (recorder.phase === 'recording') recorder.stop();
+    clearTry();
+    setRun({ queue, pos: 0, step: 'listen', takes: [], misses: 0, last: null, result: null });
+    playTurn(0);
+  }, [clearTry, playTurn, recorder, setRun]);
+
+  const nextTurn = useCallback((delay = 0) => {
+    const token = runToken.current;
+    const go = () => {
+      const r = runRef.current;
+      if (r && !r.result && token === runToken.current) playTurn(r.pos + 1);
+    };
+    if (delay) setTimeout(go, delay); else go();
+  }, [playTurn]);
+
+  // The line has played: the singer's turn.
+  const onLineEnd = () => {
+    const r = runRef.current;
+    if (!r || r.result || r.step !== 'listen') return;
+    setRun({ ...r, step: 'sing' });
+    void recorder.start({ maxMs: turnLimitMs(live.current.lines[r.queue[r.pos]], rate) });
+  };
+
+  // A turn's transcript: score it, and on to the next line.
+  function onTake(text: string) {
+    const r = runRef.current;
+    if (!r || r.result || r.step !== 'sing') return;
+    const index = r.queue[r.pos];
+    const grade = gradeDictation(live.current.lines[index].text, text);
+    const accuracy = text.trim() ? grade.accuracy : 0;
+    (accuracy >= KARAOKE_HIT ? playCorrect : playWrong)();
+    setBest((b) => ({ ...b, [index]: Math.max(b[index] ?? 0, accuracy) }));
+    const misses = text.trim() ? 0 : r.misses + 1;
+    const next: Run = { ...r, takes: [...r.takes, { index, accuracy }], misses, last: { grade: { ...grade, accuracy } } };
+    // Two silent turns in a row: the mic's off, or nobody's there.
+    if (misses >= 2) { setRun({ ...next, step: 'paused' }); return; }
+    setRun({ ...next, step: 'listen' });
+    nextTurn(KARAOKE_BEAT_MS);
+  }
+
+  const skipTurn = useCallback(() => {
+    const r = runRef.current;
+    if (!r || r.result) return;
+    // Mid-song, cut the turn short: what was sung so far is scored.
+    if (r.step === 'sing') { recorder.stop(); return; }
+    runToken.current++;
+    player.pause();
+    nextTurn();
+  }, [nextTurn, player, recorder]);
+
+  const resumeRun = useCallback(() => {
+    const r = runRef.current;
+    if (!r) return;
+    runRef.current = { ...r, misses: 0 };
+    nextTurn();
+  }, [nextTurn]);
+
+  // A mic refused mid-run can't sing the rest.
+  useEffect(() => {
+    if (noMic && runRef.current && !runRef.current.result) finishRun();
+  }, [noMic, finishRun]);
+
   const toggleRecord = useCallback(() => {
     if (recording) { recorder.stop(); return; }
     if (busy || noMic) return;
@@ -294,6 +445,12 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
       const el = e.target as HTMLElement | null;
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       if (e.metaKey || e.ctrlKey || e.altKey || !lines.length) return;
+      if (runRef.current) {
+        if (runRef.current.result) return;
+        if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); skipTurn(); }
+        else if (e.key === 'Escape') { e.preventDefault(); finishRun(); }
+        return;
+      }
       if (e.key === ' ') { e.preventDefault(); toggleRecord(); }
       else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); playLine(at, true); }
       else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); playLine(Math.min(at + 1, lines.length - 1)); }
@@ -301,7 +458,7 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [at, lines.length, playLine, toggleRecord]);
+  }, [at, lines.length, playLine, toggleRecord, skipTurn, finishRun]);
 
   // Keep the current line in view in the list — scrolling the list only, not the page.
   const listRef = useRef<HTMLDivElement>(null);
@@ -322,6 +479,16 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 mb-3">
+        {lines.length > 0 && !noMic && !run && (
+          <button
+            onClick={() => startRun(karaokeQueue(lines))}
+            disabled={player.status !== 'ready'}
+            title={intl.formatMessage({ id: 'speaking.karaokeHint' })}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-bold bg-accent-orange text-bg-primary cursor-pointer hover:bg-accent-orange/90 disabled:opacity-50 disabled:cursor-wait"
+          >
+            <Icon icon="lucide:mic-vocal" /><FormattedMessage id="speaking.karaokeStart" />
+          </button>
+        )}
         <span className="flex-1" />
         {tried > 0 && (
           <span className="text-xs tabular-nums text-text-muted">
@@ -354,7 +521,35 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
             </p>
           )}
 
-          {line && (
+          {run && !run.result && (
+            <KaraokeStage
+              lines={lines}
+              queue={run.queue}
+              pos={run.pos}
+              step={run.step === 'sing' && recorder.phase === 'thinking' ? 'check' : run.step}
+              level={recorder.level}
+              heard={recorder.live}
+              modelProgress={recorder.modelProgress}
+              last={run.last}
+              score={run.takes.length ? summarize(run.takes).score : null}
+              onSkip={skipTurn}
+              onStop={finishRun}
+              onResume={resumeRun}
+            />
+          )}
+          {run?.result && (
+            <KaraokeResult
+              summary={run.result.summary}
+              lines={lines}
+              best={run.result.best}
+              newBest={run.result.newBest}
+              onRetryHardest={() => startRun(run.result!.summary.hardest.map((t) => t.index).sort((a, b) => a - b))}
+              onAgain={() => startRun(karaokeQueue(lines))}
+              onBack={() => setRun(null)}
+            />
+          )}
+
+          {line && !run && (
             <div className="mt-4 rounded-xl border-2 border-border bg-bg-card p-4">
               <div className="flex items-start gap-3">
                 <p className="flex-1 text-lg leading-snug text-text-primary font-medium">{line.text}</p>
@@ -431,7 +626,7 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
             </div>
           )}
 
-          {lines.length > 0 && (
+          {lines.length > 0 && !singing && (
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-muted">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input type="checkbox" className="sr-only" checked={pauseEach} onChange={(e) => setPauseEach(e.target.checked)} />
@@ -456,7 +651,8 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
                 key={i}
                 data-line={i}
                 onClick={() => playLine(i)}
-                className={`w-full text-left flex gap-3 px-3 py-2 border-b border-border/50 last:border-b-0 transition-colors cursor-pointer ${i === at
+                disabled={singing}
+                className={`w-full text-left flex gap-3 px-3 py-2 border-b border-border/50 last:border-b-0 transition-colors cursor-pointer disabled:cursor-default ${i === at
                   ? 'bg-accent-orange/10 text-text-primary'
                   : 'text-text-secondary hover:bg-bg-tertiary/60'}`}
               >
