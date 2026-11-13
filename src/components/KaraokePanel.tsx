@@ -4,9 +4,9 @@ import type { CaptionLine } from '../lib/captions';
 import type { DictationGrade } from '../lib/listeningRules';
 import { KARAOKE_HIT, type KaraokeSummary } from '../lib/karaoke';
 
-// What video karaoke shows: the stage while a run is on (the line, whose turn
-// it is, the last line's score) and the score card at the end. VideoShadowTab
-// runs the song and the recorder; these only draw it.
+// What video karaoke shows: the two ways to start it, the stage while a run
+// is on (the line, whose turn it is, the last line's score) and the score card
+// at the end. VideoShadowTab runs the song and the recorder; these only draw it.
 
 export type KaraokeStep = 'listen' | 'sing' | 'check' | 'paused';
 
@@ -16,7 +16,41 @@ const tone = (accuracy: number) => (accuracy >= KARAOKE_HIT ? 'text-accent-green
 
 const ghost = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary transition-all cursor-pointer';
 
-export function KaraokeStage({ lines, queue, pos, step, level, heard, modelProgress, last, score, onSkip, onStop, onResume }: {
+/** The way in: sing back line by line, or along with the song in headphones. */
+export function KaraokeModes({ ready, onLineByLine, onAlong }: {
+  /** The player can play — before that, a run would stall on its first line. */
+  ready: boolean;
+  onLineByLine: () => void;
+  onAlong: () => void;
+}) {
+  const mode = 'group flex items-start gap-3 text-left rounded-xl border-2 border-border bg-bg-tertiary/40 p-3 hover:border-accent-orange/60 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait';
+  return (
+    <div className="mt-4 rounded-xl border-2 border-border bg-bg-card p-4">
+      <p className="flex items-center gap-1.5 text-sm font-bold text-text-primary mb-3">
+        <Icon icon="lucide:mic-vocal" className="text-accent-orange" /><FormattedMessage id="speaking.karaoke" />
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button onClick={onLineByLine} disabled={!ready} className={mode}>
+          <Icon icon="lucide:list-music" className="text-xl text-accent-orange shrink-0 mt-0.5" />
+          <span>
+            <span className="block text-sm font-bold text-text-primary group-hover:text-accent-orange"><FormattedMessage id="speaking.karaokeLineMode" /></span>
+            <span className="block text-xs text-text-muted mt-0.5"><FormattedMessage id="speaking.karaokeLineModeHint" /></span>
+          </span>
+        </button>
+        <button onClick={onAlong} disabled={!ready} className={mode}>
+          <Icon icon="lucide:headphones" className="text-xl text-accent-cyan shrink-0 mt-0.5" />
+          <span>
+            <span className="block text-sm font-bold text-text-primary group-hover:text-accent-orange"><FormattedMessage id="speaking.karaokeAlongMode" /></span>
+            <span className="block text-xs text-text-muted mt-0.5"><FormattedMessage id="speaking.karaokeAlongModeHint" /></span>
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function KaraokeStage({ mode, lines, queue, pos, step, level, heard, modelProgress, last, score, onSkip, onStop, onResume }: {
+  mode: 'line' | 'along';
   lines: CaptionLine[];
   queue: number[];
   pos: number;
@@ -44,7 +78,8 @@ export function KaraokeStage({ lines, queue, pos, step, level, heard, modelProgr
     <div className="mt-4 rounded-xl border-2 border-accent-orange/40 bg-bg-card p-4">
       <div className="flex items-center gap-3 mb-3">
         <span className="flex items-center gap-1.5 text-xs font-bold text-accent-orange">
-          <Icon icon="lucide:mic-vocal" /><FormattedMessage id="speaking.karaoke" />
+          <Icon icon={mode === 'along' ? 'lucide:headphones' : 'lucide:mic-vocal'} />
+          <FormattedMessage id={mode === 'along' ? 'speaking.karaokeAlongMode' : 'speaking.karaoke'} />
         </span>
         <div className="flex-1 h-1.5 rounded-full bg-bg-tertiary overflow-hidden">
           <div className="h-full bg-accent-orange transition-[width] duration-300" style={{ width: `${(pos / queue.length) * 100}%` }} />
@@ -64,13 +99,15 @@ export function KaraokeStage({ lines, queue, pos, step, level, heard, modelProgr
       <div className="mt-3 min-h-[3.25rem] flex flex-col items-center justify-center gap-2 text-sm">
         {step === 'listen' && (
           <span className="flex items-center gap-2 text-text-secondary">
-            <Icon icon="lucide:headphones" className="text-accent-cyan" /><FormattedMessage id="speaking.karaokeListen" />
+            <Icon icon="lucide:headphones" className="text-accent-cyan" />
+            <FormattedMessage id={mode === 'along' ? 'speaking.karaokeAlongReady' : 'speaking.karaokeListen'} />
           </span>
         )}
         {step === 'sing' && (
           <>
             <span className="flex items-center gap-2 font-bold text-accent-orange">
-              <Icon icon="lucide:mic" className="animate-pulse" /><FormattedMessage id="speaking.karaokeSing" />
+              <Icon icon="lucide:mic" className="animate-pulse" />
+              <FormattedMessage id={mode === 'along' ? 'speaking.karaokeAlongSing' : 'speaking.karaokeSing'} />
             </span>
             <span className="flex items-end gap-0.5 h-4" aria-hidden>
               {[0.15, 0.3, 0.45, 0.6, 0.75, 0.9].map((t) => (
@@ -98,7 +135,7 @@ export function KaraokeStage({ lines, queue, pos, step, level, heard, modelProgr
         )}
       </div>
 
-      {last && step === 'listen' && (
+      {mode === 'line' && last && step === 'listen' && (
         <div className="mt-1 flex flex-wrap justify-center gap-1 animate-fade-in">
           <span className={`text-xs font-bold mr-1 ${tone(last.grade.accuracy)}`}>{last.grade.accuracy}%</span>
           {last.grade.words.map((w, k) => (
@@ -108,7 +145,7 @@ export function KaraokeStage({ lines, queue, pos, step, level, heard, modelProgr
       )}
 
       <div className="mt-4 flex justify-center gap-2">
-        {step !== 'paused' && (
+        {mode === 'line' && step !== 'paused' && (
           <button onClick={onSkip} className={ghost}>
             <Icon icon="lucide:skip-forward" /><FormattedMessage id="speaking.karaokeSkip" />
           </button>
@@ -117,7 +154,9 @@ export function KaraokeStage({ lines, queue, pos, step, level, heard, modelProgr
           <Icon icon="lucide:flag" /><FormattedMessage id="speaking.karaokeStop" />
         </button>
       </div>
-      <p className="mt-2 text-center text-[11px] text-text-muted max-sm:hidden"><FormattedMessage id="speaking.karaokeKeys" /></p>
+      <p className="mt-2 text-center text-[11px] text-text-muted max-sm:hidden">
+        <FormattedMessage id={mode === 'along' ? 'speaking.karaokeAlongKeys' : 'speaking.karaokeKeys'} />
+      </p>
     </div>
   );
 }

@@ -2,13 +2,19 @@
 // may run, and how a run is scored. VideoShadowTab plays the song a line at a
 // time and records each turn; this decides what the takes add up to.
 //
-// It's sing-back, not sing-along: the line plays, the video pauses, and you
-// sing it with the music stopped — so the mic hears only you. The score is
-// how many of the line's words came through (the dictation grade), not
-// pitch: speech recognition can tell words in singing, and the song's own
-// melody isn't something we have.
+// Two ways to sing:
+// - line by line: the line plays, the video pauses, and you sing it with the
+//   music stopped — so the mic hears only you, even on speakers;
+// - sing along: the song plays straight through while one recording runs —
+//   for headphones, or the mic hears the singer on the record too. The whole
+//   transcript is lined up with the whole song (scoreAlong) and split back
+//   into lines.
+// Either way the score is how many of a line's words came through (the
+// dictation grade), not pitch: speech recognition can tell words in singing,
+// and the song's own melody isn't something we have.
 
 import type { CaptionLine } from './captions';
+import { gradeDictation } from './listeningRules';
 
 /** A line sung at least this well is "on target" — gentler than dictation's
  *  90, since sung words come out stretched and run together. */
@@ -55,6 +61,24 @@ export function turnLimitMs(line: CaptionLine, rate = 1): number {
 
 export function starsFor(score: number): KaraokeSummary['stars'] {
   return score >= 90 ? 3 : score >= 75 ? 2 : score >= 55 ? 1 : 0;
+}
+
+/**
+ * Each line's accuracy, 0–100, from one transcript of the whole song. The
+ * words are aligned across every line at once — a recogniser doesn't say
+ * where one sung line ended — then counted line by line. Unlike a single
+ * dictation, words the singer added don't cost a line anything: over a whole
+ * song they're mostly ad-libs and the recogniser's guesses in the gaps.
+ */
+export function scoreAlong(lines: string[], transcript: string): number[] {
+  const all = gradeDictation(lines.join(' '), transcript).words;
+  let at = 0;
+  return lines.map((l) => {
+    const n = gradeDictation(l, '').words.length;
+    const mine = all.slice(at, at + n);
+    at += n;
+    return n ? Math.round((mine.filter((w) => w.ok).length / n) * 100) : 0;
+  });
 }
 
 /** The last take of each line counts — a line sung again replaces its score. */

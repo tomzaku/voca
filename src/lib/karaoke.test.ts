@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { karaokeQueue, starsFor, summarize, turnLimitMs } from './karaoke';
+import { karaokeQueue, scoreAlong, starsFor, summarize, turnLimitMs } from './karaoke';
 
 const line = (text: string, start = 0, end = 3) => ({ start, end, text });
 
@@ -50,5 +50,25 @@ describe('summarize', () => {
 describe('starsFor', () => {
   it.each([[95, 3], [90, 3], [80, 2], [60, 1], [30, 0]])('%i → %i', (score, stars) => {
     expect(starsFor(score)).toBe(stars);
+  });
+});
+
+describe('scoreAlong', () => {
+  const song = ['Hello, it’s me', 'I was wondering if after all these years', 'You’d like to meet'];
+
+  it('splits one transcript of the whole song back into lines', () => {
+    expect(scoreAlong(song, "hello it's me I was wondering after all these years you'd like to meet")).toEqual([100, 88, 100]);
+  });
+
+  it('scores the lines that went unsung as zero', () => {
+    expect(scoreAlong(song, 'hello it’s me')).toEqual([100, 0, 0]);
+  });
+
+  it('doesn’t charge a line for ad-libs around it', () => {
+    expect(scoreAlong(['you’d like to meet'], 'yeah yeah oh you’d like to meet baby')).toEqual([100]);
+  });
+
+  it('keeps the numbers lined up when a line has digits', () => {
+    expect(scoreAlong(['Call me at 3', 'and we can go'], 'call me at three and we can go')).toEqual([100, 100]);
   });
 });
