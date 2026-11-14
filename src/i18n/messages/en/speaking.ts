@@ -131,6 +131,7 @@ export default {
   'speaking.videoTally': '{passed} / {tried} lines passed',
   'speaking.videoNoMic': 'No microphone here — you can still listen and repeat aloud.',
   'speaking.videoPlayerError': 'This video can’t be played here — its owner may have turned off embedding.',
+  'speaking.videoKids': 'Kids’ songs',
   'speaking.videoSongs': 'Shadow a song',
   'speaking.videoTalks': 'Shadow a talk',
   'speaking.videoLevel.easy': 'Easy',

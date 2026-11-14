@@ -231,6 +231,7 @@ export function VideoShadowTab({ onTitle }: { onTitle?: (title: string | null) =
             </div>
           </>
         )}
+        <SampleShelf kind="kids" onPick={open} />
         <SampleShelf kind="song" onPick={open} />
         <SampleShelf kind="talk" onPick={open} />
       </div>
@@ -752,14 +753,20 @@ const LEVEL_TONE: Record<SampleLevel, string> = {
   hard: 'bg-accent-red/15 text-accent-red',
 };
 
-/** One row of samples — songs or talks — easiest first. */
+const SHELF: Record<VideoSample['kind'], { icon: string; label: string }> = {
+  kids: { icon: 'lucide:baby', label: 'speaking.videoKids' },
+  song: { icon: 'lucide:music', label: 'speaking.videoSongs' },
+  talk: { icon: 'lucide:mic-vocal', label: 'speaking.videoTalks' },
+};
+
+/** One row of samples — kids' songs, songs or talks — easiest first. */
 function SampleShelf({ kind, onPick }: { kind: VideoSample['kind']; onPick: (id: string) => void }) {
   const samples = VIDEO_SAMPLES.filter((v) => v.kind === kind);
   return (
     <section className="mt-6">
       <h3 className="flex items-center gap-1.5 text-xs font-semibold text-text-muted mb-2">
-        <Icon icon={kind === 'song' ? 'lucide:music' : 'lucide:mic-vocal'} />
-        <FormattedMessage id={kind === 'song' ? 'speaking.videoSongs' : 'speaking.videoTalks'} />
+        <Icon icon={SHELF[kind].icon} />
+        <FormattedMessage id={SHELF[kind].label} />
       </h3>
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
         {samples.map((v) => (

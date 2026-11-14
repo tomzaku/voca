@@ -131,6 +131,7 @@ export default {
   'speaking.videoTally': 'Đạt {passed} / {tried} câu',
   'speaking.videoNoMic': 'Không có micro — bạn vẫn có thể nghe và nói theo.',
   'speaking.videoPlayerError': 'Không phát được video này ở đây — chủ video có thể đã tắt nhúng.',
+  'speaking.videoKids': 'Bài hát thiếu nhi',
   'speaking.videoSongs': 'Nói theo bài hát',
   'speaking.videoTalks': 'Nói theo bài nói',
   'speaking.videoLevel.easy': 'Dễ',

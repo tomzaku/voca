@@ -16,19 +16,20 @@
 // AI-generated transcript, which is billed per minute. The title comes from
 // YouTube's public oEmbed endpoint.
 //
-// Without SUPADATA_API_KEY the route answers 503 and the app goes straight to
-// the paste box.
+// Without SUPADATA_API_KEY only captions already stored come back; for any
+// other video the route answers 503 and the app goes straight to the paste box.
 //
-// Signed-in only: every miss spends a credit. Results are kept in this
-// instance's memory for a while — a video's captions don't change, and a class
-// all opening the same song shouldn't each cost one.
+// Signed-in only: every miss spends a credit. A video's captions don't
+// change, so once fetched they're kept for good in `video_captions` (and in
+// this instance's memory for a while) — each video costs one credit ever, and
+// the sample videos open at once.
 //
 // Env:
 //   SUPADATA_API_KEY   from https://dash.supadata.ai — `supabase secrets set`
 //
 // Deploy: `npm run deploy:captions`
 
-import { corsHeaders, jsonResponse, requireUser } from '../_shared/ai.ts';
+import { corsHeaders, jsonResponse, requireUser, serviceClient } from '../_shared/ai.ts';
 import { type CaptionLine, type CaptionTrack, fromSegments, videoIdOf } from '../_shared/captions.ts';
 
 interface Payload {
@@ -101,10 +102,40 @@ async function titleOf(id: string): Promise<string> {
   }
 }
 
-async function load(id: string, lang: string, key: string): Promise<Payload> {
+function remember(cacheKey: string, payload: Payload) {
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!);
+  cache.set(cacheKey, { at: Date.now(), payload });
+}
+
+/** Captions fetched before, by anyone — null if never (or the table's unreachable). */
+async function stored(id: string, lang: string): Promise<Payload | null> {
+  const svc = serviceClient();
+  if (!svc) return null;
+  const { data, error } = await svc.from('video_captions')
+    .select('title, track, tracks, lines').eq('video_id', id).eq('lang', lang).maybeSingle();
+  if (error) console.warn('[captions] read', id, error.message);
+  if (!data) return null;
+  return { video: { id, title: data.title }, track: data.track, tracks: data.tracks, lines: data.lines };
+}
+
+async function store(id: string, lang: string, p: Payload) {
+  const svc = serviceClient();
+  if (!svc) return;
+  const { error } = await svc.from('video_captions').upsert({
+    video_id: id, lang, title: p.video.title, track: p.track, tracks: p.tracks, lines: p.lines,
+  });
+  // Not fatal: the learner has their captions; the next one pays again.
+  if (error) console.warn('[captions] store', id, error.message);
+}
+
+async function load(id: string, lang: string, key: string | undefined): Promise<Payload | null> {
   const cacheKey = `${id}:${lang}`;
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.payload;
+
+  const kept = await stored(id, lang);
+  if (kept) { remember(cacheKey, kept); return kept; }
+  if (!key) return null;
 
   const [t, title] = await Promise.all([transcript(id, lang, key), titleOf(id)]);
   const tracks: CaptionTrack[] = (t?.availableLangs ?? []).map((l) => ({ lang: l, name: l, auto: false }));
@@ -127,8 +158,8 @@ async function load(id: string, lang: string, key: string): Promise<Payload> {
     lines,
   };
   if (lines.length) {
-    if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!);
-    cache.set(cacheKey, { at: Date.now(), payload });
+    remember(cacheKey, payload);
+    await store(id, lang, payload);
   }
   return payload;
 }
@@ -150,11 +181,11 @@ export default async function handler(req: Request): Promise<Response> {
   const lang = (url.searchParams.get('lang') || 'en').toLowerCase();
   if (!/^[a-z]{2,3}$/.test(lang)) return jsonResponse(400, { error: '"lang" must be a language code like "en".' });
 
-  const key = Deno.env.get('SUPADATA_API_KEY');
-  if (!key) return jsonResponse(503, { error: 'Automatic captions aren’t set up yet. Paste the transcript instead.' });
-
   try {
-    return jsonResponse(200, await load(id, lang, key));
+    // Without a key, captions fetched before still come back.
+    const payload = await load(id, lang, Deno.env.get('SUPADATA_API_KEY'));
+    if (!payload) return jsonResponse(503, { error: 'Automatic captions aren’t set up yet. Paste the transcript instead.' });
+    return jsonResponse(200, payload);
   } catch (err) {
     console.error('[captions]', id, err);
     if (err instanceof Upstream || (err instanceof DOMException && err.name === 'TimeoutError')) {
