@@ -14,7 +14,14 @@ const VERDICT = ['speaking.karaokeVerdict0', 'speaking.karaokeVerdict1', 'speaki
 
 const tone = (accuracy: number) => (accuracy >= KARAOKE_HIT ? 'text-accent-green' : accuracy >= 50 ? 'text-accent-orange' : 'text-accent-red');
 
-const ghost = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary transition-all cursor-pointer';
+/** A sing-along's transcript runs the whole song; show only what was just sung. */
+const TAIL_WORDS = 8;
+function tail(text: string): string {
+  const words = text.trim().split(/\s+/);
+  return words.length > TAIL_WORDS ? `… ${words.slice(-TAIL_WORDS).join(' ')}` : text;
+}
+
+const ghost ='flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-bg-tertiary text-text-secondary hover:text-text-primary transition-all cursor-pointer';
 
 /** The way in: sing back line by line, or along with the song in headphones. */
 export function KaraokeModes({ ready, onLineByLine, onAlong }: {
@@ -114,7 +121,7 @@ export function KaraokeStage({ mode, lines, queue, pos, step, level, heard, mode
                 <span key={t} className={`w-1.5 rounded-sm transition-colors ${level >= t ? 'bg-accent-orange' : 'bg-bg-tertiary'}`} style={{ height: `${t * 100}%` }} />
               ))}
             </span>
-            {heard && <span className="text-xs italic text-text-muted line-clamp-1">“{heard}”</span>}
+            {heard && <span className="text-xs italic text-text-muted line-clamp-1">“{mode === 'along' ? tail(heard) : heard}”</span>}
           </>
         )}
         {step === 'check' && (

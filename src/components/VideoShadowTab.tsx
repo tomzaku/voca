@@ -333,6 +333,8 @@ function VideoPractice({ source, loading, problem, pasting, onPaste, onUsePasted
     // it stops at the end of the line it's in.
     onPlay: (t) => {
       const { pauseEach: each, lines: ls } = live.current;
+      // Karaoke sets its own stops — a sing-along must never pause per line.
+      if (runRef.current) return;
       if (!each || player.hasStop() || !ls.length) return;
       const i = Math.max(0, lineAt(ls, t));
       const end = t < ls[i].end - 0.15 ? ls[i].end : ls[i + 1]?.end;
