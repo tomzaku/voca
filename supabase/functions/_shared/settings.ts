@@ -26,6 +26,8 @@ export const FIELDS = {
   activeCollection: 'active_collection',
   guessGame: 'guess_game',
   dailyGoal: 'daily_goal',
+  // The course and plan picked at onboarding
+  course: 'course',
   // Reminders
   reminderEnabled: 'reminder_enabled',
   reminderTimezone: 'reminder_timezone',
@@ -62,6 +64,7 @@ export function fromSettings(body: Record<string, unknown>): Record<string, unkn
     if (!(name in body)) continue;
     patch[column] = name === 'companionDress' ? cleanDress(body[name])
       : name === 'dailyGoal' ? cleanGoal(body[name])
+      : name === 'course' ? cleanCourse(body[name])
       : body[name] ?? null;
   }
   return patch;
@@ -97,4 +100,27 @@ export function cleanGoal(v: unknown): number | null {
   if (typeof v !== 'number' || !Number.isFinite(v)) return null;
   const n = Math.round(v);
   return n >= 1 ? Math.min(n, MAX_DAILY_GOAL) : null;
+}
+
+const COURSES = ['everyday', 'ielts'];
+const CEFR = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const BANDS = ['5.0', '5.5', '6.0', '6.5', '7.0', '7.5', '8.0'];
+
+/**
+ * A course, kept to what one is: a known course id, CEFR start and target,
+ * an IELTS band only for IELTS, and the day it began. Like a look, it's JSON a
+ * client writes, so anything malformed clears it rather than being stored —
+ * the app works without a course.
+ */
+export function cleanCourse(v: unknown): Record<string, string> | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const c = v as Record<string, unknown>;
+  const id = typeof c.id === 'string' && COURSES.includes(c.id) ? c.id : null;
+  const level = typeof c.level === 'string' && CEFR.includes(c.level) ? c.level : null;
+  const target = typeof c.target === 'string' && CEFR.includes(c.target) ? c.target : null;
+  const startedOn = typeof c.startedOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c.startedOn) ? c.startedOn : null;
+  if (!id || !level || !target || !startedOn) return null;
+  const out: Record<string, string> = { id, level, target, startedOn };
+  if (id === 'ielts' && typeof c.band === 'string' && BANDS.includes(c.band)) out.band = c.band;
+  return out;
 }

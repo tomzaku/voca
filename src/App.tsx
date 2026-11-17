@@ -10,6 +10,7 @@ import { EnglishPractice } from './components/EnglishPractice';
 import { LoginGate } from './components/LoginGate';
 import { WordPeek } from './components/WordPeek';
 import { DailyLoop } from './components/DailyLoop';
+import { PlanTracker } from './components/course/PlanTracker';
 
 // Every page but the home flash card loads when it's first opened. Eagerly,
 // they put all the learning content (src/data/*, ~1.7 MB) and lottie in the
@@ -33,6 +34,7 @@ const CollectionPresentPage = lazy(() => import('./components/CollectionDetailPa
 const WritingLegacyRedirect = lazy(() => import('./components/WritingPage').then((m) => ({ default: m.WritingLegacyRedirect })));
 const WritingPage = lazy(() => import('./components/WritingPage').then((m) => ({ default: m.WritingPage })));
 const WorldGame = lazy(() => import('./components/WorldGame').then((m) => ({ default: m.WorldGame })));
+const PlanPage = lazy(() => import('./components/PlanPage').then((m) => ({ default: m.PlanPage })));
 const LevelTestPage = lazy(() => import('./components/LevelTestPage').then((m) => ({ default: m.LevelTestPage })));
 const TakeQuiz = lazy(() => import('./components/TakeQuiz').then((m) => ({ default: m.TakeQuiz })));
 const QuizResults = lazy(() => import('./components/QuizResults').then((m) => ({ default: m.QuizResults })));
@@ -72,6 +74,7 @@ function Shell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <DailyLoop />
+      <PlanTracker />
     </div>
   );
 }
@@ -109,6 +112,7 @@ export default function App() {
             <Route path="/grammar" element={<GrammarPage />} />
             <Route path="/world" element={<WorldGame />} />
             <Route path="/level-test" element={<LevelTestPage />} />
+            <Route path="/plan" element={<PlanPage />} />
             <Route path="/quizzes" element={<MyQuizzes />} />
             <Route path="/quiz/:id" element={<TakeQuiz />} />
             <Route path="/quiz/:id/results" element={<QuizResults />} />

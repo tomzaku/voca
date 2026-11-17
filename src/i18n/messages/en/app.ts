@@ -3,6 +3,7 @@ import type { Catalog } from '../..';
 export default {
   'app.navVocabulary': 'Vocabulary',
   'app.navFlashcards': 'Flashcards',
+  'app.navPlan': 'Your plan',
   'app.navReview': 'Review',
   'app.navHistory': 'History',
   'app.navCollections': 'Collections',

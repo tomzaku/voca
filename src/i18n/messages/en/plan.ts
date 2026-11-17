@@ -1,0 +1,26 @@
+import type { Catalog } from '../..';
+
+export default {
+  'plan.none.title': 'Set a goal and get a plan',
+  'plan.none.hint': 'Everyday English or IELTS — words and practice for each day.',
+  'plan.ieltsTitle': 'IELTS · band {band}',
+  'plan.dayOf': 'Day {day}',
+  'plan.change': 'Change',
+  'plan.today': 'Today',
+  'plan.words': '{n} words',
+  'plan.wordsAt': '{n} words · {level}',
+  'plan.durationDone': 'All the words on your path are seen — keep reviewing',
+  'plan.durationDays': 'about {n, plural, one {# day} other {# days}} to go',
+  'plan.durationWeeks': 'about {n, plural, one {# week} other {# weeks}} to go',
+  'plan.durationMonths': 'about {n, plural, one {# month} other {# months}} to go',
+  'plan.task.podcast': 'Listen to a podcast',
+  'plan.task.dictation': 'Dictation — type what you hear',
+  'plan.task.comprehension': 'Listening comprehension',
+  'plan.task.conversation': 'Short conversation',
+  'plan.task.dialogue': 'Daily dialogue',
+  'plan.task.grammar': 'A grammar lesson',
+  'plan.task.improveWriting': 'Write and improve a paragraph',
+  'plan.task.ieltsListening': 'IELTS listening',
+  'plan.task.ieltsSpeaking': 'IELTS speaking',
+  'plan.task.ieltsWriting': 'IELTS writing task',
+} satisfies Catalog;

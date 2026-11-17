@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import { useActivity } from '../hooks/useActivity';
 import { MasteryBar } from './MasteryBar';
 import { Leaderboard } from './Leaderboard';
+import { PlanCard } from './course/PlanCard';
 import { useStreak, localDateString } from '../hooks/useStreak';
 import type { ActivityEvent as DayEvent } from '../lib/progressApi';
 
@@ -237,6 +238,10 @@ export function DashboardPage() {
 
   return (
     <div className="max-w-page mx-auto px-4 py-8 flex flex-col gap-6">
+      {/* The course and today's to-do sit above everything: it's what to do
+          next, where the rest of the page is how it went. */}
+      <PlanCard />
+
       {/* First on the page: where you stand against everyone else is the thing
           people come back for, and it's also the only section that changes
           because of what someone ELSE did since you last looked. */}

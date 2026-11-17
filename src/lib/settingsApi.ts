@@ -13,6 +13,7 @@
 // A failed save is warned about and the local choice stands.
 
 import { request } from './api';
+import type { CourseChoice } from './course';
 
 /**
  * The whole row, as the client sees it. Every field is present on a read —
@@ -31,6 +32,8 @@ export interface UserSettings {
   guessGame: string | null;
   /** Words a day the learner aims to review (1–100). */
   dailyGoal: number | null;
+  /** The course picked at onboarding (src/lib/course.ts). */
+  course: CourseChoice | null;
   reminderEnabled: boolean | null;
   reminderTimezone: string | null;
   reminderTimes: number[] | null;

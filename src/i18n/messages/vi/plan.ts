@@ -1,0 +1,26 @@
+import type en from '../en/plan';
+
+export default {
+  'plan.none.title': 'Đặt mục tiêu và nhận lộ trình',
+  'plan.none.hint': 'Tiếng Anh hằng ngày hoặc IELTS — từ vựng và bài luyện cho mỗi ngày.',
+  'plan.ieltsTitle': 'IELTS · band {band}',
+  'plan.dayOf': 'Ngày {day}',
+  'plan.change': 'Đổi',
+  'plan.today': 'Hôm nay',
+  'plan.words': '{n} từ',
+  'plan.wordsAt': '{n} từ · {level}',
+  'plan.durationDone': 'Bạn đã gặp hết từ trong lộ trình — tiếp tục ôn tập nhé',
+  'plan.durationDays': 'còn khoảng {n} ngày',
+  'plan.durationWeeks': 'còn khoảng {n} tuần',
+  'plan.durationMonths': 'còn khoảng {n} tháng',
+  'plan.task.podcast': 'Nghe một podcast',
+  'plan.task.dictation': 'Chép chính tả — gõ lại điều bạn nghe',
+  'plan.task.comprehension': 'Nghe hiểu',
+  'plan.task.conversation': 'Hội thoại ngắn',
+  'plan.task.dialogue': 'Hội thoại hằng ngày',
+  'plan.task.grammar': 'Một bài ngữ pháp',
+  'plan.task.improveWriting': 'Viết và sửa một đoạn văn',
+  'plan.task.ieltsListening': 'Nghe IELTS',
+  'plan.task.ieltsSpeaking': 'Nói IELTS',
+  'plan.task.ieltsWriting': 'Bài viết IELTS',
+} satisfies Record<keyof typeof en, string>;

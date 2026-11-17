@@ -3,6 +3,7 @@ import type en from '../en/app';
 export default {
   'app.navVocabulary': 'Từ vựng',
   'app.navFlashcards': 'Thẻ từ',
+  'app.navPlan': 'Lộ trình',
   'app.navReview': 'Ôn tập',
   'app.navHistory': 'Lịch sử',
   'app.navCollections': 'Bộ sưu tập',
