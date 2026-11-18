@@ -59,6 +59,7 @@ import { ChessMatch } from './worldgames/ChessMatch';
 import { SeaBattle } from './worldgames/SeaBattle';
 import { RooftopRun } from './worldgames/RooftopRun';
 import { BugSwarm } from './worldgames/BugSwarm';
+import { CitadelGuard } from './worldgames/CitadelGuard';
 import { Fishing } from './worldgames/Fishing';
 import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
@@ -244,7 +245,7 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 }
 
 /** Each thing two players can do together, by its mark. */
-const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship', pool: 'eightball', rooftop: 'flag', swarm: 'bug' };
+const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship', pool: 'eightball', rooftop: 'flag', swarm: 'bug', guard: 'gate' };
 
 /** The world's keys, for the "?" card — keep in step with the handlers. */
 const KEY_ROWS: [string[], string][] = [
@@ -1458,6 +1459,9 @@ export function GameWorld({
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'swarm')} className="!px-2 !text-[13px]">
               <PixelIcon name="bug" size={2} /> <FormattedMessage id="world.swarmTitle" />
             </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'guard')} className="!px-2 !text-[13px]">
+              <PixelIcon name="gate" size={2} /> <FormattedMessage id="world.guardTitle" />
+            </PixelButton>
           </PeerSection>
           <PeerSection title={<FormattedMessage id="world.peerHi" />}>
             <PixelButton tone="paper" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !text-[13px]">
@@ -1527,6 +1531,7 @@ export function GameWorld({
       {link?.game === 'sea' && <SeaBattle key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'rooftop' && <RooftopRun key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'swarm' && <BugSwarm key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'guard' && <CitadelGuard key={link.id} link={link} onClose={endMatch} />}
 
       {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
       {!panel && (
