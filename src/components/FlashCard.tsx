@@ -30,6 +30,7 @@ import { RevealedView } from './flashcard/RevealedView';
 import { HistoryStrip } from './flashcard/HistoryStrip';
 import { LoadErrorDialog } from './flashcard/LoadErrorDialog';
 import { StartPicker } from './flashcard/StartPicker';
+import { TodayPlanBar } from './course/TodayPlanBar';
 import { useCardSpeech } from './flashcard/useCardSpeech';
 import { FULL_DEF_KEY } from './flashcard/constants';
 import type { AnswerVia, VocabularyWord } from '../types';
@@ -559,6 +560,7 @@ export function FlashCard() {
         onNext={onRecent ? handleNext : handleFilterNext}
       />
 
+      {!needsStart && <TodayPlanBar />}
       {needsStart ? (
         <StartPicker onPick={handleStartPick} />
       ) : phase === 'loading' ? (

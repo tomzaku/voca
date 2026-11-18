@@ -35,6 +35,7 @@ import messages from '../messages/index.ts';
 import mindmap from '../mindmap/index.ts';
 import notify from '../notify/index.ts';
 import pick from '../pick/index.ts';
+import plan from '../plan/index.ts';
 import progress from '../progress/index.ts';
 import questions from '../questions/index.ts';
 import push from '../push/index.ts';
@@ -77,6 +78,7 @@ const RESOURCES: Record<string, Handler> = {
   mindmap,
   notify,
   pick,
+  plan,
   progress,
   questions,
   push,

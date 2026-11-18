@@ -3,17 +3,22 @@
 // theirs. Same shape as useDailyGoal: local first, the server is the copy that
 // follows you between devices.
 //
-// Also which of today's plan tasks are done. That's per device and per day —
-// a tick, not a record — so it lives in localStorage only and resets itself
-// when the date changes.
+// Also which plan tasks were done on which day: the `plan` resource, with a
+// local mirror of recent days so ticks show instantly, survive offline, and
+// work signed out. The calendar reads past days through `ensureDays`.
 
 import { create } from 'zustand';
 import { fetchSettings, saveSettings } from '../lib/settingsApi';
-import { parseChoice, type CourseChoice } from '../lib/course';
+import { fetchPlanDays, markPlanTask } from '../lib/planApi';
+import { addDays, parseChoice, type CourseChoice } from '../lib/course';
 import { localDateString } from './useStreak';
 
 const KEY = 'voca.course';
-const DONE_KEY = 'voca.planDone';
+const LOG_KEY = 'voca.planLog';
+/** Days of ticks kept locally — the calendar fetches anything older. */
+const LOCAL_DAYS = 60;
+
+type Log = Record<string, string[]>;
 
 function loadLocal(): CourseChoice | null {
   try { return parseChoice(JSON.parse(localStorage.getItem(KEY) ?? 'null')); } catch { return null; }
@@ -26,29 +31,43 @@ function storeLocal(c: CourseChoice | null) {
   } catch { /* private mode */ }
 }
 
-interface DoneMemo { day: string; keys: string[] }
-
-function loadDone(): DoneMemo {
-  const today = localDateString();
+function loadLog(): Log {
   try {
-    const v = JSON.parse(localStorage.getItem(DONE_KEY) ?? 'null');
-    if (v && v.day === today && Array.isArray(v.keys)) return { day: today, keys: v.keys.filter((k: unknown) => typeof k === 'string') };
-  } catch { /* fall through */ }
-  return { day: today, keys: [] };
+    const v = JSON.parse(localStorage.getItem(LOG_KEY) ?? 'null');
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+    const out: Log = {};
+    for (const [day, keys] of Object.entries(v)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(day) && Array.isArray(keys)) out[day] = keys.filter((k) => typeof k === 'string');
+    }
+    return out;
+  } catch { return {}; }
+}
+
+/** Mirror the recent part of the log; older days live on the server. */
+function storeLog(log: Log) {
+  const cutoff = addDays(localDateString(), -LOCAL_DAYS);
+  const recent = Object.fromEntries(Object.entries(log).filter(([day]) => day >= cutoff));
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(recent)); } catch { /* private mode */ }
 }
 
 interface CourseState {
   course: CourseChoice | null;
   setCourse: (c: CourseChoice | null) => void;
-  /** Today's finished task keys. */
-  done: DoneMemo;
+  /** Day → task keys done that day. */
+  log: Log;
+  /** Tick a task for today. */
   markDone: (key: string) => void;
+  /** Make sure the log covers `from`..`to` (inclusive), from the server. */
+  ensureDays: (from: string, to: string) => Promise<void>;
   loadFromRemote: () => Promise<void>;
 }
 
+/** Ranges already fetched this session, so paging the calendar back and forth is free. */
+const fetched = new Set<string>();
+
 export const useCourse = create<CourseState>((set, get) => ({
   course: loadLocal(),
-  done: loadDone(),
+  log: loadLog(),
 
   setCourse: (course) => {
     set({ course });
@@ -58,25 +77,47 @@ export const useCourse = create<CourseState>((set, get) => ({
   },
 
   markDone: (key) => {
-    let done = get().done;
-    if (done.day !== localDateString()) done = loadDone();
-    if (done.keys.includes(key)) return;
-    const next = { day: done.day, keys: [...done.keys, key] };
-    set({ done: next });
-    try { localStorage.setItem(DONE_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+    const day = localDateString();
+    const today = get().log[day] ?? [];
+    if (today.includes(key)) return;
+    const log = { ...get().log, [day]: [...today, key] };
+    set({ log });
+    storeLog(log);
+    void markPlanTask(day, key);
+  },
+
+  ensureDays: async (from, to) => {
+    const range = `${from}|${to}`;
+    if (fetched.has(range)) return;
+    fetched.add(range);
+    const days = await fetchPlanDays(from, to);
+    if (!days) { fetched.delete(range); return; }
+    // Union, never replace: a tick made on this device a moment ago may not
+    // have reached the server yet.
+    const log = { ...get().log };
+    for (const { day, tasks } of days) log[day] = [...new Set([...(log[day] ?? []), ...tasks])];
+    set({ log });
+    storeLog(log);
   },
 
   loadFromRemote: async () => {
     const settings = await fetchSettings();
-    if (!settings) return;
-    const remote = parseChoice(settings.course);
-    if (!remote) {
-      // Chosen on this device before signing in — carry it up to the account.
-      const local = loadLocal();
-      if (local) void saveSettings({ course: local });
-      return;
+    if (settings) {
+      const remote = parseChoice(settings.course);
+      if (remote) {
+        set({ course: remote });
+        storeLocal(remote);
+      } else {
+        // Chosen on this device before signing in — carry it up to the account.
+        const local = loadLocal();
+        if (local) void saveSettings({ course: local });
+      }
     }
-    set({ course: remote });
-    storeLocal(remote);
+    // Today's ticks made signed out go up with the account, so the reminder
+    // tonight knows they're done.
+    const day = localDateString();
+    for (const key of get().log[day] ?? []) void markPlanTask(day, key);
+    fetched.clear();
+    await get().ensureDays(addDays(day, -LOCAL_DAYS), day);
   },
 }));

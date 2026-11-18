@@ -10,8 +10,11 @@
 
 import { CEFR_WORDS } from '../data/cefrWords';
 import type { WordProgress } from '../types';
+import {
+  addDays, daysBetween, scheduledTasks, tasksPerDay, type CourseId, type Skill, type TaskSpec,
+} from '../../supabase/functions/_shared/coursePlan.ts';
 
-export type CourseId = 'everyday' | 'ielts';
+export type { CourseId };
 export const CEFR = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 export type Cefr = (typeof CEFR)[number];
 
@@ -120,9 +123,9 @@ export function daysLeft(stages: Stage[], perDay: number): number {
   return Math.ceil(left / Math.max(1, perDay));
 }
 
-/* ─── Today's tasks ──────────────────────────────────────────── */
+/* ─── Daily tasks ────────────────────────────────────────────── */
 
-export type Skill = 'listening' | 'speaking' | 'writing' | 'grammar';
+export type { Skill };
 
 export const SKILL_ICON: Record<Skill, string> = {
   listening: 'lucide:headphones',
@@ -131,78 +134,93 @@ export const SKILL_ICON: Record<Skill, string> = {
   grammar: 'lucide:book-open-check',
 };
 
-export interface PlanTask {
-  /** Stable for the day — what "done" is recorded against. */
-  key: string;
-  skill: Skill;
-  /** Message id for the task's name. */
-  labelId: string;
-  /** Where it opens. */
-  path: string;
-  /** `?tab=` the page must be on for a visit to count; none = any. */
-  tab?: string;
+export interface PlanTask extends TaskSpec {
   /** Extra query for the link only (a grammar level, say). */
   query?: Record<string, string>;
 }
 
-type TaskSpec = Omit<PlanTask, 'key' | 'query'> & { query?: (c: CourseChoice) => Record<string, string> };
+export { tasksPerDay, daysBetween, addDays };
 
-// The skill sessions each course rotates through, in order. Alternating
-// skills so two consecutive days never repeat one, and a day with two tasks
-// gets two different skills.
-// Grammar opens on the learner's starting band.
-const grammarAt = (c: CourseChoice) => ({ level: c.level });
-
-const POOLS: Record<CourseId, TaskSpec[]> = {
-  everyday: [
-    { skill: 'listening', labelId: 'plan.task.podcast', path: '/listening', tab: 'podcast' },
-    { skill: 'speaking', labelId: 'plan.task.conversation', path: '/speaking', tab: 'conversation' },
-    { skill: 'grammar', labelId: 'plan.task.grammar', path: '/grammar', query: grammarAt },
-    { skill: 'listening', labelId: 'plan.task.dictation', path: '/listening', tab: 'dictation' },
-    { skill: 'speaking', labelId: 'plan.task.dialogue', path: '/speaking', tab: 'dialogue' },
-    { skill: 'writing', labelId: 'plan.task.improveWriting', path: '/writing/improve' },
-  ],
-  ielts: [
-    { skill: 'listening', labelId: 'plan.task.ieltsListening', path: '/listening', tab: 'ielts' },
-    { skill: 'speaking', labelId: 'plan.task.ieltsSpeaking', path: '/speaking', tab: 'ielts' },
-    { skill: 'writing', labelId: 'plan.task.ieltsWriting', path: '/writing/ielts' },
-    { skill: 'grammar', labelId: 'plan.task.grammar', path: '/grammar', query: grammarAt },
-    { skill: 'listening', labelId: 'plan.task.comprehension', path: '/listening', tab: 'comprehension' },
-    { skill: 'speaking', labelId: 'plan.task.ieltsSpeaking', path: '/speaking', tab: 'ielts' },
-  ],
-};
-
-/** Skill sessions a day for a given words-a-day goal — a bigger goal means a longer day. */
-export function tasksPerDay(goal: number): number {
-  if (goal >= 30) return 3;
-  if (goal >= 20) return 2;
-  return 1;
+/**
+ * The skill tasks for `day` — the rotation itself lives in
+ * supabase/functions/_shared/coursePlan.ts, shared with the reminder that
+ * names them. Grammar opens on the learner's starting band.
+ */
+export function tasksFor(choice: CourseChoice, goal: number, day: string): PlanTask[] {
+  return scheduledTasks(choice.id, choice.startedOn, goal, day).map((t) => (
+    t.skill === 'grammar' ? { ...t, query: { level: choice.level } } : t
+  ));
 }
 
-const DAY_MS = 86_400_000;
-/** Whole days between two local YYYY-MM-DD dates. */
-export function daysBetween(from: string, to: string): number {
-  const a = Date.parse(`${from}T00:00:00Z`);
-  const b = Date.parse(`${to}T00:00:00Z`);
-  return Number.isFinite(a) && Number.isFinite(b) ? Math.round((b - a) / DAY_MS) : 0;
+/* ─── The whole course, week by week ─────────────────────────── */
+
+export interface PlanWeek {
+  index: number;
+  stage: Cefr;
+  /** This week's slice of the stage's words, 1-based inclusive. */
+  from: number;
+  to: number;
+  /** How much of the slice is seen — a stage's words fill its weeks in order. */
+  seen: number;
+  status: 'done' | 'current' | 'upcoming';
+  /** Monday-agnostic: the 7 days starting here. Done weeks keep their
+   *  scheduled date; the current and upcoming ones are projected from today. */
+  start: string;
+  /** The week's skill sessions, each with how many times it comes up. */
+  tasks: { task: PlanTask; count: number }[];
 }
 
 /**
- * The skill tasks for `today`: `tasksPerDay(goal)` consecutive entries of the
- * course's pool, starting where yesterday's left off — so over a week every
- * kind of session comes round, whatever the goal.
+ * The course laid out as weeks: each week is `goal × 7` words of the current
+ * band plus a week of the skill rotation. Weeks don't straddle bands — a band's
+ * last week is just shorter — so every week has one clear "what level".
  */
-export function tasksFor(choice: CourseChoice, goal: number, today: string): PlanTask[] {
-  const pool = POOLS[choice.id];
-  const n = Math.min(tasksPerDay(goal), pool.length);
-  const day = Math.max(0, daysBetween(choice.startedOn, today));
-  const out: PlanTask[] = [];
-  for (let i = 0; i < n; i++) {
-    const spec = pool[(day * n + i) % pool.length];
-    const { query, ...rest } = spec;
-    out.push({ ...rest, key: `${spec.path}|${spec.tab ?? ''}|${spec.labelId}`, query: query?.(choice) });
+export function planWeeks(choice: CourseChoice, stages: Stage[], goal: number, today: string): PlanWeek[] {
+  const perWeek = Math.max(1, goal) * 7;
+  const weeks: Omit<PlanWeek, 'status' | 'start' | 'tasks'>[] = [];
+  for (const s of stages) {
+    for (let from = 1; from <= s.total; from += perWeek) {
+      const to = Math.min(s.total, from + perWeek - 1);
+      const seen = Math.max(0, Math.min(to, s.seen) - from + 1);
+      weeks.push({ index: weeks.length, stage: s.cefr, from, to, seen });
+    }
   }
-  return out;
+  const current = weeks.findIndex((w) => w.seen < w.to - w.from + 1);
+  const cur = current === -1 ? weeks.length : current;
+  return weeks.map((w) => {
+    const start = w.index < cur
+      ? addDays(choice.startedOn, w.index * 7)
+      : addDays(today, (w.index - cur) * 7);
+    return {
+      ...w,
+      status: w.index < cur ? 'done' : w.index === cur ? 'current' : 'upcoming',
+      start,
+      tasks: tallyWeek(choice, goal, start),
+    };
+  });
+}
+
+function tallyWeek(choice: CourseChoice, goal: number, start: string): { task: PlanTask; count: number }[] {
+  const out = new Map<string, { task: PlanTask; count: number }>();
+  for (let d = 0; d < 7; d++) {
+    for (const t of tasksFor(choice, goal, addDays(start, d))) {
+      const e = out.get(t.key);
+      if (e) e.count++;
+      else out.set(t.key, { task: t, count: 1 });
+    }
+  }
+  return [...out.values()];
+}
+
+/**
+ * Weeks ahead (+) or behind (−) the schedule: the week the learner is on
+ * against the week the calendar says they'd be on at their pace.
+ */
+export function paceWeeks(choice: CourseChoice, weeks: PlanWeek[], today: string): number {
+  const at = weeks.findIndex((w) => w.status === 'current');
+  const on = at === -1 ? weeks.length : at;
+  const expected = Math.floor(Math.max(0, daysBetween(choice.startedOn, today)) / 7);
+  return on - expected;
 }
 
 /** Whether being on `pathname` with `tab` counts as doing `task`. */

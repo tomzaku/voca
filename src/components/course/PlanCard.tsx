@@ -6,7 +6,7 @@ import { useDailyGoal, useWordsToday } from '../../hooks/useDailyGoal';
 import { useVocabularyStore } from '../../hooks/useVocabulary';
 import { useCollections } from '../../hooks/useCollections';
 import { localDateString } from '../../hooks/useStreak';
-import { currentStage, daysBetween, daysLeft, planStages, taskHref, tasksFor, SKILL_ICON } from '../../lib/course';
+import { addDays, currentStage, daysBetween, daysLeft, planStages, taskHref, tasksFor, SKILL_ICON } from '../../lib/course';
 
 /** "about 3 weeks" — days below a fortnight, weeks below ~10, months after. */
 export function PlanDuration({ days }: { days: number }) {
@@ -24,7 +24,7 @@ export function PlanDuration({ days }: { days: number }) {
  */
 export function PlanCard() {
   const course = useCourse((s) => s.course);
-  const done = useCourse((s) => s.done);
+  const log = useCourse((s) => s.log);
   const goal = useDailyGoal((s) => s.goal);
   const wordsToday = useWordsToday();
   const progress = useVocabularyStore((s) => s.progress);
@@ -48,7 +48,8 @@ export function PlanCard() {
   const stages = planStages(course, progress);
   const stage = currentStage(stages);
   const tasks = tasksFor(course, goal, today);
-  const doneToday = new Set(done.day === today ? done.keys : []);
+  const tomorrow = tasksFor(course, goal, addDays(today, 1));
+  const doneToday = new Set(log[today] ?? []);
   const day = daysBetween(course.startedOn, today) + 1;
   const studyStage = () => { setActive(stage.collectionId); navigate('/'); };
 
@@ -116,6 +117,16 @@ export function PlanCard() {
             </li>
           ))}
         </ul>
+        {/* What's next, so tomorrow isn't a surprise. */}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 text-xs text-text-muted">
+          <span className="font-bold uppercase tracking-wide"><FormattedMessage id="plan.cal.tomorrow" /></span>
+          <span><FormattedMessage id="plan.words" values={{ n: goal }} /></span>
+          {tomorrow.map((t) => (
+            <span key={t.key} className="flex items-center gap-1">
+              · <Icon icon={SKILL_ICON[t.skill]} /> <FormattedMessage id={t.labelId} />
+            </span>
+          ))}
+        </p>
       </div>
     </section>
   );

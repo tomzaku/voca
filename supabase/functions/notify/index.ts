@@ -26,6 +26,7 @@
 
 import webpush from 'npm:web-push@3.6.7';
 import { corsHeaders, jsonResponse, serviceClient } from '../_shared/ai.ts';
+import { COURSE_IDS, scheduledTasks, type CourseId } from '../_shared/coursePlan.ts';
 
 interface ReminderRow {
   user_id: string;
@@ -38,17 +39,41 @@ interface ReminderRow {
   streak: number;
   streak_at_risk: boolean;
   review_due: boolean;
+  /** The learner's course setting — null without one, or with study reminders off. */
+  course: { id?: string; startedOn?: string } | null;
+  daily_goal: number | null;
+  /** Today, on the learner's clock. */
+  local_date: string;
+  /** Plan task keys already done today. */
+  plan_done: string[];
+}
+
+/** Default words-a-day, matching the client's DEFAULT_GOAL. */
+const DEFAULT_GOAL = 10;
+
+/** Today's plan sessions not yet done, by name — empty without a course. */
+function planLeft(row: ReminderRow): string[] {
+  const c = row.course;
+  if (!c || !COURSE_IDS.includes(c.id as CourseId) || typeof c.startedOn !== 'string') return [];
+  const done = new Set(row.plan_done ?? []);
+  return scheduledTasks(c.id as CourseId, c.startedOn, row.daily_goal ?? DEFAULT_GOAL, row.local_date)
+    .filter((t) => !done.has(t.key))
+    .map((t) => t.name);
 }
 
 /**
  * Which message this row should get. A streak about to break outranks a review
  * nudge: the review queue will still be there tomorrow, the streak won't.
  */
-function chooseAction(row: ReminderRow): ActionId {
+function chooseAction(row: ReminderRow): ActionId | null {
   // Both booleans already account for the user's per-type switches, so this
-  // only has to decide precedence.
+  // only has to decide precedence. A plan outranks a lone due word: it's what
+  // the learner said they'd do today, and it already includes the words.
   if (row.streak_at_risk) return 'streak_at_risk';
-  return row.review_due ? 'review_word' : 'test_ping';
+  if (planLeft(row).length > 0) return 'plan_today';
+  if (row.review_due) return 'review_word';
+  // A course with today's plan already done, and nothing due: nothing to say.
+  return row.course ? null : 'test_ping';
 }
 
 // Base path the app is served from — served at the root of its custom domain
@@ -87,6 +112,9 @@ interface ActionContext {
   word: string | null;
   dueCount: number;
   streak: number;
+  /** Today's plan sessions still to do, by name. */
+  planLeft: string[];
+  goal: number;
 }
 
 interface ActionDefinition {
@@ -168,6 +196,29 @@ const ACTIONS = {
     url: ({ word }) => (word ? `${APP_BASE}/quick?w=${encodeWord(word)}` : `${APP_BASE}/`),
   },
 
+  /**
+   * Today's plan, by name. The learner chose this plan, so the reminder is
+   * their own list read back to them — what's left, and how small it is —
+   * and the tap opens the plan, where each item is one more tap away.
+   */
+  plan_today: {
+    templates: [
+      ({ planLeft, goal }) => ({
+        title: `Today's plan: ${joinNames(planLeft)}`,
+        body: `Plus ${goal} words. About ${10 + planLeft.length * 5} minutes, all told.`,
+      }),
+      ({ planLeft }) => ({
+        title: `${planLeft.length === 1 ? 'One thing' : `${planLeft.length} things`} left on today's plan`,
+        body: `${capitalise(joinNames(planLeft))} — then today's done.`,
+      }),
+      ({ planLeft }) => ({
+        title: `Ready for ${planLeft[0]}?`,
+        body: "It's next on your plan. A few minutes keeps you on schedule.",
+      }),
+    ],
+    url: () => `${APP_BASE}/plan`,
+  },
+
   /** Delivery check with an empty queue — says what it is instead of inventing a word. */
   test_ping: {
     templates: [
@@ -181,6 +232,23 @@ const ACTIONS = {
 } satisfies Record<string, ActionDefinition>;
 
 type ActionId = keyof typeof ACTIONS;
+
+/** "a podcast, dictation and a grammar lesson" */
+function joinNames(names: string[]): string {
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function contextOf(r: ReminderRow): ActionContext {
+  return {
+    word: r.word,
+    dueCount: r.due_count,
+    streak: r.streak,
+    planLeft: planLeft(r),
+    goal: r.daily_goal ?? DEFAULT_GOAL,
+  };
+}
 
 /** Render one action into the JSON the service worker receives. */
 function buildPayload(action: ActionId, ctx: ActionContext): string {
@@ -279,12 +347,9 @@ export default async function handler(req: Request): Promise<Response> {
 
     // With nothing due there's no word to name, so fall back to a plain ping —
     // a test still has to reach the device to prove delivery works.
+    // A test always sends: with today's plan done it falls back to the ping.
     const { delivered: testDelivered, dead: testDead } = await sendAll(testRows, (r) =>
-      buildPayload(chooseAction(r), {
-        word: r.word,
-        dueCount: r.due_count,
-        streak: r.streak,
-      }),
+      buildPayload(chooseAction(r) ?? 'test_ping', contextOf(r)),
     );
 
     if (testDead.length > 0) {
@@ -298,7 +363,7 @@ export default async function handler(req: Request): Promise<Response> {
       pruned: testDead.length,
       due_count: testRows[0]?.due_count ?? 0,
       word: testRows[0]?.word ?? null,
-      action: testRows[0] ? chooseAction(testRows[0]) : null,
+      action: testRows[0] ? chooseAction(testRows[0]) ?? 'test_ping' : null,
     });
   }
 
@@ -307,16 +372,13 @@ export default async function handler(req: Request): Promise<Response> {
   const { data, error } = await supabase.rpc('pending_review_reminders');
   if (error) return jsonResponse(500, { error: error.message });
 
-  const rows = (data ?? []) as ReminderRow[];
+  // Rows with nothing to say — a course whose day is already done — drop out
+  // here rather than in SQL, because which tasks a day has is decided by the
+  // shared rotation, not the database.
+  const rows = ((data ?? []) as ReminderRow[]).filter((r) => chooseAction(r) !== null);
   if (rows.length === 0) return jsonResponse(200, { sent: 0, pruned: 0 });
 
-  const { delivered, dead } = await sendAll(rows, (r) =>
-    buildPayload(chooseAction(r), {
-      word: r.word,
-      dueCount: r.due_count,
-      streak: r.streak,
-    }),
-  );
+  const { delivered, dead } = await sendAll(rows, (r) => buildPayload(chooseAction(r)!, contextOf(r)));
 
   // Stamping only the ones that actually went out means a transient failure is
   // retried next hour instead of being silently skipped for a day.
