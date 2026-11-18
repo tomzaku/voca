@@ -10,7 +10,7 @@ import {
 import { STEP } from '../../lib/rooftop';
 import { playCoin, playHurt, playStomp, playWin } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
-import { PixelButton, PixelIcon, PixelLoader } from './pixel';
+import { Kbd, PixelButton, PixelIcon, PixelLoader } from './pixel';
 import { SHIP_COLORS, SHOT_COLORS, drawBackground, drawBomb, drawBug, drawDrop, drawHealth, drawShip, drawShot } from './bugSwarmDraw';
 
 // Bug Swarm, on screen: a wave shooter for two in the world (or one,
@@ -403,6 +403,21 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     return () => cancelAnimationFrame(raf);
   }, [started]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // At the end (or once they've left): R or Enter plays again, Esc leaves.
+  useEffect(() => {
+    if (!hud.over && !left) return;
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === 'escape') onClose();
+      else if (!left && (k === 'r' || k === 'enter')) again();
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [hud.over, left]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toGame = (e: PointerEvent) => {
     const r = canvas.current!.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
@@ -477,7 +492,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
         {left && overlay(
           <>
             <p className="text-[14px] mb-3"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>
-            <PixelButton tone="jade" block onClick={onClose}><FormattedMessage id="world.duelDone" /></PixelButton>
+            <PixelButton tone="jade" block onClick={onClose}><FormattedMessage id="world.duelDone" /> <Kbd>Esc</Kbd></PixelButton>
           </>,
         )}
         {hud.over && !left && overlay(
@@ -488,8 +503,8 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
               {hud.partner && <> · {partnerName}: {theirs}</>}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <PixelButton tone="gold" onClick={again}><FormattedMessage id="world.rooftopAgain" /></PixelButton>
-              <PixelButton tone="paper" onClick={onClose}><FormattedMessage id="world.duelDone" /></PixelButton>
+              <PixelButton tone="gold" onClick={again}><FormattedMessage id="world.rooftopAgain" /> <Kbd>R</Kbd></PixelButton>
+              <PixelButton tone="paper" onClick={onClose}><FormattedMessage id="world.duelDone" /> <Kbd>Esc</Kbd></PixelButton>
             </div>
           </>,
         )}

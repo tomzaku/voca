@@ -9,7 +9,7 @@ import {
 } from '../../lib/rooftop';
 import { playBoing, playCoin, playHurt, playJump, playStomp, playWin } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
-import { PixelButton, PixelIcon, PixelLoader } from './pixel';
+import { Kbd, PixelButton, PixelIcon, PixelLoader } from './pixel';
 import {
   COLORS, VIEW_H, drawBoat, drawCoin, drawEdgeArrow, drawEnemy, drawGoalGate, drawRunner, drawSky, drawSquashed, drawTiles,
 } from './rooftopDraw';
@@ -461,6 +461,21 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
     setHud((h) => (h.coins === next.coins && h.lives === next.lives && h.time === next.time && h.waiting === next.waiting && h.hint === next.hint && h.over === next.over ? h : next));
   }
 
+  // At the end (or once they've left): R or Enter plays again, Esc leaves.
+  useEffect(() => {
+    if (!hud.over && !left) return;
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === 'escape') onClose();
+      else if (!left && (k === 'r' || k === 'enter')) again();
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [hud.over, left]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const hold = (k: keyof Input) => ({
     onPointerDown: (e: PointerEvent) => { e.preventDefault(); (e.target as HTMLElement).setPointerCapture?.(e.pointerId); input.current[k] = true; },
     onPointerUp: () => { input.current[k] = false; },
@@ -516,7 +531,7 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
         {left && overlay(
           <>
             <p className="text-[14px] mb-3"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>
-            <PixelButton tone="jade" block onClick={onClose}><FormattedMessage id="world.duelDone" /></PixelButton>
+            <PixelButton tone="jade" block onClick={onClose}><FormattedMessage id="world.duelDone" /> <Kbd>Esc</Kbd></PixelButton>
           </>,
         )}
         {hud.over && !left && overlay(
@@ -526,8 +541,8 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
             </p>
             <p className="text-[13px] mb-3 opacity-90"><FormattedMessage id="world.rooftopCoins" values={{ n: hud.coins }} /></p>
             <div className="grid grid-cols-2 gap-2">
-              <PixelButton tone="gold" onClick={again}><FormattedMessage id="world.rooftopAgain" /></PixelButton>
-              <PixelButton tone="paper" onClick={onClose}><FormattedMessage id="world.duelDone" /></PixelButton>
+              <PixelButton tone="gold" onClick={again}><FormattedMessage id="world.rooftopAgain" /> <Kbd>R</Kbd></PixelButton>
+              <PixelButton tone="paper" onClick={onClose}><FormattedMessage id="world.duelDone" /> <Kbd>Esc</Kbd></PixelButton>
             </div>
           </>,
         )}

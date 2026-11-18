@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Phaser from 'phaser';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from 'react-router-dom';
@@ -17,7 +17,7 @@ import {
   WORLD_EVENTS, type BusRide, type WorldArea, type WorldSnapshot,
 } from '../game/types';
 import { COLLECTIONS_KEEPER, FEATURE_ID_PREFIX, featureNodeId, type WorldFeature, type WorldSkill } from '../game/features';
-import { PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
+import { Kbd, PixelButton, PixelIcon, type PixelIconName } from './worldgames/pixel';
 import { PlaceEn, PlaceInfo } from './worldgames/PlaceInfo';
 import { VendorTalk } from './worldgames/VendorTalk';
 import { PlaceMemorial } from './worldgames/PlaceMemorial';
@@ -246,6 +246,20 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 /** Each thing two players can do together, by its mark. */
 const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship', pool: 'eightball', rooftop: 'flag', swarm: 'bug' };
 
+/** The world's keys, for the "?" card — keep in step with the handlers. */
+const KEY_ROWS: [string[], string][] = [
+  [['W', 'A', 'S', 'D'], 'world.keys.walk'],
+  [['Enter'], 'world.keys.enter'],
+  [['1–6'], 'world.keys.react'],
+  [['/'], 'world.keys.chat'],
+  [['B'], 'world.keys.ride'],
+  [['+', '−', '0'], 'world.keys.zoom'],
+  [['M', 'G', 'F'], 'world.keys.peer'],
+  [['Y', 'N'], 'world.keys.invite'],
+  [['Esc'], 'world.keys.close'],
+  [['?'], 'world.keys.help'],
+];
+
 /** One group on a player's card: a small heading over its buttons. */
 function PeerSection({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
@@ -357,6 +371,8 @@ export function GameWorld({
   // The others in Huế that WorldLive sees — guests among them.
   const [online, setOnline] = useState(0);
   const [peerCard, setPeerCard] = useState<{ id: string; name: string } | null>(null);
+  /** The card listing the world's keys ("?"). */
+  const [keysOpen, setKeysOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatText, setChatText] = useState('');
   const [reactOpen, setReactOpen] = useState(false);
@@ -903,6 +919,50 @@ export function GameWorld({
     return () => window.removeEventListener('keydown', onKey);
   }, [panel, chatOpen, playing, match, busTicket, focusOpen, memorial, react]);
 
+  // The cards' keys: Esc closes whatever card is up, and a card's buttons
+  // each have a letter. Caught before the world's own keys (capture), so Enter
+  // on an invite doesn't also open the keeper you're standing by. Read through
+  // a ref so the listener isn't re-added on every render.
+  const cardKeys = useRef<(k: string) => boolean>(() => false);
+  useEffect(() => {
+    cardKeys.current = (k) => {
+      if (invite && !match) {
+        if (k === 'y' || k === 'Enter') { answerInvite(true); return true; }
+        if (k === 'n' || k === 'Escape') { answerInvite(false); return true; }
+        return false;
+      }
+      if (match || playing) return false;
+      if (asking) { if (k === 'Escape') { cancelAsking(); return true; } return false; }
+      if (keysOpen) { if (k === 'Escape' || k === '?') { setKeysOpen(false); return true; } return false; }
+      if (peerCard) {
+        if (k === 'Escape') { setPeerCard(null); return true; }
+        if (k === 'g') { goToPeer(peerCard.id); return true; }
+        if (user && !isGuest(peerCard.id)) {
+          if (k === 'm') { messagePeer(peerCard.id, peerCard.name); return true; }
+          if (k === 'f') { give(peerCard.id, 'flower'); setPeerCard(null); return true; }
+        }
+        return false;
+      }
+      if (k === 'Escape') {
+        if (reactOpen) { setReactOpen(false); return true; }
+        if (friendsOpen) { setFriendsOpen(false); return true; }
+        if (menuOpen) { setMenuOpen(false); return true; }
+        if (drawerOpen) { setDrawerOpen(false); return true; }
+      }
+      if (k === '?' && !intro) { setKeysOpen(true); return true; }
+      return false;
+    };
+  });
+  useEffect(() => {
+    if (panel || chatOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement)?.closest?.('input, textarea, [contenteditable]')) return;
+      if (cardKeys.current(e.key.length === 1 ? e.key.toLowerCase() : e.key)) { e.preventDefault(); e.stopPropagation(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [panel, chatOpen]);
+
   // First time here and signed out: the welcome, once the world has drawn
   // (and auth has had its say, so a signed-in visitor never sees it flash) —
   // and once they've said what to call them.
@@ -1312,7 +1372,7 @@ export function GameWorld({
               <span style={{ color: REACTION_ICONS.wave.color }}><PixelIcon rows={REACTION_ICONS.wave.rows} size={2} /></span> <FormattedMessage id="world.liveWave" />
             </PixelButton>
             <PixelButton tone="jade" onClick={() => goToPeer(peerCard.id)} className="!px-2 !py-2 !text-[13px]">
-              <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" />
+              <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" /> <Kbd>G</Kbd>
             </PixelButton>
           </div>
           {!user && (
@@ -1321,7 +1381,7 @@ export function GameWorld({
             </PixelButton>
           )}
           <PixelButton tone="paper" block onClick={() => setPeerCard(null)} className="!py-2 !text-[13px] mt-1.5">
-            <FormattedMessage id="world.busNotNow" />
+            <FormattedMessage id="world.busNotNow" /> <Kbd>Esc</Kbd>
           </PixelButton>
         </WorldCard>
       )}
@@ -1329,10 +1389,10 @@ export function GameWorld({
         <WorldCard icon="person" title={peerCard.name} subtitle={<FormattedMessage id="world.livePeer" />}>
           <div className="grid grid-cols-2 gap-1.5 mb-2">
             <PixelButton tone="gold" onClick={() => messagePeer(peerCard.id, peerCard.name)} className="!px-2 !py-2 !text-[13px]">
-              <PixelIcon name="mail" size={2} /> <FormattedMessage id="world.dmShort" />
+              <PixelIcon name="mail" size={2} /> <FormattedMessage id="world.dmShort" /> <Kbd>M</Kbd>
             </PixelButton>
             <PixelButton tone="jade" onClick={() => goToPeer(peerCard.id)} className="!px-2 !py-2 !text-[13px]">
-              <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" />
+              <PixelIcon name="compass" size={2} /> <FormattedMessage id="world.liveGoTo" /> <Kbd>G</Kbd>
             </PixelButton>
             {peerFriend && peerFriend !== 'you' && (
               <PixelButton
@@ -1404,11 +1464,11 @@ export function GameWorld({
               <span style={{ color: REACTION_ICONS.wave.color }}><PixelIcon rows={REACTION_ICONS.wave.rows} size={2} /></span> <FormattedMessage id="world.liveWave" />
             </PixelButton>
             <PixelButton tone="paper" onClick={() => { give(peerCard.id, 'flower'); setPeerCard(null); }} className="!px-2 !text-[13px]">
-              <span style={{ color: REACTION_ICONS.flower.color }}><PixelIcon rows={REACTION_ICONS.flower.rows} size={2} /></span> <FormattedMessage id="world.giveFlower" />
+              <span style={{ color: REACTION_ICONS.flower.color }}><PixelIcon rows={REACTION_ICONS.flower.rows} size={2} /></span> <FormattedMessage id="world.giveFlower" /> <Kbd>F</Kbd>
             </PixelButton>
           </PeerSection>
           <PixelButton tone="paper" block onClick={() => setPeerCard(null)} className="!py-2 !text-[13px] mt-1">
-            <FormattedMessage id="world.busNotNow" />
+            <FormattedMessage id="world.busNotNow" /> <Kbd>Esc</Kbd>
           </PixelButton>
         </WorldCard>
       )}
@@ -1421,17 +1481,34 @@ export function GameWorld({
         </div>
       )}
 
+      {/* The keys ("?"): everything the keyboard does in the world. */}
+      {!panel && keysOpen && !peerCard && !match && (
+        <WorldCard icon="key" title={<FormattedMessage id="world.keysTitle" />}>
+          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[13px] mb-3 items-center">
+            {KEY_ROWS.map(([keys, id]) => (
+              <Fragment key={id}>
+                <span className="flex gap-1 justify-end">{keys.map((k) => <kbd key={k} className="px-1.5 min-w-[1.6em] text-center font-mono text-[11px] rounded-[2px] border border-current/40">{k}</kbd>)}</span>
+                <span><FormattedMessage id={id} /></span>
+              </Fragment>
+            ))}
+          </div>
+          <PixelButton tone="paper" block onClick={() => setKeysOpen(false)} className="!py-2 !text-[13px]">
+            <FormattedMessage id="world.close" /> <Kbd>Esc</Kbd>
+          </PixelButton>
+        </WorldCard>
+      )}
+
       {/* ── Games with another player: asking, being asked, and playing. ── */}
       {!panel && asking && !match && (
         <WorldCard emoji="⏳" title={asking.name} subtitle={<FormattedMessage id="world.liveAsking" values={{ game: asking.game }} />}>
-          <PixelButton tone="paper" block onClick={cancelAsking}><FormattedMessage id="world.liveCancel" /></PixelButton>
+          <PixelButton tone="paper" block onClick={cancelAsking}><FormattedMessage id="world.liveCancel" /> <Kbd>Esc</Kbd></PixelButton>
         </WorldCard>
       )}
       {!panel && invite && !match && (
         <WorldCard icon={MATCH_ICONS[invite.game]} title={invite.name} subtitle={<FormattedMessage id="world.liveInvite" values={{ game: invite.game }} />}>
           <div className="grid grid-cols-2 gap-1.5">
-            <PixelButton tone="jade" onClick={() => answerInvite(true)} className="!text-[13px]"><FormattedMessage id="world.play" /></PixelButton>
-            <PixelButton tone="paper" onClick={() => answerInvite(false)} className="!text-[13px]"><FormattedMessage id="world.busNotNow" /></PixelButton>
+            <PixelButton tone="jade" onClick={() => answerInvite(true)} className="!text-[13px]"><FormattedMessage id="world.play" /> <Kbd>Y</Kbd></PixelButton>
+            <PixelButton tone="paper" onClick={() => answerInvite(false)} className="!text-[13px]"><FormattedMessage id="world.busNotNow" /> <Kbd>N</Kbd></PixelButton>
           </div>
         </WorldCard>
       )}

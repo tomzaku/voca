@@ -280,3 +280,12 @@ export function PixelSprite({ src, sheetWidth, frame = 32, frames = 4, row = 0, 
     />
   );
 }
+
+/** A key's name on the button it presses — shown only where there's a keyboard to press it on. */
+export function Kbd({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="hidden pointer-fine:inline-block ml-1 px-1 min-w-[1.4em] text-center font-mono text-[10px] leading-[1.5] not-italic rounded-[2px] border border-current/40 opacity-75">
+      {children}
+    </kbd>
+  );
+}
