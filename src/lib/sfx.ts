@@ -102,3 +102,34 @@ export function playWin() {
     );
   });
 }
+
+// Arcade sounds for the action games (Rooftop Run). Unlike the answer sounds
+// above, these announce nothing: a jump isn't an answer.
+
+/** A short upward chirp — a jump. */
+export function playJump() {
+  play((c) => tone(c, { freq: 330, start: 0, dur: 0.12, type: 'square', gain: 0.04, slideTo: 660 }));
+}
+
+/** Two bright pings — a coin. */
+export function playCoin() {
+  play((c) => {
+    tone(c, { freq: 987.77, start: 0, dur: 0.06, type: 'square', gain: 0.045 });
+    tone(c, { freq: 1318.51, start: 0.05, dur: 0.16, type: 'square', gain: 0.045 });
+  });
+}
+
+/** A soft thud — landing on an enemy, or a box knocked from below. */
+export function playStomp() {
+  play((c) => tone(c, { freq: 220, start: 0, dur: 0.1, type: 'square', gain: 0.06, slideTo: 90 }));
+}
+
+/** A spring's boing. */
+export function playBoing() {
+  play((c) => tone(c, { freq: 200, start: 0, dur: 0.25, type: 'triangle', gain: 0.1, slideTo: 800 }));
+}
+
+/** A falling slide — losing a life. */
+export function playHurt() {
+  play((c) => tone(c, { freq: 600, start: 0, dur: 0.5, type: 'square', gain: 0.05, slideTo: 80 }));
+}

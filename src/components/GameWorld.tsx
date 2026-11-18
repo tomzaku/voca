@@ -57,6 +57,8 @@ import { MemoryMatch } from './worldgames/MemoryMatch';
 import { TienLen } from './worldgames/TienLen';
 import { ChessMatch } from './worldgames/ChessMatch';
 import { SeaBattle } from './worldgames/SeaBattle';
+import { RooftopRun } from './worldgames/RooftopRun';
+import { BugSwarm } from './worldgames/BugSwarm';
 import { Fishing } from './worldgames/Fishing';
 import { useFocus } from '../hooks/useFocus';
 import { clock, secondsCounted, secondsLeft } from '../lib/focusTimer';
@@ -242,7 +244,7 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 }
 
 /** Each thing two players can do together, by its mark. */
-const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship', pool: 'eightball' };
+const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship', pool: 'eightball', rooftop: 'flag', swarm: 'bug' };
 
 /** One group on a player's card: a small heading over its buttons. */
 function PeerSection({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -1390,6 +1392,12 @@ export function GameWorld({
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'pool')} className="!px-2 !text-[13px]">
               <PixelIcon name="eightball" size={2} /> <FormattedMessage id="world.poolTitle" />
             </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'rooftop')} className="!px-2 !text-[13px]">
+              <PixelIcon name="flag" size={2} /> <FormattedMessage id="world.rooftopTitle" />
+            </PixelButton>
+            <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'swarm')} className="!px-2 !text-[13px]">
+              <PixelIcon name="bug" size={2} /> <FormattedMessage id="world.swarmTitle" />
+            </PixelButton>
           </PeerSection>
           <PeerSection title={<FormattedMessage id="world.peerHi" />}>
             <PixelButton tone="paper" onClick={() => { react('wave'); setPeerCard(null); }} className="!px-2 !text-[13px]">
@@ -1440,6 +1448,8 @@ export function GameWorld({
       {link?.game === 'chess' && <ChessMatch key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'pool' && <PoolMatch key={link.id} link={link} onClose={endMatch} />}
       {link?.game === 'sea' && <SeaBattle key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'rooftop' && <RooftopRun key={link.id} link={link} onClose={endMatch} />}
+      {link?.game === 'swarm' && <BugSwarm key={link.id} link={link} onClose={endMatch} />}
 
       {/* ── The chat ── who's here, at the bottom left, and the bar beside it. ── */}
       {!panel && (

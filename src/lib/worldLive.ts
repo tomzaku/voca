@@ -36,8 +36,8 @@ export type LiveMessage =
   | { kind: 'play'; from: string; to: string; id: string; data: Record<string, unknown> };
 
 /** What two players can do together: the games, and talking (a voice call). */
-export type MatchGame = 'duel' | 'race' | 'talk' | 'caro' | 'caro7' | 'chain' | 'oan' | 'poker' | 'chess' | 'memory' | 'tienlen' | 'sea' | 'pool';
-export const MATCH_GAMES: MatchGame[] = ['duel', 'race', 'talk', 'caro', 'caro7', 'chain', 'oan', 'poker', 'chess', 'memory', 'tienlen', 'sea', 'pool'];
+export type MatchGame = 'duel' | 'race' | 'talk' | 'caro' | 'caro7' | 'chain' | 'oan' | 'poker' | 'chess' | 'memory' | 'tienlen' | 'sea' | 'pool' | 'rooftop' | 'swarm';
+export const MATCH_GAMES: MatchGame[] = ['duel', 'race', 'talk', 'caro', 'caro7', 'chain', 'oan', 'poker', 'chess', 'memory', 'tienlen', 'sea', 'pool', 'rooftop', 'swarm'];
 
 /** Two players in a game: its id, which game, whether I asked (the host
  *  sets the game up), and who's on the other side. */
