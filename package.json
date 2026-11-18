@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.257",
+  "version": "0.1.258",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",

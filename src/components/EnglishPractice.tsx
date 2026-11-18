@@ -202,6 +202,7 @@ export function EnglishPractice() {
     const text = input.trim();
     if (!text || isLoading) return;
     setInput('');
+    speechSentRef.current = true;
     setSummaryText(null);
     sendMessage(text);
   };
@@ -230,6 +231,8 @@ export function EnglishPractice() {
   // ─── Voice recording ─────────────────────────────────────────────
   const speechProducedTextRef = useRef(false);
   const inputBeforeRecordRef = useRef('');
+  /** Set when a message is sent while the mic may still be delivering results. */
+  const speechSentRef = useRef(false);
 
   const startRecording = useCallback(async () => {
     let stream: MediaStream;
@@ -247,6 +250,7 @@ export function EnglishPractice() {
     } catch { /* MediaRecorder not available */ }
 
     speechProducedTextRef.current = false;
+    speechSentRef.current = false;
     inputBeforeRecordRef.current = input;
 
     const SpeechRec = getSpeechRecognition();
@@ -255,26 +259,35 @@ export function EnglishPractice() {
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
-      const baseText = input;
-      let processedFinals = 0;
-      let accumulatedFinals = '';
+      // What the recogniser writes is rebuilt from scratch on every result —
+      // the text that was in the box when the mic opened, then everything
+      // heard since. Sending mid-recording empties the box, so it also has to
+      // empty that baseline (speechSentRef), or the next result would write
+      // the sent speech straight back. Results already on screen when it was
+      // sent (startIdx) were sent with it.
+      let base = input;
+      let committed = base;
+      let startIdx = 0;
+      let lastLen = 0;
+      const join = (a: string, b: string) => a + (a && b ? ' ' : '') + b;
 
       recognition.onresult = (event) => {
         speechProducedTextRef.current = true;
-        let interim = '';
-        for (let i = 0; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            if (i >= processedFinals) {
-              const text = event.results[i][0].transcript.trim();
-              if (text) accumulatedFinals += (accumulatedFinals ? ' ' : '') + text;
-              processedFinals = i + 1;
-            }
-          } else {
-            interim += event.results[i][0].transcript;
-          }
+        if (speechSentRef.current) {
+          speechSentRef.current = false;
+          base = '';
+          startIdx = lastLen;
         }
-        const combined = baseText + (baseText && accumulatedFinals ? ' ' : '') + accumulatedFinals;
-        setInput(combined + (interim ? (combined ? ' ' : '') + interim : ''));
+        lastLen = event.results.length;
+        let finals = '';
+        let interim = '';
+        for (let i = startIdx; i < event.results.length; i++) {
+          const text = event.results[i][0].transcript.trim();
+          if (event.results[i].isFinal) finals = join(finals, text);
+          else interim = join(interim, text);
+        }
+        committed = join(base, finals);
+        setInput(join(committed, interim));
         setRecordingText(interim);
       };
       recognition.onerror = (e) => {
@@ -285,6 +298,11 @@ export function EnglishPractice() {
       };
       recognition.onend = () => {
         if (recognitionRef.current === recognition) {
+          // A restarted session numbers its results from 0 again: keep what
+          // was heard as the new baseline and read the new session whole.
+          base = committed;
+          startIdx = 0;
+          lastLen = 0;
           try { recognition.start(); } catch { /* done */ }
         }
       };
