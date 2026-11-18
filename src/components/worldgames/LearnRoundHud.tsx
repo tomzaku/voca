@@ -6,14 +6,12 @@ import { choiceOptions, freeLetterPositions, guessMatches, isLetter, scrambleTil
 import { getActiveWordList } from '../../lib/wordService';
 import { speakText, stopSpeaking } from '../../lib/tts';
 import { playCorrect, playSelect, playWrong } from '../../lib/sfx';
-import { canScorePronunciation } from '../../lib/pronunciation';
-import { getLearnLanguage } from '../../lib/languages';
 import type { VocabularyWord } from '../../types';
 import {
   HudActionBar, HudBanner, HudCenter, HudDock, HudSlot,
   PixelButton, PixelIcon, PixelLetter, PixelLoader,
 } from './pixel';
-import { PxSayExample, PxSayWord } from './PxPronunciation';
+import { PxWordReveal } from './PxWordReveal';
 
 // One Learn round after another, as a HUD around the map: the clue in a
 // banner on top, the guess game docked at the bottom, the word revealed in
@@ -63,7 +61,7 @@ export function LearnRoundHud({ round, top, empty }: { round: LearnRound; top: R
   if (phase === 'empty' || !wordData) return <>{top}{empty}</>;
 
   if (phase === 'solved' || phase === 'gaveUp') {
-    return <>{top}<Reveal wordData={wordData} answer={answer} solved={phase === 'solved'} onNext={() => void round.next()} /></>;
+    return <>{top}<Reveal wordData={wordData} solved={phase === 'solved'} onNext={() => void round.next()} /></>;
   }
 
   const clue = wordData.shortDefinition?.trim() || wordData.definition;
@@ -231,41 +229,15 @@ function TypeGame({ answer, reveal, speakOnStart, onSolve, onMiss, onGiveUp }: {
   );
 }
 
-// ── The word, once it's solved or given away ──
-function Reveal({ wordData, answer, solved, onNext }: { wordData: VocabularyWord; answer: string; solved: boolean; onNext: () => void }) {
-  const ipa = wordData.phonetics?.['en-US'] ?? Object.values(wordData.phonetics ?? {})[0];
-  const example = wordData.examples?.[0];
-  // Say it, then say it in a sentence — the flash card's two checks, scored
-  // on-device; English only, since that's what the phone model knows.
-  const ipas = Object.values(wordData.phonetics ?? {});
-  const canSay = getLearnLanguage().toLowerCase() === 'english' && canScorePronunciation();
+// ── The word, once it's solved or given away: the flash card's full picture ──
+function Reveal({ wordData, solved, onNext }: { wordData: VocabularyWord; solved: boolean; onNext: () => void }) {
   return (
     <HudCenter wide>
       <p className={`px-title mb-1 ${solved ? 'text-[var(--px-good)]' : 'text-[var(--px-bad)]'}`}>
         {solved ? <FormattedMessage id="games.correct" /> : <FormattedMessage id="world.learnTheWord" />}
       </p>
-      <div className="flex items-baseline gap-3 flex-wrap">
-        <span className="px-num text-[44px] leading-none text-[var(--px-gold)]">{answer}</span>
-        {ipa && <span className="text-[var(--px-muted)]">/{ipa}/</span>}
-        <button onClick={() => { stopSpeaking(); speakText(answer); }} className="text-[var(--px-sky)]" aria-label={answer}>
-          <PixelIcon name="speaker" size={3} />
-        </button>
-      </div>
-      {canSay && ipas.length > 0 && <PxSayWord key={answer} ipas={ipas} word={answer} />}
-      {wordData.partOfSpeech && <p className="px-title text-[var(--px-muted)] mt-2">{wordData.partOfSpeech}</p>}
-      <p className="mt-2 text-[17px] leading-snug">{wordData.definition}</p>
-      {example && (
-        <div className="mt-3">
-          <div className="flex items-start gap-2">
-            <p className="flex-1 text-[15px] italic text-[var(--px-muted)] leading-snug">“{example}”</p>
-            <button onClick={() => { stopSpeaking(); void speakText(example); }} className="text-[var(--px-sky)] shrink-0" aria-label={example}>
-              <PixelIcon name="speaker" size={2} />
-            </button>
-          </div>
-          {canSay && <PxSayExample key={example} text={example} />}
-        </div>
-      )}
-      <PixelButton tone="red" block className="mt-5" onClick={onNext}>
+      <PxWordReveal key={wordData.word} word={wordData} />
+      <PixelButton tone="red" block className="mt-5 sticky bottom-0" onClick={onNext}>
         <FormattedMessage id="flashcard.nextWord" /> <span className="max-sm:hidden">↵</span>
       </PixelButton>
     </HudCenter>
