@@ -237,9 +237,15 @@ function Reveal({ wordData, solved, onNext }: { wordData: VocabularyWord; solved
         {solved ? <FormattedMessage id="games.correct" /> : <FormattedMessage id="world.learnTheWord" />}
       </p>
       <PxWordReveal key={wordData.word} word={wordData} />
-      <PixelButton tone="red" block className="mt-5 sticky bottom-0" onClick={onNext}>
-        <FormattedMessage id="flashcard.nextWord" /> <span className="max-sm:hidden">↵</span>
-      </PixelButton>
+      {/* Pinned to the panel's bottom edge, like the flash card's action bar:
+          the word now runs taller than a phone, and Next is pressed every
+          time. On a wrapper, since .px-btn's own position: relative would
+          beat a sticky class on the button. */}
+      <div className="sticky bottom-0 z-10 -mx-[15px] -mb-5 mt-4 px-[15px] pt-3 pb-5 bg-[var(--px-paper)] border-t-2 border-[#5a4630]/60">
+        <PixelButton tone="red" block onClick={onNext}>
+          <FormattedMessage id="flashcard.nextWord" /> <span className="max-sm:hidden">↵</span>
+        </PixelButton>
+      </div>
     </HudCenter>
   );
 }
