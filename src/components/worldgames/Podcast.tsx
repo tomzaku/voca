@@ -120,7 +120,7 @@ function Episode({ episode, onEpisodes, onRandom }: { episode: Episode; onEpisod
                   title={recorded ? clock(recorded.lines[i].start) : undefined}
                   onClick={() => { setAt(i); player.playLine(i); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') { setAt(i); player.playLine(i); } }}
-                  className={`cursor-pointer mr-1 px-0.5 ${current ? 'bg-[var(--px-gold)] text-[var(--px-ink)]' : masked ? 'text-[var(--px-muted)] tracking-widest' : 'hover:text-[var(--px-gold)]'}`}
+                  className={`cursor-pointer mr-1 px-0.5 ${current ? 'bg-[var(--px-gold)] text-[var(--px-ink)] [text-shadow:none]' : masked ? 'text-[var(--px-muted)] tracking-widest' : 'hover:text-[var(--px-gold)]'}`}
                 >
                   {masked ? '• • • •' : text}
                 </span>

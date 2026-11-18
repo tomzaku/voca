@@ -140,7 +140,7 @@ function CollectionButton({ open, onClick }: { open: boolean; onClick: () => voi
     <button
       onClick={onClick}
       title={intl.formatMessage({ id: 'world.questionChangeHint' })}
-      className={`shrink-0 max-w-[55%] inline-flex items-center gap-1.5 px-notch px-2 py-1 text-[12px] leading-none border-2 ${open ? 'bg-[var(--px-gold)] text-[#2a1a08] border-[var(--px-gold)]' : 'bg-[#0d0a08]/60 text-[var(--px-muted)] border-[#5a4630] hover:text-[var(--px-text)]'}`}
+      className={`shrink-0 max-w-[55%] inline-flex items-center gap-1.5 px-notch px-2 py-1 text-[12px] leading-none border-2 ${open ? 'bg-[var(--px-gold)] text-[#2a1a08] border-[var(--px-gold)] [text-shadow:none]' : 'bg-[#0d0a08]/60 text-[var(--px-muted)] border-[#5a4630] hover:text-[var(--px-text)]'}`}
     >
       <PixelIcon name={open ? 'close' : 'sliders'} size={1} />
       <span className="truncate">{open ? <FormattedMessage id="world.questionKeep" /> : name}</span>
