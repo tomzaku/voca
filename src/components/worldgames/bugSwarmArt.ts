@@ -522,7 +522,39 @@ function golden(frame: number) {
   });
 }
 
+function splitter(frame: number) {
+  const { w, h } = BUG_SIZE.splitter;
+  const wob = frame ? 0.6 : 0;
+  return sprite(`splitter:${frame}`, w, h, 3, (c) => {
+    // A jelly sac, two cores inside — what it splits into.
+    const g = c.createRadialGradient(6, 4, 0.5, 7.5, 6.5, 8);
+    g.addColorStop(0, 'rgba(210,255,230,0.95)'); g.addColorStop(0.5, 'rgba(60,220,160,0.75)'); g.addColorStop(1, 'rgba(10,110,90,0.9)');
+    c.fillStyle = g; ellipse(c, 7.5, 6.5, 7 + wob, 6 - wob); c.fill();
+    c.strokeStyle = 'rgba(5,60,50,0.8)'; c.lineWidth = 0.5; c.stroke();
+    c.fillStyle = '#ff6ad5';
+    ellipse(c, 5, 6.5, 1.8, 1.8); c.fill(); ellipse(c, 10, 6.5, 1.8, 1.8); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.5)'; ellipse(c, 4.5, 3, 2, 1, -0.4); c.fill();
+    c.strokeStyle = '#1a7a60'; c.lineWidth = 0.7; c.lineCap = 'round';
+    for (const x of [3.5, 7.5, 11.5]) { c.beginPath(); c.moveTo(x, 11.5); c.quadraticCurveTo(x + (frame ? 1 : -1), 13, x, 14); c.stroke(); }
+  });
+}
+
+function mite(frame: number) {
+  const { w, h } = BUG_SIZE.mite;
+  return sprite(`mite:${frame}`, w, h, 2, (c) => {
+    c.strokeStyle = '#b0306a'; c.lineWidth = 0.6;
+    const sw = frame ? 0.8 : -0.8;
+    for (const y of [3, 5]) { c.beginPath(); c.moveTo(1.5, y); c.lineTo(-0.5, y + sw); c.moveTo(6.5, y); c.lineTo(8.5, y - sw); c.stroke(); }
+    const g = c.createRadialGradient(3.4, 3, 0.2, 4, 4, 4);
+    g.addColorStop(0, '#ffc0e8'); g.addColorStop(1, '#c02a7a');
+    c.fillStyle = g; ellipse(c, 4, 4, 3.2, 3.4); c.fill();
+    eyes(c, [[3, 6], [5, 6]], 0.5, '#ffffff');
+  });
+}
+
 const BUGS: Record<BugKind, { frames: number; fps: number; make: (f: number) => Sprite }> = {
+  splitter: { frames: 2, fps: 4, make: splitter },
+  mite: { frames: 2, fps: 16, make: mite },
   firefly: { frames: 2, fps: 8, make: firefly },
   shell: { frames: 2, fps: 5, make: shell },
   golden: { frames: 4, fps: 14, make: golden },
@@ -635,7 +667,7 @@ export function drawBomb(c: C, x: number, y: number, t: number, id: number, kind
   c.beginPath(); c.moveTo(x, y - 4); c.quadraticCurveTo(x + 3, y - 0.5, x + 2.2, y + 2); c.quadraticCurveTo(x, y + 3.6, x - 2.2, y + 2); c.quadraticCurveTo(x - 3, y - 0.5, x, y - 4); c.fill();
 }
 
-const DROP_COLOR: Record<DropKind, string> = { nova: '#9be7ff', gun: '#ff9f1c', shield: '#4cc9f0', life: '#ff4d6d', blaster: '#2fd38a', laser: '#c77dff', rockets: '#ff5d8f', scatter: '#ffd166' };
+const DROP_COLOR: Record<DropKind, string> = { time: '#7aa2ff', nova: '#9be7ff', gun: '#ff9f1c', shield: '#4cc9f0', life: '#ff4d6d', blaster: '#2fd38a', laser: '#c77dff', rockets: '#ff5d8f', scatter: '#ffd166' };
 /** A weapon's own colour — on its capsule and in the scoreboard. */
 export const WEAPON_COLOR = { blaster: DROP_COLOR.blaster, laser: DROP_COLOR.laser, rockets: DROP_COLOR.rockets, scatter: DROP_COLOR.scatter };
 
@@ -644,6 +676,9 @@ function dropIcon(c: C, kind: DropKind, x: number, y: number) {
   if (kind === 'gun') {
     for (const dx of [-2.2, 0, 2.2]) { c.beginPath(); c.moveTo(x + dx, y + 2.5); c.lineTo(x + dx, y - 1.5); c.stroke(); }
     c.beginPath(); c.moveTo(x - 3, y - 0.5); c.lineTo(x, y - 3.2); c.lineTo(x + 3, y - 0.5); c.stroke();
+  } else if (kind === 'time') {
+    // An hourglass.
+    c.beginPath(); c.moveTo(x - 2.6, y - 3.4); c.lineTo(x + 2.6, y - 3.4); c.lineTo(x, y); c.lineTo(x + 2.6, y + 3.4); c.lineTo(x - 2.6, y + 3.4); c.lineTo(x, y); c.closePath(); c.fill();
   } else if (kind === 'nova') {
     // A burst: a star with rays.
     for (let k = 0; k < 8; k++) {
@@ -783,4 +818,33 @@ export function drawFx(c: C, fx: Fx[]) {
   }
   c.globalAlpha = 1;
   c.globalCompositeOperation = 'source-over';
+}
+
+/** A drone wingman: a small glowing orb in its ship's colour, with a gun. */
+export function drawDrone(c: C, x: number, y: number, color: string, t: number) {
+  c.globalCompositeOperation = 'lighter';
+  drawGlow(c, x, y, 6 + Math.sin(t * 9) * 0.8, color, 0.6);
+  c.globalCompositeOperation = 'source-over';
+  const g = c.createRadialGradient(x - 1, y - 1, 0.3, x, y, 3);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, color); g.addColorStop(1, mix(color, '#000000', 0.5));
+  c.fillStyle = g; ellipse(c, x, y, 2.8, 2.8); c.fill();
+  c.fillStyle = '#20232b'; c.fillRect(x - 0.6, y - 4.2, 1.2, 2);
+}
+
+/** Overdrive: a golden aura round the ship, crackling. */
+export function drawOverdrive(c: C, x: number, y: number, t: number) {
+  c.globalCompositeOperation = 'lighter';
+  drawGlow(c, x, y, 18 + Math.sin(t * 20) * 2, '#ffd23f', 0.55);
+  c.strokeStyle = 'rgba(255,230,140,0.8)'; c.lineWidth = 0.7;
+  for (let k = 0; k < 3; k++) {
+    const a = t * 7 + k * 2.1;
+    c.beginPath(); c.arc(x, y, 13, a, a + 0.7); c.stroke();
+  }
+  c.globalCompositeOperation = 'source-over';
+}
+
+/** Slow-mo: the screen tinted cold while it lasts. */
+export function drawSlowTint(c: C, x: number, y: number, w: number, h: number, left: number) {
+  c.fillStyle = `rgba(90,140,255,${0.1 * Math.min(1, left)})`;
+  c.fillRect(x, y, w, h);
 }

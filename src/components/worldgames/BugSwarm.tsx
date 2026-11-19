@@ -4,14 +4,14 @@ import { useMatch } from '../../hooks/useMatch';
 import { PeerLink, type PeerData, type PeerState } from '../../lib/peerLink';
 import {
   BOMB_KINDS, BUG_KINDS, BUG_SIZE, DROP_KINDS, H, LIVES, MAX_LEVEL, SHIP_H, SHIP_W, SHOT_KINDS, W, WEAPONS,
-  MAX_NOVAS, applyDrop, bombBox, bossOf, bugBox, crash, dropBox, fireDelay, hurtShip, isBoss, moveShip, moveShots, multiplier, newShip, newSwarm, noteHurt, nova, overlap,
-  shipBox, shotBox, shotGone, shotsFor, stepSwarm, type BombKind, type BossKind, type BugKind, type DropKind, type ShotKind, type Ship, type Shot, type Swarm, type Weapon,
+  DRONE_S, OVERDRIVE_S, PERKS, PERK_MAX, applyDrop, draftFor, dronePos, droneShots, isDraftWave, overdrive, reach, slowMo, takePerk, bombBox, bossOf, bugBox, crash, fireDelay, hurtShip, isBoss, moveShip, moveShots, multiplier, newShip, newSwarm, noteHurt, nova, overlap,
+  shipBox, shotBox, shotGone, shotsFor, stepSwarm, type PerkKind, type BombKind, type BossKind, type BugKind, type DropKind, type ShotKind, type Ship, type Shot, type Swarm, type Weapon,
 } from '../../lib/bugSwarm';
 import { STEP } from '../../lib/rooftop';
-import { playBoing, playCoin, playHurt, playStomp, playWin } from '../../lib/sfx';
+import { playBoing, playCoin, playHurt, playJump, playStomp, playWin } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
 import { Kbd, PixelButton, PixelIcon, PixelLoader } from './pixel';
-import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawBossBar, drawFx, drawShip, drawShot, drawSpace, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type Fx, WEAPON_COLOR } from './bugSwarmArt';
+import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawBossBar, drawDrone, drawFx, drawOverdrive, drawShip, drawSlowTint, drawShot, drawSpace, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type Fx, WEAPON_COLOR } from './bugSwarmArt';
 
 // Bug Swarm, on screen: a wave shooter for two in the world (or one,
 // practising). The rules are lib/bugSwarm; the art is bugSwarmArt.
@@ -35,13 +35,14 @@ const DELAY_SERVER = 280;
 const SEND_DIRECT = 2;
 const SEND_SERVER = 12;
 
-/** A ship as sent: x, y, gun level, lives, alive, invulnerable, shield, firing, weapon, novas. */
-type ShipWire = [number, number, number, number, number, number, number, number, number, number];
-const shipWire = (s: Ship): ShipWire => [Math.round(s.x * 10) / 10, Math.round(s.y * 10) / 10, s.level, s.lives, s.alive ? 1 : 0, Math.round(s.inv * 10) / 10, Math.round(s.shield * 10) / 10, s.firing ? 1 : 0, WEAPONS.indexOf(s.weapon), s.novas];
+/** A ship as sent: x, y, gun level, lives, alive, invulnerable, shield, firing, weapon, novas, overdrive left, then its perks in PERKS order. */
+type ShipWire = number[];
+const shipWire = (s: Ship): ShipWire => [Math.round(s.x * 10) / 10, Math.round(s.y * 10) / 10, s.level, s.lives, s.alive ? 1 : 0, Math.round(s.inv * 10) / 10, Math.round(s.shield * 10) / 10, s.firing ? 1 : 0, WEAPONS.indexOf(s.weapon), s.novas, Math.round(s.odT * 10) / 10, ...PERKS.map((p) => s.perks[p])];
 function shipFrom(w: unknown, into: Ship) {
-  if (!Array.isArray(w) || w.length < 10 || !w.every((v) => typeof v === 'number' && Number.isFinite(v))) return false;
-  const [x, y, lv, li, al, iv, sh, f, wp, nv] = w as ShipWire;
-  Object.assign(into, { x, y, level: Math.max(1, Math.min(5, lv)), lives: Math.max(0, Math.min(9, li)), alive: !!al, inv: iv, shield: sh, firing: !!f, weapon: WEAPONS[wp] ?? 'blaster', novas: Math.max(0, Math.min(MAX_NOVAS, nv)) });
+  if (!Array.isArray(w) || w.length < 11 + PERKS.length || !w.every((v) => typeof v === 'number' && Number.isFinite(v))) return false;
+  const [x, y, lv, li, al, iv, sh, f, wp, nv, od] = w as ShipWire;
+  PERKS.forEach((p, i) => { into.perks[p] = Math.max(0, Math.min(PERK_MAX[p], w[11 + i] as number)); });
+  Object.assign(into, { x, y, level: Math.max(1, Math.min(5, lv)), lives: Math.max(0, Math.min(9, li)), alive: !!al, inv: iv, shield: sh, firing: !!f, weapon: WEAPONS[wp] ?? 'blaster', novas: Math.max(0, Math.min(9, nv)), odT: Math.max(0, Math.min(OVERDRIVE_S, od)) });
   return true;
 }
 
@@ -83,7 +84,7 @@ interface Game {
   over: boolean;
 }
 
-interface Hud { wave: number; scores: [number, number]; combo: number; me: { lives: number; level: number; weapon: Weapon; novas: number }; partner: { lives: number; alive: boolean; weapon: Weapon } | null; banner: 'wave' | BossKind | null; over: boolean }
+interface Hud { wave: number; scores: [number, number]; combo: number; meter: number; overdrive: boolean; slow: boolean; me: { lives: number; level: number; weapon: Weapon; novas: number; perks: Record<PerkKind, number> }; partner: { lives: number; alive: boolean; weapon: Weapon } | null; banner: 'wave' | BossKind | null; over: boolean }
 
 function newGame(index: number, round: number, solo: boolean): Game {
   return {
@@ -92,7 +93,7 @@ function newGame(index: number, round: number, solo: boolean): Game {
   };
 }
 
-const BUG_TINT: Record<BugKind, string> = { firefly: '#d8ff5a', shell: '#9fb4d0', golden: '#ffd23f', beetle: '#b48aff', moth: '#ffe7a8', wasp: '#ffd23f', queen: '#ff3b5c', mantis: '#7dff8a', spider: '#ff2a5a', hornet: '#ffb030' };
+const BUG_TINT: Record<BugKind, string> = { splitter: '#5ce0a8', mite: '#ff6ad5', firefly: '#d8ff5a', shell: '#9fb4d0', golden: '#ffd23f', beetle: '#b48aff', moth: '#ffe7a8', wasp: '#ffd23f', queen: '#ff3b5c', mantis: '#7dff8a', spider: '#ff2a5a', hornet: '#ffb030' };
 const BOSS_HUE: Record<BossKind, string> = { queen: '#ff3b5c', mantis: '#40ff70', spider: '#ff2040', hornet: '#ff9020' };
 const BEST = 'voca-swarm-best';
 const readBest = () => { try { return Number(localStorage.getItem(BEST)) || 0; } catch { return 0; } };
@@ -116,7 +117,11 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
   const started = solo || !!start;
 
   const game = useRef<Game>(newGame(index, 0, solo));
-  const keys = useRef({ left: false, right: false, up: false, down: false, fire: false, nova: false });
+  const keys = useRef({ left: false, right: false, up: false, down: false, fire: false, nova: false, od: false, pick: 0 });
+  /** The perks on offer, while a draft is open; and the wave it was for. */
+  const [draft, setDraft] = useState<PerkKind[] | null>(null);
+  const drafted = useRef(0);
+  const draftRef = useRef<PerkKind[] | null>(null);
   /** Where the ship should be while a finger (or the mouse) is down. */
   const finger = useRef<{ x: number; y: number } | null>(null);
   const drag = useRef<{ fx: number; fy: number; sx: number; sy: number } | null>(null);
@@ -127,7 +132,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
   const box = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ w: W, h: H });
   const [net, setNet] = useState<PeerState>(solo ? 'direct' : 'connecting');
-  const [hud, setHud] = useState<Hud>({ wave: 0, scores: [0, 0], combo: 1, me: { lives: LIVES, level: 1, weapon: 'blaster', novas: 1 }, partner: solo ? null : { lives: LIVES, alive: true, weapon: 'blaster' }, banner: null, over: false });
+  const [hud, setHud] = useState<Hud>({ wave: 0, scores: [0, 0], combo: 1, meter: 0, overdrive: false, slow: false, me: { lives: LIVES, level: 1, weapon: 'blaster', novas: 1, perks: newShip(0).perks }, partner: solo ? null : { lives: LIVES, alive: true, weapon: 'blaster' }, banner: null, over: false });
 
   function receive(d: PeerData) {
     const g = game.current;
@@ -145,7 +150,10 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
       crash(g.swarm, d.id);
     } else if (host && d.k === 'nova' && typeof d.x === 'number' && typeof d.y === 'number') {
       nova(g.swarm, 1, d.x, d.y);
+    } else if (host && d.k === 'od') {
+      overdrive(g.swarm, 1);
     } else if (host && d.k === 'grab' && typeof d.id === 'number') {
+      if (g.swarm.drops.find((x) => x.id === d.id)?.kind === 'time') slowMo(g.swarm);
       g.swarm.drops = g.swarm.drops.filter((x) => x.id !== d.id);
     }
   }
@@ -169,6 +177,10 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     if (sc.length === 2) g.swarm.scores = [sc[0], sc[1]];
     const cb = nums(d.cb);
     if (cb.length === 2) g.swarm.combo = [cb[0], cb[1]];
+    const mt = nums(d.mt);
+    // Our own meter we emptied ourselves the moment we used it; the host's word catches up.
+    if (mt.length === 2) { g.swarm.meter = [mt[0], mt[1]]; if (g.me.odT > 0) g.swarm.meter[index] = 0; }
+    if (typeof d.sl === 'number') g.swarm.slowT = d.sl;
     const kp = nums(d.kp);
     for (let i = 0; i + 3 < kp.length; i += 4) scorePop(g.fx, kp[i], kp[i + 1], kp[i + 2], kp[i + 2] >= 200 ? '#ffd23f' : SHIP_COLORS[kp[i + 3]] ?? '#fff');
     const nv = nums(d.nv);
@@ -178,6 +190,10 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
 
   function restart(round: number) {
     game.current = newGame(index, round, solo);
+    // A new run drafts afresh.
+    drafted.current = 0;
+    draftRef.current = null;
+    setDraft(null);
     setHud((h) => ({ ...h, over: false }));
   }
   const again = () => {
@@ -196,6 +212,8 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
         case 'ArrowDown': case 'KeyS': return 'down';
         case 'Space': case 'KeyJ': case 'KeyK': case 'KeyZ': return 'fire';
         case 'KeyX': case 'KeyB': return 'nova';
+        case 'KeyC': case 'ShiftLeft': case 'ShiftRight': return 'od';
+        case 'Digit1': case 'Digit2': case 'Digit3': return 'pick';
         default: return null;
       }
     };
@@ -207,11 +225,12 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
       e.preventDefault();
       e.stopPropagation();
       // A nova goes off once per press, on the way down.
-      if (k === 'nova') { if (down && !e.repeat) keys.current.nova = true; return; }
+      if (k === 'nova' || k === 'od') { if (down && !e.repeat) keys.current[k] = true; return; }
+      if (k === 'pick') { if (down) keys.current.pick = Number(e.code.slice(-1)); return; }
       keys.current[k] = down;
     };
     const kd = handle(true), ku = handle(false);
-    const blur = () => { keys.current = { left: false, right: false, up: false, down: false, fire: false, nova: false }; finger.current = null; };
+    const blur = () => { keys.current = { left: false, right: false, up: false, down: false, fire: false, nova: false, od: false, pick: 0 }; finger.current = null; };
     window.addEventListener('keydown', kd, true);
     window.addEventListener('keyup', ku, true);
     window.addEventListener('blur', blur);
@@ -262,6 +281,25 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     };
   }
 
+  function pick(p: PerkKind | undefined) {
+    if (!p) return;
+    takePerk(game.current.me, p);
+    draftRef.current = null;
+    setDraft(null);
+    playCoin();
+  }
+
+  /** Sets off my overdrive, if the meter's full. */
+  function goOverdrive() {
+    const g = game.current;
+    if (g.over || !g.me.alive || g.swarm.meter[index] < 1) return;
+    if (host) overdrive(g.swarm, index);
+    else { g.swarm.meter[index] = 0; peer.current?.sendSure({ k: 'od', r: g.round }); }
+    g.me.odT = OVERDRIVE_S;
+    playJump();
+    g.shake = Math.max(g.shake, 0.4);
+  }
+
   /** Sets off one of my novas, if I have one. */
   function setOffNova() {
     const g = game.current;
@@ -287,12 +325,19 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     const k = keys.current;
     const toward = finger.current;
     if (k.nova) { k.nova = false; setOffNova(); }
+    if (k.od) { k.od = false; goOverdrive(); }
+    if (k.pick) { const n = k.pick; k.pick = 0; if (draftRef.current) pick(draftRef.current[n - 1]); }
     moveShip(me, STEP, { dx: (k.right ? 1 : 0) - (k.left ? 1 : 0), dy: (k.down ? 1 : 0) - (k.up ? 1 : 0) }, toward);
     me.firing = me.alive && (k.fire || !!finger.current);
     if (me.firing && me.cool <= 0) {
       me.cool = fireDelay(me);
       if (host) g.swarm.shots.push(...shotsFor(me, index));
       else g.localShots.push(...shotsFor(me, index));
+    }
+    // Drones fire on their own, whenever there's anything to shoot.
+    if (me.alive && me.perks.drone && me.droneCool <= 0) {
+      me.droneCool = DRONE_S;
+      if (host) g.swarm.shots.push(...droneShots(me, index, g.t)); else g.localShots.push(...droneShots(me, index, g.t));
     }
 
     if (host) {
@@ -301,6 +346,8 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
       if (p) {
         g.partnerCool = Math.max(0, g.partnerCool - STEP);
         if (p.alive && p.firing && g.partnerCool <= 0) { g.partnerCool = fireDelay(p); g.swarm.shots.push(...shotsFor(p, 1)); }
+        p.droneCool = Math.max(0, p.droneCool - STEP);
+        if (p.alive && p.perks.drone && p.droneCool <= 0) { p.droneCool = DRONE_S; g.swarm.shots.push(...droneShots(p, 1, g.t)); }
       }
       stepSwarm(g.swarm, p ? [me, p] : [me], STEP);
       for (const x of g.swarm.blasts) { explode(g.fx, x.x, x.y, false, '#ff8a3a'); if (g.partner) g.blastsOut.push(x); }
@@ -337,9 +384,10 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
         break;
       }
       for (const d of view.drops) {
-        if (!overlap(sb, dropBox(d))) continue;
+        if (Math.hypot(d.x - (me.x + SHIP_W / 2), d.y - (me.y + SHIP_H / 2)) > reach(me) + 6) continue;
         applyDrop(me, d.kind);
         playCoin();
+        if (host && d.kind === 'time') slowMo(g.swarm);
         if (host) g.swarm.drops = g.swarm.drops.filter((x) => x.id !== d.id);
         else { g.hidden.add(d.id); peer.current?.sendSure({ k: 'grab', r: g.round, id: d.id }); }
       }
@@ -359,11 +407,22 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
         msg.kp = g.killsOut.flatMap((x) => [r1(x.x), r1(x.y), x.pts, x.owner]);
         msg.nv = g.novasOut.flatMap((x) => [r1(x.x), r1(x.y), x.owner]);
         msg.cb = s.combo;
+        msg.mt = s.meter.map((v) => Math.round(v * 100) / 100);
+        msg.sl = Math.round(s.slowT * 10) / 10;
         g.blastsOut = []; g.killsOut = []; g.novasOut = [];
         msg.d = s.drops.flatMap((d) => [d.id, DROP_KINDS.indexOf(d.kind), r1(d.x), r1(d.y)]);
       }
       peer.current.sendFast(msg);
     }
+
+    const skyClear = host ? !g.swarm.bugs.length : !!g.hostSnaps.length && g.hostSnaps[g.hostSnaps.length - 1].bugs.size === 0;
+    if (me.alive && skyClear && isDraftWave(g.swarm.wave) && drafted.current !== g.swarm.wave) {
+      drafted.current = g.swarm.wave;
+      const offer = draftFor(me.perks);
+      if (offer.length) { draftRef.current = offer; setDraft(offer); playJump(); }
+    }
+    // The next wave is in and nothing was chosen: the first on offer.
+    if (draftRef.current && g.swarm.wave > drafted.current) pick(draftRef.current[0]);
 
     if (!me.alive && (!g.partner || !g.partner.alive)) {
       g.over = true;
@@ -440,15 +499,20 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
       g.tilt.partner = lean(pos.x, g.tilt.partnerX, g.tilt.partner);
       g.tilt.partnerX = pos.x;
       if (Math.random() < 0.6) engineEmber(g.fx, pos.x + SHIP_W / 2, pos.y + SHIP_H + 4);
-      drawShip(c, pos.x, pos.y, SHIP_COLORS[1 - index], { t: g.t, inv: g.partner.inv, shield: g.partner.shield, tilt: g.tilt.partner, name: partnerName.slice(0, 12) });
+      if (g.partner.odT > 0) drawOverdrive(c, pos.x + SHIP_W / 2, pos.y + SHIP_H / 2, g.t);
+      drawShip(c, pos.x, pos.y, SHIP_COLORS[1 - index], { t: g.t, inv: g.partner.odT > 0 ? 0 : g.partner.inv, shield: g.partner.shield, tilt: g.tilt.partner, name: partnerName.slice(0, 12) });
+      for (let i = 0; i < g.partner.perks.drone; i++) { const d = dronePos(pos, i, g.t); drawDrone(c, d.x, d.y, SHIP_COLORS[1 - index], g.t); }
     }
     if (g.me.alive) {
       g.tilt.me = lean(g.me.x, g.tilt.meX, g.tilt.me);
       g.tilt.meX = g.me.x;
       if (Math.random() < 0.6) engineEmber(g.fx, g.me.x + SHIP_W / 2, g.me.y + SHIP_H + 4);
-      drawShip(c, g.me.x, g.me.y, SHIP_COLORS[index], { t: g.t, inv: g.me.inv, shield: g.me.shield, tilt: g.tilt.me });
+      if (g.me.odT > 0) drawOverdrive(c, g.me.x + SHIP_W / 2, g.me.y + SHIP_H / 2, g.t);
+      drawShip(c, g.me.x, g.me.y, SHIP_COLORS[index], { t: g.t, inv: g.me.odT > 0 ? 0 : g.me.inv, shield: g.me.shield, tilt: g.tilt.me });
+      for (let i = 0; i < g.me.perks.drone; i++) { const d = dronePos(g.me, i, g.t); drawDrone(c, d.x, d.y, SHIP_COLORS[index], g.t); }
     }
     drawFx(c, g.fx);
+    if (g.swarm.slowT > 0) drawSlowTint(c, sky.x, sky.y, sky.w, sky.h, g.swarm.slowT);
     c.restore();
     // Outside the play area, a little darker: the bugs come from there, you can't go there.
     c.fillStyle = 'rgba(0,0,0,0.35)';
@@ -467,7 +531,8 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     const banner = s.wave > 0 && g.t < b.until ? (bossOf(s.wave) ?? 'wave') : null;
     const next: Hud = {
       wave: s.wave, scores: [...s.scores] as [number, number], combo: multiplier(s.combo[index]),
-      me: { lives: g.me.lives, level: g.me.level, weapon: g.me.weapon, novas: g.me.novas },
+      meter: Math.round(s.meter[index] * 20) / 20, overdrive: g.me.odT > 0, slow: s.slowT > 0,
+      me: { lives: g.me.lives, level: g.me.level, weapon: g.me.weapon, novas: g.me.novas, perks: { ...g.me.perks } },
       partner: g.partner ? { lives: g.partner.lives, alive: g.partner.alive, weapon: g.partner.weapon } : null, banner, over: g.over,
     };
     setHud((h) => (JSON.stringify(h) === JSON.stringify(next) ? h : next));
@@ -568,7 +633,19 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* The scoreboard: across the top of the screen, as wide as the play area. */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 p-1.5 sm:p-2 flex items-start justify-between gap-1.5" style={{ width: fit.w }}>
-            <Panel name={<FormattedMessage id="world.duelYou" />} color={SHIP_COLORS[index]} score={mine} lives={hud.me.lives} level={hud.me.level} weapon={hud.me.weapon} />
+            <div className="flex flex-col gap-1">
+              <Panel name={<FormattedMessage id="world.duelYou" />} color={SHIP_COLORS[index]} score={mine} lives={hud.me.lives} level={hud.me.level} weapon={hud.me.weapon} />
+              {PERKS.some((p) => hud.me.perks[p] > 0) && (
+                <div className="flex flex-wrap gap-0.5 max-w-[110px]">
+                  {PERKS.filter((p) => hud.me.perks[p] > 0).map((p) => (
+                    <span key={p} className="relative w-[18px] h-[18px] rounded bg-black/50 border border-[#ffd23f]/30 flex items-center justify-center">
+                      <PerkIcon perk={p} className="w-3 h-3" />
+                      {hud.me.perks[p] > 1 && <span className="absolute -right-0.5 -bottom-0.5 text-[8px] font-bold text-[#ffd23f] leading-none">{hud.me.perks[p]}</span>}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex flex-col items-center gap-1">
               {hud.wave > 0 && (
                 <span className="mt-1 px-2 py-0.5 rounded-full bg-black/45 border border-white/10 px-title !text-[10px] text-white/85 whitespace-nowrap">
@@ -607,6 +684,41 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
             </p>
           )}
         </div>
+        {/* The draft: three perks to choose from, every third wave. */}
+        {draft && !hud.over && !left && (
+          <div className="absolute inset-x-0 top-[36%] flex flex-col items-center px-2 px-in-up">
+            <p className="px-title !text-[14px] text-[#ffd23f] mb-2" style={{ textShadow: '0 0 10px #ff9f1c' }}><FormattedMessage id="world.swarmDraft" /></p>
+            <div className="flex gap-2 w-full justify-center" style={{ maxWidth: Math.max(300, fit.w) }}>
+              {draft.map((p, i) => (
+                <button
+                  key={p}
+                  onClick={() => pick(p)}
+                  className="flex-1 max-w-[150px] rounded-lg border border-[#ffd23f]/50 bg-[#120a2a]/85 backdrop-blur-sm px-2 py-2.5 text-center hover:border-[#ffd23f] hover:bg-[#2a1850]/90 active:scale-95 transition"
+                  style={{ boxShadow: '0 0 16px rgba(255,210,63,0.18)' }}
+                >
+                  <PerkIcon perk={p} className="w-7 h-7 mx-auto mb-1" />
+                  <p className="text-[12px] font-bold text-white leading-tight"><FormattedMessage id={`world.swarmPerk.${p}`} /></p>
+                  <p className="text-[10px] text-white/70 leading-snug mt-0.5"><FormattedMessage id={`world.swarmPerkHow.${p}`} /></p>
+                  <p className="text-[10px] text-[#ffd23f] mt-1 tabular-nums">{hud.me.perks[p]}/{PERK_MAX[p]} → {hud.me.perks[p] + 1}<Kbd>{i + 1}</Kbd></p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Overdrive: the meter fills with kills; full, it's a button. */}
+        {started && !hud.over && !left && hud.me.lives > 0 && (
+          <button
+            onClick={goOverdrive}
+            disabled={hud.meter < 1 || hud.overdrive}
+            aria-label="overdrive"
+            className={`absolute right-[calc(5.25rem+var(--sar,0px))] bottom-[calc(0.75rem+var(--sab,0px))] w-16 h-16 rounded-full border-2 flex flex-col items-center justify-center text-white overflow-hidden ${hud.meter >= 1 && !hud.overdrive ? 'border-[#ffd23f] animate-pulse shadow-[0_0_22px_rgba(255,210,63,0.6)]' : 'border-[#ffd23f]/40'}`}
+            style={{ touchAction: 'none', background: `linear-gradient(to top, rgba(255,210,63,0.45) ${(hud.overdrive ? 1 : hud.meter) * 100}%, rgba(255,210,63,0.08) ${(hud.overdrive ? 1 : hud.meter) * 100}%)` }}
+          >
+            <svg viewBox="0 0 20 20" className="w-6 h-6"><path d="M11.5 1.5 4 11h5l-1.5 7.5L16 8.5h-5.2Z" fill="#fff6c8" stroke="#ffb030" strokeWidth="0.8" strokeLinejoin="round" /></svg>
+            <span className="text-[9px] font-bold leading-none mt-0.5 uppercase tracking-wide">{hud.overdrive ? <FormattedMessage id="world.swarmOverdriveOn" /> : <Kbd>C</Kbd>}</span>
+          </button>
+        )}
         {started && !hud.over && !left && hud.me.lives > 0 && (
             <button
               onClick={setOffNova}
@@ -686,4 +798,20 @@ function Panel({ name, color, score, lives, level, weapon, right = false, dim = 
       )}
     </div>
   );
+}
+
+/** A perk's mark: a small drawing of what it does. */
+function PerkIcon({ perk, className = '' }: { perk: PerkKind; className?: string }) {
+  const stroke = { fill: 'none', stroke: '#ffd23f', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const shape: Record<PerkKind, ReactNode> = {
+    rapid: <><path d="M4 12 10 6l6 6" {...stroke} /><path d="M4 17l6-6 6 6" {...stroke} /></>,
+    power: <path d="M11.5 1.5 4 11h5l-1.5 7.5L16 8.5h-5.2Z" fill="#ffd23f" />,
+    drone: <><circle cx="10" cy="10" r="3" fill="#ffd23f" /><ellipse cx="10" cy="10" rx="8" ry="3.5" {...stroke} strokeWidth={1.2} /></>,
+    magnet: <path d="M5 3v7a5 5 0 0 0 10 0V3M5 6h3M12 6h3" {...stroke} />,
+    armor: <path d="M10 2 3.5 4.5V9c0 4.2 2.8 7.3 6.5 9 3.7-1.7 6.5-4.8 6.5-9V4.5Z" {...stroke} />,
+    novas: <>{Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * Math.PI * 2, r = i % 2 ? 4.5 : 8; return <line key={i} x1="10" y1="10" x2={10 + Math.cos(a) * r} y2={10 + Math.sin(a) * r} {...stroke} strokeWidth={1.4} />; })}</>,
+    pierce: <><path d="M2 10h16M14 6l4 4-4 4" {...stroke} /><path d="M8 4v12" {...stroke} strokeWidth={1.2} strokeDasharray="2 2" /></>,
+    charge: <><rect x="3" y="6" width="12" height="8" rx="1.5" {...stroke} /><path d="M17 9v2" {...stroke} /><path d="M5.5 8.5h3v3h-3z" fill="#ffd23f" /><path d="M9.5 8.5h3v3h-3z" fill="#ffd23f" /></>,
+  };
+  return <svg viewBox="0 0 20 20" className={className}>{shape[perk]}</svg>;
 }

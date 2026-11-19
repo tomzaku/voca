@@ -15,6 +15,10 @@
 // another swaps to it at the level you had. Kills in quick succession build a
 // combo that multiplies the score; a hit breaks it. A nova clears the sky of
 // bullets and hurts everything in it — you start with one.
+//
+// Every third wave, each player drafts a perk (one of three), so a run grows
+// its own way; and kills fill an overdrive meter, set off for a few seconds
+// of double fire with nothing able to touch you.
 
 export const W = 270;
 export const H = 360;
@@ -31,15 +35,15 @@ export type BossKind = 'queen' | 'mantis' | 'spider' | 'hornet';
 export const BOSSES: BossKind[] = ['queen', 'mantis', 'spider', 'hornet'];
 /** firefly: a kamikaze that hunts your ship · shell: armoured, shoots back ·
  *  golden: a moth worth a fortune, crossing the top now and then. */
-export type BugKind = 'beetle' | 'moth' | 'wasp' | 'firefly' | 'shell' | 'golden' | BossKind;
-export const BUG_KINDS: BugKind[] = ['beetle', 'moth', 'wasp', 'queen', 'mantis', 'spider', 'hornet', 'firefly', 'shell', 'golden'];
+export type BugKind = 'beetle' | 'moth' | 'wasp' | 'firefly' | 'shell' | 'golden' | 'splitter' | 'mite' | BossKind;
+export const BUG_KINDS: BugKind[] = ['beetle', 'moth', 'wasp', 'queen', 'mantis', 'spider', 'hornet', 'firefly', 'shell', 'golden', 'splitter', 'mite'];
 export const BUG_SIZE: Record<BugKind, { w: number; h: number }> = {
   beetle: { w: 14, h: 12 }, moth: { w: 16, h: 12 }, wasp: { w: 14, h: 13 },
-  firefly: { w: 10, h: 11 }, shell: { w: 16, h: 14 }, golden: { w: 16, h: 12 },
+  firefly: { w: 10, h: 11 }, shell: { w: 16, h: 14 }, golden: { w: 16, h: 12 }, splitter: { w: 15, h: 13 }, mite: { w: 8, h: 8 },
   queen: { w: 52, h: 36 }, mantis: { w: 50, h: 36 }, spider: { w: 52, h: 38 }, hornet: { w: 46, h: 36 },
 };
 export const isBoss = (k: BugKind): k is BossKind => (BOSSES as string[]).includes(k);
-export const POINTS: Record<BugKind, number> = { beetle: 10, moth: 20, wasp: 30, firefly: 40, shell: 50, golden: 300, queen: 500, mantis: 600, spider: 700, hornet: 800 };
+export const POINTS: Record<BugKind, number> = { splitter: 40, mite: 15, beetle: 10, moth: 20, wasp: 30, firefly: 40, shell: 50, golden: 300, queen: 500, mantis: 600, spider: 700, hornet: 800 };
 export const MAX_NOVAS = 3;
 /** Seconds a combo waits for the next kill. */
 const COMBO_S = 2.2;
@@ -51,8 +55,55 @@ export const bossOf = (n: number): BossKind | null => (n > 0 && n % 5 === 0 ? BO
 
 export type Weapon = 'blaster' | 'laser' | 'rockets' | 'scatter';
 export const WEAPONS: Weapon[] = ['blaster', 'laser', 'rockets', 'scatter'];
-export type DropKind = 'gun' | 'shield' | 'life' | 'laser' | 'rockets' | 'scatter' | 'blaster' | 'nova';
-export const DROP_KINDS: DropKind[] = ['gun', 'shield', 'life', 'laser', 'rockets', 'scatter', 'blaster', 'nova'];
+export type DropKind = 'gun' | 'shield' | 'life' | 'laser' | 'rockets' | 'scatter' | 'blaster' | 'nova' | 'time';
+export const DROP_KINDS: DropKind[] = ['gun', 'shield', 'life', 'laser', 'rockets', 'scatter', 'blaster', 'nova', 'time'];
+
+// ── Perks ───────────────────────────────────────────────────────────────────
+
+export type PerkKind = 'rapid' | 'power' | 'drone' | 'magnet' | 'armor' | 'novas' | 'pierce' | 'charge';
+export const PERKS: PerkKind[] = ['rapid', 'power', 'drone', 'magnet', 'armor', 'novas', 'pierce', 'charge'];
+/** How many times each can be taken. */
+export const PERK_MAX: Record<PerkKind, number> = { rapid: 3, power: 3, drone: 2, magnet: 2, armor: 2, novas: 2, pierce: 2, charge: 2 };
+export type Perks = Record<PerkKind, number>;
+export const noPerks = (): Perks => ({ rapid: 0, power: 0, drone: 0, magnet: 0, armor: 0, novas: 0, pierce: 0, charge: 0 });
+/** Waves after which there's a draft: every third. */
+export const isDraftWave = (n: number) => n > 0 && n % 3 === 0;
+
+/** Three perks to choose between, none already taken as far as it goes. */
+export function draftFor(perks: Perks, rnd: () => number = Math.random): PerkKind[] {
+  const open = PERKS.filter((p) => perks[p] < PERK_MAX[p]);
+  for (let i = open.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [open[i], open[j]] = [open[j], open[i]]; }
+  return open.slice(0, 3);
+}
+
+export function takePerk(ship: Ship, p: PerkKind) {
+  if (ship.perks[p] >= PERK_MAX[p]) return;
+  ship.perks[p] += 1;
+  if (p === 'armor') ship.lives += 1;
+  if (p === 'novas') ship.novas += 1;
+}
+
+export const maxLives = (ship: Ship) => LIVES + 2 + ship.perks.armor;
+export const maxNovas = (ship: Ship) => MAX_NOVAS + ship.perks.novas;
+/** How far a ship reaches for a capsule. */
+export const reach = (ship: Ship) => 7 + ship.perks.magnet * 14;
+/** Seconds of overdrive. */
+export const OVERDRIVE_S = 6;
+/** Where a drone flies, circling its ship. */
+export function dronePos(ship: Pick<Ship, 'x' | 'y'>, i: number, t: number) {
+  const a = t * 3 + i * Math.PI;
+  return { x: ship.x + SHIP_W / 2 + Math.cos(a) * 17, y: ship.y + SHIP_H / 2 - 2 + Math.sin(a) * 6 };
+}
+/** What a ship's drones fire, once every DRONE_S. */
+export const DRONE_S = 0.38;
+export function droneShots(ship: Ship, owner: number, t: number): Shot[] {
+  const out: Shot[] = [];
+  for (let i = 0; i < ship.perks.drone; i++) {
+    const p = dronePos(ship, i, t);
+    out.push({ x: p.x - 1, y: p.y - 4, vx: 0, vy: -330, owner, kind: 'bolt', dmg: 0.7 * 1.3 ** ship.perks.power, life: 3 });
+  }
+  return out;
+}
 const isWeapon = (k: DropKind): k is Weapon => (WEAPONS as string[]).includes(k);
 
 export type ShotKind = 'bolt' | 'beam' | 'rocket' | 'pellet';
@@ -71,7 +122,11 @@ export interface Ship {
   weapon: Weapon;
   /** Novas in hand. */
   novas: number;
+  /** Seconds of overdrive left. */
+  odT: number;
+  perks: Perks;
   cool: number;
+  droneCool: number;
   firing: boolean;
 }
 
@@ -92,8 +147,10 @@ export interface Shot {
   x: number; y: number; vx: number; vy: number; owner: number; kind: ShotKind; dmg: number;
   /** Seconds left (pellets fly a short way). */
   life: number;
-  /** A beam goes through bugs: the ones it has already hit. */
+  /** A beam (or a piercing shot) goes through bugs: the ones it has already hit. */
   hit?: number[];
+  /** How many more bugs a piercing shot may go through. */
+  pierce?: number;
 }
 export interface Bomb { id: number; x: number; y: number; vx: number; vy: number; kind: BombKind }
 export interface Drop { id: number; kind: DropKind; x: number; y: number }
@@ -128,16 +185,20 @@ export interface Swarm {
   goldIn: number;
   /** Whether this wave has been flown without anyone being hit, for the bonus. */
   clean: boolean;
+  /** Each player's overdrive meter, 0–1, filled by kills. */
+  meter: [number, number];
+  /** Seconds the bugs' bullets crawl, from a slow-mo capsule. */
+  slowT: number;
 }
 
 export function newShip(index: number): Ship {
-  return { x: W / 2 - SHIP_W / 2 + (index ? 40 : -40), y: H - 34, lives: LIVES, alive: true, inv: INVULNERABLE, shield: 0, level: 1, weapon: 'blaster', novas: 1, cool: 0, firing: false };
+  return { x: W / 2 - SHIP_W / 2 + (index ? 40 : -40), y: H - 34, lives: LIVES, alive: true, inv: INVULNERABLE, shield: 0, level: 1, weapon: 'blaster', novas: 1, odT: 0, perks: noPerks(), cool: 0, droneCool: 0, firing: false };
 }
 
 export function newSwarm(): Swarm {
   return {
     wave: 0, bugs: [], shots: [], bombs: [], drops: [], t: 0, between: 1.5, nextId: 1, diveIn: 3, scores: [0, 0],
-    blasts: [], kills: [], novas: [], combo: [0, 0], comboT: [0, 0], goldIn: Infinity, clean: true,
+    blasts: [], kills: [], novas: [], combo: [0, 0], comboT: [0, 0], goldIn: Infinity, clean: true, meter: [0, 0], slowT: 0,
   };
 }
 
@@ -168,7 +229,8 @@ function spawnWave(s: Swarm, rnd: () => number) {
       let kind: BugKind = boss ? 'wasp' : r === 0 && n >= 3 ? 'wasp' : r <= 1 && n >= 2 ? 'moth' : 'beetle';
       if (!boss && n >= 4 && r === rows - 1 && c % 3 === 1) kind = 'shell';
       if (!boss && n >= 3 && r === Math.min(1, rows - 1) && (c === 0 || c === cols - 1)) kind = 'firefly';
-      const hp = (kind === 'moth' ? 2 : kind === 'shell' ? 4 : 1) + tough;
+      if (!boss && n >= 5 && rows >= 3 && r === Math.floor(rows / 2) && c % 3 === 1) kind = 'splitter';
+      const hp = (kind === 'moth' ? 2 : kind === 'shell' ? 4 : kind === 'splitter' ? 3 : 1) + tough;
       const side = c < cols / 2 ? -1 : 1;
       const hx = (W - (cols - 1) * gap) / 2 + c * gap - BUG_SIZE[kind].w / 2 + (shape === 'stagger' && r % 2 ? gap / 2 - (c === cols - 1 ? gap : 0) : 0);
       const hy = (boss ? 100 : 36) + r * 22 + (shape === 'vee' ? Math.abs(c - mid) * -5 + 18 : 0);
@@ -197,8 +259,12 @@ const ease = (k: number) => k * k * (3 - 2 * k);
 export function shotsFor(ship: Ship, owner: number): Shot[] {
   const x = ship.x + SHIP_W / 2 - 1, y = ship.y - 4;
   const lv = ship.level;
-  const shot = (dx: number, angle: number, kind: ShotKind, speed: number, dmg: number, life = 3): Shot =>
-    ({ x: x + dx, y, vx: Math.sin(angle) * speed, vy: -Math.cos(angle) * speed, owner, kind, dmg, life });
+  const power = 1.3 ** ship.perks.power;
+  const pierce = ship.perks.pierce;
+  const shot = (dx: number, angle: number, kind: ShotKind, speed: number, dmg: number, life = 3): Shot => ({
+    x: x + dx, y, vx: Math.sin(angle) * speed, vy: -Math.cos(angle) * speed, owner, kind, dmg: dmg * power, life,
+    ...(pierce && (kind === 'bolt' || kind === 'pellet') ? { pierce, hit: [] } : {}),
+  });
   switch (ship.weapon) {
     case 'laser': {
       // Thin beams, very fast, through everything in their way.
@@ -228,13 +294,9 @@ export function shotsFor(ship: Ship, owner: number): Shot[] {
   }
 }
 
-export function fireDelay(ship: Pick<Ship, 'weapon' | 'level'>) {
-  switch (ship.weapon) {
-    case 'laser': return 0.11;
-    case 'rockets': return 0.62 - ship.level * 0.05;
-    case 'scatter': return 0.45 - ship.level * 0.03;
-    default: return 0.24 - ship.level * 0.015;
-  }
+export function fireDelay(ship: Pick<Ship, 'weapon' | 'level' | 'perks' | 'odT'>) {
+  const base = ship.weapon === 'laser' ? 0.11 : ship.weapon === 'rockets' ? 0.62 - ship.level * 0.05 : ship.weapon === 'scatter' ? 0.45 - ship.level * 0.03 : 0.24 - ship.level * 0.015;
+  return base * 0.82 ** ship.perks.rapid * (ship.odT > 0 ? 0.5 : 1);
 }
 
 /** Moves shots one step; a rocket turns toward the nearest bug in front of it. */
@@ -275,6 +337,8 @@ export function moveShip(ship: Ship, dt: number, keys: { dx: number; dy: number 
   ship.inv = Math.max(0, ship.inv - dt);
   ship.shield = Math.max(0, ship.shield - dt);
   ship.cool = Math.max(0, ship.cool - dt);
+  ship.droneCool = Math.max(0, ship.droneCool - dt);
+  ship.odT = Math.max(0, ship.odT - dt);
   if (!ship.alive) return;
   if (toward) {
     const k = Math.min(1, dt * 18);
@@ -290,7 +354,7 @@ export function moveShip(ship: Ship, dt: number, keys: { dx: number; dy: number 
 
 /** A hit on a ship: a life lost and a gun level with it, unless it's shielded or just came back. */
 export function hurtShip(ship: Ship): boolean {
-  if (!ship.alive || ship.inv > 0 || ship.shield > 0) return false;
+  if (!ship.alive || ship.inv > 0 || ship.shield > 0 || ship.odT > 0) return false;
   ship.lives -= 1;
   ship.level = Math.max(1, ship.level - 1);
   ship.inv = INVULNERABLE;
@@ -301,8 +365,8 @@ export function hurtShip(ship: Ship): boolean {
 export function applyDrop(ship: Ship, kind: DropKind) {
   if (kind === 'gun') ship.level = Math.min(MAX_LEVEL, ship.level + 1);
   else if (kind === 'shield') ship.shield = SHIELD;
-  else if (kind === 'life') ship.lives = Math.min(LIVES + 2, ship.lives + 1);
-  else if (kind === 'nova') ship.novas = Math.min(MAX_NOVAS, ship.novas + 1);
+  else if (kind === 'life') ship.lives = Math.min(maxLives(ship), ship.lives + 1);
+  else if (kind === 'nova') ship.novas = Math.min(maxNovas(ship), ship.novas + 1);
   else if (isWeapon(kind)) {
     if (ship.weapon === kind) ship.level = Math.min(MAX_LEVEL, ship.level + 1);
     else ship.weapon = kind;
@@ -334,11 +398,14 @@ export function stepSwarm(s: Swarm, ships: Ship[], dt: number, rnd: () => number
     if (s.wave > 0 && s.between === 2.5) {
       const bonus = 50 * s.wave * (s.clean ? 2 : 1);
       for (const o of ships.map((_, i) => i)) { s.scores[o] += bonus; s.kills.push({ x: W / 2, y: H * 0.42, pts: bonus, owner: o }); }
+      // A draft wave: a longer breath, to choose.
+      if (isDraftWave(s.wave)) s.between = 7;
     }
     s.between -= dt;
     if (s.between <= 0) { spawnWave(s, rnd); s.between = 2.5; }
   }
   for (const o of [0, 1]) { s.comboT[o] -= dt; if (s.comboT[o] <= 0) s.combo[o] = 0; }
+  s.slowT = Math.max(0, s.slowT - dt);
 
   const sway = Math.sin(s.t * 0.7) * 26;
   const targets = ships.filter((p) => p.alive);
@@ -516,6 +583,7 @@ export function stepSwarm(s: Swarm, ships: Ship[], dt: number, rnd: () => number
   moveShots(s.shots, s.bugs, dt);
   const live = (b: Bug) => b.hp > 0 && !(b.mode === 'enter' && b.t < 0);
   const kill = (b: Bug, owner: number) => {
+    s.meter[owner] = Math.min(1, s.meter[owner] + (isBoss(b.kind) ? 0.5 : 0.035) * (1 + 0.4 * (ships[owner]?.perks.charge ?? 0)));
     s.combo[owner] = Math.min(99, s.combo[owner] + 1);
     s.comboT[owner] = COMBO_S;
     const pts = POINTS[b.kind] * (b.mode === 'dive' && !isBoss(b.kind) ? 2 : 1) * multiplier(s.combo[owner]);
@@ -527,6 +595,8 @@ export function stepSwarm(s: Swarm, ships: Ship[], dt: number, rnd: () => number
       s.drops.push({ id: s.nextId++, kind: 'nova', x: cx + 10, y: cy });
       return;
     }
+    // A splitter bursts into two mites that dive at you.
+    if (b.kind === 'splitter') for (const dx of [-5, 5]) s.bugs.push(bug(s, { kind: 'mite', hp: 1, x: cx + dx - 4, y: cy - 4, sx: aimX(), t: 0 }));
     // Later on, a firefly bursts into bullets as it dies.
     if (b.kind === 'firefly' && n >= 8) for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; fire(cx, cy, Math.cos(a) * 80, Math.sin(a) * 80, 'orb'); }
     if (isBoss(b.kind)) {
@@ -536,7 +606,7 @@ export function stepSwarm(s: Swarm, ships: Ship[], dt: number, rnd: () => number
       return;
     }
     const r = rnd();
-    const kind: DropKind | null = r < 0.05 ? 'gun' : r < 0.08 ? WEAPONS[Math.floor(rnd() * WEAPONS.length)] : r < 0.1 ? 'shield' : r < 0.108 ? 'life' : r < 0.118 ? 'nova' : null;
+    const kind: DropKind | null = r < 0.05 ? 'gun' : r < 0.08 ? WEAPONS[Math.floor(rnd() * WEAPONS.length)] : r < 0.1 ? 'shield' : r < 0.108 ? 'life' : r < 0.118 ? 'nova' : r < 0.128 ? 'time' : null;
     if (kind) s.drops.push({ id: s.nextId++, kind, x: cx, y: cy });
   };
   const damage = (b: Bug, dmg: number, owner: number) => {
@@ -565,7 +635,10 @@ export function stepSwarm(s: Swarm, ships: Ship[], dt: number, rnd: () => number
           if (Math.hypot(ox - sh.x, oy - sh.y) < 20) damage(o, 1, sh.owner);
         }
       } else {
+        if (sh.hit?.includes(b.id)) continue;
         damage(b, sh.dmg, sh.owner);
+        // A piercing shot goes on through, as many bugs as it has left.
+        if (sh.pierce) { sh.pierce -= 1; sh.hit!.push(b.id); continue; }
       }
       sh.life = 0;
       break;
@@ -575,10 +648,21 @@ export function stepSwarm(s: Swarm, ships: Ship[], dt: number, rnd: () => number
   s.bugs = s.bugs.filter((b) => b.hp > 0);
   for (const list of [s.blasts, s.kills, s.novas]) if (list.length > 40) list.splice(0, list.length - 40);
 
-  for (const b of s.bombs) { b.x += b.vx * dt; b.y += b.vy * dt; }
+  const crawl = s.slowT > 0 ? 0.4 : 1;
+  for (const b of s.bombs) { b.x += b.vx * dt * crawl; b.y += b.vy * dt * crawl; }
   s.bombs = s.bombs.filter((b) => b.y < H + 10 && b.y > -20 && b.x > -10 && b.x < W + 10);
   for (const d of s.drops) d.y += DROP_SPEED * dt;
   s.drops = s.drops.filter((d) => d.y < H + 10);
+}
+
+/** A slow-mo capsule, picked up by anyone: the bugs' bullets crawl a while. */
+export function slowMo(s: Swarm) { s.slowT = 5; }
+
+/** Sets off `owner`'s overdrive, if their meter's full; true if it went. */
+export function overdrive(s: Swarm, owner: number) {
+  if (s.meter[owner] < 1) return false;
+  s.meter[owner] = 0;
+  return true;
 }
 
 /** A player was hit: their combo is broken, and the wave's no longer clean. */
@@ -594,6 +678,7 @@ export function nova(s: Swarm, owner: number, x: number, y: number) {
   s.bombs = [];
   s.novas.push({ x, y, owner });
   for (const b of s.bugs) {
+    // (A splitter caught in a nova just goes: no mites.)
     if (b.hp <= 0 || (b.mode === 'enter' && b.t < 0)) continue;
     b.hp -= isBoss(b.kind) ? b.maxHp * 0.08 : 4;
     if (b.hp <= 0) {

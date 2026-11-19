@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOSSES, applyDrop, bossOf, isBoss, multiplier, newShip, newSwarm, noteHurt, nova, shotsFor, stepSwarm } from './bugSwarm';
+import { BOSSES, PERK_MAX, applyDrop, bossOf, draftFor, fireDelay, hurtShip, isBoss, multiplier, newShip, newSwarm, noteHurt, nova, overdrive, shotsFor, stepSwarm, takePerk } from './bugSwarm';
 
 // Every fifth wave a boss, the four in turn; and weapons that level up when
 // you pick up the same one, and swap when you pick up another.
@@ -104,5 +104,57 @@ describe('bug swarm: combos and novas', () => {
     expect(count(1).some((b) => b.kind === 'shell' || b.kind === 'firefly')).toBe(false);
     expect(count(8).some((b) => b.kind === 'shell')).toBe(true);
     expect(count(8).some((b) => b.kind === 'firefly')).toBe(true);
+  });
+});
+
+describe('bug swarm: perks, overdrive, splitters', () => {
+  it('offers three perks not yet maxed, and takes them', () => {
+    const ship = newShip(0);
+    const offer = draftFor(ship.perks, () => 0.3);
+    expect(offer).toHaveLength(3);
+    expect(new Set(offer).size).toBe(3);
+    ship.perks.rapid = PERK_MAX.rapid;
+    expect(draftFor(ship.perks, () => 0.3)).not.toContain('rapid');
+    const lives = ship.lives;
+    takePerk(ship, 'armor');
+    expect(ship.lives).toBe(lives + 1);
+  });
+
+  it('fires faster with rapid fire, and twice as fast in overdrive', () => {
+    const ship = newShip(0);
+    const base = fireDelay(ship);
+    ship.perks.rapid = 1;
+    expect(fireDelay(ship)).toBeLessThan(base);
+    ship.odT = 3;
+    expect(fireDelay(ship)).toBeCloseTo(base * 0.82 * 0.5);
+  });
+
+  it('cannot be hurt in overdrive, and only sets it off with a full meter', () => {
+    const s = newSwarm();
+    expect(overdrive(s, 0)).toBe(false);
+    s.meter[0] = 1;
+    expect(overdrive(s, 0)).toBe(true);
+    expect(s.meter[0]).toBe(0);
+    const ship = newShip(0);
+    ship.inv = 0;
+    ship.odT = 2;
+    expect(hurtShip(ship)).toBe(false);
+  });
+
+  it('bursts a splitter into two mites', () => {
+    const s = newSwarm();
+    s.between = 99;
+    s.bugs.push({ id: 50, kind: 'splitter', hp: 1, maxHp: 1, x: 100, y: 100, hx: 100, hy: 100, mode: 'home', t: 1, sx: 0, sy: 0, side: 1, vx: 0, a1: 9, a2: 9 });
+    s.shots.push({ x: 106, y: 116, vx: 0, vy: -330, owner: 0, kind: 'bolt', dmg: 5, life: 3 });
+    stepSwarm(s, [newShip(0)], 1 / 60, () => 0.99);
+    expect(s.bugs.filter((b) => b.kind === 'mite')).toHaveLength(2);
+  });
+
+  it('gives a longer break after a draft wave', () => {
+    const s = newSwarm();
+    s.wave = 3;
+    s.between = 2.5;
+    stepSwarm(s, [newShip(0)], 1 / 60, () => 0.5);
+    expect(s.between).toBeGreaterThan(6);
   });
 });
