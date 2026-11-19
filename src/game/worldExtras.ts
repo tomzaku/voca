@@ -10,6 +10,8 @@
 //             piano — solo practice; matches start from a player
 //   foosball  a bi lắc table on Phố đi bộ's east end, by the fountain — you
 //             against the computer
+//   swarm     an arcade cabinet past the foosball table — Bug Swarm, alone;
+//             with someone else it starts from their card
 //   train     a departures board at the east end of Ga Huế's platform —
 //             trips out of town, none running yet
 //   ladder    a quiz podium in Quốc Học's forecourt, inside the gate —
@@ -37,6 +39,7 @@ export const EXTRA_PLAYS: { game: string; x: number; y: number; festive?: boolea
   { game: 'fortune', x: 13.2, y: 48.4 },
   { game: 'pool', x: 64.8, y: 64.2 },
   { game: 'foosball', x: 70.0, y: 64.4 },
+  { game: 'swarm', x: 73.9, y: 64.4 },
   { game: 'ladder', x: 37.0, y: 69.5 },
   { game: 'classroom', x: 25.0, y: 69.5 },
   { game: 'train', x: 18.4, y: 75.6 },
@@ -66,6 +69,8 @@ const KEEPERS: { x: number; y: number; dress: KeeperDress }[] = [
 const POOL = { x: 64.8, y: 63.7 };
 /** The foosball table, by the fountain. */
 const FOOS = { x: 70.0, y: 63.9 };
+/** The arcade cabinet, past the foosball table. */
+const ARCADE = { x: 73.9, y: 63.9 };
 /** The departures board, on Ga Huế's platform by the buffer stop. */
 const BOARD = { x: 18.4, y: 75.4 };
 /** The quiz podium, in Quốc Học's forecourt west of the gate. */
@@ -156,6 +161,22 @@ function makeTextures(scene: Phaser.Scene) {
     px(12, 6, 1, 1, '#f6f1e4');
     px(1, 13, 2, 5, '#3a2214'); px(23, 13, 2, 5, '#3a2214');
   });
+  // An arcade cabinet: a dark cabinet with a lit marquee, a screen with a
+  // bug on it over a little ship, and the stick and buttons below.
+  canvasTexture(scene, 'extra-arcade', 12, 20, (px) => {
+    px(1, 0, 10, 20, '#2a1748');
+    px(0, 1, 1, 18, '#3c2366'); px(11, 1, 1, 18, '#3c2366');
+    px(2, 1, 8, 3, '#ff5ad1');                          // the marquee
+    px(3, 2, 6, 1, '#ffd6f4');
+    px(2, 5, 8, 7, '#05030f');                          // the screen
+    px(4, 6, 1, 1, '#b48aff'); px(7, 6, 1, 1, '#b48aff'); px(5, 7, 2, 1, '#b48aff');
+    px(5, 10, 2, 1, '#2fd38a'); px(6, 9, 1, 1, '#2fd38a');
+    px(3, 8, 1, 1, '#ffffff'); px(8, 7, 1, 1, '#ffffff');
+    px(1, 13, 10, 2, '#4a2b7a');                        // the controls
+    px(3, 12, 1, 2, '#e0e0e0'); px(3, 11, 1, 1, '#ff3b3b');
+    px(7, 13, 1, 1, '#ffd23f'); px(9, 13, 1, 1, '#2fd38a');
+    px(2, 16, 8, 1, '#ff5ad1');
+  });
   // A quiz podium, a tile high to fit the forecourt between the wall and
   // the school: a board lit with the ladder's rungs (the top one gold) over
   // a navy desk with a gold edge.
@@ -228,6 +249,9 @@ export function buildExtras(ctx: ExtrasContext) {
 
   const foos = scene.add.image(FOOS.x * k, FOOS.y * k, 'extra-foos').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(foos);
+
+  const arcade = scene.add.image(ARCADE.x * k, ARCADE.y * k, 'extra-arcade').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
+  ctx.tinted.push(arcade);
 
   const board = scene.add.image(BOARD.x * k, BOARD.y * k, 'extra-board').setOrigin(0.5, 1).setScale(scale).setDepth(depth.ground);
   ctx.tinted.push(board);

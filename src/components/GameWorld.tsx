@@ -278,7 +278,7 @@ const INTRO_SEEN = 'voca-world-intro-seen';
 // A game's mark on its card: a pixel icon where the kit has one, else an emoji.
 const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = {
   piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' },
-  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, ladder: { icon: 'cap' }, classroom: { icon: 'pencil' }, train: { icon: 'train' },
+  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, swarm: { icon: 'bug' }, ladder: { icon: 'cap' }, classroom: { icon: 'pencil' }, train: { icon: 'train' },
 };
 
 /** Where Ga Huế's trains will go, in the board's order (world.train.<id>). */
@@ -1706,6 +1706,7 @@ export function GameWorld({
       {!panel && playing === 'fortune' && <FortuneSticks onClose={() => setPlaying(null)} />}
       {!panel && playing === 'pool' && <PoolSolo onClose={() => setPlaying(null)} />}
       {!panel && playing === 'foosball' && <Foosball onClose={() => setPlaying(null)} />}
+      {!panel && playing === 'swarm' && <BugSwarm link={null} onClose={() => setPlaying(null)} />}
       {!panel && playing === 'ladder' && <QuocHocLadder onClose={() => setPlaying(null)} />}
       {!panel && playing === 'classroom' && <HaiBaTrungClass onClose={() => setPlaying(null)} />}
       {!panel && playing === 'fireworks' && festive && (
