@@ -5,7 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useListOpen, ListRail, ListCollapseButton } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useListOpen, ListRail } from './scriptPractice';
 import { useScriptPlayer, type Mode, type ScriptLine } from '../hooks/useScriptPlayer';
 import { IELTS_TURN_SECONDS, parseCueCard } from '../lib/speakingRules';
 
@@ -433,7 +433,7 @@ export function IeltsSpeakingTab() {
   }, [visible, activeId, progress, select]);
 
   return (
-    <div className={`lg:grid ${listOpen ? 'lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6' : 'lg:grid-cols-[40px_minmax(0,1fr)] lg:gap-4'}`}>
+    <div className={`lg:grid ${listOpen ? 'lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6' : 'lg:grid-cols-[48px_minmax(0,1fr)] lg:gap-4'}`}>
       {/* Minimised on a desktop: a rail of conversations, so the conversation gets the room. */}
       {!listOpen && (
         <aside className="hidden lg:block lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [scrollbar-width:none]">
@@ -445,10 +445,7 @@ export function IeltsSpeakingTab() {
         </aside>
       )}
       <aside className={`${reading ? 'hidden lg:block' : ''} ${listOpen ? '' : 'lg:hidden'} lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1 space-y-4`}>
-        <div className="hidden lg:flex justify-end -mb-2">
-          <ListCollapseButton onCollapse={() => setListOpen(false)} />
-        </div>
-        <ProgressCard done={practiced} total={ieltsConversations.length}>
+        <ProgressCard done={practiced} total={ieltsConversations.length} onCollapse={() => setListOpen(false)}>
           {/* Doubles as the part filter — tap a part to narrow the list. */}
           <div className="mt-3 space-y-1">
             {PARTS.map((p) => {

@@ -580,10 +580,10 @@ export function ListRail({ items, onExpand, onSelect }: {
 }) {
   const intl = useIntl();
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-bg-card py-2">
       <button
         onClick={onExpand}
-        className="w-9 h-9 mb-1 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
+        className="w-8 h-8 mb-1 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
         aria-label={intl.formatMessage({ id: 'speaking.listExpand' })}
         title={intl.formatMessage({ id: 'speaking.listExpand' })}
       >
@@ -607,25 +607,28 @@ export function ListRail({ items, onExpand, onSelect }: {
   );
 }
 
-/** The full list's "minimise" control. */
-export function ListCollapseButton({ onCollapse }: { onCollapse: () => void }) {
-  const intl = useIntl();
-  return (
-    <button
-      onClick={onCollapse}
-      className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
-      title={intl.formatMessage({ id: 'speaking.listCollapse' })}
-    >
-      <Icon icon="lucide:panel-left-close" width={15} /> <FormattedMessage id="speaking.listCollapse" />
-    </button>
-  );
-}
-
 /* ─── Sidebar progress card ──────────────────────────────────── */
-export function ProgressCard({ done, total, children }: { done: number; total: number; children?: React.ReactNode }) {
+export function ProgressCard({ done, total, children, onCollapse }: {
+  done: number;
+  total: number;
+  children?: React.ReactNode;
+  /** Desktop: minimise the list this card heads. */
+  onCollapse?: () => void;
+}) {
+  const intl = useIntl();
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
-    <div className="rounded-xl border border-border bg-bg-card p-4">
+    <div className="relative rounded-xl border border-border bg-bg-card p-4">
+      {onCollapse && (
+        <button
+          onClick={onCollapse}
+          className="hidden lg:flex absolute top-2.5 right-2.5 w-7 h-7 rounded-lg items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
+          aria-label={intl.formatMessage({ id: 'speaking.listCollapse' })}
+          title={intl.formatMessage({ id: 'speaking.listCollapse' })}
+        >
+          <Icon icon="lucide:panel-left-close" width={15} />
+        </button>
+      )}
       <div className="flex items-end justify-between gap-3 mb-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted"><FormattedMessage id="speaking.yourProgress" /></p>

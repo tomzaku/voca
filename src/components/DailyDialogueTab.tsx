@@ -6,7 +6,7 @@ import { dialogues, dialogueTopics, type Dialogue } from '../data/englishDialogu
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useListOpen, ListRail, ListCollapseButton } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useListOpen, ListRail } from './scriptPractice';
 import { useScriptPlayer, type Mode, type Speaker } from '../hooks/useScriptPlayer';
 
 // "Daily Dialogue" — short scripted exchanges, read like a chat. A list of
@@ -310,7 +310,7 @@ export function DailyDialogueTab() {
   }, [visible, activeId, progress, select]);
 
   return (
-    <div className={`lg:grid ${listOpen ? 'lg:grid-cols-[288px_minmax(0,1fr)] lg:gap-6' : 'lg:grid-cols-[40px_minmax(0,1fr)] lg:gap-4'}`}>
+    <div className={`lg:grid ${listOpen ? 'lg:grid-cols-[288px_minmax(0,1fr)] lg:gap-6' : 'lg:grid-cols-[48px_minmax(0,1fr)] lg:gap-4'}`}>
       {/* Minimised on a desktop: a rail of dialogues, so the conversation gets the room. */}
       {!listOpen && (
         <aside className="hidden lg:block lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [scrollbar-width:none]">
@@ -322,10 +322,7 @@ export function DailyDialogueTab() {
         </aside>
       )}
       <aside className={`${reading ? 'hidden lg:block' : ''} ${listOpen ? '' : 'lg:hidden'} lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1 space-y-4`}>
-        <div className="hidden lg:flex justify-end -mb-2">
-          <ListCollapseButton onCollapse={() => setListOpen(false)} />
-        </div>
-        <ProgressCard done={practiced} total={dialogues.length}>
+        <ProgressCard done={practiced} total={dialogues.length} onCollapse={() => setListOpen(false)}>
           <div className="flex gap-1 mt-3">
             {(['all', 'Easy', 'Medium'] as const).map((l) => (
               <button
