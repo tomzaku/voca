@@ -1,0 +1,204 @@
+/* Bug Swarm's HUD: glass and neon over the sky, to match the sprite art
+   (which is drawn sharp at screen resolution, not pixel-scaled). Everything
+   here is scoped under .bs so it can't leak into the rest of the world UI. */
+
+.bs {
+  --bs-gold: #ffd23f;
+  --bs-amber: #ff9f1c;
+  --bs-cyan: #9be7ff;
+  --bs-violet: #a070ff;
+  --bs-rose: #ff4d6d;
+  --bs-ink: #04020c;
+  --bs-line: rgba(255, 255, 255, 0.12);
+  --bs-soft: rgba(255, 255, 255, 0.62);
+  font-family: 'Barlow', system-ui, sans-serif;
+  /* The pixel theme's hard drop shadow reads as dated here; glows do the work. */
+  text-shadow: none;
+}
+.bs-display { font-family: 'Barlow Condensed', system-ui, sans-serif; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.bs-num { font-family: 'Barlow Condensed', system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.bs-eyebrow { font-family: 'Barlow Condensed', system-ui, sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; }
+
+/* Frosted panel with a hairline that's brighter on top, like lit glass. */
+.bs-glass {
+  position: relative;
+  background: linear-gradient(180deg, rgba(40, 30, 80, 0.55), rgba(10, 6, 28, 0.62));
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid var(--bs-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 30px -8px rgba(0, 0, 0, 0.6);
+}
+/* A gradient border in the accent colour, drawn as a masked pseudo-element. */
+.bs-edge::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--accent, var(--bs-violet)), transparent 45%, transparent 60%, color-mix(in srgb, var(--accent, var(--bs-violet)) 50%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.bs-gradient-text {
+  background: linear-gradient(180deg, #fff 10%, var(--accent, #c9b6ff) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.bs-header {
+  background: linear-gradient(180deg, rgba(4, 2, 12, 0.95), rgba(4, 2, 12, 0.6));
+  border-bottom: 1px solid transparent;
+  border-image: linear-gradient(90deg, transparent, rgba(160, 112, 255, 0.45), rgba(155, 231, 255, 0.35), transparent) 1;
+}
+.bs-badge {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: radial-gradient(circle at 30% 25%, rgba(255, 210, 63, 0.35), rgba(160, 112, 255, 0.18) 60%, rgba(0, 0, 0, 0.2));
+  border: 1px solid rgba(255, 210, 63, 0.35);
+  box-shadow: 0 0 18px rgba(255, 180, 60, 0.25);
+}
+.bs-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--bs-soft);
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.bs-pill-btn:hover { color: #fff; border-color: rgba(255, 255, 255, 0.3); }
+
+.bs-live-dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.bs-live-dot.on { animation: bs-pulse 1.6s ease-in-out infinite; }
+
+/* ── Score cards ────────────────────────────────────────── */
+.bs-card { border-radius: 14px; padding: 7px 11px 8px; min-width: 104px; }
+.bs-score { font-size: 26px; line-height: 1; color: #fff; text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 70%, transparent); }
+@media (max-width: 480px) { .bs-score { font-size: 21px; } .bs-card { min-width: 88px; padding: 6px 9px 7px; } }
+.bs-avatar { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 10px var(--accent); }
+.bs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 1px 7px 1px 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--chip) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chip) 40%, transparent);
+  color: var(--chip);
+}
+.bs-chip::before { content: ''; width: 5px; height: 5px; border-radius: 999px; background: currentColor; box-shadow: 0 0 6px currentColor; }
+.bs-pips { display: flex; gap: 2px; }
+.bs-pip { width: 9px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.14); transition: background 0.2s, box-shadow 0.2s; }
+.bs-pip.on { background: linear-gradient(90deg, var(--bs-gold), var(--bs-amber)); box-shadow: 0 0 6px rgba(255, 180, 60, 0.6); }
+
+/* The overdrive meter under my card. */
+.bs-meter { height: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; margin-top: 6px; }
+.bs-meter > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff9f1c, #ffd23f, #fff6c8); transition: width 0.25s ease-out; }
+.bs-meter.full > i { box-shadow: 0 0 10px #ffd23f; animation: bs-shimmer 1.2s linear infinite; background-size: 200% 100%; background-image: linear-gradient(90deg, #ff9f1c, #fff6c8, #ffd23f, #ff9f1c); }
+
+.bs-perk {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgba(255, 210, 63, 0.16), rgba(255, 210, 63, 0.04));
+  border: 1px solid rgba(255, 210, 63, 0.3);
+}
+.bs-perk > b { position: absolute; right: -4px; bottom: -4px; min-width: 12px; height: 12px; padding: 0 2px; border-radius: 999px; background: var(--bs-gold); color: #1a0f00; font-size: 8px; line-height: 12px; text-align: center; font-weight: 800; }
+
+/* ── Centre column: wave, combo, boss ───────────────────── */
+.bs-wave { border-radius: 999px; padding: 3px 12px; font-size: 12px; color: #fff; }
+.bs-wave span { color: var(--bs-soft); margin-right: 5px; }
+.bs-combo { font-size: 22px; font-style: italic; line-height: 1; animation: bs-pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both; filter: drop-shadow(0 0 10px var(--accent)); }
+
+.bs-boss { width: min(78%, 420px); }
+.bs-boss-bar { position: relative; height: 8px; border-radius: 999px; background: rgba(20, 6, 30, 0.75); border: 1px solid rgba(255, 120, 150, 0.35); overflow: hidden; box-shadow: 0 0 18px rgba(255, 40, 90, 0.25); }
+.bs-boss-bar > i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, #ff3b5c, #ff6aa8 55%, #c040ff); transition: width 0.2s ease-out; }
+.bs-boss-bar > i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent); width: 40%; animation: bs-sweep 1.8s ease-in-out infinite; }
+
+/* ── Wave banner ────────────────────────────────────────── */
+.bs-banner { animation: bs-banner 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.bs-banner-title { font-size: clamp(30px, 6vw, 52px); line-height: 1; letter-spacing: 0.14em; filter: drop-shadow(0 0 18px var(--accent)) drop-shadow(0 0 40px color-mix(in srgb, var(--accent) 50%, transparent)); }
+.bs-streak { height: 1px; flex: 1; max-width: 160px; background: linear-gradient(90deg, transparent, var(--accent)); animation: bs-grow 0.6s ease-out both; }
+.bs-streak.r { background: linear-gradient(270deg, transparent, var(--accent)); }
+
+/* ── Hint ───────────────────────────────────────────────── */
+.bs-hint { border-radius: 12px; padding: 7px 12px; font-size: 11.5px; color: rgba(255, 255, 255, 0.85); animation: bs-fade-up 0.4s ease-out both; }
+
+/* ── Perk draft ─────────────────────────────────────────── */
+.bs-draft-card {
+  --accent: var(--bs-gold);
+  flex: 1;
+  max-width: 168px;
+  border-radius: 18px;
+  padding: 16px 10px 12px;
+  text-align: center;
+  transition: transform 0.18s cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 0.2s;
+  animation: bs-deal 0.45s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.bs-draft-card:hover { transform: translateY(-6px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 18px 40px -10px rgba(255, 180, 60, 0.45); }
+.bs-draft-card:active { transform: translateY(-2px) scale(0.97); }
+.bs-draft-icon { width: 48px; height: 48px; margin: 0 auto 8px; border-radius: 999px; display: grid; place-items: center; background: radial-gradient(circle, rgba(255, 210, 63, 0.3), rgba(255, 210, 63, 0.04) 70%); border: 1px solid rgba(255, 210, 63, 0.35); box-shadow: 0 0 22px rgba(255, 180, 60, 0.3); }
+.bs-key { position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: var(--bs-gold); border: 1px solid rgba(255, 210, 63, 0.4); background: rgba(0, 0, 0, 0.3); }
+@media (pointer: coarse) { .bs-key { display: none; } }
+
+/* ── Action buttons: a glass disc inside a progress ring ─ */
+.bs-action { position: absolute; width: 66px; height: 66px; border-radius: 999px; display: grid; place-items: center; transition: transform 0.12s, filter 0.2s; }
+.bs-action:active:not(:disabled) { transform: scale(0.93); }
+.bs-action:disabled { cursor: default; }
+.bs-action .ring { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(var(--accent) calc(var(--p) * 1turn), rgba(255, 255, 255, 0.1) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); }
+.bs-action .disc { position: absolute; inset: 6px; border-radius: inherit; background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 30%, transparent), rgba(8, 4, 24, 0.75) 75%); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18); }
+.bs-action .face { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; color: #fff; }
+.bs-action.ready { filter: drop-shadow(0 0 14px var(--accent)); animation: bs-breathe 1.4s ease-in-out infinite; }
+.bs-action.dim { opacity: 0.45; }
+.bs-count { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #04121a; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+
+/* ── Modal: waiting, partner left, game over ────────────── */
+.bs-scrim { background: radial-gradient(ellipse at center, rgba(30, 14, 70, 0.55), rgba(2, 1, 8, 0.82) 70%); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: bs-fade 0.25s ease-out both; }
+.bs-modal { isolation: isolate; border-radius: 22px; padding: 22px 20px 18px; width: 100%; max-width: 340px; text-align: center; animation: bs-modal 0.4s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+.bs-modal::after { content: ''; position: absolute; left: 50%; top: -60px; width: 220px; height: 120px; transform: translateX(-50%); background: radial-gradient(ellipse, color-mix(in srgb, var(--accent, #a070ff) 45%, transparent), transparent 70%); pointer-events: none; z-index: -1; filter: blur(10px); }
+.bs-stat { border-radius: 12px; padding: 8px 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); }
+.bs-new-best { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: 11px; color: #1a0f00; background: linear-gradient(90deg, #ff9f1c, #fff6c8, #ffd23f, #ff9f1c); background-size: 200% 100%; animation: bs-shimmer 1.6s linear infinite; box-shadow: 0 0 16px rgba(255, 200, 60, 0.5); }
+.bs-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 12px; padding: 10px 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-family: 'Barlow Condensed', system-ui, sans-serif; transition: transform 0.12s, filter 0.15s, background 0.15s; }
+.bs-btn:hover { filter: brightness(1.1); }
+.bs-btn:active { transform: scale(0.97); }
+.bs-btn:focus-visible { outline: 2px solid var(--bs-gold); outline-offset: 2px; }
+.bs-btn.primary { color: #1a0f00; background: linear-gradient(180deg, #ffe27a, #ffb030); box-shadow: 0 6px 20px -6px rgba(255, 170, 40, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+.bs-btn.ghost { color: #fff; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.16); }
+
+@keyframes bs-pulse { 50% { opacity: 0.35; } }
+@keyframes bs-shimmer { to { background-position: -200% 0; } }
+@keyframes bs-sweep { from { transform: translateX(-120%); } to { transform: translateX(320%); } }
+@keyframes bs-pop { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes bs-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes bs-fade { from { opacity: 0; } }
+@keyframes bs-fade-up { from { opacity: 0; transform: translateY(6px); } }
+@keyframes bs-deal { from { opacity: 0; transform: translateY(24px) rotate(-3deg) scale(0.9); } }
+@keyframes bs-modal { from { opacity: 0; transform: translateY(14px) scale(0.94); } }
+@keyframes bs-breathe { 50% { transform: scale(1.05); } }
+@keyframes bs-banner {
+  0% { opacity: 0; transform: scale(1.25); filter: blur(8px); }
+  14% { opacity: 1; transform: scale(1); filter: blur(0); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.96) translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bs *, .bs *::before, .bs *::after { animation: none !important; transition: none !important; }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useMatch } from '../../hooks/useMatch';
 import { PeerLink, type PeerData, type PeerState } from '../../lib/peerLink';
@@ -10,9 +10,10 @@ import {
 import { STEP } from '../../lib/rooftop';
 import { playBoing, playCoin, playHurt, playJump, playStomp, playWin } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
-import { Kbd, PixelButton, PixelIcon, PixelLoader } from './pixel';
+import { Kbd, PixelIcon, PixelLoader } from './pixel';
 import { NetWait } from './NetWait';
-import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawBossBar, drawDrone, drawFx, drawOverdrive, drawShip, drawSlowTint, drawShot, drawSpace, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type Fx, WEAPON_COLOR } from './bugSwarmArt';
+import './bugSwarm.css';
+import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawDrone, drawFx, drawOverdrive, drawShip, drawSlowTint, drawShot, drawSpace, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type Fx, WEAPON_COLOR } from './bugSwarmArt';
 
 // Bug Swarm, on screen: a wave shooter for two in the world (or one,
 // practising). The rules are lib/bugSwarm; the art is bugSwarmArt.
@@ -83,7 +84,7 @@ interface Game {
   over: boolean;
 }
 
-interface Hud { wave: number; scores: [number, number]; combo: number; meter: number; overdrive: boolean; slow: boolean; me: { lives: number; level: number; weapon: Weapon; novas: number; perks: Record<PerkKind, number> }; partner: { lives: number; alive: boolean; weapon: Weapon } | null; banner: 'wave' | BossKind | null; over: boolean }
+interface Hud { wave: number; scores: [number, number]; combo: number; meter: number; overdrive: boolean; slow: boolean; me: { lives: number; level: number; weapon: Weapon; novas: number; perks: Record<PerkKind, number> }; partner: { lives: number; alive: boolean; weapon: Weapon } | null; banner: 'wave' | BossKind | null; boss: { kind: BossKind; frac: number } | null; over: boolean }
 
 function newGame(index: number, round: number, solo: boolean): Game {
   return {
@@ -101,6 +102,37 @@ const field = (cw: number, ch: number) => {
   const s = Math.min(cw / W, ch / H);
   return { s, ox: (cw - W * s) / 2, oy: (ch - H * s) / 2 };
 };
+/**
+ * Outside the play area the sky dims away — the bugs come from there, you
+ * can't go there — and the play area's sides glow faintly, so its edge reads
+ * as a field rather than a box cut out of black.
+ */
+function drawEdges(c: CanvasRenderingContext2D, sky: { x: number; y: number; w: number; h: number }) {
+  const fade = (x0: number, x1: number) => {
+    const g = c.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, 'rgba(2,1,8,0)');
+    g.addColorStop(0.35, 'rgba(2,1,8,0.45)');
+    g.addColorStop(1, 'rgba(2,1,8,0.7)');
+    c.fillStyle = g;
+    c.fillRect(Math.min(x0, x1), sky.y, Math.abs(x1 - x0), sky.h);
+  };
+  if (sky.x < 0) { fade(0, sky.x); fade(W, sky.x + sky.w); }
+  if (sky.y < 0) { c.fillStyle = 'rgba(2,1,8,0.55)'; c.fillRect(0, sky.y, W, -sky.y); c.fillRect(0, H, W, sky.h + sky.y - H); }
+  if (sky.x >= -0.5) return;
+  // The rails: brightest at the middle, gone at the ends.
+  c.globalCompositeOperation = 'lighter';
+  for (const [x, hue] of [[0, '160,112,255'], [W, '155,231,255']] as const) {
+    const g = c.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, `rgba(${hue},0)`); g.addColorStop(0.5, `rgba(${hue},0.55)`); g.addColorStop(1, `rgba(${hue},0)`);
+    c.fillStyle = g;
+    c.fillRect(x - 0.25, 0, 0.5, H);
+    const halo = c.createLinearGradient(x - 6, 0, x + 6, 0);
+    halo.addColorStop(0, `rgba(${hue},0)`); halo.addColorStop(0.5, `rgba(${hue},0.08)`); halo.addColorStop(1, `rgba(${hue},0)`);
+    c.fillStyle = halo;
+    c.fillRect(x - 6, 0, 12, H);
+  }
+  c.globalCompositeOperation = 'source-over';
+}
 const isTouch = () => typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches ?? false);
 
 export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: () => void }) {
@@ -135,7 +167,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
   const [netDetail, setNetDetail] = useState('');
   // No direct line, no game: it pauses (both sides) until there is one — see NetWait.
   const playing = started && (solo || net === 'direct');
-  const [hud, setHud] = useState<Hud>({ wave: 0, scores: [0, 0], combo: 1, meter: 0, overdrive: false, slow: false, me: { lives: LIVES, level: 1, weapon: 'blaster', novas: 1, perks: newShip(0).perks }, partner: solo ? null : { lives: LIVES, alive: true, weapon: 'blaster' }, banner: null, over: false });
+  const [hud, setHud] = useState<Hud>({ wave: 0, scores: [0, 0], combo: 1, meter: 0, overdrive: false, slow: false, me: { lives: LIVES, level: 1, weapon: 'blaster', novas: 1, perks: newShip(0).perks }, partner: solo ? null : { lives: LIVES, alive: true, weapon: 'blaster' }, banner: null, boss: null, over: false });
 
   // Snapshots are placed by when they were *sent*, on our clock: arrival
   // time lets a packet that queued, or a burst the relay held and let go
@@ -538,12 +570,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     drawFx(c, g.fx);
     if (g.swarm.slowT > 0) drawSlowTint(c, sky.x, sky.y, sky.w, sky.h, g.swarm.slowT);
     c.restore();
-    // Outside the play area, a little darker: the bugs come from there, you can't go there.
-    c.fillStyle = 'rgba(0,0,0,0.35)';
-    if (sky.x < 0) { c.fillRect(sky.x, sky.y, -sky.x, sky.h); c.fillRect(W, sky.y, sky.w + sky.x - W, sky.h); }
-    if (sky.y < 0) { c.fillRect(0, sky.y, W, -sky.y); c.fillRect(0, H, W, sky.h + sky.y - H); }
-    const boss = view.bugs.find((b) => isBoss(b.kind));
-    if (boss) drawBossBar(c, boss.hp / boss.max, g.t);
+    drawEdges(c, sky);
   }
 
   const bannerUntil = useRef<{ wave: number; until: number }>({ wave: 0, until: 0 });
@@ -553,11 +580,13 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     const b = bannerUntil.current;
     if (s.wave !== b.wave) { b.wave = s.wave; b.until = g.t + 2.2; }
     const banner = s.wave > 0 && g.t < b.until ? (bossOf(s.wave) ?? 'wave') : null;
+    const bb = shown(clock()).bugs.find((x) => isBoss(x.kind));
     const next: Hud = {
       wave: s.wave, scores: [...s.scores] as [number, number], combo: multiplier(s.combo[index]),
       meter: Math.round(s.meter[index] * 20) / 20, overdrive: g.me.odT > 0, slow: s.slowT > 0,
       me: { lives: g.me.lives, level: g.me.level, weapon: g.me.weapon, novas: g.me.novas, perks: { ...g.me.perks } },
-      partner: g.partner ? { lives: g.partner.lives, alive: g.partner.alive, weapon: g.partner.weapon } : null, banner, over: g.over,
+      partner: g.partner ? { lives: g.partner.lives, alive: g.partner.alive, weapon: g.partner.weapon } : null, banner,
+      boss: bb ? { kind: bb.kind as BossKind, frac: Math.round(Math.max(0, bb.hp / bb.max) * 200) / 200 } : null, over: g.over,
     };
     setHud((h) => (JSON.stringify(h) === JSON.stringify(next) ? h : next));
   }
@@ -629,197 +658,256 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     onPointerCancel: () => { finger.current = null; drag.current = null; },
   };
 
-  const overlay = (children: ReactNode) => (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
-      <div className="px-notch px-frame p-4 w-full max-w-[320px] text-center px-in-up">{children}</div>
+  const overlay = (children: ReactNode, accent = '#a070ff') => (
+    <div className="bs-scrim absolute inset-0 z-10 flex items-center justify-center p-4">
+      <div className="bs-glass bs-edge bs-modal" style={{ '--accent': accent } as CSSProperties}>{children}</div>
     </div>
   );
   const mine = hud.scores[index], theirs = hud.scores[1 - index];
+  const comboColor = ['', '', '#7dffc4', '#ffd23f', '#ff9f1c', '#ff4d6d'][hud.combo] ?? '#ff4d6d';
+  const bannerHue = hud.banner && hud.banner !== 'wave' ? BOSS_HUE[hud.banner] : '#a070ff';
+  const odFill = hud.overdrive ? 1 : hud.meter;
+  const newBest = mine >= best && mine > 0;
 
   return (
-    <div className="px absolute inset-0 z-40 flex flex-col select-none bg-[#04020c]" style={{ touchAction: 'none' }} onKeyDown={(e) => e.stopPropagation()}>
-      <div className="shrink-0 flex items-center justify-between gap-2 px-3 pt-[calc(0.4rem+var(--sat,0px))] pb-1 pl-[calc(0.75rem+var(--sal,0px))] pr-[calc(0.75rem+var(--sar,0px))]">
-        <p className="px-title !text-[14px] text-[var(--px-gold)] flex items-center gap-2 min-w-0">
-          <PixelIcon name="bug" size={2} /> <span className="truncate"><FormattedMessage id="world.swarmTitle" /></span>
-        </p>
-        {!solo && (
-          <span className={`text-[11px] ${net === 'direct' ? 'text-[var(--px-jade)]' : 'text-[var(--px-muted)]'}`}>
-            <FormattedMessage id={`world.rooftopNet.${net}`} />
-          </span>
-        )}
-        <button onClick={onClose} className="px-title !text-[12px] text-[var(--px-muted)] hover:text-[var(--px-text)] shrink-0 py-1">
-          <FormattedMessage id="world.focusLeave" />
-        </button>
+    <div className="px bs absolute inset-0 z-40 flex flex-col select-none bg-[#04020c]" style={{ touchAction: 'none' }} onKeyDown={(e) => e.stopPropagation()}>
+      <div className="bs-header relative z-10 shrink-0 flex items-center justify-between gap-3 pt-[calc(0.45rem+var(--sat,0px))] pb-[0.45rem] pl-[calc(0.75rem+var(--sal,0px))] pr-[calc(0.75rem+var(--sar,0px))]">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="bs-badge shrink-0"><PixelIcon name="bug" size={2} /></span>
+          <p className="bs-display bs-gradient-text text-[17px] tracking-[0.16em] truncate" style={{ '--accent': '#ffd23f' } as CSSProperties}>
+            <FormattedMessage id="world.swarmTitle" />
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {!solo && (
+            <span className={`bs-glass bs-pill-btn !py-1 ${net === 'direct' ? '!text-[#7dffc4]' : ''}`}>
+              <span className={`bs-live-dot ${net === 'direct' ? 'on' : ''}`} />
+              <FormattedMessage id={`world.rooftopNet.${net}`} />
+            </span>
+          )}
+          <button onClick={onClose} className="bs-glass bs-pill-btn bs-display !text-[12px] !tracking-[0.14em]">
+            <FormattedMessage id="world.focusLeave" />
+          </button>
+        </div>
       </div>
 
       <div ref={box} className="relative flex-1 min-h-0 flex items-center justify-center pb-[var(--sab,0px)]">
         <canvas ref={canvas} {...pointer} className="absolute inset-0 block w-full h-full" style={{ touchAction: 'none' }} />
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* The scoreboard: across the top of the screen, as wide as the play area. */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 p-1.5 sm:p-2 flex items-start justify-between gap-1.5" style={{ width: fit.w }}>
-            <div className="flex flex-col gap-1">
-              <Panel name={<FormattedMessage id="world.duelYou" />} color={SHIP_COLORS[index]} score={mine} lives={hud.me.lives} level={hud.me.level} weapon={hud.me.weapon} />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 p-2 sm:p-2.5 grid grid-cols-[1fr_auto_1fr] items-start gap-2" style={{ width: Math.max(fit.w, 300) }}>
+            <div className="flex flex-col items-start gap-1.5">
+              <Panel name={<FormattedMessage id="world.duelYou" />} color={SHIP_COLORS[index]} score={mine} lives={hud.me.lives} level={hud.me.level} weapon={hud.me.weapon} meter={odFill} />
               {PERKS.some((p) => hud.me.perks[p] > 0) && (
-                <div className="flex flex-wrap gap-0.5 max-w-[110px]">
+                <div className="flex flex-wrap gap-1.5 max-w-[130px]">
                   {PERKS.filter((p) => hud.me.perks[p] > 0).map((p) => (
-                    <span key={p} className="relative w-[18px] h-[18px] rounded bg-black/50 border border-[#ffd23f]/30 flex items-center justify-center">
-                      <PerkIcon perk={p} className="w-3 h-3" />
-                      {hud.me.perks[p] > 1 && <span className="absolute -right-0.5 -bottom-0.5 text-[8px] font-bold text-[#ffd23f] leading-none">{hud.me.perks[p]}</span>}
+                    <span key={p} className="bs-perk">
+                      <PerkIcon perk={p} className="w-3.5 h-3.5" />
+                      {hud.me.perks[p] > 1 && <b>{hud.me.perks[p]}</b>}
                     </span>
                   ))}
                 </div>
               )}
             </div>
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-1.5 pt-1">
               {hud.wave > 0 && (
-                <span className="mt-1 px-2 py-0.5 rounded-full bg-black/45 border border-white/10 px-title !text-[10px] text-white/85 whitespace-nowrap">
-                  <FormattedMessage id="world.swarmWave" values={{ n: hud.wave }} />
+                <span className="bs-glass bs-wave bs-display whitespace-nowrap">
+                  <FormattedMessage id="world.swarmWave" values={{ n: <b key="n" className="bs-num text-[14px]">{String(hud.wave).padStart(2, '0')}</b> }} />
                 </span>
               )}
               {hud.combo > 1 && (
-                <span key={hud.combo} className="px-title !text-[15px] px-in-up" style={{ color: ['', '', '#7dffc4', '#ffd23f', '#ff9f1c', '#ff4d6d'][hud.combo], textShadow: '0 0 10px currentColor' }}>
+                <span key={hud.combo} className="bs-combo bs-display bs-gradient-text" style={{ '--accent': comboColor } as CSSProperties}>
                   <FormattedMessage id="world.swarmCombo" values={{ n: hud.combo }} />
                 </span>
               )}
             </div>
-            {hud.partner
-              ? <Panel name={partnerName} color={SHIP_COLORS[1 - index]} score={theirs} lives={hud.partner.lives} level={null} weapon={hud.partner.weapon} right dim={!hud.partner.alive} />
-              : <Panel name={<FormattedMessage id="world.swarmBest" />} color="#ffd23f" score={Math.max(best, mine)} lives={null} level={null} right />}
+            <div className="flex flex-col items-end">
+              {hud.partner
+                ? <Panel name={partnerName} color={SHIP_COLORS[1 - index]} score={theirs} lives={hud.partner.lives} level={null} weapon={hud.partner.weapon} right dim={!hud.partner.alive} />
+                : <Panel name={<FormattedMessage id="world.swarmBest" />} color="#ffd23f" score={Math.max(best, mine)} lives={null} level={null} right />}
+            </div>
           </div>
 
+          {/* A boss's health, under the scoreboard. */}
+          {hud.boss && !hud.over && (
+            <div className="bs-boss absolute top-[5.6rem] sm:top-[6.2rem] left-1/2 -translate-x-1/2" style={{ animation: 'bs-fade-up 0.4s ease-out both' }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="bs-eyebrow" style={{ color: BOSS_HUE[hud.boss.kind] }}><FormattedMessage id={`world.swarmBoss.${hud.boss.kind}`} /></span>
+                <span className="bs-num text-[11px] text-white/70">{Math.ceil(hud.boss.frac * 100)}%</span>
+              </div>
+              <div className="bs-boss-bar"><i style={{ width: `${hud.boss.frac * 100}%` }} /></div>
+            </div>
+          )}
+
           {started && hud.banner && !hud.over && (
-            <div key={`${hud.banner}${hud.wave}`} className="absolute inset-x-0 top-[32%] text-center pointer-events-none px-in-up">
-              {hud.banner !== 'wave' && (
-                <p className="px-title !text-[12px] text-white/80 mb-1"><FormattedMessage id="world.swarmWave" values={{ n: hud.wave }} /></p>
-              )}
-              <p className="px-title !text-[26px] sm:!text-[30px] text-white" style={{ textShadow: `0 0 12px ${hud.banner === 'wave' ? '#a070ff' : BOSS_HUE[hud.banner]}, 0 0 28px ${hud.banner === 'wave' ? '#6040ff' : BOSS_HUE[hud.banner]}` }}>
+            <div key={`${hud.banner}${hud.wave}`} className="bs-banner absolute inset-x-0 top-[30%] flex flex-col items-center text-center px-4" style={{ '--accent': bannerHue } as CSSProperties}>
+              <div className="flex items-center justify-center gap-3 w-full mb-2">
+                <span className="bs-streak" />
+                <span className="bs-eyebrow text-white/80">
+                  {hud.banner === 'wave' ? <FormattedMessage id="world.swarmTitle" /> : <FormattedMessage id="world.swarmWave" values={{ n: hud.wave }} />}
+                </span>
+                <span className="bs-streak r" />
+              </div>
+              <p className="bs-banner-title bs-display bs-gradient-text">
                 <FormattedMessage id={hud.banner === 'wave' ? 'world.swarmWave' : `world.swarmBoss.${hud.banner}`} values={{ n: hud.wave }} />
               </p>
             </div>
           )}
           {started && hud.wave <= 1 && !hud.over && (
-            <p className="absolute top-[4.5rem] left-1/2 -translate-x-1/2 text-center text-[11px] px-2 py-1 rounded bg-black/55 text-white/85" style={{ width: Math.min(fit.w - 16, 360) }}>
+            <p className="bs-glass bs-hint absolute bottom-[calc(6.5rem+var(--sab,0px))] left-1/2 -translate-x-1/2 text-center" style={{ width: Math.min(fit.w - 24, 380) }}>
               <FormattedMessage id={touch ? 'world.swarmHintTouch' : 'world.swarmHint'} />
             </p>
           )}
           {!hud.over && !hud.me.lives && hud.partner?.alive && (
-            <p className="absolute top-16 left-1/2 -translate-x-1/2 text-[12px] px-2 py-1 rounded bg-black/60 pointer-events-none whitespace-nowrap">
+            <p className="bs-glass bs-hint absolute top-[5.6rem] left-1/2 -translate-x-1/2 whitespace-nowrap">
               <FormattedMessage id="world.swarmOut" values={{ name: partnerName }} />
             </p>
           )}
         </div>
+
         {/* The draft: three perks to choose from, every third wave. */}
         {draft && !hud.over && !left && (
-          <div className="absolute inset-x-0 top-[36%] flex flex-col items-center px-2 px-in-up">
-            <p className="px-title !text-[14px] text-[#ffd23f] mb-2" style={{ textShadow: '0 0 10px #ff9f1c' }}><FormattedMessage id="world.swarmDraft" /></p>
-            <div className="flex gap-2 w-full justify-center" style={{ maxWidth: Math.max(300, fit.w) }}>
+          <div className="absolute inset-x-0 top-[30%] flex flex-col items-center px-3">
+            <div className="flex items-center justify-center gap-3 w-full mb-3" style={{ '--accent': '#ffd23f' } as CSSProperties}>
+              <span className="bs-streak" />
+              <p className="bs-display bs-gradient-text text-[20px] tracking-[0.18em]" style={{ filter: 'drop-shadow(0 0 12px #ff9f1c)' }}><FormattedMessage id="world.swarmDraft" /></p>
+              <span className="bs-streak r" />
+            </div>
+            <div className="flex gap-2.5 w-full justify-center" style={{ maxWidth: Math.max(320, fit.w) }}>
               {draft.map((p, i) => (
-                <button
-                  key={p}
-                  onClick={() => pick(p)}
-                  className="flex-1 max-w-[150px] rounded-lg border border-[#ffd23f]/50 bg-[#120a2a]/85 backdrop-blur-sm px-2 py-2.5 text-center hover:border-[#ffd23f] hover:bg-[#2a1850]/90 active:scale-95 transition"
-                  style={{ boxShadow: '0 0 16px rgba(255,210,63,0.18)' }}
-                >
-                  <PerkIcon perk={p} className="w-7 h-7 mx-auto mb-1" />
-                  <p className="text-[12px] font-bold text-white leading-tight"><FormattedMessage id={`world.swarmPerk.${p}`} /></p>
-                  <p className="text-[10px] text-white/70 leading-snug mt-0.5"><FormattedMessage id={`world.swarmPerkHow.${p}`} /></p>
-                  <p className="text-[10px] text-[#ffd23f] mt-1 tabular-nums">{hud.me.perks[p]}/{PERK_MAX[p]} → {hud.me.perks[p] + 1}<Kbd>{i + 1}</Kbd></p>
+                <button key={p} onClick={() => pick(p)} className="bs-draft-card bs-glass bs-edge" style={{ animationDelay: `${i * 0.07}s` }}>
+                  <span className="bs-key">{i + 1}</span>
+                  <span className="bs-draft-icon"><PerkIcon perk={p} className="w-6 h-6" /></span>
+                  <p className="bs-display text-[15px] text-white leading-tight tracking-[0.06em]"><FormattedMessage id={`world.swarmPerk.${p}`} /></p>
+                  <p className="text-[11px] text-white/65 leading-snug mt-1 min-h-[2.4em]"><FormattedMessage id={`world.swarmPerkHow.${p}`} /></p>
+                  <div className="flex justify-center gap-1 mt-2.5">
+                    {Array.from({ length: PERK_MAX[p] }, (_, k) => (
+                      <span key={k} className={`bs-pip ${k < hud.me.perks[p] ? 'on' : ''}`} style={k === hud.me.perks[p] ? { background: 'rgba(255,210,63,0.45)', boxShadow: '0 0 0 1px #ffd23f' } : undefined} />
+                    ))}
+                  </div>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Overdrive: the meter fills with kills; full, it's a button. */}
+        {/* Overdrive: the ring fills with kills; full, it's a button. Nova: a count. */}
         {started && !hud.over && !left && hud.me.lives > 0 && (
-          <button
-            onClick={goOverdrive}
-            disabled={hud.meter < 1 || hud.overdrive}
-            aria-label="overdrive"
-            className={`absolute right-[calc(5.25rem+var(--sar,0px))] bottom-[calc(0.75rem+var(--sab,0px))] w-16 h-16 rounded-full border-2 flex flex-col items-center justify-center text-white overflow-hidden ${hud.meter >= 1 && !hud.overdrive ? 'border-[#ffd23f] animate-pulse shadow-[0_0_22px_rgba(255,210,63,0.6)]' : 'border-[#ffd23f]/40'}`}
-            style={{ touchAction: 'none', background: `linear-gradient(to top, rgba(255,210,63,0.45) ${(hud.overdrive ? 1 : hud.meter) * 100}%, rgba(255,210,63,0.08) ${(hud.overdrive ? 1 : hud.meter) * 100}%)` }}
-          >
-            <svg viewBox="0 0 20 20" className="w-6 h-6"><path d="M11.5 1.5 4 11h5l-1.5 7.5L16 8.5h-5.2Z" fill="#fff6c8" stroke="#ffb030" strokeWidth="0.8" strokeLinejoin="round" /></svg>
-            <span className="text-[9px] font-bold leading-none mt-0.5 uppercase tracking-wide">{hud.overdrive ? <FormattedMessage id="world.swarmOverdriveOn" /> : <Kbd>C</Kbd>}</span>
-          </button>
-        )}
-        {started && !hud.over && !left && hud.me.lives > 0 && (
+          <>
+            <button
+              onClick={goOverdrive}
+              disabled={hud.meter < 1 || hud.overdrive}
+              aria-label="overdrive"
+              className={`bs-action right-[calc(5.5rem+var(--sar,0px))] bottom-[calc(0.85rem+var(--sab,0px))] ${hud.meter >= 1 && !hud.overdrive ? 'ready' : ''}`}
+              style={{ touchAction: 'none', '--accent': '#ffd23f', '--p': odFill } as CSSProperties}
+            >
+              <span className="ring" /><span className="disc" />
+              <span className="face">
+                <svg viewBox="0 0 20 20" className="w-6 h-6"><path d="M11.5 1.5 4 11h5l-1.5 7.5L16 8.5h-5.2Z" fill="#fff6c8" stroke="#ffb030" strokeWidth="0.8" strokeLinejoin="round" /></svg>
+                <span className="bs-eyebrow !text-[9px] !tracking-[0.12em] text-white/80">{hud.overdrive ? <FormattedMessage id="world.swarmOverdriveOn" /> : <Kbd>C</Kbd>}</span>
+              </span>
+            </button>
             <button
               onClick={setOffNova}
               disabled={hud.me.novas <= 0}
               aria-label="nova"
-              className="absolute right-[calc(0.75rem+var(--sar,0px))] bottom-[calc(0.75rem+var(--sab,0px))] w-16 h-16 rounded-full border-2 border-[#9be7ff]/70 bg-[#9be7ff]/15 active:bg-[#9be7ff]/40 disabled:opacity-35 flex flex-col items-center justify-center text-white shadow-[0_0_18px_rgba(155,231,255,0.35)]"
-              style={{ touchAction: 'none' }}
+              className={`bs-action right-[calc(0.85rem+var(--sar,0px))] bottom-[calc(0.85rem+var(--sab,0px))] ${hud.me.novas > 0 ? '' : 'dim'}`}
+              style={{ touchAction: 'none', '--accent': '#9be7ff', '--p': hud.me.novas > 0 ? 1 : 0 } as CSSProperties}
             >
-              <svg viewBox="0 0 20 20" className="w-6 h-6" fill="none" stroke="#e6faff" strokeWidth="1.6" strokeLinecap="round">
-                {Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * Math.PI * 2, r = i % 2 ? 5 : 8.5; return <line key={i} x1={10} y1={10} x2={10 + Math.cos(a) * r} y2={10 + Math.sin(a) * r} />; })}
-                <circle cx="10" cy="10" r="2.2" fill="#e6faff" />
-              </svg>
-              <span className="text-[11px] font-bold leading-none mt-0.5">{hud.me.novas}<Kbd>X</Kbd></span>
+              <span className="ring" /><span className="disc" />
+              <span className="face">
+                <svg viewBox="0 0 20 20" className="w-6 h-6" fill="none" stroke="#e6faff" strokeWidth="1.6" strokeLinecap="round">
+                  {Array.from({ length: 8 }, (_, i) => { const a = (i / 8) * Math.PI * 2, r = i % 2 ? 5 : 8.5; return <line key={i} x1={10} y1={10} x2={10 + Math.cos(a) * r} y2={10 + Math.sin(a) * r} />; })}
+                  <circle cx="10" cy="10" r="2.2" fill="#e6faff" />
+                </svg>
+                <span className="bs-eyebrow !text-[9px] text-white/80"><Kbd>X</Kbd></span>
+              </span>
+              <span className="bs-count bs-num">{hud.me.novas}</span>
             </button>
+          </>
         )}
+
         {!started && !left && overlay(<PixelLoader label={<FormattedMessage id="world.duelWaiting" values={{ name: partnerName }} />} />)}
         {started && !playing && !left && overlay(<NetWait state={net} name={partnerName} onLeave={onClose} detail={netDetail} />)}
         {left && overlay(
           <>
-            <p className="text-[14px] mb-3"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>
-            <PixelButton tone="jade" block onClick={onClose}><FormattedMessage id="world.duelDone" /> <Kbd>Esc</Kbd></PixelButton>
+            <p className="text-[15px] text-white/90 mb-4"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>
+            <button className="bs-btn primary w-full" onClick={onClose}><FormattedMessage id="world.duelDone" /><Kbd>Esc</Kbd></button>
           </>,
         )}
         {hud.over && !left && overlay(
           <>
-            <p className="px-title !text-[20px] mb-1 text-[var(--px-gold)]"><FormattedMessage id="world.swarmOver" values={{ n: hud.wave }} /></p>
-            <p className="text-[13px] mb-1">
-              <FormattedMessage id="world.swarmScore" values={{ n: mine }} />
-              {hud.partner && <> · {partnerName}: {theirs}</>}
+            <p className="bs-eyebrow text-white/55 mb-1"><FormattedMessage id="world.swarmTitle" /></p>
+            <p className="bs-display bs-gradient-text text-[26px] leading-tight tracking-[0.08em] mb-3" style={{ '--accent': '#ff6a8a' } as CSSProperties}>
+              <FormattedMessage id="world.swarmOver" values={{ n: hud.wave }} />
             </p>
-            {solo && (
-              <p className="text-[12px] mb-3 text-[var(--px-gold)]">
-                <FormattedMessage id={mine >= best && mine > 0 ? 'world.swarmNewBest' : 'world.swarmBestIs'} values={{ n: best }} />
-              </p>
-            )}
-            <div className={`grid grid-cols-2 gap-2 ${solo ? '' : 'mt-2'}`}>
-              <PixelButton tone="gold" onClick={again}><FormattedMessage id="world.rooftopAgain" /> <Kbd>R</Kbd></PixelButton>
-              <PixelButton tone="paper" onClick={onClose}><FormattedMessage id="world.duelDone" /> <Kbd>Esc</Kbd></PixelButton>
+            <p className="bs-num text-[52px] leading-none text-white mb-3" style={{ textShadow: `0 0 24px ${SHIP_COLORS[index]}` }}>{mine.toLocaleString()}</p>
+            {solo && newBest && <p className="mb-3"><span className="bs-new-best bs-display"><FormattedMessage id="world.swarmNewBest" /></span></p>}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="bs-stat">
+                <p className="bs-eyebrow text-white/50"><FormattedMessage id="world.swarmWave" values={{ n: '' }} /></p>
+                <p className="bs-num text-[20px] text-white">{hud.wave}</p>
+              </div>
+              {hud.partner ? (
+                <div className="bs-stat">
+                  <p className="bs-eyebrow truncate" style={{ color: SHIP_COLORS[1 - index] }}>{partnerName}</p>
+                  <p className="bs-num text-[20px] text-white">{theirs.toLocaleString()}</p>
+                </div>
+              ) : (
+                <div className="bs-stat">
+                  <p className="bs-eyebrow text-[#ffd23f]/80"><FormattedMessage id="world.swarmBest" /></p>
+                  <p className="bs-num text-[20px] text-white">{best.toLocaleString()}</p>
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="bs-btn primary" onClick={again}><FormattedMessage id="world.rooftopAgain" /><Kbd>R</Kbd></button>
+              <button className="bs-btn ghost" onClick={onClose}><FormattedMessage id="world.duelDone" /><Kbd>Esc</Kbd></button>
             </div>
           </>,
+          '#ff4d6d',
         )}
       </div>
     </div>
   );
 }
 
-/** One player's corner of the scoreboard: name, score, lives, gun. */
-function Panel({ name, color, score, lives, level, weapon, right = false, dim = false }: {
-  name: ReactNode; color: string; score: number; lives: number | null; level: number | null; weapon?: Weapon; right?: boolean; dim?: boolean;
+/** One player's corner of the scoreboard: name, score, lives, gun — and, for me, the overdrive meter. */
+function Panel({ name, color, score, lives, level, weapon, meter, right = false, dim = false }: {
+  name: ReactNode; color: string; score: number; lives: number | null; level: number | null; weapon?: Weapon; meter?: number; right?: boolean; dim?: boolean;
 }) {
   return (
     <div
-      className={`rounded-md bg-black/45 backdrop-blur-sm border border-white/10 px-2 py-1 min-w-[78px] ${right ? 'text-right' : ''} ${dim ? 'opacity-45' : ''}`}
-      style={{ boxShadow: `inset ${right ? -3 : 3}px 0 0 ${color}` }}
+      className={`bs-glass bs-edge bs-card transition-opacity ${right ? 'text-right' : ''} ${dim ? 'opacity-45' : ''}`}
+      style={{ '--accent': color } as CSSProperties}
     >
-      <p className="text-[10px] uppercase tracking-wider truncate max-w-[110px]" style={{ color }}>{name}</p>
-      <p className="text-[17px] sm:text-[19px] leading-tight font-bold tabular-nums text-white" style={{ textShadow: `0 0 8px ${color}` }}>{score.toLocaleString()}</p>
+      <div className={`flex items-center gap-1.5 ${right ? 'justify-end' : ''}`}>
+        {!right && <span className="bs-avatar" />}
+        <p className="bs-eyebrow truncate max-w-[110px]" style={{ color }}>{name}</p>
+        {right && <span className="bs-avatar" />}
+      </div>
+      <p className="bs-score bs-num mt-1">{score.toLocaleString()}</p>
       {(lives !== null || level !== null || weapon) && (
-        <div className={`mt-0.5 flex items-center gap-1.5 ${right ? 'justify-end' : ''}`}>
+        <div className={`mt-1.5 flex items-center gap-2 ${right ? 'justify-end' : ''}`}>
           {lives !== null && (
-            <span className="flex gap-[2px]">
+            <span className="flex gap-[3px]">
               {Array.from({ length: Math.max(0, lives) }, (_, i) => (
-                <svg key={i} viewBox="0 0 10 9" className="w-2.5 h-2.5"><path d="M5 8.5 1 4.6A2.3 2.3 0 0 1 5 1.8a2.3 2.3 0 0 1 4 2.8Z" fill="#ff4d6d" /></svg>
+                <svg key={i} viewBox="0 0 10 9" className="w-[11px] h-[11px]" style={{ filter: 'drop-shadow(0 0 3px #ff4d6d)' }}><path d="M5 8.5 1 4.6A2.3 2.3 0 0 1 5 1.8a2.3 2.3 0 0 1 4 2.8Z" fill="#ff4d6d" /></svg>
               ))}
             </span>
           )}
           {weapon && (
-            <span className="text-[9px] uppercase tracking-wide" style={{ color: WEAPON_COLOR[weapon] }}><FormattedMessage id={`world.swarmWeapon.${weapon}`} /></span>
-          )}
-          {level !== null && (
-            <span className="flex gap-[2px] items-end">
-              {Array.from({ length: MAX_LEVEL }, (_, i) => (
-                <span key={i} className="w-[3px] rounded-[1px]" style={{ height: 4 + i * 1.5, background: i < level ? '#ffd23f' : 'rgba(255,255,255,0.18)' }} />
-              ))}
-            </span>
+            <span className="bs-chip" style={{ '--chip': WEAPON_COLOR[weapon] } as CSSProperties}><FormattedMessage id={`world.swarmWeapon.${weapon}`} /></span>
           )}
         </div>
+      )}
+      {level !== null && (
+        <div className="bs-pips mt-1.5">
+          {Array.from({ length: MAX_LEVEL }, (_, i) => <span key={i} className={`bs-pip ${i < level ? 'on' : ''}`} />)}
+        </div>
+      )}
+      {meter !== undefined && (
+        <div className={`bs-meter ${meter >= 1 ? 'full' : ''}`}><i style={{ width: `${meter * 100}%` }} /></div>
       )}
     </div>
   );

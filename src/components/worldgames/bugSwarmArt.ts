@@ -583,24 +583,6 @@ export function drawBug(c: C, kind: BugKind, x: number, y: number, t: number, id
   }
 }
 
-/** A boss's health, across the top. */
-export function drawBossBar(c: C, frac: number, t: number) {
-  const x = 30, y = 46, w = W - 60, h = 5;
-  c.fillStyle = 'rgba(10,4,24,0.75)';
-  c.fillRect(x - 1, y - 1, w + 2, h + 2);
-  const g = c.createLinearGradient(x, 0, x + w, 0);
-  g.addColorStop(0, '#ff3b5c'); g.addColorStop(1, '#c040ff');
-  c.fillStyle = g;
-  c.fillRect(x, y, w * Math.max(0, frac), h);
-  c.fillStyle = `rgba(255,255,255,${0.25 + Math.sin(t * 6) * 0.1})`;
-  c.fillRect(x, y, w * Math.max(0, frac), 1.5);
-  c.strokeStyle = 'rgba(255,210,120,0.6)'; c.lineWidth = 0.5;
-  c.strokeRect(x - 1, y - 1, w + 2, h + 2);
-  // A small crown at the bar's start.
-  c.fillStyle = '#ffd23f';
-  c.beginPath(); c.moveTo(x - 10, y + 5); c.lineTo(x - 10, y); c.lineTo(x - 8, y + 2); c.lineTo(x - 6, y - 1); c.lineTo(x - 4, y + 2); c.lineTo(x - 2, y); c.lineTo(x - 2, y + 5); c.closePath(); c.fill();
-}
-
 // ── Shots, larvae, power-ups ───────────────────────────────────────────────
 
 export function drawShot(c: C, kind: ShotKind, x: number, y: number, vx: number, vy: number, color: string) {
