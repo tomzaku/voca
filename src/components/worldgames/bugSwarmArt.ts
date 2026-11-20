@@ -568,19 +568,35 @@ const BUGS: Record<BugKind, { frames: number; fps: number; make: (f: number) => 
 };
 const BOSS_GLOW: Record<string, string> = { queen: '#a040ff', mantis: '#40ff70', spider: '#ff2040', hornet: '#ff9020' };
 
+/** How a bug is held this frame, around its middle: turned (radians, 0 faces
+ *  down the screen), stretched, and nudged up — so it banks into a swoop,
+ *  bobs in the formation, and squashes when a shot lands. Drawing only: where
+ *  it can be hit doesn't move. */
+export interface BugPose { rot: number; sx: number; sy: number; dy: number }
+
 /** A bug; `flash` (0–1) whitens it, just hit. */
-export function drawBug(c: C, kind: BugKind, x: number, y: number, t: number, id: number, flash: number) {
+export function drawBug(c: C, kind: BugKind, x: number, y: number, t: number, id: number, flash: number, pose?: BugPose) {
   const b = BUGS[kind];
   const f = Math.floor(t * b.fps + id * 0.37) % b.frames;
   const s = b.make(f);
+  const { w, h } = BUG_SIZE[kind];
   if (kind === 'golden') drawGlow(c, x + 8, y + 6, 14 + Math.sin(t * 8) * 2, '#ffd23f', 0.6);
-  if (isBoss(kind)) drawGlow(c, x + BUG_SIZE[kind].w / 2, y + BUG_SIZE[kind].h / 2 + 4, 30 + Math.sin(t * 4) * 3, BOSS_GLOW[kind], 0.35);
+  if (isBoss(kind)) drawGlow(c, x + w / 2, y + h / 2 + 4, 30 + Math.sin(t * 4) * 3, BOSS_GLOW[kind], 0.35);
+  if (pose) {
+    c.save();
+    c.translate(x + w / 2, y + h / 2 - pose.dy);
+    c.rotate(pose.rot);
+    c.scale(pose.sx, pose.sy);
+    c.translate(-w / 2, -h / 2);
+    x = 0; y = 0;
+  }
   stamp(c, s, x, y);
   if (flash > 0) {
     c.globalAlpha = Math.min(1, flash);
     stamp(c, white(`${kind}:${f}`, s), x, y);
     c.globalAlpha = 1;
   }
+  if (pose) c.restore();
 }
 
 // ── Shots, larvae, power-ups ───────────────────────────────────────────────
@@ -686,11 +702,31 @@ function dropIcon(c: C, kind: DropKind, x: number, y: number) {
   }
 }
 
-export function drawDrop(c: C, kind: DropKind, x: number, y: number, t: number) {
+/** A capsule falling: it swings like a pendant as it goes and now and then
+ *  catches the light — so it reads as something to grab, not another bullet. */
+export function drawDrop(c: C, kind: DropKind, x: number, y: number, t: number, id = 0) {
   const col = DROP_COLOR[kind];
   c.globalCompositeOperation = 'lighter';
   drawGlow(c, x, y, 11 + Math.sin(t * 6) * 1.5, col, 0.55);
+  const glint = (t * 0.9 + id * 0.31) % 1.6;
+  if (glint < 0.25) {
+    const k = glint / 0.25, a = Math.sin(k * Math.PI);
+    c.strokeStyle = `rgba(255,255,255,${0.9 * a})`; c.lineWidth = 0.7; c.lineCap = 'round';
+    const gx = x + 3.5, gy = y - 4, r = 1 + a * 3.5;
+    c.beginPath(); c.moveTo(gx - r, gy); c.lineTo(gx + r, gy); c.moveTo(gx, gy - r); c.lineTo(gx, gy + r); c.stroke();
+  }
   c.globalCompositeOperation = 'source-over';
+  c.save();
+  c.translate(x, y);
+  c.rotate(Math.sin(t * 3.2 + id) * 0.35);
+  const bob = 1 + Math.sin(t * 6.4 + id) * 0.05;
+  c.scale(bob, 2 - bob);
+  c.translate(-x, -y);
+  drawCapsule(c, kind, x, y, t, col);
+  c.restore();
+}
+
+function drawCapsule(c: C, kind: DropKind, x: number, y: number, t: number, col: string) {
   const g = c.createRadialGradient(x - 2, y - 2, 0.5, x, y, 6.5);
   g.addColorStop(0, mix(col, '#ffffff', 0.5)); g.addColorStop(0.6, col); g.addColorStop(1, mix(col, '#000000', 0.5));
   c.fillStyle = g; ellipse(c, x, y, 6.5, 6.5); c.fill();
@@ -702,7 +738,8 @@ export function drawDrop(c: C, kind: DropKind, x: number, y: number, t: number) 
 
 // ── Explosions and the rest of the fireworks ───────────────────────────────
 
-export interface Fx { kind: 'spark' | 'smoke' | 'ring' | 'flash' | 'ember' | 'text'; x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; text?: string }
+/** `chunk` is a piece of a bug's shell, tumbling as it falls: `rot` its turn, `spin` how fast. */
+export interface Fx { kind: 'spark' | 'smoke' | 'ring' | 'flash' | 'ember' | 'text' | 'chunk'; x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; text?: string; rot?: number; spin?: number }
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -718,6 +755,12 @@ export function explode(fx: Fx[], x: number, y: number, big: boolean, tint = '#f
   for (let i = 0; i < (big ? 14 : 4); i++) {
     const a = rnd(0, Math.PI * 2), v = rnd(5, big ? 40 : 18);
     fx.push({ kind: 'smoke', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(0.5, big ? 1.4 : 0.8), max: 1, size: rnd(3, big ? 10 : 5), color: '#6a5a80' });
+  }
+  // The bug itself comes apart: bits of shell in its colour, flung up and
+  // out, tumbling as they fall — what makes a kill feel like a kill.
+  for (let i = 0; i < (big ? 18 : 6); i++) {
+    const a = rnd(-Math.PI * 0.95, -Math.PI * 0.05), v = rnd(30, big ? 130 : 80);
+    fx.push({ kind: 'chunk', x: x + rnd(-3, 3), y: y + rnd(-3, 3), vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(0.5, big ? 1.3 : 0.8), max: 1, size: rnd(1.6, big ? 4.4 : 3.2), color: tint, rot: rnd(0, 6.3), spin: rnd(-14, 14) });
   }
   for (const f of fx) if (f.max === 1) f.max = f.life;
 }
@@ -762,6 +805,7 @@ export function stepFx(fx: Fx[], dt: number) {
     f.x += f.vx * dt; f.y += f.vy * dt;
     if (f.kind === 'spark') { f.vx *= 0.94; f.vy *= 0.94; }
     if (f.kind === 'smoke') { f.vx *= 0.97; f.vy *= 0.97; }
+    if (f.kind === 'chunk') { f.vy += 260 * dt; f.vx *= 0.985; f.rot = (f.rot ?? 0) + (f.spin ?? 0) * dt; }
   }
   return fx.filter((f) => f.life > 0);
 }
@@ -772,6 +816,20 @@ export function drawFx(c: C, fx: Fx[]) {
     const k = 1 - f.life / f.max;
     c.fillStyle = `rgba(90,80,120,${0.35 * (1 - k)})`;
     ellipse(c, f.x, f.y, f.size * (0.6 + k), f.size * (0.6 + k)); c.fill();
+  }
+  for (const f of fx) {
+    if (f.kind !== 'chunk') continue;
+    const k = 1 - f.life / f.max, r = f.size;
+    c.save();
+    c.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
+    c.translate(f.x, f.y); c.rotate(f.rot ?? 0);
+    // A curved shard: lit on one edge, dark on the other, so it reads as a
+    // piece of something round even at a few pixels.
+    c.beginPath(); c.moveTo(-r, r * 0.5); c.quadraticCurveTo(0, -r * 1.2, r, r * 0.4); c.quadraticCurveTo(0, -r * 0.1, -r, r * 0.5); c.closePath();
+    c.fillStyle = f.color; c.fill();
+    c.strokeStyle = 'rgba(10,6,20,0.7)'; c.lineWidth = 0.4; c.stroke();
+    c.fillStyle = 'rgba(255,255,255,0.55)'; ellipse(c, -r * 0.2, -r * 0.25, r * 0.35, r * 0.15, -0.4); c.fill();
+    c.restore();
   }
   c.globalCompositeOperation = 'lighter';
   for (const f of fx) {
@@ -786,7 +844,9 @@ export function drawFx(c: C, fx: Fx[]) {
     } else if (f.kind === 'text' && f.text) {
       c.globalCompositeOperation = 'source-over';
       c.globalAlpha = Math.min(1, (1 - k) * 2);
-      c.font = `800 ${f.size}px system-ui, sans-serif`;
+      // Pops in big and settles — a score that lands, not one that fades in.
+      const pop = 1 + 0.7 * Math.max(0, 1 - k * 7) * Math.cos(k * 30);
+      c.font = `800 ${f.size * pop}px system-ui, sans-serif`;
       c.textAlign = 'center';
       c.lineWidth = 1.6; c.strokeStyle = 'rgba(0,0,0,0.7)';
       c.strokeText(f.text, f.x, f.y);

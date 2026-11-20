@@ -13,7 +13,7 @@ import type { MatchLink } from '../../lib/worldLive';
 import { Kbd, PixelIcon, PixelLoader } from './pixel';
 import { NetWait } from './NetWait';
 import './bugSwarm.css';
-import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawDrone, drawFx, drawOverdrive, drawShip, drawSlowTint, drawShot, drawSpace, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type Fx, WEAPON_COLOR } from './bugSwarmArt';
+import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawDrone, drawFx, drawOverdrive, drawShip, drawSlowTint, drawShot, drawSpace, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type BugPose, type Fx, WEAPON_COLOR } from './bugSwarmArt';
 
 // Bug Swarm, on screen: a wave shooter for two in the world (or one,
 // practising). The rules are lib/bugSwarm; the art is bugSwarmArt.
@@ -68,7 +68,9 @@ interface Game {
   /** Guest: larvae and power-ups it has already met, hidden until the host's next word. */
   hidden: Set<number>;
   /** Bugs on screen last frame, to burst the ones that are gone. */
-  seen: Map<number, { x: number; y: number; kind: BugKind; hp: number }>;
+  seen: Map<number, BugSeen>;
+  /** When the last frame was drawn, for how fast each bug moved since. */
+  drawnAt: number;
   fx: Fx[];
   /** Host: rockets, kills and novas since the last message to the guest. */
   blastsOut: { x: number; y: number }[];
@@ -84,12 +86,47 @@ interface Game {
   over: boolean;
 }
 
+/** A bug as last drawn: where, and how it was moving and turned — smoothed,
+ *  since the swarm steps at its own rate and a frame may land between two. */
+interface BugSeen { x: number; y: number; kind: BugKind; hp: number; vx: number; vy: number; rot: number }
+
+/** How long a hit squashes a bug (its white flash is the first 0.12 s of it). */
+const SQUASH_S = 0.3;
+
+/** How a bug is held this frame (see BugPose): facing the way it flies when
+ *  it swoops, leaning and bobbing in the formation, squashing when hit. */
+function poseFor(b: { id: number; kind: BugKind }, seen: BugSeen, t: number, hitAge: number | undefined): BugPose {
+  const boss = isBoss(b.kind);
+  const k = hitAge === undefined ? 0 : Math.max(0, 1 - hitAge / SQUASH_S);
+  const wob = k * Math.cos((hitAge ?? 0) * 38);
+  const breathe = Math.sin(t * 5 + b.id * 1.3) * (boss ? 0.015 : 0.04);
+  return {
+    rot: boss ? seen.rot * 0.3 : seen.rot,
+    sx: 1 + breathe + wob * (boss ? 0.08 : 0.25),
+    sy: 1 - breathe - wob * (boss ? 0.06 : 0.2),
+    dy: Math.sin(t * 2.6 + b.id * 0.9) * (boss ? 1.5 : 1.1) + k * (boss ? 1 : 2.5),
+  };
+}
+
+/** Where a bug should face: down the line it's flying when it's moving fast
+ *  (a swoop, a dive, the climb back), just a lean into its sway when not. */
+function headingFor(vx: number, vy: number) {
+  const speed = Math.hypot(vx, vy);
+  const lean = Math.max(-0.3, Math.min(0.3, -vx / 140));
+  if (speed < 50) return lean;
+  const face = Math.atan2(-vx, vy);
+  const k = Math.min(1, (speed - 50) / 40);
+  return lean + angleTo(lean, face) * k;
+}
+/** The signed shortest turn from one angle to another. */
+const angleTo = (from: number, to: number) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
+
 interface Hud { wave: number; scores: [number, number]; combo: number; meter: number; overdrive: boolean; slow: boolean; me: { lives: number; level: number; weapon: Weapon; novas: number; perks: Record<PerkKind, number> }; partner: { lives: number; alive: boolean; weapon: Weapon } | null; banner: 'wave' | BossKind | null; boss: { kind: BossKind; frac: number } | null; over: boolean }
 
 function newGame(index: number, round: number, solo: boolean): Game {
   return {
     round, swarm: newSwarm(), me: newShip(index), partner: solo ? null : newShip(1 - index), partnerSnaps: [], partnerCool: 0,
-    hostSnaps: [], localShots: [], hidden: new Set(), seen: new Map(), fx: [], blastsOut: [], killsOut: [], novasOut: [], hurt: new Map(), shake: 0, tilt: { me: 0, partner: 0, meX: 0, partnerX: 0 }, steps: 0, t: 0, over: false,
+    hostSnaps: [], localShots: [], hidden: new Set(), seen: new Map(), drawnAt: 0, fx: [], blastsOut: [], killsOut: [], novasOut: [], hurt: new Map(), shake: 0, tilt: { me: 0, partner: 0, meX: 0, partnerX: 0 }, steps: 0, t: 0, over: false,
   };
 }
 
@@ -489,7 +526,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
 
     g.fx = stepFx(g.fx, STEP);
     g.shake = Math.max(0, g.shake - STEP * 1.8);
-    for (const [id, t] of g.hurt) if (g.t - t > 0.12) g.hurt.delete(id);
+    for (const [id, t] of g.hurt) if (g.t - t > SQUASH_S) g.hurt.delete(id);
   }
 
   function draw(now: number) {
@@ -511,10 +548,16 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     const view = shown(now);
 
     // Bugs gone since last frame explode; bugs that lost health flash and spark.
+    const dt = g.drawnAt ? Math.min(0.1, Math.max(0.001, (now - g.drawnAt) / 1000)) : 0;
+    g.drawnAt = now;
+    const ease = 1 - Math.exp(-dt * 12), turn = 1 - Math.exp(-dt * 9);
     const seen: Game['seen'] = new Map();
     for (const b of view.bugs) {
       const before = g.seen.get(b.id);
-      seen.set(b.id, { x: b.x, y: b.y, kind: b.kind, hp: b.hp });
+      const vx = before && dt ? before.vx + ((b.x - before.x) / dt - before.vx) * ease : 0;
+      const vy = before && dt ? before.vy + ((b.y - before.y) / dt - before.vy) * ease : 0;
+      const was = before?.rot ?? 0;
+      seen.set(b.id, { x: b.x, y: b.y, kind: b.kind, hp: b.hp, vx, vy, rot: was + angleTo(was, headingFor(vx, vy)) * turn });
       if (before && b.hp < before.hp) {
         g.hurt.set(b.id, g.t);
         hitSpark(g.fx, b.x + BUG_SIZE[b.kind].w / 2, b.y + BUG_SIZE[b.kind].h, '#ffffff');
@@ -533,10 +576,11 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     c.save();
     if (g.shake > 0) c.translate((Math.random() - 0.5) * g.shake * 6, (Math.random() - 0.5) * g.shake * 6);
     drawSpace(c, g.t, sky.x, sky.y, sky.w, sky.h);
-    for (const d of view.drops) drawDrop(c, d.kind, d.x, d.y, g.t);
+    for (const d of view.drops) drawDrop(c, d.kind, d.x, d.y, g.t, d.id);
     for (const b of view.bugs) {
       const hit = g.hurt.get(b.id);
-      drawBug(c, b.kind, b.x, b.y, g.t, b.id, hit === undefined ? 0 : 1 - (g.t - hit) / 0.12);
+      const age = hit === undefined ? undefined : g.t - hit;
+      drawBug(c, b.kind, b.x, b.y, g.t, b.id, age === undefined ? 0 : Math.max(0, 1 - age / 0.12), poseFor(b, seen.get(b.id)!, g.t, age));
     }
     for (const s of view.shots) drawShot(c, s.kind, s.x, s.y, s.vx, s.vy, SHOT_COLORS[s.owner] ?? SHOT_COLORS[0]);
     for (const s of g.localShots) drawShot(c, s.kind, s.x, s.y, s.vx, s.vy, SHOT_COLORS[index]);
