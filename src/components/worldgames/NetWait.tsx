@@ -6,12 +6,13 @@ import { PixelButton, PixelLoader } from './pixel';
 // other browser (lib/peerLink is direct only): the game is paused, and either
 // it's still connecting, or these two networks can't reach each other — said
 // plainly, so a frozen screen never reads as lag. It keeps trying either way.
-export function NetWait({ state, name, onLeave }: { state: PeerState; name: string; onLeave: () => void }) {
+export function NetWait({ state, name, onLeave, detail }: { state: PeerState; name: string; onLeave: () => void; /** PeerLink.describe(), to report. */ detail?: string }) {
   if (state === 'failed') {
     return (
       <>
         <p className="text-[14px] mb-1.5"><FormattedMessage id="world.netFailed" values={{ name }} /></p>
-        <p className="text-[12px] text-[var(--px-muted)] mb-3"><FormattedMessage id="world.netFailedHint" /></p>
+        <p className="text-[12px] text-[var(--px-muted)] mb-2"><FormattedMessage id="world.netFailedHint" /></p>
+        {detail && <p className="font-mono text-[10px] text-[var(--px-muted)] mb-3 break-words select-text">{detail}</p>}
         <PixelButton tone="jade" block onClick={onLeave}><FormattedMessage id="world.duelDone" /></PixelButton>
       </>
     );

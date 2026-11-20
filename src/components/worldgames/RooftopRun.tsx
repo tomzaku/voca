@@ -142,6 +142,8 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
   const [viewW, setViewW] = useState(400);
   const [fit, setFit] = useState({ w: 400, h: 240 });
   const [net, setNet] = useState<PeerState>(solo ? 'direct' : 'connecting');
+  /** How far the direct line's setup got, shown if it fails. */
+  const [netDetail, setNetDetail] = useState('');
   // No direct line, no game: it pauses (both sides) until there is one — see NetWait.
   const playing = started && (solo || net === 'direct');
   const [hud, setHud] = useState<Hud>({ coins: 0, lives: LIVES, time: TIME_LIMIT, waiting: false, hint: 'start', over: null });
@@ -152,7 +154,7 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
     if (!link) return;
     const p = new PeerLink(link);
     peer.current = p;
-    const offState = p.onState(setNet);
+    const offState = p.onState((st) => { setNet(st); setNetDetail(p.describe()); });
     const offData = p.listen((d) => receive(d));
     return () => { offState(); offData(); p.close(); peer.current = null; };
   }, [link]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -529,7 +531,7 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
         )}
 
         {!started && !left && overlay(<PixelLoader label={<FormattedMessage id="world.duelWaiting" values={{ name: partnerName }} />} />)}
-        {started && !playing && !left && overlay(<NetWait state={net} name={partnerName} onLeave={onClose} />)}
+        {started && !playing && !left && overlay(<NetWait state={net} name={partnerName} onLeave={onClose} detail={netDetail} />)}
         {left && overlay(
           <>
             <p className="text-[14px] mb-3"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>

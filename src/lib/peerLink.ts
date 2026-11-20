@@ -32,12 +32,15 @@ export type PeerData = Record<string, unknown>;
 
 const GATHER_MS = 1500;
 const HELLO_MS = 1000;
-/** A hello this long after an offer means it was lost: offer again. */
-const REOFFER_MS = 3000;
+/** A hello this long after an offer went out means it was lost: offer again.
+ *  Longer than an answer takes to come back — the guest gathers for up to
+ *  GATHER_MS, then the relay — or a slow answer races the next offer. */
+const REOFFER_MS = 6000;
 /** Past this without a direct line, say so (the setup keeps trying). */
 const DIRECT_WAIT_MS = 12000;
 
-type Signal = { kind: 'p2p'; type: 'offer' | 'answer'; sdp: string } | { kind: 'p2pHello' };
+/** `id` ties an answer to its offer: one that comes back after the host has offered again is for a connection that's gone. */
+type Signal = { kind: 'p2p'; type: 'offer' | 'answer'; sdp: string; id: number } | { kind: 'p2pHello' };
 
 function iceServers(): RTCIceServer[] {
   const servers: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
@@ -58,17 +61,30 @@ const gathered = (pc: RTCPeerConnection) =>
     pc.addEventListener('icegatheringstatechange', check);
   });
 
+/** An offer without its candidates (to give back once ours are gathered), and the media id they belong to. */
+export function splitCandidates(sdp: string) {
+  const lines = sdp.split(/\r?\n/).filter((l) => l !== '');
+  const candidates = lines.filter((l) => l.startsWith('a=candidate:')).map((l) => l.slice(2));
+  const mid = lines.find((l) => l.startsWith('a=mid:'))?.slice(6) ?? '0';
+  const bare = lines.filter((l) => !l.startsWith('a=candidate:') && l !== 'a=end-of-candidates').join('\r\n') + '\r\n';
+  return { bare, candidates, mid };
+}
+
 export class PeerLink {
   state: PeerState = 'connecting';
   private pc: RTCPeerConnection | null = null;
   private fast: RTCDataChannel | null = null;
   private sure: RTCDataChannel | null = null;
   private offeredAt = 0;
+  /** Host: the offer the current connection made. Guest: the offer it's answering. */
+  private offerId = 0;
   private hello = 0;
   private waitTimer = 0;
   private closed = false;
   private offLink: () => void;
   private listeners = new Set<(d: PeerData) => void>();
+  /** What the setup has got to, for saying why a line never came up. */
+  private diag = { offers: 0, answers: 0, ice: 'new' as RTCIceConnectionState, mine: new Set<string>(), theirs: new Set<string>() };
   private stateListeners = new Set<(s: PeerState) => void>();
 
   constructor(private link: MatchLink) {
@@ -86,11 +102,28 @@ export class PeerLink {
       say();
       this.hello = window.setInterval(say, HELLO_MS);
     }
-    this.waitTimer = window.setTimeout(() => { if (this.state === 'connecting') this.set('failed'); }, DIRECT_WAIT_MS);
+    this.waitTimer = window.setTimeout(() => {
+      if (this.state !== 'connecting') return;
+      console.warn('[voca] p2p no direct line ·', this.describe());
+      this.set('failed');
+    }, DIRECT_WAIT_MS);
   }
 
   /** Whether messages go straight to the other browser. */
   get direct() { return this.state === 'direct'; }
+
+  /** One line on how far the setup got — shown when it fails, so we can tell
+   *  a lost signal (no answer) from two networks that can't reach each other
+   *  (answered, ICE failed: no relay candidate, so a TURN server is the fix). */
+  describe() {
+    const d = this.diag;
+    const kinds = (s: Set<string>) => (s.size ? [...s].sort().join('+') : 'none');
+    return `offers ${d.offers} · answers ${d.answers} · ice ${d.ice} · you ${kinds(d.mine)} · them ${kinds(d.theirs)}`;
+  }
+
+  private noteCandidates(sdp: string | undefined, into: Set<string>) {
+    for (const m of (sdp ?? '').matchAll(/ typ (host|srflx|prflx|relay)/g)) into.add(m[1]);
+  }
 
   /** Everything the other side sends, whichever way it came. */
   listen(cb: (d: PeerData) => void) {
@@ -170,6 +203,11 @@ export class PeerLink {
     fast.onopen = opened;
     sure.onopen = opened;
     fast.onclose = () => this.lost(pc);
+    pc.oniceconnectionstatechange = () => {
+      if (this.pc !== pc) return;
+      this.diag.ice = pc.iceConnectionState;
+      console.info('[voca] p2p ice', pc.iceConnectionState, '·', this.describe());
+    };
     pc.onconnectionstatechange = () => {
       if (this.pc !== pc || pc.connectionState !== 'failed') return;
       if (this.state === 'direct') this.lost(pc); else this.drop();
@@ -182,26 +220,44 @@ export class PeerLink {
 
   private async offer() {
     this.offeredAt = Date.now();
+    const id = ++this.offerId;
     try {
       const pc = this.connect();
       await pc.setLocalDescription(await pc.createOffer());
       await gathered(pc);
       if (this.pc === pc && pc.localDescription && !this.closed) {
-        this.link.send({ kind: 'p2p', type: 'offer', sdp: pc.localDescription.sdp } satisfies Signal);
+        this.noteCandidates(pc.localDescription.sdp, this.diag.mine);
+        this.diag.offers++;
+        this.offeredAt = Date.now();
+        this.link.send({ kind: 'p2p', type: 'offer', sdp: pc.localDescription.sdp, id } satisfies Signal);
       }
     } catch {
       this.drop();
     }
   }
 
-  private async answer(sdp: string) {
+  private async answer(sdp: string, id: number) {
+    // The same offer again (a resent message): already being answered.
+    if (id === this.offerId && this.pc) return;
+    this.offerId = id;
     try {
       const pc = this.connect();
-      await pc.setRemoteDescription({ type: 'offer', sdp });
+      this.diag.offers++;
+      this.noteCandidates(sdp, this.diag.theirs);
+      // Chrome, answering an offer that already lists the host's addresses,
+      // stops gathering at its own local ones — it never asks STUN for its
+      // public address, so across two home routers the host has nowhere to
+      // reach it and the line never comes up. So: take the host's addresses
+      // out, gather ours in full, and only then hand theirs back.
+      const { bare, candidates, mid } = splitCandidates(sdp);
+      await pc.setRemoteDescription({ type: 'offer', sdp: bare });
       await pc.setLocalDescription(await pc.createAnswer());
       await gathered(pc);
+      for (const candidate of candidates) await pc.addIceCandidate({ candidate, sdpMid: mid }).catch(() => {});
       if (this.pc === pc && pc.localDescription && !this.closed) {
-        this.link.send({ kind: 'p2p', type: 'answer', sdp: pc.localDescription.sdp } satisfies Signal);
+        this.noteCandidates(pc.localDescription.sdp, this.diag.mine);
+        this.diag.answers++;
+        this.link.send({ kind: 'p2p', type: 'answer', sdp: pc.localDescription.sdp, id } satisfies Signal);
       }
     } catch {
       this.drop();
@@ -213,9 +269,11 @@ export class PeerLink {
     if (typeof RTCPeerConnection === 'undefined' || this.state === 'direct') return;
     if (d.kind === 'p2pHello' && this.link.host) {
       if (Date.now() - this.offeredAt > REOFFER_MS) void this.offer();
-    } else if (d.kind === 'p2p' && typeof d.sdp === 'string' && d.sdp.length < 20000) {
-      if (d.type === 'offer' && !this.link.host) void this.answer(d.sdp);
-      else if (d.type === 'answer' && this.link.host && this.pc?.signalingState === 'have-local-offer') {
+    } else if (d.kind === 'p2p' && typeof d.sdp === 'string' && d.sdp.length < 20000 && typeof d.id === 'number') {
+      if (d.type === 'offer' && !this.link.host) void this.answer(d.sdp, d.id);
+      else if (d.type === 'answer' && this.link.host && d.id === this.offerId && this.pc?.signalingState === 'have-local-offer') {
+        this.diag.answers++;
+        this.noteCandidates(d.sdp, this.diag.theirs);
         this.pc.setRemoteDescription({ type: 'answer', sdp: d.sdp }).catch(() => this.drop());
       }
     }
