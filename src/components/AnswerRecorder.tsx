@@ -35,26 +35,32 @@ const READ_SAMPLE_ACCURACY = 70;
  * recogniser writes the word you meant, and the scorer checks how you said it
  * — though a recogniser that "corrects" an accent hides some of it.
  */
-export function useAnswerRecorder(onAnswered?: () => void, sample?: string, opts?: { stopOnSilence?: SilenceStop }) {
+export function useAnswerRecorder(onAnswered?: () => void, sample?: string, opts?: {
+  stopOnSilence?: SilenceStop;
+  /** The sample is a line to say, not an example — always score against it, so a wrong word shows as wrong. */
+  scripted?: boolean;
+}) {
   const [heard, setHeard] = useState<string | null>(null);
   const pronunciation = useSentenceScore();
   const audioRef = useRef<Blob | null>(null);
+  /** The last try's audio — kept by callers that outlive the recorder (a role-play's summary). */
+  const [audio, setAudio] = useState<Blob | null>(null);
   const recorder = useVoiceRecorder({
     maxMs: MAX_MS,
     keepAudio: true,
     stopOnSilence: opts?.stopOnSilence,
-    onAudio: (blob) => { audioRef.current = blob; },
+    onAudio: (blob) => { audioRef.current = blob; setAudio(blob); },
     onTranscript: (text) => {
       setHeard(text);
       if (text) onAnswered?.();
       if (text && audioRef.current) {
-        const read = sample && gradeDictation(sample, text).accuracy >= READ_SAMPLE_ACCURACY;
+        const read = sample && (opts?.scripted || gradeDictation(sample, text).accuracy >= READ_SAMPLE_ACCURACY);
         void pronunciation.score(audioRef.current, read ? sample : text);
       }
     },
   });
   const start = () => { setHeard(null); pronunciation.reset(); void recorder.start(); };
-  return { ...recorder, heard, start, pronunciation: pronunciation.state };
+  return { ...recorder, heard, audio, start, pronunciation: pronunciation.state };
 }
 
 /** Record / Stop / Record again — sized to sit in the card's action bar. */
@@ -141,7 +147,7 @@ function Elapsed() {
 }
 
 /** Your recording: a play/pause button over a hidden <audio>. */
-function Playback({ url }: { url: string }) {
+export function Playback({ url }: { url: string }) {
   const intl = useIntl();
   const ref = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);

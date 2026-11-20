@@ -332,6 +332,7 @@ function ConversationView({ conv, onBack, onNext }: {
           say={lines[player.index]?.text}
           continueLabel={shadow ? intl.formatMessage({ id: 'speaking.shadowContinue' }) : undefined}
           onAnswered={() => reveal(player.index)}
+          scripted={shadow}
           handsFree={handsFree}
           onResult={(r) => results.current.set(player.index, r)}
           silence={shadow ? undefined : ANSWER_SILENCE}

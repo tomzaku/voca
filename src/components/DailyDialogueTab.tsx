@@ -225,6 +225,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
           say={lines[player.index]?.text}
           continueLabel={shadow ? intl.formatMessage({ id: 'speaking.shadowContinue' }) : undefined}
           onAnswered={() => reveal(player.index)}
+          scripted
           handsFree={handsFree}
           onResult={(r) => results.current.set(player.index, r)}
         />

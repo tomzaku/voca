@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { speakText, stopSpeaking } from '../lib/tts';
-import { AnswerPanel, RecordButton, useAnswerRecorder } from './AnswerRecorder';
+import { AnswerPanel, Playback, RecordButton, useAnswerRecorder } from './AnswerRecorder';
 import { SentenceScorePanel } from './pronunciation/SentenceScore';
 import type { SilenceStop } from '../hooks/useVoiceRecorder';
 import { gradeDictation } from '../lib/listeningRules';
 import { TEXT, tone } from './pronunciation/styles';
+import type { SentenceScore } from '../lib/phonemeScore';
 
 // Shared pieces for practising a two-person script — Daily Dialogue and IELTS
 // Speaking. A script is read like a chat; it can be listened to with two
@@ -211,7 +212,7 @@ export const useHandsFree = () => useStoredFlag('voca.handsFreeScript');
  * against the line itself when you said it, or your own words when you didn't
  * (see useAnswerRecorder). Mount it keyed by the turn, so each one starts fresh.
  */
-export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE, continueLabel, handsFree = false, onResult }: {
+export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE, continueLabel, handsFree = false, onResult, scripted = false }: {
   title: string;
   hint: React.ReactNode;
   onContinue: () => void;
@@ -228,9 +229,11 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
   handsFree?: boolean;
   /** Each finished try — the newest one is the turn's result. */
   onResult?: (r: TurnResult) => void;
+  /** `say` is the very line to repeat (a dialogue, shadowing), not a model answer. */
+  scripted?: boolean;
 }) {
   const intl = useIntl();
-  const rec = useAnswerRecorder(onAnswered, say, { stopOnSilence: silence });
+  const rec = useAnswerRecorder(onAnswered, say, { stopOnSilence: silence, scripted });
   const [auto, setAuto] = useState(() => readFlag(AUTO_KEY, true));
   const recordable = say !== undefined && rec.phase !== 'unsupported';
 
@@ -242,7 +245,12 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
   useEffect(() => {
     if (!settled) return;
     const p = rec.pronunciation;
-    resultRef.current?.({ heard: rec.heard ?? '', score: p.status === 'done' ? p.result.score : null });
+    resultRef.current?.({
+      heard: rec.heard ?? '',
+      score: p.status === 'done' ? p.result.score : null,
+      detail: p.status === 'done' ? p.result : null,
+      audio: rec.audio,
+    });
     if (!handsFree) return;
     // Long enough to glance at the score before the next line starts.
     const t = setTimeout(() => continueRef.current(), 1500);
@@ -327,6 +335,10 @@ export interface TurnResult {
   heard: string;
   /** Sound-by-sound score, where the device scores. */
   score: number | null;
+  /** Word by word and sound by sound, for showing what went wrong. */
+  detail: SentenceScore | null;
+  /** The try itself, to hear again — held in memory only, for this run. */
+  audio: Blob | null;
 }
 
 /**
@@ -343,11 +355,25 @@ export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: 
 }) {
   const intl = useIntl();
   const rows = [...results.entries()].sort((a, b) => a[0] - b[0]).map(([i, r]) => {
-    const value = r.score ?? (matchScript && r.heard ? gradeDictation(lines[i].text, r.heard).accuracy : null);
-    return { i, r, value };
+    const grade = matchScript && !r.detail ? gradeDictation(lines[i].text, r.heard) : null;
+    const value = r.score ?? (grade && r.heard ? grade.accuracy : null);
+    return { i, r, value, grade };
   });
   const scored = rows.filter((x) => x.value !== null).map((x) => x.value as number);
   const avg = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
+  // Opens on the weakest line — the one worth another go.
+  const [open, setOpen] = useState<number | null>(() => {
+    const weakest = rows.filter((x) => x.value !== null).sort((a, b) => (a.value as number) - (b.value as number))[0];
+    return weakest && (weakest.value as number) < 85 ? weakest.i : null;
+  });
+  // One playable URL per try, made and released by the same effect — so a
+  // dev-mode remount can't leave the summary holding revoked ones.
+  const [urls, setUrls] = useState<Map<number, string>>(() => new Map());
+  useEffect(() => {
+    const made = new Map([...results].flatMap(([i, r]) => (r.audio ? [[i, URL.createObjectURL(r.audio)] as const] : [])));
+    setUrls(made); // eslint-disable-line react-hooks/set-state-in-effect
+    return () => made.forEach((u) => URL.revokeObjectURL(u));
+  }, [results]);
   // It appears as the run ends, wherever the transcript left the page.
   const ref = useRef<HTMLElement>(null);
   useEffect(() => { ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, []);
@@ -362,6 +388,8 @@ export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: 
           <p className="text-sm font-bold text-text-primary"><FormattedMessage id="speaking.summaryTitle" /></p>
           <p className="text-xs text-text-muted">
             <FormattedMessage id="speaking.summaryCount" values={{ count: rows.length }} />
+            {' · '}
+            <FormattedMessage id="speaking.summaryTapHint" />
           </p>
         </div>
         {avg !== null && <span className={`text-2xl font-extrabold tabular-nums ${TEXT[tone(avg)]}`}>{avg}</span>}
@@ -375,26 +403,65 @@ export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: 
       </div>
 
       <ul className="mt-3 divide-y divide-border">
-        {rows.map(({ i, r, value }) => (
-          <li key={i} className="py-2.5 flex items-start gap-3">
-            <span className={`w-10 text-right text-sm font-bold tabular-nums shrink-0 ${value === null ? 'text-text-muted' : TEXT[tone(value)]}`}>
-              {value ?? '—'}
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm text-text-primary leading-snug">{lines[i].text}</span>
-              <span className="block mt-0.5 text-xs text-text-muted italic leading-snug">
-                {r.heard ? `“${r.heard}”` : intl.formatMessage({ id: 'conversation.recordNothingHeard' })}
-              </span>
-            </span>
-            <button
-              onClick={() => speakText(lines[i].text, { voice: lines[i].voice }).catch(() => {})}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-text-muted hover:text-accent-cyan hover:bg-bg-hover/60 cursor-pointer shrink-0"
-              aria-label={intl.formatMessage({ id: 'speaking.listenLine' })}
-            >
-              <Icon icon="lucide:volume-2" width={14} />
-            </button>
-          </li>
-        ))}
+        {rows.map(({ i, r, value, grade }) => {
+          const expanded = open === i;
+          const url = urls.get(i);
+          return (
+            <li key={i} className="py-2.5">
+              <div className="flex items-start gap-3">
+                <span className={`w-10 text-right text-sm font-bold tabular-nums shrink-0 mt-0.5 ${value === null ? 'text-text-muted' : TEXT[tone(value)]}`}>
+                  {value ?? '—'}
+                </span>
+                <button
+                  onClick={() => setOpen(expanded ? null : i)}
+                  aria-expanded={expanded}
+                  className="flex-1 min-w-0 text-left cursor-pointer group"
+                >
+                  <span className="block text-sm text-text-primary leading-snug group-hover:text-accent-cyan transition-colors">{lines[i].text}</span>
+                  <span className="block mt-0.5 text-xs text-text-muted italic leading-snug">
+                    {r.heard ? `“${r.heard}”` : intl.formatMessage({ id: 'conversation.recordNothingHeard' })}
+                  </span>
+                </button>
+                <span className="flex items-center gap-1 shrink-0">
+                  {url && <Playback url={url} />}
+                  <button
+                    onClick={() => speakText(lines[i].text, { voice: lines[i].voice }).catch(() => {})}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-text-muted hover:text-accent-cyan hover:bg-bg-hover/60 cursor-pointer"
+                    aria-label={intl.formatMessage({ id: 'speaking.listenLine' })}
+                    title={intl.formatMessage({ id: 'speaking.listenLine' })}
+                  >
+                    <Icon icon="lucide:volume-2" width={14} />
+                  </button>
+                  <Icon icon={expanded ? 'lucide:chevron-up' : 'lucide:chevron-down'} width={14} className="text-text-muted" />
+                </span>
+              </div>
+
+              {expanded && (
+                <div className="mt-2 ml-[3.25rem] rounded-xl border border-border bg-bg-tertiary/40 p-3 animate-fade-in">
+                  {r.detail ? (
+                    <SentenceScorePanel
+                      state={{ status: 'done', result: r.detail }}
+                      onHearWord={(w) => { stopSpeaking(); void speakText(w); }}
+                    />
+                  ) : grade ? (
+                    <>
+                      <p className="text-[15px] leading-loose">
+                        {grade.words.map((w, k) => (
+                          <span key={k} className={w.ok ? 'text-text-primary' : 'text-accent-red bg-accent-red/10 rounded px-0.5 line-through decoration-2'}>
+                            {w.word}{' '}
+                          </span>
+                        ))}
+                      </p>
+                      <p className="mt-1 text-xs text-text-muted"><FormattedMessage id="speaking.summaryMissedHint" /></p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-text-muted"><FormattedMessage id="speaking.summaryNoDetail" /></p>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
 
       <button
