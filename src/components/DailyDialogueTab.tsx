@@ -6,7 +6,7 @@ import { dialogues, dialogueTopics, type Dialogue } from '../data/englishDialogu
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, useShadowing } from './scriptPractice';
 import { useScriptPlayer, type Mode, type Speaker } from '../hooks/useScriptPlayer';
 
 // "Daily Dialogue" — short scripted exchanges, read like a chat. A list of
@@ -127,7 +127,8 @@ function DialogueView({ dialogue, onBack, onNext }: {
     toast.success(intl.formatMessage({ id: 'conversation.rolePlayComplete' }));
   }, [mode, dialogue.id, markPracticed, intl]);
 
-  const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish);
+  const [shadow, setShadow] = useShadowing();
+  const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish, shadow);
 
   const reveal = (i: number) => setRevealed((prev) => new Set(prev).add(i));
   const continueTurn = () => { reveal(player.index); player.resume(); };
@@ -180,9 +181,9 @@ function DialogueView({ dialogue, onBack, onNext }: {
         </div>
       </header>
 
-      <PlayerBar modes={modes} mode={mode} onMode={pickMode} player={player} total={lines.length} />
+      <PlayerBar modes={modes} mode={mode} onMode={pickMode} player={player} total={lines.length} shadow={shadow} onShadow={setShadow} />
 
-      {myRole && (
+      {myRole && !shadow && (
         <p className="mt-3 px-1 text-xs text-text-muted leading-relaxed">
           <FormattedMessage
             id="conversation.rolePlayHint"
@@ -202,6 +203,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
         mode={mode}
         player={player}
         revealed={revealed}
+        showAll={shadow}
         onReveal={(i) => (player.status === 'waiting' && player.index === i ? continueTurn() : reveal(i))}
       />
 
@@ -209,9 +211,12 @@ function DialogueView({ dialogue, onBack, onNext }: {
         <YourTurnBar
           key={player.index}
           title={intl.formatMessage({ id: 'conversation.yourTurn' })}
-          hint={intl.formatMessage({ id: 'conversation.sayLineHint' }, { role: myRole?.toLowerCase() ?? '' })}
+          hint={shadow
+            ? intl.formatMessage({ id: 'speaking.shadowHint' })
+            : intl.formatMessage({ id: 'conversation.sayLineHint' }, { role: myRole?.toLowerCase() ?? '' })}
           onContinue={continueTurn}
           say={lines[player.index]?.text}
+          continueLabel={shadow ? intl.formatMessage({ id: 'speaking.shadowContinue' }) : undefined}
           onAnswered={() => reveal(player.index)}
         />
       )}

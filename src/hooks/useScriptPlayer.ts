@@ -26,14 +26,20 @@ export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'waiting';
  * lines (`waiting`) until `resume()` — the learner says the line first. Each
  * run carries a token so a stop, or a newer run, ends an older loop at its
  * next step even if its last `speakText` never settles.
+ *
+ * `hearFirst` is shadowing: the learner's own lines are read aloud too, and
+ * the pause comes after — hear it, then say it. Read per line, so flipping it
+ * mid-run applies from the next line.
  */
-export function useScriptPlayer(lines: ScriptLine[], pauseOn: Speaker | null, onFinish: () => void) {
+export function useScriptPlayer(lines: ScriptLine[], pauseOn: Speaker | null, onFinish: () => void, hearFirst = false) {
   const [status, setStatus] = useState<PlayerStatus>('idle');
   const [index, setIndex] = useState(-1);
   const runRef = useRef(0);
   const resumeRef = useRef<(() => void) | null>(null);
   const finishRef = useRef(onFinish);
   useEffect(() => { finishRef.current = onFinish; });
+  const hearFirstRef = useRef(hearFirst);
+  useEffect(() => { hearFirstRef.current = hearFirst; });
 
   const stop = useCallback(() => {
     runRef.current++;
@@ -57,7 +63,7 @@ export function useScriptPlayer(lines: ScriptLine[], pauseOn: Speaker | null, on
   const warmAfter = useCallback((i: number) => {
     let ahead = 0;
     for (let j = i + 1; j < lines.length && ahead < WARM_AHEAD; j++) {
-      if (pauseOn && lines[j].speaker === pauseOn) continue;
+      if (pauseOn && lines[j].speaker === pauseOn && !hearFirstRef.current) continue;
       warmSpeech(lines[j].text, { voice: lines[j].voice });
       ahead++;
     }
@@ -78,6 +84,11 @@ export function useScriptPlayer(lines: ScriptLine[], pauseOn: Speaker | null, on
     for (let i = from; i < lines.length; i++) {
       if (runRef.current !== token) return;
       if (pauseOn && lines[i].speaker === pauseOn) {
+        if (hearFirstRef.current) {
+          warmAfter(i);
+          await say(i, token);
+          if (runRef.current !== token) return;
+        }
         setIndex(i);
         setStatus('waiting');
         await new Promise<void>((r) => { resumeRef.current = r; });

@@ -22,12 +22,15 @@ const TONE: Record<Tone, { avatar: string; name: string; bubble: string; ring: s
 };
 
 /* ─── Mode switch + play button (sticky) ─────────────────────── */
-export function PlayerBar({ modes, mode, onMode, player, total }: {
+export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow }: {
   modes: { id: Mode; label: string; icon: string }[];
   mode: Mode;
   onMode: (m: Mode) => void;
   player: ScriptPlayer;
   total: number;
+  /** Shadowing — offered only while role-playing. */
+  shadow?: boolean;
+  onShadow?: (on: boolean) => void;
 }) {
   const intl = useIntl();
   const starting = player.status === 'loading' && player.index === 0;
@@ -48,6 +51,19 @@ export function PlayerBar({ modes, mode, onMode, player, total }: {
           </button>
         ))}
       </div>
+      {mode !== 'listen' && onShadow && (
+        <button
+          onClick={() => onShadow(!shadow)}
+          aria-pressed={!!shadow}
+          title={intl.formatMessage({ id: 'speaking.shadowTitle' })}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+            shadow ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          <Icon icon={shadow ? 'lucide:eye' : 'lucide:eye-off'} width={13} />
+          <FormattedMessage id="speaking.shadow" />
+        </button>
+      )}
       <div className="ml-auto flex items-center gap-2">
         {player.running && player.index >= 0 && (
           <span className="text-[11px] tabular-nums text-text-muted">{player.index + 1}/{total}</span>
@@ -71,7 +87,7 @@ export function PlayerBar({ modes, mode, onMode, player, total }: {
 }
 
 /* ─── The transcript ─────────────────────────────────────────── */
-export function Transcript({ lines, names, tones, mode, player, revealed, onReveal, renderText }: {
+export function Transcript({ lines, names, tones, mode, player, revealed, onReveal, renderText, showAll = false }: {
   lines: ScriptLine[];
   names: Record<Speaker, string>;
   tones: Record<Speaker, Tone>;
@@ -81,6 +97,8 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
   onReveal: (i: number) => void;
   /** Custom body for a line (e.g. a cue card); `null` keeps the plain text. */
   renderText?: (line: ScriptLine, i: number) => React.ReactNode | null;
+  /** Shadowing — the learner's lines are shown, not hidden. */
+  showAll?: boolean;
 }) {
   const intl = useIntl();
   // Keep the line being spoken (or waited on) in view.
@@ -95,7 +113,7 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
         const tone = TONE[tones[line.speaker]];
         const name = names[line.speaker];
         const mine = mode === line.speaker;
-        const hidden = mine && !revealed.has(i);
+        const hidden = mine && !showAll && !revealed.has(i);
         const waiting = player.status === 'waiting' && player.index === i;
         const active = player.index === i && (player.status === 'playing' || player.status === 'loading');
         const right = line.speaker === 'b';
@@ -130,7 +148,7 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
                   title={intl.formatMessage({ id: 'speaking.listenLine' })}
                   className={`rounded-2xl border px-3.5 py-2.5 text-left text-sm leading-relaxed text-text-primary whitespace-pre-line transition-all cursor-pointer hover:brightness-[1.03] ${tone.bubble} ${
                     right ? 'rounded-br-md' : 'rounded-bl-md'
-                  } ${active ? `ring-2 ${tone.ring} shadow-sm` : ''}`}
+                  } ${active ? `ring-2 ${tone.ring} shadow-sm` : waiting ? 'ring-2 ring-accent-yellow/50' : ''}`}
                 >
                   {custom ?? line.text}
                   {active && (
@@ -152,8 +170,17 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
 const LINE_SILENCE: SilenceStop = { quietMs: 1800, noVoiceMs: 8000 };
 
 const AUTO_KEY = 'voca.autoRecordTurn';
-const readAuto = () => { try { return localStorage.getItem(AUTO_KEY) !== '0'; } catch { return true; } };
-const writeAuto = (on: boolean) => { try { localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch { /* private mode */ } };
+const readFlag = (key: string, fallback: boolean) => {
+  try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1'; } catch { return fallback; }
+};
+const writeFlag = (key: string, on: boolean) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* private mode */ } };
+
+/** Shadowing on or off, remembered across scripts — a learner who shadows keeps shadowing. */
+export function useShadowing() {
+  const [on, setOn] = useState(() => readFlag('voca.shadowScript', false));
+  const set = (v: boolean) => { setOn(v); writeFlag('voca.shadowScript', v); };
+  return [on, set] as const;
+}
 
 /**
  * With `say`, the bar records the turn: the mic opens by itself as the turn
@@ -162,7 +189,7 @@ const writeAuto = (on: boolean) => { try { localStorage.setItem(AUTO_KEY, on ? '
  * against the line itself when you said it, or your own words when you didn't
  * (see useAnswerRecorder). Mount it keyed by the turn, so each one starts fresh.
  */
-export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE }: {
+export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE, continueLabel }: {
   title: string;
   hint: React.ReactNode;
   onContinue: () => void;
@@ -173,10 +200,12 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
   /** Something was heard — e.g. reveal the line to compare. */
   onAnswered?: () => void;
   silence?: SilenceStop;
+  /** The line is already on screen (shadowing) — nothing left to reveal. */
+  continueLabel?: string;
 }) {
   const intl = useIntl();
   const rec = useAnswerRecorder(onAnswered, say, { stopOnSilence: silence });
-  const [auto, setAuto] = useState(readAuto);
+  const [auto, setAuto] = useState(() => readFlag(AUTO_KEY, true));
   const recordable = say !== undefined && rec.phase !== 'unsupported';
 
   const started = useRef(false);
@@ -191,7 +220,7 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
   const toggleAuto = () => {
     const on = !auto;
     setAuto(on);
-    writeAuto(on);
+    writeFlag(AUTO_KEY, on);
     if (on && rec.phase === 'idle' && rec.heard === null) { started.current = true; rec.start(); }
     else if (!on && rec.phase === 'recording') rec.stop();
   };
@@ -244,7 +273,7 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
           onClick={() => { if (rec.phase === 'recording') rec.stop(); onContinue(); }}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-accent-yellow text-bg-primary hover:opacity-90 cursor-pointer shrink-0"
         >
-          <FormattedMessage id="speaking.revealContinue" /> <Icon icon="lucide:arrow-right" width={13} />
+          {continueLabel ?? <FormattedMessage id="speaking.revealContinue" />} <Icon icon="lucide:arrow-right" width={13} />
         </button>
       </div>
     </div>

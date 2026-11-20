@@ -5,7 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, useShadowing } from './scriptPractice';
 import { useScriptPlayer, type Mode, type ScriptLine } from '../hooks/useScriptPlayer';
 import { IELTS_TURN_SECONDS, parseCueCard } from '../lib/speakingRules';
 
@@ -213,7 +213,8 @@ function ConversationView({ conv, onBack, onNext }: {
     toast.success(intl.formatMessage({ id: 'speaking.ieltsMockComplete' }));
   }, [mode, conv.id, markPracticed, intl]);
 
-  const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish);
+  const [shadow, setShadow] = useShadowing();
+  const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish, shadow);
 
   const reveal = (i: number) => setRevealed((prev) => new Set(prev).add(i));
   const continueTurn = () => { reveal(player.index); player.resume(); };
@@ -290,9 +291,11 @@ function ConversationView({ conv, onBack, onNext }: {
         onMode={pickMode}
         player={player}
         total={lines.length}
+        shadow={shadow}
+        onShadow={setShadow}
       />
 
-      {mode === 'b' && (
+      {mode === 'b' && !shadow && (
         <p className="mt-3 px-1 text-xs text-text-muted leading-relaxed">
           <FormattedMessage id="speaking.ieltsCandidateHint" />
         </p>
@@ -305,6 +308,7 @@ function ConversationView({ conv, onBack, onNext }: {
         mode={mode}
         player={player}
         revealed={revealed}
+        showAll={shadow}
         onReveal={(i) => (player.status === 'waiting' && player.index === i ? continueTurn() : reveal(i))}
         renderText={renderText}
       />
@@ -313,11 +317,12 @@ function ConversationView({ conv, onBack, onNext }: {
         <YourTurnBar
           key={player.index}
           title={intl.formatMessage({ id: 'speaking.ieltsYourAnswer' })}
-          hint={intl.formatMessage({ id: conv.part === 'Part 2' ? 'speaking.ieltsHintPart2' : 'speaking.ieltsHintDefault' })}
+          hint={intl.formatMessage({ id: shadow ? 'speaking.shadowHint' : conv.part === 'Part 2' ? 'speaking.ieltsHintPart2' : 'speaking.ieltsHintDefault' })}
           onContinue={continueTurn}
           say={lines[player.index]?.text}
+          continueLabel={shadow ? intl.formatMessage({ id: 'speaking.shadowContinue' }) : undefined}
           onAnswered={() => reveal(player.index)}
-          silence={ANSWER_SILENCE}
+          silence={shadow ? undefined : ANSWER_SILENCE}
         >
           <TurnTimer part={conv.part} />
         </YourTurnBar>
