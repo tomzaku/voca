@@ -7,7 +7,8 @@ import './pixel/pixel.css';
 
 // The world's title card while it loads — first the game's code, then the
 // map: the river at Huế behind, "Voca · Huế", and your buddy walking on the
-// spot in whatever it wears, with how to get about underneath.
+// spot in whatever it wears, with how to get about underneath, and the
+// app's version at the foot.
 
 const WALK = [9, 10, 11, 12, 13, 14, 15, 16];
 
@@ -43,6 +44,8 @@ export function WorldLoading() {
           <span className="hidden sm:inline"><FormattedMessage id="world.hintWalkDesktop" /></span>
           <span className="sm:hidden"><FormattedMessage id="world.hintWalkMobile" /></span>
         </p>
+        {/* Which build is loading — so a report ("still broken") can say which one. */}
+        <p className="mt-3 text-[11px] text-[var(--px-muted)] opacity-70 tabular-nums">v{__APP_VERSION__}</p>
       </div>
     </div>
   );
