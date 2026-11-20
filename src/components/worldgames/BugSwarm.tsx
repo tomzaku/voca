@@ -134,18 +134,39 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
   const [net, setNet] = useState<PeerState>(solo ? 'direct' : 'connecting');
   const [hud, setHud] = useState<Hud>({ wave: 0, scores: [0, 0], combo: 1, meter: 0, overdrive: false, slow: false, me: { lives: LIVES, level: 1, weapon: 'blaster', novas: 1, perks: newShip(0).perks }, partner: solo ? null : { lives: LIVES, alive: true, weapon: 'blaster' }, banner: null, over: false });
 
+  // Snapshots are placed by when they were *sent*, on our clock: arrival
+  // time lets a packet that queued, or a burst the relay held and let go
+  // together, bunch up and jump. `offset` is their clock to ours — the
+  // quickest trip seen, creeping up slowly so drift can't strand it.
+  const sync = useRef<{ offset: number | null; last: number }>({ offset: null, last: -Infinity });
+  /** When a snapshot stands, on our clock — or null if a newer one already came. */
+  function placed(sent: unknown, now: number): number | null {
+    if (typeof sent !== 'number' || !Number.isFinite(sent)) return now;
+    const c = sync.current;
+    // A clock far behind the last means a reloaded page: start over.
+    if (sent < c.last - 5000) { c.offset = null; c.last = -Infinity; }
+    // The fast channel doesn't keep order: an older state is no use.
+    if (sent <= c.last) return null;
+    c.last = sent;
+    const trip = now - sent;
+    c.offset = c.offset === null || trip < c.offset ? trip : c.offset + (trip - c.offset) * 0.01;
+    return sent + c.offset;
+  }
+
   function receive(d: PeerData) {
     const g = game.current;
     if (d.k === 'again' && typeof d.r === 'number' && d.r > g.round) { restart(d.r); return; }
     if (d.r !== g.round || !g.partner) return;
     const now = clock();
     if (d.k === 's') {
+      const at = placed(d.ts, now);
+      if (at === null) return;
       const before = g.partner.lives;
       if (!shipFrom(d.ship, g.partner)) return;
       if (host && g.partner.lives < before) noteHurt(g.swarm, 1);
-      g.partnerSnaps.push({ t: now, x: g.partner.x, y: g.partner.y });
+      g.partnerSnaps.push({ t: at, x: g.partner.x, y: g.partner.y });
       if (g.partnerSnaps.length > 30) g.partnerSnaps.shift();
-      if (!host) readSwarm(g, d, now);
+      if (!host) readSwarm(g, d, at);
     } else if (host && d.k === 'crash' && typeof d.id === 'number') {
       crash(g.swarm, d.id);
     } else if (host && d.k === 'nova' && typeof d.x === 'number' && typeof d.y === 'number') {
@@ -394,7 +415,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     }
 
     if (peer.current && g.partner && g.steps % (peer.current.direct ? SEND_DIRECT : SEND_SERVER) === 0) {
-      const msg: PeerData = { k: 's', r: g.round, ship: shipWire(me) };
+      const msg: PeerData = { k: 's', r: g.round, ts: Math.round(clock() * 10) / 10, ship: shipWire(me) };
       if (host) {
         const s = g.swarm;
         const r1 = (v: number) => Math.round(v * 10) / 10;
