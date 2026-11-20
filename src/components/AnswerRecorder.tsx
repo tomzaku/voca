@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
+import { useVoiceRecorder, type SilenceStop } from '../hooks/useVoiceRecorder';
 import { useSentenceScore } from '../hooks/useSentenceScore';
 import { gradeDictation } from '../lib/listeningRules';
 
@@ -35,13 +35,14 @@ const READ_SAMPLE_ACCURACY = 70;
  * recogniser writes the word you meant, and the scorer checks how you said it
  * — though a recogniser that "corrects" an accent hides some of it.
  */
-export function useAnswerRecorder(onAnswered?: () => void, sample?: string) {
+export function useAnswerRecorder(onAnswered?: () => void, sample?: string, opts?: { stopOnSilence?: SilenceStop }) {
   const [heard, setHeard] = useState<string | null>(null);
   const pronunciation = useSentenceScore();
   const audioRef = useRef<Blob | null>(null);
   const recorder = useVoiceRecorder({
     maxMs: MAX_MS,
     keepAudio: true,
+    stopOnSilence: opts?.stopOnSilence,
     onAudio: (blob) => { audioRef.current = blob; },
     onTranscript: (text) => {
       setHeard(text);

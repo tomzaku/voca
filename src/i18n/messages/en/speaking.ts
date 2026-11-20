@@ -43,6 +43,8 @@ export default {
   'speaking.yourTurnReveal': 'Your turn — say it, then reveal',
   'speaking.tapToReveal': 'Tap to reveal',
   'speaking.listenLine': 'Listen to this line',
+  'speaking.autoRecord': 'Auto-record',
+  'speaking.autoRecordTitle': 'Start recording as soon as it’s your turn, and check how you said it',
   'speaking.revealContinue': 'Reveal & continue',
   'speaking.yourProgress': 'Your progress',
   'speaking.practicedUndo': 'Practiced — tap to undo',

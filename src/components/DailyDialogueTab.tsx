@@ -207,9 +207,12 @@ function DialogueView({ dialogue, onBack, onNext }: {
 
       {player.status === 'waiting' && (
         <YourTurnBar
+          key={player.index}
           title={intl.formatMessage({ id: 'conversation.yourTurn' })}
           hint={intl.formatMessage({ id: 'conversation.sayLineHint' }, { role: myRole?.toLowerCase() ?? '' })}
           onContinue={continueTurn}
+          say={lines[player.index]?.text}
+          onAnswered={() => reveal(player.index)}
         />
       )}
 

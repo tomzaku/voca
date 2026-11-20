@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { speakText } from '../lib/tts';
+import { speakText, stopSpeaking } from '../lib/tts';
+import { AnswerPanel, RecordButton, useAnswerRecorder } from './AnswerRecorder';
+import { SentenceScorePanel } from './pronunciation/SentenceScore';
+import type { SilenceStop } from '../hooks/useVoiceRecorder';
 
 // Shared pieces for practising a two-person script — Daily Dialogue and IELTS
 // Speaking. A script is read like a chat; it can be listened to with two
@@ -144,29 +147,106 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
 }
 
 /* ─── "Your turn" bar while role-play waits ──────────────────── */
-export function YourTurnBar({ title, hint, onContinue, children }: {
+
+/** A dialogue line: a breath between phrases mustn't end it. */
+const LINE_SILENCE: SilenceStop = { quietMs: 1800, noVoiceMs: 8000 };
+
+const AUTO_KEY = 'voca.autoRecordTurn';
+const readAuto = () => { try { return localStorage.getItem(AUTO_KEY) !== '0'; } catch { return true; } };
+const writeAuto = (on: boolean) => { try { localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch { /* private mode */ } };
+
+/**
+ * With `say`, the bar records the turn: the mic opens by itself as the turn
+ * starts (unless Auto-record is off), stops once you've gone quiet, and shows
+ * what was heard and — where the device can score — how each word sounded,
+ * against the line itself when you said it, or your own words when you didn't
+ * (see useAnswerRecorder). Mount it keyed by the turn, so each one starts fresh.
+ */
+export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE }: {
   title: string;
   hint: React.ReactNode;
   onContinue: () => void;
   /** Extra content beside the hint — a speaking timer. */
   children?: React.ReactNode;
+  /** The line the learner should say; records and checks the turn. */
+  say?: string;
+  /** Something was heard — e.g. reveal the line to compare. */
+  onAnswered?: () => void;
+  silence?: SilenceStop;
 }) {
+  const intl = useIntl();
+  const rec = useAnswerRecorder(onAnswered, say, { stopOnSilence: silence });
+  const [auto, setAuto] = useState(readAuto);
+  const recordable = say !== undefined && rec.phase !== 'unsupported';
+
+  const started = useRef(false);
+  useEffect(() => {
+    if (!recordable || !auto || started.current) return;
+    started.current = true;
+    rec.start();
+    // Once per turn: a later toggle of Auto doesn't re-record this one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleAuto = () => {
+    const on = !auto;
+    setAuto(on);
+    writeAuto(on);
+    if (on && rec.phase === 'idle' && rec.heard === null) { started.current = true; rec.start(); }
+    else if (!on && rec.phase === 'recording') rec.stop();
+  };
+
+  const scored = rec.pronunciation.status !== 'off' && rec.pronunciation.status !== 'idle' && rec.phase !== 'recording';
+  const showResult = rec.phase === 'denied' || rec.phase === 'recording' || rec.phase === 'thinking' || rec.heard !== null;
+
   return (
-    <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-[5] mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-accent-yellow/30 bg-bg-card/95 backdrop-blur px-3.5 py-2.5 shadow-lg animate-fade-in">
-      <span className="w-8 h-8 rounded-full bg-accent-yellow/15 text-accent-yellow flex items-center justify-center shrink-0">
-        <Icon icon="lucide:mic" width={16} />
-      </span>
-      <span className="flex-1 min-w-[10rem] text-xs text-text-secondary">
-        <span className="block font-bold text-text-primary">{title}</span>
-        {hint}
-      </span>
-      {children}
-      <button
-        onClick={onContinue}
-        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-accent-yellow text-bg-primary hover:opacity-90 cursor-pointer shrink-0"
-      >
-        <FormattedMessage id="speaking.revealContinue" /> <Icon icon="lucide:arrow-right" width={13} />
-      </button>
+    <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-[5] mt-3 rounded-xl border border-accent-yellow/30 bg-bg-card/95 backdrop-blur shadow-lg animate-fade-in overflow-hidden">
+      {recordable && showResult && (
+        <div className="max-h-[45vh] overflow-y-auto border-b border-border [&>*:first-child]:border-t-0">
+          <AnswerPanel rec={rec} />
+          {scored && (
+            <SentenceScorePanel
+              state={rec.pronunciation}
+              onHearWord={(w) => { stopSpeaking(); void speakText(w); }}
+              className="px-3 sm:px-4 py-3 border-t border-border"
+            />
+          )}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5">
+        <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+          rec.phase === 'recording' ? 'bg-accent-red/15 text-accent-red animate-pulse' : 'bg-accent-yellow/15 text-accent-yellow'
+        }`}>
+          <Icon icon="lucide:mic" width={16} />
+        </span>
+        <span className="flex-1 min-w-[10rem] text-xs text-text-secondary">
+          <span className="block font-bold text-text-primary">{title}</span>
+          {hint}
+        </span>
+        {children}
+        {recordable && (
+          <>
+            <button
+              onClick={toggleAuto}
+              aria-pressed={auto}
+              title={intl.formatMessage({ id: 'speaking.autoRecordTitle' })}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
+                auto ? 'bg-accent-red/10 text-accent-red' : 'bg-bg-tertiary text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              <Icon icon={auto ? 'lucide:toggle-right' : 'lucide:toggle-left'} width={15} />
+              <FormattedMessage id="speaking.autoRecord" />
+            </button>
+            <RecordButton rec={rec} />
+          </>
+        )}
+        <button
+          onClick={() => { if (rec.phase === 'recording') rec.stop(); onContinue(); }}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-accent-yellow text-bg-primary hover:opacity-90 cursor-pointer shrink-0"
+        >
+          <FormattedMessage id="speaking.revealContinue" /> <Icon icon="lucide:arrow-right" width={13} />
+        </button>
+      </div>
     </div>
   );
 }

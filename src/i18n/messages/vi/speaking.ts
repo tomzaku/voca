@@ -43,6 +43,8 @@ export default {
   'speaking.yourTurnReveal': 'Đến lượt bạn — nói xong rồi mở ra xem',
   'speaking.tapToReveal': 'Chạm để xem',
   'speaking.listenLine': 'Nghe câu này',
+  'speaking.autoRecord': 'Tự ghi âm',
+  'speaking.autoRecordTitle': 'Tự bắt đầu ghi âm khi đến lượt bạn và chấm cách bạn phát âm',
   'speaking.revealContinue': 'Xem & tiếp tục',
   'speaking.yourProgress': 'Tiến độ của bạn',
   'speaking.practicedUndo': 'Đã luyện — chạm để hoàn tác',

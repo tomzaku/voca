@@ -20,6 +20,8 @@ type Part = IeltsConversation['part'];
 // Examiner: British female (Emma), candidate: American male (Michael).
 const VOICE = { examiner: 'bf_emma', candidate: 'am_michael' } as const;
 const NAME_IDS = { a: 'speaking.ieltsExaminer', b: 'speaking.ieltsCandidate' } as const;
+/** A free answer has thinking pauses a scripted line doesn't — wait longer before taking quiet as done. */
+const ANSWER_SILENCE = { quietMs: 3500, noVoiceMs: 12000 };
 const TONES = { a: 'orange', b: 'cyan' } as const;
 
 const PARTS: Part[] = ['Part 1', 'Part 2', 'Part 3'];
@@ -313,6 +315,9 @@ function ConversationView({ conv, onBack, onNext }: {
           title={intl.formatMessage({ id: 'speaking.ieltsYourAnswer' })}
           hint={intl.formatMessage({ id: conv.part === 'Part 2' ? 'speaking.ieltsHintPart2' : 'speaking.ieltsHintDefault' })}
           onContinue={continueTurn}
+          say={lines[player.index]?.text}
+          onAnswered={() => reveal(player.index)}
+          silence={ANSWER_SILENCE}
         >
           <TurnTimer part={conv.part} />
         </YourTurnBar>
