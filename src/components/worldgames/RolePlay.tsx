@@ -31,6 +31,9 @@ interface Script {
   turnSeconds: number | null;
 }
 
+/** A secondary button, sized for a header rather than the dock. */
+const SMALL = '!px-2.5 !py-1 !text-[13px]';
+
 const IELTS_VOICES = { examiner: 'bf_emma', candidate: 'am_michael' } as const;
 
 function scriptsFor(source: Source, intl: ReturnType<typeof useIntl>): Script[] {
@@ -160,12 +163,21 @@ function Stage({ source, header, script, onScripts, onRandom }: { source: Source
     <>
       <HudCenter wide aboveDock besideWide={showTakes}>
         {header}
-        <div className="mb-3">
-          <p className="px-title !text-[11px] text-[var(--px-muted)]">
-            {script.group} · <FormattedMessage id="conversation.lineCount" values={{ count: script.lines.length }} />
-          </p>
-          <p className="px-title !text-[17px] text-[var(--px-gold)]">{script.title}</p>
-          <p className="text-[14px] text-[var(--px-muted)] leading-snug mt-0.5">{script.setting}</p>
+        {/* Choosing another script belongs with the script, not the playback dock. */}
+        <div className="mb-3 flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="px-title !text-[11px] text-[var(--px-muted)]">
+              {script.group} · <FormattedMessage id="conversation.lineCount" values={{ count: script.lines.length }} />
+            </p>
+            <p className="px-title !text-[17px] text-[var(--px-gold)]">{script.title}</p>
+            <p className="text-[14px] text-[var(--px-muted)] leading-snug mt-0.5">{script.setting}</p>
+          </div>
+          <span className="flex items-center gap-1.5 shrink-0">
+            <PixelButton tone="paper" className={SMALL} onClick={() => { player.stop(); onRandom(); }} title={intl.formatMessage({ id: 'world.rpRandom' })}>
+              <PixelIcon name="retry" size={2} /><span className="max-sm:hidden"><FormattedMessage id="world.rpRandom" /></span>
+            </PixelButton>
+            <PixelButton tone="paper" className={SMALL} onClick={() => { player.stop(); onScripts(); }}><FormattedMessage id="world.rpScripts" /></PixelButton>
+          </span>
         </div>
         <div ref={listRef} className="space-y-2 max-h-[34vh] overflow-y-auto pr-1">
           {script.lines.map((l, i) => {
@@ -183,7 +195,9 @@ function Stage({ source, header, script, onScripts, onRandom }: { source: Source
                   <PixelIcon name="speaker" size={1} /> {script.names[l.speaker]}
                 </button>
                 {hidden ? (
-                  <p className="text-[15px] text-[var(--px-muted)] tracking-widest">• • • • • •</p>
+                  <button onClick={() => reveal(i)} title={intl.formatMessage({ id: 'world.rpReveal' })} className="text-[15px] text-[var(--px-muted)] tracking-widest hover:text-[var(--px-text)]">
+                    • • • • • • <span className="tracking-normal text-[12px] ml-1"><FormattedMessage id="world.rpReveal" /></span>
+                  </button>
                 ) : cue ? (
                   <div className="text-[15px] leading-snug">
                     <p>{cue.task}</p>
@@ -201,51 +215,42 @@ function Stage({ source, header, script, onScripts, onRandom }: { source: Source
 
       {showTakes && <PxTakesPanel log={log} lines={script.lines} matchScript={source === 'dialogue'} onReplay={playAll} />}
 
+      {/* Two states, never both: your turn (say it, then continue), or setting up a run. */}
       <HudDock besideWide={showTakes}>
-        {waiting && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="px-title text-[var(--px-gold)]"><FormattedMessage id="world.rpYourLine" /></span>
+        {waiting ? (
+          <>
             {left !== null && script.turnSeconds && (
-              <PixelBar className="flex-1 min-w-[160px]" pct={(left / script.turnSeconds) * 100} color={left <= 5 ? 'var(--px-bad)' : 'var(--px-sky)'} label={`${intl.formatMessage({ id: 'world.rpTime' })} · ${left}s`} />
+              <PixelBar pct={(left / script.turnSeconds) * 100} color={left <= 5 ? 'var(--px-bad)' : 'var(--px-sky)'} label={`${intl.formatMessage({ id: 'world.rpTime' })} · ${left}s`} />
             )}
-          </div>
+            <div className="flex items-center gap-3">
+              <PxTurnTake
+                key={player.index}
+                say={script.lines[player.index].text}
+                scripted={source === 'dialogue'}
+                onAnswered={() => reveal(player.index)}
+                onResult={(r) => log.record(player.index, r)}
+              />
+              <PixelButton tone="red" className="shrink-0" onClick={continueTurn}><FormattedMessage id="world.rpContinue" /> <span className="max-sm:hidden">↵</span></PixelButton>
+            </div>
+          </>
+        ) : (
+          <>
+            {done && <p className="px-title text-[var(--px-good)] flex items-center gap-1.5"><PixelIcon name="check" size={2} /><FormattedMessage id="world.rpDone" /></p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <PixelChip on={mode === 'listen'} onClick={() => pickMode('listen')}><FormattedMessage id="conversation.listen" /></PixelChip>
+              {(['a', 'b'] as const).map((side) => (
+                <PixelChip key={side} on={mode === side} onClick={() => pickMode(side)}>
+                  <FormattedMessage id="conversation.beRole" values={{ role: script.names[side].toLowerCase() }} />
+                </PixelChip>
+              ))}
+              <span className="flex-1" />
+              <PixelButton tone="sky" className="max-sm:w-full" onClick={() => (player.running ? player.stop() : playAll())}>
+                <PixelIcon name={player.running ? 'close' : 'play'} size={2} />
+                <FormattedMessage id={player.running ? 'listening.stop' : 'listening.play'} />
+              </PixelButton>
+            </div>
+          </>
         )}
-        {waiting && (
-          <PxTurnTake
-            key={player.index}
-            say={script.lines[player.index].text}
-            scripted={source === 'dialogue'}
-            onAnswered={() => reveal(player.index)}
-            onResult={(r) => log.record(player.index, r)}
-          />
-        )}
-        {done && <p className="px-title text-[var(--px-good)] flex items-center gap-1.5"><PixelIcon name="check" size={2} /><FormattedMessage id="world.rpDone" /></p>}
-        <div className="flex flex-wrap items-center gap-2">
-          <PixelChip on={mode === 'listen'} onClick={() => pickMode('listen')}><FormattedMessage id="conversation.listen" /></PixelChip>
-          {(['a', 'b'] as const).map((side) => (
-            <PixelChip key={side} on={mode === side} onClick={() => pickMode(side)}>
-              <FormattedMessage id="conversation.beRole" values={{ role: script.names[side].toLowerCase() }} />
-            </PixelChip>
-          ))}
-          <span className="flex-1 max-sm:hidden" />
-          {/* On a phone the buttons take a row of their own, shared evenly. */}
-          <span className="basis-full sm:hidden" />
-          {waiting ? (
-            <>
-              <PixelButton tone="paper" className="max-sm:flex-1 max-sm:!px-3" onClick={() => reveal(player.index)}><FormattedMessage id="world.rpReveal" /></PixelButton>
-              <PixelButton tone="red" className="max-sm:flex-1 max-sm:!px-3" onClick={continueTurn}><FormattedMessage id="world.rpContinue" /> <span className="max-sm:hidden">↵</span></PixelButton>
-            </>
-          ) : (
-            <PixelButton tone="sky" className="max-sm:flex-1 max-sm:!px-3" onClick={() => (player.running ? player.stop() : playAll())}>
-              <PixelIcon name={player.running ? 'close' : 'play'} size={2} />
-              <FormattedMessage id={player.running ? 'listening.stop' : 'listening.play'} />
-            </PixelButton>
-          )}
-          <PixelButton tone="paper" className="max-sm:flex-1 max-sm:!px-3" onClick={() => { player.stop(); onRandom(); }}>
-            <PixelIcon name="retry" size={2} /> <FormattedMessage id="world.rpRandom" />
-          </PixelButton>
-          <PixelButton tone="paper" className="max-sm:flex-1 max-sm:!px-3" onClick={() => { player.stop(); onScripts(); }}><FormattedMessage id="world.rpScripts" /></PixelButton>
-        </div>
       </HudDock>
     </>
   );

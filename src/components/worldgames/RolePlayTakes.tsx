@@ -6,7 +6,7 @@ import { tone } from '../pronunciation/styles';
 import type { ScriptLine } from '../../hooks/useScriptPlayer';
 import { speakText, stopSpeaking } from '../../lib/tts';
 import { HUD_WIDE_SIDE, PixelBar, PixelButton, PixelIcon } from './pixel';
-import { PX_TONE, PxPronStatus, PxSounds, PxWordChip } from './PxPronunciation';
+import { PX_TONE, PxSounds, PxWordChip } from './PxPronunciation';
 
 // The Speak page's "Your takes" drawer, in the world's pixel dress: each line
 // you said in a role-play, its score, and what to fix. The log, the grading
@@ -182,42 +182,44 @@ export function PxTurnTake({ say, scripted, onAnswered, onResult }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (rec.phase === 'unsupported') return null;
   const recording = rec.phase === 'recording';
   const busy = rec.phase === 'requesting' || rec.phase === 'thinking';
   const score = rec.pronunciation.status === 'done' ? rec.pronunciation.result.score : null;
+  const micLabel = intl.formatMessage({ id: recording ? 'pron.stop' : rec.heard !== null ? 'conversation.recordAgain' : 'conversation.recordStart' });
+
+  // One line of status, whatever stage the take is at — the prompt until there's something to say about it.
+  const status = recording ? (
+    rec.live
+      ? <p className="text-[15px] leading-snug truncate">“{rec.live}”</p>
+      : <PixelBar pct={Math.round(rec.level * 100)} color="var(--px-bad)" label={<FormattedMessage id="pron.listening" />} />
+  ) : rec.phase === 'thinking' || rec.pronunciation.status === 'working' ? (
+    <p className="text-[14px] text-[var(--px-muted)]"><FormattedMessage id="games.speakChecking" /></p>
+  ) : rec.phase === 'denied' ? (
+    <p className="text-[14px] text-[var(--px-bad)]"><FormattedMessage id="pron.denied" /></p>
+  ) : rec.heard !== null ? (
+    <p className="text-[15px] italic text-[var(--px-muted)] truncate">
+      {rec.heard ? `“${rec.heard}”` : intl.formatMessage({ id: 'conversation.recordNothingHeard' })}
+    </p>
+  ) : (
+    <p className="px-title text-[var(--px-gold)]"><FormattedMessage id="world.rpYourLine" /></p>
+  );
 
   return (
-    <div className="flex items-center gap-3">
-      <PixelButton
-        tone={recording ? 'bad' : 'sky'}
-        className="shrink-0 !px-3 !py-2"
-        onClick={recording ? rec.stop : rec.start}
-        disabled={busy}
-        aria-label={intl.formatMessage({ id: recording ? 'pron.stop' : rec.heard !== null ? 'conversation.recordAgain' : 'conversation.recordStart' })}
-      >
-        <PixelIcon name="mic" size={2} />
-        <span className="max-sm:hidden"><FormattedMessage id={recording ? 'pron.stop' : rec.heard !== null ? 'conversation.recordAgain' : 'conversation.recordStart'} /></span>
-      </PixelButton>
-      <div className="min-w-0 flex-1">
-        {recording ? (
-          rec.live
-            ? <p className="text-[15px] leading-snug opacity-90 truncate">“{rec.live}”</p>
-            : <PixelBar pct={Math.round(rec.level * 100)} color="var(--px-bad)" label={<FormattedMessage id="pron.listening" />} />
-        ) : rec.phase === 'thinking' ? (
-          <p className="text-[13px] text-[var(--px-muted)]"><FormattedMessage id="games.speakChecking" /></p>
-        ) : rec.phase === 'denied' ? (
-          <p className="text-[13px] text-[var(--px-bad)]"><FormattedMessage id="pron.denied" /></p>
-        ) : rec.heard !== null ? (
-          <>
-            <p className="text-[14px] italic text-[var(--px-muted)] truncate">
-              {rec.heard ? `“${rec.heard}”` : intl.formatMessage({ id: 'conversation.recordNothingHeard' })}
-            </p>
-            <PxPronStatus state={rec.pronunciation} />
-          </>
-        ) : null}
-      </div>
-      {score !== null && <span className={`px-num text-[26px] leading-none shrink-0 ${PX_TONE[tone(score)].text}`}>{score}</span>}
+    <div className="flex-1 min-w-0 flex items-center gap-3">
+      {rec.phase !== 'unsupported' && (
+        <PixelButton
+          tone={recording ? 'bad' : 'sky'}
+          className="shrink-0 !px-3 !py-2.5"
+          onClick={recording ? rec.stop : rec.start}
+          disabled={busy}
+          aria-label={micLabel}
+          title={micLabel}
+        >
+          <PixelIcon name={recording ? 'close' : 'mic'} size={2} />
+        </PixelButton>
+      )}
+      <div className="min-w-0 flex-1">{status}</div>
+      {score !== null && <span className={`px-num text-[28px] leading-none shrink-0 ${PX_TONE[tone(score)].text}`}>{score}</span>}
     </div>
   );
 }
