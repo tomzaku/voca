@@ -188,7 +188,7 @@ export function Transcript({ lines, names, tones, mode, player, revealed, onReve
 /* ─── "Your turn" bar while role-play waits ──────────────────── */
 
 /** A dialogue line: a breath between phrases mustn't end it. */
-const LINE_SILENCE: SilenceStop = { quietMs: 1800, noVoiceMs: 8000 };
+export const LINE_SILENCE: SilenceStop = { quietMs: 1800, noVoiceMs: 8000 };
 
 const AUTO_KEY = 'voca.autoRecordTurn';
 const readFlag = (key: string, fallback: boolean) => {
@@ -381,7 +381,7 @@ export function TurnLogLayout({ log, active, lines, matchScript, onReplay, child
     <div className="xl:flex xl:items-start xl:gap-5">
       <div className="flex-1 min-w-0">{children}</div>
       {showDrawer && (
-        <aside className="hidden xl:block w-[340px] 2xl:w-[400px] shrink-0 sticky top-[calc(4.75rem+env(safe-area-inset-top))] max-h-[calc(100vh-6rem)] overflow-y-auto">
+        <aside className="hidden xl:block w-1/2 shrink-0 sticky top-[calc(4.75rem+env(safe-area-inset-top))] max-h-[calc(100vh-6rem)] overflow-y-auto">
           <TurnSummary
             variant="drawer"
             lines={lines}
@@ -414,10 +414,35 @@ export function InlineTurnSummary({ log, lines, matchScript, onReplay }: {
 }
 
 /**
- * How each of the learner's turns went, after the run. Without an on-device
- * score, `matchScript` falls back to how many of the line's words were heard
- * — right for a line to repeat, meaningless for a free answer.
+ * Each recorded turn in script order, with the score to show for it. Without
+ * an on-device score, `matchScript` falls back to how many of the line's
+ * words were heard — right for a line to repeat, meaningless for a free
+ * answer. Shared with the world's role-play, so both grade a take the same way.
  */
+export function turnRows(lines: ScriptLine[], results: Map<number, TurnResult>, matchScript: boolean) {
+  const rows = [...results.entries()].sort((a, b) => a[0] - b[0]).map(([i, r]) => {
+    const grade = matchScript && !r.detail ? gradeDictation(lines[i].text, r.heard) : null;
+    const value = r.score ?? (grade && r.heard ? grade.accuracy : null);
+    return { i, r, value, grade };
+  });
+  const scored = rows.filter((x) => x.value !== null).map((x) => x.value as number);
+  const avg = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
+  return { rows, avg };
+}
+
+/** One playable URL per take, made and released by the same effect — so a
+ *  dev-mode remount can't leave a summary holding revoked ones. */
+export function useTakeUrls(results: Map<number, TurnResult>) {
+  const [urls, setUrls] = useState<Map<number, string>>(() => new Map());
+  useEffect(() => {
+    const made = new Map([...results].flatMap(([i, r]) => (r.audio ? [[i, URL.createObjectURL(r.audio)] as const] : [])));
+    setUrls(made); // eslint-disable-line react-hooks/set-state-in-effect
+    return () => made.forEach((u) => URL.revokeObjectURL(u));
+  }, [results]);
+  return urls;
+}
+
+/** How each of the learner's turns went, live during the run and after it. */
 function TurnSummary({ variant, lines, results, latest, finished, matchScript, onReplay, onClose }: {
   variant: 'drawer' | 'inline';
   lines: ScriptLine[];
@@ -430,13 +455,7 @@ function TurnSummary({ variant, lines, results, latest, finished, matchScript, o
   onClose: () => void;
 }) {
   const intl = useIntl();
-  const rows = [...results.entries()].sort((a, b) => a[0] - b[0]).map(([i, r]) => {
-    const grade = matchScript && !r.detail ? gradeDictation(lines[i].text, r.heard) : null;
-    const value = r.score ?? (grade && r.heard ? grade.accuracy : null);
-    return { i, r, value, grade };
-  });
-  const scored = rows.filter((x) => x.value !== null).map((x) => x.value as number);
-  const avg = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
+  const { rows, avg } = turnRows(lines, results, matchScript);
   // While the run goes, the newest turn is open; a finished summary opens on
   // the weakest line — the one worth another go.
   const [open, setOpen] = useState<number | null>(() => {
@@ -446,14 +465,7 @@ function TurnSummary({ variant, lines, results, latest, finished, matchScript, o
   });
   const [seen, setSeen] = useState(latest);
   if (latest !== seen) { setSeen(latest); setOpen(latest); }
-  // One playable URL per try, made and released by the same effect — so a
-  // dev-mode remount can't leave the summary holding revoked ones.
-  const [urls, setUrls] = useState<Map<number, string>>(() => new Map());
-  useEffect(() => {
-    const made = new Map([...results].flatMap(([i, r]) => (r.audio ? [[i, URL.createObjectURL(r.audio)] as const] : [])));
-    setUrls(made); // eslint-disable-line react-hooks/set-state-in-effect
-    return () => made.forEach((u) => URL.revokeObjectURL(u));
-  }, [results]);
+  const urls = useTakeUrls(results);
   // Inline, it appears as the run ends, wherever the transcript left the page.
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -496,23 +508,22 @@ function TurnSummary({ variant, lines, results, latest, finished, matchScript, o
           const url = urls.get(i);
           return (
             <li key={i} className="py-2.5">
-              <div className={`flex items-start ${drawer ? 'gap-2' : 'gap-3'}`}>
-                <span className={`${drawer ? 'w-7' : 'w-10'} text-right text-sm font-bold tabular-nums shrink-0 mt-0.5 ${value === null ? 'text-text-muted' : TEXT[tone(value)]}`}>
+              <div className="flex items-start gap-3">
+                <span className={`w-10 text-right ${drawer ? 'text-lg' : 'text-sm'} font-bold tabular-nums shrink-0 mt-0.5 ${value === null ? 'text-text-muted' : TEXT[tone(value)]}`}>
                   {value ?? '—'}
                 </span>
-                {/* In the narrow drawer the buttons go under the line, so the line keeps the width. */}
-                <div className={`flex-1 min-w-0 ${drawer ? '' : 'flex items-start gap-3'}`}>
+                <div className="flex-1 min-w-0 flex items-start gap-3">
                   <button
                     onClick={() => setOpen(expanded ? null : i)}
                     aria-expanded={expanded}
                     className="w-full flex-1 min-w-0 text-left cursor-pointer group"
                   >
-                    <span className="block text-sm text-text-primary leading-snug group-hover:text-accent-cyan transition-colors">{lines[i].text}</span>
-                    <span className="block mt-0.5 text-xs text-text-muted italic leading-snug">
+                    <span className={`block ${drawer ? 'text-base' : 'text-sm'} text-text-primary leading-snug group-hover:text-accent-cyan transition-colors`}>{lines[i].text}</span>
+                    <span className={`block mt-0.5 ${drawer ? 'text-sm' : 'text-xs'} text-text-muted italic leading-snug`}>
                       {r.heard ? `“${r.heard}”` : intl.formatMessage({ id: 'conversation.recordNothingHeard' })}
                     </span>
                   </button>
-                  <span className={`flex items-center gap-1 shrink-0 ${drawer ? 'mt-1.5' : ''}`}>
+                  <span className="flex items-center gap-1 shrink-0">
                     {url && <Playback url={url} />}
                     <button
                       onClick={() => speakText(lines[i].text, { voice: lines[i].voice }).catch(() => {})}
@@ -534,7 +545,7 @@ function TurnSummary({ variant, lines, results, latest, finished, matchScript, o
               </div>
 
               {expanded && (
-                <div className={`mt-2 ${drawer ? '' : 'ml-[3.25rem]'} rounded-xl border border-border bg-bg-tertiary/40 p-3 animate-fade-in`}>
+                <div className="mt-2 ml-[3.25rem] rounded-xl border border-border bg-bg-tertiary/40 p-3 animate-fade-in">
                   {r.detail ? (
                     <SentenceScorePanel
                       state={{ status: 'done', result: r.detail }}

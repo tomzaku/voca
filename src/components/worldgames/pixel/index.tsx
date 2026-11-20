@@ -62,10 +62,16 @@ export function HudActionBar({ children, pair = false }: { children: ReactNode; 
   );
 }
 
+/** A wide panel on the right (a role-play's takes), on large screens — the
+ *  centre and dock shift left to keep clear of it. */
+export const HUD_WIDE_SIDE = 'min(560px,44vw)';
+
 /** Bottom centre, free layout — for inputs and letter tiles rather than slots. */
-export function HudDock({ children }: { children: ReactNode }) {
+export function HudDock({ children, besideWide = false }: { children: ReactNode; besideWide?: boolean }) {
   return (
-    <div className="px absolute bottom-2 left-1/2 -translate-x-1/2 w-[min(760px,calc(100%-1rem))] pointer-events-auto px-in-up">
+    <div className={`px absolute bottom-2 left-1/2 -translate-x-1/2 w-[min(760px,calc(100%-1rem))] pointer-events-auto px-in-up ${
+      besideWide ? 'lg:left-[calc((100%-min(560px,44vw)-0.5rem)/2)] lg:w-[min(760px,calc(100%-min(560px,44vw)-1.5rem))]' : ''
+    }`}>
       <div className="px-notch px-frame p-3.5 space-y-3">{children}</div>
     </div>
   );
@@ -110,16 +116,18 @@ export function HudSide({ title, footer, children }: { title: ReactNode; footer?
 
 /** Centred, for a match board or a results card. `besideSide` keeps it
  *  clear of a HudSide panel on the right, `aboveDock` of a HudDock below. */
-export function HudCenter({ children, wide = false, besideSide = false, aboveDock = false }: {
+export function HudCenter({ children, wide = false, besideSide = false, besideWide = false, aboveDock = false }: {
   children: ReactNode;
   wide?: boolean;
   besideSide?: boolean;
+  /** Keep clear of a HUD_WIDE_SIDE panel on large screens. */
+  besideWide?: boolean;
   /** Keep clear of a HudDock at the bottom. */
   aboveDock?: boolean;
 }) {
   const chrome = useChromeSlot();
   return (
-    <div className={`px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] pointer-events-none ${besideSide ? 'md:pr-[396px]' : ''} ${aboveDock ? 'pb-[9.5rem]' : ''}`}>
+    <div className={`px absolute inset-0 flex items-center justify-center p-2 pt-[7.25rem] pointer-events-none ${besideSide ? 'md:pr-[396px]' : ''} ${besideWide ? 'lg:pr-[calc(min(560px,44vw)+1rem)]' : ''} ${aboveDock ? 'pb-[9.5rem]' : ''}`}>
       <div className={`px-notch px-frame w-full ${wide ? 'max-w-[640px]' : 'max-w-[400px]'} max-h-full overflow-y-auto p-5 pointer-events-auto px-in-up`}>
         {chrome}
         {children}

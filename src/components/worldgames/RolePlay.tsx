@@ -7,13 +7,17 @@ import { isPracticed, useSpeakingProgress } from '../../hooks/useSpeakingProgres
 import { IELTS_TURN_SECONDS, parseCueCard } from '../../lib/speakingRules';
 import { CONV_VOICE_A, CONV_VOICE_B } from '../../lib/tts';
 import { playCorrect, playSelect } from '../../lib/sfx';
+import { useTurnLog } from '../scriptPractice';
 import { HudCenter, HudDock, PixelBar, PixelButton, PixelChip, PixelIcon } from './pixel';
+import { PxTakesPanel, PxTurnTake } from './RolePlayTakes';
 
 // Role-play at Đông Ba market: the Speak page's Daily Dialogues (everyday) and
 // IELTS Speaking (academic) scripts, played by the same script player
 // (useScriptPlayer) and marked practised in the same store. Listen to both
 // voices, or take a side: your lines are hidden and playback waits on each so
-// you say it first — in IELTS with the part's real turn time running.
+// you say it first — in IELTS with the part's real turn time running. Each
+// line you say is recorded, scored and kept in the takes panel, as on the
+// Speak page.
 
 type Source = 'dialogue' | 'ielts';
 
@@ -62,7 +66,7 @@ export function RolePlay({ source, header }: { source: Source; header?: ReactNod
   };
 
   if (!script) return <Picker header={header} scripts={scripts} progress={progress} onPick={open} onRandom={random} />;
-  return <Stage key={script.id} header={header} script={script} onScripts={() => setScript(null)} onRandom={random} />;
+  return <Stage key={script.id} source={source} header={header} script={script} onScripts={() => setScript(null)} onRandom={random} />;
 }
 
 function Picker({ header, scripts, progress, onPick, onRandom }: {
@@ -101,14 +105,16 @@ function Picker({ header, scripts, progress, onPick, onRandom }: {
   );
 }
 
-function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; script: Script; onScripts: () => void; onRandom: () => void }) {
+function Stage({ source, header, script, onScripts, onRandom }: { source: Source; header?: ReactNode; script: Script; onScripts: () => void; onRandom: () => void }) {
   const intl = useIntl();
   const markPracticed = useSpeakingProgress((s) => s.markPracticed);
   const [mode, setMode] = useState<Mode>('listen');
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
   const [done, setDone] = useState(false);
+  const log = useTurnLog();
   const finish = () => {
     if (mode === 'listen') return;
+    log.finish();
     markPracticed(script.id);
     playCorrect();
     setDone(true);
@@ -125,14 +131,18 @@ function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; sc
     return () => { clearInterval(id); setLeft(null); };
   }, [waiting, script.turnSeconds, player.index]);
 
-  const continueTurn = () => { setRevealed((r) => new Set(r).add(player.index)); player.resume(); };
-  const pickMode = (m: Mode) => { player.stop(); setMode(m); setRevealed(new Set()); setDone(false); };
+  const reveal = (i: number) => setRevealed((r) => new Set(r).add(i));
+  const continueTurn = () => { reveal(player.index); player.resume(); };
+  const pickMode = (m: Mode) => { player.stop(); setMode(m); setRevealed(new Set()); setDone(false); log.fresh(); };
+  // A run from the top starts a fresh set of takes.
+  const playAll = () => { log.fresh(); setRevealed(new Set()); setDone(false); void player.playFrom(0); };
+  const showTakes = mode !== 'listen' && !log.hidden && (player.running || log.results.size > 0);
 
   // Enter continues your turn; Space plays or stops.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && waiting) { e.preventDefault(); continueTurn(); }
-      else if (e.key === ' ') { e.preventDefault(); if (player.running) player.stop(); else void player.playFrom(0); }
+      else if (e.key === ' ') { e.preventDefault(); if (player.running) player.stop(); else playAll(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -148,7 +158,7 @@ function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; sc
 
   return (
     <>
-      <HudCenter wide aboveDock>
+      <HudCenter wide aboveDock besideWide={showTakes}>
         {header}
         <div className="mb-3">
           <p className="px-title !text-[11px] text-[var(--px-muted)]">
@@ -189,7 +199,9 @@ function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; sc
         </div>
       </HudCenter>
 
-      <HudDock>
+      {showTakes && <PxTakesPanel log={log} lines={script.lines} matchScript={source === 'dialogue'} onReplay={playAll} />}
+
+      <HudDock besideWide={showTakes}>
         {waiting && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <span className="px-title text-[var(--px-gold)]"><FormattedMessage id="world.rpYourLine" /></span>
@@ -197,6 +209,15 @@ function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; sc
               <PixelBar className="flex-1 min-w-[160px]" pct={(left / script.turnSeconds) * 100} color={left <= 5 ? 'var(--px-bad)' : 'var(--px-sky)'} label={`${intl.formatMessage({ id: 'world.rpTime' })} · ${left}s`} />
             )}
           </div>
+        )}
+        {waiting && (
+          <PxTurnTake
+            key={player.index}
+            say={script.lines[player.index].text}
+            scripted={source === 'dialogue'}
+            onAnswered={() => reveal(player.index)}
+            onResult={(r) => log.record(player.index, r)}
+          />
         )}
         {done && <p className="px-title text-[var(--px-good)] flex items-center gap-1.5"><PixelIcon name="check" size={2} /><FormattedMessage id="world.rpDone" /></p>}
         <div className="flex flex-wrap items-center gap-2">
@@ -211,11 +232,11 @@ function Stage({ header, script, onScripts, onRandom }: { header?: ReactNode; sc
           <span className="basis-full sm:hidden" />
           {waiting ? (
             <>
-              <PixelButton tone="paper" className="max-sm:flex-1 max-sm:!px-3" onClick={() => setRevealed((r) => new Set(r).add(player.index))}><FormattedMessage id="world.rpReveal" /></PixelButton>
+              <PixelButton tone="paper" className="max-sm:flex-1 max-sm:!px-3" onClick={() => reveal(player.index)}><FormattedMessage id="world.rpReveal" /></PixelButton>
               <PixelButton tone="red" className="max-sm:flex-1 max-sm:!px-3" onClick={continueTurn}><FormattedMessage id="world.rpContinue" /> <span className="max-sm:hidden">↵</span></PixelButton>
             </>
           ) : (
-            <PixelButton tone="sky" className="max-sm:flex-1 max-sm:!px-3" onClick={() => (player.running ? player.stop() : void player.playFrom(0))}>
+            <PixelButton tone="sky" className="max-sm:flex-1 max-sm:!px-3" onClick={() => (player.running ? player.stop() : playAll())}>
               <PixelIcon name={player.running ? 'close' : 'play'} size={2} />
               <FormattedMessage id={player.running ? 'listening.stop' : 'listening.play'} />
             </PixelButton>
