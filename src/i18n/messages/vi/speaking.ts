@@ -47,6 +47,8 @@ export default {
   'speaking.autoRecordTitle': 'Tự bắt đầu ghi âm khi đến lượt bạn và chấm cách bạn phát âm',
   'speaking.shadow': 'Nói nhại',
   'speaking.shadowTitle': 'Hiện lời của bạn, nghe mẫu từng câu trước rồi nhại lại',
+  'speaking.showLines': 'Hiện lời',
+  'speaking.showLinesTitle': 'Hiện lời thoại của bạn trong kịch bản — không cần chạm để xem',
   'speaking.shadowHint': 'Nhại lại y như bạn vừa nghe — cả nhịp và trọng âm.',
   'speaking.shadowContinue': 'Tiếp tục',
   'speaking.handsFree': 'Rảnh tay',

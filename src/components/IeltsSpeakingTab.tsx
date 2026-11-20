@@ -5,7 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useListOpen, ListRail } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useShowLines, useListOpen, ListRail } from './scriptPractice';
 import { useScriptPlayer, type Mode, type ScriptLine } from '../hooks/useScriptPlayer';
 import { IELTS_TURN_SECONDS, parseCueCard } from '../lib/speakingRules';
 
@@ -220,6 +220,7 @@ function ConversationView({ conv, onBack, onNext }: {
   }, [mode, conv.id, markPracticed, intl, endRun]);
 
   const [shadow, setShadow] = useShadowing();
+  const [showLines, setShowLines] = useShowLines();
   const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish, shadow);
 
   const reveal = (i: number) => setRevealed((prev) => new Set(prev).add(i));
@@ -301,7 +302,7 @@ function ConversationView({ conv, onBack, onNext }: {
         player={player}
         total={lines.length}
         shadow={shadow}
-        onShadow={setShadow}
+        onShadow={setShadow} showLines={showLines} onShowLines={setShowLines}
         handsFree={handsFree}
         onHandsFree={setHandsFree}
         onStart={freshRun}
@@ -320,7 +321,7 @@ function ConversationView({ conv, onBack, onNext }: {
         mode={mode}
         player={player}
         revealed={revealed}
-        showAll={shadow}
+        showAll={shadow || showLines}
         onReveal={(i) => (player.status === 'waiting' && player.index === i ? continueTurn() : reveal(i))}
         renderText={renderText}
       />
@@ -337,6 +338,7 @@ function ConversationView({ conv, onBack, onNext }: {
           scripted={shadow}
           handsFree={handsFree}
           onResult={(r) => record(player.index, r)}
+          resultInDrawer={!log.hidden}
           silence={shadow ? undefined : ANSWER_SILENCE}
         >
           <TurnTimer part={conv.part} />

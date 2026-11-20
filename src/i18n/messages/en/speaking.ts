@@ -47,6 +47,8 @@ export default {
   'speaking.autoRecordTitle': 'Start recording as soon as it’s your turn, and check how you said it',
   'speaking.shadow': 'Shadow',
   'speaking.shadowTitle': 'Show your lines and hear each one first, then repeat it',
+  'speaking.showLines': 'Show lines',
+  'speaking.showLinesTitle': 'Show your lines in the script — no tapping to reveal',
   'speaking.shadowHint': 'Repeat it just as you heard it — rhythm and stress too.',
   'speaking.shadowContinue': 'Continue',
   'speaking.handsFree': 'Hands-free',

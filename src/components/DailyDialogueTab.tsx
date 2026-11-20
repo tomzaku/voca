@@ -6,7 +6,7 @@ import { dialogues, dialogueTopics, type Dialogue } from '../data/englishDialogu
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useListOpen, ListRail } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useShowLines, useListOpen, ListRail } from './scriptPractice';
 import { useScriptPlayer, type Mode, type Speaker } from '../hooks/useScriptPlayer';
 
 // "Daily Dialogue" — short scripted exchanges, read like a chat. A list of
@@ -134,6 +134,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
   }, [mode, dialogue.id, markPracticed, intl, endRun]);
 
   const [shadow, setShadow] = useShadowing();
+  const [showLines, setShowLines] = useShowLines();
   const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish, shadow);
 
   const reveal = (i: number) => setRevealed((prev) => new Set(prev).add(i));
@@ -190,7 +191,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
         </div>
       </header>
 
-      <PlayerBar modes={modes} mode={mode} onMode={pickMode} player={player} total={lines.length} shadow={shadow} onShadow={setShadow} handsFree={handsFree} onHandsFree={setHandsFree} onStart={freshRun} />
+      <PlayerBar modes={modes} mode={mode} onMode={pickMode} player={player} total={lines.length} shadow={shadow} onShadow={setShadow} showLines={showLines} onShowLines={setShowLines} handsFree={handsFree} onHandsFree={setHandsFree} onStart={freshRun} />
 
       {myRole && !shadow && (
         <p className="mt-3 px-1 text-xs text-text-muted leading-relaxed">
@@ -212,7 +213,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
         mode={mode}
         player={player}
         revealed={revealed}
-        showAll={shadow}
+        showAll={shadow || showLines}
         onReveal={(i) => (player.status === 'waiting' && player.index === i ? continueTurn() : reveal(i))}
       />
 
@@ -230,6 +231,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
           scripted
           handsFree={handsFree}
           onResult={(r) => record(player.index, r)}
+          resultInDrawer={!log.hidden}
         />
       )}
 

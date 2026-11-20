@@ -25,7 +25,7 @@ const TONE: Record<Tone, { avatar: string; name: string; bubble: string; ring: s
 };
 
 /* ─── Mode switch + play button (sticky) ─────────────────────── */
-export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow, handsFree, onHandsFree, onStart }: {
+export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow, showLines, onShowLines, handsFree, onHandsFree, onStart }: {
   modes: { id: Mode; label: string; icon: string }[];
   mode: Mode;
   onMode: (m: Mode) => void;
@@ -34,6 +34,9 @@ export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow
   /** Shadowing — offered only while role-playing. */
   shadow?: boolean;
   onShadow?: (on: boolean) => void;
+  /** Read your lines off the script without shadowing — offered while Shadow is off (it shows them anyway). */
+  showLines?: boolean;
+  onShowLines?: (on: boolean) => void;
   /** No Continue to press — each turn moves on once it's been heard. */
   handsFree?: boolean;
   onHandsFree?: (on: boolean) => void;
@@ -70,6 +73,19 @@ export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow
         >
           <Icon icon={shadow ? 'lucide:eye' : 'lucide:eye-off'} width={13} />
           <FormattedMessage id="speaking.shadow" />
+        </button>
+      )}
+      {mode !== 'listen' && !shadow && onShowLines && (
+        <button
+          onClick={() => onShowLines(!showLines)}
+          aria-pressed={!!showLines}
+          title={intl.formatMessage({ id: 'speaking.showLinesTitle' })}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+            showLines ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          <Icon icon="lucide:align-left" width={13} />
+          <FormattedMessage id="speaking.showLines" />
         </button>
       )}
       {mode !== 'listen' && onHandsFree && (
@@ -204,6 +220,7 @@ function useStoredFlag(key: string, fallback: boolean) {
 }
 // On unless turned off: hear the line, say it, move on, read the scores after.
 export const useShadowing = () => useStoredFlag('voca.shadowScript', true);
+export const useShowLines = () => useStoredFlag('voca.showScriptLines', false);
 export const useHandsFree = () => useStoredFlag('voca.handsFreeScript', true);
 /** The script list beside the conversation: full (default) or a slim rail. */
 export const useListOpen = () => useStoredFlag('voca.scriptListOpen', true);
@@ -215,7 +232,7 @@ export const useListOpen = () => useStoredFlag('voca.scriptListOpen', true);
  * against the line itself when you said it, or your own words when you didn't
  * (see useAnswerRecorder). Mount it keyed by the turn, so each one starts fresh.
  */
-export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE, continueLabel, handsFree = false, onResult, scripted = false }: {
+export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE, continueLabel, handsFree = false, onResult, scripted = false, resultInDrawer = false }: {
   title: string;
   hint: React.ReactNode;
   onContinue: () => void;
@@ -234,6 +251,8 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
   onResult?: (r: TurnResult) => void;
   /** `say` is the very line to repeat (a dialogue, shadowing), not a model answer. */
   scripted?: boolean;
+  /** The takes drawer is up (desktop): a finished take shows there, not here too. */
+  resultInDrawer?: boolean;
 }) {
   const intl = useIntl();
   const rec = useAnswerRecorder(onAnswered, say, { stopOnSilence: silence, scripted });
@@ -284,7 +303,8 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
   return (
     <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-[5] mt-3 rounded-xl border border-accent-yellow/30 bg-bg-card/95 backdrop-blur shadow-lg animate-fade-in overflow-hidden">
       {recordable && showResult && (
-        <div className="max-h-[45vh] overflow-y-auto border-b border-border [&>*:first-child]:border-t-0">
+        // The live transcript still shows here while you speak; the scored take moves to the drawer.
+        <div className={`max-h-[45vh] overflow-y-auto border-b border-border [&>*:first-child]:border-t-0 ${resultInDrawer && settled ? 'xl:hidden' : ''}`}>
           <AnswerPanel rec={rec} />
           {scored && (
             <SentenceScorePanel
