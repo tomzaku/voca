@@ -24,11 +24,59 @@ declare let self: ServiceWorkerGlobalScope;
 // ─── Precache (unchanged behaviour) ──────────────────────────────────
 
 cleanupOutdatedCaches();
-precacheAndRoute(self.__WB_MANIFEST);
+const manifest = self.__WB_MANIFEST;
+precacheAndRoute(manifest);
 
-// GitHub Pages has no SPA rewrite, so deep links like /quiz/123 must be
-// served the app shell. Matches the NavigationRoute generateSW emitted.
-registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')));
+// ─── App shell: network first ────────────────────────────────────────
+//
+// GitHub Pages has no SPA rewrite, so every navigation (deep links like
+// /quiz/123 included) is answered with index.html.
+//
+// It used to come straight from the precache. That made every launch after a
+// deploy run the *old* build until this worker had downloaded the entire new
+// one in the background (megabytes of chunks) and reloaded the page — 10–30 s
+// of the stale app. Now the shell comes from the network when it answers
+// quickly, so the new build starts at once: its hashed chunks aren't in the old
+// precache, so they fall through to the network too. Offline, or on a
+// connection too slow to wait for, the precached shell still starts the app.
+
+const SHELL_TIMEOUT_MS = 3000;
+const precachedShell = createHandlerBoundToURL('index.html');
+
+registerRoute(
+  new NavigationRoute(async (options) => {
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), SHELL_TIMEOUT_MS);
+    try {
+      // `no-cache` revalidates against the server instead of trusting the HTTP
+      // cache — Pages sends max-age=600, which would hide a deploy for 10 min.
+      const res = await fetch(new URL('index.html', self.registration.scope), {
+        cache: 'no-cache',
+        signal: abort.signal,
+      });
+      if (res.ok) return res;
+    } catch {
+      /* offline or too slow — use the precached shell */
+    } finally {
+      clearTimeout(timer);
+    }
+    return precachedShell(options);
+  }),
+);
+
+// The page asks this when a new worker takes over: "is the build I'm running
+// the one you precached?" If the shell came from the network it already is,
+// and reloading would only flash the screen; if it came from an old precache,
+// the page must reload before it lazy-loads chunks that no longer exist.
+const precachedUrls = new Set(
+  manifest.map((e) => new URL(typeof e === 'string' ? e : e.url, self.registration.scope).href),
+);
+
+self.addEventListener('message', (event) => {
+  const data = event.data as { type?: string; url?: string } | null;
+  if (data?.type !== 'HAS_BUILD' || typeof data.url !== 'string') return;
+  event.ports[0]?.postMessage(precachedUrls.has(new URL(data.url).href));
+});
 
 // `registerType: 'autoUpdate'` relies on the worker activating immediately
 // instead of waiting for every tab to close. generateSW injected these; with
