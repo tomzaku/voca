@@ -5,6 +5,8 @@ import { speakText, stopSpeaking } from '../lib/tts';
 import { AnswerPanel, RecordButton, useAnswerRecorder } from './AnswerRecorder';
 import { SentenceScorePanel } from './pronunciation/SentenceScore';
 import type { SilenceStop } from '../hooks/useVoiceRecorder';
+import { gradeDictation } from '../lib/listeningRules';
+import { TEXT, tone } from './pronunciation/styles';
 
 // Shared pieces for practising a two-person script — Daily Dialogue and IELTS
 // Speaking. A script is read like a chat; it can be listened to with two
@@ -22,7 +24,7 @@ const TONE: Record<Tone, { avatar: string; name: string; bubble: string; ring: s
 };
 
 /* ─── Mode switch + play button (sticky) ─────────────────────── */
-export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow }: {
+export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow, handsFree, onHandsFree, onStart }: {
   modes: { id: Mode; label: string; icon: string }[];
   mode: Mode;
   onMode: (m: Mode) => void;
@@ -31,6 +33,11 @@ export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow
   /** Shadowing — offered only while role-playing. */
   shadow?: boolean;
   onShadow?: (on: boolean) => void;
+  /** No Continue to press — each turn moves on once it's been heard. */
+  handsFree?: boolean;
+  onHandsFree?: (on: boolean) => void;
+  /** A run from the top is starting. */
+  onStart?: () => void;
 }) {
   const intl = useIntl();
   const starting = player.status === 'loading' && player.index === 0;
@@ -64,12 +71,25 @@ export function PlayerBar({ modes, mode, onMode, player, total, shadow, onShadow
           <FormattedMessage id="speaking.shadow" />
         </button>
       )}
+      {mode !== 'listen' && onHandsFree && (
+        <button
+          onClick={() => onHandsFree(!handsFree)}
+          aria-pressed={!!handsFree}
+          title={intl.formatMessage({ id: 'speaking.handsFreeTitle' })}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+            handsFree ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          <Icon icon={handsFree ? 'lucide:toggle-right' : 'lucide:toggle-left'} width={14} />
+          <FormattedMessage id="speaking.handsFree" />
+        </button>
+      )}
       <div className="ml-auto flex items-center gap-2">
         {player.running && player.index >= 0 && (
           <span className="text-[11px] tabular-nums text-text-muted">{player.index + 1}/{total}</span>
         )}
         <button
-          onClick={() => (player.running ? player.stop() : player.playFrom(0))}
+          onClick={() => { if (player.running) player.stop(); else { onStart?.(); void player.playFrom(0); } }}
           className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors cursor-pointer ${
             player.running ? 'bg-bg-tertiary text-text-primary hover:bg-bg-hover' : 'bg-accent-cyan text-bg-primary hover:opacity-90'
           }`}
@@ -175,12 +195,14 @@ const readFlag = (key: string, fallback: boolean) => {
 };
 const writeFlag = (key: string, on: boolean) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* private mode */ } };
 
-/** Shadowing on or off, remembered across scripts — a learner who shadows keeps shadowing. */
-export function useShadowing() {
-  const [on, setOn] = useState(() => readFlag('voca.shadowScript', false));
-  const set = (v: boolean) => { setOn(v); writeFlag('voca.shadowScript', v); };
+/** A practice preference remembered across scripts — a learner who shadows keeps shadowing. */
+function useStoredFlag(key: string) {
+  const [on, setOn] = useState(() => readFlag(key, false));
+  const set = (v: boolean) => { setOn(v); writeFlag(key, v); };
   return [on, set] as const;
 }
+export const useShadowing = () => useStoredFlag('voca.shadowScript');
+export const useHandsFree = () => useStoredFlag('voca.handsFreeScript');
 
 /**
  * With `say`, the bar records the turn: the mic opens by itself as the turn
@@ -189,7 +211,7 @@ export function useShadowing() {
  * against the line itself when you said it, or your own words when you didn't
  * (see useAnswerRecorder). Mount it keyed by the turn, so each one starts fresh.
  */
-export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE, continueLabel }: {
+export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered, silence = LINE_SILENCE, continueLabel, handsFree = false, onResult }: {
   title: string;
   hint: React.ReactNode;
   onContinue: () => void;
@@ -202,15 +224,35 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
   silence?: SilenceStop;
   /** The line is already on screen (shadowing) — nothing left to reveal. */
   continueLabel?: string;
+  /** Records whatever Auto-record says, and moves on by itself once the turn is heard and scored. */
+  handsFree?: boolean;
+  /** Each finished try — the newest one is the turn's result. */
+  onResult?: (r: TurnResult) => void;
 }) {
   const intl = useIntl();
   const rec = useAnswerRecorder(onAnswered, say, { stopOnSilence: silence });
   const [auto, setAuto] = useState(() => readFlag(AUTO_KEY, true));
   const recordable = say !== undefined && rec.phase !== 'unsupported';
 
+  // Settled: transcribed, and scored where the device scores.
+  const settled = rec.phase === 'idle' && rec.heard !== null && rec.pronunciation.status !== 'working';
+  const continueRef = useRef(onContinue);
+  const resultRef = useRef(onResult);
+  useEffect(() => { continueRef.current = onContinue; resultRef.current = onResult; });
+  useEffect(() => {
+    if (!settled) return;
+    const p = rec.pronunciation;
+    resultRef.current?.({ heard: rec.heard ?? '', score: p.status === 'done' ? p.result.score : null });
+    if (!handsFree) return;
+    // Long enough to glance at the score before the next line starts.
+    const t = setTimeout(() => continueRef.current(), 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled, handsFree]);
+
   const started = useRef(false);
   useEffect(() => {
-    if (!recordable || !auto || started.current) return;
+    if (!recordable || !(auto || handsFree) || started.current) return;
     started.current = true;
     rec.start();
     // Once per turn: a later toggle of Auto doesn't re-record this one.
@@ -277,6 +319,91 @@ export function YourTurnBar({ title, hint, onContinue, children, say, onAnswered
         </button>
       </div>
     </div>
+  );
+}
+
+/* ─── Summary once a role-play ends ──────────────────────────── */
+export interface TurnResult {
+  heard: string;
+  /** Sound-by-sound score, where the device scores. */
+  score: number | null;
+}
+
+/**
+ * How each of the learner's turns went, after the run. Without an on-device
+ * score, `matchScript` falls back to how many of the line's words were heard
+ * — right for a line to repeat, meaningless for a free answer.
+ */
+export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: {
+  lines: ScriptLine[];
+  results: Map<number, TurnResult>;
+  matchScript: boolean;
+  onReplay: () => void;
+  onClose: () => void;
+}) {
+  const intl = useIntl();
+  const rows = [...results.entries()].sort((a, b) => a[0] - b[0]).map(([i, r]) => {
+    const value = r.score ?? (matchScript && r.heard ? gradeDictation(lines[i].text, r.heard).accuracy : null);
+    return { i, r, value };
+  });
+  const scored = rows.filter((x) => x.value !== null).map((x) => x.value as number);
+  const avg = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
+  // It appears as the run ends, wherever the transcript left the page.
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => { ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, []);
+
+  return (
+    <section ref={ref} className="mt-4 rounded-xl border border-accent-cyan/25 bg-bg-card p-4 animate-fade-in">
+      <div className="flex items-center gap-3">
+        <span className="w-9 h-9 rounded-full bg-accent-cyan/10 text-accent-cyan flex items-center justify-center shrink-0">
+          <Icon icon="lucide:clipboard-check" width={17} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-text-primary"><FormattedMessage id="speaking.summaryTitle" /></p>
+          <p className="text-xs text-text-muted">
+            <FormattedMessage id="speaking.summaryCount" values={{ count: rows.length }} />
+          </p>
+        </div>
+        {avg !== null && <span className={`text-2xl font-extrabold tabular-nums ${TEXT[tone(avg)]}`}>{avg}</span>}
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
+          aria-label={intl.formatMessage({ id: 'speaking.summaryClose' })}
+        >
+          <Icon icon="lucide:x" width={15} />
+        </button>
+      </div>
+
+      <ul className="mt-3 divide-y divide-border">
+        {rows.map(({ i, r, value }) => (
+          <li key={i} className="py-2.5 flex items-start gap-3">
+            <span className={`w-10 text-right text-sm font-bold tabular-nums shrink-0 ${value === null ? 'text-text-muted' : TEXT[tone(value)]}`}>
+              {value ?? '—'}
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm text-text-primary leading-snug">{lines[i].text}</span>
+              <span className="block mt-0.5 text-xs text-text-muted italic leading-snug">
+                {r.heard ? `“${r.heard}”` : intl.formatMessage({ id: 'conversation.recordNothingHeard' })}
+              </span>
+            </span>
+            <button
+              onClick={() => speakText(lines[i].text, { voice: lines[i].voice }).catch(() => {})}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-text-muted hover:text-accent-cyan hover:bg-bg-hover/60 cursor-pointer shrink-0"
+              aria-label={intl.formatMessage({ id: 'speaking.listenLine' })}
+            >
+              <Icon icon="lucide:volume-2" width={14} />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <button
+        onClick={onReplay}
+        className="mt-3 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-accent-cyan text-bg-primary hover:opacity-90 cursor-pointer"
+      >
+        <Icon icon="lucide:rotate-ccw" width={13} /> <FormattedMessage id="speaking.summaryAgain" />
+      </button>
+    </section>
   );
 }
 

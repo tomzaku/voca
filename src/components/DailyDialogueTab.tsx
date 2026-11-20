@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -6,7 +6,7 @@ import { dialogues, dialogueTopics, type Dialogue } from '../data/englishDialogu
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, useShadowing } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnSummary, useShadowing, useHandsFree, type TurnResult } from './scriptPractice';
 import { useScriptPlayer, type Mode, type Speaker } from '../hooks/useScriptPlayer';
 
 // "Daily Dialogue" — short scripted exchanges, read like a chat. A list of
@@ -121,8 +121,15 @@ function DialogueView({ dialogue, onBack, onNext }: {
   // Memoised: the player stops whenever its lines change identity.
   const lines = useMemo(() => dialogue.lines.map((l) => ({ ...l, voice: VOICE[l.speaker] })), [dialogue]);
 
+  // Each of the learner's turns this run, for the summary at its end.
+  const results = useRef(new Map<number, TurnResult>());
+  const [summary, setSummary] = useState<Map<number, TurnResult> | null>(null);
+  const [handsFree, setHandsFree] = useHandsFree();
+  const freshRun = () => { results.current = new Map(); setSummary(null); };
+
   const finish = useCallback(() => {
     if (mode === 'listen') return;
+    if (results.current.size) setSummary(new Map(results.current));
     markPracticed(dialogue.id);
     toast.success(intl.formatMessage({ id: 'conversation.rolePlayComplete' }));
   }, [mode, dialogue.id, markPracticed, intl]);
@@ -133,7 +140,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
   const reveal = (i: number) => setRevealed((prev) => new Set(prev).add(i));
   const continueTurn = () => { reveal(player.index); player.resume(); };
 
-  const pickMode = (m: Mode) => { setMode(m); setRevealed(new Set()); };
+  const pickMode = (m: Mode) => { setMode(m); setRevealed(new Set()); freshRun(); };
   const modes: { id: Mode; label: string; icon: string }[] = [
     { id: 'listen', label: intl.formatMessage({ id: 'conversation.listen' }), icon: 'lucide:headphones' },
     { id: 'a', label: intl.formatMessage({ id: 'conversation.beRole' }, { role: dialogue.speakers.a.toLowerCase() }), icon: 'lucide:drama' },
@@ -181,7 +188,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
         </div>
       </header>
 
-      <PlayerBar modes={modes} mode={mode} onMode={pickMode} player={player} total={lines.length} shadow={shadow} onShadow={setShadow} />
+      <PlayerBar modes={modes} mode={mode} onMode={pickMode} player={player} total={lines.length} shadow={shadow} onShadow={setShadow} handsFree={handsFree} onHandsFree={setHandsFree} onStart={freshRun} />
 
       {myRole && !shadow && (
         <p className="mt-3 px-1 text-xs text-text-muted leading-relaxed">
@@ -218,6 +225,18 @@ function DialogueView({ dialogue, onBack, onNext }: {
           say={lines[player.index]?.text}
           continueLabel={shadow ? intl.formatMessage({ id: 'speaking.shadowContinue' }) : undefined}
           onAnswered={() => reveal(player.index)}
+          handsFree={handsFree}
+          onResult={(r) => results.current.set(player.index, r)}
+        />
+      )}
+
+      {summary && (
+        <TurnSummary
+          lines={lines}
+          results={summary}
+          matchScript={true}
+          onReplay={() => { freshRun(); setRevealed(new Set()); void player.playFrom(0); }}
+          onClose={() => setSummary(null)}
         />
       )}
 

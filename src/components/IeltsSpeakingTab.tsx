@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, useShadowing } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnSummary, useShadowing, useHandsFree, type TurnResult } from './scriptPractice';
 import { useScriptPlayer, type Mode, type ScriptLine } from '../hooks/useScriptPlayer';
 import { IELTS_TURN_SECONDS, parseCueCard } from '../lib/speakingRules';
 
@@ -207,8 +207,15 @@ function ConversationView({ conv, onBack, onNext }: {
     [conv],
   );
 
+  // Each of the learner's turns this run, for the summary at its end.
+  const results = useRef(new Map<number, TurnResult>());
+  const [summary, setSummary] = useState<Map<number, TurnResult> | null>(null);
+  const [handsFree, setHandsFree] = useHandsFree();
+  const freshRun = () => { results.current = new Map(); setSummary(null); };
+
   const finish = useCallback(() => {
     if (mode === 'listen') return;
+    if (results.current.size) setSummary(new Map(results.current));
     markPracticed(conv.id);
     toast.success(intl.formatMessage({ id: 'speaking.ieltsMockComplete' }));
   }, [mode, conv.id, markPracticed, intl]);
@@ -218,7 +225,7 @@ function ConversationView({ conv, onBack, onNext }: {
 
   const reveal = (i: number) => setRevealed((prev) => new Set(prev).add(i));
   const continueTurn = () => { reveal(player.index); player.resume(); };
-  const pickMode = (m: Mode) => { setMode(m); setRevealed(new Set()); };
+  const pickMode = (m: Mode) => { setMode(m); setRevealed(new Set()); freshRun(); };
 
   const renderText = useCallback((line: ScriptLine) => {
     if (conv.part !== 'Part 2' || line.speaker !== 'a') return null;
@@ -293,6 +300,9 @@ function ConversationView({ conv, onBack, onNext }: {
         total={lines.length}
         shadow={shadow}
         onShadow={setShadow}
+        handsFree={handsFree}
+        onHandsFree={setHandsFree}
+        onStart={freshRun}
       />
 
       {mode === 'b' && !shadow && (
@@ -322,10 +332,22 @@ function ConversationView({ conv, onBack, onNext }: {
           say={lines[player.index]?.text}
           continueLabel={shadow ? intl.formatMessage({ id: 'speaking.shadowContinue' }) : undefined}
           onAnswered={() => reveal(player.index)}
+          handsFree={handsFree}
+          onResult={(r) => results.current.set(player.index, r)}
           silence={shadow ? undefined : ANSWER_SILENCE}
         >
           <TurnTimer part={conv.part} />
         </YourTurnBar>
+      )}
+
+      {summary && (
+        <TurnSummary
+          lines={lines}
+          results={summary}
+          matchScript={shadow}
+          onReplay={() => { freshRun(); setRevealed(new Set()); void player.playFrom(0); }}
+          onClose={() => setSummary(null)}
+        />
       )}
 
       {/* Tips + phrases */}
