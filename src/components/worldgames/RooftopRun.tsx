@@ -10,6 +10,7 @@ import {
 import { playBoing, playCoin, playHurt, playJump, playStomp, playWin } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
 import { Kbd, PixelButton, PixelIcon, PixelLoader } from './pixel';
+import { NetWait } from './NetWait';
 import {
   COLORS, VIEW_H, drawBoat, drawCoin, drawEdgeArrow, drawEnemy, drawGoalGate, drawRunner, drawSky, drawSquashed, drawTiles,
 } from './rooftopDraw';
@@ -18,7 +19,7 @@ import {
 // (or one, practising). The rules are lib/rooftop; the art is rooftopDraw.
 //
 // Over the network (lib/peerLink — WebRTC straight between the browsers,
-// the match link when that can't connect), each player owns their own runner
+// paused while there's no such line), each player owns their own runner
 // and sends where it is many times a second; the other draws it a moment in
 // the past, between two positions it has, so it moves smoothly. The host
 // also owns the enemies and sends them with its runner. Events that must
@@ -35,10 +36,8 @@ const ICONS = {
 
 /** How far behind a partner is drawn, so there's a later position to move toward. */
 const DELAY_DIRECT = 60;
-const DELAY_SERVER = 280;
-/** Steps between positions sent: 30 a second direct, 5 through the server (Realtime's limit). */
+/** Steps between positions sent: 30 a second (the game only runs on a direct line). */
 const SEND_DIRECT = 2;
-const SEND_SERVER = 12;
 
 interface Snap { t: number; x: number; y: number; vx: number; vy: number; f: number; gr: boolean; d: boolean; run: number }
 interface Remote {
@@ -143,6 +142,8 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
   const [viewW, setViewW] = useState(400);
   const [fit, setFit] = useState({ w: 400, h: 240 });
   const [net, setNet] = useState<PeerState>(solo ? 'direct' : 'connecting');
+  // No direct line, no game: it pauses (both sides) until there is one — see NetWait.
+  const playing = started && (solo || net === 'direct');
   const [hud, setHud] = useState<Hud>({ coins: 0, lives: LIVES, time: TIME_LIMIT, waiting: false, hint: 'start', over: null });
   const [touch] = useState(isTouch);
 
@@ -255,7 +256,7 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
 
   // The loop: fixed steps for the rules, a frame drawn whenever the screen asks.
   useEffect(() => {
-    if (!started) return;
+    if (!playing) return;
     let raf = 0;
     let last = performance.now();
     let acc = 0;
@@ -275,14 +276,14 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
   function partnerAt(now: number): Snap | null {
     const g = game.current;
     if (!g.remote) return null;
-    return sample(g.remote.snaps, now - (peer.current?.direct ? DELAY_DIRECT : DELAY_SERVER));
+    return sample(g.remote.snaps, now - DELAY_DIRECT);
   }
 
   /** The enemies as this player sees them: its own (host), or the host's, a moment ago. */
   function shownEnemies(now: number): Enemy[] {
     const g = game.current;
     if (index === 0) return g.enemies;
-    const at = now - (peer.current?.direct ? DELAY_DIRECT : DELAY_SERVER);
+    const at = now - DELAY_DIRECT;
     const snaps = g.enemySnaps;
     if (snaps.length) {
       let a = snaps[0], b = snaps[0];
@@ -370,7 +371,7 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
 
     // Tell the partner where we are.
     if (peer.current && r) {
-      const every = peer.current.direct ? SEND_DIRECT : SEND_SERVER;
+      const every = SEND_DIRECT;
       if (g.steps % every === 0) {
         const msg: PeerData = {
           k: 's', r: g.round, x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, vx: Math.round(me.vx), vy: Math.round(me.vy),
@@ -528,6 +529,7 @@ export function RooftopRun({ link, onClose }: { link: MatchLink | null; onClose:
         )}
 
         {!started && !left && overlay(<PixelLoader label={<FormattedMessage id="world.duelWaiting" values={{ name: partnerName }} />} />)}
+        {started && !playing && !left && overlay(<NetWait state={net} name={partnerName} onLeave={onClose} />)}
         {left && overlay(
           <>
             <p className="text-[14px] mb-3"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>

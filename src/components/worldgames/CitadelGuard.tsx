@@ -11,14 +11,15 @@ import { STEP } from '../../lib/rooftop';
 import { playCoin, playHurt, playJump, playSelect, playStomp } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
 import { Kbd, PixelButton, PixelIcon, PixelLoader } from './pixel';
+import { NetWait } from './NetWait';
 import { OWNER_COLORS, drawCursor, drawEnemy, drawGround, drawRange, drawShot, drawTower } from './citadelGuardDraw';
 
 // Citadel Guard, on screen: a tower defence for two in the world (or one,
 // practising). The rules are lib/citadelGuard; the art is citadelGuardDraw.
 //
 // The host runs the whole game and sends it many times a second (over
-// lib/peerLink — WebRTC straight between the browsers, the match link when
-// that can't connect). The guest asks for what it wants built, upgraded or
+// lib/peerLink — WebRTC straight between the browsers, and paused while
+// there's no such line). The guest asks for what it wants built, upgraded or
 // sold on the reliable channel and draws what comes back, its monsters a
 // moment in the past so they march smoothly. Each side also sends where its
 // cursor is, so you can see what your partner is pointing at.
@@ -29,9 +30,7 @@ const ICONS = {
 };
 
 const DELAY_DIRECT = 110;
-const DELAY_SERVER = 320;
 const SEND_DIRECT = 3;
-const SEND_SERVER = 15;
 const SHOT_LIFE: Record<TowerKind, number> = { archer: 0.18, cannon: 0.35, frost: 0.22, firework: 0.4 };
 /** When a message arrived — on the same clock the frames are drawn by. */
 const clock = () => performance.now();
@@ -103,6 +102,8 @@ export function CitadelGuard({ link, onClose }: { link: MatchLink | null; onClos
   const [buildKind, setBuildKindState] = useState<TowerKind | null>(null);
   const [fit, setFit] = useState({ w: W, h: H });
   const [net, setNet] = useState<PeerState>(solo ? 'direct' : 'connecting');
+  // No direct line, no game: it pauses (both sides) until there is one — see NetWait.
+  const playing = started && (solo || net === 'direct');
   const [hud, setHud] = useState<Hud>({ lives: 20, wave: 0, phase: 'build', countdown: 30, gold: [0, 0], speed: 1, over: false, sel: null });
 
   const setBuildKind = (k: TowerKind | null) => { buildRef.current = k; setBuildKindState(k); if (k) selRef.current = null; };
@@ -206,7 +207,7 @@ export function CitadelGuard({ link, onClose }: { link: MatchLink | null; onClos
     if (g.lives < gm.lives) playHurt();
     gm.lives = g.lives;
 
-    if (peer.current && link && gm.steps % (peer.current.direct ? SEND_DIRECT : SEND_SERVER) === 0) {
+    if (peer.current && link && gm.steps % SEND_DIRECT === 0) {
       const cur = cursor.current;
       if (host) {
         const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -233,7 +234,7 @@ export function CitadelGuard({ link, onClose }: { link: MatchLink | null; onClos
     if (host) return gm.g.enemies.map((e) => ({ id: e.id, kind: e.kind, x: e.x, y: e.y, hp: e.hp, max: e.max, slowed: e.slowT > 0 }));
     const snaps = gm.snaps;
     if (!snaps.length) return [];
-    const at = now - (peer.current?.direct ? DELAY_DIRECT : DELAY_SERVER);
+    const at = now - DELAY_DIRECT;
     let a = snaps[snaps.length - 1], b = a;
     for (let i = snaps.length - 1; i > 0; i--) if (snaps[i - 1].t <= at) { a = snaps[i - 1]; b = snaps[i]; break; }
     if (at < snaps[0].t) a = b = snaps[0];
@@ -317,7 +318,7 @@ export function CitadelGuard({ link, onClose }: { link: MatchLink | null; onClos
 
   // The loop: fixed steps for the rules, a frame drawn whenever the screen asks.
   useEffect(() => {
-    if (!started) return;
+    if (!playing) return;
     let raf = 0, last = performance.now(), acc = 0, hudAt = 0;
     const frame = (now: number) => {
       acc += Math.min(0.1, (now - last) / 1000);
@@ -329,7 +330,7 @@ export function CitadelGuard({ link, onClose }: { link: MatchLink | null; onClos
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [started]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [playing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keys: 1–4 a tower, arrows/WASD the cursor, Enter builds or picks, U
   // upgrade, X sell, Space the next wave, F speed, Esc lets go. At the end,
@@ -417,6 +418,7 @@ export function CitadelGuard({ link, onClose }: { link: MatchLink | null; onClos
           </p>
         )}
         {!started && !left && overlay(<PixelLoader label={<FormattedMessage id="world.duelWaiting" values={{ name: partnerName }} />} />)}
+        {started && !playing && !left && overlay(<NetWait state={net} name={partnerName} onLeave={onClose} />)}
         {left && overlay(
           <>
             <p className="text-[14px] mb-3"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>

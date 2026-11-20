@@ -18,24 +18,26 @@ import type { MatchLink } from './worldLive';
 // gone unanswered for a while — a Realtime message can be dropped, and the
 // guest may still be opening the game when the first offer goes out.
 //
-// Without a direct line, both kinds go over the match link. Realtime allows
-// about ten messages a second per client, so a game should send `fast`
-// messages less often while `state` isn't 'direct' (see `fastHz`).
+// Direct only. These games share a world many times a second, and over the
+// match link (Realtime, ~10 messages a second, bunched) the guest played a
+// fifth of a second behind — worse than not playing. So data moves only on
+// the direct line: a game pauses while `state` isn't 'direct', and 'failed'
+// says plainly that these two networks can't reach each other (it keeps
+// trying regardless — a phone moving onto Wi-Fi may well get through).
+// The match link still carries the setup itself. A TURN server
+// (VITE_TURN_URL) is what gets the stubborn networks through.
 
-export type PeerState = 'connecting' | 'direct' | 'server';
+export type PeerState = 'connecting' | 'direct' | 'failed';
 export type PeerData = Record<string, unknown>;
 
 const GATHER_MS = 1500;
 const HELLO_MS = 1000;
 /** A hello this long after an offer means it was lost: offer again. */
 const REOFFER_MS = 3000;
-/** Past this without a direct line, the server it is (the setup keeps trying in the background). */
+/** Past this without a direct line, say so (the setup keeps trying). */
 const DIRECT_WAIT_MS = 12000;
-/** Stop trying altogether. */
-const GIVE_UP_MS = 30000;
 
 type Signal = { kind: 'p2p'; type: 'offer' | 'answer'; sdp: string } | { kind: 'p2pHello' };
-const RELAY = 'p2pData';
 
 function iceServers(): RTCIceServer[] {
   const servers: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
@@ -64,7 +66,6 @@ export class PeerLink {
   private offeredAt = 0;
   private hello = 0;
   private waitTimer = 0;
-  private giveUpTimer = 0;
   private closed = false;
   private offLink: () => void;
   private listeners = new Set<(d: PeerData) => void>();
@@ -72,14 +73,20 @@ export class PeerLink {
 
   constructor(private link: MatchLink) {
     this.offLink = link.listen((d) => this.fromLink(d));
-    if (typeof RTCPeerConnection === 'undefined') { this.state = 'server'; return; }
-    if (!link.host) {
-      const say = () => { if (this.state !== 'direct') link.send({ kind: 'p2pHello' } satisfies Signal); };
+    if (typeof RTCPeerConnection === 'undefined') { this.state = 'failed'; return; }
+    this.reconnect();
+  }
+
+  /** (Re)start the setup: the guest's hellos, and a deadline for saying it's not working. */
+  private reconnect() {
+    window.clearInterval(this.hello);
+    window.clearTimeout(this.waitTimer);
+    if (!this.link.host) {
+      const say = () => { if (this.state !== 'direct') this.link.send({ kind: 'p2pHello' } satisfies Signal); };
       say();
       this.hello = window.setInterval(say, HELLO_MS);
     }
-    this.waitTimer = window.setTimeout(() => { if (this.state === 'connecting') this.set('server'); }, DIRECT_WAIT_MS);
-    this.giveUpTimer = window.setTimeout(() => { window.clearInterval(this.hello); if (this.state !== 'direct') this.drop(); }, GIVE_UP_MS);
+    this.waitTimer = window.setTimeout(() => { if (this.state === 'connecting') this.set('failed'); }, DIRECT_WAIT_MS);
   }
 
   /** Whether messages go straight to the other browser. */
@@ -96,16 +103,14 @@ export class PeerLink {
     return () => void this.stateListeners.delete(cb);
   }
 
-  /** May be lost or overtaken — for state that the next message replaces. */
+  /** May be lost or overtaken — for state that the next message replaces. Dropped without a direct line. */
   sendFast(d: PeerData) {
     if (this.fast?.readyState === 'open') this.fast.send(JSON.stringify(d));
-    else this.link.send({ kind: RELAY, d });
   }
 
-  /** Arrives once, in order. */
+  /** Arrives once, in order — while the direct line is up. */
   sendSure(d: PeerData) {
     if (this.sure?.readyState === 'open') this.sure.send(JSON.stringify(d));
-    else this.link.send({ kind: RELAY, d });
   }
 
   close() {
@@ -113,7 +118,6 @@ export class PeerLink {
     this.closed = true;
     window.clearInterval(this.hello);
     window.clearTimeout(this.waitTimer);
-    window.clearTimeout(this.giveUpTimer);
     this.offLink();
     this.drop();
     this.listeners.clear();
@@ -136,7 +140,14 @@ export class PeerLink {
     this.pc = null;
     this.fast = null;
     this.sure = null;
-    if (this.state === 'direct') this.set('server');
+  }
+
+  /** The direct line went down mid-game: the game pauses while we set up a new one. */
+  private lost(pc: RTCPeerConnection) {
+    if (this.closed || this.pc !== pc || this.state !== 'direct') return;
+    this.drop();
+    this.set('connecting');
+    this.reconnect();
   }
 
   /** A fresh connection with both channels on their agreed ids. */
@@ -153,13 +164,15 @@ export class PeerLink {
     const opened = () => {
       if (this.pc !== pc || fast.readyState !== 'open' || sure.readyState !== 'open') return;
       window.clearInterval(this.hello);
+      window.clearTimeout(this.waitTimer);
       this.set('direct');
     };
     fast.onopen = opened;
     sure.onopen = opened;
-    fast.onclose = () => { if (this.pc === pc) this.set('server'); };
+    fast.onclose = () => this.lost(pc);
     pc.onconnectionstatechange = () => {
-      if (this.pc === pc && pc.connectionState === 'failed') this.drop();
+      if (this.pc !== pc || pc.connectionState !== 'failed') return;
+      if (this.state === 'direct') this.lost(pc); else this.drop();
     };
     this.pc = pc;
     this.fast = fast;
@@ -197,7 +210,6 @@ export class PeerLink {
 
   private fromLink(d: Record<string, unknown>) {
     if (this.closed) return;
-    if (d.kind === RELAY) { this.emit(d.d); return; }
     if (typeof RTCPeerConnection === 'undefined' || this.state === 'direct') return;
     if (d.kind === 'p2pHello' && this.link.host) {
       if (Date.now() - this.offeredAt > REOFFER_MS) void this.offer();

@@ -11,13 +11,14 @@ import { STEP } from '../../lib/rooftop';
 import { playBoing, playCoin, playHurt, playJump, playStomp, playWin } from '../../lib/sfx';
 import type { MatchLink } from '../../lib/worldLive';
 import { Kbd, PixelButton, PixelIcon, PixelLoader } from './pixel';
+import { NetWait } from './NetWait';
 import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawBossBar, drawDrone, drawFx, drawOverdrive, drawShip, drawSlowTint, drawShot, drawSpace, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type Fx, WEAPON_COLOR } from './bugSwarmArt';
 
 // Bug Swarm, on screen: a wave shooter for two in the world (or one,
 // practising). The rules are lib/bugSwarm; the art is bugSwarmArt.
 //
-// Over the network (lib/peerLink — WebRTC straight between the browsers, the
-// match link when that can't connect): the host runs the swarm and sends it,
+// Over the network (lib/peerLink — WebRTC straight between the browsers,
+// paused while there's no such line): the host runs the swarm and sends it,
 // with its own ship, many times a second; the guest sends its ship. Each
 // draws the other's half a moment in the past, between two snapshots, so it
 // moves smoothly. The guest's own shots are drawn the moment it fires (the
@@ -31,9 +32,7 @@ import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawBossBar, dra
 const clock = () => performance.now();
 
 const DELAY_DIRECT = 60;
-const DELAY_SERVER = 280;
 const SEND_DIRECT = 2;
-const SEND_SERVER = 12;
 
 /** A ship as sent: x, y, gun level, lives, alive, invulnerable, shield, firing, weapon, novas, overdrive left, then its perks in PERKS order. */
 type ShipWire = number[];
@@ -132,6 +131,8 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
   const box = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ w: W, h: H });
   const [net, setNet] = useState<PeerState>(solo ? 'direct' : 'connecting');
+  // No direct line, no game: it pauses (both sides) until there is one — see NetWait.
+  const playing = started && (solo || net === 'direct');
   const [hud, setHud] = useState<Hud>({ wave: 0, scores: [0, 0], combo: 1, meter: 0, overdrive: false, slow: false, me: { lives: LIVES, level: 1, weapon: 'blaster', novas: 1, perks: newShip(0).perks }, partner: solo ? null : { lives: LIVES, alive: true, weapon: 'blaster' }, banner: null, over: false });
 
   // Snapshots are placed by when they were *sent*, on our clock: arrival
@@ -271,7 +272,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     return () => ro.disconnect();
   }, []);
 
-  const delay = () => (peer.current?.direct ? DELAY_DIRECT : DELAY_SERVER);
+  const delay = () => DELAY_DIRECT;
 
   /** The swarm as this player sees it: the host's own, or the host's a moment ago. */
   function shown(now: number) {
@@ -414,7 +415,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
       }
     }
 
-    if (peer.current && g.partner && g.steps % (peer.current.direct ? SEND_DIRECT : SEND_SERVER) === 0) {
+    if (peer.current && g.partner && g.steps % SEND_DIRECT === 0) {
       const msg: PeerData = { k: 's', r: g.round, ts: Math.round(clock() * 10) / 10, ship: shipWire(me) };
       if (host) {
         const s = g.swarm;
@@ -571,7 +572,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
 
   // The loop: fixed steps for the rules, a frame drawn whenever the screen asks.
   useEffect(() => {
-    if (!started) return;
+    if (!playing) return;
     let raf = 0, last = performance.now(), acc = 0, hudAt = 0;
     const frame = (now: number) => {
       acc += Math.min(0.1, (now - last) / 1000);
@@ -583,7 +584,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [started]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [playing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // At the end (or once they've left): R or Enter plays again, Esc leaves.
   useEffect(() => {
@@ -756,6 +757,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
             </button>
         )}
         {!started && !left && overlay(<PixelLoader label={<FormattedMessage id="world.duelWaiting" values={{ name: partnerName }} />} />)}
+        {started && !playing && !left && overlay(<NetWait state={net} name={partnerName} onLeave={onClose} />)}
         {left && overlay(
           <>
             <p className="text-[14px] mb-3"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>
