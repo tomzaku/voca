@@ -624,9 +624,10 @@ export function EnglishSpeakingPage() {
   // way back to the list of videos.
   const [videoTitle, setVideoTitle] = useState<string | null>(null);
   const deeper = activeTab === 'video' && videoTitle !== null;
-
   return (
-    <div className="max-w-page mx-auto px-4 py-8 relative" ref={contentRef}>
+    // A role-play in progress marks itself `data-wide`: list, conversation and
+    // the drawer of your takes need the screen, not the page width.
+    <div className="max-w-page has-[[data-wide]]:max-w-[112rem] mx-auto px-4 py-8 relative" ref={contentRef}>
       <SelectionSpeaker containerRef={contentRef} />
 
       <h1 className="flex items-center gap-1.5 mb-6 text-base min-w-0">

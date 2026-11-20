@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -6,7 +6,7 @@ import { dialogues, dialogueTopics, type Dialogue } from '../data/englishDialogu
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { CONV_VOICE_A, CONV_VOICE_B } from '../lib/tts';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnSummary, useShadowing, useHandsFree, type TurnResult } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useListOpen, ListRail, ListCollapseButton } from './scriptPractice';
 import { useScriptPlayer, type Mode, type Speaker } from '../hooks/useScriptPlayer';
 
 // "Daily Dialogue" — short scripted exchanges, read like a chat. A list of
@@ -121,18 +121,17 @@ function DialogueView({ dialogue, onBack, onNext }: {
   // Memoised: the player stops whenever its lines change identity.
   const lines = useMemo(() => dialogue.lines.map((l) => ({ ...l, voice: VOICE[l.speaker] })), [dialogue]);
 
-  // Each of the learner's turns this run, for the summary at its end.
-  const results = useRef(new Map<number, TurnResult>());
-  const [summary, setSummary] = useState<Map<number, TurnResult> | null>(null);
+  // Each of the learner's turns this run — a drawer as it goes, a summary at its end.
+  const log = useTurnLog();
+  const { fresh: freshRun, record, finish: endRun } = log;
   const [handsFree, setHandsFree] = useHandsFree();
-  const freshRun = () => { results.current = new Map(); setSummary(null); };
 
   const finish = useCallback(() => {
     if (mode === 'listen') return;
-    if (results.current.size) setSummary(new Map(results.current));
+    endRun();
     markPracticed(dialogue.id);
     toast.success(intl.formatMessage({ id: 'conversation.rolePlayComplete' }));
-  }, [mode, dialogue.id, markPracticed, intl]);
+  }, [mode, dialogue.id, markPracticed, intl, endRun]);
 
   const [shadow, setShadow] = useShadowing();
   const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish, shadow);
@@ -155,8 +154,11 @@ function DialogueView({ dialogue, onBack, onNext }: {
   const myRole = mode === 'listen' ? null : dialogue.speakers[mode];
   const partner = mode === 'b' ? dialogue.speakers.a : dialogue.speakers.b;
 
+  const replay = () => { freshRun(); setRevealed(new Set()); void player.playFrom(0); };
+
   return (
-    <article className="min-w-0">
+    <article className="min-w-0" data-wide={mode !== 'listen' || undefined}>
+      <TurnLogLayout log={log} active={mode !== 'listen' && player.running} lines={lines} matchScript={true} onReplay={replay}>
       <button
         onClick={onBack}
         className="lg:hidden flex items-center gap-1 mb-3 text-xs font-semibold text-text-muted hover:text-text-primary cursor-pointer"
@@ -227,19 +229,11 @@ function DialogueView({ dialogue, onBack, onNext }: {
           onAnswered={() => reveal(player.index)}
           scripted
           handsFree={handsFree}
-          onResult={(r) => results.current.set(player.index, r)}
+          onResult={(r) => record(player.index, r)}
         />
       )}
 
-      {summary && (
-        <TurnSummary
-          lines={lines}
-          results={summary}
-          matchScript={true}
-          onReplay={() => { freshRun(); setRevealed(new Set()); void player.playFrom(0); }}
-          onClose={() => setSummary(null)}
-        />
-      )}
+      <InlineTurnSummary log={log} lines={lines} matchScript={true} onReplay={replay} />
 
       {/* Phrases + notes */}
       {(dialogue.usefulPhrases?.length || dialogue.notes?.length) ? (
@@ -278,6 +272,7 @@ function DialogueView({ dialogue, onBack, onNext }: {
           <FormattedMessage id="conversation.nextDialogue" /> <Icon icon="lucide:arrow-right" width={14} />
         </button>
       </div>
+      </TurnLogLayout>
     </article>
   );
 }
@@ -293,6 +288,7 @@ export function DailyDialogueTab() {
   );
   // Mobile shows the list or the dialogue, not both; desktop ignores this.
   const [reading, setReading] = useState(false);
+  const [listOpen, setListOpen] = useListOpen();
 
   const visible = useMemo(() => dialogues.filter((d) => level === 'all' || d.level === level), [level]);
   const practiced = dialogues.filter((d) => isPracticed(progress[d.id])).length;
@@ -314,8 +310,21 @@ export function DailyDialogueTab() {
   }, [visible, activeId, progress, select]);
 
   return (
-    <div className="lg:grid lg:grid-cols-[288px_minmax(0,1fr)] lg:gap-6">
-      <aside className={`${reading ? 'hidden lg:block' : ''} lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1 space-y-4`}>
+    <div className={`lg:grid ${listOpen ? 'lg:grid-cols-[288px_minmax(0,1fr)] lg:gap-6' : 'lg:grid-cols-[40px_minmax(0,1fr)] lg:gap-4'}`}>
+      {/* Minimised on a desktop: a rail of dialogues, so the conversation gets the room. */}
+      {!listOpen && (
+        <aside className="hidden lg:block lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [scrollbar-width:none]">
+          <ListRail
+            items={visible.map((d) => ({ id: d.id, title: d.title, done: isPracticed(progress[d.id]), active: d.id === activeId }))}
+            onExpand={() => setListOpen(true)}
+            onSelect={select}
+          />
+        </aside>
+      )}
+      <aside className={`${reading ? 'hidden lg:block' : ''} ${listOpen ? '' : 'lg:hidden'} lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1 space-y-4`}>
+        <div className="hidden lg:flex justify-end -mb-2">
+          <ListCollapseButton onCollapse={() => setListOpen(false)} />
+        </div>
         <ProgressCard done={practiced} total={dialogues.length}>
           <div className="flex gap-1 mt-3">
             {(['all', 'Easy', 'Medium'] as const).map((l) => (

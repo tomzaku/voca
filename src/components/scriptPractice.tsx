@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { speakText, stopSpeaking } from '../lib/tts';
@@ -197,13 +197,16 @@ const readFlag = (key: string, fallback: boolean) => {
 const writeFlag = (key: string, on: boolean) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* private mode */ } };
 
 /** A practice preference remembered across scripts — a learner who shadows keeps shadowing. */
-function useStoredFlag(key: string) {
-  const [on, setOn] = useState(() => readFlag(key, false));
+function useStoredFlag(key: string, fallback: boolean) {
+  const [on, setOn] = useState(() => readFlag(key, fallback));
   const set = (v: boolean) => { setOn(v); writeFlag(key, v); };
   return [on, set] as const;
 }
-export const useShadowing = () => useStoredFlag('voca.shadowScript');
-export const useHandsFree = () => useStoredFlag('voca.handsFreeScript');
+// On unless turned off: hear the line, say it, move on, read the scores after.
+export const useShadowing = () => useStoredFlag('voca.shadowScript', true);
+export const useHandsFree = () => useStoredFlag('voca.handsFreeScript', true);
+/** The script list beside the conversation: full (default) or a slim rail. */
+export const useListOpen = () => useStoredFlag('voca.scriptListOpen', true);
 
 /**
  * With `say`, the bar records the turn: the mic opens by itself as the turn
@@ -342,13 +345,86 @@ export interface TurnResult {
 }
 
 /**
+ * The learner's turns in one run, as they come in. `latest` is the turn
+ * recorded last (a retry re-records an earlier one), so a live view can open it.
+ */
+export function useTurnLog() {
+  const [results, setResults] = useState<Map<number, TurnResult>>(() => new Map());
+  const [latest, setLatest] = useState<number | null>(null);
+  const [finished, setFinished] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const fresh = useCallback(() => { setResults(new Map()); setLatest(null); setFinished(false); setHidden(false); }, []);
+  const record = useCallback((i: number, r: TurnResult) => { setResults((prev) => new Map(prev).set(i, r)); setLatest(i); }, []);
+  const finish = useCallback(() => setFinished(true), []);
+  const hide = useCallback(() => setHidden(true), []);
+  return { results, latest, finished, hidden, fresh, record, finish, hide };
+}
+export type TurnLog = ReturnType<typeof useTurnLog>;
+
+/**
+ * Role-play with a desktop drawer on the right: each turn's score and
+ * mistakes stay there as the script goes on (the turn bar's own result goes
+ * when the next line starts), and it becomes the summary once the run ends.
+ * Narrower screens get the summary inline, under the transcript, at the end.
+ */
+export function TurnLogLayout({ log, active, lines, matchScript, onReplay, children }: {
+  log: TurnLog;
+  /** Role-playing (not just listening) and a run is going. */
+  active: boolean;
+  lines: ScriptLine[];
+  matchScript: boolean;
+  onReplay: () => void;
+  children: React.ReactNode;
+}) {
+  const showDrawer = !log.hidden && (active || log.results.size > 0);
+  return (
+    <div className="xl:flex xl:items-start xl:gap-5">
+      <div className="flex-1 min-w-0">{children}</div>
+      {showDrawer && (
+        <aside className="hidden xl:block w-[340px] 2xl:w-[400px] shrink-0 sticky top-[calc(4.75rem+env(safe-area-inset-top))] max-h-[calc(100vh-6rem)] overflow-y-auto">
+          <TurnSummary
+            variant="drawer"
+            lines={lines}
+            results={log.results}
+            latest={log.latest}
+            finished={log.finished}
+            matchScript={matchScript}
+            onReplay={onReplay}
+            onClose={log.hide}
+          />
+        </aside>
+      )}
+    </div>
+  );
+}
+
+/** The end-of-run summary under the transcript, for screens without the drawer. */
+export function InlineTurnSummary({ log, lines, matchScript, onReplay }: {
+  log: TurnLog;
+  lines: ScriptLine[];
+  matchScript: boolean;
+  onReplay: () => void;
+}) {
+  if (!log.finished || log.hidden || !log.results.size) return null;
+  return (
+    <div className="xl:hidden">
+      <TurnSummary variant="inline" lines={lines} results={log.results} latest={log.latest} finished matchScript={matchScript} onReplay={onReplay} onClose={log.hide} />
+    </div>
+  );
+}
+
+/**
  * How each of the learner's turns went, after the run. Without an on-device
  * score, `matchScript` falls back to how many of the line's words were heard
  * — right for a line to repeat, meaningless for a free answer.
  */
-export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: {
+function TurnSummary({ variant, lines, results, latest, finished, matchScript, onReplay, onClose }: {
+  variant: 'drawer' | 'inline';
   lines: ScriptLine[];
   results: Map<number, TurnResult>;
+  latest: number | null;
+  /** The run is over — before that, the drawer fills in as you go. */
+  finished: boolean;
   matchScript: boolean;
   onReplay: () => void;
   onClose: () => void;
@@ -361,11 +437,15 @@ export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: 
   });
   const scored = rows.filter((x) => x.value !== null).map((x) => x.value as number);
   const avg = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
-  // Opens on the weakest line — the one worth another go.
+  // While the run goes, the newest turn is open; a finished summary opens on
+  // the weakest line — the one worth another go.
   const [open, setOpen] = useState<number | null>(() => {
+    if (!finished) return latest;
     const weakest = rows.filter((x) => x.value !== null).sort((a, b) => (a.value as number) - (b.value as number))[0];
     return weakest && (weakest.value as number) < 85 ? weakest.i : null;
   });
+  const [seen, setSeen] = useState(latest);
+  if (latest !== seen) { setSeen(latest); setOpen(latest); }
   // One playable URL per try, made and released by the same effect — so a
   // dev-mode remount can't leave the summary holding revoked ones.
   const [urls, setUrls] = useState<Map<number, string>>(() => new Map());
@@ -374,22 +454,27 @@ export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: 
     setUrls(made); // eslint-disable-line react-hooks/set-state-in-effect
     return () => made.forEach((u) => URL.revokeObjectURL(u));
   }, [results]);
-  // It appears as the run ends, wherever the transcript left the page.
+  // Inline, it appears as the run ends, wherever the transcript left the page.
   const ref = useRef<HTMLElement>(null);
-  useEffect(() => { ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, []);
+  useEffect(() => {
+    if (variant === 'inline') ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [variant]);
+  const drawer = variant === 'drawer';
 
   return (
-    <section ref={ref} className="mt-4 rounded-xl border border-accent-cyan/25 bg-bg-card p-4 animate-fade-in">
+    <section ref={ref} className={`rounded-xl border border-accent-cyan/25 bg-bg-card p-4 animate-fade-in ${drawer ? 'mt-3' : 'mt-4'}`}>
       <div className="flex items-center gap-3">
         <span className="w-9 h-9 rounded-full bg-accent-cyan/10 text-accent-cyan flex items-center justify-center shrink-0">
           <Icon icon="lucide:clipboard-check" width={17} />
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-text-primary"><FormattedMessage id="speaking.summaryTitle" /></p>
+          <p className="flex items-center gap-1.5 text-sm font-bold text-text-primary">
+            {!finished && <span className="w-2 h-2 rounded-full bg-accent-red animate-pulse" />}
+            <FormattedMessage id={finished ? 'speaking.summaryTitle' : 'speaking.summaryLiveTitle'} />
+          </p>
           <p className="text-xs text-text-muted">
             <FormattedMessage id="speaking.summaryCount" values={{ count: rows.length }} />
-            {' · '}
-            <FormattedMessage id="speaking.summaryTapHint" />
+            {rows.length > 0 && <>{' · '}<FormattedMessage id="speaking.summaryTapHint" /></>}
           </p>
         </div>
         {avg !== null && <span className={`text-2xl font-extrabold tabular-nums ${TEXT[tone(avg)]}`}>{avg}</span>}
@@ -402,42 +487,54 @@ export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: 
         </button>
       </div>
 
+      {!rows.length && (
+        <p className="mt-3 text-xs text-text-muted leading-relaxed"><FormattedMessage id="speaking.summaryEmpty" /></p>
+      )}
       <ul className="mt-3 divide-y divide-border">
         {rows.map(({ i, r, value, grade }) => {
           const expanded = open === i;
           const url = urls.get(i);
           return (
             <li key={i} className="py-2.5">
-              <div className="flex items-start gap-3">
-                <span className={`w-10 text-right text-sm font-bold tabular-nums shrink-0 mt-0.5 ${value === null ? 'text-text-muted' : TEXT[tone(value)]}`}>
+              <div className={`flex items-start ${drawer ? 'gap-2' : 'gap-3'}`}>
+                <span className={`${drawer ? 'w-7' : 'w-10'} text-right text-sm font-bold tabular-nums shrink-0 mt-0.5 ${value === null ? 'text-text-muted' : TEXT[tone(value)]}`}>
                   {value ?? '—'}
                 </span>
-                <button
-                  onClick={() => setOpen(expanded ? null : i)}
-                  aria-expanded={expanded}
-                  className="flex-1 min-w-0 text-left cursor-pointer group"
-                >
-                  <span className="block text-sm text-text-primary leading-snug group-hover:text-accent-cyan transition-colors">{lines[i].text}</span>
-                  <span className="block mt-0.5 text-xs text-text-muted italic leading-snug">
-                    {r.heard ? `“${r.heard}”` : intl.formatMessage({ id: 'conversation.recordNothingHeard' })}
-                  </span>
-                </button>
-                <span className="flex items-center gap-1 shrink-0">
-                  {url && <Playback url={url} />}
+                {/* In the narrow drawer the buttons go under the line, so the line keeps the width. */}
+                <div className={`flex-1 min-w-0 ${drawer ? '' : 'flex items-start gap-3'}`}>
                   <button
-                    onClick={() => speakText(lines[i].text, { voice: lines[i].voice }).catch(() => {})}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-text-muted hover:text-accent-cyan hover:bg-bg-hover/60 cursor-pointer"
-                    aria-label={intl.formatMessage({ id: 'speaking.listenLine' })}
-                    title={intl.formatMessage({ id: 'speaking.listenLine' })}
+                    onClick={() => setOpen(expanded ? null : i)}
+                    aria-expanded={expanded}
+                    className="w-full flex-1 min-w-0 text-left cursor-pointer group"
                   >
-                    <Icon icon="lucide:volume-2" width={14} />
+                    <span className="block text-sm text-text-primary leading-snug group-hover:text-accent-cyan transition-colors">{lines[i].text}</span>
+                    <span className="block mt-0.5 text-xs text-text-muted italic leading-snug">
+                      {r.heard ? `“${r.heard}”` : intl.formatMessage({ id: 'conversation.recordNothingHeard' })}
+                    </span>
                   </button>
-                  <Icon icon={expanded ? 'lucide:chevron-up' : 'lucide:chevron-down'} width={14} className="text-text-muted" />
-                </span>
+                  <span className={`flex items-center gap-1 shrink-0 ${drawer ? 'mt-1.5' : ''}`}>
+                    {url && <Playback url={url} />}
+                    <button
+                      onClick={() => speakText(lines[i].text, { voice: lines[i].voice }).catch(() => {})}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-text-muted hover:text-accent-cyan hover:bg-bg-hover/60 cursor-pointer"
+                      aria-label={intl.formatMessage({ id: 'speaking.listenLine' })}
+                      title={intl.formatMessage({ id: 'speaking.listenLine' })}
+                    >
+                      <Icon icon="lucide:volume-2" width={14} />
+                    </button>
+                    <button
+                      onClick={() => setOpen(expanded ? null : i)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
+                      aria-label={intl.formatMessage({ id: 'speaking.summaryTapHint' })}
+                    >
+                      <Icon icon={expanded ? 'lucide:chevron-up' : 'lucide:chevron-down'} width={14} />
+                    </button>
+                  </span>
+                </div>
               </div>
 
               {expanded && (
-                <div className="mt-2 ml-[3.25rem] rounded-xl border border-border bg-bg-tertiary/40 p-3 animate-fade-in">
+                <div className={`mt-2 ${drawer ? '' : 'ml-[3.25rem]'} rounded-xl border border-border bg-bg-tertiary/40 p-3 animate-fade-in`}>
                   {r.detail ? (
                     <SentenceScorePanel
                       state={{ status: 'done', result: r.detail }}
@@ -464,13 +561,63 @@ export function TurnSummary({ lines, results, matchScript, onReplay, onClose }: 
         })}
       </ul>
 
-      <button
+      {finished && rows.length > 0 && <button
         onClick={onReplay}
         className="mt-3 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-accent-cyan text-bg-primary hover:opacity-90 cursor-pointer"
       >
         <Icon icon="lucide:rotate-ccw" width={13} /> <FormattedMessage id="speaking.summaryAgain" />
-      </button>
+      </button>}
     </section>
+  );
+}
+
+/* ─── The script list, minimised ──────────────────────────────── */
+/** Desktop only: one icon per script — ticked once practised — and the way back to the full list. */
+export function ListRail({ items, onExpand, onSelect }: {
+  items: { id: string; title: string; done: boolean; active: boolean }[];
+  onExpand: () => void;
+  onSelect: (id: string) => void;
+}) {
+  const intl = useIntl();
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <button
+        onClick={onExpand}
+        className="w-9 h-9 mb-1 rounded-lg flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
+        aria-label={intl.formatMessage({ id: 'speaking.listExpand' })}
+        title={intl.formatMessage({ id: 'speaking.listExpand' })}
+      >
+        <Icon icon="lucide:panel-left-open" width={18} />
+      </button>
+      {items.map((it) => (
+        <button
+          key={it.id}
+          onClick={() => onSelect(it.id)}
+          aria-current={it.active ? 'true' : undefined}
+          title={it.title}
+          aria-label={it.title}
+          className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center border transition-colors cursor-pointer ${
+            it.done ? 'bg-accent-green text-bg-primary border-accent-green' : it.active ? 'border-accent-cyan/60 text-accent-cyan bg-accent-cyan/10' : 'border-border text-text-muted hover:text-text-secondary'
+          } ${it.active ? 'ring-2 ring-accent-cyan/50' : ''}`}
+        >
+          <Icon icon={it.done ? 'lucide:check' : 'lucide:messages-square'} width={13} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The full list's "minimise" control. */
+export function ListCollapseButton({ onCollapse }: { onCollapse: () => void }) {
+  const intl = useIntl();
+  return (
+    <button
+      onClick={onCollapse}
+      className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold text-text-muted hover:text-text-primary hover:bg-bg-hover/60 cursor-pointer"
+      title={intl.formatMessage({ id: 'speaking.listCollapse' })}
+    >
+      <Icon icon="lucide:panel-left-close" width={15} /> <FormattedMessage id="speaking.listCollapse" />
+    </button>
   );
 }
 

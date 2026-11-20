@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ieltsConversations, ieltsTopics, type IeltsConversation } from '../data/englishIelts';
 import { useSpeakingProgress, isPracticed } from '../hooks/useSpeakingProgress';
 import { PracticeButton } from './PracticeButton';
-import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnSummary, useShadowing, useHandsFree, type TurnResult } from './scriptPractice';
+import { PlayerBar, Transcript, YourTurnBar, ProgressCard, PracticedButton, PhraseChips, TurnLogLayout, InlineTurnSummary, useTurnLog, useShadowing, useHandsFree, useListOpen, ListRail, ListCollapseButton } from './scriptPractice';
 import { useScriptPlayer, type Mode, type ScriptLine } from '../hooks/useScriptPlayer';
 import { IELTS_TURN_SECONDS, parseCueCard } from '../lib/speakingRules';
 
@@ -207,18 +207,17 @@ function ConversationView({ conv, onBack, onNext }: {
     [conv],
   );
 
-  // Each of the learner's turns this run, for the summary at its end.
-  const results = useRef(new Map<number, TurnResult>());
-  const [summary, setSummary] = useState<Map<number, TurnResult> | null>(null);
+  // Each of the learner's turns this run — a drawer as it goes, a summary at its end.
+  const log = useTurnLog();
+  const { fresh: freshRun, record, finish: endRun } = log;
   const [handsFree, setHandsFree] = useHandsFree();
-  const freshRun = () => { results.current = new Map(); setSummary(null); };
 
   const finish = useCallback(() => {
     if (mode === 'listen') return;
-    if (results.current.size) setSummary(new Map(results.current));
+    endRun();
     markPracticed(conv.id);
     toast.success(intl.formatMessage({ id: 'speaking.ieltsMockComplete' }));
-  }, [mode, conv.id, markPracticed, intl]);
+  }, [mode, conv.id, markPracticed, intl, endRun]);
 
   const [shadow, setShadow] = useShadowing();
   const player = useScriptPlayer(lines, mode === 'listen' ? null : mode, finish, shadow);
@@ -253,8 +252,11 @@ function ConversationView({ conv, onBack, onNext }: {
     );
   }, [conv.part]);
 
+  const replay = () => { freshRun(); setRevealed(new Set()); void player.playFrom(0); };
+
   return (
-    <article className="min-w-0">
+    <article className="min-w-0" data-wide={mode !== 'listen' || undefined}>
+      <TurnLogLayout log={log} active={mode !== 'listen' && player.running} lines={lines} matchScript={shadow} onReplay={replay}>
       <button
         onClick={onBack}
         className="lg:hidden flex items-center gap-1 mb-3 text-xs font-semibold text-text-muted hover:text-text-primary cursor-pointer"
@@ -334,22 +336,14 @@ function ConversationView({ conv, onBack, onNext }: {
           onAnswered={() => reveal(player.index)}
           scripted={shadow}
           handsFree={handsFree}
-          onResult={(r) => results.current.set(player.index, r)}
+          onResult={(r) => record(player.index, r)}
           silence={shadow ? undefined : ANSWER_SILENCE}
         >
           <TurnTimer part={conv.part} />
         </YourTurnBar>
       )}
 
-      {summary && (
-        <TurnSummary
-          lines={lines}
-          results={summary}
-          matchScript={shadow}
-          onReplay={() => { freshRun(); setRevealed(new Set()); void player.playFrom(0); }}
-          onClose={() => setSummary(null)}
-        />
-      )}
+      <InlineTurnSummary log={log} lines={lines} matchScript={shadow} onReplay={replay} />
 
       {/* Tips + phrases */}
       {(conv.tips?.length || conv.keyPhrases?.length) ? (
@@ -388,6 +382,7 @@ function ConversationView({ conv, onBack, onNext }: {
           <FormattedMessage id="speaking.nextConversation" /> <Icon icon="lucide:arrow-right" width={14} />
         </button>
       </div>
+      </TurnLogLayout>
     </article>
   );
 }
@@ -404,6 +399,7 @@ export function IeltsSpeakingTab() {
   );
   // Mobile shows the list or the conversation, not both; desktop ignores this.
   const [reading, setReading] = useState(false);
+  const [listOpen, setListOpen] = useListOpen();
 
   const visible = useMemo(
     () => ieltsConversations.filter((c) => (part === 'all' || c.part === part) && (topic === 'all' || c.topic === topic)),
@@ -437,8 +433,21 @@ export function IeltsSpeakingTab() {
   }, [visible, activeId, progress, select]);
 
   return (
-    <div className="lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6">
-      <aside className={`${reading ? 'hidden lg:block' : ''} lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1 space-y-4`}>
+    <div className={`lg:grid ${listOpen ? 'lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6' : 'lg:grid-cols-[40px_minmax(0,1fr)] lg:gap-4'}`}>
+      {/* Minimised on a desktop: a rail of conversations, so the conversation gets the room. */}
+      {!listOpen && (
+        <aside className="hidden lg:block lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [scrollbar-width:none]">
+          <ListRail
+            items={visible.map((c) => ({ id: c.id, title: `${c.part} · ${shortTitle(c)}`, done: isPracticed(progress[c.id]), active: c.id === activeId }))}
+            onExpand={() => setListOpen(true)}
+            onSelect={select}
+          />
+        </aside>
+      )}
+      <aside className={`${reading ? 'hidden lg:block' : ''} ${listOpen ? '' : 'lg:hidden'} lg:sticky lg:top-[calc(4.75rem+env(safe-area-inset-top))] lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-1 space-y-4`}>
+        <div className="hidden lg:flex justify-end -mb-2">
+          <ListCollapseButton onCollapse={() => setListOpen(false)} />
+        </div>
         <ProgressCard done={practiced} total={ieltsConversations.length}>
           {/* Doubles as the part filter — tap a part to narrow the list. */}
           <div className="mt-3 space-y-1">
