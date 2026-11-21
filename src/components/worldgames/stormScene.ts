@@ -38,13 +38,14 @@ export interface SceneFrame {
   kites: { slot: number; x: number; y: number; color: string; tilt: number; hidden: boolean; shield: number }[];
 }
 
-/** How far below the field the city is. */
-const GROUND = -170;
 const CHUNK = 320;
 const CHUNKS = 7;
 /** How fast the city goes by underneath. */
 const SPEED = 24;
-const RIVER = 230;
+/** The river's width on the ground. The city sits as far below the field as
+ *  makes this, seen from the camera, exactly the field's width — so the
+ *  river's banks are the edges of where you can fly (see `fit`). */
+const RIVER = 360;
 /** How far the camera leans back from straight down, and its lens. */
 const TILT = (54 * Math.PI) / 180;
 const FOV = 34;
@@ -499,7 +500,6 @@ export class StormScene {
       lamp: new THREE.MeshBasicMaterial({ color: '#ffd28a' }),
       glow: this.tex,
     };
-    this.city.position.y = GROUND;
     this.scene.add(this.city);
     const order = [1, 0, 3, 2, 1, 4, 5];
     for (let i = 0; i < CHUNKS; i++) {
@@ -589,6 +589,13 @@ export class StormScene {
       this.aim.z -= ((top + bottom) / 2) * (H / Math.max(0.01, top - bottom));
     }
     place(dist);
+    // A sight line from the camera (straight above the river's middle)
+    // through the field's edge reaches the ground (RIVER/W) times as far
+    // from the middle when the ground is this deep: the banks line up with
+    // the field's edges all the way up the screen.
+    this.city.position.y = -this.eye.y * (RIVER / W - 1);
+    // The mist drifts between the field and the city, wherever that now is.
+    this.mist.forEach((m, i) => { m.position.y = this.city.position.y * (0.35 + (i % 3) * 0.15); });
     const fog = this.scene.fog as THREE.Fog;
     fog.near = dist + 150;
     fog.far = dist + 1500;
@@ -628,8 +635,9 @@ export class StormScene {
     const pts: THREE.Vector3[] = [];
     let x = (Math.random() - 0.5) * 900, y = 120;
     const z = -H / 2 - 160 - Math.random() * 400;
-    while (y > GROUND) { pts.push(new THREE.Vector3(x, y, z)); x += (Math.random() - 0.5) * 50; y -= 18 + Math.random() * 22; }
-    pts.push(new THREE.Vector3(x, GROUND, z));
+    const ground = this.city.position.y;
+    while (y > ground) { pts.push(new THREE.Vector3(x, y, z)); x += (Math.random() - 0.5) * 50; y -= 18 + Math.random() * 22; }
+    pts.push(new THREE.Vector3(x, ground, z));
     this.bolt.geometry.dispose();
     this.bolt.geometry = new THREE.BufferGeometry().setFromPoints(pts);
   }
@@ -653,7 +661,7 @@ export class StormScene {
       const fall = 320 * dt;
       p[i * 6 + 1] -= fall; p[i * 6 + 4] -= fall;
       p[i * 6 + 2] += fall * 0.25; p[i * 6 + 5] += fall * 0.25;
-      if (p[i * 6 + 1] < GROUND) this.dropAt(i, 200);
+      if (p[i * 6 + 1] < this.city.position.y) this.dropAt(i, 200);
     }
     (this.rain.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
 
