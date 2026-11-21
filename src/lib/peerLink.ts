@@ -1,4 +1,5 @@
 import type { MatchLink } from './worldLive';
+import { currentIceServers, prefetchIceServers } from './turnApi';
 
 // A direct line between the two players of a match, for the action games —
 // WebRTC data channels straight between the two browsers, with the match's
@@ -24,8 +25,10 @@ import type { MatchLink } from './worldLive';
 // the direct line: a game pauses while `state` isn't 'direct', and 'failed'
 // says plainly that these two networks can't reach each other (it keeps
 // trying regardless — a phone moving onto Wi-Fi may well get through).
-// The match link still carries the setup itself. A TURN server
-// (VITE_TURN_URL) is what gets the stubborn networks through.
+// The match link still carries the setup itself. A TURN relay (the `turn`
+// resource) is what gets the stubborn networks through — two phones on
+// carrier-grade NAT. It's fetched when the link opens; if it isn't back for
+// the first offer, the re-offers carry it.
 
 export type PeerState = 'connecting' | 'direct' | 'failed';
 export type PeerData = Record<string, unknown>;
@@ -41,15 +44,6 @@ const DIRECT_WAIT_MS = 12000;
 
 /** `id` ties an answer to its offer: one that comes back after the host has offered again is for a connection that's gone. */
 type Signal = { kind: 'p2p'; type: 'offer' | 'answer'; sdp: string; id: number } | { kind: 'p2pHello' };
-
-function iceServers(): RTCIceServer[] {
-  const servers: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
-  const env = import.meta.env;
-  if (env.VITE_TURN_URL) {
-    servers.push({ urls: String(env.VITE_TURN_URL).split(','), username: env.VITE_TURN_USERNAME, credential: env.VITE_TURN_CREDENTIAL });
-  }
-  return servers;
-}
 
 /** Resolves once the connection knows its addresses — or enough of them — so one message holds the whole description. */
 const gathered = (pc: RTCPeerConnection) =>
@@ -90,6 +84,7 @@ export class PeerLink {
   constructor(private link: MatchLink) {
     this.offLink = link.listen((d) => this.fromLink(d));
     if (typeof RTCPeerConnection === 'undefined') { this.state = 'failed'; return; }
+    void prefetchIceServers();
     this.reconnect();
   }
 
@@ -186,7 +181,7 @@ export class PeerLink {
   /** A fresh connection with both channels on their agreed ids. */
   private connect(): RTCPeerConnection {
     this.drop();
-    const pc = new RTCPeerConnection({ iceServers: iceServers() });
+    const pc = new RTCPeerConnection({ iceServers: currentIceServers() });
     const fast = pc.createDataChannel('fast', { negotiated: true, id: 0, ordered: false, maxRetransmits: 0 });
     const sure = pc.createDataChannel('sure', { negotiated: true, id: 1, ordered: true });
     const read = (e: MessageEvent) => {

@@ -8,8 +8,10 @@
 // about ten messages a second, and a burst of candidates would be dropped.
 //
 // STUN finds a direct route for most connections. Some networks (strict
-// wifi, some mobile carriers) need a TURN relay; set VITE_TURN_URL (with
-// VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL) to add one.
+// wifi, carrier-grade NAT on mobile data) need a TURN relay, which the
+// `turn` resource hands out (see turnApi).
+
+import { getIceServers } from './turnApi';
 
 export type CallState = 'mic' | 'connecting' | 'connected' | 'failed' | 'micDenied' | 'ended';
 
@@ -17,15 +19,6 @@ export type CallState = 'mic' | 'connecting' | 'connected' | 'failed' | 'micDeni
 export type Signal = { kind: 'rtc'; type: 'offer' | 'answer'; sdp: string };
 
 const GATHER_MS = 2500;
-
-function iceServers(): RTCIceServer[] {
-  const servers: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
-  const env = import.meta.env;
-  if (env.VITE_TURN_URL) {
-    servers.push({ urls: String(env.VITE_TURN_URL).split(','), username: env.VITE_TURN_USERNAME, credential: env.VITE_TURN_CREDENTIAL });
-  }
-  return servers;
-}
 
 export const isSignal = (d: Record<string, unknown>): d is Signal =>
   d.kind === 'rtc' && (d.type === 'offer' || d.type === 'answer') && typeof d.sdp === 'string' && d.sdp.length < 20000;
@@ -61,8 +54,9 @@ export class VoiceCall {
       this.set('micDenied');
       return;
     }
+    const iceServers = await getIceServers();
     if (this.closed) { this.stopMic(); return; }
-    const pc = new RTCPeerConnection({ iceServers: iceServers() });
+    const pc = new RTCPeerConnection({ iceServers });
     this.pc = pc;
     for (const t of this.mic.getTracks()) pc.addTrack(t, this.mic);
     pc.ontrack = (e) => {

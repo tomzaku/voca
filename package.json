@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.282",
+  "version": "0.1.283",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -26,6 +26,7 @@
     "deploy:progress": "supabase functions deploy progress",
     "deploy:plan": "supabase functions deploy plan settings && supabase functions deploy notify --no-verify-jwt",
     "deploy:captions": "supabase functions deploy captions",
+    "deploy:turn": "supabase functions deploy turn",
     "deploy:grammar": "supabase functions deploy grammar",
     "deploy:messages": "supabase functions deploy messages",
     "deploy:teams": "supabase functions deploy teams",

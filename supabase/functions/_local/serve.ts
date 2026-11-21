@@ -46,6 +46,7 @@ import speaking from '../speaking/index.ts';
 import speech from '../speech/index.ts';
 import storyGaps from '../story-gaps/index.ts';
 import streak from '../streak/index.ts';
+import turn from '../turn/index.ts';
 import teams from '../teams/index.ts';
 import tests from '../tests/index.ts';
 import word from '../word/index.ts';
@@ -89,6 +90,7 @@ const RESOURCES: Record<string, Handler> = {
   speech,
   'story-gaps': storyGaps,
   streak,
+  turn,
   teams,
   tests,
   word,
