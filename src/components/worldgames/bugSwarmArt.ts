@@ -98,50 +98,55 @@ export function drawShot(c: C, kind: ShotKind, x: number, y: number, vx: number,
   c.globalCompositeOperation = 'source-over';
 }
 
-/** What the storm throws down: `larva` a raindrop, `orb` a ball of river
- *  water, `sting` a lightning bolt, `blade` a gust of wind, spinning. */
-export function drawBomb(c: C, x: number, y: number, t: number, id: number, kind: BombKind = 'larva') {
-  const pulse = 0.8 + Math.sin(t * 10 + id) * 0.2;
-  if (kind === 'orb') {
-    c.globalCompositeOperation = 'lighter';
-    drawGlow(c, x, y, 7.5 * pulse, '#2aa8ff', 0.7);
-    c.globalCompositeOperation = 'source-over';
-    const g = c.createRadialGradient(x - 1, y - 1, 0.2, x, y, 3.4);
-    g.addColorStop(0, '#e8fbff'); g.addColorStop(0.45, '#4cc4ff'); g.addColorStop(1, '#0a3a7a');
-    c.fillStyle = g; ellipse(c, x, y, 3.4, 3.4); c.fill();
-    c.strokeStyle = 'rgba(220,250,255,0.7)'; c.lineWidth = 0.5;
-    c.beginPath(); c.arc(x, y, 2.2, t * 6 + id, t * 6 + id + 2); c.stroke();
-    return;
-  }
+/** What the storm throws down. Every one is hot — red, orange, yellow —
+ *  against the night's blues, with a dark rim and a white-hot core, and a
+ *  streak showing which way it's going: the one thing on screen you must
+ *  never lose sight of. `larva` an ember, `orb` a fireball, `sting` a
+ *  lightning bolt, `blade` a spinning gust. */
+export function drawBomb(c: C, x: number, y: number, t: number, id: number, kind: BombKind = 'larva', vx = 0, vy = 1) {
+  const pulse = 0.85 + Math.sin(t * 12 + id) * 0.15;
+  const hot = { larva: '#ff2a5a', orb: '#ff5a1a', sting: '#ffc21a', blade: '#ff4ad0' }[kind];
+  // The streak behind it.
+  const sp = Math.hypot(vx, vy) || 1;
+  c.globalCompositeOperation = 'lighter';
+  const tail = c.createLinearGradient(x, y, x - (vx / sp) * 12, y - (vy / sp) * 12);
+  tail.addColorStop(0, hot); tail.addColorStop(1, 'rgba(0,0,0,0)');
+  c.strokeStyle = tail; c.lineWidth = kind === 'orb' ? 4 : 3; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(x, y); c.lineTo(x - (vx / sp) * 12, y - (vy / sp) * 12); c.stroke();
+  drawGlow(c, x, y, (kind === 'orb' ? 12 : 9) * pulse, hot, 0.75);
+  c.globalCompositeOperation = 'source-over';
+  const rim = '#2a0010';
   if (kind === 'sting') {
-    c.globalCompositeOperation = 'lighter';
-    drawGlow(c, x, y, 7 * pulse, '#ffe066', 0.6);
-    c.strokeStyle = '#fffbe0'; c.lineWidth = 1.1; c.lineJoin = 'round'; c.lineCap = 'round';
     const j = Math.floor(t * 20 + id) % 2 ? 1 : -1;
-    c.beginPath(); c.moveTo(x - 0.6 * j, y - 5); c.lineTo(x + 1.4 * j, y - 1.2); c.lineTo(x - 1.2 * j, y + 0.6); c.lineTo(x + 0.6 * j, y + 5); c.stroke();
-    c.globalCompositeOperation = 'source-over';
+    const path = () => { c.beginPath(); c.moveTo(x - 1 * j, y - 6); c.lineTo(x + 2.4 * j, y - 1.4); c.lineTo(x - 1.6 * j, y + 0.6); c.lineTo(x + 1 * j, y + 6.5); };
+    c.lineJoin = 'round';
+    path(); c.strokeStyle = rim; c.lineWidth = 3.6; c.stroke();
+    path(); c.strokeStyle = hot; c.lineWidth = 2.2; c.stroke();
+    path(); c.strokeStyle = '#fffbe0'; c.lineWidth = 0.9; c.stroke();
     return;
   }
   if (kind === 'blade') {
-    c.globalCompositeOperation = 'lighter';
-    drawGlow(c, x, y, 6 * pulse, '#7dffe0', 0.5);
-    c.save(); c.translate(x, y); c.rotate(t * 14);
-    c.strokeStyle = 'rgba(220,255,248,0.9)'; c.lineWidth = 0.9; c.lineCap = 'round';
-    for (let k = 0; k < 2; k++) { c.rotate(Math.PI); c.beginPath(); c.arc(0, 0, 3.6, 0, 1.9); c.stroke(); }
+    c.save(); c.translate(x, y); c.rotate(t * 14 + id);
+    for (let k = 0; k < 2; k++) {
+      c.rotate(Math.PI);
+      c.beginPath(); c.arc(0, 0, 4.2, 0, 2); c.strokeStyle = rim; c.lineWidth = 3.4; c.stroke();
+      c.beginPath(); c.arc(0, 0, 4.2, 0, 2); c.strokeStyle = hot; c.lineWidth = 2; c.stroke();
+    }
+    c.beginPath(); c.arc(0, 0, 1.6, 0, Math.PI * 2); c.fillStyle = '#fff0fa'; c.fill();
     c.restore();
-    c.globalCompositeOperation = 'source-over';
     return;
   }
-  // A raindrop, fat and falling, with a streak behind it.
-  c.globalCompositeOperation = 'lighter';
-  drawGlow(c, x, y, 5.5 * pulse, '#4cc4ff', 0.5);
-  c.strokeStyle = 'rgba(150,220,255,0.35)'; c.lineWidth = 1.2; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(x, y - 9); c.lineTo(x, y - 3); c.stroke();
-  c.globalCompositeOperation = 'source-over';
-  const g = c.createRadialGradient(x - 0.8, y, 0.2, x, y + 0.5, 3);
-  g.addColorStop(0, '#f0fbff'); g.addColorStop(0.5, '#62c8ff'); g.addColorStop(1, '#1a5aa8');
-  c.fillStyle = g;
-  c.beginPath(); c.moveTo(x, y - 4); c.quadraticCurveTo(x + 2.8, y + 0.2, x + 2.2, y + 2); c.quadraticCurveTo(x, y + 3.8, x - 2.2, y + 2); c.quadraticCurveTo(x - 2.8, y + 0.2, x, y - 4); c.fill();
+  // A ball of fire: dark rim, hot body, white core.
+  const r = kind === 'orb' ? 4.6 : 3.4;
+  c.beginPath(); c.arc(x, y, r + 0.9, 0, Math.PI * 2); c.fillStyle = rim; c.fill();
+  const g = c.createRadialGradient(x - r * 0.25, y - r * 0.25, 0.2, x, y, r);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, '#fff0c8'); g.addColorStop(0.75, hot); g.addColorStop(1, hot);
+  c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fillStyle = g; c.fill();
+  if (kind === 'orb') {
+    c.strokeStyle = 'rgba(255,240,200,0.85)'; c.lineWidth = 0.7;
+    c.beginPath(); c.arc(x, y, r + 2.4, t * 8 + id, t * 8 + id + 1.8); c.stroke();
+    c.beginPath(); c.arc(x, y, r + 2.4, t * 8 + id + Math.PI, t * 8 + id + Math.PI + 1.8); c.stroke();
+  }
 }
 
 export const DROP_COLOR: Record<DropKind, string> = { time: '#7aa2ff', nova: '#9be7ff', gun: '#ff9f1c', shield: '#4cc9f0', life: '#ff4d6d', blaster: '#2fd38a', laser: '#c77dff', rockets: '#ff5d8f', scatter: '#ffd166' };

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BUG_SIZE, H, SHIP_H, SHIP_W, W, isBoss, type BugKind, type DropKind } from '../../lib/bugSwarm';
 import { DROP_COLOR } from './bugSwarmArt';
+import { spiritArt } from './stormSprites';
 
 // Storm over Huế, in 3D: the game's own flat field (lib/bugSwarm's W×H) laid
 // out over Huế on a stormy night and seen from a camera leaning back, so the
@@ -10,8 +11,10 @@ import { DROP_COLOR } from './bugSwarmArt';
 // on the water. Above the field's far edge sits the storm the spirits pour
 // out of, lit from inside by lightning.
 //
-// This draws the things with bodies — the players' phoenix kites, the storm
-// spirits, the lanterns they drop. Bullets, sparks and scores are drawn flat
+// This draws the things in the sky — the players' phoenix kites and the
+// lanterns the spirits drop as 3D models; the storm spirits themselves as
+// painted characters on billboards (stormSprites), which read far better
+// than primitives at their size. Bullets, sparks and scores are drawn flat
 // over it (bugSwarmArt), placed with `local` so they sit where the camera
 // puts that point. The rules don't know any of this: a spirit is still a
 // "bug" to them, and the field is still flat.
@@ -298,23 +301,20 @@ function flagTower(k: Kit, x: number, z: number) {
 
 // ── Things with bodies ─────────────────────────────────────────────────────
 
-/** A spirit, kite or lantern: its model, the materials that flash when hit,
- *  and what it does on its own each frame (flap, swirl, coil). */
+/** A kite or lantern: its model, and what it does on its own each frame. */
 interface Body {
   root: THREE.Group;
-  /** What turns and squashes (the root carries the position). */
+  /** What turns and leans (the root carries the position). */
   pivot: THREE.Group;
-  mats: { m: THREE.MeshStandardMaterial; base: THREE.Color; gi: number }[];
   tick?: (t: number) => void;
 }
 
+/** `keep` is where each material is handed in — one place to hook them all. */
 function body(add: (pivot: THREE.Group, keep: (m: THREE.MeshStandardMaterial) => THREE.MeshStandardMaterial) => ((t: number) => void) | void): Body {
   const root = new THREE.Group(), pivot = new THREE.Group();
   root.add(pivot);
-  const mats: Body['mats'] = [];
-  const keep = (m: THREE.MeshStandardMaterial) => { mats.push({ m, base: m.emissive.clone(), gi: m.emissiveIntensity }); return m; };
-  const tick = add(pivot, keep) ?? undefined;
-  return { root, pivot, mats, tick };
+  const tick = add(pivot, (m) => m) ?? undefined;
+  return { root, pivot, tick };
 }
 
 const mesh = (geo: THREE.BufferGeometry, m: THREE.Material, x = 0, y = 0, z = 0) => {
@@ -329,187 +329,27 @@ function halo(tex: THREE.Texture, color: string, size: number, opacity = 0.55) {
   return s;
 }
 
-/** Two glowing eyes on the front (+z) of a thing. */
-function eyes(p: THREE.Group, keep: (m: THREE.MeshStandardMaterial) => THREE.MeshStandardMaterial, color: string, x: number, y: number, z: number, r: number) {
-  const m = keep(lit(color, { glow: color, gi: 2.2, flat: false }));
-  const g = new THREE.SphereGeometry(r, 8, 6);
-  for (const s of [-1, 1]) p.add(mesh(g, m, s * x, y, z));
-}
+/** The glow round each spirit, in its own colour: so it stands off the river. */
+const AURA: Record<BugKind, string> = {
+  beetle: '#b48aff', moth: '#7dffe0', wasp: '#ffb800', firefly: '#8dff5a', shell: '#8fd8ff', golden: '#ffd23f',
+  splitter: '#4cc4ff', mite: '#4cc4ff', queen: '#a040ff', mantis: '#40ff90', spider: '#ff2a5a', hornet: '#ff9020',
+};
 
-/** A storm cloud with eyes — the rank and file. */
-function stormCloud(tex: THREE.Texture, big: boolean) {
-  return body((p, keep) => {
-    const m = keep(lit(big ? '#7a64b0' : '#a8a4e0', { glow: big ? '#3a1a7a' : '#3a3480', gi: 0.9 }));
-    const puffs: THREE.Mesh[] = [];
-    const n = big ? 11 : 5, spread = big ? 18 : 5, rad = big ? 10 : 4.2;
-    const g = new THREE.IcosahedronGeometry(1, 1);
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const pf = mesh(g, m, Math.cos(a) * spread * (i % 2 ? 1 : 0.55), (i % 3) * (big ? 3 : 1.2), Math.sin(a) * spread * 0.6);
-      pf.scale.setScalar(rad * (0.75 + (i % 3) * 0.15));
-      p.add(pf); puffs.push(pf);
-    }
-    eyes(p, keep, big ? '#ff6ad5' : '#ffe066', big ? 7 : 2.2, big ? 6 : 2.6, big ? 14 : 4.2, big ? 2.6 : 0.9);
-    if (!big) p.add(halo(tex, '#b48aff', 26, 0.3));
-    if (big) {
-      // Her crown: spikes of lightning.
-      const bolt = keep(lit('#ffe066', { glow: '#ffd23f', gi: 2 }));
-      const cone = new THREE.ConeGeometry(2, 14, 4);
-      for (let i = 0; i < 5; i++) { const c = mesh(cone, bolt, (i - 2) * 7, 18, -4); c.rotation.z = (i - 2) * -0.25; p.add(c); }
-      p.add(halo(tex, '#a040ff', 110, 0.35));
-    }
-    return (t) => puffs.forEach((pf, i) => pf.scale.setScalar(rad * (0.75 + (i % 3) * 0.15) * (1 + Math.sin(t * 3 + i) * 0.07)));
-  });
-}
+/** A spirit: its painting (stormSprites) on a billboard, a white copy over
+ *  it for the flash of a hit, and its glow behind. */
+interface Spirit { root: THREE.Group; art: THREE.Sprite; white: THREE.Sprite; aura: THREE.Sprite; key: string; size: number }
 
-/** A wind wraith: a pale ghost trailing a tail, with fluttering wings. */
-function wraith() {
-  return body((p, keep) => {
-    const m = keep(lit('#d8fff6', { glow: '#5fe0d0', gi: 0.7, opacity: 0.88 }));
-    const head = mesh(new THREE.SphereGeometry(4, 10, 8), m, 0, 0, 2); p.add(head);
-    const tail = mesh(new THREE.ConeGeometry(3.6, 10, 8), m, 0, 0, -5); tail.rotation.x = -Math.PI / 2; p.add(tail);
-    const wingM = keep(lit('#b8fff0', { glow: '#7dffe0', gi: 0.6, opacity: 0.6 }));
-    wingM.side = THREE.DoubleSide;
-    const wg = new THREE.PlaneGeometry(9, 5);
-    wg.translate(4.5, 0, 0);
-    const wings = [-1, 1].map((s) => { const w = mesh(wg, wingM, s * 2, 1, 0); w.rotation.set(-Math.PI / 2, s < 0 ? Math.PI : 0, 0); p.add(w); return w; });
-    eyes(p, keep, '#ff4d6d', 1.5, 1.5, 5.6, 0.8);
-    return (t) => wings.forEach((w, i) => { w.rotation.x = -Math.PI / 2 + Math.sin(t * 14 + i * Math.PI) * 0.6; });
-  });
-}
-
-/** A thunder imp: a crackling yellow spike-ball. */
-function imp(tex: THREE.Texture) {
-  return body((p, keep) => {
-    const m = keep(lit('#ffd23f', { glow: '#ffae00', gi: 0.9 }));
-    const core = mesh(new THREE.OctahedronGeometry(4.6), m); p.add(core);
-    const spike = new THREE.ConeGeometry(1.1, 5, 4);
-    const spikes = new THREE.Group();
-    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; const s = mesh(spike, m, Math.cos(a) * 5, 0, Math.sin(a) * 5); s.lookAt(Math.cos(a) * 10, 0, Math.sin(a) * 10); s.rotateX(Math.PI / 2); spikes.add(s); }
-    p.add(spikes);
-    eyes(p, keep, '#ff3b3b', 1.6, 2, 3.6, 0.9);
-    p.add(halo(tex, '#ffd23f', 22, 0.4));
-    return (t) => { spikes.rotation.y = t * 4; };
-  });
-}
-
-/** Ma trơi, a will-o'-the-wisp: a green flame with no body at all. */
-function wisp(tex: THREE.Texture) {
-  return body((p, keep) => {
-    const m = keep(lit('#c8ff9a', { glow: '#7dff5a', gi: 2, flat: false }));
-    p.add(mesh(new THREE.SphereGeometry(3, 12, 10), m));
-    const h = halo(tex, '#9dff5a', 30, 0.75); p.add(h);
-    return (t) => { h.material.opacity = 0.55 + Math.sin(t * 17) * 0.15 + Math.sin(t * 5.3) * 0.1; };
-  });
-}
-
-/** A hailstone: a tumbling block of ice, hard to break. */
-function hail() {
-  return body((p, keep) => {
-    const m = keep(lit('#cfeeff', { glow: '#3a6a9a', gi: 0.5, opacity: 0.92, rough: 0.2, metal: 0.1 }));
-    const ice = mesh(new THREE.IcosahedronGeometry(7, 0), m); p.add(ice);
-    eyes(p, keep, '#5fd0ff', 2.2, 2.6, 5.6, 1);
-    return (t) => { ice.rotation.set(t * 0.8, t * 0.5, 0); };
-  });
-}
-
-/** The golden carp, a lucky fish that swims the sky now and then. */
-function carp(tex: THREE.Texture) {
-  return body((p, keep) => {
-    const m = keep(lit('#ffcc33', { glow: '#aa7700', gi: 0.7, metal: 0.8, rough: 0.3, flat: false }));
-    const fish = mesh(new THREE.SphereGeometry(1, 14, 10), m); fish.scale.set(3.6, 3, 7.5); p.add(fish);
-    const fin = new THREE.Shape(); fin.moveTo(0, 0); fin.lineTo(-5, -7); fin.lineTo(5, -7); fin.closePath();
-    const fm = keep(lit('#ff9f1c', { glow: '#ff7a00', gi: 0.8, opacity: 0.9 })); fm.side = THREE.DoubleSide;
-    const tail = mesh(new THREE.ShapeGeometry(fin), fm, 0, 0, -6); tail.rotation.x = -Math.PI / 2; p.add(tail);
-    eyes(p, keep, '#1a1030', 2.4, 1.6, 5.5, 0.8);
-    p.add(halo(tex, '#ffd23f', 34, 0.55));
-    return (t) => { tail.rotation.z = Math.sin(t * 12) * 0.5; };
-  });
-}
-
-/** A rain jelly: a wobbling drop that bursts into droplets. Droplets too. */
-function drop(tex: THREE.Texture, small: boolean) {
-  return body((p, keep) => {
-    const m = keep(lit('#6cc8ff', { glow: '#1a5aa8', gi: 0.9, opacity: 0.8, flat: false, rough: 0.15 }));
-    const r = small ? 3.2 : 5.6;
-    const blob = mesh(new THREE.SphereGeometry(r, 14, 10), m); p.add(blob);
-    const tip = mesh(new THREE.ConeGeometry(r * 0.7, r * 1.4, 12), m, 0, 0, -r * 0.9); tip.rotation.x = -Math.PI / 2; p.add(tip);
-    if (!small) p.add(mesh(new THREE.SphereGeometry(2.2, 10, 8), keep(lit('#e8fbff', { glow: '#9be7ff', gi: 1.4, flat: false })), 0, 0.5, 0.5));
-    eyes(p, keep, '#ffffff', r * 0.35, r * 0.4, r * 0.8, small ? 0.55 : 0.8);
-    p.add(halo(tex, '#4cc4ff', r * 4, 0.35));
-    return (t) => { blob.scale.set(1 + Math.sin(t * 7) * 0.06, 1, 1 - Math.sin(t * 7) * 0.06); };
-  });
-}
-
-/** The typhoon's eye: three rings of wind turning round a green eye. */
-function typhoon(tex: THREE.Texture) {
-  return body((p, keep) => {
-    const rings = [24, 17, 10].map((r, i) => {
-      const m = keep(lit(['#5a7a8a', '#7aa0aa', '#a8d0d0'][i], { glow: '#1a4a4a', gi: 0.6, opacity: 0.85 }));
-      const ring = mesh(new THREE.TorusGeometry(r, 2.6 - i * 0.5, 6, 28), m, 0, i * 2, 0);
-      ring.rotation.x = Math.PI / 2;
-      p.add(ring);
-      return ring;
-    });
-    p.add(mesh(new THREE.SphereGeometry(5, 14, 10), keep(lit('#c8ffd0', { glow: '#40ff70', gi: 2, flat: false })), 0, 4, 0));
-    p.add(halo(tex, '#40ff70', 100, 0.3));
-    return (t) => rings.forEach((r, i) => { r.rotation.z = t * (1.5 + i * 1.2) * (i % 2 ? -1 : 1); });
-  });
-}
-
-/** The river serpent (thủy quái): a scaled body coiling behind a horned head. */
-function serpent(tex: THREE.Texture) {
-  return body((p, keep) => {
-    const m = keep(lit('#1f6a6a', { glow: '#0a2a3a', gi: 0.6, metal: 0.3, rough: 0.4 }));
-    const segs: THREE.Mesh[] = [];
-    const sg = new THREE.SphereGeometry(1, 12, 8);
-    for (let i = 0; i < 12; i++) { const s = mesh(sg, m); s.scale.setScalar(8 - i * 0.45); p.add(s); segs.push(s); }
-    const head = segs[0];
-    head.scale.set(9, 7, 11);
-    const horn = keep(lit('#e8e0c8', { glow: '#3a3020', gi: 0.4 }));
-    for (const s of [-1, 1]) { const h = mesh(new THREE.ConeGeometry(1.4, 9, 6), horn, s * 4, 6, -2); h.rotation.set(-0.6, 0, s * -0.4); p.add(h); }
-    eyes(p, keep, '#ff2a5a', 3.6, 3, 8.6, 1.5);
-    p.add(halo(tex, '#ff2040', 90, 0.28));
-    return (t) => segs.forEach((s, i) => { if (i) s.position.set(Math.sin(t * 2.4 - i * 0.7) * (6 + i), -i * 0.6, -i * 6 + 4); else s.position.set(Math.sin(t * 2.4) * 4, 0, 6); });
-  });
-}
-
-/** The thunder dragon (Lôi Long): a golden head with horns and whiskers, its
- *  body winding away behind it, in the way the Nguyễn carved them. */
-function dragon(tex: THREE.Texture) {
-  return body((p, keep) => {
-    const gold = keep(lit('#e8a020', { glow: '#8a4a00', gi: 0.7, metal: 0.7, rough: 0.35 }));
-    const head = mesh(new THREE.BoxGeometry(14, 9, 18), gold, 0, 0, 8); p.add(head);
-    const snout = mesh(new THREE.BoxGeometry(10, 6, 8), gold, 0, -1, 19); p.add(snout);
-    const horn = keep(lit('#fff2c0', { glow: '#ffd23f', gi: 0.6 }));
-    for (const s of [-1, 1]) {
-      const h = mesh(new THREE.ConeGeometry(1.6, 14, 6), horn, s * 5, 6, 2); h.rotation.set(-1, 0, s * -0.3); p.add(h);
-      const w = mesh(new THREE.CylinderGeometry(0.4, 0.2, 16, 4), horn, s * 8, -2, 22); w.rotation.set(0, 0, s * 1.2); p.add(w);
-    }
-    eyes(p, keep, '#ff3b1a', 4.4, 3, 17.2, 1.6);
-    const segs: THREE.Mesh[] = [];
-    const sg = new THREE.SphereGeometry(1, 10, 8);
-    for (let i = 0; i < 9; i++) { const s = mesh(sg, gold); s.scale.setScalar(6.5 - i * 0.5); p.add(s); segs.push(s); }
-    p.add(halo(tex, '#ff9020', 100, 0.32));
-    return (t) => segs.forEach((s, i) => s.position.set(Math.sin(t * 3 - i * 0.8) * (4 + i * 1.4), Math.cos(t * 2 - i) * 2, -4 - i * 6.5));
-  });
-}
-
-function spirit(kind: BugKind, tex: THREE.Texture): Body {
-  switch (kind) {
-    case 'beetle': return stormCloud(tex, false);
-    case 'moth': return wraith();
-    case 'wasp': return imp(tex);
-    case 'firefly': return wisp(tex);
-    case 'shell': return hail();
-    case 'golden': return carp(tex);
-    case 'splitter': return drop(tex, false);
-    case 'mite': return drop(tex, true);
-    case 'queen': return stormCloud(tex, true);
-    case 'mantis': return typhoon(tex);
-    case 'spider': return serpent(tex);
-    case 'hornet': return dragon(tex);
-  }
+function spiritSprite(kind: BugKind, tex: THREE.Texture): Spirit {
+  const root = new THREE.Group();
+  const { w, h } = BUG_SIZE[kind];
+  const size = Math.max(w, h) * (isBoss(kind) ? 1.6 : 2.1);
+  const aura = halo(tex, AURA[kind], size * 1.5, isBoss(kind) ? 0.4 : 0.45);
+  const art = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false }));
+  const white = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, opacity: 0 }));
+  for (const sp of [art, white]) sp.scale.set(size, size, 1);
+  aura.renderOrder = 1; art.renderOrder = 2; white.renderOrder = 3;
+  root.add(aura, art, white);
+  return { root, art, white, aura, key: '', size };
 }
 
 /** A player's phoenix kite: a bamboo-framed diamond with swept wings in the
@@ -610,8 +450,10 @@ export class StormScene {
   private strikePower = 0;
   private nextStrike = 3;
   private tex: THREE.Texture;
-  private bugs = new Map<number, { kind: BugKind; b: Body }>();
-  private spare = new Map<BugKind, Body[]>();
+  private bugs = new Map<number, { kind: BugKind; s: Spirit }>();
+  private spare = new Map<BugKind, Spirit[]>();
+  /** The spirits' paintings, as textures, by kind and frame. */
+  private arts = new Map<string, THREE.Texture>();
   private drops = new Map<number, { kind: DropKind; b: Body }>();
   private kites = new Map<number, { color: string; b: Body; shield: THREE.Mesh }>();
   private ray = new THREE.Raycaster();
@@ -838,6 +680,12 @@ export class StormScene {
     this.renderer.render(this.scene, this.camera);
   }
 
+  private art(key: string, cv: HTMLCanvasElement) {
+    let t = this.arts.get(key);
+    if (!t) { t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; this.arts.set(key, t); }
+    return t;
+  }
+
   private syncBugs(f: SceneFrame) {
     const live = new Set<number>();
     for (const b of f.bugs) {
@@ -845,29 +693,35 @@ export class StormScene {
       let e = this.bugs.get(b.id);
       if (!e || e.kind !== b.kind) {
         if (e) this.release(e);
-        const b2 = this.spare.get(b.kind)?.pop() ?? spirit(b.kind, this.tex);
-        this.scene.add(b2.root);
-        e = { kind: b.kind, b: b2 };
+        const sp = this.spare.get(b.kind)?.pop() ?? spiritSprite(b.kind, this.tex);
+        this.scene.add(sp.root);
+        e = { kind: b.kind, s: sp };
         this.bugs.set(b.id, e);
       }
       const { w, h } = BUG_SIZE[b.kind];
-      const body = e.b;
-      body.root.position.set(b.x + w / 2 - W / 2, b.pose.dy * 1.6, b.y + h / 2 - H / 2);
-      body.pivot.rotation.set(0, -b.pose.rot, -b.pose.rot * 0.25);
-      body.pivot.scale.set(b.pose.sx, (b.pose.sx + b.pose.sy) / 2, b.pose.sy);
-      body.tick?.(f.t + b.id * 0.37);
-      for (const m of body.mats) {
-        m.m.emissive.copy(m.base).lerp(WHITE, b.flash);
-        m.m.emissiveIntensity = m.gi + b.flash * 1.5;
+      const sp = e.s;
+      sp.root.position.set(b.x + w / 2 - W / 2, 2 + b.pose.dy * 1.6, b.y + h / 2 - H / 2);
+      const look = spiritArt(b.kind, f.t, b.id);
+      if (look.key !== sp.key) {
+        sp.key = look.key;
+        sp.art.material.map = this.art(look.key, look.art);
+        sp.white.material.map = this.art(`${look.key}:w`, look.white);
+        sp.art.material.needsUpdate = sp.white.material.needsUpdate = true;
       }
+      for (const x of [sp.art, sp.white]) {
+        x.material.rotation = -b.pose.rot;
+        x.scale.set(sp.size * b.pose.sx, sp.size * b.pose.sy, 1);
+      }
+      sp.white.material.opacity = b.flash;
+      sp.aura.material.opacity = (isBoss(b.kind) ? 0.4 : 0.45) + Math.sin(f.t * 4 + b.id) * 0.08;
     }
     for (const [id, e] of this.bugs) if (!live.has(id)) { this.release(e); this.bugs.delete(id); }
   }
 
-  private release(e: { kind: BugKind; b: Body }) {
-    this.scene.remove(e.b.root);
+  private release(e: { kind: BugKind; s: Spirit }) {
+    this.scene.remove(e.s.root);
     const list = this.spare.get(e.kind) ?? [];
-    if (list.length < (isBoss(e.kind) ? 1 : 40)) list.push(e.b); else free(e.b.root);
+    if (list.length < (isBoss(e.kind) ? 1 : 40)) list.push(e.s); else free(e.s.root);
     this.spare.set(e.kind, list);
   }
 
@@ -915,10 +769,10 @@ export class StormScene {
   dispose() {
     free(this.scene);
     for (const list of this.spare.values()) list.forEach((b) => free(b.root));
+    for (const t of this.arts.values()) t.dispose();
     this.water.map?.dispose();
     this.tex.dispose();
     this.renderer.dispose();
   }
 }
 
-const WHITE = new THREE.Color('#ffffff');

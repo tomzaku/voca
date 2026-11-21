@@ -77,6 +77,8 @@ interface Game {
   seen: Map<number, BugSeen>;
   /** When the last frame was drawn, for how fast each bug moved since. */
   drawnAt: number;
+  /** Where each bullet was last frame and which way it's heading, for its streak (the guest isn't sent their speeds). */
+  bombWay: Map<number, { x: number; y: number; vx: number; vy: number }>;
   fx: Fx[];
   /** Host: rockets, kills and novas since the last message to the guest. */
   blastsOut: { x: number; y: number }[];
@@ -132,7 +134,7 @@ interface Hud { wave: number; scores: [number, number]; combo: number; meter: nu
 function newGame(index: number, round: number, solo: boolean): Game {
   return {
     round, swarm: newSwarm(), me: newShip(index), partner: solo ? null : newShip(1 - index), partnerSnaps: [], partnerCool: 0,
-    hostSnaps: [], localShots: [], hidden: new Set(), seen: new Map(), drawnAt: 0, fx: [], blastsOut: [], killsOut: [], novasOut: [], hurt: new Map(), shake: 0, tilt: { me: 0, partner: 0, meX: 0, partnerX: 0 }, steps: 0, t: 0, over: false,
+    hostSnaps: [], localShots: [], hidden: new Set(), seen: new Map(), drawnAt: 0, bombWay: new Map(), fx: [], blastsOut: [], killsOut: [], novasOut: [], hurt: new Map(), shake: 0, tilt: { me: 0, partner: 0, meX: 0, partnerX: 0 }, steps: 0, t: 0, over: false,
   };
 }
 
@@ -616,7 +618,18 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     for (const d of view.drops) { place(d.x, d.y); drawDropIcon(c, d.kind, d.x, d.y, g.t, d.id); }
     for (const s of view.shots) { place(s.x, s.y); drawShot(c, s.kind, s.x, s.y, s.vx, s.vy, SHOT_COLORS[s.owner] ?? SHOT_COLORS[0]); }
     for (const s of g.localShots) { place(s.x, s.y); drawShot(c, s.kind, s.x, s.y, s.vx, s.vy, SHOT_COLORS[index]); }
-    for (const b of view.bombs) { place(b.x, b.y); drawBomb(c, b.x, b.y, g.t, b.id, b.kind); }
+    const way: Game['bombWay'] = new Map();
+    for (const b of view.bombs) {
+      const was = g.bombWay.get(b.id);
+      const dx = was ? b.x - was.x : 0, dy = was ? b.y - was.y : 1;
+      // Keep the last heading through a frame it didn't move (the swarm steps at its own rate).
+      const moved = Math.abs(dx) + Math.abs(dy) > 0.01;
+      const vx = moved ? dx : was?.vx ?? 0, vy = moved ? dy : was?.vy ?? 1;
+      way.set(b.id, { x: b.x, y: b.y, vx, vy });
+      place(b.x, b.y);
+      drawBomb(c, b.x, b.y, g.t, b.id, b.kind, vx, vy);
+    }
+    g.bombWay = way;
     for (const [ship, at, color] of [[g.partner, partnerAt, SHIP_COLORS[1 - index]], [g.me, g.me.alive ? g.me : null, SHIP_COLORS[index]]] as const) {
       if (!ship || !at) continue;
       if (ship.odT > 0) { place(at.x + SHIP_W / 2, at.y + SHIP_H / 2); drawOverdrive(c, at.x + SHIP_W / 2, at.y + SHIP_H / 2, g.t); }
