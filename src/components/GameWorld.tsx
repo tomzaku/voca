@@ -245,7 +245,7 @@ function WorldCard({ emoji, icon, color = 'var(--px-gold)', title, subtitle, chi
 }
 
 /** Each thing two players can do together, by its mark. */
-const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship', pool: 'eightball', rooftop: 'flag', swarm: 'bug', guard: 'gate' };
+const MATCH_ICONS: Record<MatchGame, PixelIconName> = { duel: 'sword', race: 'train', talk: 'mic', caro: 'grid', caro7: 'grid', chain: 'link', oan: 'stones', poker: 'cards', chess: 'knight', memory: 'memory', tienlen: 'fan', sea: 'ship', pool: 'eightball', rooftop: 'flag', swarm: 'bolt', guard: 'gate' };
 
 /** The world's keys, for the "?" card — keep in step with the handlers. */
 const KEY_ROWS: [string[], string][] = [
@@ -278,7 +278,7 @@ const INTRO_SEEN = 'voca-world-intro-seen';
 // A game's mark on its card: a pixel icon where the kit has one, else an emoji.
 const PLAYS: Record<string, { emoji?: string; icon?: PixelIconName }> = {
   piano: { emoji: '🎹' }, race: { icon: 'train' }, fish: { emoji: '🎣' },
-  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, swarm: { icon: 'bug' }, ladder: { icon: 'cap' }, classroom: { icon: 'pencil' }, train: { icon: 'train' },
+  cailuong: { icon: 'stage' }, fortune: { icon: 'sticks' }, fireworks: { icon: 'firework' }, pool: { icon: 'eightball' }, foosball: { icon: 'foos' }, swarm: { icon: 'bolt' }, ladder: { icon: 'cap' }, classroom: { icon: 'pencil' }, train: { icon: 'train' },
 };
 
 /** Where Ga Huế's trains will go, in the board's order (world.train.<id>). */
@@ -1457,7 +1457,7 @@ export function GameWorld({
               <PixelIcon name="flag" size={2} /> <FormattedMessage id="world.rooftopTitle" />
             </PixelButton>
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'swarm')} className="!px-2 !text-[13px]">
-              <PixelIcon name="bug" size={2} /> <FormattedMessage id="world.swarmTitle" />
+              <PixelIcon name="bolt" size={2} /> <FormattedMessage id="world.swarmTitle" />
             </PixelButton>
             <PixelButton tone="jade" onClick={() => askToPlay(peerCard.id, peerCard.name, 'guard')} className="!px-2 !text-[13px]">
               <PixelIcon name="gate" size={2} /> <FormattedMessage id="world.guardTitle" />

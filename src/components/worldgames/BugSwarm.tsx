@@ -13,10 +13,16 @@ import type { MatchLink } from '../../lib/worldLive';
 import { Kbd, PixelIcon, PixelLoader } from './pixel';
 import { NetWait } from './NetWait';
 import './bugSwarm.css';
-import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawBug, drawDrop, drawDrone, drawFx, drawOverdrive, drawShip, drawSlowTint, drawShot, drawSpace, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type BugPose, type Fx, WEAPON_COLOR } from './bugSwarmArt';
+import { SHIP_COLORS, SHOT_COLORS, drawBomb, drawDropIcon, drawDrone, drawFx, drawOverdrive, drawSlowTint, drawShot, engineEmber, explode, hitSpark, novaBlast, scorePop, stepFx, type Fx, WEAPON_COLOR } from './bugSwarmArt';
+import type { BugPose, StormScene } from './stormScene';
 
-// Bug Swarm, on screen: a wave shooter for two in the world (or one,
-// practising). The rules are lib/bugSwarm; the art is bugSwarmArt.
+// Storm over Huế (in code still "Bug Swarm", the name its rules, saved bests
+// and match invites go by): a wave shooter for two in the world (or one,
+// practising). The rules are lib/bugSwarm. On screen it's two canvases: the
+// 3D night over Huế with the kites, storm spirits and lanterns in it
+// (stormScene, loaded when the game opens — three.js is big), and over it a
+// flat one for bullets, sparks and scores (bugSwarmArt), each placed where
+// the 3D camera shows that point of the field.
 //
 // Over the network (lib/peerLink — WebRTC straight between the browsers,
 // paused while there's no such line): the host runs the swarm and sends it,
@@ -134,39 +140,16 @@ const BUG_TINT: Record<BugKind, string> = { splitter: '#5ce0a8', mite: '#ff6ad5'
 const BOSS_HUE: Record<BossKind, string> = { queen: '#ff3b5c', mantis: '#40ff70', spider: '#ff2040', hornet: '#ff9020' };
 const BEST = 'voca-swarm-best';
 const readBest = () => { try { return Number(localStorage.getItem(BEST)) || 0; } catch { return 0; } };
-/** The play area inside a canvas of this size: its scale and where it starts. */
-const field = (cw: number, ch: number) => {
-  const s = Math.min(cw / W, ch / H);
-  return { s, ox: (cw - W * s) / 2, oy: (ch - H * s) / 2 };
-};
-/**
- * Outside the play area the sky dims away — the bugs come from there, you
- * can't go there — and the play area's sides glow faintly, so its edge reads
- * as a field rather than a box cut out of black.
- */
-function drawEdges(c: CanvasRenderingContext2D, sky: { x: number; y: number; w: number; h: number }) {
-  const fade = (x0: number, x1: number) => {
-    const g = c.createLinearGradient(x0, 0, x1, 0);
-    g.addColorStop(0, 'rgba(2,1,8,0)');
-    g.addColorStop(0.35, 'rgba(2,1,8,0.45)');
-    g.addColorStop(1, 'rgba(2,1,8,0.7)');
-    c.fillStyle = g;
-    c.fillRect(Math.min(x0, x1), sky.y, Math.abs(x1 - x0), sky.h);
-  };
-  if (sky.x < 0) { fade(0, sky.x); fade(W, sky.x + sky.w); }
-  if (sky.y < 0) { c.fillStyle = 'rgba(2,1,8,0.55)'; c.fillRect(0, sky.y, W, -sky.y); c.fillRect(0, H, W, sky.h + sky.y - H); }
-  if (sky.x >= -0.5) return;
-  // The rails: brightest at the middle, gone at the ends.
+/** The field's two sides, faint rails of light, so you can see where you can't go. */
+function drawRails(c: CanvasRenderingContext2D, sc: StormScene, dpr: number) {
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
   c.globalCompositeOperation = 'lighter';
   for (const [x, hue] of [[0, '160,112,255'], [W, '155,231,255']] as const) {
-    const g = c.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, `rgba(${hue},0)`); g.addColorStop(0.5, `rgba(${hue},0.55)`); g.addColorStop(1, `rgba(${hue},0)`);
-    c.fillStyle = g;
-    c.fillRect(x - 0.25, 0, 0.5, H);
-    const halo = c.createLinearGradient(x - 6, 0, x + 6, 0);
-    halo.addColorStop(0, `rgba(${hue},0)`); halo.addColorStop(0.5, `rgba(${hue},0.08)`); halo.addColorStop(1, `rgba(${hue},0)`);
-    c.fillStyle = halo;
-    c.fillRect(x - 6, 0, 12, H);
+    const a = sc.toScreen(x, 0), b = sc.toScreen(x, H);
+    const g = c.createLinearGradient(a.x, a.y, b.x, b.y);
+    g.addColorStop(0, `rgba(${hue},0)`); g.addColorStop(0.5, `rgba(${hue},0.5)`); g.addColorStop(1, `rgba(${hue},0)`);
+    c.strokeStyle = g; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
   }
   c.globalCompositeOperation = 'source-over';
 }
@@ -197,13 +180,17 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
   const [touch] = useState(isTouch);
   const peer = useRef<PeerLink | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const canvas3d = useRef<HTMLCanvasElement>(null);
+  const scene = useRef<StormScene | null>(null);
+  /** The 3D scene: loading, ready, or no WebGL to draw it with. */
+  const [view3d, setView3d] = useState<'loading' | 'ready' | 'failed'>('loading');
   const box = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ w: W, h: H });
   const [net, setNet] = useState<PeerState>(solo ? 'direct' : 'connecting');
   /** How far the direct line's setup got, shown if it fails. */
   const [netDetail, setNetDetail] = useState('');
   // No direct line, no game: it pauses (both sides) until there is one — see NetWait.
-  const playing = started && (solo || net === 'direct');
+  const playing = started && view3d === 'ready' && (solo || net === 'direct');
   const [hud, setHud] = useState<Hud>({ wave: 0, scores: [0, 0], combo: 1, meter: 0, overdrive: false, slow: false, me: { lives: LIVES, level: 1, weapon: 'blaster', novas: 1, perks: newShip(0).perks }, partner: solo ? null : { lives: LIVES, alive: true, weapon: 'blaster' }, banner: null, boss: null, over: false });
 
   // Snapshots are placed by when they were *sent*, on our clock: arrival
@@ -335,12 +322,28 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const { width, height } = el.getBoundingClientRect();
-      if (!width || !height) return;
-      const scale = Math.min(width / W, height / H);
-      setFit({ w: Math.floor(W * scale), h: Math.floor(H * scale) });
+      const sc = scene.current;
+      if (!width || !height || !sc) return;
+      sc.resize(width, height, window.devicePixelRatio || 1);
+      // The HUD spans the field's far edge, the narrowest it gets on screen.
+      setFit({ w: Math.floor(sc.topWidth), h: Math.floor(height) });
     });
     ro.observe(el);
     return () => ro.disconnect();
+  }, [view3d]);
+
+  // The 3D scene, fetched with three.js when the game opens.
+  useEffect(() => {
+    let gone = false, made: StormScene | null = null;
+    import('./stormScene')
+      .then(({ StormScene }) => {
+        if (gone || !canvas3d.current) return;
+        made = new StormScene(canvas3d.current);
+        scene.current = made;
+        setView3d('ready');
+      })
+      .catch((e) => { console.warn('[voca] storm scene', e); if (!gone) setView3d('failed'); });
+    return () => { gone = true; made?.dispose(); scene.current = null; };
   }, []);
 
   const delay = () => DELAY_DIRECT;
@@ -532,18 +535,19 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
   function draw(now: number) {
     const cv = canvas.current;
     const c = cv?.getContext('2d');
-    if (!cv || !c) return;
-    // Drawn at the screen's own resolution (the art is made to be sharp), the
-    // canvas filling the screen and the play area centred in it; the sky goes
-    // on past its edges, so a tall phone or a wide monitor is all space.
+    const sc3 = scene.current;
+    if (!cv || !c || !sc3) return;
+    // The flat canvas at the screen's own resolution, over the 3D one; each
+    // thing on it is drawn through `place`, the camera's view at its point.
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
     const cw = cv.clientWidth, ch = cv.clientHeight;
     const pw = Math.max(1, Math.round(cw * dpr)), ph = Math.max(1, Math.round(ch * dpr));
     if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
-    const { s: sc, ox, oy } = field(cw, ch);
-    c.setTransform(dpr * sc, 0, 0, dpr * sc, dpr * ox, dpr * oy);
+    sc3.resize(cw, ch, window.devicePixelRatio || 1);
+    const place = (x: number, y: number) => { const m = sc3.local(x, y); c.setTransform(dpr * m[0], dpr * m[1], dpr * m[2], dpr * m[3], dpr * m[4], dpr * m[5]); };
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, pw, ph);
     c.imageSmoothingEnabled = true;
-    const sky = { x: -ox / sc, y: -oy / sc, w: cw / sc, h: ch / sc };
     const g = game.current;
     const view = shown(now);
 
@@ -568,26 +572,16 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
       if (b.y > -10 && b.y < H && b.x > -14 && b.x < W) {
         explode(g.fx, b.x + BUG_SIZE[b.kind].w / 2, b.y + BUG_SIZE[b.kind].h / 2, isBoss(b.kind), BUG_TINT[b.kind]);
         playStomp();
-        if (isBoss(b.kind)) { playWin(); g.shake = 1.2; }
+        if (isBoss(b.kind)) { playWin(); g.shake = 1.2; sc3.strike(1.4); }
       }
     }
     g.seen = seen;
 
-    c.save();
-    if (g.shake > 0) c.translate((Math.random() - 0.5) * g.shake * 6, (Math.random() - 0.5) * g.shake * 6);
-    drawSpace(c, g.t, sky.x, sky.y, sky.w, sky.h);
-    for (const d of view.drops) drawDrop(c, d.kind, d.x, d.y, g.t, d.id);
-    for (const b of view.bugs) {
-      const hit = g.hurt.get(b.id);
-      const age = hit === undefined ? undefined : g.t - hit;
-      drawBug(c, b.kind, b.x, b.y, g.t, b.id, age === undefined ? 0 : Math.max(0, 1 - age / 0.12), poseFor(b, seen.get(b.id)!, g.t, age));
-    }
-    for (const s of view.shots) drawShot(c, s.kind, s.x, s.y, s.vx, s.vy, SHOT_COLORS[s.owner] ?? SHOT_COLORS[0]);
-    for (const s of g.localShots) drawShot(c, s.kind, s.x, s.y, s.vx, s.vy, SHOT_COLORS[index]);
-    for (const b of view.bombs) drawBomb(c, b.x, b.y, g.t, b.id, b.kind);
-
     // Ships lean into a slide.
     const lean = (x: number, was: number, cur: number) => cur + (Math.max(-1, Math.min(1, (x - was) / 2)) - cur) * 0.2;
+    const kites: Parameters<StormScene['frame']>[0]['kites'] = [];
+    const blink = (inv: number) => inv > 0 && Math.floor(g.t * 12) % 2 === 0;
+    let partnerAt: { x: number; y: number } | null = null;
     if (g.partner?.alive) {
       const at = now - delay();
       const snaps = g.partnerSnaps;
@@ -598,23 +592,47 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
       }
       g.tilt.partner = lean(pos.x, g.tilt.partnerX, g.tilt.partner);
       g.tilt.partnerX = pos.x;
+      partnerAt = pos;
       if (Math.random() < 0.6) engineEmber(g.fx, pos.x + SHIP_W / 2, pos.y + SHIP_H + 4);
-      if (g.partner.odT > 0) drawOverdrive(c, pos.x + SHIP_W / 2, pos.y + SHIP_H / 2, g.t);
-      drawShip(c, pos.x, pos.y, SHIP_COLORS[1 - index], { t: g.t, inv: g.partner.odT > 0 ? 0 : g.partner.inv, shield: g.partner.shield, tilt: g.tilt.partner, name: partnerName.slice(0, 12) });
-      for (let i = 0; i < g.partner.perks.drone; i++) { const d = dronePos(pos, i, g.t); drawDrone(c, d.x, d.y, SHIP_COLORS[1 - index], g.t); }
+      kites.push({ slot: 1 - index, x: pos.x, y: pos.y, color: SHIP_COLORS[1 - index], tilt: g.tilt.partner, hidden: blink(g.partner.odT > 0 ? 0 : g.partner.inv), shield: g.partner.shield });
     }
     if (g.me.alive) {
       g.tilt.me = lean(g.me.x, g.tilt.meX, g.tilt.me);
       g.tilt.meX = g.me.x;
       if (Math.random() < 0.6) engineEmber(g.fx, g.me.x + SHIP_W / 2, g.me.y + SHIP_H + 4);
-      if (g.me.odT > 0) drawOverdrive(c, g.me.x + SHIP_W / 2, g.me.y + SHIP_H / 2, g.t);
-      drawShip(c, g.me.x, g.me.y, SHIP_COLORS[index], { t: g.t, inv: g.me.odT > 0 ? 0 : g.me.inv, shield: g.me.shield, tilt: g.tilt.me });
-      for (let i = 0; i < g.me.perks.drone; i++) { const d = dronePos(g.me, i, g.t); drawDrone(c, d.x, d.y, SHIP_COLORS[index], g.t); }
+      kites.push({ slot: index, x: g.me.x, y: g.me.y, color: SHIP_COLORS[index], tilt: g.tilt.me, hidden: blink(g.me.odT > 0 ? 0 : g.me.inv), shield: g.me.shield });
     }
-    drawFx(c, g.fx);
-    if (g.swarm.slowT > 0) drawSlowTint(c, sky.x, sky.y, sky.w, sky.h, g.swarm.slowT);
-    c.restore();
-    drawEdges(c, sky);
+    sc3.frame({
+      t: g.t, dt: g.drawnAt ? dt : 0, shake: g.shake, kites,
+      bugs: view.bugs.map((b) => {
+        const hit = g.hurt.get(b.id);
+        const age = hit === undefined ? undefined : g.t - hit;
+        return { id: b.id, kind: b.kind, x: b.x, y: b.y, flash: age === undefined ? 0 : Math.max(0, 1 - age / 0.12), pose: poseFor(b, seen.get(b.id)!, g.t, age) };
+      }),
+      drops: view.drops,
+    });
+
+    drawRails(c, sc3, dpr);
+    for (const d of view.drops) { place(d.x, d.y); drawDropIcon(c, d.kind, d.x, d.y, g.t, d.id); }
+    for (const s of view.shots) { place(s.x, s.y); drawShot(c, s.kind, s.x, s.y, s.vx, s.vy, SHOT_COLORS[s.owner] ?? SHOT_COLORS[0]); }
+    for (const s of g.localShots) { place(s.x, s.y); drawShot(c, s.kind, s.x, s.y, s.vx, s.vy, SHOT_COLORS[index]); }
+    for (const b of view.bombs) { place(b.x, b.y); drawBomb(c, b.x, b.y, g.t, b.id, b.kind); }
+    for (const [ship, at, color] of [[g.partner, partnerAt, SHIP_COLORS[1 - index]], [g.me, g.me.alive ? g.me : null, SHIP_COLORS[index]]] as const) {
+      if (!ship || !at) continue;
+      if (ship.odT > 0) { place(at.x + SHIP_W / 2, at.y + SHIP_H / 2); drawOverdrive(c, at.x + SHIP_W / 2, at.y + SHIP_H / 2, g.t); }
+      for (let i = 0; i < ship.perks.drone; i++) { const d = dronePos(at, i, g.t); place(d.x, d.y); drawDrone(c, d.x, d.y, color, g.t); }
+    }
+    drawFx(c, g.fx, place);
+    if (partnerAt && partnerName) {
+      // Your partner's name, under their kite.
+      const p = sc3.toScreen(partnerAt.x + SHIP_W / 2, partnerAt.y + SHIP_H + 10);
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.font = '700 11px system-ui, sans-serif'; c.textAlign = 'center';
+      c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,0.6)'; c.strokeText(partnerName.slice(0, 12), p.x, p.y);
+      c.fillStyle = SHIP_COLORS[1 - index]; c.fillText(partnerName.slice(0, 12), p.x, p.y);
+    }
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (g.swarm.slowT > 0) drawSlowTint(c, 0, 0, cw, ch, g.swarm.slowT);
   }
 
   const bannerUntil = useRef<{ wave: number; until: number }>({ wave: 0, until: 0 });
@@ -678,8 +696,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
 
   const toGame = (e: PointerEvent) => {
     const r = canvas.current!.getBoundingClientRect();
-    const { s: sc, ox, oy } = field(r.width, r.height);
-    return { x: (e.clientX - r.left - ox) / sc, y: (e.clientY - r.top - oy) / sc };
+    return scene.current?.toGame(e.clientX - r.left, e.clientY - r.top) ?? { x: W / 2, y: H / 2 };
   };
   // A drag moves the ship by as much as the finger moved (a little more, so
   // a short thumb covers the screen), from wherever the drag began.
@@ -717,7 +734,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
     <div className="px bs absolute inset-0 z-40 flex flex-col select-none bg-[#04020c]" style={{ touchAction: 'none' }} onKeyDown={(e) => e.stopPropagation()}>
       <div className="bs-header relative z-10 shrink-0 flex items-center justify-between gap-3 pt-[calc(0.45rem+var(--sat,0px))] pb-[0.45rem] pl-[calc(0.75rem+var(--sal,0px))] pr-[calc(0.75rem+var(--sar,0px))]">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="bs-badge shrink-0"><PixelIcon name="bug" size={2} /></span>
+          <span className="bs-badge shrink-0"><PixelIcon name="bolt" size={2} /></span>
           <p className="bs-display bs-gradient-text text-[17px] tracking-[0.16em] truncate" style={{ '--accent': '#ffd23f' } as CSSProperties}>
             <FormattedMessage id="world.swarmTitle" />
           </p>
@@ -736,7 +753,13 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
       </div>
 
       <div ref={box} className="relative flex-1 min-h-0 flex items-center justify-center pb-[var(--sab,0px)]">
+        <canvas ref={canvas3d} className="absolute inset-0 block w-full h-full" />
         <canvas ref={canvas} {...pointer} className="absolute inset-0 block w-full h-full" style={{ touchAction: 'none' }} />
+        {view3d !== 'ready' && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 text-center px-6">
+            {view3d === 'loading' ? <PixelLoader label={<FormattedMessage id="world.swarmLoading" />} /> : <p className="text-white/80 text-[14px] max-w-[22rem]"><FormattedMessage id="world.swarmNo3d" /></p>}
+          </div>
+        )}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {/* The scoreboard: across the top of the screen, as wide as the play area. */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 p-2 sm:p-2.5 grid grid-cols-[1fr_auto_1fr] items-start gap-2" style={{ width: Math.max(fit.w, 300) }}>
@@ -872,7 +895,7 @@ export function BugSwarm({ link, onClose }: { link: MatchLink | null; onClose: (
         )}
 
         {!started && !left && overlay(<PixelLoader label={<FormattedMessage id="world.duelWaiting" values={{ name: partnerName }} />} />)}
-        {started && !playing && !left && overlay(<NetWait state={net} name={partnerName} onLeave={onClose} detail={netDetail} />)}
+        {started && !solo && net !== 'direct' && !left && overlay(<NetWait state={net} name={partnerName} onLeave={onClose} detail={netDetail} />)}
         {left && overlay(
           <>
             <p className="text-[15px] text-white/90 mb-4"><FormattedMessage id="world.duelLeft" values={{ name: partnerName }} /></p>

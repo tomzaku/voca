@@ -10,7 +10,7 @@
 //             piano — solo practice; matches start from a player
 //   foosball  a bi lắc table on Phố đi bộ's east end, by the fountain — you
 //             against the computer
-//   swarm     an arcade cabinet past the foosball table — Bug Swarm, alone;
+//   swarm     an arcade cabinet past the foosball table — Storm over Huế (Bug Swarm in code), alone;
 //             with someone else it starts from their card
 //   train     a departures board at the east end of Ga Huế's platform —
 //             trips out of town, none running yet

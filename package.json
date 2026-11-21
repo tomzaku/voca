@@ -1,7 +1,7 @@
 {
   "name": "voca",
   "private": true,
-  "version": "0.1.279",
+  "version": "0.1.280",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -79,6 +79,7 @@
     "react-textarea-autosize": "^8.5.9",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
+    "three": "0.187.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -89,6 +90,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "0.187.0",
     "@vitejs/plugin-react": "^5.1.1",
     "concurrently": "^10.0.4",
     "eslint": "^9.39.1",
